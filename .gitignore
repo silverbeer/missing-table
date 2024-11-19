@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+.DS_Store
+.idea/*
+.vscode/*
+backend/__pycache__/*
+backend/dao/__pycache__/*
+backend/tests/__pycache__/*
+frontend/dist/*

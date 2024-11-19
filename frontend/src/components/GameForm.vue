@@ -1,0 +1,265 @@
+<template>
+  <div class="bg-white rounded-lg shadow p-4">
+    <!-- Form Type Selection -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-2">Action Type</label>
+      <div class="flex space-x-4">
+        <label class="inline-flex items-center">
+          <input 
+            type="radio" 
+            v-model="formType" 
+            value="schedule" 
+            class="form-radio text-blue-600"
+          />
+          <span class="ml-2">Schedule New Game</span>
+        </label>
+        <label class="inline-flex items-center">
+          <input 
+            type="radio" 
+            v-model="formType" 
+            value="score" 
+            class="form-radio text-blue-600"
+          />
+          <span class="ml-2">Score Game</span>
+        </label>
+      </div>
+    </div>
+
+    <form @submit.prevent="submitGame" class="space-y-3">
+      <!-- Date and Teams Row -->
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
+          <input 
+            type="date" 
+            v-model="gameData.date"
+            id="game_date" 
+            required
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Home Team</label>
+          <select 
+            v-model="gameData.homeTeam" 
+            id="home_team"
+            required
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+          >
+            <option value="">Select Team</option>
+            <option v-for="team in teams" :key="team.id" :value="team.name">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Away Team</label>
+          <select 
+            v-model="gameData.awayTeam" 
+            id="away_team"
+            required
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+          >
+            <option value="">Select Team</option>
+            <option v-for="team in teams" :key="team.id" :value="team.name">{{ team.name }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Score Row -->
+      <div class="flex items-center justify-center space-x-4 py-2">
+        <div class="text-center">
+          <label class="block text-xs font-medium text-gray-700 mb-1">Home Score</label>
+          <input 
+            type="number" 
+            v-model="gameData.homeScore" 
+            id="home_score"
+            :required="formType === 'score'"
+            :disabled="formType === 'schedule'"
+            min="0"
+            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
+            :class="{'bg-gray-100': formType === 'schedule'}"
+          />
+        </div>
+
+        <div class="text-xl font-bold text-gray-400">vs</div>
+
+        <div class="text-center">
+          <label class="block text-xs font-medium text-gray-700 mb-1">Away Score</label>
+          <input 
+            type="number" 
+            v-model="gameData.awayScore" 
+            id="away_score"
+            :required="formType === 'score'"
+            :disabled="formType === 'schedule'"
+            min="0"
+            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
+            :class="{'bg-gray-100': formType === 'schedule'}"
+          />
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="flex justify-end pt-2">
+        <button 
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-1.5 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
+        >
+          {{ formType === 'schedule' ? 'Schedule Game' : 'Submit Score' }}
+        </button>
+      </div>
+    </form>
+
+    <!-- Message Display -->
+    <div 
+      v-if="message" 
+      class="mt-3 p-2 rounded-md text-sm"
+      :class="{'bg-green-100 text-green-700': !error, 'bg-red-100 text-red-700': error}"
+    >
+      {{ message }}
+    </div>
+  </div>
+</template>
+
+<script>
+import { ref, onMounted } from 'vue'
+
+export default {
+  name: 'GameForm',
+  setup() {
+    const teams = ref([]);
+    const error = ref(false);
+    const message = ref('');
+    const formType = ref('schedule');
+    const gameData = ref({
+      date: '',
+      homeTeam: '',
+      awayTeam: '',
+      homeScore: 0,
+      awayScore: 0
+    });
+
+    const fetchTeams = async () => {
+      try {
+        console.log('Fetching teams...');
+        const response = await fetch('http://localhost:8000/api/teams');
+        if (!response.ok) throw new Error('Failed to fetch teams');
+        const data = await response.json();
+        console.log('Teams received:', data);
+        teams.value = data;
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+        message.value = 'Error loading teams';
+        error.value = true;
+      }
+    };
+
+    const checkDuplicateGame = async () => {
+      try {
+        const params = new URLSearchParams({
+          date: gameData.value.date,
+          homeTeam: gameData.value.homeTeam,
+          awayTeam: gameData.value.awayTeam
+        });
+
+        const response = await fetch(`http://localhost:8000/api/check-game?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to check for duplicate game');
+        }
+
+        const result = await response.json();
+        return result.exists;
+      } catch (err) {
+        console.error('Error checking for duplicate game:', err);
+        return false; // Fail open if we can't check
+      }
+    };
+
+    const submitGame = async () => {
+      console.log('Submitting game...');
+
+      const gameDataToSubmit = {
+        game_date: gameData.value.date,
+        home_team: gameData.value.homeTeam,
+        away_team: gameData.value.awayTeam,
+        home_score: gameData.value.homeScore,
+        away_score: gameData.value.awayScore
+      };
+
+      console.log('Game Data before stringification:', gameDataToSubmit);
+      const requestBody = JSON.stringify(gameDataToSubmit);
+      console.log('Request Body (JSON):', requestBody);
+
+      error.value = false;
+      message.value = '';
+
+      // Validate teams are different
+      if (gameData.value.homeTeam === gameData.value.awayTeam) {
+        message.value = 'Home and Away teams cannot be the same';
+        error.value = true;
+        return;
+      }
+
+      // Check for duplicate game when scheduling
+      if (formType.value === 'schedule') {
+        const isDuplicate = await checkDuplicateGame();
+        if (isDuplicate) {
+          message.value = 'This game is already scheduled for this date';
+          error.value = true;
+          return;
+        }
+      }
+
+      try {
+        const response = await fetch('http://localhost:8000/api/games', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: requestBody
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          message.value = formType.value === 'schedule' 
+            ? 'Game scheduled successfully' 
+            : 'Score submitted successfully';
+          error.value = false;
+          // Reset form
+          gameData.value = {
+            date: '',
+            homeTeam: '',
+            awayTeam: '',
+            homeScore: 0,
+            awayScore: 0
+          };
+          formType.value = 'schedule';
+        } else {
+          message.value = result.detail || 'Error submitting game';
+          error.value = true;
+        }
+      } catch (err) {
+        console.error('Error submitting game:', err);
+        message.value = 'Error submitting game';
+        error.value = true;
+      }
+    };
+
+    onMounted(() => {
+      fetchTeams(); // Ensure fetchTeams is called correctly
+    });
+
+    return {
+      teams,
+      gameData,
+      message,
+      error,
+      formType,
+      submitGame,
+      checkDuplicateGame
+    };    
+  }
+}
+</script>
