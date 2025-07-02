@@ -1,10 +1,11 @@
 import logging
 from fastapi import FastAPI, HTTPException
-from dao.sports_dao import SportsDAO, DbConnectionHolder
+from dao.data_access import SportsDAO, DbConnectionHolder
 from collections import defaultdict
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -21,7 +22,7 @@ app = FastAPI()
 
 # Configure CORS
 origins = [
-    "http://localhost:8080",  # Allow your frontend application
+    "http://localhost:8080",
     "http://192.168.1.2:8080",
 ]
 
@@ -56,7 +57,7 @@ async def get_games():
     
 @app.post("/api/games")
 async def create_game(game_info: Game):
-    """Endpoint to add a new game."""
+    """Endpoint to add or update a game."""
     try:
         # Extract the information from the Pydantic model
         game_date = game_info.game_date
@@ -64,12 +65,24 @@ async def create_game(game_info: Game):
         away_team = game_info.away_team
         home_score = game_info.home_score
         away_score = game_info.away_score
-        logger.debug(f"Adding game: {game_date}, {home_team}, {away_team}, {home_score}, {away_score}")
-        # Call the add_game method from SportsDAO
-        sports_dao.add_game(game_date, home_team, away_team, home_score, away_score)
-        return {"message": "Game created successfully"}
+        
+        logger.debug(f"Processing game: {game_date}, {home_team}, {away_team}, {home_score}, {away_score}")
+
+        # Check if the game already exists
+        existing_game = sports_dao.get_game_by_date_and_teams(game_date, home_team, away_team)
+
+        if existing_game:
+            # Update the existing game
+            logger.debug(f"Updating existing game: {existing_game}")
+            sports_dao.update_game(existing_game['id'], game_date, home_team, away_team, home_score, away_score)
+            return {"message": "Game updated successfully"}
+        else:
+            # Add the new game
+            logger.debug(f"Adding new game: {game_date}, {home_team}, {away_team}, {home_score}, {away_score}")
+            sports_dao.add_game(game_date, home_team, away_team, home_score, away_score)
+            return {"message": "Game created successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error adding game: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing game: {str(e)}")
 
 @app.get("/api/games/team/{team_name}")
 async def get_games_by_team(team_name: str):
@@ -110,6 +123,13 @@ async def get_table():
         logger.debug("Fetching all games from the database...")
         games = sports_dao.get_all_games()
         logger.debug(f"Number of games retrieved: {len(games)}")  # Debug: Number of games retrieved
+        
+        current_date = datetime.now()  # Get the current date and time
+        
+        # Filter out games with a future game_date
+        games = [game for game in games if datetime.strptime(game['game_date'], '%Y-%m-%d') <= current_date]
+        
+        logger.debug(f"Number of games after filtering: {len(games)}")  # Debug: Number of games after filtering
         
         for game in games:
             logger.debug(f"Processing game: {game}")  # Debug: Show each game being processed
@@ -171,13 +191,3 @@ async def get_table():
     except Exception as e:
         logger.error(f"Error occurred while generating the table: {str(e)}")  # Log the error
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/games")
-async def create_game(game: Game):
-    """Endpoint to add a new game."""
-    try:
-        # Call the add_game method from SportsDAO
-        sports_dao.add_game(game.dict())
-        return {"message": "Game created successfully", "game": game}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error adding game: {str(e)}")

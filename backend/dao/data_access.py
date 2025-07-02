@@ -120,6 +120,42 @@ class SportsDAO(object):
             print(f"Error adding game: {e}")
             cursor.connection.rollback()  # Rollback in case of error
 
+    def get_game_by_date_and_teams(self, game_date, home_team, away_team):
+        cursor = self.db_conn_holder.get_db_connection().cursor()
+        
+        # Use parameterized queries to prevent SQL injection
+        get_game_sql = "SELECT * FROM games WHERE game_date = ? AND home_team = ? AND away_team = ?"
+        print(f"Executing SQL: {get_game_sql} with parameters: {game_date}, {home_team}, {away_team}")
+        
+        try:
+            cursor.execute(get_game_sql)
+            result = cursor.fetchone()  
+            
+            if result:
+                print(f"Game found: {result}")  
+                return True  
+            else:
+                print("No game found.")  
+                return False  # Game does not exist
+        except Exception as e:
+            print(f"Error occurred while fetching game: {str(e)}")  # Log the error
+            return False  # Return False in case of an error
+
+    def update_game(self, game_id, game_date, home_team, away_team, home_score, away_score):
+        cursor = self.db_conn_holder.get_db_connection().cursor()
+        
+        try:
+            cursor.execute("""
+                UPDATE games
+                SET game_date = ?, home_team = ?, away_team = ?, home_score = ?, away_score = ?
+                WHERE id = ?
+            """, (game_date, home_team, away_team, home_score, away_score, game_id))
+            
+            self.db_conn_holder.get_db_connection().commit()  # Commit the transaction
+            print(f"Game with ID {game_id} updated successfully.")  # Log success message
+        except Exception as e:
+            print(f"Error occurred while updating game with ID {game_id}: {str(e)}")  # Log the error
+            self.db_conn_holder.get_db_connection().rollback()  # Rollback in case of error
 
 if __name__ == '__main__':
     # Test the DAO methods
