@@ -26,6 +26,42 @@
     </div>
 
     <form @submit.prevent="submitGame" class="space-y-3">
+      <!-- Season/Age Group/Game Type Row -->
+      <div class="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-md">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Season</label>
+          <select 
+            v-model="currentSeason" 
+            disabled
+            class="block w-full rounded-md border-gray-300 bg-gray-100 text-sm"
+          >
+            <option :value="currentSeason">{{ currentSeason?.name || 'Loading...' }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Age Group</label>
+          <select 
+            v-model="selectedAgeGroup" 
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+          >
+            <option v-for="ageGroup in ageGroups" :key="ageGroup.id" :value="ageGroup.id">
+              {{ ageGroup.name }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Game Type</label>
+          <select 
+            v-model="selectedGameType" 
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+          >
+            <option v-for="gameType in gameTypes" :key="gameType.id" :value="gameType.id">
+              {{ gameType.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+
       <!-- Date and Teams Row -->
       <div class="grid grid-cols-3 gap-3">
         <div>
@@ -48,7 +84,7 @@
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
             <option value="">Select Team</option>
-            <option v-for="team in teams" :key="team.id" :value="team.name">{{ team.name }}</option>
+            <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
           </select>
         </div>
 
@@ -61,7 +97,7 @@
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
             <option value="">Select Team</option>
-            <option v-for="team in teams" :key="team.id" :value="team.name">{{ team.name }}</option>
+            <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
           </select>
         </div>
       </div>
@@ -139,6 +175,13 @@ export default {
       awayScore: 0
     });
 
+    const seasons = ref([]);
+    const ageGroups = ref([]);
+    const gameTypes = ref([]);
+    const currentSeason = ref(null);
+    const selectedAgeGroup = ref(null);
+    const selectedGameType = ref(null);
+
     const fetchTeams = async () => {
       try {
         console.log('Fetching teams...');
@@ -151,6 +194,40 @@ export default {
         console.error('Error fetching teams:', err);
         message.value = 'Error loading teams';
         error.value = true;
+      }
+    };
+
+    const fetchReferenceData = async () => {
+      try {
+        // Fetch seasons
+        const seasonsResponse = await fetch('http://localhost:8000/api/seasons');
+        if (seasonsResponse.ok) {
+          seasons.value = await seasonsResponse.json();
+        }
+
+        // Fetch current season
+        const currentSeasonResponse = await fetch('http://localhost:8000/api/current-season');
+        if (currentSeasonResponse.ok) {
+          currentSeason.value = await currentSeasonResponse.json();
+        }
+
+        // Fetch age groups
+        const ageGroupsResponse = await fetch('http://localhost:8000/api/age-groups');
+        if (ageGroupsResponse.ok) {
+          ageGroups.value = await ageGroupsResponse.json();
+          // Default to U13
+          selectedAgeGroup.value = ageGroups.value.find(ag => ag.name === 'U13')?.id || ageGroups.value[0]?.id;
+        }
+
+        // Fetch game types
+        const gameTypesResponse = await fetch('http://localhost:8000/api/game-types');
+        if (gameTypesResponse.ok) {
+          gameTypes.value = await gameTypesResponse.json();
+          // Default to League
+          selectedGameType.value = gameTypes.value.find(gt => gt.name === 'League')?.id || gameTypes.value[0]?.id;
+        }
+      } catch (err) {
+        console.error('Error fetching reference data:', err);
       }
     };
 
@@ -181,10 +258,13 @@ export default {
 
       const gameDataToSubmit = {
         game_date: gameData.value.date,
-        home_team: gameData.value.homeTeam,
-        away_team: gameData.value.awayTeam,
+        home_team_id: parseInt(gameData.value.homeTeam),
+        away_team_id: parseInt(gameData.value.awayTeam),
         home_score: gameData.value.homeScore,
-        away_score: gameData.value.awayScore
+        away_score: gameData.value.awayScore,
+        season_id: currentSeason.value?.id || seasons.value[0]?.id,
+        age_group_id: selectedAgeGroup.value,
+        game_type_id: selectedGameType.value
       };
 
       console.log('Game Data before stringification:', gameDataToSubmit);
@@ -197,6 +277,13 @@ export default {
       // Validate teams are different
       if (gameData.value.homeTeam === gameData.value.awayTeam) {
         message.value = 'Home and Away teams cannot be the same';
+        error.value = true;
+        return;
+      }
+
+      // Validate required IDs are available
+      if (!selectedAgeGroup.value || !selectedGameType.value) {
+        message.value = 'Missing required data. Please try refreshing the page.';
         error.value = true;
         return;
       }
@@ -247,8 +334,9 @@ export default {
       }
     };
 
-    onMounted(() => {
-      fetchTeams(); // Ensure fetchTeams is called correctly
+    onMounted(async () => {
+      await fetchTeams();
+      await fetchReferenceData();
     });
 
     return {
@@ -258,7 +346,13 @@ export default {
       error,
       formType,
       submitGame,
-      checkDuplicateGame
+      checkDuplicateGame,
+      seasons,
+      ageGroups,
+      gameTypes,
+      currentSeason,
+      selectedAgeGroup,
+      selectedGameType
     };    
   }
 }
