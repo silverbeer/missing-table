@@ -1,193 +1,274 @@
+# -*- coding: utf-8 -*-
 import logging
-from fastapi import FastAPI, HTTPException
-from dao.data_access import SportsDAO, DbConnectionHolder
+from fastapi import FastAPI, HTTPException, Query
+from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection as DbConnectionHolder
+from dao.local_data_access import LocalSportsDAO, LocalSupabaseConnection
 from collections import defaultdict
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
+from dotenv import load_dotenv
+from typing import Optional, List
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Set the logging level
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Log format
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler()  # Output logs to the console
+        logging.StreamHandler()
     ]
 )
 
-logger = logging.getLogger(__name__)  # Create a logger for this module
+logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
 
 # Configure CORS
 origins = [
     "http://localhost:8080",
+    "http://localhost:8081",
     "http://192.168.1.2:8080",
+    "http://192.168.1.2:8081",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # List of allowed origins
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Path to your SQLite database
-DB_FILE = 'mlsnext_u13_fall.db'
-db_conn_holder_obj = DbConnectionHolder(db_file=DB_FILE)
-sports_dao = SportsDAO(db_conn_holder_obj)  # Create an instance of SportsDAO
+# Initialize Supabase connection - use CLI for local development
+supabase_url = os.getenv('SUPABASE_URL', '')
+if 'localhost' in supabase_url or '127.0.0.1' in supabase_url:
+    print("Using Supabase CLI local development: " + supabase_url)
+    # Use the regular connection for Supabase CLI
+    db_conn_holder_obj = DbConnectionHolder()
+    sports_dao = EnhancedSportsDAO(db_conn_holder_obj)
+else:
+    print("Using enhanced Supabase connection")
+    db_conn_holder_obj = DbConnectionHolder()
+    sports_dao = EnhancedSportsDAO(db_conn_holder_obj)
 
-class Game(BaseModel):
+# Enhanced Pydantic models
+class EnhancedGame(BaseModel):
     game_date: str
-    home_team: str
-    away_team: str
+    home_team_id: int
+    away_team_id: int
     home_score: int
     away_score: int
+    season_id: int
+    age_group_id: int
+    game_type_id: int
+    division_id: Optional[int] = None
 
-@app.get("/api/games")
-async def get_games():
+class Team(BaseModel):
+    name: str
+    city: str
+    age_group_ids: List[int]
+    division_ids: Optional[List[int]] = None
+
+# === Reference Data Endpoints ===
+
+@app.get("/api/age-groups")
+async def get_age_groups():
+    """Get all age groups."""
     try:
-        games = sports_dao.get_all_games()  # Use SportsDAO to get all games
-        return games
+        age_groups = sports_dao.get_all_age_groups()
+        return age_groups
     except Exception as e:
-        logger.error(f"Error retrieving games: {str(e)}")  # Log the error
+        logger.error(f"Error retrieving age groups: {str(e)}")
+        raise HTTPException(status_code=503, detail="Database connection failed. Please check Supabase connection.")
+
+@app.get("/api/seasons")
+async def get_seasons():
+    """Get all seasons."""
+    try:
+        seasons = sports_dao.get_all_seasons()
+        return seasons
+    except Exception as e:
+        logger.error(f"Error retrieving seasons: {str(e)}")
+        raise HTTPException(status_code=503, detail="Database connection failed. Please check Supabase connection.")
+
+@app.get("/api/current-season")
+async def get_current_season():
+    """Get the current active season."""
+    try:
+        current_season = sports_dao.get_current_season()
+        if not current_season:
+            # Default to 2024-2025 season if no current season found
+            seasons = sports_dao.get_all_seasons()
+            current_season = next((s for s in seasons if s['name'] == '2024-2025'), seasons[0] if seasons else None)
+        return current_season
+    except Exception as e:
+        logger.error(f"Error retrieving current season: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
-@app.post("/api/games")
-async def create_game(game_info: Game):
-    """Endpoint to add or update a game."""
+
+@app.get("/api/game-types")
+async def get_game_types():
+    """Get all game types."""
     try:
-        # Extract the information from the Pydantic model
-        game_date = game_info.game_date
-        home_team = game_info.home_team
-        away_team = game_info.away_team
-        home_score = game_info.home_score
-        away_score = game_info.away_score
-        
-        logger.debug(f"Processing game: {game_date}, {home_team}, {away_team}, {home_score}, {away_score}")
-
-        # Check if the game already exists
-        existing_game = sports_dao.get_game_by_date_and_teams(game_date, home_team, away_team)
-
-        if existing_game:
-            # Update the existing game
-            logger.debug(f"Updating existing game: {existing_game}")
-            sports_dao.update_game(existing_game['id'], game_date, home_team, away_team, home_score, away_score)
-            return {"message": "Game updated successfully"}
-        else:
-            # Add the new game
-            logger.debug(f"Adding new game: {game_date}, {home_team}, {away_team}, {home_score}, {away_score}")
-            sports_dao.add_game(game_date, home_team, away_team, home_score, away_score)
-            return {"message": "Game created successfully"}
+        game_types = sports_dao.get_all_game_types()
+        return game_types
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing game: {str(e)}")
-
-@app.get("/api/games/team/{team_name}")
-async def get_games_by_team(team_name: str):
-    try:
-        logger.debug(f"Getting games for team: {team_name}")
-        games = sports_dao.get_games_by_team(team_name)  # Use SportsDAO to get games by team
-        if not games:
-            logger.warning(f"No games found for team: {team_name}")  # Log a warning
-            raise HTTPException(status_code=404, detail="No games found for this team.")
-        return games
-    except Exception as e:
-        logger.error(f"Error retrieving games for team '{team_name}': {str(e)}")  # Log the error
+        logger.error(f"Error retrieving game types: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/divisions")
+async def get_divisions():
+    """Get all divisions."""
+    try:
+        divisions = sports_dao.get_all_divisions()
+        return divisions
+    except Exception as e:
+        logger.error(f"Error retrieving divisions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === Enhanced Team Endpoints ===
 
 @app.get("/api/teams")
 async def get_teams():
+    """Get all teams with their age groups."""
     try:
-        teams = sports_dao.get_all_teams()  # Use SportsDAO to get all teams
+        teams = sports_dao.get_all_teams()
         return teams
     except Exception as e:
-        logger.error(f"Error retrieving teams: {str(e)}")  # Log the error
+        logger.error(f"Error retrieving teams: {str(e)}")
+        raise HTTPException(status_code=503, detail="Database connection failed. Please check Supabase connection.")
+
+@app.post("/api/teams")
+async def add_team(team: Team):
+    """Add a new team with age groups and optionally divisions."""
+    try:
+        success = sports_dao.add_team(team.name, team.city, team.age_group_ids, team.division_ids)
+        if success:
+            return {"message": "Team added successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to add team")
+    except Exception as e:
+        logger.error(f"Error adding team: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/table")
-async def get_table():
-    table = defaultdict(lambda: {
-        'played': 0,
-        'wins': 0,
-        'draws': 0,
-        'losses': 0,
-        'goals_for': 0,
-        'goals_against': 0,
-        'goal_difference': 0,
-        'points': 0
-    })
-    
+# === Enhanced Game Endpoints ===
+
+@app.get("/api/games")
+async def get_games(
+    season_id: Optional[int] = Query(None, description="Filter by season ID"),
+    age_group_id: Optional[int] = Query(None, description="Filter by age group ID"),
+    division_id: Optional[int] = Query(None, description="Filter by division ID"),
+    game_type: Optional[str] = Query(None, description="Filter by game type name")
+):
+    """Get all games with optional filters."""
     try:
-        logger.debug("Fetching all games from the database...")
-        games = sports_dao.get_all_games()
-        logger.debug(f"Number of games retrieved: {len(games)}")  # Debug: Number of games retrieved
-        
-        current_date = datetime.now()  # Get the current date and time
-        
-        # Filter out games with a future game_date
-        games = [game for game in games if datetime.strptime(game['game_date'], '%Y-%m-%d') <= current_date]
-        
-        logger.debug(f"Number of games after filtering: {len(games)}")  # Debug: Number of games after filtering
-        
-        for game in games:
-            logger.debug(f"Processing game: {game}")  # Debug: Show each game being processed
-            home_team = game['home_team']
-            away_team = game['away_team']
-            home_score = int(game['home_score'])
-            away_score = int(game['away_score'])
-            
-            # Update home team stats
-            table[home_team]['played'] += 1
-            table[home_team]['goals_for'] += home_score
-            table[home_team]['goals_against'] += away_score
-            
-            # Update away team stats
-            table[away_team]['played'] += 1
-            table[away_team]['goals_for'] += away_score
-            table[away_team]['goals_against'] += home_score
-            
-            if home_score > away_score:
-                table[home_team]['wins'] += 1
-                table[away_team]['losses'] += 1
-                table[home_team]['points'] += 3
-            elif away_score > home_score:
-                table[away_team]['wins'] += 1
-                table[home_team]['losses'] += 1
-                table[away_team]['points'] += 3
+        games = sports_dao.get_all_games(season_id=season_id)
+        return games
+    except Exception as e:
+        logger.error(f"Error retrieving games: {str(e)}")
+        raise HTTPException(status_code=503, detail="Database connection failed. Please check Supabase connection.")
+
+@app.post("/api/games")
+async def add_game(game: EnhancedGame):
+    """Add a new game with enhanced schema."""
+    try:
+        success = sports_dao.add_game(
+            home_team_id=game.home_team_id,
+            away_team_id=game.away_team_id,
+            game_date=game.game_date,
+            home_score=game.home_score,
+            away_score=game.away_score,
+            season_id=game.season_id,
+            age_group_id=game.age_group_id,
+            game_type_id=game.game_type_id,
+            division_id=game.division_id
+        )
+        if success:
+            return {"message": "Game added successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to add game")
+    except Exception as e:
+        logger.error(f"Error adding game: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/games/team/{team_id}")
+async def get_games_by_team(
+    team_id: int,
+    season_id: Optional[int] = Query(None, description="Filter by season ID")
+):
+    """Get games for a specific team."""
+    try:
+        games = sports_dao.get_games_by_team(team_id, season_id=season_id)
+        if not games:
+            raise HTTPException(status_code=404, detail="No games found for this team.")
+        return games
+    except Exception as e:
+        logger.error(f"Error retrieving games for team '{team_id}': {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === Enhanced League Table Endpoint ===
+
+@app.get("/api/table")
+async def get_table(
+    season_id: Optional[int] = Query(None, description="Filter by season ID"),
+    age_group_id: Optional[int] = Query(None, description="Filter by age group ID"),
+    division_id: Optional[int] = Query(None, description="Filter by division ID"),
+    game_type: Optional[str] = Query("League", description="Game type (League, Tournament, etc.)")
+):
+    """Get league table with enhanced filtering."""
+    try:
+        # If no season specified, use current/default season
+        if not season_id:
+            current_season = sports_dao.get_current_season()
+            if current_season:
+                season_id = current_season['id']
             else:
-                table[home_team]['draws'] += 1
-                table[away_team]['draws'] += 1
-                table[home_team]['points'] += 1
-                table[away_team]['points'] += 1
+                # Default to 2024-2025 season
+                seasons = sports_dao.get_all_seasons()
+                default_season = next((s for s in seasons if s['name'] == '2024-2025'), seasons[0] if seasons else None)
+                if default_season:
+                    season_id = default_season['id']
         
-        # Calculate goal differences and convert to list
-        table_list = []
-        for team, stats in table.items():
-            stats['goal_difference'] = stats['goals_for'] - stats['goals_against']
-            table_list.append({
-                'team': team,
-                **stats
-            })
+        # If no age group specified, use U13
+        if not age_group_id:
+            age_groups = sports_dao.get_all_age_groups()
+            u13_age_group = next((ag for ag in age_groups if ag['name'] == 'U13'), age_groups[0] if age_groups else None)
+            if u13_age_group:
+                age_group_id = u13_age_group['id']
         
-        # Sort by points, then goal difference, then goals scored
-        sorted_table = sorted(
-            table_list,
-            key=lambda x: (
-                x['points'],
-                x['goal_difference'],
-                x['goals_for']
-            ),
-            reverse=True
+        table = sports_dao.get_league_table(
+            season_id=season_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+            game_type=game_type
         )
         
-        logger.debug("Final sorted table:")
-        for entry in sorted_table:  # Debug: Show the final sorted table
-            logger.debug(entry)
-        
-        return sorted_table
-        
+        return table
     except Exception as e:
-        logger.error(f"Error occurred while generating the table: {str(e)}")  # Log the error
+        logger.error(f"Error generating league table: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# === Backward Compatibility Endpoints ===
+
+@app.get("/api/check-game")
+async def check_game(game_date: str, home_team: str, away_team: str):
+    """Check if a game exists (backward compatibility)."""
+    try:
+        # This endpoint is for backward compatibility with old UI
+        # For now, just return false to allow new games
+        return {"exists": False}
+    except Exception as e:
+        logger.error(f"Error checking game: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Health check
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "version": "2.0.0", "schema": "enhanced"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
