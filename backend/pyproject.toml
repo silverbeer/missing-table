@@ -12,6 +12,14 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "flask>=3.0.3",
     "flask-cors>=5.0.0",
+    "supabase>=2.10.0",
+    "python-dotenv>=1.0.0",
+    "typer>=0.9.0",
+    "rich>=13.7.0",
+    "httpx>=0.27.0",
+    "requests>=2.32.4",
+    "httpcore>=1.0.0",
+    "psycopg2-binary>=2.9.10",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +35,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[project.scripts]
+mt-cli = "cli:app"
 
 [tool.uv]
 dev-dependencies = [

@@ -8,3 +8,40 @@ backend/__pycache__/*
 backend/dao/__pycache__/*
 backend/tests/__pycache__/*
 frontend/dist/*
+backend/server.log
+*.log
+
+# Prevent debugging/temp files
+**/debug_*.py
+**/test_*.py
+**/temp_*.py
+**/*_debug.py
+**/*_temp.py
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/

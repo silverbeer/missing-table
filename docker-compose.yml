@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: ./backend  # Path to your backend directory
+      dockerfile: Dockerfile  # Specify the Dockerfile if it's named differently
+    ports:
+      - "8000:8000"  # Map port 8000 on the host to port 8000 in the container
+    environment:
+      - DATABASE_URL=sqlite:///./data/mlsnext_u13_fall.db
+    volumes:
+      - ./backend/data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend  # Path to your frontend directory
+      dockerfile: Dockerfile  # Specify the Dockerfile if it's named differently
+    ports:
+      - "5001:5000"  # Change the host port to 5001
+    environment:
+      - VUE_APP_API_URL=http://localhost:8000/api
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
