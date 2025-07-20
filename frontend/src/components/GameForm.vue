@@ -31,11 +31,12 @@
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">Season</label>
           <select 
-            v-model="currentSeason" 
-            disabled
-            class="block w-full rounded-md border-gray-300 bg-gray-100 text-sm"
+            v-model="selectedSeason" 
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
-            <option :value="currentSeason">{{ currentSeason?.name || 'Loading...' }}</option>
+            <option v-for="season in activeSeasons" :key="season.id" :value="season.id">
+              {{ season.name }}
+            </option>
           </select>
         </div>
         <div>
@@ -102,19 +103,17 @@
         </div>
       </div>
 
-      <!-- Score Row -->
-      <div class="flex items-center justify-center space-x-4 py-2">
+      <!-- Score Row (only show when scoring a game) -->
+      <div v-if="formType === 'score'" class="flex items-center justify-center space-x-4 py-2">
         <div class="text-center">
           <label class="block text-xs font-medium text-gray-700 mb-1">Home Score</label>
           <input 
             type="number" 
             v-model="gameData.homeScore" 
             id="home_score"
-            :required="formType === 'score'"
-            :disabled="formType === 'schedule'"
+            required
             min="0"
             class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
-            :class="{'bg-gray-100': formType === 'schedule'}"
           />
         </div>
 
@@ -126,11 +125,9 @@
             type="number" 
             v-model="gameData.awayScore" 
             id="away_score"
-            :required="formType === 'score'"
-            :disabled="formType === 'schedule'"
+            required
             min="0"
             class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
-            :class="{'bg-gray-100': formType === 'schedule'}"
           />
         </div>
       </div>
@@ -158,7 +155,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
 export default {
   name: 'GameForm',
@@ -175,21 +172,39 @@ export default {
       awayScore: 0
     });
 
-    const seasons = ref([]);
+    const activeSeasons = ref([]);
     const ageGroups = ref([]);
     const gameTypes = ref([]);
-    const currentSeason = ref(null);
+    const selectedSeason = ref(null);
     const selectedAgeGroup = ref(null);
     const selectedGameType = ref(null);
 
     const fetchTeams = async () => {
       try {
-        console.log('Fetching teams...');
-        const response = await fetch('http://localhost:8000/api/teams');
+        console.log('=== FETCHING TEAMS ===');
+        console.log('Current selectedGameType:', selectedGameType.value);
+        console.log('Current selectedAgeGroup:', selectedAgeGroup.value);
+        
+        let url = 'http://localhost:8000/api/teams';
+        
+        // Add filtering if both game type and age group are selected
+        if (selectedGameType.value && selectedAgeGroup.value) {
+          url += `?game_type_id=${selectedGameType.value}&age_group_id=${selectedAgeGroup.value}`;
+          console.log('Fetching filtered teams with URL:', url);
+        } else {
+          console.log('Fetching all teams (no filter)');
+        }
+        
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch teams');
         const data = await response.json();
-        console.log('Teams received:', data);
+        console.log('Teams received count:', data.length);
+        console.log('Team names:', data.map(t => t.name).sort());
+        console.log('Previous teams count:', teams.value.length);
+        
         teams.value = data;
+        console.log('Teams updated, new count:', teams.value.length);
+        console.log('=== END FETCHING TEAMS ===');
       } catch (err) {
         console.error('Error fetching teams:', err);
         message.value = 'Error loading teams';
@@ -199,24 +214,22 @@ export default {
 
     const fetchReferenceData = async () => {
       try {
-        // Fetch seasons
-        const seasonsResponse = await fetch('http://localhost:8000/api/seasons');
-        if (seasonsResponse.ok) {
-          seasons.value = await seasonsResponse.json();
-        }
-
-        // Fetch current season
-        const currentSeasonResponse = await fetch('http://localhost:8000/api/current-season');
-        if (currentSeasonResponse.ok) {
-          currentSeason.value = await currentSeasonResponse.json();
+        // Fetch active seasons (current and future)
+        const activeSeasonsResponse = await fetch('http://localhost:8000/api/active-seasons');
+        if (activeSeasonsResponse.ok) {
+          activeSeasons.value = await activeSeasonsResponse.json();
+          // Default to first active season
+          if (activeSeasons.value.length > 0) {
+            selectedSeason.value = activeSeasons.value[0].id;
+          }
         }
 
         // Fetch age groups
         const ageGroupsResponse = await fetch('http://localhost:8000/api/age-groups');
         if (ageGroupsResponse.ok) {
           ageGroups.value = await ageGroupsResponse.json();
-          // Default to U13
-          selectedAgeGroup.value = ageGroups.value.find(ag => ag.name === 'U13')?.id || ageGroups.value[0]?.id;
+          // Default to U14
+          selectedAgeGroup.value = ageGroups.value.find(ag => ag.name === 'U14')?.id || ageGroups.value[0]?.id;
         }
 
         // Fetch game types
@@ -225,6 +238,11 @@ export default {
           gameTypes.value = await gameTypesResponse.json();
           // Default to League
           selectedGameType.value = gameTypes.value.find(gt => gt.name === 'League')?.id || gameTypes.value[0]?.id;
+        }
+
+        // After all defaults are set, fetch teams
+        if (selectedGameType.value && selectedAgeGroup.value) {
+          await fetchTeams();
         }
       } catch (err) {
         console.error('Error fetching reference data:', err);
@@ -262,7 +280,7 @@ export default {
         away_team_id: parseInt(gameData.value.awayTeam),
         home_score: gameData.value.homeScore,
         away_score: gameData.value.awayScore,
-        season_id: currentSeason.value?.id || seasons.value[0]?.id,
+        season_id: selectedSeason.value,
         age_group_id: selectedAgeGroup.value,
         game_type_id: selectedGameType.value
       };
@@ -282,7 +300,7 @@ export default {
       }
 
       // Validate required IDs are available
-      if (!selectedAgeGroup.value || !selectedGameType.value) {
+      if (!selectedSeason.value || !selectedAgeGroup.value || !selectedGameType.value) {
         message.value = 'Missing required data. Please try refreshing the page.';
         error.value = true;
         return;
@@ -334,8 +352,28 @@ export default {
       }
     };
 
+    // Watch for changes in game type or age group to refetch teams
+    watch([selectedGameType, selectedAgeGroup], async (newValues, oldValues) => {
+      console.log('=== WATCHER TRIGGERED ===');
+      console.log('New values:', newValues);
+      console.log('Old values:', oldValues);
+      console.log('selectedGameType.value:', selectedGameType.value);
+      console.log('selectedAgeGroup.value:', selectedAgeGroup.value);
+      
+      if (selectedGameType.value && selectedAgeGroup.value) {
+        console.log('Both game type and age group are set, fetching teams...');
+        await fetchTeams();
+        // Reset team selections when filter changes
+        console.log('Resetting team selections');
+        gameData.value.homeTeam = '';
+        gameData.value.awayTeam = '';
+      } else {
+        console.log('Game type or age group not set, skipping team fetch');
+      }
+      console.log('=== END WATCHER ===');
+    });
+
     onMounted(async () => {
-      await fetchTeams();
       await fetchReferenceData();
     });
 
@@ -347,10 +385,10 @@ export default {
       formType,
       submitGame,
       checkDuplicateGame,
-      seasons,
+      activeSeasons,
       ageGroups,
       gameTypes,
-      currentSeason,
+      selectedSeason,
       selectedAgeGroup,
       selectedGameType
     };    
