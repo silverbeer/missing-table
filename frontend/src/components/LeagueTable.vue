@@ -1,17 +1,78 @@
 <template>
-  <div class="overflow-x-auto">
-    <!-- Loading State -->
-    <div v-if="loading" class="text-center py-4">
-      Loading table data...
+  <div>
+    <!-- Filters Section -->
+    <div class="mb-6 space-y-4">
+      <!-- Age Group Links -->
+      <div>
+        <h3 class="text-sm font-medium text-gray-700 mb-3">Age Groups</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="ageGroup in ageGroups"
+            :key="ageGroup.id"
+            @click="selectedAgeGroupId = ageGroup.id"
+            :class="[
+              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              selectedAgeGroupId === ageGroup.id
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ]"
+          >
+            {{ ageGroup.name }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Season and Division Row -->
+      <div class="flex flex-col sm:flex-row sm:space-x-6 space-y-4 sm:space-y-0">
+        <!-- Season Dropdown -->
+        <div class="flex-1">
+          <h3 class="text-sm font-medium text-gray-700 mb-3">Season</h3>
+          <select
+            v-model="selectedSeasonId"
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          >
+            <option
+              v-for="season in seasons"
+              :key="season.id"
+              :value="season.id"
+            >
+              {{ season.name }} ({{ formatSeasonDates(season) }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Division Dropdown -->
+        <div class="flex-1">
+          <h3 class="text-sm font-medium text-gray-700 mb-3">Division</h3>
+          <select
+            v-model="selectedDivisionId"
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          >
+            <option
+              v-for="division in divisions"
+              :key="division.id"
+              :value="division.id"
+            >
+              {{ division.name }}
+            </option>
+          </select>
+        </div>
+      </div>
     </div>
 
-    <!-- Error State -->
-    <div v-else-if="error" class="text-center py-4 text-red-600">
-      Error: {{ error }}
-    </div>
+    <div class="overflow-x-auto">
+      <!-- Loading State -->
+      <div v-if="loading" class="text-center py-4">
+        Loading table data...
+      </div>
 
-    <!-- Table -->
-    <table v-else class="min-w-full divide-y divide-gray-200">
+      <!-- Error State -->
+      <div v-else-if="error" class="text-center py-4 text-red-600">
+        Error: {{ error }}
+      </div>
+
+      <!-- Table -->
+      <table v-else class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pos</th>
@@ -41,24 +102,94 @@
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
 export default {
   name: 'LeagueTable',
   setup() {
     const tableData = ref([])
+    const ageGroups = ref([])
+    const divisions = ref([])
+    const seasons = ref([])
+    const selectedAgeGroupId = ref(2) // Default to U14
+    const selectedDivisionId = ref(1) // Default to Northeast
+    const selectedSeasonId = ref(2) // Default to 2024-2025
     const error = ref(null)
     const loading = ref(true)
 
+    const fetchAgeGroups = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/age-groups')
+        if (!response.ok) throw new Error('Failed to fetch age groups')
+        const data = await response.json()
+        ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name))
+        
+        // Set U14 as default if available
+        const u14 = data.find(ag => ag.name === 'U14')
+        if (u14) {
+          selectedAgeGroupId.value = u14.id
+        }
+      } catch (err) {
+        console.error('Error fetching age groups:', err)
+      }
+    }
+
+    const fetchDivisions = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/divisions')
+        if (!response.ok) throw new Error('Failed to fetch divisions')
+        const data = await response.json()
+        divisions.value = data.sort((a, b) => a.name.localeCompare(b.name))
+        
+        // Set Northeast as default if available
+        const northeast = data.find(d => d.name === 'Northeast')
+        if (northeast) {
+          selectedDivisionId.value = northeast.id
+        }
+      } catch (err) {
+        console.error('Error fetching divisions:', err)
+      }
+    }
+
+    const fetchSeasons = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/seasons')
+        if (!response.ok) throw new Error('Failed to fetch seasons')
+        const data = await response.json()
+        // Sort seasons by start date (most recent first)
+        seasons.value = data.sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
+        
+        // Set 2025-2026 as default if available
+        const currentSeason = data.find(s => s.name === '2025-2026')
+        if (currentSeason) {
+          selectedSeasonId.value = currentSeason.id
+        }
+      } catch (err) {
+        console.error('Error fetching seasons:', err)
+      }
+    }
+
+    const formatSeasonDates = (season) => {
+      const startYear = new Date(season.start_date).getFullYear()
+      const endYear = new Date(season.end_date).getFullYear()
+      return `${startYear}-${endYear}`
+    }
+
     const fetchTableData = async () => {
       loading.value = true
-      console.log('Fetching table data...')
+      console.log('Fetching table data...', { 
+        seasonId: selectedSeasonId.value, 
+        ageGroupId: selectedAgeGroupId.value, 
+        divisionId: selectedDivisionId.value 
+      })
       try {
-        const response = await fetch('http://localhost:8000/api/table')
+        const url = `http://localhost:8000/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`
+        const response = await fetch(url)
         console.log('Response:', response)
         
         if (!response.ok) {
@@ -79,13 +210,30 @@ export default {
       }
     }
 
-    onMounted(() => {
+    // Watch for changes in filters and refetch data
+    watch([selectedSeasonId, selectedAgeGroupId, selectedDivisionId], () => {
+      fetchTableData()
+    })
+
+    onMounted(async () => {
       console.log('LeagueTable component mounted')
+      await Promise.all([
+        fetchAgeGroups(),
+        fetchDivisions(),
+        fetchSeasons()
+      ])
       fetchTableData()
     })
 
     return {
       tableData,
+      ageGroups,
+      divisions,
+      seasons,
+      selectedAgeGroupId,
+      selectedDivisionId,
+      selectedSeasonId,
+      formatSeasonDates,
       error,
       loading
     }
