@@ -104,6 +104,21 @@ class EnhancedSportsDAO:
             print(f"No current season found: {e}")
             return None
     
+    def get_active_seasons(self) -> List[Dict]:
+        """Get active seasons (current and future) for scheduling new games."""
+        try:
+            from datetime import date
+            today = date.today().isoformat()
+            
+            response = self.client.table('seasons').select('*').gte(
+                'end_date', today
+            ).order('start_date', desc=False).execute()
+            
+            return response.data
+        except Exception as e:
+            print(f"Error querying active seasons: {e}")
+            return []
+    
     def get_all_game_types(self) -> List[Dict]:
         """Get all game types."""
         try:
@@ -162,13 +177,87 @@ class EnhancedSportsDAO:
             print(f"Error querying teams: {e}")
             return []
     
-    def add_team(self, name: str, city: str, age_group_ids: List[int], division_ids: Optional[List[int]] = None) -> bool:
+    def get_teams_by_game_type_and_age_group(self, game_type_id: int, age_group_id: int) -> List[Dict]:
+        """Get teams that can participate in a specific game type and age group."""
+        try:
+            response = self.client.table('teams').select('''
+                *,
+                team_mappings (
+                    age_groups (
+                        id,
+                        name
+                    ),
+                    divisions (
+                        id,
+                        name
+                    )
+                ),
+                team_game_types!inner (
+                    game_type_id,
+                    age_group_id,
+                    is_active
+                )
+            ''').eq('team_game_types.game_type_id', game_type_id)\
+              .eq('team_game_types.age_group_id', age_group_id)\
+              .eq('team_game_types.is_active', True)\
+              .order('name').execute()
+            
+            # Flatten the age groups and divisions for each team
+            teams = []
+            for team in response.data:
+                age_groups = []
+                divisions_by_age_group = {}
+                if 'team_mappings' in team:
+                    for tag in team['team_mappings']:
+                        if tag.get('age_groups'):
+                            age_group = tag['age_groups']
+                            age_groups.append(age_group)
+                            if tag.get('divisions'):
+                                divisions_by_age_group[age_group['id']] = tag['divisions']
+                team['age_groups'] = age_groups
+                team['divisions_by_age_group'] = divisions_by_age_group
+                teams.append(team)
+            
+            return teams
+        except Exception as e:
+            print(f"Error querying teams by game type and age group: {e}")
+            return []
+    
+    def add_team_game_type_participation(self, team_id: int, game_type_id: int, age_group_id: int) -> bool:
+        """Add a team's participation in a specific game type and age group."""
+        try:
+            self.client.table('team_game_types').insert({
+                'team_id': team_id,
+                'game_type_id': game_type_id,
+                'age_group_id': age_group_id,
+                'is_active': True
+            }).execute()
+            return True
+        except Exception as e:
+            print(f"Error adding team game type participation: {e}")
+            return False
+    
+    def remove_team_game_type_participation(self, team_id: int, game_type_id: int, age_group_id: int) -> bool:
+        """Remove a team's participation in a specific game type and age group."""
+        try:
+            self.client.table('team_game_types').update({
+                'is_active': False
+            }).eq('team_id', team_id)\
+              .eq('game_type_id', game_type_id)\
+              .eq('age_group_id', age_group_id).execute()
+            return True
+        except Exception as e:
+            print(f"Error removing team game type participation: {e}")
+            return False
+    
+    def add_team(self, name: str, city: str, age_group_ids: List[int], division_ids: Optional[List[int]] = None, academy_team: bool = False) -> bool:
         """Add a new team with age groups and optionally divisions."""
         try:
             # Insert team
             team_response = self.client.table('teams').insert({
                 'name': name,
-                'city': city
+                'city': city,
+                'academy_team': academy_team
             }).execute()
             
             if not team_response.data:
@@ -333,6 +422,42 @@ class EnhancedSportsDAO:
             print(f"Error adding game: {e}")
             return False
     
+    def update_game(self, game_id: int, home_team_id: int, away_team_id: int, game_date: str,
+                   home_score: int, away_score: int, season_id: int, 
+                   age_group_id: int, game_type_id: int, division_id: Optional[int] = None) -> bool:
+        """Update an existing game."""
+        try:
+            data = {
+                'game_date': game_date,
+                'home_team_id': home_team_id,
+                'away_team_id': away_team_id,
+                'home_score': home_score,
+                'away_score': away_score,
+                'season_id': season_id,
+                'age_group_id': age_group_id,
+                'game_type_id': game_type_id,
+                'division_id': division_id
+            }
+            
+            response = self.client.table('games').update(data).eq('id', game_id).execute()
+            
+            return bool(response.data)
+            
+        except Exception as e:
+            print(f"Error updating game: {e}")
+            return False
+    
+    def delete_game(self, game_id: int) -> bool:
+        """Delete a game."""
+        try:
+            response = self.client.table('games').delete().eq('id', game_id).execute()
+            
+            return True  # Supabase delete returns empty data even on success
+            
+        except Exception as e:
+            print(f"Error deleting game: {e}")
+            return False
+    
     def get_league_table(self, season_id: Optional[int] = None, 
                         age_group_id: Optional[int] = None,
                         division_id: Optional[int] = None,
@@ -411,3 +536,151 @@ class EnhancedSportsDAO:
         except Exception as e:
             print(f"Error generating league table: {e}")
             return []
+    
+    # === Admin CRUD Methods ===
+    
+    def create_age_group(self, name: str) -> Dict:
+        """Create a new age group."""
+        try:
+            result = self.client.table('age_groups').insert({
+                'name': name
+            }).execute()
+            return result.data[0]
+        except Exception as e:
+            print(f"Error creating age group: {e}")
+            raise e
+    
+    def update_age_group(self, age_group_id: int, name: str) -> Optional[Dict]:
+        """Update an age group."""
+        try:
+            result = self.client.table('age_groups').update({
+                'name': name
+            }).eq('id', age_group_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"Error updating age group: {e}")
+            raise e
+    
+    def delete_age_group(self, age_group_id: int) -> bool:
+        """Delete an age group."""
+        try:
+            result = self.client.table('age_groups').delete().eq('id', age_group_id).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"Error deleting age group: {e}")
+            raise e
+    
+    def create_season(self, name: str, start_date: str, end_date: str) -> Dict:
+        """Create a new season."""
+        try:
+            result = self.client.table('seasons').insert({
+                'name': name,
+                'start_date': start_date,
+                'end_date': end_date
+            }).execute()
+            return result.data[0]
+        except Exception as e:
+            print(f"Error creating season: {e}")
+            raise e
+    
+    def update_season(self, season_id: int, name: str, start_date: str, end_date: str) -> Optional[Dict]:
+        """Update a season."""
+        try:
+            result = self.client.table('seasons').update({
+                'name': name,
+                'start_date': start_date,
+                'end_date': end_date
+            }).eq('id', season_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"Error updating season: {e}")
+            raise e
+    
+    def delete_season(self, season_id: int) -> bool:
+        """Delete a season."""
+        try:
+            result = self.client.table('seasons').delete().eq('id', season_id).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"Error deleting season: {e}")
+            raise e
+    
+    def create_division(self, name: str, description: Optional[str] = None) -> Dict:
+        """Create a new division."""
+        try:
+            data = {'name': name}
+            if description:
+                data['description'] = description
+            result = self.client.table('divisions').insert(data).execute()
+            return result.data[0]
+        except Exception as e:
+            print(f"Error creating division: {e}")
+            raise e
+    
+    def update_division(self, division_id: int, name: str, description: Optional[str] = None) -> Optional[Dict]:
+        """Update a division."""
+        try:
+            data = {'name': name}
+            if description is not None:
+                data['description'] = description
+            result = self.client.table('divisions').update(data).eq('id', division_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"Error updating division: {e}")
+            raise e
+    
+    def delete_division(self, division_id: int) -> bool:
+        """Delete a division."""
+        try:
+            result = self.client.table('divisions').delete().eq('id', division_id).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"Error deleting division: {e}")
+            raise e
+    
+    def update_team(self, team_id: int, name: str, city: str, academy_team: bool = False) -> Optional[Dict]:
+        """Update a team."""
+        try:
+            result = self.client.table('teams').update({
+                'name': name,
+                'city': city,
+                'academy_team': academy_team
+            }).eq('id', team_id).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"Error updating team: {e}")
+            raise e
+    
+    def delete_team(self, team_id: int) -> bool:
+        """Delete a team."""
+        try:
+            result = self.client.table('teams').delete().eq('id', team_id).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"Error deleting team: {e}")
+            raise e
+    
+    def create_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> Dict:
+        """Create a team mapping."""
+        try:
+            result = self.client.table('team_mappings').insert({
+                'team_id': team_id,
+                'age_group_id': age_group_id,
+                'division_id': division_id
+            }).execute()
+            return result.data[0]
+        except Exception as e:
+            print(f"Error creating team mapping: {e}")
+            raise e
+    
+    def delete_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> bool:
+        """Delete a team mapping."""
+        try:
+            result = self.client.table('team_mappings').delete()\
+                .eq('team_id', team_id)\
+                .eq('age_group_id', age_group_id)\
+                .eq('division_id', division_id).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"Error deleting team mapping: {e}")
+            raise e
