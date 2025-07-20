@@ -146,7 +146,9 @@ The database schema is automatically applied via migrations when you run `supaba
 - `seasons` - Season periods (2023-2024, 2024-2025, etc.)
 - `age_groups` - Age categories (U13, U14, etc.)
 - `game_types` - Game types (League, Tournament, etc.)
-- `team_age_groups` - Many-to-many relationship between teams and age groups
+- `team_mappings` - Many-to-many relationship between teams, age groups, and divisions
+- `team_game_types` - Many-to-many relationship between teams and game types for participation tracking
+- `user_profiles` - User authentication and role management
 
 ## Data Migration from SQLite
 
@@ -211,25 +213,50 @@ The backend will be running at **http://localhost:8000**
 - **GET `/api/age-groups`** - Get all age groups
 - **GET `/api/seasons`** - Get all seasons  
 - **GET `/api/current-season`** - Get the current active season
+- **GET `/api/active-seasons`** - Get active seasons (current and future)
 - **GET `/api/game-types`** - Get all game types
+- **GET `/api/divisions`** - Get all divisions
 
 ### Teams
 
-- **GET `/api/teams`** - Get all teams with their age groups
+- **GET `/api/teams`** - Get teams (with optional filters)
+  - Query parameters: `game_type_id`, `age_group_id`
 - **POST `/api/teams`** - Add a new team
+- **PUT `/api/teams/{team_id}`** - Update a team (admin only)
+- **DELETE `/api/teams/{team_id}`** - Delete a team (admin only)
 
 ### Games
 
 - **GET `/api/games`** - Get all games (with optional filters)
-  - Query parameters: `season_id`, `age_group_id`, `game_type`
+  - Query parameters: `season_id`, `age_group_id`, `division_id`, `game_type`
 - **POST `/api/games`** - Add a new game
+- **PUT `/api/games/{game_id}`** - Update a game (admin only)
+- **DELETE `/api/games/{game_id}`** - Delete a game (admin only)
 - **GET `/api/games/team/{team_id}`** - Get games for a specific team
+
+### Authentication
+
+- **POST `/api/auth/signup`** - User registration
+- **POST `/api/auth/login`** - User login
+- **POST `/api/auth/logout`** - User logout (requires auth)
+- **GET `/api/auth/profile`** - Get user profile (requires auth)
+- **PUT `/api/auth/profile`** - Update user profile (requires auth)
+- **GET `/api/auth/users`** - Get all users (admin only)
+- **PUT `/api/auth/users/role`** - Update user role (admin only)
+
+### Admin CRUD Operations
+
+- **Age Groups**: GET, POST, PUT, DELETE `/api/age-groups`
+- **Seasons**: GET, POST, PUT, DELETE `/api/seasons` 
+- **Divisions**: GET, POST, PUT, DELETE `/api/divisions`
+- **Team Mappings**: POST, DELETE `/api/team-mappings`
+- **Team Game Types**: POST, DELETE `/api/teams/{team_id}/game-types`
 
 ### League Table
 
 - **GET `/api/table`** - Get league standings
-  - Query parameters: `season_id`, `age_group_id`, `game_type`
-  - Defaults: Current season, U13 age group, League games
+  - Query parameters: `season_id`, `age_group_id`, `division_id`, `game_type`
+  - Defaults: Current season, U14 age group, League games
   - Returns: Team standings with wins, draws, losses, goals, points
 
 ### Health Check
