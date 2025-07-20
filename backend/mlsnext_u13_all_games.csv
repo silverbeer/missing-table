@@ -1,0 +1,218 @@
+game_date,home_team,away_team,home_score,away_score
+2024-09-07,FC Westchester,Valeo Futbol Club,5,1
+2024-09-07,Metropolitan Oval,New York City FC,2,4
+2024-09-07,New York SC,FA Euro New York,2,2
+2024-09-07,Cedar Stars Academy Bergen,Seacoast United,2,2
+2024-09-07,Long Island Soccer Club,Beachside of Connecticut,0,4
+2024-09-07,Downtown United Soccer Club,FC Greater Boston Bolts,1,2
+2024-09-07,Bayside FC,New England Revolution,1,1
+2024-09-08,Cedar Stars Academy Bergen,Valeo Futbol Club,2,0
+2024-09-08,FC Westchester,Seacoast United,2,3
+2024-09-08,NEFC,New England Revolution,2,5
+2024-09-08,Metropolitan Oval,New York SC,3,5
+2024-09-08,FA Euro New York,FC Greater Boston Bolts,0,4
+2024-09-08,Blau Weiss Gottschee,New York City FC,1,0
+2024-09-14,IFA,New England Revolution,2,6
+2024-09-14,Long Island Soccer Club,Valeo Futbol Club,4,0
+2024-09-14,FA Euro New York,NEFC,0,2
+2024-09-14,New York City FC,Seacoast United,3,2
+2024-09-14,Downtown United Soccer Club,New York SC,2,1
+2024-09-14,Cedar Stars Academy Bergen,FC Westchester,6,1
+2024-09-14,Oakwood Soccer Club,Rochester NY FC,1,3
+2024-09-14,Bayside FC,Beachside of Connecticut,0,4
+2024-09-14,Long Island Soccer Club,Seacoast United,3,2
+2024-09-15,Bayside FC,Blau Weiss Gottschee,0,1
+2024-09-15,Oakwood Soccer Club,Metropolitan Oval,0,4
+2024-09-15,New York City FC,Valeo Futbol Club,9,0
+2024-09-15,FC Greater Boston Bolts,Beachside of Connecticut,1,3
+2024-09-21,FC Greater Boston Bolts,New England Revolution,1,3
+2024-09-21,NEFC,FC Westchester,1,2
+2024-09-21,Rochester NY FC,New York City FC,0,2
+2024-09-21,IFA,Blau Weiss Gottschee,2,2
+2024-09-21,New York SC,Long Island Soccer Club,1,2
+2024-09-21,Valeo Futbol Club,FA Euro New York,1,3
+2024-09-21,Beachside of Connecticut,Downtown United Soccer Club,1,1
+2024-09-22,NEFC,Blau Weiss Gottschee,1,1
+2024-09-22,FC Greater Boston Bolts,IFA,2,1
+2024-09-22,Bayside FC,Cedar Stars Academy Bergen,1,6
+2024-09-22,New England Revolution,FA Euro New York,5,0
+2024-09-28,Downtown United Soccer Club,FA Euro New York,4,1
+2024-09-28,Oakwood Soccer Club,NEFC,1,1
+2024-09-28,Metropolitan Oval,Bayside FC,4,0
+2024-09-28,Valeo Futbol Club,New York SC,0,6
+2024-09-28,IFA,Seacoast United,4,2
+2024-09-28,Blau Weiss Gottschee,Rochester NY FC,2,1
+2024-09-28,Cedar Stars Academy Bergen,Beachside of Connecticut,2,0
+2024-09-28,New York City FC,Long Island Soccer Club,4,1
+2024-09-29,Blau Weiss Gottschee,Beachside of Connecticut,1,4
+2024-09-29,New England Revolution,New York SC,1,0
+2024-09-29,FC Westchester,Rochester NY FC,1,2
+2024-09-29,Metropolitan Oval,Downtown United Soccer Club,1,1
+2024-10-05,NEFC,Seacoast United,2,2
+2024-10-05,New York SC,Blau Weiss Gottschee,1,3
+2024-10-05,Cedar Stars Academy Bergen,Oakwood Soccer Club,5,0
+2024-10-05,Downtown United Soccer Club,Rochester NY FC,2,2
+2024-10-05,New York City FC,FC Westchester,5,0
+2024-10-05,Valeo Futbol Club,FC Greater Boston Bolts,0,4
+2024-10-05,NEFC,FC Greater Boston Bolts,3,1
+2024-10-06,Long Island Soccer Club,Oakwood Soccer Club,3,1
+2024-10-06,Seacoast United,Metropolitan Oval,1,1
+2024-10-06,Beachside of Connecticut,FA Euro New York,6,0
+2024-10-06,Cedar Stars Academy Bergen,New York City FC,2,0
+2024-10-06,Downtown United Soccer Club,FC Westchester,0,4
+2024-10-19,Rochester NY FC,FA Euro New York,2,1
+2024-10-19,Seacoast United,Downtown United Soccer Club,2,3
+2024-10-19,Valeo Futbol Club,New England Revolution,1,7
+2024-10-19,IFA,FC Westchester,1,3
+2024-10-19,Metropolitan Oval,Blau Weiss Gottschee,5,3
+2024-10-19,FC Greater Boston Bolts,New York City FC,0,2
+2024-10-19,NEFC,Beachside of Connecticut,1,3
+2024-10-20,FC Greater Boston Bolts,FC Westchester,0,3
+2024-10-20,Seacoast United,New England Revolution,2,2
+2024-10-20,Rochester NY FC,Bayside FC,3,1
+2024-10-20,Oakwood Soccer Club,New York SC,1,1
+2024-10-20,IFA,New York City FC,1,3
+2024-10-26,Blau Weiss Gottschee,Oakwood Soccer Club,8,0
+2024-10-26,FC Westchester,Beachside of Connecticut,0,4
+2024-10-26,Metropolitan Oval,IFA,2,2
+2024-10-26,FC Greater Boston Bolts,Valeo Futbol Club,1,0
+2024-10-26,FA Euro New York,New York SC,1,1
+2024-10-27,New York City FC,Rochester NY FC,7,0
+2024-10-27,FA Euro New York,Long Island Soccer Club,2,4
+2024-10-27,Beachside of Connecticut,Oakwood Soccer Club,3,0
+2024-10-27,New York SC,Downtown United Soccer Club,1,0
+2024-10-27,Bayside FC,Valeo Futbol Club,2,0
+2024-11-02,Beachside of Connecticut,Blau Weiss Gottschee,0,1
+2024-11-02,New York SC,NEFC,0,2
+2024-11-02,Rochester NY FC,Cedar Stars Academy Bergen,0,3
+2024-11-02,FC Westchester,New York City FC,1,3
+2024-11-02,Metropolitan Oval,FC Greater Boston Bolts,7,2
+2024-11-02,Downtown United Soccer Club,Long Island Soccer Club,5,2
+2024-11-02,Oakwood Soccer Club,Seacoast United,1,2
+2024-11-03,Beachside of Connecticut,New York City FC,1,2
+2024-11-03,IFA,Valeo Futbol Club,9,1
+2024-11-03,Metropolitan Oval,NEFC,8,2
+2024-11-03,Rochester NY FC,New England Revolution,1,2
+2024-11-03,New York SC,FC Greater Boston Bolts,3,1
+2024-11-03,Downtown United Soccer Club,Bayside FC,1,0
+2024-11-03,FC Westchester,Blau Weiss Gottschee,3,1
+2024-11-09,Rochester NY FC,IFA,1,3
+2024-11-09,New York City FC,FA Euro New York,4,1
+2024-11-09,Downtown United Soccer Club,Blau Weiss Gottschee,0,2
+2024-11-09,NEFC,Oakwood Soccer Club,3,1
+2024-11-09,Long Island Soccer Club,FC Westchester,2,2
+2024-11-09,Valeo Futbol Club,Metropolitan Oval,0,4
+2024-11-09,FC Greater Boston Bolts,Bayside FC,1,0
+2024-11-10,Cedar Stars Academy Bergen,Long Island Soccer Club,1,4
+2024-11-10,Rochester NY FC,Beachside of Connecticut,1,1
+2024-11-10,New England Revolution,Metropolitan Oval,2,2
+2024-11-16,Blau Weiss Gottschee,Long Island Soccer Club,0,0
+2024-11-16,Rochester NY FC,New York SC,0,0
+2024-11-16,IFA,NEFC,0,0
+2024-11-16,Downtown United Soccer Club,New York City FC,0,0
+2024-11-16,Valeo Futbol Club,Seacoast United,0,0
+2024-11-16,Beachside of Connecticut,Metropolitan Oval,0,0
+2024-11-16,FC Greater Boston Bolts,Cedar Stars Academy Bergen,0,0
+2024-11-16,Oakwood Soccer Club,New England Revolution,0,0
+2024-11-16,Bayside FC,FC Westchester,0,0
+2024-11-17,Valeo Futbol Club,NEFC,0,0
+2024-11-17,IFA,Cedar Stars Academy Bergen,0,0
+2024-11-17,Seacoast United,FC Greater Boston Bolts,0,0
+2024-11-17,Metropolitan Oval,Long Island Soccer Club,0,0
+2024-11-17,Rochester NY FC,Downtown United Soccer Club,0,0
+2024-11-17,FC Westchester,New England Revolution,0,0
+2025-03-01,FC Westchester,FA Euro New York,4,2
+2025-03-01,New England Revolution,Valeo Futbol Club,3,1
+2025-03-01,New York SC,Intercontinental Football Academy of New England,3,1
+2025-03-01,Bayside FC,Oakwood Soccer Club,2,0
+2025-03-02,FC Westchester,Metropolitan Oval,4,5
+2025-03-02,FA Euro New York,Intercontinental Football Academy of New England,2,4
+2025-03-02,Beachside of Connecticut,Long Island Soccer Club,9,0
+2025-03-02,New England Revolution,Oakwood Soccer Club,8,0
+2025-03-02,Blau Weiss Gottschee,Seacoast United,5,1
+2025-03-08,Downtown United Soccer Club,NEFC,1,2
+2025-03-08,New York SC,Metropolitan Oval,0,3
+2025-03-08,Seacoast United,Intercontinental Football Academy of New England,1,5
+2025-03-08,FA Euro New York,Bayside FC,5,1
+2025-03-08,Cedar Stars Academy Bergen,Rochester NY FC,3,0
+2025-03-08,New York City FC,New England Revolution,1,0
+2025-03-08,FC Greater Boston Bolts,Blau Weiss Gottschee,0,3
+2025-03-08,FC Westchester,Oakwood Soccer Club,7,2
+2025-03-09,Long Island Soccer Club,Rochester NY FC,3,1
+2025-03-09,New York SC,Bayside FC,3,0
+2025-03-09,FA Euro New York,Metropolitan Oval,2,4
+2025-03-09,Intercontinental Football Academy of New England,Beachside of Connecticut,0,3
+2025-03-09,Cedar Stars Academy Bergen,New England Revolution,4,0
+2025-03-09,FC Greater Boston Bolts,Seacoast United,1,4
+2025-03-09,New York City FC,Oakwood Soccer Club,3,2
+2025-03-15,Valeo Futbol Club,Rochester NY FC,1,1
+2025-03-22,Rochester NY FC,Long Island Soccer Club,0,0
+2025-03-22,Valeo Futbol Club,Downtown United Soccer Club,0,3
+2025-03-22,Beachside of Connecticut,Cedar Stars Academy Bergen,0,0
+2025-03-22,New York City FC,Metropolitan Oval,3,4
+2025-03-22,FA Euro New York,FC Westchester,3,3
+2025-03-22,New England Revolution,Seacoast United,5,1
+2025-03-22,Blau Weiss Gottschee,New York SC,2,0
+2025-03-23,Intercontinental Football Academy of New England,Bayside FC,7,2
+2025-03-23,New England Revolution,Downtown United Soccer Club,4,0
+2025-03-23,Cedar Stars Academy Bergen,New York SC,4,1
+2025-03-29,Rochester NY FC,NEFC,1,1
+2025-03-29,FC Westchester,Long Island Soccer Club,1,1
+2025-03-29,Cedar Stars Academy Bergen,Metropolitan Oval,2,0
+2025-03-29,Downtown United Soccer Club,Intercontinental Football Academy of New England,4,2
+2025-03-30,Long Island Soccer Club,New England Revolution,0,5
+2025-03-30,Rochester NY FC,FC Greater Boston Bolts,1,3
+2025-03-30,New York SC,Beachside of Connecticut,1,0
+2025-03-30,Seacoast United,Oakwood Soccer Club,0,0
+2025-04-05,Intercontinental Football Academy of New England,FC Greater Boston Bolts,3,0
+2025-04-05,Long Island Soccer Club,New York City FC,0,2
+2025-04-05,FC Westchester,Cedar Stars Academy Bergen,0,4
+2025-04-05,Seacoast United,Bayside FC,1,3
+2025-04-05,Blau Weiss Gottschee,Downtown United Soccer Club,3,0
+2025-04-05,New England Revolution,NEFC,2,1
+2025-04-05,FA Euro New York,Rochester NY FC,1,1
+2025-04-06,New York SC,Rochester NY FC,3,0
+2025-04-06,New England Revolution,Intercontinental Football Academy of New England,1,0
+2025-04-06,Oakwood Soccer Club,Valeo Futbol Club,3,1
+2025-04-12,Metropolitan Oval,Beachside of Connecticut,1,4
+2025-04-12,Rochester NY FC,Blau Weiss Gottschee,1,4
+2025-04-12,FC Greater Boston Bolts,Long Island Soccer Club,5,4
+2025-04-13,NEFC,New York City FC,0,4
+2025-04-26,Beachside of Connecticut,Rochester NY FC,2,0
+2025-04-26,Cedar Stars Academy Bergen,FA Euro New York,1,1
+2025-04-26,FC Greater Boston Bolts,NEFC,1,2
+2025-04-26,New England Revolution,Bayside FC,3,1
+2025-04-26,Long Island Soccer Club,Metropolitan Oval,1,6
+2025-04-26,Oakwood Soccer Club,Intercontinental Football Academy of New England,1,4
+2025-04-27,New York City FC,Downtown United Soccer Club,0,1
+2025-04-27,Beachside of Connecticut,FC Westchester,5,1
+2025-04-27,Blau Weiss Gottschee,Metropolitan Oval,2,0
+2025-04-27,Long Island Soccer Club,New York SC,5,1
+2025-05-03,New York SC,FC Westchester,3,0
+2025-05-03,Metropolitan Oval,Rochester NY FC,0,1
+2025-05-03,Seacoast United,NEFC,1,1
+2025-05-03,Long Island Soccer Club,Cedar Stars Academy Bergen,0,3
+2025-05-03,Oakwood Soccer Club,Downtown United Soccer Club,3,0
+2025-05-03,New York City FC,Blau Weiss Gottschee,0,2
+2025-05-03,New England Revolution,FC Greater Boston Bolts,3,0
+2025-05-03,FA Euro New York,Beachside of Connecticut,0,10
+2025-05-03,Valeo Futbol Club,Bayside FC,0,4
+2025-05-04,Seacoast United,Valeo Futbol Club,4,0
+2025-05-04,FC Westchester,Downtown United Soccer Club,0,4
+2025-05-10,FA Euro New York,New York City FC,0,3
+2025-05-10,Downtown United Soccer Club,Beachside of Connecticut,3,1
+2025-05-11,Seacoast United,FA Euro New York,2,2
+2025-05-17,Rochester NY FC,FC Westchester,1,0
+2025-05-17,Intercontinental Football Academy of New England,Long Island Soccer Club,4,5
+2025-05-17,New York City FC,Cedar Stars Academy Bergen,0,1
+2025-05-17,Bayside FC,NEFC,2,1
+2025-05-17,Blau Weiss Gottschee,FA Euro New York,4,2
+2025-05-17,Downtown United Soccer Club,Metropolitan Oval,0,4
+2025-05-18,Rochester NY FC,Seacoast United,4,2
+2025-05-18,Metropolitan Oval,FA Euro New York,6,1
+2025-05-18,NEFC,Long Island Soccer Club,3,2
+2025-05-18,New York SC,New York City FC,1,3
+2025-05-18,Blau Weiss Gottschee,Valeo Futbol Club,2,0
+2025-05-31,NEFC,Intercontinental Football Academy of New England,1,1
+2025-05-31,Oakwood Soccer Club,Bayside FC,3,1
+2025-05-31,FA Euro New York,Downtown United Soccer Club,4,1
