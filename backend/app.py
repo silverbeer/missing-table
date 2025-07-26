@@ -36,12 +36,33 @@ app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
 # app.middleware("http")(csrf_middleware)
 
 # Configure CORS
-origins = [
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://192.168.1.2:8080",
-    "http://192.168.1.2:8081",
-]
+def get_cors_origins():
+    """Get CORS origins based on environment"""
+    local_origins = [
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://192.168.1.2:8080",
+        "http://192.168.1.2:8081",
+    ]
+    
+    # Add production origins for Railway deployment
+    production_origins = [
+        "https://missing-table-frontend-production.up.railway.app",
+        "https://missing-table-production.up.railway.app",
+        "https://missingtable.com",
+        "https://www.missingtable.com",
+    ]
+    
+    # Get environment-specific origins
+    environment = os.getenv('ENVIRONMENT', 'development')
+    if environment == 'production':
+        # In production, allow both local (for development) and production origins
+        return local_origins + production_origins
+    else:
+        # In development, only allow local origins
+        return local_origins
+
+origins = get_cors_origins()
 
 app.add_middleware(
     CORSMiddleware,
