@@ -1,26 +1,53 @@
-# Use the official Python image
+# Production Dockerfile for Sports League Backend
 FROM python:3.13-slim
 
-# Set the working directory
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create application directory
 WORKDIR /app
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash appuser
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copy the project configuration
-COPY pyproject.toml .
+# Copy project configuration and install dependencies
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen && \
+    uv pip install slowapi redis
 
-# Install dependencies using uv
-RUN uv sync --frozen
-
-# Copy the rest of the application code
+# Copy application code
 COPY . .
 
-# Create a volume for the database
-VOLUME ["/app/data"]
+# Set ownership and permissions
+RUN chown -R appuser:appuser /app && \
+    chmod +x /app
 
-# Expose the port the app runs on
+# Switch to non-root user
+USER appuser
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Production command (no reload)
+CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

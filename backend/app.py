@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from fastapi import FastAPI, HTTPException, Query, Depends, Response
+from fastapi import FastAPI, HTTPException, Query, Depends, Request, Response
 from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection as DbConnectionHolder
 from dao.local_data_access import LocalSportsDAO, LocalSupabaseConnection
 from collections import defaultdict
@@ -11,6 +11,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from typing import Optional, List, Dict, Any
 from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin
+from rate_limiter import create_rate_limit_middleware, rate_limit
+from csrf_protection import csrf_middleware, get_csrf_token, provide_csrf_token
 
 # Load environment variables
 load_dotenv()  # Load .env first
@@ -28,6 +30,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
+
+# Configure Rate Limiting
+# TODO: Fix middleware order issue
+# limiter = create_rate_limit_middleware(app)
+
+# Add CSRF Protection Middleware  
+# TODO: Fix middleware order issue
+# app.middleware("http")(csrf_middleware)
 
 # Configure CORS
 origins = [
@@ -93,6 +103,8 @@ class UserProfile(BaseModel):
     display_name: Optional[str] = None
     role: Optional[str] = None
     team_id: Optional[int] = None
+    player_number: Optional[int] = None
+    positions: Optional[List[str]] = None
 
 class RoleUpdate(BaseModel):
     user_id: str
@@ -102,7 +114,8 @@ class RoleUpdate(BaseModel):
 # === Authentication Endpoints ===
 
 @app.post("/api/auth/signup")
-async def signup(user_data: UserSignup):
+# @rate_limit("3 per hour")
+async def signup(request: Request, user_data: UserSignup):
     """User signup endpoint."""
     try:
         response = db_conn_holder_obj.client.auth.sign_up({
@@ -128,7 +141,8 @@ async def signup(user_data: UserSignup):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/auth/login")
-async def login(user_data: UserLogin):
+# @rate_limit("5 per minute")
+async def login(request: Request, user_data: UserLogin):
     """User login endpoint."""
     try:
         response = db_conn_holder_obj.client.auth.sign_in_with_password({
@@ -140,7 +154,13 @@ async def login(user_data: UserLogin):
             # Get user profile
             profile_response = db_conn_holder_obj.client.table('user_profiles').select('*').eq('id', response.user.id).execute()
             
-            profile = profile_response.data[0] if profile_response.data and len(profile_response.data) > 0 else {}
+            # Handle multiple or no profiles
+            if profile_response.data and len(profile_response.data) > 0:
+                profile = profile_response.data[0]
+                if len(profile_response.data) > 1:
+                    logger.warning(f"Multiple profiles found for user {response.user.id}, using first one")
+            else:
+                profile = {}
             
             return {
                 "access_token": response.session.access_token,
@@ -187,6 +207,8 @@ async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user_re
                 "team_id": profile.get('team_id'),
                 "team": profile.get('team'),
                 "display_name": profile.get('display_name'),
+                "player_number": profile.get('player_number'),
+                "positions": profile.get('positions', []),
                 "created_at": profile.get('created_at')
             }
         else:
@@ -208,6 +230,10 @@ async def update_profile(
             update_data['display_name'] = profile_data.display_name
         if profile_data.team_id is not None:
             update_data['team_id'] = profile_data.team_id
+        if profile_data.player_number is not None:
+            update_data['player_number'] = profile_data.player_number
+        if profile_data.positions is not None:
+            update_data['positions'] = profile_data.positions
             
         # Only allow role updates by admins
         if profile_data.role is not None:
@@ -240,6 +266,38 @@ async def get_users(current_user: Dict[str, Any] = Depends(require_admin)):
         logger.error(f"Get users error: {e}")
         raise HTTPException(status_code=500, detail="Failed to get users")
 
+@app.get("/api/positions")
+async def get_positions():
+    """Get all available player positions."""
+    positions = [
+        {"full_name": "Goalkeeper", "abbreviation": "GK"},
+        {"full_name": "Center Back", "abbreviation": "CB"},
+        {"full_name": "Left Center Back", "abbreviation": "LCB"},
+        {"full_name": "Right Center Back", "abbreviation": "RCB"},
+        {"full_name": "Left Back", "abbreviation": "LB"},
+        {"full_name": "Right Back", "abbreviation": "RB"},
+        {"full_name": "Left Wing Back", "abbreviation": "LWB"},
+        {"full_name": "Right Wing Back", "abbreviation": "RWB"},
+        {"full_name": "Sweeper", "abbreviation": "SW"},
+        {"full_name": "Central Midfielder", "abbreviation": "CM"},
+        {"full_name": "Defensive Midfielder", "abbreviation": "CDM"},
+        {"full_name": "Attacking Midfielder", "abbreviation": "CAM"},
+        {"full_name": "Left Midfielder", "abbreviation": "LM"},
+        {"full_name": "Right Midfielder", "abbreviation": "RM"},
+        {"full_name": "Wide Midfielder", "abbreviation": "WM"},
+        {"full_name": "Box-to-Box Midfielder", "abbreviation": "B2B"},
+        {"full_name": "Holding Midfielder", "abbreviation": "HM"},
+        {"full_name": "Striker", "abbreviation": "ST"},
+        {"full_name": "Center Forward", "abbreviation": "CF"},
+        {"full_name": "Second Striker", "abbreviation": "SS"},
+        {"full_name": "Left Winger", "abbreviation": "LW"},
+        {"full_name": "Right Winger", "abbreviation": "RW"},
+        {"full_name": "Forward", "abbreviation": "FW"},
+        {"full_name": "False Nine", "abbreviation": "F9"},
+        {"full_name": "Target Forward", "abbreviation": "TF"}
+    ]
+    return positions
+
 @app.put("/api/auth/users/role")
 async def update_user_role(
     role_data: RoleUpdate, 
@@ -262,6 +320,13 @@ async def update_user_role(
     except Exception as e:
         logger.error(f"Update user role error: {e}")
         raise HTTPException(status_code=500, detail="Failed to update user role")
+
+# === CSRF Token Endpoint ===
+
+@app.get("/api/csrf-token")
+async def get_csrf_token_endpoint(request: Request, response: Response):
+    """Get CSRF token for the session."""
+    return await provide_csrf_token(request, response)
 
 # === Reference Data Endpoints ===
 
@@ -448,9 +513,8 @@ async def get_games_by_team(
     """Get games for a specific team."""
     try:
         games = sports_dao.get_games_by_team(team_id, season_id=season_id)
-        if not games:
-            raise HTTPException(status_code=404, detail="No games found for this team.")
-        return games
+        # Return empty array if no games found - this is not an error condition
+        return games if games else []
     except Exception as e:
         logger.error(f"Error retrieving games for team '{team_id}': {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -123,16 +123,16 @@ game_date,home_team,away_team,home_score,away_score
 2024-11-17,FC Westchester,New England Revolution,0,0
 2025-03-01,FC Westchester,FA Euro New York,4,2
 2025-03-01,New England Revolution,Valeo Futbol Club,3,1
-2025-03-01,New York SC,Intercontinental Football Academy of New England,3,1
+2025-03-01,New York SC,IFA,3,1
 2025-03-01,Bayside FC,Oakwood Soccer Club,2,0
 2025-03-02,FC Westchester,Metropolitan Oval,4,5
-2025-03-02,FA Euro New York,Intercontinental Football Academy of New England,2,4
+2025-03-02,FA Euro New York,IFA,2,4
 2025-03-02,Beachside of Connecticut,Long Island Soccer Club,9,0
 2025-03-02,New England Revolution,Oakwood Soccer Club,8,0
 2025-03-02,Blau Weiss Gottschee,Seacoast United,5,1
 2025-03-08,Downtown United Soccer Club,NEFC,1,2
 2025-03-08,New York SC,Metropolitan Oval,0,3
-2025-03-08,Seacoast United,Intercontinental Football Academy of New England,1,5
+2025-03-08,Seacoast United,IFA,1,5
 2025-03-08,FA Euro New York,Bayside FC,5,1
 2025-03-08,Cedar Stars Academy Bergen,Rochester NY FC,3,0
 2025-03-08,New York City FC,New England Revolution,1,0
@@ -141,7 +141,7 @@ game_date,home_team,away_team,home_score,away_score
 2025-03-09,Long Island Soccer Club,Rochester NY FC,3,1
 2025-03-09,New York SC,Bayside FC,3,0
 2025-03-09,FA Euro New York,Metropolitan Oval,2,4
-2025-03-09,Intercontinental Football Academy of New England,Beachside of Connecticut,0,3
+2025-03-09,IFA,Beachside of Connecticut,0,3
 2025-03-09,Cedar Stars Academy Bergen,New England Revolution,4,0
 2025-03-09,FC Greater Boston Bolts,Seacoast United,1,4
 2025-03-09,New York City FC,Oakwood Soccer Club,3,2
@@ -153,18 +153,18 @@ game_date,home_team,away_team,home_score,away_score
 2025-03-22,FA Euro New York,FC Westchester,3,3
 2025-03-22,New England Revolution,Seacoast United,5,1
 2025-03-22,Blau Weiss Gottschee,New York SC,2,0
-2025-03-23,Intercontinental Football Academy of New England,Bayside FC,7,2
+2025-03-23,IFA,Bayside FC,7,2
 2025-03-23,New England Revolution,Downtown United Soccer Club,4,0
 2025-03-23,Cedar Stars Academy Bergen,New York SC,4,1
 2025-03-29,Rochester NY FC,NEFC,1,1
 2025-03-29,FC Westchester,Long Island Soccer Club,1,1
 2025-03-29,Cedar Stars Academy Bergen,Metropolitan Oval,2,0
-2025-03-29,Downtown United Soccer Club,Intercontinental Football Academy of New England,4,2
+2025-03-29,Downtown United Soccer Club,IFA,4,2
 2025-03-30,Long Island Soccer Club,New England Revolution,0,5
 2025-03-30,Rochester NY FC,FC Greater Boston Bolts,1,3
 2025-03-30,New York SC,Beachside of Connecticut,1,0
 2025-03-30,Seacoast United,Oakwood Soccer Club,0,0
-2025-04-05,Intercontinental Football Academy of New England,FC Greater Boston Bolts,3,0
+2025-04-05,IFA,FC Greater Boston Bolts,3,0
 2025-04-05,Long Island Soccer Club,New York City FC,0,2
 2025-04-05,FC Westchester,Cedar Stars Academy Bergen,0,4
 2025-04-05,Seacoast United,Bayside FC,1,3
@@ -172,7 +172,7 @@ game_date,home_team,away_team,home_score,away_score
 2025-04-05,New England Revolution,NEFC,2,1
 2025-04-05,FA Euro New York,Rochester NY FC,1,1
 2025-04-06,New York SC,Rochester NY FC,3,0
-2025-04-06,New England Revolution,Intercontinental Football Academy of New England,1,0
+2025-04-06,New England Revolution,IFA,1,0
 2025-04-06,Oakwood Soccer Club,Valeo Futbol Club,3,1
 2025-04-12,Metropolitan Oval,Beachside of Connecticut,1,4
 2025-04-12,Rochester NY FC,Blau Weiss Gottschee,1,4
@@ -183,7 +183,7 @@ game_date,home_team,away_team,home_score,away_score
 2025-04-26,FC Greater Boston Bolts,NEFC,1,2
 2025-04-26,New England Revolution,Bayside FC,3,1
 2025-04-26,Long Island Soccer Club,Metropolitan Oval,1,6
-2025-04-26,Oakwood Soccer Club,Intercontinental Football Academy of New England,1,4
+2025-04-26,Oakwood Soccer Club,IFA,1,4
 2025-04-27,New York City FC,Downtown United Soccer Club,0,1
 2025-04-27,Beachside of Connecticut,FC Westchester,5,1
 2025-04-27,Blau Weiss Gottschee,Metropolitan Oval,2,0
@@ -203,7 +203,7 @@ game_date,home_team,away_team,home_score,away_score
 2025-05-10,Downtown United Soccer Club,Beachside of Connecticut,3,1
 2025-05-11,Seacoast United,FA Euro New York,2,2
 2025-05-17,Rochester NY FC,FC Westchester,1,0
-2025-05-17,Intercontinental Football Academy of New England,Long Island Soccer Club,4,5
+2025-05-17,IFA,Long Island Soccer Club,4,5
 2025-05-17,New York City FC,Cedar Stars Academy Bergen,0,1
 2025-05-17,Bayside FC,NEFC,2,1
 2025-05-17,Blau Weiss Gottschee,FA Euro New York,4,2
@@ -213,6 +213,6 @@ game_date,home_team,away_team,home_score,away_score
 2025-05-18,NEFC,Long Island Soccer Club,3,2
 2025-05-18,New York SC,New York City FC,1,3
 2025-05-18,Blau Weiss Gottschee,Valeo Futbol Club,2,0
-2025-05-31,NEFC,Intercontinental Football Academy of New England,1,1
+2025-05-31,NEFC,IFA,1,1
 2025-05-31,Oakwood Soccer Club,Bayside FC,3,1
 2025-05-31,FA Euro New York,Downtown United Soccer Club,4,1

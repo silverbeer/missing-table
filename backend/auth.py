@@ -20,7 +20,13 @@ security = HTTPBearer()
 class AuthManager:
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
-        self.jwt_secret = os.getenv('SUPABASE_JWT_SECRET', 'super-secret-jwt-token-with-at-least-32-characters-long')
+        self.jwt_secret = os.getenv('SUPABASE_JWT_SECRET')
+        
+        if not self.jwt_secret:
+            raise ValueError(
+                "SUPABASE_JWT_SECRET environment variable is required. "
+                "Please set it in your .env file."
+            )
         
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify JWT token and return user data."""
@@ -43,8 +49,11 @@ class AuthManager:
             if not profile_response.data or len(profile_response.data) == 0:
                 logger.warning(f"No profile found for user {user_id}")
                 return None
-                
+            
+            # If multiple profiles exist, take the first one (should be fixed by cleanup script)
             profile = profile_response.data[0]
+            if len(profile_response.data) > 1:
+                logger.warning(f"Multiple profiles found for user {user_id}, using first one")
             
             return {
                 'user_id': user_id,

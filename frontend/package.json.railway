@@ -1,0 +1,10 @@
+{
+  "name": "sports-league-frontend",
+  "scripts": {
+    "build": "npm ci && npm run build",
+    "start": "npm run serve"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
