@@ -304,7 +304,17 @@ export const useAuthStore = () => {
     // Check if token is expiring soon and refresh proactively
     if (isTokenExpiringSoon() && retryCount === 0) {
       console.log('Token expiring soon, refreshing proactively...')
-      await refreshSession()
+      try {
+        // Add a timeout to prevent hanging
+        const refreshPromise = refreshSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Refresh timeout')), 10000)
+        )
+        await Promise.race([refreshPromise, timeoutPromise])
+      } catch (error) {
+        console.warn('Token refresh failed or timed out:', error)
+        // Continue with the original request anyway
+      }
     }
 
     // Add CSRF headers for state-changing methods
@@ -318,10 +328,17 @@ export const useAuthStore = () => {
     }
 
     try {
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      
       const response = await fetch(url, {
         ...options,
-        headers
+        headers,
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId)
 
       // If unauthorized and we haven't retried yet, try refreshing the token
       if (response.status === 401 && retryCount === 0) {
@@ -335,10 +352,16 @@ export const useAuthStore = () => {
             ...options.headers
           }
           // Retry the request with the new token
+          const retryController = new AbortController()
+          const retryTimeoutId = setTimeout(() => retryController.abort(), 30000)
+          
           const retryResponse = await fetch(url, {
             ...options,
-            headers: newHeaders
+            headers: newHeaders,
+            signal: retryController.signal
           })
+          
+          clearTimeout(retryTimeoutId)
           
           if (!retryResponse.ok) {
             const error = await retryResponse.json().catch(() => ({ message: 'Network error' }))
@@ -360,6 +383,9 @@ export const useAuthStore = () => {
 
       return response.json()
     } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out. Please try again.')
+      }
       if (error.message.includes('Session expired')) {
         throw error
       }

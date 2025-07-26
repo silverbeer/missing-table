@@ -178,16 +178,25 @@ export default {
     const createDivision = async () => {
       try {
         formLoading.value = true
-        await authStore.apiRequest('http://localhost:8000/api/divisions', {
+        error.value = null // Clear previous errors
+        
+        console.log('Creating division with data:', formData.value)
+        console.log('Auth headers:', authStore.getAuthHeaders())
+        console.log('User role:', authStore.userRole.value)
+        
+        const response = await authStore.apiRequest('http://localhost:8000/api/divisions', {
           method: 'POST',
           body: JSON.stringify(formData.value)
         })
+        
+        console.log('Division created successfully:', response)
         
         await fetchDivisions()
         closeModals()
         resetForm()
       } catch (err) {
-        error.value = err.message
+        console.error('Error creating division:', err)
+        error.value = err.message || 'Failed to create division'
       } finally {
         formLoading.value = false
       }

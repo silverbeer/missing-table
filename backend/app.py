@@ -197,10 +197,10 @@ async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user_re
         profile_response = db_conn_holder_obj.client.table('user_profiles').select('''
             *,
             team:teams(id, name, city)
-        ''').eq('id', current_user['user_id']).single().execute()
+        ''').eq('id', current_user['user_id']).execute()
         
-        if profile_response.data:
-            profile = profile_response.data
+        if profile_response.data and len(profile_response.data) > 0:
+            profile = profile_response.data[0]
             return {
                 "id": profile['id'],
                 "role": profile['role'],
@@ -433,7 +433,12 @@ async def get_games(
 ):
     """Get all games with optional filters."""
     try:
-        games = sports_dao.get_all_games(season_id=season_id)
+        games = sports_dao.get_all_games(
+            season_id=season_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+            game_type=game_type
+        )
         return games
     except Exception as e:
         logger.error(f"Error retrieving games: {str(e)}")

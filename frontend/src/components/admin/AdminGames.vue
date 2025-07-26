@@ -25,6 +25,17 @@
             {{ gameType.name }}
           </option>
         </select>
+        
+        <select
+          v-model="filterAgeGroup"
+          @change="fetchGames"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Age Groups</option>
+          <option v-for="ageGroup in ageGroups" :key="ageGroup.id" :value="ageGroup.id">
+            {{ ageGroup.name }}
+          </option>
+        </select>
       </div>
     </div>
 
@@ -257,6 +268,7 @@ export default {
     const editingGame = ref(null)
     const filterSeason = ref('')
     const filterGameType = ref('')
+    const filterAgeGroup = ref('')
 
     const editFormData = ref({
       game_date: '',
@@ -277,7 +289,14 @@ export default {
         const params = new URLSearchParams()
         
         if (filterSeason.value) params.append('season_id', filterSeason.value)
-        if (filterGameType.value) params.append('game_type', filterGameType.value)
+        if (filterGameType.value) {
+          // Find the game type name from the ID
+          const gameType = gameTypes.value.find(gt => gt.id == filterGameType.value)
+          if (gameType) {
+            params.append('game_type', gameType.name)
+          }
+        }
+        if (filterAgeGroup.value) params.append('age_group_id', filterAgeGroup.value)
         
         if (params.toString()) {
           url += `?${params.toString()}`
@@ -305,7 +324,14 @@ export default {
         if (teamsRes.ok) teams.value = await teamsRes.json()
         if (seasonsRes.ok) seasons.value = await seasonsRes.json()
         if (gameTypesRes.ok) gameTypes.value = await gameTypesRes.json()
-        if (ageGroupsRes.ok) ageGroups.value = await ageGroupsRes.json()
+        if (ageGroupsRes.ok) {
+          ageGroups.value = await ageGroupsRes.json()
+          // Set U14 as default filter
+          const u14AgeGroup = ageGroups.value.find(ag => ag.name === 'U14')
+          if (u14AgeGroup) {
+            filterAgeGroup.value = u14AgeGroup.id
+          }
+        }
       } catch (err) {
         console.error('Error fetching reference data:', err)
       }
@@ -425,6 +451,7 @@ export default {
       editFormData,
       filterSeason,
       filterGameType,
+      filterAgeGroup,
       fetchGames,
       formatDate,
       getGameTypeClass,
