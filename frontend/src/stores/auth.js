@@ -1,9 +1,15 @@
 import { reactive, computed } from 'vue'
 import { createClient } from '@supabase/supabase-js'
+import { addCSRFHeader, clearCSRFToken } from '../utils/csrf'
 
 // Supabase configuration
-const supabaseUrl = process.env.VUE_APP_SUPABASE_URL || 'http://localhost:54321'
-const supabaseAnonKey = process.env.VUE_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+const supabaseUrl = process.env.VUE_APP_SUPABASE_URL
+const supabaseAnonKey = process.env.VUE_APP_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing required environment variables: VUE_APP_SUPABASE_URL and VUE_APP_SUPABASE_ANON_KEY')
+  throw new Error('Supabase configuration is missing. Please check your environment variables.')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -123,6 +129,7 @@ export const useAuthStore = () => {
       setProfile(null)
       localStorage.removeItem('auth_token')
       localStorage.removeItem('sb-localhost-auth-token')
+      clearCSRFToken() // Clear CSRF token on logout
       
       return { success: true }
     } catch (error) {
@@ -155,11 +162,20 @@ export const useAuthStore = () => {
           team:teams(id, name, city)
         `)
         .eq('id', state.user.id)
-        .single()
 
       if (error) throw error
-      setProfile(data)
-      return data
+      
+      // Handle multiple or no profiles
+      if (data && data.length > 0) {
+        setProfile(data[0])
+        if (data.length > 1) {
+          console.warn('Multiple profiles found, using first one')
+        }
+        return data[0]
+      } else {
+        console.warn('No profile found for user')
+        return null
+      }
     } catch (error) {
       console.error('Error fetching profile:', error)
       setError(error.message)
@@ -291,9 +307,14 @@ export const useAuthStore = () => {
       await refreshSession()
     }
 
-    const headers = {
+    // Add CSRF headers for state-changing methods
+    let headers = {
       ...getAuthHeaders(),
       ...options.headers
+    }
+    
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method?.toUpperCase())) {
+      headers = await addCSRFHeader(headers)
     }
 
     try {

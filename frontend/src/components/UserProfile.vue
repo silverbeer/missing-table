@@ -222,15 +222,24 @@ export default {
     }
 
     const fetchUsers = async () => {
-      if (!authStore.isAdmin) return
+      if (!authStore.isAdmin) {
+        console.log('Not admin, skipping user fetch')
+        return
+      }
 
       try {
         loadingUsers.value = true
         const response = await authStore.apiRequest('http://localhost:8000/api/auth/users')
         users.value = response
+        console.log('Successfully fetched users for admin')
       } catch (error) {
         console.error('Error fetching users:', error)
-        authStore.setError('Failed to load users')
+        // Don't show error to user if it's just an authorization issue
+        if (error.message.includes('403') || error.message.includes('Forbidden')) {
+          console.log('User does not have admin access')
+        } else {
+          authStore.setError('Failed to load users')
+        }
       } finally {
         loadingUsers.value = false
       }
@@ -264,10 +273,24 @@ export default {
       }
     }
 
-    onMounted(() => {
+    onMounted(async () => {
       fetchTeams()
-      if (authStore.isAdmin) {
-        fetchUsers()
+      
+      // Debug authentication state
+      console.log('UserProfile mounted - Auth state:', {
+        user: authStore.state.user?.email,
+        profile: authStore.state.profile,
+        userRole: authStore.userRole,
+        isAdmin: authStore.isAdmin,
+        isAuthenticated: authStore.isAuthenticated
+      })
+      
+      // Wait for authentication to be fully initialized before checking admin status
+      if (authStore.state.user && authStore.state.profile && authStore.isAdmin) {
+        console.log('User is admin, fetching users...')
+        await fetchUsers()
+      } else {
+        console.log('User is not admin or profile not fully loaded, skipping admin data fetch')
       }
     })
 

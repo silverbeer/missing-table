@@ -11,18 +11,11 @@
       </div>
     </div>
 
-    <!-- Profile Modal -->
-    <div v-if="showProfileModal" class="modal-overlay" @click="closeProfileModal">
-      <div class="modal-content" @click.stop>
-        <button @click="closeProfileModal" class="modal-close">×</button>
-        <UserProfile @logout="handleLogout" />
-      </div>
-    </div>
 
     <!-- Main Content -->
     <div class="container mx-auto px-4 py-8">
       <h1 class="text-3xl font-bold text-blue-600 mb-8">
-        Sports League Management
+        Missing Table - Tracking U13 & U14 MLS Next Season
       </h1>
       
       <!-- Loading indicator -->
@@ -89,7 +82,7 @@
 
           <!-- Profile (auth required) -->
           <div v-if="currentTab === 'profile'" class="p-4">
-            <UserProfile @logout="handleLogout" />
+            <ProfileRouter @logout="handleLogout" />
           </div>
 
           <!-- Admin Panel (admin only) -->
@@ -111,7 +104,7 @@ import LeagueTable from './components/LeagueTable.vue'
 import ScoresSchedule from './components/ScoresSchedule.vue'
 import AuthNav from './components/AuthNav.vue'
 import LoginForm from './components/LoginForm.vue'
-import UserProfile from './components/UserProfile.vue'
+import ProfileRouter from './components/ProfileRouter.vue'
 import AdminPanel from './components/AdminPanel.vue'
 
 export default {
@@ -122,14 +115,13 @@ export default {
     ScoresSchedule,
     AuthNav,
     LoginForm,
-    UserProfile,
+    ProfileRouter,
     AdminPanel
   },
   setup() {
     const authStore = useAuthStore()
     const currentTab = ref('table')
     const showLoginModal = ref(false)
-    const showProfileModal = ref(false)
 
     // Define all possible tabs
     const allTabs = [
@@ -163,9 +155,6 @@ export default {
       showLoginModal.value = false
     }
 
-    const closeProfileModal = () => {
-      showProfileModal.value = false
-    }
 
     const handleLoginSuccess = () => {
       showLoginModal.value = false
@@ -173,7 +162,6 @@ export default {
     }
 
     const handleLogout = () => {
-      showProfileModal.value = false
       // Reset to public tab if current tab requires auth
       const currentTabData = allTabs.find(t => t.id === currentTab.value)
       if (currentTabData && currentTabData.requiresAuth) {
@@ -194,9 +182,7 @@ export default {
       currentTab,
       availableTabs,
       showLoginModal,
-      showProfileModal,
       closeModal,
-      closeProfileModal,
       handleLoginSuccess,
       handleLogout
     }

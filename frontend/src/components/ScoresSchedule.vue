@@ -68,7 +68,7 @@
       </div>
 
       <!-- Display Filtered Games -->
-      <div v-if="games.length > 0">
+      <div v-if="sortedGames.length > 0">
         <div class="mb-4">
           <h3 class="text-lg font-semibold mb-2">Games for {{ getSelectedTeamName() }}</h3>
           
@@ -96,32 +96,32 @@
             </div>
           </div>
 
-          <!-- Season Segments -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Fall Segment -->
-            <div class="p-3 bg-blue-50 rounded-md border border-blue-100">
+          <!-- Season Segments - Only show if games exist in those periods -->
+          <div class="grid gap-4" :class="getSegmentGridClass()">
+            <!-- Fall Segment - Only show if Fall games exist -->
+            <div v-if="seasonStats.hasFallGames" class="p-3 bg-blue-50 rounded-md border border-blue-100">
               <h4 class="font-medium text-blue-700 mb-2">Fall Segment</h4>
               <div class="grid grid-cols-3 gap-2 text-sm">
                 <div class="font-medium">W: {{ seasonStats.fallWins || 0 }}</div>
                 <div class="font-medium">D: {{ seasonStats.fallDraws || 0 }}</div>
                 <div class="font-medium">L: {{ seasonStats.fallLosses || 0 }}</div>
-                <div class="col-span-3 text-xs text-gray-500">First half of season</div>
+                <div class="col-span-3 text-xs text-gray-500">Aug - Dec games</div>
               </div>
             </div>
 
-            <!-- Spring Segment -->
-            <div class="p-3 bg-green-50 rounded-md border border-green-100">
+            <!-- Spring Segment - Only show if Spring games exist -->
+            <div v-if="seasonStats.hasSpringGames" class="p-3 bg-green-50 rounded-md border border-green-100">
               <h4 class="font-medium text-green-700 mb-2">Spring Segment</h4>
               <div class="grid grid-cols-3 gap-2 text-sm">
                 <div class="font-medium">W: {{ seasonStats.springWins || 0 }}</div>
                 <div class="font-medium">D: {{ seasonStats.springDraws || 0 }}</div>
                 <div class="font-medium">L: {{ seasonStats.springLosses || 0 }}</div>
-                <div class="col-span-3 text-xs text-gray-500">Second half of season</div>
+                <div class="col-span-3 text-xs text-gray-500">Jan - July games</div>
               </div>
             </div>
 
-            <!-- Last 5 Games -->
-            <div class="p-3 bg-purple-50 rounded-md border border-purple-100">
+            <!-- Last 5 Games - Only show if games exist -->
+            <div v-if="seasonStats.gamesPlayed > 0" class="p-3 bg-purple-50 rounded-md border border-purple-100">
               <h4 class="font-medium text-purple-700 mb-2">Last 5 Games</h4>
               <div class="flex space-x-1">
                 <template v-if="seasonStats.lastFive.length > 0">
@@ -148,15 +148,17 @@
               <th class="border-b text-center w-32">Date</th>
               <th class="border-b text-left px-2">Team</th>
               <th class="border-b text-center w-24">Score</th>
+              <th class="border-b text-center w-24">Game Type</th>
               <th class="border-b text-right w-20">Result</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(game, index) in games" :key="game.game_date" :class="{'bg-gray-100': index % 2 === 0}">
+            <tr v-for="(game, index) in sortedGames" :key="game.game_date" :class="{'bg-gray-100': index % 2 === 0}">
               <td class="border-b text-right">{{ index + 1 }}</td>
               <td class="border-b text-center">{{ game.game_date }}</td>
               <td class="border-b text-left px-2">{{ getTeamDisplay(game) }}</td>
               <td class="border-b text-center">{{ game.home_score }} - {{ game.away_score }}</td>
+              <td class="border-b text-center">{{ game.game_type_name || 'League' }}</td>
               <td class="border-b text-right">{{ getResult(game) }}</td>
             </tr>
           </tbody>
@@ -171,10 +173,12 @@
 
 <script>
 import { ref, onMounted, computed, watch } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 export default {
   name: 'ScoresSchedule',
   setup() {
+    const authStore = useAuthStore();
     const teams = ref([]);
     const games = ref([]);
     const ageGroups = ref([]);
@@ -220,6 +224,16 @@ export default {
           throw new Error('Failed to fetch teams');
         }
         teams.value = await response.json();
+        
+        // Auto-select player's team if they're logged in
+        if (authStore.userTeamId && !selectedTeam.value) {
+          const playerTeam = teams.value.find(team => team.id === authStore.userTeamId);
+          if (playerTeam) {
+            selectedTeam.value = String(authStore.userTeamId);
+            // Fetch games for the player's team
+            await fetchGames();
+          }
+        }
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -292,6 +306,16 @@ export default {
       return `${startYear}-${endYear}`;
     };
 
+    const getSegmentGridClass = () => {
+      const segmentCount = (seasonStats.value.hasFallGames ? 1 : 0) + 
+                          (seasonStats.value.hasSpringGames ? 1 : 0) + 
+                          (seasonStats.value.gamesPlayed > 0 ? 1 : 0);
+      
+      if (segmentCount <= 1) return 'grid-cols-1';
+      if (segmentCount === 2) return 'grid-cols-1 md:grid-cols-2';
+      return 'grid-cols-1 md:grid-cols-3';
+    };
+
     // Filter teams based on selected age group
     const filteredTeams = computed(() => {
       return teams.value.filter(team => {
@@ -325,6 +349,11 @@ export default {
       return season ? season.name : '';
     });
 
+    // Sort games by date in ascending order for display
+    const sortedGames = computed(() => {
+      return [...games.value].sort((a, b) => new Date(a.game_date) - new Date(b.game_date));
+    });
+
     // Calculate season statistics
     const seasonStats = computed(() => {
       const currentDate = new Date();
@@ -343,10 +372,12 @@ export default {
         springWins: 0,
         springDraws: 0,
         springLosses: 0,
+        hasFallGames: false,
+        hasSpringGames: false,
         lastFive: []
       };
 
-      // Sort games by date
+      // Sort games by date (ascending order)
       const sortedGames = [...games.value]
         .filter(game => new Date(game.game_date) <= currentDate)
         .sort((a, b) => new Date(a.game_date) - new Date(b.game_date));
@@ -383,12 +414,14 @@ export default {
           const month = String(gameDate.getMonth() + 1).padStart(2, '0');
           const isFall = ['08', '09', '10', '11', '12'].includes(month);
           
-          // Update Fall/Spring stats based on month
+          // Track that games exist in these periods
           if (isFall) {
+            stats.hasFallGames = true;
             if (result === 'W') stats.fallWins++;
             else if (result === 'D') stats.fallDraws++;
             else stats.fallLosses++;
           } else {
+            stats.hasSpringGames = true;
             if (result === 'W') stats.springWins++;
             else if (result === 'D') stats.springDraws++;
             else stats.springLosses++;
@@ -413,7 +446,15 @@ export default {
 
     // Watch for changes in age group and season to refresh teams and clear selection
     watch([selectedAgeGroupId, selectedSeasonId], () => {
-      selectedTeam.value = ''; // Clear team selection when filters change
+      // Only clear selection if it's not the player's team
+      if (authStore.userTeamId) {
+        const playerTeamStillAvailable = filteredTeams.value.some(team => team.id === authStore.userTeamId);
+        if (!playerTeamStillAvailable) {
+          selectedTeam.value = ''; // Clear if player's team not in filtered list
+        }
+      } else {
+        selectedTeam.value = ''; // Clear team selection when filters change
+      }
       games.value = []; // Clear games
     });
 
@@ -429,6 +470,16 @@ export default {
       }
     });
 
+    // Watch for auth changes to auto-select player's team
+    watch(() => authStore.userTeamId, (newTeamId) => {
+      if (newTeamId && teams.value.length > 0) {
+        const playerTeam = filteredTeams.value.find(team => team.id === newTeamId);
+        if (playerTeam) {
+          selectedTeam.value = String(newTeamId);
+        }
+      }
+    });
+
     onMounted(async () => {
       await Promise.all([
         fetchAgeGroups(),
@@ -440,6 +491,7 @@ export default {
     return {
       teams,
       games,
+      sortedGames,
       ageGroups,
       seasons,
       selectedTeam,
@@ -456,6 +508,7 @@ export default {
       getTeamDisplay,
       getSelectedTeamName,
       formatSeasonDates,
+      getSegmentGridClass,
     };
   }
 };

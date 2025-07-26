@@ -193,10 +193,10 @@ def create_env_local():
     
     env_content = """# Local Supabase Configuration
 SUPABASE_URL=http://localhost:54321
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.ZopqoUt20nEV9cklpv9e3yw3PVyZLmKs5qLD6nGL1SI
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.M2d2z4SFn5C7HlJlaSLfrzuYim9nbY_XI40uWFN3hEE
+SUPABASE_ANON_KEY=your-local-anon-key-here
+SUPABASE_SERVICE_KEY=your-local-service-key-here
 
-# These are test keys with the secret: super-secret-jwt-token-with-at-least-32-characters
+# Get these keys from 'npx supabase status' when running local Supabase
 """
     
     with open('.env.local', 'w') as f:

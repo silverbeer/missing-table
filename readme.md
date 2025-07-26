@@ -183,6 +183,70 @@ supabase db reset
 supabase migration new migration_name
 ```
 
+### Database Backup & Restore
+
+The project includes a comprehensive backup and restore system for development and production use:
+
+#### Quick Backup Commands
+
+```bash
+# Create dual backup (JSON + SQL formats)
+./scripts/db_tools.sh backup
+
+# List available backups
+./scripts/db_tools.sh list
+
+# Restore from latest backup
+./scripts/db_tools.sh restore
+
+# Restore from specific backup
+./scripts/db_tools.sh restore database_backup_20231220_143022.json
+
+# Clean up old backups (keep 10)
+./scripts/db_tools.sh cleanup
+```
+
+#### Backup Types
+
+**Development Backups** (JSON Format):
+- Fast and lightweight
+- Selective table restore
+- Cross-environment compatible
+- Dependency-aware restoration
+- Perfect for development iterations
+
+**Production Backups** (SQL Format):
+- Standard PostgreSQL dump format
+- Industry-standard restoration process
+- Disaster recovery compatible
+- Can be used with any PostgreSQL instance
+
+#### Backup Workflow
+
+1. **Automatic Dual Backup**: Every backup creates both JSON and SQL formats
+2. **Timestamped Files**: All backups include timestamp for easy identification
+3. **Metadata Tracking**: JSON backups include table counts and file sizes
+4. **Cleanup Management**: Automatic cleanup prevents disk space bloat
+
+#### Advanced Operations
+
+```bash
+# Reset database and repopulate with basic data
+./scripts/db_tools.sh reset
+
+# Production backup (when live)
+./scripts/db_tools.sh backup-prod
+
+# Keep only 5 most recent backups
+./scripts/db_tools.sh cleanup 5
+```
+
+#### Backup Location
+
+All backups are stored in the `backups/` directory:
+- `database_backup_YYYYMMDD_HHMMSS.json` - Development format
+- `database_backup_YYYYMMDD_HHMMSS.sql` - Production format
+
 ### Adding New Features
 
 1. **Backend**: Add endpoints in `app.py`, implement business logic in DAO layer

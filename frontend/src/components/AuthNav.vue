@@ -2,7 +2,7 @@
   <nav class="auth-nav">
     <div class="nav-content">
       <div class="nav-brand">
-        <h1>Sports League</h1>
+        <h1>Missing Table</h1>
       </div>
 
       <div class="nav-links">
