@@ -162,11 +162,20 @@ export const useAuthStore = () => {
           team:teams(id, name, city)
         `)
         .eq('id', state.user.id)
-        .single()
 
       if (error) throw error
-      setProfile(data)
-      return data
+      
+      // Handle multiple or no profiles
+      if (data && data.length > 0) {
+        setProfile(data[0])
+        if (data.length > 1) {
+          console.warn('Multiple profiles found, using first one')
+        }
+        return data[0]
+      } else {
+        console.warn('No profile found for user')
+        return null
+      }
     } catch (error) {
       console.error('Error fetching profile:', error)
       setError(error.message)

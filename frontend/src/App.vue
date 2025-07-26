@@ -15,7 +15,7 @@
     <!-- Main Content -->
     <div class="container mx-auto px-4 py-8">
       <h1 class="text-3xl font-bold text-blue-600 mb-8">
-        Sports League Management
+        Missing Table - Tracking U13 & U14 MLS Next Season
       </h1>
       
       <!-- Loading indicator -->
