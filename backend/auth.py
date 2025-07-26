@@ -38,13 +38,13 @@ class AuthManager:
                 return None
                 
             # Get user profile with role
-            profile_response = self.supabase.table('user_profiles').select('*').eq('id', user_id).single().execute()
+            profile_response = self.supabase.table('user_profiles').select('*').eq('id', user_id).execute()
             
-            if not profile_response.data:
+            if not profile_response.data or len(profile_response.data) == 0:
                 logger.warning(f"No profile found for user {user_id}")
                 return None
                 
-            profile = profile_response.data
+            profile = profile_response.data[0]
             
             return {
                 'user_id': user_id,

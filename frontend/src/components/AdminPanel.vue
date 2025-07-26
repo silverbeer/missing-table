@@ -11,9 +11,8 @@
 
     <!-- Admin Content (only for admins) -->
     <div v-else>
-      <!-- Admin Header -->
+      <!-- Admin Description -->
       <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Admin Panel</h2>
         <p class="text-gray-600">Manage league data and configurations</p>
       </div>
 

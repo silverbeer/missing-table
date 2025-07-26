@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends, Response
 from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection as DbConnectionHolder
 from dao.local_data_access import LocalSportsDAO, LocalSupabaseConnection
 from collections import defaultdict
@@ -138,9 +138,9 @@ async def login(user_data: UserLogin):
         
         if response.user and response.session:
             # Get user profile
-            profile_response = db_conn_holder_obj.client.table('user_profiles').select('*').eq('id', response.user.id).single().execute()
+            profile_response = db_conn_holder_obj.client.table('user_profiles').select('*').eq('id', response.user.id).execute()
             
-            profile = profile_response.data if profile_response.data else {}
+            profile = profile_response.data[0] if profile_response.data and len(profile_response.data) > 0 else {}
             
             return {
                 "access_token": response.session.access_token,
@@ -177,10 +177,10 @@ async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user_re
         profile_response = db_conn_holder_obj.client.table('user_profiles').select('''
             *,
             team:teams(id, name, city)
-        ''').eq('id', current_user['user_id']).single().execute()
+        ''').eq('id', current_user['user_id']).execute()
         
-        if profile_response.data:
-            profile = profile_response.data
+        if profile_response.data and len(profile_response.data) > 0:
+            profile = profile_response.data[0]
             return {
                 "id": profile['id'],
                 "role": profile['role'],
@@ -368,7 +368,12 @@ async def get_games(
 ):
     """Get all games with optional filters."""
     try:
-        games = sports_dao.get_all_games(season_id=season_id)
+        games = sports_dao.get_all_games(
+            season_id=season_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+            game_type=game_type
+        )
         return games
     except Exception as e:
         logger.error(f"Error retrieving games: {str(e)}")

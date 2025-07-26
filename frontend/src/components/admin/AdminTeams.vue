@@ -163,17 +163,21 @@
             </div>
             
             <div v-if="!showEditModal" class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Age Group</label>
-              <select
-                v-model="formData.ageGroupId"
-                required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Age Group</option>
-                <option v-for="ageGroup in ageGroups" :key="ageGroup.id" :value="ageGroup.id">
-                  {{ ageGroup.name }}
-                </option>
-              </select>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Age Groups</label>
+              <div class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
+                <label v-for="ageGroup in ageGroups" :key="ageGroup.id" class="flex items-center text-sm">
+                  <input 
+                    type="checkbox" 
+                    :value="ageGroup.id" 
+                    v-model="formData.ageGroupIds"
+                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span class="ml-2">{{ ageGroup.name }}</span>
+                </label>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                Select one or more age groups this team will participate in
+              </p>
             </div>
 
             <div class="mb-4">
@@ -354,7 +358,7 @@ export default {
       name: '',
       city: '',
       teamType: '',
-      ageGroupId: '',
+      ageGroupIds: [],
       gameTypeIds: [],
       academyTeam: false
     })
@@ -449,11 +453,20 @@ export default {
       try {
         formLoading.value = true
         
-        // Create the team with basic info and age group
+        // Clear any previous errors
+        error.value = null
+        
+        // Validate that at least one age group is selected
+        if (!formData.value.ageGroupIds || formData.value.ageGroupIds.length === 0) {
+          error.value = 'Please select at least one age group'
+          return
+        }
+        
+        // Create the team with basic info and age groups
         const teamData = {
           name: formData.value.name,
           city: formData.value.city,
-          age_group_ids: [parseInt(formData.value.ageGroupId)],
+          age_group_ids: formData.value.ageGroupIds.map(id => parseInt(id)),
           division_ids: [],
           academy_team: formData.value.academyTeam
         }
@@ -500,7 +513,7 @@ export default {
         name: team.name,
         city: team.city,
         teamType: teamType,
-        ageGroupId: team.age_groups?.[0]?.id || '',
+        ageGroupIds: (team.age_groups || []).map(ag => ag.id),
         gameTypeIds: gameTypeIds,
         academyTeam: team.academy_team || false
       }
@@ -650,7 +663,7 @@ export default {
         name: '',
         city: '',
         teamType: '',
-        ageGroupId: '',
+        ageGroupIds: [],
         gameTypeIds: [],
         academyTeam: false
       }

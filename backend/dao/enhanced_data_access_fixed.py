@@ -298,8 +298,9 @@ class EnhancedSportsDAO:
     
     # === Game Methods ===
     
-    def get_all_games(self, season_id: Optional[int] = None) -> List[Dict]:
-        """Get all games with optional season filter."""
+    def get_all_games(self, season_id: Optional[int] = None, age_group_id: Optional[int] = None, 
+                     division_id: Optional[int] = None, game_type: Optional[str] = None) -> List[Dict]:
+        """Get all games with optional filters."""
         try:
             query = self.client.table('games').select('''
                 *,
@@ -311,14 +312,25 @@ class EnhancedSportsDAO:
                 division:divisions(id, name)
             ''')
             
+            # Apply filters
             if season_id:
                 query = query.eq('season_id', season_id)
+            if age_group_id:
+                query = query.eq('age_group_id', age_group_id)
+            if division_id:
+                query = query.eq('division_id', division_id)
             
             response = query.order('game_date', desc=True).execute()
             
+            # Filter by game_type name if specified (post-query filtering)
+            filtered_games = response.data
+            if game_type:
+                filtered_games = [game for game in response.data 
+                                if game.get('game_type', {}).get('name') == game_type]
+            
             # Flatten the response for easier use
             games = []
-            for game in response.data:
+            for game in filtered_games:
                 flat_game = {
                     'id': game['id'],
                     'game_date': game['game_date'],
@@ -608,10 +620,13 @@ class EnhancedSportsDAO:
     def create_division(self, name: str, description: Optional[str] = None) -> Dict:
         """Create a new division."""
         try:
-            data = {'name': name}
-            if description:
-                data['description'] = description
+            data = {
+                'name': name,
+                'description': description or ''  # Always include description, even if empty
+            }
+            print(f"Creating division with data: {data}")
             result = self.client.table('divisions').insert(data).execute()
+            print(f"Division created successfully: {result.data[0]}")
             return result.data[0]
         except Exception as e:
             print(f"Error creating division: {e}")
