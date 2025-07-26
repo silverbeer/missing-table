@@ -1,0 +1,1200 @@
+{
+  "backup_info": {
+    "timestamp": "20250720_174903",
+    "created_at": "2025-07-20T17:49:03.997872",
+    "version": "1.0",
+    "supabase_url": "http://127.0.0.1:54321"
+  },
+  "tables": {
+    "age_groups": [
+      {
+        "id": 1,
+        "name": "U13",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      },
+      {
+        "id": 2,
+        "name": "U14",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      }
+    ],
+    "divisions": [
+      {
+        "id": 1,
+        "name": "Northeast",
+        "description": "Northeast Division",
+        "created_at": "2025-07-20T20:08:45.77609+00:00",
+        "updated_at": "2025-07-20T20:08:45.77609+00:00"
+      }
+    ],
+    "game_types": [
+      {
+        "id": 1,
+        "name": "League",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      },
+      {
+        "id": 2,
+        "name": "Tournament",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      },
+      {
+        "id": 3,
+        "name": "Friendly",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      },
+      {
+        "id": 4,
+        "name": "Playoff",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      }
+    ],
+    "seasons": [
+      {
+        "id": 2,
+        "name": "2024-2025",
+        "start_date": "2024-09-01",
+        "end_date": "2025-06-30",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      },
+      {
+        "id": 3,
+        "name": "2025-2026",
+        "start_date": "2025-09-01",
+        "end_date": "2026-06-30",
+        "created_at": "2025-07-20T20:08:45.733237+00:00",
+        "updated_at": "2025-07-20T20:08:45.733237+00:00"
+      }
+    ],
+    "teams": [
+      {
+        "id": 1,
+        "name": "Bayside FC",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 2,
+        "name": "Beachside of Connecticut",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 3,
+        "name": "Blau Weiss Gottschee",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 4,
+        "name": "Cedar Stars Academy Bergen",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 5,
+        "name": "Downtown United Soccer Club",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 6,
+        "name": "FA Euro New York",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 7,
+        "name": "FC Greater Boston Bolts",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 8,
+        "name": "FC Westchester",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 9,
+        "name": "IFA",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 10,
+        "name": "Long Island Soccer Club",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 11,
+        "name": "Metropolitan Oval",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 12,
+        "name": "NEFC",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 15,
+        "name": "New York SC",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 16,
+        "name": "Oakwood Soccer Club",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 17,
+        "name": "Rochester NY FC",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 18,
+        "name": "Seacoast United",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 19,
+        "name": "Valeo Futbol Club",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 20,
+        "name": "Intercontinental Football Academy of New England",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": false
+      },
+      {
+        "id": 13,
+        "name": "New England Revolution",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": true
+      },
+      {
+        "id": 14,
+        "name": "New York City FC",
+        "city": "Northeast",
+        "created_at": "2025-07-20T20:26:48.706028+00:00",
+        "updated_at": "2025-07-20T20:26:48.706028+00:00",
+        "academy_team": true
+      },
+      {
+        "id": 21,
+        "name": "NYRB",
+        "city": "New York",
+        "created_at": "2025-07-20T21:01:30.392053+00:00",
+        "updated_at": "2025-07-20T21:01:30.392053+00:00",
+        "academy_team": true
+      }
+    ],
+    "team_mappings": [
+      {
+        "id": 1,
+        "team_id": 1,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 2,
+        "team_id": 2,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 3,
+        "team_id": 3,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 4,
+        "team_id": 4,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 5,
+        "team_id": 5,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 6,
+        "team_id": 6,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 7,
+        "team_id": 7,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 8,
+        "team_id": 8,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 9,
+        "team_id": 9,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 10,
+        "team_id": 10,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 11,
+        "team_id": 11,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 12,
+        "team_id": 12,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 13,
+        "team_id": 13,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 14,
+        "team_id": 14,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 15,
+        "team_id": 15,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 16,
+        "team_id": 16,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 17,
+        "team_id": 17,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 18,
+        "team_id": 18,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 19,
+        "team_id": 19,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 20,
+        "team_id": 20,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T20:26:48.718945+00:00",
+        "division_id": 1
+      },
+      {
+        "id": 21,
+        "team_id": 21,
+        "age_group_id": 2,
+        "created_at": "2025-07-20T21:01:30.412482+00:00",
+        "division_id": null
+      }
+    ],
+    "team_game_types": [
+      {
+        "id": 1,
+        "team_id": 1,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 2,
+        "team_id": 1,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 3,
+        "team_id": 1,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 4,
+        "team_id": 1,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 5,
+        "team_id": 2,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 6,
+        "team_id": 2,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 7,
+        "team_id": 2,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 8,
+        "team_id": 2,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 9,
+        "team_id": 3,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 10,
+        "team_id": 3,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 11,
+        "team_id": 3,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 12,
+        "team_id": 3,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 13,
+        "team_id": 4,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 14,
+        "team_id": 4,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 15,
+        "team_id": 4,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 16,
+        "team_id": 4,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 17,
+        "team_id": 5,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 18,
+        "team_id": 5,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 19,
+        "team_id": 5,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 20,
+        "team_id": 5,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 21,
+        "team_id": 6,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 22,
+        "team_id": 6,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 23,
+        "team_id": 6,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 24,
+        "team_id": 6,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 25,
+        "team_id": 7,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 26,
+        "team_id": 7,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 27,
+        "team_id": 7,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 28,
+        "team_id": 7,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 29,
+        "team_id": 8,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 30,
+        "team_id": 8,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 31,
+        "team_id": 8,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 32,
+        "team_id": 8,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 33,
+        "team_id": 9,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 34,
+        "team_id": 9,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 35,
+        "team_id": 9,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 36,
+        "team_id": 9,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 37,
+        "team_id": 10,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 38,
+        "team_id": 10,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 39,
+        "team_id": 10,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 40,
+        "team_id": 10,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 41,
+        "team_id": 11,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 42,
+        "team_id": 11,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 43,
+        "team_id": 11,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 44,
+        "team_id": 11,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 45,
+        "team_id": 12,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 46,
+        "team_id": 12,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 47,
+        "team_id": 12,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 48,
+        "team_id": 12,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 49,
+        "team_id": 13,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 50,
+        "team_id": 13,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 51,
+        "team_id": 13,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 52,
+        "team_id": 13,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 53,
+        "team_id": 14,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 54,
+        "team_id": 14,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 55,
+        "team_id": 14,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 56,
+        "team_id": 14,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 57,
+        "team_id": 15,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 58,
+        "team_id": 15,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 59,
+        "team_id": 15,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 60,
+        "team_id": 15,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 61,
+        "team_id": 16,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 62,
+        "team_id": 16,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 63,
+        "team_id": 16,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 64,
+        "team_id": 16,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 65,
+        "team_id": 17,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 66,
+        "team_id": 17,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 67,
+        "team_id": 17,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 68,
+        "team_id": 17,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 69,
+        "team_id": 18,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 70,
+        "team_id": 18,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 71,
+        "team_id": 18,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 72,
+        "team_id": 18,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 73,
+        "team_id": 19,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 74,
+        "team_id": 19,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 75,
+        "team_id": 19,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 76,
+        "team_id": 19,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 77,
+        "team_id": 20,
+        "game_type_id": 1,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 78,
+        "team_id": 20,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 79,
+        "team_id": 20,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 80,
+        "team_id": 20,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T20:26:48.724247+00:00",
+        "updated_at": "2025-07-20T20:26:48.724247+00:00"
+      },
+      {
+        "id": 81,
+        "team_id": 21,
+        "game_type_id": 3,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T21:02:45.47264+00:00",
+        "updated_at": "2025-07-20T21:02:45.47264+00:00"
+      },
+      {
+        "id": 82,
+        "team_id": 21,
+        "game_type_id": 4,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T21:02:45.494566+00:00",
+        "updated_at": "2025-07-20T21:02:45.494566+00:00"
+      },
+      {
+        "id": 83,
+        "team_id": 21,
+        "game_type_id": 2,
+        "age_group_id": 2,
+        "is_active": true,
+        "created_at": "2025-07-20T21:02:45.512812+00:00",
+        "updated_at": "2025-07-20T21:02:45.512812+00:00"
+      }
+    ],
+    "games": [
+      {
+        "id": 1,
+        "game_date": "2025-08-16",
+        "home_team_id": 21,
+        "away_team_id": 9,
+        "home_score": 0,
+        "away_score": 0,
+        "season_id": 3,
+        "age_group_id": 2,
+        "game_type_id": 3,
+        "created_at": "2025-07-20T21:03:11.243726+00:00",
+        "updated_at": "2025-07-20T21:03:11.243726+00:00",
+        "division_id": null
+      },
+      {
+        "id": 2,
+        "game_date": "2025-08-17",
+        "home_team_id": 14,
+        "away_team_id": 9,
+        "home_score": 0,
+        "away_score": 0,
+        "season_id": 3,
+        "age_group_id": 2,
+        "game_type_id": 3,
+        "created_at": "2025-07-20T21:03:25.260617+00:00",
+        "updated_at": "2025-07-20T21:03:25.260617+00:00",
+        "division_id": null
+      }
+    ],
+    "user_profiles": [
+      {
+        "id": "c08e7505-5146-4189-a3b0-8663f59a5f6d",
+        "role": "admin",
+        "team_id": 9,
+        "display_name": "Tom D (Admin)",
+        "created_at": "2025-07-20T20:57:06.785538+00:00",
+        "updated_at": "2025-07-20T20:57:27.308+00:00",
+        "player_number": null,
+        "positions": []
+      },
+      {
+        "id": "d1aac2c5-9af6-4185-ac39-a4b2a48e7a6a",
+        "role": "team-player",
+        "team_id": 9,
+        "display_name": "Gabe",
+        "created_at": "2025-07-20T21:04:29.607486+00:00",
+        "updated_at": "2025-07-20T21:21:48.570042+00:00",
+        "player_number": 35,
+        "positions": [
+          "CB",
+          "LCB"
+        ]
+      }
+    ]
+  }
+}
