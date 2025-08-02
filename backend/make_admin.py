@@ -2,11 +2,12 @@
 """Script to make a user an admin."""
 
 import os
-from supabase import create_client
+
 from dotenv import load_dotenv
+from supabase import create_client
 
 # Load environment variables
-load_dotenv('.env.local', override=True)
+load_dotenv(".env.local", override=True)
 
 # Initialize Supabase client with service key (needed for admin operations)
 url = os.getenv("SUPABASE_URL")
@@ -37,21 +38,19 @@ print(f"Found user: {email} with ID: {user_id}")
 
 # Update the user's role in user_profiles table
 try:
-    response = supabase.table('user_profiles').update({
-        'role': 'admin'
-    }).eq('id', user_id).execute()
-    
+    response = supabase.table("user_profiles").update({"role": "admin"}).eq("id", user_id).execute()
+
     if response.data:
         print(f"Successfully updated {email} to admin role")
     else:
         print(f"No user profile found for {email}")
         # Create profile if it doesn't exist
-        response = supabase.table('user_profiles').insert({
-            'id': user_id,
-            'email': email,
-            'role': 'admin'
-        }).execute()
+        response = (
+            supabase.table("user_profiles")
+            .insert({"id": user_id, "email": email, "role": "admin"})
+            .execute()
+        )
         print(f"Created admin profile for {email}")
-        
+
 except Exception as e:
     print(f"Error updating user role: {e}")
