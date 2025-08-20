@@ -1,0 +1,23 @@
+format: sarif
+output: security/trivy-results.sarif
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+vulnerability:
+  type:
+    - os
+    - library
+secret:
+  config: security/secret-config.yaml
+dependency:
+  skip-update: false
+quiet: false
+debug: false
+insecure: false
+timeout: 5m0s
+cache:
+  clear: false
+db:
+  no-progress: false
+  skip-update: false

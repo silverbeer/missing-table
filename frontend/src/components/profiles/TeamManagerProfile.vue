@@ -3,7 +3,11 @@
     <template #profile-fields>
       <div v-if="authStore.state.profile.team" class="info-group">
         <label>Managing Team:</label>
-        <span class="team-name">{{ authStore.state.profile.team.name }} ({{ authStore.state.profile.team.city }})</span>
+        <span class="team-name"
+          >{{ authStore.state.profile.team.name }} ({{
+            authStore.state.profile.team.city
+          }})</span
+        >
       </div>
       <div v-else class="info-group">
         <label>Team Assignment:</label>
@@ -17,7 +21,11 @@
         <h3>Team Assignment</h3>
         <div class="team-selector">
           <label for="teamSelect">Select Team to Manage:</label>
-          <select id="teamSelect" v-model="editForm.team_id" class="team-select">
+          <select
+            id="teamSelect"
+            v-model="editForm.team_id"
+            class="team-select"
+          >
             <option value="">No team</option>
             <option v-for="team in teams" :key="team.id" :value="team.id">
               {{ team.name }} ({{ team.city }})
@@ -36,21 +44,21 @@
             <p>Manage team players and lineup</p>
             <div class="card-stat">{{ playerCount }} players</div>
           </div>
-          
+
           <div class="management-card" @click="showGames = !showGames">
             <div class="card-icon">⚽</div>
             <h4>Games & Schedule</h4>
             <p>View and manage team games</p>
             <div class="card-stat">{{ gameCount }} games</div>
           </div>
-          
+
           <div class="management-card">
             <div class="card-icon">📊</div>
             <h4>Team Statistics</h4>
             <p>View team performance data</p>
             <div class="card-stat">Season stats</div>
           </div>
-          
+
           <div class="management-card">
             <div class="card-icon">📅</div>
             <h4>Practice Schedule</h4>
@@ -61,15 +69,22 @@
       </div>
 
       <!-- Players Section -->
-      <div v-if="showPlayers && authStore.state.profile.team" class="players-section">
+      <div
+        v-if="showPlayers && authStore.state.profile.team"
+        class="players-section"
+      >
         <div class="section-header">
           <h3>Team Roster</h3>
           <button @click="showPlayers = false" class="close-btn">×</button>
         </div>
-        
+
         <div v-if="loadingPlayers" class="loading">Loading players...</div>
         <div v-else class="players-grid">
-          <div v-for="player in teamPlayers" :key="player.id" class="player-card">
+          <div
+            v-for="player in teamPlayers"
+            :key="player.id"
+            class="player-card"
+          >
             <div class="player-avatar">
               {{ getInitials(player.display_name || player.email) }}
             </div>
@@ -86,12 +101,15 @@
       </div>
 
       <!-- Games Section -->
-      <div v-if="showGames && authStore.state.profile.team" class="games-section">
+      <div
+        v-if="showGames && authStore.state.profile.team"
+        class="games-section"
+      >
         <div class="section-header">
           <h3>Team Games</h3>
           <button @click="showGames = false" class="close-btn">×</button>
         </div>
-        
+
         <div v-if="loadingGames" class="loading">Loading games...</div>
         <div v-else class="games-list">
           <div v-for="game in teamGames" :key="game.id" class="game-card">
@@ -143,7 +161,10 @@
       <div v-if="!authStore.state.profile.team" class="no-team-section">
         <div class="no-team-message">
           <h3>No Team Assigned</h3>
-          <p>You haven't been assigned to manage a team yet. Contact an administrator to get assigned to a team.</p>
+          <p>
+            You haven't been assigned to manage a team yet. Contact an
+            administrator to get assigned to a team.
+          </p>
           <div class="contact-admin">
             <p>Once assigned, you'll be able to:</p>
             <ul>
@@ -160,135 +181,148 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import BaseProfile from './BaseProfile.vue'
+import { ref, computed, onMounted, watch } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import BaseProfile from './BaseProfile.vue';
 
 export default {
   name: 'TeamManagerProfile',
   components: {
-    BaseProfile
+    BaseProfile,
   },
   emits: ['logout'],
   setup() {
-    const authStore = useAuthStore()
-    const teams = ref([])
-    const teamPlayers = ref([])
-    const teamGames = ref([])
-    const showPlayers = ref(false)
-    const showGames = ref(false)
-    const loadingPlayers = ref(false)
-    const loadingGames = ref(false)
-    const isEditing = ref(false)
+    const authStore = useAuthStore();
+    const teams = ref([]);
+    const teamPlayers = ref([]);
+    const teamGames = ref([]);
+    const showPlayers = ref(false);
+    const showGames = ref(false);
+    const loadingPlayers = ref(false);
+    const loadingGames = ref(false);
+    const isEditing = ref(false);
 
     const editForm = ref({
-      team_id: null
-    })
+      team_id: null,
+    });
 
-    const playerCount = computed(() => teamPlayers.value.length)
-    const gameCount = computed(() => teamGames.value.length)
+    const playerCount = computed(() => teamPlayers.value.length);
+    const gameCount = computed(() => teamGames.value.length);
 
     const wins = computed(() => {
       return teamGames.value.filter(game => {
-        const teamId = authStore.state.profile?.team?.id
-        if (!teamId || game.home_score === null) return false
-        
+        const teamId = authStore.state.profile?.team?.id;
+        if (!teamId || game.home_score === null) return false;
+
         if (game.home_team_id === teamId) {
-          return game.home_score > game.away_score
+          return game.home_score > game.away_score;
         } else {
-          return game.away_score > game.home_score
+          return game.away_score > game.home_score;
         }
-      }).length
-    })
+      }).length;
+    });
 
     const draws = computed(() => {
       return teamGames.value.filter(game => {
-        return game.home_score !== null && game.home_score === game.away_score
-      }).length
-    })
+        return game.home_score !== null && game.home_score === game.away_score;
+      }).length;
+    });
 
     const losses = computed(() => {
       return teamGames.value.filter(game => {
-        const teamId = authStore.state.profile?.team?.id
-        if (!teamId || game.home_score === null) return false
-        
+        const teamId = authStore.state.profile?.team?.id;
+        if (!teamId || game.home_score === null) return false;
+
         if (game.home_team_id === teamId) {
-          return game.home_score < game.away_score
+          return game.home_score < game.away_score;
         } else {
-          return game.away_score < game.home_score
+          return game.away_score < game.home_score;
         }
-      }).length
-    })
+      }).length;
+    });
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/teams')
+        const response = await fetch('http://localhost:8000/api/teams');
         if (response.ok) {
-          teams.value = await response.json()
+          teams.value = await response.json();
         }
       } catch (error) {
-        console.error('Error fetching teams:', error)
+        console.error('Error fetching teams:', error);
       }
-    }
+    };
 
     const fetchTeamPlayers = async () => {
-      const teamId = authStore.state.profile?.team?.id
-      if (!teamId) return
+      const teamId = authStore.state.profile?.team?.id;
+      if (!teamId) return;
 
       try {
-        loadingPlayers.value = true
-        const response = await authStore.apiRequest('http://localhost:8000/api/auth/users')
-        teamPlayers.value = response.filter(user => 
-          user.team_id === teamId && user.role === 'team-player'
-        )
+        loadingPlayers.value = true;
+        const response = await authStore.apiRequest(
+          'http://localhost:8000/api/auth/users'
+        );
+        teamPlayers.value = response.filter(
+          user => user.team_id === teamId && user.role === 'team-player'
+        );
       } catch (error) {
-        console.error('Error fetching team players:', error)
+        console.error('Error fetching team players:', error);
       } finally {
-        loadingPlayers.value = false
+        loadingPlayers.value = false;
       }
-    }
+    };
 
     const fetchTeamGames = async () => {
-      const teamId = authStore.state.profile?.team?.id
-      if (!teamId) return
+      const teamId = authStore.state.profile?.team?.id;
+      if (!teamId) return;
 
       try {
-        loadingGames.value = true
-        const response = await fetch(`http://localhost:8000/api/games/team/${teamId}`)
+        loadingGames.value = true;
+        const response = await fetch(
+          `http://localhost:8000/api/games/team/${teamId}`
+        );
         if (response.ok) {
-          teamGames.value = await response.json()
+          teamGames.value = await response.json();
         }
       } catch (error) {
-        console.error('Error fetching team games:', error)
+        console.error('Error fetching team games:', error);
       } finally {
-        loadingGames.value = false
+        loadingGames.value = false;
       }
-    }
+    };
 
-    const formatGameDate = (dateString) => {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      })
-    }
+    const formatGameDate = dateString => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+    };
 
-    const getInitials = (name) => {
-      if (!name) return '?'
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    }
+    const getInitials = name => {
+      if (!name) return '?';
+      return name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    };
 
     // Watch for team changes
-    watch(() => authStore.state.profile?.team, async (newTeam) => {
-      if (newTeam) {
-        await Promise.all([fetchTeamPlayers(), fetchTeamGames()])
-      }
-    }, { immediate: true })
+    watch(
+      () => authStore.state.profile?.team,
+      async newTeam => {
+        if (newTeam) {
+          await Promise.all([fetchTeamPlayers(), fetchTeamGames()]);
+        }
+      },
+      { immediate: true }
+    );
 
     onMounted(() => {
-      fetchTeams()
-    })
+      fetchTeams();
+    });
 
     return {
       authStore,
@@ -309,10 +343,10 @@ export default {
       fetchTeamPlayers,
       fetchTeamGames,
       formatGameDate,
-      getInitials
-    }
-  }
-}
+      getInitials,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -401,7 +435,8 @@ export default {
   font-size: 12px;
 }
 
-.players-section, .games-section {
+.players-section,
+.games-section {
   background-color: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;

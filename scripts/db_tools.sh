@@ -102,9 +102,9 @@ list_backups() {
     uv run python ../scripts/backup_database.py --list
 }
 
-# Reset database and repopulate with basic data
+# Reset database and restore from latest backup
 reset_and_populate() {
-    print_header "Resetting Database and Repopulating"
+    print_header "Resetting Database and Restoring from Latest Backup"
     
     # First create a backup
     print_warning "Creating backup before reset..."
@@ -115,12 +115,11 @@ reset_and_populate() {
     cd "$PROJECT_ROOT" || exit 1
     npx supabase db reset
     
-    # Repopulate basic data
-    print_warning "Repopulating basic data..."
-    cd "$PROJECT_ROOT/backend" || exit 1
-    uv run python populate_teams_supabase.py
+    # Restore real data from latest backup instead of creating sample data
+    print_warning "Restoring real data from latest backup..."
+    restore_database
     
-    print_success "Database reset and repopulation completed"
+    print_success "Database reset and restoration completed"
 }
 
 # Clean up old backups

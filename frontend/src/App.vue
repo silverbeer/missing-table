@@ -11,13 +11,12 @@
       </div>
     </div>
 
-
     <!-- Main Content -->
     <div class="container mx-auto px-4 py-8">
       <h1 class="text-3xl font-bold text-blue-600 mb-8">
         Missing Table - Tracking U13 & U14 MLS Next Season
       </h1>
-      
+
       <!-- Loading indicator -->
       <div v-if="authStore.state.loading" class="loading-container">
         <div class="loading-spinner"></div>
@@ -43,7 +42,7 @@
                 currentTab === tab.id
                   ? 'bg-blue-100 text-blue-700'
                   : 'text-gray-500 hover:text-gray-700',
-                'px-3 py-2 font-medium text-sm rounded-md'
+                'px-3 py-2 font-medium text-sm rounded-md',
               ]"
             >
               {{ tab.name }}
@@ -97,15 +96,15 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from './stores/auth'
-import GameForm from './components/GameForm.vue'
-import LeagueTable from './components/LeagueTable.vue'
-import ScoresSchedule from './components/ScoresSchedule.vue'
-import AuthNav from './components/AuthNav.vue'
-import LoginForm from './components/LoginForm.vue'
-import ProfileRouter from './components/ProfileRouter.vue'
-import AdminPanel from './components/AdminPanel.vue'
+import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from './stores/auth';
+import GameForm from './components/GameForm.vue';
+import LeagueTable from './components/LeagueTable.vue';
+import ScoresSchedule from './components/ScoresSchedule.vue';
+import AuthNav from './components/AuthNav.vue';
+import LoginForm from './components/LoginForm.vue';
+import ProfileRouter from './components/ProfileRouter.vue';
+import AdminPanel from './components/AdminPanel.vue';
 
 export default {
   name: 'App',
@@ -116,66 +115,75 @@ export default {
     AuthNav,
     LoginForm,
     ProfileRouter,
-    AdminPanel
+    AdminPanel,
   },
   setup() {
-    const authStore = useAuthStore()
-    const currentTab = ref('table')
-    const showLoginModal = ref(false)
+    const authStore = useAuthStore();
+    const currentTab = ref('table');
+    const showLoginModal = ref(false);
 
     // Define all possible tabs
     const allTabs = [
       { id: 'table', name: 'Standings', requiresAuth: false },
       { id: 'scores', name: 'Games', requiresAuth: false },
-      { id: 'add-game', name: 'Add Game', requiresAuth: true, requiresRole: ['admin', 'team-manager'] },
+      {
+        id: 'add-game',
+        name: 'Add Game',
+        requiresAuth: true,
+        requiresRole: ['admin', 'team-manager'],
+      },
       { id: 'profile', name: 'Profile', requiresAuth: true },
-      { id: 'admin', name: 'Admin', requiresAuth: true, requiresRole: ['admin'] }
-    ]
+      {
+        id: 'admin',
+        name: 'Admin',
+        requiresAuth: true,
+        requiresRole: ['admin'],
+      },
+    ];
 
     // Computed property for available tabs based on user's auth status and role
     const availableTabs = computed(() => {
       return allTabs.filter(tab => {
         // Always show public tabs
-        if (!tab.requiresAuth) return true
-        
+        if (!tab.requiresAuth) return true;
+
         // Don't show auth-required tabs if user is not authenticated
-        if (!authStore.isAuthenticated.value) return false
-        
+        if (!authStore.isAuthenticated.value) return false;
+
         // Check role requirements
         if (tab.requiresRole) {
-          const userRole = authStore.userRole.value
-          return tab.requiresRole.includes(userRole)
+          const userRole = authStore.userRole.value;
+          return tab.requiresRole.includes(userRole);
         }
-        
-        return true
-      })
-    })
+
+        return true;
+      });
+    });
 
     const closeModal = () => {
-      showLoginModal.value = false
-    }
-
+      showLoginModal.value = false;
+    };
 
     const handleLoginSuccess = () => {
-      showLoginModal.value = false
+      showLoginModal.value = false;
       // Optionally redirect to profile or keep current tab
-    }
+    };
 
     const handleLogout = () => {
       // Reset to public tab if current tab requires auth
-      const currentTabData = allTabs.find(t => t.id === currentTab.value)
+      const currentTabData = allTabs.find(t => t.id === currentTab.value);
       if (currentTabData && currentTabData.requiresAuth) {
-        currentTab.value = 'table'
+        currentTab.value = 'table';
       }
-    }
+    };
 
     // Initialize auth on app start
     onMounted(async () => {
       // For testing - uncomment the next line to force logout on each page load
       // authStore.forceLogout()
-      
-      await authStore.initialize()
-    })
+
+      await authStore.initialize();
+    });
 
     return {
       authStore,
@@ -184,10 +192,10 @@ export default {
       showLoginModal,
       closeModal,
       handleLoginSuccess,
-      handleLogout
-    }
-  }
-}
+      handleLogout,
+    };
+  },
+};
 </script>
 
 <style>
@@ -251,8 +259,12 @@ export default {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Error banner */
@@ -276,7 +288,8 @@ export default {
 }
 
 /* Auth prompts */
-.auth-required, .permission-denied {
+.auth-required,
+.permission-denied {
   text-align: center;
   padding: 3rem;
   color: #666;

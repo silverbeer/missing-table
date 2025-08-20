@@ -2,7 +2,7 @@
   <div class="login-form">
     <div class="form-container">
       <h2>{{ isSignup ? 'Sign Up' : 'Login' }}</h2>
-      
+
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
           <label for="email">Email:</label>
@@ -45,12 +45,18 @@
         </div>
 
         <div class="form-actions">
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             :disabled="authStore.state.loading"
             class="submit-btn"
           >
-            {{ authStore.state.loading ? 'Processing...' : (isSignup ? 'Sign Up' : 'Login') }}
+            {{
+              authStore.state.loading
+                ? 'Processing...'
+                : isSignup
+                  ? 'Sign Up'
+                  : 'Login'
+            }}
           </button>
         </div>
       </form>
@@ -84,8 +90,13 @@
             <small>Manage your team and games</small>
           </label>
         </div>
-        
-        <div v-if="selectedRole === 'team-manager' || selectedRole === 'team-player'" class="team-selection">
+
+        <div
+          v-if="
+            selectedRole === 'team-manager' || selectedRole === 'team-player'
+          "
+          class="team-selection"
+        >
           <label for="teamSelect">Select Your Team:</label>
           <select id="teamSelect" v-model="selectedTeamId" required>
             <option value="">Choose a team...</option>
@@ -95,7 +106,11 @@
           </select>
         </div>
 
-        <button @click="completeProfile" :disabled="!selectedRole" class="submit-btn">
+        <button
+          @click="completeProfile"
+          :disabled="!selectedRole"
+          class="submit-btn"
+        >
           Complete Profile
         </button>
       </div>
@@ -104,79 +119,83 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { ref, reactive, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 export default {
   name: 'LoginForm',
   emits: ['login-success'],
   setup(props, { emit }) {
-    const authStore = useAuthStore()
-    const isSignup = ref(false)
-    const showRoleSelection = ref(false)
-    const selectedRole = ref('team-fan')
-    const selectedTeamId = ref('')
-    const teams = ref([])
+    const authStore = useAuthStore();
+    const isSignup = ref(false);
+    const showRoleSelection = ref(false);
+    const selectedRole = ref('team-fan');
+    const selectedTeamId = ref('');
+    const teams = ref([]);
 
     const form = reactive({
       email: '',
       password: '',
-      displayName: ''
-    })
+      displayName: '',
+    });
 
     const toggleMode = () => {
-      isSignup.value = !isSignup.value
-      authStore.clearError()
-      showRoleSelection.value = false
-    }
+      isSignup.value = !isSignup.value;
+      authStore.clearError();
+      showRoleSelection.value = false;
+    };
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/teams')
-        const data = await response.json()
-        teams.value = data
+        const response = await fetch('http://localhost:8000/api/teams');
+        const data = await response.json();
+        teams.value = data;
       } catch (error) {
-        console.error('Error fetching teams:', error)
+        console.error('Error fetching teams:', error);
       }
-    }
+    };
 
     const handleSubmit = async () => {
-      authStore.clearError()
+      authStore.clearError();
 
       if (isSignup.value) {
-        const result = await authStore.signup(form.email, form.password, form.displayName)
+        const result = await authStore.signup(
+          form.email,
+          form.password,
+          form.displayName
+        );
         if (result.success) {
           // Show role selection for new users
-          showRoleSelection.value = true
-          await fetchTeams()
+          showRoleSelection.value = true;
+          await fetchTeams();
         }
       } else {
-        const result = await authStore.login(form.email, form.password)
+        const result = await authStore.login(form.email, form.password);
         if (result.success) {
-          emit('login-success')
+          emit('login-success');
         }
       }
-    }
+    };
 
     const completeProfile = async () => {
       try {
-        const updates = { role: selectedRole.value }
+        const updates = { role: selectedRole.value };
         if (selectedTeamId.value) {
-          updates.team_id = selectedTeamId.value
+          updates.team_id = selectedTeamId.value;
         }
 
-        const result = await authStore.updateProfile(updates)
+        const result = await authStore.updateProfile(updates);
         if (result.success) {
-          emit('login-success')
+          emit('login-success');
         }
       } catch (error) {
-        authStore.setError('Failed to update profile')
+        authStore.setError('Failed to update profile');
       }
-    }
+    };
 
     onMounted(() => {
-      fetchTeams()
-    })
+      fetchTeams();
+    });
 
     return {
       authStore,
@@ -188,10 +207,10 @@ export default {
       teams,
       toggleMode,
       handleSubmit,
-      completeProfile
-    }
-  }
-}
+      completeProfile,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -339,7 +358,7 @@ export default {
   background-color: #f8f9fa;
 }
 
-.role-option input[type="radio"] {
+.role-option input[type='radio'] {
   margin-right: 0.5rem;
 }
 

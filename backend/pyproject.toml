@@ -25,6 +25,14 @@ dependencies = [
     "playwright>=1.53.0",
     "slowapi>=0.1.9",
     "redis>=5.0.0",
+    "logfire>=0.64.0",
+    "opentelemetry-api>=1.28.0",
+    "opentelemetry-sdk>=1.28.0",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.49b0",
+    "opentelemetry-instrumentation-requests>=0.49b0",
+    "opentelemetry-instrumentation-redis>=0.49b0",
+    "user-agents>=2.2.0",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +63,8 @@ mt-cli = "cli:app"
 dev-dependencies = [
     "pytest>=8.3.3",
     "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-xdist>=3.3.0",
     "coverage>=7.6.4",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
@@ -63,6 +73,7 @@ dev-dependencies = [
     "pre-commit>=4.0.0",
     "types-requests>=2.32.0",
     "types-python-dateutil>=2.9.0",
+    "httpx>=0.27.0",
 ]
 
 # Ruff configuration - Ultra-fast Python linter and formatter

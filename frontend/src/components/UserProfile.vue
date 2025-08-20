@@ -2,14 +2,10 @@
   <div class="user-profile">
     <div class="profile-header">
       <h2>User Profile</h2>
-      <button @click="handleLogout" class="logout-btn">
-        Logout
-      </button>
+      <button @click="handleLogout" class="logout-btn">Logout</button>
     </div>
 
-    <div v-if="authStore.state.loading" class="loading">
-      Loading profile...
-    </div>
+    <div v-if="authStore.state.loading" class="loading">Loading profile...</div>
 
     <div v-else-if="authStore.state.profile" class="profile-content">
       <div class="profile-info">
@@ -37,7 +33,11 @@
 
         <div v-if="authStore.state.profile.team" class="info-group">
           <label>Team:</label>
-          <span>{{ authStore.state.profile.team.name }} ({{ authStore.state.profile.team.city }})</span>
+          <span
+            >{{ authStore.state.profile.team.name }} ({{
+              authStore.state.profile.team.city
+            }})</span
+          >
         </div>
 
         <div class="info-group">
@@ -47,21 +47,15 @@
       </div>
 
       <div class="profile-actions">
-        <button 
-          v-if="!isEditing" 
-          @click="startEditing" 
-          class="edit-btn"
-        >
+        <button v-if="!isEditing" @click="startEditing" class="edit-btn">
           Edit Profile
         </button>
-        
+
         <div v-else class="edit-actions">
           <button @click="saveChanges" :disabled="saving" class="save-btn">
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </button>
-          <button @click="cancelEditing" class="cancel-btn">
-            Cancel
-          </button>
+          <button @click="cancelEditing" class="cancel-btn">Cancel</button>
         </div>
       </div>
 
@@ -85,7 +79,10 @@
     <div v-if="authStore.isAdmin" class="admin-panel">
       <h3>Admin Panel</h3>
       <div class="admin-actions">
-        <button @click="showUserManagement = !showUserManagement" class="admin-btn">
+        <button
+          @click="showUserManagement = !showUserManagement"
+          class="admin-btn"
+        >
           {{ showUserManagement ? 'Hide' : 'Show' }} User Management
         </button>
       </div>
@@ -103,8 +100,8 @@
               </span>
             </div>
             <div class="user-actions">
-              <select 
-                :value="user.role" 
+              <select
+                :value="user.role"
                 @change="updateUserRole(user.id, $event.target.value)"
                 class="role-select"
               >
@@ -122,177 +119,191 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 export default {
   name: 'UserProfile',
   emits: ['logout'],
   setup(props, { emit }) {
-    const authStore = useAuthStore()
-    const isEditing = ref(false)
-    const saving = ref(false)
-    const showUserManagement = ref(false)
-    const loadingUsers = ref(false)
-    const users = ref([])
-    const teams = ref([])
+    const authStore = useAuthStore();
+    const isEditing = ref(false);
+    const saving = ref(false);
+    const showUserManagement = ref(false);
+    const loadingUsers = ref(false);
+    const users = ref([]);
+    const teams = ref([]);
 
     const editForm = reactive({
       display_name: '',
-      team_id: null
-    })
+      team_id: null,
+    });
 
     const showTeamSelection = computed(() => {
-      const role = authStore.state.profile?.role
-      return role === 'team-manager' || role === 'team-player'
-    })
+      const role = authStore.state.profile?.role;
+      return role === 'team-manager' || role === 'team-player';
+    });
 
     const roleClass = computed(() => {
-      return getRoleClass(authStore.state.profile?.role)
-    })
+      return getRoleClass(authStore.state.profile?.role);
+    });
 
-    const getRoleClass = (role) => {
+    const getRoleClass = role => {
       const classes = {
-        'admin': 'role-admin',
+        admin: 'role-admin',
         'team-manager': 'role-manager',
         'team-player': 'role-player',
-        'team-fan': 'role-fan'
-      }
-      return classes[role] || 'role-fan'
-    }
+        'team-fan': 'role-fan',
+      };
+      return classes[role] || 'role-fan';
+    };
 
-    const formatRole = (role) => {
+    const formatRole = role => {
       const roleNames = {
-        'admin': 'Administrator',
+        admin: 'Administrator',
         'team-manager': 'Team Manager',
         'team-player': 'Team Player',
-        'team-fan': 'Team Fan'
-      }
-      return roleNames[role] || role
-    }
+        'team-fan': 'Team Fan',
+      };
+      return roleNames[role] || role;
+    };
 
-    const formatDate = (dateString) => {
-      return new Date(dateString).toLocaleDateString()
-    }
+    const formatDate = dateString => {
+      return new Date(dateString).toLocaleDateString();
+    };
 
     const startEditing = () => {
-      isEditing.value = true
-      editForm.display_name = authStore.state.profile.display_name || ''
-      editForm.team_id = authStore.state.profile.team_id || null
-    }
+      isEditing.value = true;
+      editForm.display_name = authStore.state.profile.display_name || '';
+      editForm.team_id = authStore.state.profile.team_id || null;
+    };
 
     const cancelEditing = () => {
-      isEditing.value = false
-      authStore.clearError()
-    }
+      isEditing.value = false;
+      authStore.clearError();
+    };
 
     const saveChanges = async () => {
-      saving.value = true
-      authStore.clearError()
+      saving.value = true;
+      authStore.clearError();
 
       try {
-        const updates = {}
+        const updates = {};
         if (editForm.display_name !== authStore.state.profile.display_name) {
-          updates.display_name = editForm.display_name
+          updates.display_name = editForm.display_name;
         }
         if (editForm.team_id !== authStore.state.profile.team_id) {
-          updates.team_id = editForm.team_id
+          updates.team_id = editForm.team_id;
         }
 
         if (Object.keys(updates).length > 0) {
-          const result = await authStore.updateProfile(updates)
+          const result = await authStore.updateProfile(updates);
           if (result.success) {
-            isEditing.value = false
+            isEditing.value = false;
           }
         } else {
-          isEditing.value = false
+          isEditing.value = false;
         }
       } catch (error) {
-        authStore.setError('Failed to update profile')
+        authStore.setError('Failed to update profile');
       } finally {
-        saving.value = false
+        saving.value = false;
       }
-    }
+    };
 
     const handleLogout = async () => {
-      const result = await authStore.logout()
+      const result = await authStore.logout();
       if (result.success) {
-        emit('logout')
+        emit('logout');
       }
-    }
+    };
 
     const fetchUsers = async () => {
       if (!authStore.isAdmin) {
-        console.log('Not admin, skipping user fetch')
-        return
+        console.log('Not admin, skipping user fetch');
+        return;
       }
 
       try {
-        loadingUsers.value = true
-        const response = await authStore.apiRequest('http://localhost:8000/api/auth/users')
-        users.value = response
-        console.log('Successfully fetched users for admin')
+        loadingUsers.value = true;
+        const response = await authStore.apiRequest(
+          'http://localhost:8000/api/auth/users'
+        );
+        users.value = response;
+        console.log('Successfully fetched users for admin');
       } catch (error) {
-        console.error('Error fetching users:', error)
+        console.error('Error fetching users:', error);
         // Don't show error to user if it's just an authorization issue
-        if (error.message.includes('403') || error.message.includes('Forbidden')) {
-          console.log('User does not have admin access')
+        if (
+          error.message.includes('403') ||
+          error.message.includes('Forbidden')
+        ) {
+          console.log('User does not have admin access');
         } else {
-          authStore.setError('Failed to load users')
+          authStore.setError('Failed to load users');
         }
       } finally {
-        loadingUsers.value = false
+        loadingUsers.value = false;
       }
-    }
+    };
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/teams')
-        const data = await response.json()
-        teams.value = data
+        const response = await fetch('http://localhost:8000/api/teams');
+        const data = await response.json();
+        teams.value = data;
       } catch (error) {
-        console.error('Error fetching teams:', error)
+        console.error('Error fetching teams:', error);
       }
-    }
+    };
 
     const updateUserRole = async (userId, newRole) => {
       try {
-        await authStore.apiRequest('http://localhost:8000/api/auth/users/role', {
-          method: 'PUT',
-          body: JSON.stringify({
-            user_id: userId,
-            role: newRole
-          })
-        })
-        
+        await authStore.apiRequest(
+          'http://localhost:8000/api/auth/users/role',
+          {
+            method: 'PUT',
+            body: JSON.stringify({
+              user_id: userId,
+              role: newRole,
+            }),
+          }
+        );
+
         // Refresh users list
-        await fetchUsers()
+        await fetchUsers();
       } catch (error) {
-        console.error('Error updating user role:', error)
-        authStore.setError('Failed to update user role')
+        console.error('Error updating user role:', error);
+        authStore.setError('Failed to update user role');
       }
-    }
+    };
 
     onMounted(async () => {
-      fetchTeams()
-      
+      fetchTeams();
+
       // Debug authentication state
       console.log('UserProfile mounted - Auth state:', {
         user: authStore.state.user?.email,
         profile: authStore.state.profile,
         userRole: authStore.userRole,
         isAdmin: authStore.isAdmin,
-        isAuthenticated: authStore.isAuthenticated
-      })
-      
+        isAuthenticated: authStore.isAuthenticated,
+      });
+
       // Wait for authentication to be fully initialized before checking admin status
-      if (authStore.state.user && authStore.state.profile && authStore.isAdmin) {
-        console.log('User is admin, fetching users...')
-        await fetchUsers()
+      if (
+        authStore.state.user &&
+        authStore.state.profile &&
+        authStore.isAdmin
+      ) {
+        console.log('User is admin, fetching users...');
+        await fetchUsers();
       } else {
-        console.log('User is not admin or profile not fully loaded, skipping admin data fetch')
+        console.log(
+          'User is not admin or profile not fully loaded, skipping admin data fetch'
+        );
       }
-    })
+    });
 
     return {
       authStore,
@@ -313,10 +324,10 @@ export default {
       saveChanges,
       handleLogout,
       fetchUsers,
-      updateUserRole
-    }
-  }
-}
+      updateUserRole,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -433,7 +444,9 @@ export default {
   margin-top: 1.5rem;
 }
 
-.edit-btn, .save-btn, .cancel-btn {
+.edit-btn,
+.save-btn,
+.cancel-btn {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 4px;

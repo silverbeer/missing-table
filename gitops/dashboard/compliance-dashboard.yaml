@@ -1,0 +1,852 @@
+# Compliance Dashboard and Reporting System
+# This provides comprehensive visibility into security compliance status
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: compliance-dashboard
+  labels:
+    name: compliance-dashboard
+    security.missing-table.io/level: "high"
+    compliance.missing-table.io/framework: "soc2"
+---
+# Compliance Dashboard Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-config
+  namespace: compliance-dashboard
+data:
+  grafana-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Security Compliance Dashboard",
+        "tags": ["security", "compliance", "gitops"],
+        "timezone": "UTC",
+        "schemaVersion": 27,
+        "version": 1,
+        "refresh": "30s",
+        "time": {
+          "from": "now-24h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Compliance Overview",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "avg(compliance_score_percentage)",
+                "legendFormat": "Overall Compliance"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "min": 0,
+                "max": 100,
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "yellow", "value": 80},
+                    {"color": "green", "value": 95}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Security Policy Violations",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(gatekeeper_violations_total)",
+                "legendFormat": "Active Violations"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short",
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "yellow", "value": 1},
+                    {"color": "red", "value": 5}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Runtime Security Events",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(falco_events_total[5m]))",
+                "legendFormat": "Events/sec"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short",
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "yellow", "value": 0.1},
+                    {"color": "red", "value": 1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+          },
+          {
+            "id": 4,
+            "title": "Auto-Remediation Success Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(security_remediation_success_total[5m]) / rate(security_remediation_total[5m]) * 100",
+                "legendFormat": "Success Rate"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "yellow", "value": 90},
+                    {"color": "green", "value": 99}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+          },
+          {
+            "id": 5,
+            "title": "Compliance Framework Status",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "compliance_framework_score",
+                "format": "table",
+                "instant": true
+              }
+            ],
+            "transformations": [
+              {
+                "id": "organize",
+                "options": {
+                  "excludeByName": {"Time": true, "__name__": true},
+                  "renameByName": {
+                    "framework": "Framework",
+                    "Value": "Score (%)"
+                  }
+                }
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "id": 6,
+            "title": "Security Events by Severity",
+            "type": "piechart",
+            "targets": [
+              {
+                "expr": "sum by (severity) (security_events_total)",
+                "legendFormat": "{{severity}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          },
+          {
+            "id": 7,
+            "title": "Policy Violations Over Time",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "sum by (violation_type) (rate(gatekeeper_violations_total[5m]))",
+                "legendFormat": "{{violation_type}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short"
+              }
+            },
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+          },
+          {
+            "id": 8,
+            "title": "Security Response Times",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(security_response_duration_seconds_bucket[5m]))",
+                "legendFormat": "95th percentile"
+              },
+              {
+                "expr": "histogram_quantile(0.50, rate(security_response_duration_seconds_bucket[5m]))",
+                "legendFormat": "50th percentile"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s"
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+          },
+          {
+            "id": 9,
+            "title": "Audit Log Volume",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(audit_events_total[5m])",
+                "legendFormat": "Audit Events/sec"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short"
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+          }
+        ]
+      }
+    }
+
+  compliance-queries.yaml: |
+    # Compliance reporting queries
+    queries:
+      soc2:
+        name: "SOC 2 Type II Compliance"
+        controls:
+          CC6.1:
+            query: "avg(rbac_compliance_score)"
+            threshold: 90
+            description: "Logical access controls"
+          CC6.7:
+            query: "avg(encryption_compliance_score)"
+            threshold: 95
+            description: "Data transmission security"
+          CC7.1:
+            query: "avg(monitoring_compliance_score)"
+            threshold: 90
+            description: "System monitoring"
+      
+      cis_k8s:
+        name: "CIS Kubernetes Benchmark"
+        controls:
+          "5.1.1":
+            query: "cluster_admin_usage_violations"
+            threshold: 0
+            description: "Cluster admin role usage"
+          "5.2.2":
+            query: "privilege_escalation_violations"
+            threshold: 0
+            description: "Privilege escalation prevention"
+          "5.7.3":
+            query: "security_context_violations"
+            threshold: 0
+            description: "Security context enforcement"
+      
+      nist:
+        name: "NIST Cybersecurity Framework"
+        controls:
+          PR.AC-1:
+            query: "avg(identity_compliance_score)"
+            threshold: 90
+            description: "Identity management"
+          PR.DS-1:
+            query: "avg(data_protection_score)"
+            threshold: 95
+            description: "Data protection"
+      
+      pci_dss:
+        name: "PCI Data Security Standard"
+        controls:
+          "2.2.1":
+            query: "avg(configuration_compliance_score)"
+            threshold: 95
+            description: "Secure configuration"
+          "7.1.1":
+            query: "avg(access_control_score)"
+            threshold: 90
+            description: "Access control systems"
+
+  report-templates.yaml: |
+    # Report templates for different audiences
+    templates:
+      executive_summary:
+        title: "Executive Security Compliance Summary"
+        sections:
+          - compliance_overview
+          - risk_assessment
+          - key_metrics
+          - recommendations
+        format: "pdf"
+        schedule: "weekly"
+      
+      technical_report:
+        title: "Technical Compliance Report"
+        sections:
+          - detailed_findings
+          - policy_violations
+          - remediation_status
+          - security_events
+        format: "html"
+        schedule: "daily"
+      
+      audit_report:
+        title: "Compliance Audit Report"
+        sections:
+          - compliance_frameworks
+          - control_assessments
+          - evidence_collection
+          - gap_analysis
+        format: "pdf"
+        schedule: "monthly"
+
+---
+# Compliance Dashboard Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compliance-dashboard
+  namespace: compliance-dashboard
+  annotations:
+    security.missing-table.io/description: "Service account for compliance dashboard"
+automountServiceAccountToken: true
+
+---
+# Compliance Dashboard ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: compliance-dashboard
+  labels:
+    compliance.missing-table.io/component: "dashboard"
+rules:
+# Read access for compliance monitoring
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+
+---
+# Compliance Dashboard ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: compliance-dashboard
+  labels:
+    compliance.missing-table.io/component: "dashboard"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: compliance-dashboard
+subjects:
+- kind: ServiceAccount
+  name: compliance-dashboard
+  namespace: compliance-dashboard
+
+---
+# Grafana for Compliance Visualization
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: compliance-dashboard
+  labels:
+    app: grafana
+    compliance.missing-table.io/component: "visualization"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+        compliance.missing-table.io/component: "visualization"
+    spec:
+      serviceAccountName: compliance-dashboard
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.2.2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-credentials
+              key: admin-password
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-piechart-panel,grafana-worldmap-panel"
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "false"
+        - name: GF_AUTH_BASIC_ENABLED
+          value: "true"
+        - name: GF_SECURITY_ALLOW_EMBEDDING
+          value: "true"
+        - name: GF_SECURITY_COOKIE_SECURE
+          value: "true"
+        - name: GF_SECURITY_COOKIE_SAMESITE
+          value: "strict"
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning
+          readOnly: true
+        - name: dashboards
+          mountPath: /var/lib/grafana/dashboards
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 472
+          runAsGroup: 472
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: grafana-storage
+        persistentVolumeClaim:
+          claimName: grafana-storage
+      - name: grafana-config
+        configMap:
+          name: grafana-config
+      - name: dashboards
+        configMap:
+          name: dashboard-config
+
+---
+# Grafana Storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage
+  namespace: compliance-dashboard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# Grafana Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: compliance-dashboard
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus-server.monitoring:9090
+      isDefault: true
+      editable: true
+    - name: Elasticsearch
+      type: elasticsearch
+      access: proxy
+      url: http://elasticsearch-audit.audit-logging:9200
+      database: "kubernetes-audit-*"
+      timeField: "@timestamp"
+      esVersion: "8.0.0"
+
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'compliance'
+      orgId: 1
+      folder: 'Compliance'
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: compliance-dashboard
+  labels:
+    app: grafana
+    compliance.missing-table.io/component: "visualization"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: grafana
+
+---
+# Compliance Reporter Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-reporter
+  namespace: compliance-dashboard
+  labels:
+    app: compliance-reporter
+    compliance.missing-table.io/component: "reporter"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: compliance-reporter
+  template:
+    metadata:
+      labels:
+        app: compliance-reporter
+        compliance.missing-table.io/component: "reporter"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: compliance-dashboard
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      containers:
+      - name: reporter
+        image: gcr.io/missing-table-prod/compliance-reporter:v1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8090
+          name: health
+          protocol: TCP
+        env:
+        - name: CONFIG_PATH
+          value: "/config"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: PROMETHEUS_URL
+          value: "http://prometheus-server.monitoring:9090"
+        - name: ELASTICSEARCH_URL
+          value: "http://elasticsearch-audit.audit-logging:9200"
+        - name: GRAFANA_URL
+          value: "http://grafana:3000"
+        - name: REPORT_STORAGE_BUCKET
+          value: "missing-table-compliance-reports"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: reports
+          mountPath: /reports
+        - name: tmp
+          mountPath: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 300m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8090
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config
+        projected:
+          sources:
+          - configMap:
+              name: dashboard-config
+              items:
+              - key: compliance-queries.yaml
+                path: compliance-queries.yaml
+              - key: report-templates.yaml
+                path: report-templates.yaml
+      - name: reports
+        persistentVolumeClaim:
+          claimName: compliance-reports
+      - name: tmp
+        emptyDir:
+          sizeLimit: 512Mi
+
+---
+# Compliance Reports Storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: compliance-reports
+  namespace: compliance-dashboard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Compliance Reporter Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-reporter
+  namespace: compliance-dashboard
+  labels:
+    app: compliance-reporter
+    compliance.missing-table.io/component: "reporter"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: compliance-reporter
+
+---
+# Scheduled Compliance Reporting
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-compliance-report
+  namespace: compliance-dashboard
+  labels:
+    compliance.missing-table.io/component: "reporting"
+spec:
+  schedule: "0 8 * * *"  # Daily at 8 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: daily-compliance-report
+        spec:
+          serviceAccountName: compliance-dashboard
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+          containers:
+          - name: reporter
+            image: gcr.io/missing-table-prod/compliance-reporter:v1.0.0
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Generating daily compliance report..."
+              
+              # Generate technical report
+              /app/compliance-reporter \
+                --template technical_report \
+                --output /tmp/technical-report-$(date +%Y%m%d).html \
+                --format html
+              
+              # Upload to storage
+              if command -v gsutil >/dev/null 2>&1; then
+                gsutil cp /tmp/technical-report-*.html gs://missing-table-compliance-reports/daily/
+              fi
+              
+              echo "Daily compliance report generated and uploaded"
+            env:
+            - name: REPORT_TYPE
+              value: "daily"
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 65534
+              runAsGroup: 65534
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              limits:
+                cpu: 200m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 64Mi
+          volumes:
+          - name: config
+            configMap:
+              name: dashboard-config
+          - name: tmp
+            emptyDir:
+              sizeLimit: 256Mi
+
+---
+# Weekly Executive Report
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weekly-executive-report
+  namespace: compliance-dashboard
+  labels:
+    compliance.missing-table.io/component: "reporting"
+spec:
+  schedule: "0 9 * * 1"  # Monday at 9 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: weekly-executive-report
+        spec:
+          serviceAccountName: compliance-dashboard
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+          containers:
+          - name: reporter
+            image: gcr.io/missing-table-prod/compliance-reporter:v1.0.0
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Generating weekly executive report..."
+              
+              # Generate executive summary
+              /app/compliance-reporter \
+                --template executive_summary \
+                --output /tmp/executive-summary-$(date +%Y%m%d).pdf \
+                --format pdf
+              
+              # Upload to storage
+              if command -v gsutil >/dev/null 2>&1; then
+                gsutil cp /tmp/executive-summary-*.pdf gs://missing-table-compliance-reports/weekly/
+              fi
+              
+              echo "Weekly executive report generated and uploaded"
+            env:
+            - name: REPORT_TYPE
+              value: "weekly"
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 65534
+              runAsGroup: 65534
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              limits:
+                cpu: 300m
+                memory: 256Mi
+              requests:
+                cpu: 150m
+                memory: 128Mi
+          volumes:
+          - name: config
+            configMap:
+              name: dashboard-config
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi
+
+---
+# Grafana Credentials Secret (to be populated with real values)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-credentials
+  namespace: compliance-dashboard
+  labels:
+    compliance.missing-table.io/component: "credentials"
+type: Opaque
+data:
+  # Base64 encoded admin password
+  admin-password: YWRtaW4xMjM0NQ==

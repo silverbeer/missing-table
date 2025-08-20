@@ -1,0 +1,50 @@
+# Checkov Configuration for Terraform Security Scanning
+framework:
+  - terraform
+  - terraform_plan
+  - secrets
+
+# Output configuration
+output: sarif
+output_file_path: security/results/terraform-checkov-results.sarif
+
+# Check configuration
+check:
+  - CKV_AWS_*  # All AWS checks
+  - CKV_TF_*   # All Terraform checks
+  - CKV2_AWS_* # Complex AWS checks
+
+# Skip specific checks if needed (with justification)
+skip_check:
+  # Example: Skip S3 bucket versioning check for development
+  # - CKV_AWS_21  # S3 bucket versioning
+
+# Baseline configuration
+baseline: security/terraform/checkov-baseline.json
+
+# Custom checks directory
+external_checks_dir: security/terraform/custom-checks
+
+# Severity configuration
+severity_threshold: MEDIUM
+
+# Compact output for CI
+compact: true
+
+# Download external modules
+download_external_modules: true
+
+# Include suppressed checks in output
+include_all_checkov_policies: true
+
+# Quiet mode for less verbose output
+quiet: false
+
+# Set log level
+log_level: INFO
+
+# Custom policies
+policy_metadata_filter: "Terraform Security Best Practices"
+
+# Enable secret scanning
+secrets: true

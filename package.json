@@ -1,0 +1,28 @@
+{
+  "name": "missing-table",
+  "version": "1.0.0",
+  "description": "A comprehensive web application for managing sports leagues, including teams, games, standings, and administrative functions. Features a modern FastAPI backend with authentication and a Vue.js frontend with admin panel.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/silverbeer/missing-table.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/silverbeer/missing-table/issues"
+  },
+  "homepage": "https://github.com/silverbeer/missing-table#readme",
+  "devDependencies": {
+    "husky": "^9.1.7"
+  },
+  "dependencies": {
+    "playwright": "^1.54.2"
+  }
+}

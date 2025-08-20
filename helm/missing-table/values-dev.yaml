@@ -1,0 +1,81 @@
+# Development environment overrides for missing-table Helm chart
+
+# Reduced resource requirements for local development
+resourceQuota:
+  requests:
+    cpu: "2"
+    memory: "4Gi"
+  limits:
+    cpu: "4"
+    memory: "8Gi"
+  pods: "10"
+  pvcs: "5"
+
+# Redis with minimal resources for development
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  
+  persistence:
+    size: 500Mi  # Smaller storage for dev
+
+# Backend with development settings
+backend:
+  image:
+    tag: "latest"
+  env:
+    databaseUrl: "postgresql://postgres:postgres@host.docker.internal:54322/postgres"
+    environment: "development"
+    logLevel: "debug"  # More verbose logging for dev
+    disableLogfire: "true"
+    disableSecurity: "true"
+    extra:
+      DEBUG: "true"
+      RELOAD: "true"
+      SUPABASE_URL: "http://host.docker.internal:54321"
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+      SUPABASE_SERVICE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+  
+  command:
+    - "uv"
+    - "run"
+    - "uvicorn"
+    - "app:app"
+    - "--host"
+    - "0.0.0.0"
+    - "--port"
+    - "8000"
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Frontend with development settings
+frontend:
+  image:
+    tag: "latest"
+  env:
+    nodeEnv: "development"
+    apiUrl: "http://missing-table-backend:8000"
+    supabaseUrl: "http://host.docker.internal:54321"
+    supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+    vueAppDisableSecurity: "true"
+    extra:
+      VUE_APP_DEBUG: "true"
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi

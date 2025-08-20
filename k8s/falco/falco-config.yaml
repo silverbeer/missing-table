@@ -1,0 +1,328 @@
+# Falco Configuration for Missing Table Application Security Monitoring
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: missing-table
+  labels:
+    app: falco
+    component: security-monitoring
+data:
+  falco.yaml: |
+    # Basic Falco configuration
+    rule_matching: first
+    priority: debug
+    buffered_outputs: false
+    outputs_rate: 1
+    outputs_max_burst: 1000
+    
+    syslog_output:
+      enabled: true
+    
+    program_output:
+      enabled: true
+      keep_alive: false
+      program: "jq '{text: .output}' | curl -d @- -X POST https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    
+    json_output: true
+    json_include_output_property: true
+    json_include_tags_property: true
+    
+    # Load rules from files
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml
+      - /etc/falco/k8s_audit_rules.yaml
+      - /etc/falco/rules.d
+    
+    # Plugins configuration
+    plugins:
+      - name: k8saudit
+        library_path: libk8saudit.so
+        init_config:
+          maxEventBytes: 1048576
+          webhookMaxBatchSize: 12582912
+        open_params: "http://:9765/k8s-audit"
+      - name: cloudtrail
+        library_path: libcloudtrail.so
+    
+    # Watch configuration files for changes
+    watch_config_files: true
+    
+    # Syscall monitoring
+    syscall_event_drops:
+      actions:
+        - log
+        - alert
+      rate: 0.03333
+      max_burst: 10
+    
+    # Kubernetes specific settings
+    kubernetes_support: true
+    k8s_node_name: ${FALCO_K8S_NODE_NAME}
+    
+    # Metrics
+    metrics:
+      enabled: true
+      interval: 1h
+      output_rule: true
+      rules_counters_enabled: true
+      resource_utilization_enabled: true
+      state_counters_enabled: true
+      kernel_event_counters_enabled: true
+      libbpf_stats_enabled: true
+      convert_memory_to_mb: true
+      include_empty_values: false
+    
+    # Output channels
+    outputs:
+      rate: 1
+      max_burst: 1000
+    
+    # gRPC configuration
+    grpc:
+      enabled: true
+      bind_address: "0.0.0.0:5060"
+      threadiness: 0
+    
+    grpc_output:
+      enabled: true
+  
+  # Custom rules for Missing Table application
+  missing_table_rules.yaml: |
+    # Missing Table Application Specific Security Rules
+    
+    - rule: Missing Table Unauthorized File Access
+      desc: Detect unauthorized file access in missing table containers
+      condition: >
+        spawned_process and
+        container and
+        k8s.ns.name = "missing-table" and
+        (proc.name in (cat, less, more, head, tail, vi, vim, nano, emacs) and
+         fd.filename startswith "/etc/")
+      output: >
+        Unauthorized file access in Missing Table container 
+        (user=%user.name command=%proc.cmdline file=%fd.name 
+         container=%container.name image=%container.image.repository)
+      priority: WARNING
+      tags: [filesystem, missing-table, unauthorized-access]
+    
+    - rule: Missing Table Privilege Escalation Attempt
+      desc: Detect privilege escalation attempts in missing table containers
+      condition: >
+        spawned_process and
+        container and
+        k8s.ns.name = "missing-table" and
+        (proc.name in (sudo, su, doas) or
+         proc.cmdline contains "chmod +s" or
+         proc.cmdline contains "setuid")
+      output: >
+        Privilege escalation attempt in Missing Table container 
+        (user=%user.name command=%proc.cmdline container=%container.name 
+         image=%container.image.repository)
+      priority: CRITICAL
+      tags: [privilege-escalation, missing-table, security]
+    
+    - rule: Missing Table Suspicious Network Activity
+      desc: Detect suspicious network connections from missing table containers
+      condition: >
+        (inbound_outbound) and
+        container and
+        k8s.ns.name = "missing-table" and
+        not fd.sport in (8000, 8080, 443, 53) and
+        not fd.dport in (8000, 8080, 443, 53, 5432, 3306)
+      output: >
+        Suspicious network connection from Missing Table container 
+        (container=%container.name image=%container.image.repository 
+         connection=%fd.name direction=%evt.type)
+      priority: WARNING
+      tags: [network, missing-table, suspicious]
+    
+    - rule: Missing Table Container Shell Spawned
+      desc: Detect interactive shell spawned in missing table containers
+      condition: >
+        spawned_process and
+        container and
+        k8s.ns.name = "missing-table" and
+        proc.name in (bash, sh, zsh, fish, csh, tcsh)
+      output: >
+        Shell spawned in Missing Table container 
+        (user=%user.name shell=%proc.name container=%container.name 
+         image=%container.image.repository command=%proc.cmdline)
+      priority: NOTICE
+      tags: [shell, missing-table, container]
+    
+    - rule: Missing Table Secrets Access
+      desc: Detect access to sensitive files that might contain secrets
+      condition: >
+        open_read and
+        container and
+        k8s.ns.name = "missing-table" and
+        (fd.filename contains "secret" or
+         fd.filename contains "password" or
+         fd.filename contains "key" or
+         fd.filename endswith ".pem" or
+         fd.filename endswith ".p12" or
+         fd.filename endswith ".pfx")
+      output: >
+        Potential secrets access in Missing Table container 
+        (user=%user.name file=%fd.name container=%container.name 
+         image=%container.image.repository)
+      priority: WARNING
+      tags: [secrets, missing-table, security]
+    
+    # Database security rules
+    - rule: Missing Table Database Connection Anomaly
+      desc: Detect unusual database connections from missing table backend
+      condition: >
+        (outbound) and
+        container and
+        k8s.ns.name = "missing-table" and
+        k8s.pod.label["component"] = "backend" and
+        fd.dport in (5432, 3306, 1433, 1521) and
+        not (fd.sip in (backend_allowed_db_ips))
+      output: >
+        Unusual database connection from Missing Table backend 
+        (container=%container.name dest_ip=%fd.rip dest_port=%fd.rport)
+      priority: WARNING
+      tags: [database, missing-table, network]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: missing-table
+  labels:
+    app: falco
+    component: security-monitoring
+spec:
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+        component: security-monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8765"
+    spec:
+      serviceAccountName: falco
+      hostNetwork: true
+      hostPID: true
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+      containers:
+      - name: falco
+        image: falcosecurity/falco-no-driver:0.37.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - /usr/bin/falco
+        - --cri
+        - /run/containerd/containerd.sock
+        - --cri
+        - /run/crio/crio.sock
+        - -K
+        - /var/run/secrets/kubernetes.io/serviceaccount/token
+        - -k
+        - https://$(KUBERNETES_SERVICE_HOST)
+        - --k8s-node
+        - $(FALCO_K8S_NODE_NAME)
+        - -pk
+        env:
+        - name: FALCO_K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: FALCO_GRPC_BIND_ADDRESS
+          value: "0.0.0.0:5060"
+        - name: FALCO_GRPC_THREADINESS
+          value: "0"
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 200m
+            memory: 1024Mi
+        volumeMounts:
+        - mountPath: /etc/falco
+          name: falco-config
+        - mountPath: /host/var/run/docker.sock
+          name: docker-socket
+        - mountPath: /host/run/containerd/containerd.sock
+          name: containerd-socket
+        - mountPath: /host/run/crio/crio.sock
+          name: crio-socket
+        - mountPath: /host/dev
+          name: dev-fs
+          readOnly: true
+        - mountPath: /host/proc
+          name: proc-fs
+          readOnly: true
+        - mountPath: /host/boot
+          name: boot-fs
+          readOnly: true
+        - mountPath: /host/lib/modules
+          name: lib-modules
+          readOnly: true
+        - mountPath: /host/usr
+          name: usr-fs
+          readOnly: true
+        - mountPath: /host/etc
+          name: etc-fs
+          readOnly: true
+        livenessProbe:
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 15
+          httpGet:
+            path: /healthz
+            port: 8765
+        readinessProbe:
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 15
+          httpGet:
+            path: /healthz
+            port: 8765
+      volumes:
+      - name: falco-config
+        configMap:
+          name: falco-config
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+      - name: containerd-socket
+        hostPath:
+          path: /run/containerd/containerd.sock
+      - name: crio-socket
+        hostPath:
+          path: /run/crio/crio.sock
+      - name: dev-fs
+        hostPath:
+          path: /dev
+      - name: proc-fs
+        hostPath:
+          path: /proc
+      - name: boot-fs
+        hostPath:
+          path: /boot
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: usr-fs
+        hostPath:
+          path: /usr
+      - name: etc-fs
+        hostPath:
+          path: /etc
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane

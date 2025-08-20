@@ -7,10 +7,9 @@
 
       <div class="nav-links">
         <!-- No navigation links here - they're handled by tabs in App.vue -->
-        
+
         <!-- Authenticated user menu -->
         <div v-if="authStore.isAuthenticated.value" class="user-menu">
-
           <!-- User dropdown -->
           <div class="user-dropdown" @click="toggleDropdown">
             <div class="user-info">
@@ -32,9 +31,7 @@
         </div>
 
         <!-- Login button for non-authenticated users -->
-        <button v-else @click="showLogin" class="login-btn">
-          Login
-        </button>
+        <button v-else @click="showLogin" class="login-btn">Login</button>
       </div>
     </div>
 
@@ -44,70 +41,72 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 export default {
   name: 'AuthNav',
   emits: ['show-login', 'logout'],
   setup(props, { emit }) {
-    const authStore = useAuthStore()
-    const showDropdown = ref(false)
+    const authStore = useAuthStore();
+    const showDropdown = ref(false);
 
     const roleClass = computed(() => {
-      const role = authStore.userRole.value
-      return {
-        'admin': 'role-admin',
-        'team-manager': 'role-manager', 
-        'team-player': 'role-player',
-        'team-fan': 'role-fan'
-      }[role] || 'role-fan'
-    })
+      const role = authStore.userRole.value;
+      return (
+        {
+          admin: 'role-admin',
+          'team-manager': 'role-manager',
+          'team-player': 'role-player',
+          'team-fan': 'role-fan',
+        }[role] || 'role-fan'
+      );
+    });
 
-    const formatRole = (role) => {
+    const formatRole = role => {
       const roleNames = {
-        'admin': 'Admin',
+        admin: 'Admin',
         'team-manager': 'Manager',
         'team-player': 'Player',
-        'team-fan': 'Fan'
-      }
-      return roleNames[role] || role
-    }
+        'team-fan': 'Fan',
+      };
+      return roleNames[role] || role;
+    };
 
     const toggleDropdown = () => {
-      showDropdown.value = !showDropdown.value
-    }
+      showDropdown.value = !showDropdown.value;
+    };
 
     const hideDropdown = () => {
-      showDropdown.value = false
-    }
+      showDropdown.value = false;
+    };
 
     const showLogin = () => {
-      emit('show-login')
-    }
+      emit('show-login');
+    };
 
     const handleLogout = async () => {
-      hideDropdown()
-      const result = await authStore.logout()
+      hideDropdown();
+      const result = await authStore.logout();
       if (result.success) {
-        emit('logout')
+        emit('logout');
       }
-    }
+    };
 
     // Close dropdown when clicking outside
-    const handleClickOutside = (event) => {
+    const handleClickOutside = event => {
       if (!event.target.closest('.user-dropdown')) {
-        hideDropdown()
+        hideDropdown();
       }
-    }
+    };
 
     onMounted(() => {
-      document.addEventListener('click', handleClickOutside)
-    })
+      document.addEventListener('click', handleClickOutside);
+    });
 
     onUnmounted(() => {
-      document.removeEventListener('click', handleClickOutside)
-    })
+      document.removeEventListener('click', handleClickOutside);
+    });
 
     return {
       authStore,
@@ -117,10 +116,10 @@ export default {
       toggleDropdown,
       hideDropdown,
       showLogin,
-      handleLogout
-    }
-  }
-}
+      handleLogout,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -343,24 +342,24 @@ export default {
   .nav-content {
     padding: 1rem;
   }
-  
+
   .nav-links {
     gap: 1rem;
   }
-  
+
   .nav-link {
     padding: 0.25rem 0.5rem;
     font-size: 0.9rem;
   }
-  
+
   .user-dropdown {
     padding: 0.25rem 0.5rem;
   }
-  
+
   .user-name {
     font-size: 0.8rem;
   }
-  
+
   .user-role {
     font-size: 0.7rem;
   }

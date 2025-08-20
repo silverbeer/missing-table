@@ -16,24 +16,27 @@
       <div class="admin-section">
         <h3>Administrative Functions</h3>
         <div class="admin-grid">
-          <div class="admin-card" @click="showUserManagement = !showUserManagement">
+          <div
+            class="admin-card"
+            @click="showUserManagement = !showUserManagement"
+          >
             <div class="card-icon">👥</div>
             <h4>User Management</h4>
             <p>Manage user roles and permissions</p>
           </div>
-          
+
           <div class="admin-card" @click="navigateToAdmin">
             <div class="card-icon">⚙️</div>
             <h4>System Administration</h4>
             <p>Manage teams, games, and leagues</p>
           </div>
-          
+
           <div class="admin-card">
             <div class="card-icon">📊</div>
             <h4>Analytics</h4>
             <p>View system statistics and reports</p>
           </div>
-          
+
           <div class="admin-card">
             <div class="card-icon">🛠️</div>
             <h4>System Settings</h4>
@@ -46,9 +49,11 @@
       <div v-if="showUserManagement" class="user-management-section">
         <div class="section-header">
           <h3>User Management</h3>
-          <button @click="showUserManagement = false" class="close-btn">×</button>
+          <button @click="showUserManagement = false" class="close-btn">
+            ×
+          </button>
         </div>
-        
+
         <div v-if="loadingUsers" class="loading">Loading users...</div>
         <div v-else class="users-grid">
           <div v-for="user in users" :key="user.id" class="user-card">
@@ -66,8 +71,8 @@
               </div>
             </div>
             <div class="user-actions">
-              <select 
-                :value="user.role" 
+              <select
+                :value="user.role"
                 @change="updateUserRole(user.id, $event.target.value)"
                 class="role-select"
               >
@@ -108,89 +113,105 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import BaseProfile from './BaseProfile.vue'
+import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import BaseProfile from './BaseProfile.vue';
 
 export default {
   name: 'AdminProfile',
   components: {
-    BaseProfile
+    BaseProfile,
   },
   emits: ['logout'],
   setup() {
-    const authStore = useAuthStore()
-    const showUserManagement = ref(false)
-    const loadingUsers = ref(false)
-    const users = ref([])
+    const authStore = useAuthStore();
+    const showUserManagement = ref(false);
+    const loadingUsers = ref(false);
+    const users = ref([]);
 
-    const adminCount = computed(() => users.value.filter(u => u.role === 'admin').length)
-    const managerCount = computed(() => users.value.filter(u => u.role === 'team-manager').length)
-    const playerCount = computed(() => users.value.filter(u => u.role === 'team-player').length)
+    const adminCount = computed(
+      () => users.value.filter(u => u.role === 'admin').length
+    );
+    const managerCount = computed(
+      () => users.value.filter(u => u.role === 'team-manager').length
+    );
+    const playerCount = computed(
+      () => users.value.filter(u => u.role === 'team-player').length
+    );
 
     const fetchUsers = async () => {
-      if (!authStore.isAdmin) return
+      if (!authStore.isAdmin) return;
 
       try {
-        loadingUsers.value = true
-        const response = await authStore.apiRequest('http://localhost:8000/api/auth/users')
-        users.value = response
+        loadingUsers.value = true;
+        const response = await authStore.apiRequest(
+          'http://localhost:8000/api/auth/users'
+        );
+        users.value = response;
       } catch (error) {
-        console.error('Error fetching users:', error)
+        console.error('Error fetching users:', error);
         if (!error.message.includes('403')) {
-          authStore.setError('Failed to load users')
+          authStore.setError('Failed to load users');
         }
       } finally {
-        loadingUsers.value = false
+        loadingUsers.value = false;
       }
-    }
+    };
 
     const updateUserRole = async (userId, newRole) => {
       try {
-        await authStore.apiRequest('http://localhost:8000/api/auth/users/role', {
-          method: 'PUT',
-          body: JSON.stringify({
-            user_id: userId,
-            role: newRole
-          })
-        })
-        await fetchUsers()
+        await authStore.apiRequest(
+          'http://localhost:8000/api/auth/users/role',
+          {
+            method: 'PUT',
+            body: JSON.stringify({
+              user_id: userId,
+              role: newRole,
+            }),
+          }
+        );
+        await fetchUsers();
       } catch (error) {
-        console.error('Error updating user role:', error)
-        authStore.setError('Failed to update user role')
+        console.error('Error updating user role:', error);
+        authStore.setError('Failed to update user role');
       }
-    }
+    };
 
-    const formatRole = (role) => {
+    const formatRole = role => {
       const roleMap = {
-        'admin': 'Administrator',
+        admin: 'Administrator',
         'team-manager': 'Team Manager',
         'team-player': 'Team Player',
-        'team-fan': 'Team Fan'
-      }
-      return roleMap[role] || role
-    }
+        'team-fan': 'Team Fan',
+      };
+      return roleMap[role] || role;
+    };
 
-    const getRoleClass = (role) => {
-      return `role-${role?.replace('team-', '') || 'fan'}`
-    }
+    const getRoleClass = role => {
+      return `role-${role?.replace('team-', '') || 'fan'}`;
+    };
 
-    const getInitials = (name) => {
-      if (!name) return '?'
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    }
+    const getInitials = name => {
+      if (!name) return '?';
+      return name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    };
 
     const navigateToAdmin = () => {
       // This would typically use vue-router
       // For now, just emit an event or use direct navigation
-      console.log('Navigate to admin panel')
-    }
+      console.log('Navigate to admin panel');
+    };
 
     onMounted(async () => {
       if (authStore.isAdmin) {
-        await fetchUsers()
+        await fetchUsers();
       }
-    })
+    });
 
     return {
       showUserManagement,
@@ -204,10 +225,10 @@ export default {
       formatRole,
       getRoleClass,
       getInitials,
-      navigateToAdmin
-    }
-  }
-}
+      navigateToAdmin,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -403,8 +424,20 @@ export default {
   font-weight: 600;
 }
 
-.role-admin { background-color: #fee2e2; color: #dc2626; }
-.role-manager { background-color: #dbeafe; color: #2563eb; }
-.role-player { background-color: #d1fae5; color: #059669; }
-.role-fan { background-color: #e5e7eb; color: #6b7280; }
+.role-admin {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+.role-manager {
+  background-color: #dbeafe;
+  color: #2563eb;
+}
+.role-player {
+  background-color: #d1fae5;
+  color: #059669;
+}
+.role-fan {
+  background-color: #e5e7eb;
+  color: #6b7280;
+}
 </style>

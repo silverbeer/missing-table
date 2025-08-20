@@ -1,0 +1,24 @@
+{
+  "security": {
+    "ignore-cvss-severity-below": 7.0,
+    "ignore-cvss-unknown-severity": false,
+    "ignore-vulnerabilities": {
+      "reason": "These vulnerabilities are acknowledged and accepted",
+      "ignored": []
+    },
+    "continue-on-vulnerability-error": false
+  },
+  "alert": {
+    "ignore-unpinned-requirements": false,
+    "ignore-environment-requirements": true
+  },
+  "report": {
+    "only-report": false,
+    "output": "json"
+  },
+  "scan": {
+    "system": false,
+    "disable-audit-and-monitor": false,
+    "policy-file": ".safety-policy.json"
+  }
+}

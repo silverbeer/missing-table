@@ -1,0 +1,116 @@
+# Kustomization file for GitOps Security Stack
+# This provides a unified way to deploy the entire security infrastructure
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: gitops-security-stack
+  annotations:
+    security.missing-table.io/description: "Complete GitOps security implementation"
+    compliance.missing-table.io/frameworks: "soc2,cis_k8s,nist,pci_dss"
+
+# Deploy components in proper order for dependencies
+resources:
+  # Core GitOps controller (ArgoCD)
+  - argocd/argocd-install.yaml
+  
+  # Policy enforcement layer
+  - policy-enforcement/gatekeeper-system.yaml
+  - policy-enforcement/security-policies.yaml
+  - policy-enforcement/pod-security-standards.yaml
+  
+  # Security scanning pipeline
+  - security-scanning/trivy-system.yaml
+  - security-scanning/security-scanner.yaml
+  
+  # Compliance verification
+  - compliance/compliance-verification.yaml
+  
+  # Audit logging infrastructure
+  - audit-logging/audit-system.yaml
+  
+  # Runtime security monitoring
+  - runtime-security/falco-security.yaml
+  
+  # Alerting and auto-remediation
+  - alerting-remediation/security-response.yaml
+  
+  # Compliance dashboard and reporting
+  - dashboard/compliance-dashboard.yaml
+  
+  # Incident response automation
+  - incident-response/incident-automation.yaml
+
+# Global labels applied to all resources
+commonLabels:
+  security.missing-table.io/managed-by: "gitops"
+  security.missing-table.io/version: "v1.0.0"
+  app.kubernetes.io/part-of: "gitops-security-stack"
+
+# Global annotations for all resources
+commonAnnotations:
+  security.missing-table.io/deployment-time: "2024-08-03T22:00:00Z"
+  compliance.missing-table.io/verified: "true"
+  argocd.argoproj.io/managed: "true"
+
+# Configuration patches for environment-specific settings
+patchesStrategicMerge:
+  # Production security hardening
+  - |-
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: argocd-cm
+      namespace: argocd
+    data:
+      # Enhanced security for production
+      accounts.admin: "apiKey,login"
+      accounts.security-team: "apiKey,login"
+      policy.default: "role:readonly"
+      policy.csv: |
+        p, role:admin, applications, *, */*, allow
+        p, role:admin, clusters, *, *, allow
+        p, role:admin, repositories, *, *, allow
+        p, role:security-team, applications, get, missing-table-prod/*, allow
+        p, role:security-team, applications, sync, missing-table-prod/*, allow
+        g, security-team, role:security-team
+        g, admin, role:admin
+
+# Image transformations for specific environments
+images:
+  - name: gcr.io/missing-table-prod/security-scanner
+    newTag: v1.0.0
+  - name: gcr.io/missing-table-prod/compliance-verifier
+    newTag: v1.0.0
+  - name: gcr.io/missing-table-prod/security-responder
+    newTag: v1.0.0
+  - name: gcr.io/missing-table-prod/compliance-reporter
+    newTag: v1.0.0
+  - name: gcr.io/missing-table-prod/incident-responder
+    newTag: v1.0.0
+  - name: gcr.io/missing-table-prod/forensic-analyzer
+    newTag: v1.0.0
+  - name: gcr.io/missing-table-prod/audit-processor
+    newTag: v1.0.0
+  - name: gcr.io/missing-table-prod/security-events-collector
+    newTag: v1.0.0
+
+# Namespace creation for all security components
+namespace: security-infrastructure
+
+# Resource name prefixes for organization
+namePrefix: "secure-"
+
+# Additional generators for configuration
+generators:
+  - |-
+    apiVersion: builtin
+    kind: ConfigMapGenerator
+    metadata:
+      name: gitops-info
+    literals:
+      - GITOPS_VERSION=v1.0.0
+      - DEPLOYMENT_DATE=2024-08-03
+      - SECURITY_LEVEL=enterprise
+      - COMPLIANCE_FRAMEWORKS=soc2,cis_k8s,nist,pci_dss

@@ -8,6 +8,7 @@ import os
 import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 # Load environment variables
 load_dotenv()
@@ -81,9 +82,75 @@ def sample_game_data():
         "away_team_id": 2,
         "home_score": 2,
         "away_score": 1,
+        "season_id": 1,
+        "age_group_id": 1,
         "game_type_id": 1,  # Assuming regular season exists
         "venue": "Test Stadium",
     }
+
+
+@pytest.fixture(scope="function")
+def sample_user_data():
+    """Sample user data for testing."""
+    return {
+        "email": "test@example.com",
+        "password": "TestPassword123!",
+        "display_name": "Test User"
+    }
+
+
+@pytest.fixture(scope="function") 
+def sample_admin_data():
+    """Sample admin user data for testing."""
+    return {
+        "email": "admin@example.com",
+        "password": "AdminPassword123!",
+        "display_name": "Admin User"
+    }
+
+
+@pytest.fixture(scope="session")
+def test_database_populated(supabase_client):
+    """Ensure test database has basic reference data."""
+    try:
+        # Check if we have basic reference data
+        age_groups = supabase_client.table('age_groups').select('*').execute()
+        seasons = supabase_client.table('seasons').select('*').execute()
+        game_types = supabase_client.table('game_types').select('*').execute()
+        
+        has_data = (
+            len(age_groups.data) > 0 and 
+            len(seasons.data) > 0 and 
+            len(game_types.data) > 0
+        )
+        
+        return has_data
+    except Exception:
+        return False
+
+
+@pytest.fixture(scope="function")
+def auth_headers():
+    """Mock authentication headers for testing."""
+    return {
+        "Authorization": "Bearer mock_token_for_testing"
+    }
+
+
+@pytest.fixture(scope="function")
+def mock_security_disabled():
+    """Mock environment with security disabled."""
+    with patch.dict(os.environ, {'DISABLE_SECURITY': 'true'}):
+        yield
+
+
+@pytest.fixture(scope="function")
+def clean_test_data():
+    """Fixture to ensure clean test data state."""
+    # This would be used for tests that modify data
+    # For now, it's a placeholder since most tests are read-only
+    yield
+    # Cleanup would go here if needed
 
 
 def pytest_runtest_setup(item):

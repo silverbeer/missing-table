@@ -22,10 +22,12 @@ class SupabaseConnection:
         self.key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_SERVICE_KEY")
 
         if not self.url or not self.key:
-            raise ValueError(
-                "SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file"
-            )
-
+            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file")
+        
+        # Debug output
+        print(f"DEBUG: Connecting to Supabase URL: {self.url}")
+        print(f"DEBUG: Using key type: {'SERVICE_KEY' if 'SUPABASE_SERVICE_KEY' in os.environ and self.key == os.getenv('SUPABASE_SERVICE_KEY') else 'ANON_KEY'}")
+        
         try:
             # Try with custom httpx client
             transport = httpx.HTTPTransport(retries=3)

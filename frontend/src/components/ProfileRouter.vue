@@ -13,33 +13,29 @@
     <div v-else-if="!authStore.state.profile" class="no-profile">
       <h3>Profile Not Found</h3>
       <p>Unable to load your profile. Please try refreshing the page.</p>
-      <button @click="refreshProfile" class="refresh-btn">Refresh Profile</button>
+      <button @click="refreshProfile" class="refresh-btn">
+        Refresh Profile
+      </button>
     </div>
 
     <div v-else class="profile-content">
       <!-- Admin Profile -->
-      <AdminProfile 
-        v-if="userRole === 'admin'" 
-        @logout="handleLogout"
-      />
+      <AdminProfile v-if="userRole === 'admin'" @logout="handleLogout" />
 
       <!-- Team Manager Profile -->
-      <TeamManagerProfile 
-        v-else-if="userRole === 'team-manager'" 
+      <TeamManagerProfile
+        v-else-if="userRole === 'team-manager'"
         @logout="handleLogout"
       />
 
       <!-- Player Profile -->
-      <PlayerProfile 
-        v-else-if="userRole === 'team-player'" 
+      <PlayerProfile
+        v-else-if="userRole === 'team-player'"
         @logout="handleLogout"
       />
 
       <!-- Fan Profile (default) -->
-      <FanProfile 
-        v-else 
-        @logout="handleLogout"
-      />
+      <FanProfile v-else @logout="handleLogout" />
     </div>
 
     <!-- Role Debug Info (only in development) -->
@@ -47,18 +43,22 @@
       <h4>Debug Information</h4>
       <div class="debug-details">
         <p><strong>User Role:</strong> {{ userRole }}</p>
-        <p><strong>Is Authenticated:</strong> {{ authStore.isAuthenticated }}</p>
+        <p>
+          <strong>Is Authenticated:</strong> {{ authStore.isAuthenticated }}
+        </p>
         <p><strong>Profile Loaded:</strong> {{ !!authStore.state.profile }}</p>
         <p><strong>User ID:</strong> {{ authStore.state.user?.id }}</p>
         <p><strong>Email:</strong> {{ authStore.state.user?.email }}</p>
       </div>
-      <button @click="showDebug = false" class="close-debug">Close Debug</button>
+      <button @click="showDebug = false" class="close-debug">
+        Close Debug
+      </button>
     </div>
 
     <!-- Debug Toggle (only in development) -->
-    <button 
-      v-if="isDevelopment && !showDebug" 
-      @click="showDebug = true" 
+    <button
+      v-if="isDevelopment && !showDebug"
+      @click="showDebug = true"
       class="debug-toggle"
     >
       🐛 Debug
@@ -67,12 +67,12 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import AdminProfile from './profiles/AdminProfile.vue'
-import TeamManagerProfile from './profiles/TeamManagerProfile.vue'
-import PlayerProfile from './profiles/PlayerProfile.vue'
-import FanProfile from './profiles/FanProfile.vue'
+import { ref, computed, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import AdminProfile from './profiles/AdminProfile.vue';
+import TeamManagerProfile from './profiles/TeamManagerProfile.vue';
+import PlayerProfile from './profiles/PlayerProfile.vue';
+import FanProfile from './profiles/FanProfile.vue';
 
 export default {
   name: 'ProfileRouter',
@@ -80,40 +80,40 @@ export default {
     AdminProfile,
     TeamManagerProfile,
     PlayerProfile,
-    FanProfile
+    FanProfile,
   },
   emits: ['logout'],
   setup(props, { emit }) {
-    const authStore = useAuthStore()
-    const showDebug = ref(false)
+    const authStore = useAuthStore();
+    const showDebug = ref(false);
 
     const userRole = computed(() => {
-      return authStore.state.profile?.role || 'team-fan'
-    })
+      return authStore.state.profile?.role || 'team-fan';
+    });
 
     const isDevelopment = computed(() => {
-      return process.env.NODE_ENV === 'development'
-    })
+      return process.env.NODE_ENV === 'development';
+    });
 
     const refreshProfile = async () => {
       try {
-        await authStore.fetchProfile()
+        await authStore.fetchProfile();
       } catch (error) {
-        console.error('Error refreshing profile:', error)
-        authStore.setError('Failed to refresh profile')
+        console.error('Error refreshing profile:', error);
+        authStore.setError('Failed to refresh profile');
       }
-    }
+    };
 
     const handleLogout = () => {
-      emit('logout')
-    }
+      emit('logout');
+    };
 
     onMounted(() => {
       // Ensure profile is loaded when component mounts
       if (authStore.isAuthenticated && !authStore.state.profile) {
-        refreshProfile()
+        refreshProfile();
       }
-    })
+    });
 
     return {
       authStore,
@@ -121,10 +121,10 @@ export default {
       isDevelopment,
       showDebug,
       refreshProfile,
-      handleLogout
-    }
-  }
-}
+      handleLogout,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -153,8 +153,12 @@ export default {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-state p {
@@ -163,7 +167,8 @@ export default {
   margin: 0;
 }
 
-.not-authenticated, .no-profile {
+.not-authenticated,
+.no-profile {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -176,13 +181,15 @@ export default {
   border: 1px solid #e5e7eb;
 }
 
-.not-authenticated h3, .no-profile h3 {
+.not-authenticated h3,
+.no-profile h3 {
   color: #1f2937;
   margin-bottom: 15px;
   font-size: 24px;
 }
 
-.not-authenticated p, .no-profile p {
+.not-authenticated p,
+.no-profile p {
   color: #6b7280;
   margin-bottom: 20px;
   font-size: 16px;
@@ -285,23 +292,27 @@ export default {
     left: 10px;
     max-width: none;
   }
-  
+
   .debug-toggle {
     bottom: 10px;
     right: 10px;
     padding: 8px 12px;
     font-size: 12px;
   }
-  
-  .loading-state, .not-authenticated, .no-profile {
+
+  .loading-state,
+  .not-authenticated,
+  .no-profile {
     padding: 40px 15px;
   }
-  
-  .not-authenticated h3, .no-profile h3 {
+
+  .not-authenticated h3,
+  .no-profile h3 {
     font-size: 20px;
   }
-  
-  .not-authenticated p, .no-profile p {
+
+  .not-authenticated p,
+  .no-profile p {
     font-size: 14px;
   }
 }
@@ -313,21 +324,24 @@ export default {
     border-color: #f59e0b;
     color: #f3f4f6;
   }
-  
+
   .debug-details strong {
     color: #e5e7eb;
   }
-  
-  .not-authenticated, .no-profile {
+
+  .not-authenticated,
+  .no-profile {
     background-color: #1f2937;
     border-color: #374151;
   }
-  
-  .not-authenticated h3, .no-profile h3 {
+
+  .not-authenticated h3,
+  .no-profile h3 {
     color: #f3f4f6;
   }
-  
-  .not-authenticated p, .no-profile p {
+
+  .not-authenticated p,
+  .no-profile p {
     color: #9ca3af;
   }
 }
