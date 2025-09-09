@@ -1,11 +1,20 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "missing-table-frontend",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "lint:fix": "vue-cli-service lint --fix",
+    "format": "prettier --write \"src/**/*.{js,vue,ts,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,vue,ts,css,md}\"",
+    "start": "vue-cli-service serve --host 0.0.0.0 --port $PORT",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",
@@ -21,9 +30,14 @@
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
     "autoprefixer": "^10.4.x",
-    "eslint": "^7.32.0",
-    "eslint-plugin-vue": "^8.0.3",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.3",
+    "eslint-plugin-vue": "^9.33.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
     "postcss": "^8.4.x",
+    "prettier": "^3.6.2",
     "tailwindcss": "^3.3.x"
   },
   "eslintConfig": {
@@ -33,7 +47,8 @@
     },
     "extends": [
       "plugin:vue/vue3-essential",
-      "eslint:recommended"
+      "eslint:recommended",
+      "plugin:prettier/recommended"
     ],
     "parserOptions": {
       "parser": "@babel/eslint-parser"
@@ -45,5 +60,14 @@
     "last 2 versions",
     "not dead",
     "not ie 11"
-  ]
+  ],
+  "lint-staged": {
+    "*.{js,vue}": [
+      "vue-cli-service lint --fix",
+      "prettier --write"
+    ],
+    "*.{css,md}": [
+      "prettier --write"
+    ]
+  }
 }

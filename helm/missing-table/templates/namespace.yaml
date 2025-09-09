@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "missing-table.chart" . }}
+spec: {}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ .Values.namespace }}-quota
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  hard:
+    requests.cpu: {{ .Values.resourceQuota.requests.cpu | quote }}
+    requests.memory: {{ .Values.resourceQuota.requests.memory | quote }}
+    limits.cpu: {{ .Values.resourceQuota.limits.cpu | quote }}
+    limits.memory: {{ .Values.resourceQuota.limits.memory | quote }}
+    pods: {{ .Values.resourceQuota.pods | quote }}
+    persistentvolumeclaims: {{ .Values.resourceQuota.pvcs | quote }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ .Values.namespace }}-limits
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  limits:
+  - default:
+      cpu: {{ .Values.limitRange.default.cpu | quote }}
+      memory: {{ .Values.limitRange.default.memory | quote }}
+    defaultRequest:
+      cpu: {{ .Values.limitRange.defaultRequest.cpu | quote }}
+      memory: {{ .Values.limitRange.defaultRequest.memory | quote }}
+    type: Container

@@ -1,0 +1,224 @@
+# Prometheus Security Monitoring Rules for Missing Table Application
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: missing-table-security-rules
+  namespace: missing-table
+  labels:
+    app: missing-table
+    component: security-monitoring
+spec:
+  groups:
+  - name: missing-table.security.rules
+    interval: 30s
+    rules:
+    
+    # Pod Security Violations
+    - alert: PodSecurityViolation
+      expr: |
+        increase(falco_events_total{
+          k8s_ns_name="missing-table",
+          priority=~"Critical|Error"
+        }[5m]) > 0
+      for: 0m
+      labels:
+        severity: critical
+        component: security
+        namespace: missing-table
+      annotations:
+        summary: "Security violation detected in Missing Table namespace"
+        description: "Falco detected {{ $value }} security violations in the last 5 minutes"
+        runbook_url: "https://github.com/missing-table/runbooks/security-incidents"
+    
+    # Container Runtime Security
+    - alert: SuspiciousContainerActivity
+      expr: |
+        increase(falco_events_total{
+          k8s_ns_name="missing-table",
+          rule=~".*shell.*|.*privilege.*|.*network.*"
+        }[10m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+        component: security
+        namespace: missing-table
+      annotations:
+        summary: "Suspicious container activity detected"
+        description: "Detected suspicious activity: {{ $labels.rule }}"
+    
+    # Failed Authentication Attempts
+    - alert: HighFailedAuthAttempts
+      expr: |
+        rate(http_requests_total{
+          job="missing-table-backend",
+          status=~"401|403"
+        }[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: warning
+        component: authentication
+        namespace: missing-table
+      annotations:
+        summary: "High number of failed authentication attempts"
+        description: "{{ $value }} failed auth attempts per second for the last 5 minutes"
+    
+    # Resource Exhaustion
+    - alert: ContainerMemoryUsageHigh
+      expr: |
+        (container_memory_working_set_bytes{
+          namespace="missing-table",
+          container!=""
+        } / container_spec_memory_limit_bytes) > 0.9
+      for: 5m
+      labels:
+        severity: warning
+        component: resources
+        namespace: missing-table
+      annotations:
+        summary: "Container memory usage is high"
+        description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit"
+    
+    # Network Policy Violations
+    - alert: NetworkPolicyViolation
+      expr: |
+        increase(falco_events_total{
+          k8s_ns_name="missing-table",
+          rule=~".*network.*policy.*"
+        }[5m]) > 0
+      for: 0m
+      labels:
+        severity: critical
+        component: network
+        namespace: missing-table
+      annotations:
+        summary: "Network policy violation detected"
+        description: "{{ $value }} network policy violations detected in the last 5 minutes"
+    
+    # Container Image Security
+    - alert: VulnerableImageDeployed
+      expr: |
+        trivy_image_vulnerabilities{
+          namespace="missing-table",
+          severity=~"Critical|High"
+        } > 0
+      for: 0m
+      labels:
+        severity: critical
+        component: image-security
+        namespace: missing-table
+      annotations:
+        summary: "Vulnerable container image detected"
+        description: "Image {{ $labels.image }} has {{ $value }} {{ $labels.severity }} vulnerabilities"
+    
+    # Secret Access Monitoring
+    - alert: UnauthorizedSecretAccess
+      expr: |
+        increase(falco_events_total{
+          k8s_ns_name="missing-table",
+          rule=~".*secret.*|.*credential.*"
+        }[5m]) > 0
+      for: 0m
+      labels:
+        severity: critical
+        component: secrets
+        namespace: missing-table
+      annotations:
+        summary: "Unauthorized secret access detected"
+        description: "Detected unauthorized access to secrets or credentials"
+    
+    # RBAC Violations
+    - alert: RBACViolation
+      expr: |
+        increase(apiserver_audit_total{
+          verb=~"create|delete|update",
+          objectRef_resource=~"roles|rolebindings|clusterroles|clusterrolebindings",
+          objectRef_namespace="missing-table"
+        }[5m]) > 0
+      for: 0m
+      labels:
+        severity: warning
+        component: rbac
+        namespace: missing-table
+      annotations:
+        summary: "RBAC configuration change detected"
+        description: "{{ $value }} RBAC changes detected in the last 5 minutes"
+    
+    # File System Access
+    - alert: SuspiciousFileSystemAccess
+      expr: |
+        increase(falco_events_total{
+          k8s_ns_name="missing-table",
+          rule=~".*file.*system.*|.*mount.*"
+        }[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+        component: filesystem
+        namespace: missing-table
+      annotations:
+        summary: "Suspicious file system access detected"
+        description: "Detected suspicious file system activity: {{ $labels.rule }}"
+    
+    # Process Monitoring
+    - alert: UnexpectedProcessSpawned
+      expr: |
+        increase(falco_events_total{
+          k8s_ns_name="missing-table",
+          rule=~".*process.*spawn.*|.*exec.*"
+        }[5m]) > 0
+      for: 1m
+      labels:
+        severity: warning
+        component: process
+        namespace: missing-table
+      annotations:
+        summary: "Unexpected process spawned in container"
+        description: "Unexpected process activity detected: {{ $labels.rule }}"
+    
+  - name: missing-table.availability.rules
+    interval: 30s
+    rules:
+    
+    # Application Availability
+    - alert: ApplicationDown
+      expr: |
+        up{job=~"missing-table-.*"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        component: availability
+        namespace: missing-table
+      annotations:
+        summary: "Missing Table application is down"
+        description: "{{ $labels.job }} has been down for more than 1 minute"
+    
+    # High Error Rate
+    - alert: HighErrorRate
+      expr: |
+        rate(http_requests_total{
+          job=~"missing-table-.*",
+          status=~"5.."
+        }[5m]) > 0.05
+      for: 3m
+      labels:
+        severity: warning
+        component: errors
+        namespace: missing-table
+      annotations:
+        summary: "High error rate detected"
+        description: "{{ $labels.job }} has error rate of {{ $value | humanizePercentage }}"
+    
+    # Response Time
+    - alert: HighResponseTime
+      expr: |
+        histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{
+          job=~"missing-table-.*"
+        }[5m])) > 2
+      for: 5m
+      labels:
+        severity: warning
+        component: performance
+        namespace: missing-table
+      annotations:
+        summary: "High response time detected"
+        description: "95th percentile response time is {{ $value }}s"

@@ -1,37 +1,70 @@
 [run]
+# Source code directory
 source = .
+
+# Files to omit from coverage
 omit = 
-    */tests/*
-    */test_*
-    */__pycache__/*
-    */venv/*
-    */.venv/*
-    */node_modules/*
-    */migrations/*
-    */scripts/*
-    conftest.py
+    tests/*
+    __pycache__/*
+    .venv/*
+    venv/*
+    .pytest_cache/*
+    htmlcov/*
+    scripts/*
+    *.egg-info/*
     setup.py
-    */.pytest_cache/*
-    */site-packages/*
+    conftest.py
+    legacy_e2e_supabase_script.py
+
+# Include branch coverage
+branch = True
+
+# Coverage data file
+data_file = .coverage
 
 [report]
+# Exclude lines from coverage
 exclude_lines =
     pragma: no cover
     def __repr__
+    if self.debug:
+    if settings.DEBUG
     raise AssertionError
     raise NotImplementedError
+    if 0:
     if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+    # Type checking imports
     if TYPE_CHECKING:
-    @abstractmethod
-    @abc.abstractmethod
+    # Development/debugging code
+    if DEBUG
 
+# Show missing lines in report
 show_missing = True
-skip_covered = False
+
+# Precision for percentages
 precision = 2
 
+# Skip files with no code
+skip_empty = True
+
+# Skip files that can't be traced
+skip_covered = False
+
 [html]
+# HTML output directory
 directory = htmlcov
-title = Sports League Backend Coverage Report
+
+# Title for HTML report
+title = Backend Test Coverage Report
 
 [xml]
-output = coverage.xml 
+# XML output file
+output = coverage.xml
+
+[paths]
+# Map paths for coverage combination
+source = 
+    .
+    */backend/

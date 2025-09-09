@@ -1,0 +1,162 @@
+# Default values for missing-table.
+# This is a YAML-formatted file.
+# Declare variables to be substituted into your templates.
+
+# Global configuration
+namespace: missing-table
+
+# Name overrides
+nameOverride: ""
+fullnameOverride: ""
+
+# Resource quotas and limits for the namespace
+resourceQuota:
+  requests:
+    cpu: "4"
+    memory: "8Gi"
+  limits:
+    cpu: "8"
+    memory: "16Gi"
+  pods: "20"
+  pvcs: "10"
+
+limitRange:
+  default:
+    cpu: "1"
+    memory: "1Gi"
+  defaultRequest:
+    cpu: "100m"
+    memory: "128Mi"
+
+# Redis configuration
+redis:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  
+  persistence:
+    size: 1Gi
+    storageClass: ""  # Use default storage class
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+
+# Backend configuration
+backend:
+  replicaCount: 1
+  
+  image:
+    repository: missing-table-backend
+    tag: ""  # Defaults to chart appVersion
+    pullPolicy: IfNotPresent
+  
+  env:
+    databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:54322/postgres"
+    environment: "development"
+    logLevel: "info"
+    disableLogfire: "true"
+    disableSecurity: "true"
+    extra: {}  # Additional environment variables
+  
+  command:
+    - "uv"
+    - "run"
+    - "uvicorn"
+    - "app:app"
+    - "--host"
+    - "0.0.0.0"
+    - "--port"
+    - "8000"
+    
+  # Note: To use the minimal test version (for testing only), change to:
+  # - "test_minimal_app:app"
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  livenessProbe:
+    initialDelaySeconds: 60
+    periodSeconds: 10
+  
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  
+  service:
+    loadBalancer:
+      enabled: true
+      port: 8000
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+  
+  image:
+    repository: missing-table-frontend
+    tag: ""  # Defaults to chart appVersion
+    pullPolicy: IfNotPresent
+  
+  env:
+    nodeEnv: "development"
+    # UPDATED: Use internal k8s service name instead of LoadBalancer IP
+    apiUrl: "http://missing-table-backend:8000"
+    # REMOVED: Supabase env vars no longer needed - frontend uses backend API
+    # supabaseUrl: No longer needed
+    # supabaseAnonKey: No longer needed  
+    vueAppDisableSecurity: "true"
+    extra: {}  # Additional environment variables
+  
+  command:
+    - "npm"
+    - "run"
+    - "serve"
+    - "--"
+    - "--host"
+    - "0.0.0.0"
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  livenessProbe:
+    initialDelaySeconds: 60
+    periodSeconds: 10
+  
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  
+  service:
+    type: LoadBalancer
+    loadBalancerIP: ""  # Let Rancher Desktop assign
+
+# Service Account configuration
+serviceAccount:
+  create: false
+  name: ""

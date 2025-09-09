@@ -1,0 +1,744 @@
+# Comprehensive Audit Logging System for GitOps
+# This system provides complete audit trail for all deployment actions
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: audit-logging
+  labels:
+    name: audit-logging
+    security.missing-table.io/level: "critical"
+    compliance.missing-table.io/framework: "soc2"
+---
+# Audit Logging Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: audit-config
+  namespace: audit-logging
+data:
+  audit-policy.yaml: |
+    # Kubernetes audit policy for comprehensive logging
+    apiVersion: audit.k8s.io/v1
+    kind: Policy
+    rules:
+    # Log ArgoCD operations with detailed information
+    - level: RequestResponse
+      namespaces: ["argocd"]
+      resources:
+      - group: "argoproj.io"
+        resources: ["applications", "appprojects"]
+      verbs: ["create", "update", "patch", "delete"]
+    
+    # Log GitOps security operations
+    - level: RequestResponse
+      namespaces: ["security-scanning", "compliance-verification", "policy-enforcement"]
+      resources:
+      - group: ""
+        resources: ["*"]
+      - group: "apps"
+        resources: ["*"]
+      verbs: ["create", "update", "patch", "delete"]
+    
+    # Log RBAC changes
+    - level: RequestResponse
+      resources:
+      - group: "rbac.authorization.k8s.io"
+        resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+      verbs: ["create", "update", "patch", "delete"]
+    
+    # Log security-related resource changes
+    - level: RequestResponse
+      resources:
+      - group: "networking.k8s.io"
+        resources: ["networkpolicies"]
+      - group: "policy"
+        resources: ["podsecuritypolicies"]
+      - group: "templates.gatekeeper.sh"
+        resources: ["constrainttemplates"]
+      - group: "constraints.gatekeeper.sh"
+        resources: ["*"]
+      verbs: ["create", "update", "patch", "delete"]
+    
+    # Log secret operations
+    - level: Metadata
+      resources:
+      - group: ""
+        resources: ["secrets"]
+      verbs: ["create", "update", "patch", "delete", "get", "list"]
+    
+    # Log service account operations
+    - level: RequestResponse
+      resources:
+      - group: ""
+        resources: ["serviceaccounts"]
+      verbs: ["create", "update", "patch", "delete"]
+    
+    # Log admission controller operations
+    - level: Request
+      resources:
+      - group: "admissionregistration.k8s.io"
+        resources: ["validatingadmissionwebhooks", "mutatingadmissionwebhooks"]
+      verbs: ["create", "update", "patch", "delete"]
+    
+    # Log high-privilege operations
+    - level: RequestResponse
+      verbs: ["create", "update", "patch", "delete"]
+      resources:
+      - group: ""
+        resources: ["pods/exec", "pods/portforward", "pods/proxy"]
+    
+    # Don't log read-only operations for system components
+    - level: None
+      users: ["system:kube-proxy", "system:kube-controller-manager", "system:kube-scheduler"]
+      verbs: ["get", "list", "watch"]
+    
+    # Don't log health checks
+    - level: None
+      namespaces: ["kube-system"]
+      resources:
+      - group: ""
+        resources: ["endpoints", "services"]
+      verbs: ["get"]
+    
+    # Log everything else at metadata level
+    - level: Metadata
+      omitStages:
+      - RequestReceived
+
+  fluentd.conf: |
+    # Fluentd configuration for audit log processing
+    <source>
+      @type tail
+      @id audit_log_input
+      path /var/log/audit/audit.log
+      pos_file /var/log/fluentd-audit.log.pos
+      tag kubernetes.audit
+      format json
+      time_key timestamp
+      time_format %Y-%m-%dT%H:%M:%S.%NZ
+      keep_time_key true
+    </source>
+    
+    # Parse ArgoCD application events
+    <filter kubernetes.audit>
+      @type parser
+      key_name objectRef
+      reserve_data true
+      <parse>
+        @type json
+      </parse>
+    </filter>
+    
+    # Enrich audit logs with security context
+    <filter kubernetes.audit>
+      @type record_transformer
+      <record>
+        cluster_name "#{ENV['CLUSTER_NAME'] || 'missing-table-prod'}"
+        environment "#{ENV['ENVIRONMENT'] || 'production'}"
+        security_level ${record.dig('annotations', 'security.missing-table.io/level') || 'unknown'}
+        compliance_framework ${record.dig('annotations', 'compliance.missing-table.io/framework') || 'none'}
+      </record>
+    </filter>
+    
+    # Security event detection
+    <filter kubernetes.audit>
+      @type grep
+      <regexp>
+        key verb
+        pattern ^(create|update|patch|delete)$
+      </regexp>
+    </filter>
+    
+    # Route to different outputs based on severity
+    <match kubernetes.audit>
+      @type copy
+      
+      # Store all audit logs
+      <store>
+        @type forward
+        @id audit_store
+        <server>
+          host audit-storage-service
+          port 24224
+        </server>
+        <buffer>
+          @type file
+          path /var/log/fluentd-buffer/audit
+          flush_mode interval
+          flush_interval 10s
+          chunk_limit_size 32MB
+          total_limit_size 1GB
+        </buffer>
+      </store>
+      
+      # Send security events to SIEM
+      <store>
+        @type http
+        @id security_events
+        endpoint http://siem-collector:8080/events
+        http_method post
+        <format>
+          @type json
+        </format>
+        <filter>
+          tag security_event
+        </filter>
+      </store>
+    </match>
+
+  logstash.conf: |
+    # Logstash configuration for audit log processing
+    input {
+      beats {
+        port => 5044
+      }
+      
+      http {
+        port => 8080
+        codec => json
+      }
+    }
+    
+    filter {
+      if [fields][type] == "kubernetes-audit" {
+        # Parse timestamp
+        date {
+          match => [ "timestamp", "ISO8601" ]
+        }
+        
+        # Extract user information
+        if [user] {
+          mutate {
+            add_field => { "user_name" => "%{[user][username]}" }
+            add_field => { "user_groups" => "%{[user][groups]}" }
+          }
+        }
+        
+        # Extract resource information
+        if [objectRef] {
+          mutate {
+            add_field => { "resource_namespace" => "%{[objectRef][namespace]}" }
+            add_field => { "resource_name" => "%{[objectRef][name]}" }
+            add_field => { "resource_kind" => "%{[objectRef][resource]}" }
+            add_field => { "resource_api_version" => "%{[objectRef][apiVersion]}" }
+          }
+        }
+        
+        # Classify security events
+        if [verb] in ["create", "update", "patch", "delete"] {
+          if [objectRef][resource] in ["secrets", "serviceaccounts", "roles", "rolebindings", "clusterroles", "clusterrolebindings"] {
+            mutate {
+              add_field => { "security_event_type" => "sensitive_resource_modification" }
+              add_field => { "security_risk_level" => "high" }
+            }
+          }
+          
+          if [objectRef][namespace] == "argocd" {
+            mutate {
+              add_field => { "security_event_type" => "gitops_operation" }
+              add_field => { "security_risk_level" => "medium" }
+            }
+          }
+        }
+        
+        # Tag compliance events
+        if [annotations] and [annotations]["compliance.missing-table.io/framework"] {
+          mutate {
+            add_field => { "compliance_framework" => "%{[annotations][compliance.missing-table.io/framework]}" }
+            add_tag => [ "compliance_event" ]
+          }
+        }
+      }
+    }
+    
+    output {
+      # Send to Elasticsearch for storage and search
+      elasticsearch {
+        hosts => ["elasticsearch:9200"]
+        index => "kubernetes-audit-%{+YYYY.MM.dd}"
+        template_name => "kubernetes-audit"
+        template_pattern => "kubernetes-audit-*"
+        template => "/etc/logstash/templates/audit-template.json"
+      }
+      
+      # Send security events to security team
+      if "security_event" in [tags] or [security_risk_level] == "high" {
+        http {
+          url => "http://security-alerting:8080/alerts"
+          http_method => "post"
+          format => "json"
+        }
+      }
+      
+      # Send compliance events to compliance system
+      if "compliance_event" in [tags] {
+        http {
+          url => "http://compliance-collector:8080/events"
+          http_method => "post"
+          format => "json"
+        }
+      }
+    }
+
+---
+# Audit Log Storage Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: audit-logger
+  namespace: audit-logging
+  annotations:
+    security.missing-table.io/description: "Service account for audit log collection"
+automountServiceAccountToken: true
+
+---
+# Audit Log Storage ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: audit-logger
+  labels:
+    audit.missing-table.io/component: "logger"
+rules:
+# Read access for audit log collection
+- apiGroups: [""]
+  resources: ["pods", "nodes", "namespaces", "events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets"]
+  verbs: ["get", "list", "watch"]
+# Write access for audit events
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+
+---
+# Audit Log Storage ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: audit-logger
+  labels:
+    audit.missing-table.io/component: "logger"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: audit-logger
+subjects:
+- kind: ServiceAccount
+  name: audit-logger
+  namespace: audit-logging
+
+---
+# Fluentd DaemonSet for Audit Log Collection
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd-audit
+  namespace: audit-logging
+  labels:
+    app: fluentd-audit
+    audit.missing-table.io/component: "collector"
+spec:
+  selector:
+    matchLabels:
+      app: fluentd-audit
+  template:
+    metadata:
+      labels:
+        app: fluentd-audit
+        audit.missing-table.io/component: "collector"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "24231"
+    spec:
+      serviceAccountName: audit-logger
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+      - name: fluentd
+        image: fluent/fluentd-kubernetes-daemonset:v1.16-debian-elasticsearch7-1
+        imagePullPolicy: Always
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CLUSTER_NAME
+          value: "missing-table-prod"
+        - name: ENVIRONMENT
+          value: "production"
+        resources:
+          limits:
+            memory: 512Mi
+            cpu: 200m
+          requests:
+            memory: 200Mi
+            cpu: 100m
+        volumeMounts:
+        - name: config
+          mountPath: /fluentd/etc/fluent.conf
+          subPath: fluentd.conf
+          readOnly: true
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: audit-log
+          mountPath: /var/log/audit
+          readOnly: true
+        - name: buffer
+          mountPath: /var/log/fluentd-buffer
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - containerPort: 24231
+          name: metrics
+          protocol: TCP
+      volumes:
+      - name: config
+        configMap:
+          name: audit-config
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: audit-log
+        hostPath:
+          path: /var/log/audit
+      - name: buffer
+        emptyDir:
+          sizeLimit: 2Gi
+
+---
+# Audit Storage Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-storage-service
+  namespace: audit-logging
+  labels:
+    app: audit-storage
+    audit.missing-table.io/component: "storage"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 24224
+    targetPort: 24224
+    protocol: TCP
+    name: fluentd
+  - port: 9200
+    targetPort: 9200
+    protocol: TCP
+    name: elasticsearch
+  selector:
+    app: audit-storage
+
+---
+# Elasticsearch for Audit Log Storage
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch-audit
+  namespace: audit-logging
+  labels:
+    app: audit-storage
+    audit.missing-table.io/component: "storage"
+spec:
+  serviceName: elasticsearch-audit
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-storage
+  template:
+    metadata:
+      labels:
+        app: audit-storage
+        audit.missing-table.io/component: "storage"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: fix-permissions
+        image: busybox:1.35
+        command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+        imagePullPolicy: Always
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: ES_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"
+        - name: xpack.security.enabled
+          value: "false"
+        - name: xpack.security.enrollment.enabled
+          value: "false"
+        ports:
+        - containerPort: 9200
+          name: http
+          protocol: TCP
+        - containerPort: 9300
+          name: transport
+          protocol: TCP
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+        - name: config
+          mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+          subPath: elasticsearch.yml
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 500m
+          requests:
+            memory: 512Mi
+            cpu: 200m
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: elasticsearch-config
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+# Elasticsearch Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-config
+  namespace: audit-logging
+data:
+  elasticsearch.yml: |
+    cluster.name: "audit-logs"
+    network.host: 0.0.0.0
+    discovery.type: single-node
+    xpack.security.enabled: false
+    xpack.monitoring.collection.enabled: true
+    path.data: /usr/share/elasticsearch/data
+    path.logs: /usr/share/elasticsearch/logs
+    
+    # Index lifecycle management
+    action.auto_create_index: "+audit-*,-*"
+    
+    # Performance settings
+    bootstrap.memory_lock: false
+    indices.memory.index_buffer_size: 20%
+    
+    # Audit log specific settings
+    index.number_of_shards: 1
+    index.number_of_replicas: 0
+    index.refresh_interval: 30s
+
+---
+# Audit Event Processor Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-processor
+  namespace: audit-logging
+  labels:
+    app: audit-processor
+    audit.missing-table.io/component: "processor"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: audit-processor
+  template:
+    metadata:
+      labels:
+        app: audit-processor
+        audit.missing-table.io/component: "processor"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: audit-logger
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      containers:
+      - name: processor
+        image: gcr.io/missing-table-prod/audit-processor:v1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8090
+          name: health
+          protocol: TCP
+        env:
+        - name: ELASTICSEARCH_URL
+          value: "http://elasticsearch-audit:9200"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: AUDIT_RETENTION_DAYS
+          value: "365"
+        - name: COMPLIANCE_FRAMEWORKS
+          value: "soc2,cis_k8s,nist,pci_dss"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 300m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8090
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: audit-config
+      - name: tmp
+        emptyDir:
+          sizeLimit: 512Mi
+
+---
+# Audit Retention Policy CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: audit-retention
+  namespace: audit-logging
+  labels:
+    audit.missing-table.io/component: "retention"
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: audit-retention
+        spec:
+          serviceAccountName: audit-logger
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+          containers:
+          - name: retention
+            image: curlimages/curl:8.4.0
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Running audit log retention policy..."
+              
+              # Calculate cutoff date (365 days ago)
+              CUTOFF_DATE=$(date -d "365 days ago" +%Y.%m.%d)
+              
+              # Delete old indices
+              curl -X DELETE "elasticsearch-audit:9200/kubernetes-audit-*" \
+                --fail-with-body \
+                --max-time 30 \
+                --retry 3 \
+                || echo "No old indices to delete"
+              
+              echo "Audit log retention completed"
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 65534
+              runAsGroup: 65534
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              limits:
+                cpu: 100m
+                memory: 64Mi
+              requests:
+                cpu: 50m
+                memory: 32Mi

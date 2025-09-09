@@ -2,22 +2,24 @@
   <div class="bg-white rounded-lg shadow p-4">
     <!-- Form Type Selection -->
     <div class="mb-4">
-      <label class="block text-sm font-medium text-gray-700 mb-2">Action Type</label>
+      <label class="block text-sm font-medium text-gray-700 mb-2"
+        >Action Type</label
+      >
       <div class="flex space-x-4">
         <label class="inline-flex items-center">
-          <input 
-            type="radio" 
-            v-model="formType" 
-            value="schedule" 
+          <input
+            type="radio"
+            v-model="formType"
+            value="schedule"
             class="form-radio text-blue-600"
           />
           <span class="ml-2">Schedule New Game</span>
         </label>
         <label class="inline-flex items-center">
-          <input 
-            type="radio" 
-            v-model="formType" 
-            value="score" 
+          <input
+            type="radio"
+            v-model="formType"
+            value="score"
             class="form-radio text-blue-600"
           />
           <span class="ml-2">Score Game</span>
@@ -29,34 +31,52 @@
       <!-- Season/Age Group/Game Type Row -->
       <div class="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-md">
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Season</label>
-          <select 
-            v-model="selectedSeason" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Season</label
+          >
+          <select
+            v-model="selectedSeason"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
-            <option v-for="season in activeSeasons" :key="season.id" :value="season.id">
+            <option
+              v-for="season in activeSeasons"
+              :key="season.id"
+              :value="season.id"
+            >
               {{ season.name }}
             </option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Age Group</label>
-          <select 
-            v-model="selectedAgeGroup" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Age Group</label
+          >
+          <select
+            v-model="selectedAgeGroup"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
-            <option v-for="ageGroup in ageGroups" :key="ageGroup.id" :value="ageGroup.id">
+            <option
+              v-for="ageGroup in ageGroups"
+              :key="ageGroup.id"
+              :value="ageGroup.id"
+            >
               {{ ageGroup.name }}
             </option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Game Type</label>
-          <select 
-            v-model="selectedGameType" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Game Type</label
+          >
+          <select
+            v-model="selectedGameType"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
-            <option v-for="gameType in gameTypes" :key="gameType.id" :value="gameType.id">
+            <option
+              v-for="gameType in gameTypes"
+              :key="gameType.id"
+              :value="gameType.id"
+            >
               {{ gameType.name }}
             </option>
           </select>
@@ -66,50 +86,65 @@
       <!-- Date and Teams Row -->
       <div class="grid grid-cols-3 gap-3">
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
-          <input 
-            type="date" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Date</label
+          >
+          <input
+            type="date"
             v-model="gameData.date"
-            id="game_date" 
+            id="game_date"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           />
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Home Team</label>
-          <select 
-            v-model="gameData.homeTeam" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Home Team</label
+          >
+          <select
+            v-model="gameData.homeTeam"
             id="home_team"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
             <option value="">Select Team</option>
-            <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
+            <option v-for="team in teams" :key="team.id" :value="team.id">
+              {{ team.name }}
+            </option>
           </select>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Away Team</label>
-          <select 
-            v-model="gameData.awayTeam" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Away Team</label
+          >
+          <select
+            v-model="gameData.awayTeam"
             id="away_team"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
             <option value="">Select Team</option>
-            <option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option>
+            <option v-for="team in teams" :key="team.id" :value="team.id">
+              {{ team.name }}
+            </option>
           </select>
         </div>
       </div>
 
       <!-- Score Row (only show when scoring a game) -->
-      <div v-if="formType === 'score'" class="flex items-center justify-center space-x-4 py-2">
+      <div
+        v-if="formType === 'score'"
+        class="flex items-center justify-center space-x-4 py-2"
+      >
         <div class="text-center">
-          <label class="block text-xs font-medium text-gray-700 mb-1">Home Score</label>
-          <input 
-            type="number" 
-            v-model="gameData.homeScore" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Home Score</label
+          >
+          <input
+            type="number"
+            v-model="gameData.homeScore"
             id="home_score"
             required
             min="0"
@@ -120,10 +155,12 @@
         <div class="text-xl font-bold text-gray-400">vs</div>
 
         <div class="text-center">
-          <label class="block text-xs font-medium text-gray-700 mb-1">Away Score</label>
-          <input 
-            type="number" 
-            v-model="gameData.awayScore" 
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Away Score</label
+          >
+          <input
+            type="number"
+            v-model="gameData.awayScore"
             id="away_score"
             required
             min="0"
@@ -134,7 +171,7 @@
 
       <!-- Submit Button -->
       <div class="flex justify-end pt-2">
-        <button 
+        <button
           type="submit"
           class="bg-blue-500 text-white px-4 py-1.5 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
         >
@@ -144,10 +181,13 @@
     </form>
 
     <!-- Message Display -->
-    <div 
-      v-if="message" 
+    <div
+      v-if="message"
       class="mt-3 p-2 rounded-md text-sm"
-      :class="{'bg-green-100 text-green-700': !error, 'bg-red-100 text-red-700': error}"
+      :class="{
+        'bg-green-100 text-green-700': !error,
+        'bg-red-100 text-red-700': error,
+      }"
     >
       {{ message }}
     </div>
@@ -155,7 +195,7 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue';
 
 export default {
   name: 'GameForm',
@@ -169,7 +209,7 @@ export default {
       homeTeam: '',
       awayTeam: '',
       homeScore: 0,
-      awayScore: 0
+      awayScore: 0,
     });
 
     const activeSeasons = ref([]);
@@ -184,9 +224,9 @@ export default {
         console.log('=== FETCHING TEAMS ===');
         console.log('Current selectedGameType:', selectedGameType.value);
         console.log('Current selectedAgeGroup:', selectedAgeGroup.value);
-        
+
         let url = 'http://localhost:8000/api/teams';
-        
+
         // Add filtering if both game type and age group are selected
         if (selectedGameType.value && selectedAgeGroup.value) {
           url += `?game_type_id=${selectedGameType.value}&age_group_id=${selectedAgeGroup.value}`;
@@ -194,14 +234,14 @@ export default {
         } else {
           console.log('Fetching all teams (no filter)');
         }
-        
+
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch teams');
         const data = await response.json();
         console.log('Teams received count:', data.length);
         console.log('Team names:', data.map(t => t.name).sort());
         console.log('Previous teams count:', teams.value.length);
-        
+
         teams.value = data;
         console.log('Teams updated, new count:', teams.value.length);
         console.log('=== END FETCHING TEAMS ===');
@@ -215,7 +255,9 @@ export default {
     const fetchReferenceData = async () => {
       try {
         // Fetch active seasons (current and future)
-        const activeSeasonsResponse = await fetch('http://localhost:8000/api/active-seasons');
+        const activeSeasonsResponse = await fetch(
+          'http://localhost:8000/api/active-seasons'
+        );
         if (activeSeasonsResponse.ok) {
           activeSeasons.value = await activeSeasonsResponse.json();
           // Default to first active season
@@ -225,19 +267,27 @@ export default {
         }
 
         // Fetch age groups
-        const ageGroupsResponse = await fetch('http://localhost:8000/api/age-groups');
+        const ageGroupsResponse = await fetch(
+          'http://localhost:8000/api/age-groups'
+        );
         if (ageGroupsResponse.ok) {
           ageGroups.value = await ageGroupsResponse.json();
           // Default to U14
-          selectedAgeGroup.value = ageGroups.value.find(ag => ag.name === 'U14')?.id || ageGroups.value[0]?.id;
+          selectedAgeGroup.value =
+            ageGroups.value.find(ag => ag.name === 'U14')?.id ||
+            ageGroups.value[0]?.id;
         }
 
         // Fetch game types
-        const gameTypesResponse = await fetch('http://localhost:8000/api/game-types');
+        const gameTypesResponse = await fetch(
+          'http://localhost:8000/api/game-types'
+        );
         if (gameTypesResponse.ok) {
           gameTypes.value = await gameTypesResponse.json();
           // Default to League
-          selectedGameType.value = gameTypes.value.find(gt => gt.name === 'League')?.id || gameTypes.value[0]?.id;
+          selectedGameType.value =
+            gameTypes.value.find(gt => gt.name === 'League')?.id ||
+            gameTypes.value[0]?.id;
         }
 
         // After all defaults are set, fetch teams
@@ -254,11 +304,13 @@ export default {
         const params = new URLSearchParams({
           date: gameData.value.date,
           homeTeam: gameData.value.homeTeam,
-          awayTeam: gameData.value.awayTeam
+          awayTeam: gameData.value.awayTeam,
         });
 
-        const response = await fetch(`http://localhost:8000/api/check-game?${params.toString()}`);
-        
+        const response = await fetch(
+          `http://localhost:8000/api/check-game?${params.toString()}`
+        );
+
         if (!response.ok) {
           throw new Error('Failed to check for duplicate game');
         }
@@ -282,7 +334,7 @@ export default {
         away_score: gameData.value.awayScore,
         season_id: selectedSeason.value,
         age_group_id: selectedAgeGroup.value,
-        game_type_id: selectedGameType.value
+        game_type_id: selectedGameType.value,
       };
 
       console.log('Game Data before stringification:', gameDataToSubmit);
@@ -300,8 +352,13 @@ export default {
       }
 
       // Validate required IDs are available
-      if (!selectedSeason.value || !selectedAgeGroup.value || !selectedGameType.value) {
-        message.value = 'Missing required data. Please try refreshing the page.';
+      if (
+        !selectedSeason.value ||
+        !selectedAgeGroup.value ||
+        !selectedGameType.value
+      ) {
+        message.value =
+          'Missing required data. Please try refreshing the page.';
         error.value = true;
         return;
       }
@@ -320,17 +377,18 @@ export default {
         const response = await fetch('http://localhost:8000/api/games', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
-          body: requestBody
+          body: requestBody,
         });
 
         const result = await response.json();
-        
+
         if (response.ok) {
-          message.value = formType.value === 'schedule' 
-            ? 'Game scheduled successfully' 
-            : 'Score submitted successfully';
+          message.value =
+            formType.value === 'schedule'
+              ? 'Game scheduled successfully'
+              : 'Score submitted successfully';
           error.value = false;
           // Reset form
           gameData.value = {
@@ -338,7 +396,7 @@ export default {
             homeTeam: '',
             awayTeam: '',
             homeScore: 0,
-            awayScore: 0
+            awayScore: 0,
           };
           formType.value = 'schedule';
         } else {
@@ -353,25 +411,30 @@ export default {
     };
 
     // Watch for changes in game type or age group to refetch teams
-    watch([selectedGameType, selectedAgeGroup], async (newValues, oldValues) => {
-      console.log('=== WATCHER TRIGGERED ===');
-      console.log('New values:', newValues);
-      console.log('Old values:', oldValues);
-      console.log('selectedGameType.value:', selectedGameType.value);
-      console.log('selectedAgeGroup.value:', selectedAgeGroup.value);
-      
-      if (selectedGameType.value && selectedAgeGroup.value) {
-        console.log('Both game type and age group are set, fetching teams...');
-        await fetchTeams();
-        // Reset team selections when filter changes
-        console.log('Resetting team selections');
-        gameData.value.homeTeam = '';
-        gameData.value.awayTeam = '';
-      } else {
-        console.log('Game type or age group not set, skipping team fetch');
+    watch(
+      [selectedGameType, selectedAgeGroup],
+      async (newValues, oldValues) => {
+        console.log('=== WATCHER TRIGGERED ===');
+        console.log('New values:', newValues);
+        console.log('Old values:', oldValues);
+        console.log('selectedGameType.value:', selectedGameType.value);
+        console.log('selectedAgeGroup.value:', selectedAgeGroup.value);
+
+        if (selectedGameType.value && selectedAgeGroup.value) {
+          console.log(
+            'Both game type and age group are set, fetching teams...'
+          );
+          await fetchTeams();
+          // Reset team selections when filter changes
+          console.log('Resetting team selections');
+          gameData.value.homeTeam = '';
+          gameData.value.awayTeam = '';
+        } else {
+          console.log('Game type or age group not set, skipping team fetch');
+        }
+        console.log('=== END WATCHER ===');
       }
-      console.log('=== END WATCHER ===');
-    });
+    );
 
     onMounted(async () => {
       await fetchReferenceData();
@@ -390,8 +453,8 @@ export default {
       gameTypes,
       selectedSeason,
       selectedAgeGroup,
-      selectedGameType
-    };    
-  }
-}
+      selectedGameType,
+    };
+  },
+};
 </script>

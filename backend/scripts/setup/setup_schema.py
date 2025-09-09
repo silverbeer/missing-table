@@ -5,13 +5,15 @@ Copy the output and run it in Supabase SQL Editor.
 """
 
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def generate_schema_sql():
     """Generate the complete SQL schema."""
-    
+
     sql = """-- Supabase Database Schema
 -- Based on existing SQLite structure from data_access.py
 -- Copy and paste this into Supabase SQL Editor
@@ -66,17 +68,18 @@ CREATE POLICY "Allow all operations on games" ON games FOR ALL USING (true);
 -- Verify tables were created
 SELECT 'Schema creation complete' as status;
 """
-    
+
     return sql
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     print("🚀 Supabase Schema Generator")
     print(f"📡 Project URL: {os.getenv('SUPABASE_URL')}")
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("📋 COPY THIS SQL AND PASTE IT INTO SUPABASE SQL EDITOR:")
-    print("="*80)
+    print("=" * 80)
     print(generate_schema_sql())
-    print("="*80)
+    print("=" * 80)
     print("\n📖 Instructions:")
     print("1. Go to your Supabase project dashboard")
     print("2. Click 'SQL Editor' in the left sidebar")

@@ -10,7 +10,8 @@ from datetime import datetime
 def test_dao_initialization(enhanced_dao):
     """Test that the DAO can be initialized successfully."""
     assert enhanced_dao is not None
-    assert hasattr(enhanced_dao, 'conn')
+    assert hasattr(enhanced_dao, 'connection_holder')
+    assert hasattr(enhanced_dao, 'client')
     assert hasattr(enhanced_dao, 'get_all_teams')
     assert hasattr(enhanced_dao, 'get_all_games')
 

@@ -1,0 +1,547 @@
+# ArgoCD Installation with Security Hardening
+# This configuration provides a production-ready ArgoCD setup with comprehensive security controls
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Application configuration
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  
+  # Security configuration
+  server.insecure: "false"
+  server.grpc.web: "true"
+  server.enable.grpc.web: "true"
+  
+  # OIDC configuration for enhanced authentication
+  oidc.config: |
+    name: Google
+    issuer: https://accounts.google.com
+    clientId: $oidc.google.clientId
+    clientSecret: $oidc.google.clientSecret
+    requestedScopes: ["openid", "profile", "email", "groups"]
+    requestedIDTokenClaims: {"groups": {"essential": true}}
+  
+  # Policy configuration
+  policy.default: role:readonly
+  policy.csv: |
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    p, role:developer, applications, get, */*, allow
+    p, role:developer, applications, sync, */*, allow
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, clusters, get, *, allow
+    p, role:readonly, repositories, get, *, allow
+    g, argocd-admins, role:admin
+    g, missing-table-developers, role:developer
+    g, missing-table-readonly, role:readonly
+  
+  # Resource customizations for security
+  resource.customizations: |
+    networking.k8s.io/NetworkPolicy:
+      health.lua: |
+        hs = {}
+        hs.status = "Healthy"
+        hs.message = "NetworkPolicy is applied"
+        return hs
+    policy/v1beta1/PodSecurityPolicy:
+      health.lua: |
+        hs = {}
+        hs.status = "Healthy"
+        hs.message = "PodSecurityPolicy is active"
+        return hs
+  
+  # Git repository credentials template
+  repository.credentials: |
+    - url: https://github.com/silverbeer/missing-table
+      passwordSecret:
+        name: private-repo-creds
+        key: password
+      usernameSecret:
+        name: private-repo-creds
+        key: username
+  
+  # Helm repositories
+  helm.repositories: |
+    - url: https://argoproj.github.io/argo-helm
+      name: argo
+    - url: https://charts.bitnami.com/bitnami
+      name: bitnami
+    - url: https://prometheus-community.github.io/helm-charts
+      name: prometheus-community
+  
+  # Security scanning configuration
+  application.security.scanning: |
+    enabled: true
+    scanners:
+      - kubesec
+      - polaris
+      - trivy-operator
+    failOnCritical: true
+    reportFormat: sarif
+  
+  # Compliance framework configuration
+  compliance.frameworks: |
+    - soc2
+    - cis-k8s
+    - nist
+    - pci-dss
+  
+  # Resource tracking configuration
+  application.resourceTrackingMethod: annotation
+  
+  # Sync configuration
+  timeout.reconciliation: 180s
+  timeout.hard.reconciliation: 0s
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-server-config
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-server-config
+    app.kubernetes.io/part-of: argocd
+data:
+  # TLS configuration
+  tls.config: |
+    certificates:
+      - certFile: /etc/ssl/certs/server.crt
+        keyFile: /etc/ssl/private/server.key
+    ciphers: "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256"
+    minVersion: "1.2"
+    maxVersion: "1.3"
+  
+  # Security headers
+  server.headers: |
+    X-Frame-Options: DENY
+    X-Content-Type-Options: nosniff
+    X-XSS-Protection: 1; mode=block
+    Strict-Transport-Security: max-age=31536000; includeSubDomains
+    Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'
+    Referrer-Policy: strict-origin-when-cross-origin
+  
+  # Rate limiting
+  server.rate.limit: |
+    enabled: true
+    requests.per.second: 100
+    burst: 200
+  
+  # Audit logging
+  audit.enabled: "true"
+  audit.format: "json"
+  audit.destination: "stdout"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # RBAC configuration with principle of least privilege
+  policy.default: role:readonly
+  policy.csv: |
+    # Admin role - full access
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    p, role:admin, accounts, *, *, allow
+    p, role:admin, certificates, *, *, allow
+    p, role:admin, gpgkeys, *, *, allow
+    
+    # Security admin role - security-focused permissions
+    p, role:security-admin, applications, get, */*, allow
+    p, role:security-admin, applications, action/*, */*, allow
+    p, role:security-admin, clusters, get, *, allow
+    p, role:security-admin, repositories, get, *, allow
+    p, role:security-admin, certificates, *, *, allow
+    
+    # Developer role - application management
+    p, role:developer, applications, get, */*, allow
+    p, role:developer, applications, create, */*, allow
+    p, role:developer, applications, update, */*, allow
+    p, role:developer, applications, sync, */*, allow
+    p, role:developer, applications, delete, */*, allow
+    p, role:developer, repositories, get, *, allow
+    p, role:developer, clusters, get, *, allow
+    
+    # DevOps role - deployment and infrastructure
+    p, role:devops, applications, *, */*, allow
+    p, role:devops, clusters, get, *, allow
+    p, role:devops, repositories, *, *, allow
+    
+    # Readonly role - view only access
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, clusters, get, *, allow
+    p, role:readonly, repositories, get, *, allow
+    
+    # Audit role - audit and compliance access
+    p, role:auditor, applications, get, */*, allow
+    p, role:auditor, clusters, get, *, allow
+    p, role:auditor, repositories, get, *, allow
+    p, role:auditor, logs, get, */*, allow
+    
+    # Group mappings
+    g, argocd-admins, role:admin
+    g, security-team, role:security-admin
+    g, missing-table-developers, role:developer
+    g, platform-team, role:devops
+    g, missing-table-readonly, role:readonly
+    g, compliance-team, role:auditor
+  
+  # Scopes for OIDC integration
+  scopes: '[groups]'
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-secret
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-secret
+    app.kubernetes.io/part-of: argocd
+type: Opaque
+data:
+  # These should be generated and base64 encoded
+  admin.password: JDJhJDEwJG1RRjN4SlZ3LkwyZkpSVWsxWmV0ZnVSMk5uM1lJSzMvdmlpSDhBLjYyOUtuZERDamxNTFNP
+  admin.passwordMtime: MjAyMy0xMi0wMVQwMDowMDowMFo=
+  server.secretkey: YWVzMjU2a2V5dGhhdGlzMzJieXRlc2xvbmdmb3JzZWN1cml0eQ==
+  
+---
+# ArgoCD Server Deployment with Security Hardening
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-server
+        app.kubernetes.io/part-of: argocd
+      annotations:
+        # Security annotations
+        container.apparmor.security.beta.kubernetes.io/argocd-server: runtime/default
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
+    spec:
+      serviceAccountName: argocd-server
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: argocd-server
+        image: quay.io/argoproj/argocd:v2.9.3
+        imagePullPolicy: Always
+        command:
+        - argocd-server
+        args:
+        - --staticassets
+        - /shared/app
+        - --insecure=false
+        - --port=8080
+        - --metrics-port=8083
+        - --redis
+        - argocd-redis:6379
+        - --repo-server
+        - argocd-repo-server:8081
+        - --dex-server
+        - http://argocd-dex-server:5556
+        - --logformat
+        - json
+        - --loglevel
+        - info
+        - --audit-enabled
+        - --audit-format=json
+        ports:
+        - name: server
+          containerPort: 8080
+          protocol: TCP
+        - name: grpc
+          containerPort: 8443
+          protocol: TCP
+        - name: metrics
+          containerPort: 8083
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz?full=true
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        env:
+        - name: ARGOCD_SERVER_INSECURE
+          value: "false"
+        - name: ARGOCD_SERVER_ROOTPATH
+          value: /argocd
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: argocd-redis
+              key: auth
+        volumeMounts:
+        - name: ssh-known-hosts
+          mountPath: /app/config/ssh
+        - name: tls-certs
+          mountPath: /app/config/tls
+        - name: argocd-repo-server-tls
+          mountPath: /app/config/server/tls
+        - name: argocd-server-tls
+          mountPath: /app/config/server/tls/https
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+      volumes:
+      - name: ssh-known-hosts
+        configMap:
+          name: argocd-ssh-known-hosts-cm
+      - name: tls-certs
+        configMap:
+          name: argocd-tls-certs-cm
+      - name: argocd-repo-server-tls
+        secret:
+          secretName: argocd-repo-server-tls
+          optional: true
+          items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          - key: ca.crt
+            path: ca.crt
+      - name: argocd-server-tls
+        secret:
+          secretName: argocd-server-tls
+          optional: true
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Gi
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: argocd-server
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+---
+# ArgoCD Service with Security Annotations
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+  annotations:
+    # Security annotations
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "https"
+    service.beta.kubernetes.io/do-loadbalancer-tls-ports: "443"
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "argocd-tls-cert"
+spec:
+  type: ClusterIP
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8080
+  - name: grpc
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: argocd-server
+
+---
+# ArgoCD Server ServiceAccount with Security RBAC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+automountServiceAccountToken: true
+
+---
+# ArgoCD Server Role with Minimal Permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  - appprojects
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - list
+
+---
+# ArgoCD Server RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argocd-server
+subjects:
+- kind: ServiceAccount
+  name: argocd-server
+  namespace: argocd
+
+---
+# ArgoCD Server ClusterRole for Cross-Namespace Operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-server
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+rules:
+- apiGroups:
+  - "*"
+  resources:
+  - "*"
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/log
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+# ArgoCD Server ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-server
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-server
+subjects:
+- kind: ServiceAccount
+  name: argocd-server
+  namespace: argocd

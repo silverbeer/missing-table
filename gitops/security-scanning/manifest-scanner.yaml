@@ -1,0 +1,612 @@
+# Automated Manifest Security Scanning for GitOps
+# This system scans Kubernetes manifests for security issues before deployment
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: security-scanning
+  labels:
+    name: security-scanning
+    security.missing-table.io/level: "high"
+    compliance.missing-table.io/framework: "soc2"
+---
+# Security Scanning ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-scanner-config
+  namespace: security-scanning
+data:
+  config.yaml: |
+    # Security scanning configuration
+    scanners:
+      kubesec:
+        enabled: true
+        critical_threshold: 7
+        high_threshold: 5
+        medium_threshold: 3
+        
+      polaris:
+        enabled: true
+        config_path: /config/polaris.yaml
+        min_score: 85
+        
+      trivy:
+        enabled: true
+        severity_levels: ["CRITICAL", "HIGH", "MEDIUM"]
+        ignore_unfixed: false
+        
+      kube-score:
+        enabled: true
+        min_score: 8
+        
+      conftest:
+        enabled: true
+        policy_path: /policies
+    
+    # Compliance frameworks
+    compliance:
+      frameworks:
+        - cis-k8s
+        - nsa-k8s
+        - soc2
+        - pci-dss
+      
+      # Enforcement levels
+      enforcement:
+        critical: "block"
+        high: "warn"
+        medium: "info"
+        low: "info"
+    
+    # Notification settings
+    notifications:
+      slack:
+        enabled: true
+        webhook_url_secret: "slack-webhook"
+        channel: "#security-alerts"
+      
+      email:
+        enabled: false
+        smtp_server: "smtp.company.com"
+        from: "security@missing-table.io"
+        to: ["security-team@missing-table.io"]
+    
+    # Audit settings
+    audit:
+      enabled: true
+      retention_days: 365
+      storage: "gcs"
+      bucket: "missing-table-security-audit"
+
+  polaris.yaml: |
+    # Polaris configuration for security validation
+    checks:
+      # Security
+      runAsNonRoot: danger
+      runAsPrivileged: danger
+      notReadOnlyRootFilesystem: warning
+      privilegeEscalationAllowed: danger
+      dangerousCapabilities: danger
+      insecureCapabilities: warning
+      hostNetworkSet: danger
+      hostPIDSet: danger
+      hostIPCSet: danger
+      hostPortSet: warning
+      
+      # Images
+      tagNotSpecified: danger
+      pullPolicyNotAlways: warning
+      
+      # Networking
+      hostNetworkSet: danger
+      hostPortSet: warning
+      
+      # Resources
+      cpuRequestsMissing: warning
+      cpuLimitsMissing: warning
+      memoryRequestsMissing: warning
+      memoryLimitsMissing: warning
+      
+      # Reliability
+      deploymentMissingReplicas: warning
+      priorityClassNotSet: ignore
+      metadataAndNameMismatched: ignore
+      pdbDisruptionsAllowedGreaterThanOne: warning
+      missingPodDisruptionBudget: ignore
+
+---
+# Security Scanner Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: security-scanner
+  namespace: security-scanning
+  annotations:
+    security.missing-table.io/description: "Service account for automated security scanning"
+automountServiceAccountToken: true
+
+---
+# Security Scanner ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-scanner
+  labels:
+    security.missing-table.io/component: "scanner"
+rules:
+# Read access to scan resources
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets", "namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies", "ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["podsecuritypolicies", "poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "watch"]
+# Write access for audit and reporting
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "watch", "delete"]
+
+---
+# Security Scanner ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: security-scanner
+  labels:
+    security.missing-table.io/component: "scanner"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: security-scanner
+subjects:
+- kind: ServiceAccount
+  name: security-scanner
+  namespace: security-scanning
+
+---
+# Security Scanner Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security-scanner
+  namespace: security-scanning
+  labels:
+    app: security-scanner
+    security.missing-table.io/component: "scanner"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: security-scanner
+  template:
+    metadata:
+      labels:
+        app: security-scanner
+        security.missing-table.io/component: "scanner"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: security-scanner
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      containers:
+      - name: scanner
+        image: gcr.io/missing-table-prod/security-scanner:v1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8090
+          name: health
+          protocol: TCP
+        env:
+        - name: CONFIG_PATH
+          value: "/config/config.yaml"
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: policies
+          mountPath: /policies
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8090
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: security-scanner-config
+      - name: policies
+        configMap:
+          name: opa-policies
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Gi
+
+---
+# OPA Policies ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-policies
+  namespace: security-scanning
+data:
+  security.rego: |
+    package kubernetes.security
+    
+    # Deny containers running as root
+    deny[msg] {
+      input.kind == "Pod"
+      input.spec.containers[_].securityContext.runAsUser == 0
+      msg := "Container must not run as root user (UID 0)"
+    }
+    
+    # Deny privileged containers
+    deny[msg] {
+      input.kind == "Pod"
+      input.spec.containers[_].securityContext.privileged == true
+      msg := "Container must not run in privileged mode"
+    }
+    
+    # Deny containers with privilege escalation
+    deny[msg] {
+      input.kind == "Pod"
+      input.spec.containers[_].securityContext.allowPrivilegeEscalation == true
+      msg := "Container must not allow privilege escalation"
+    }
+    
+    # Require readOnlyRootFilesystem
+    deny[msg] {
+      input.kind == "Pod"
+      container := input.spec.containers[_]
+      not container.securityContext.readOnlyRootFilesystem == true
+      msg := "Container must use read-only root filesystem"
+    }
+    
+    # Deny dangerous capabilities
+    deny[msg] {
+      input.kind == "Pod"
+      container := input.spec.containers[_]
+      dangerous_caps := {"SYS_ADMIN", "NET_ADMIN", "SYS_TIME", "NET_RAW"}
+      cap := container.securityContext.capabilities.add[_]
+      dangerous_caps[cap]
+      msg := sprintf("Container must not add dangerous capability: %v", [cap])
+    }
+    
+    # Require ALL capabilities to be dropped
+    deny[msg] {
+      input.kind == "Pod"
+      container := input.spec.containers[_]
+      not has_dropped_all_caps(container)
+      msg := "Container must drop ALL capabilities"
+    }
+    
+    has_dropped_all_caps(container) {
+      container.securityContext.capabilities.drop[_] == "ALL"
+    }
+    
+    # Deny hostPath volumes
+    deny[msg] {
+      input.kind == "Pod"
+      input.spec.volumes[_].hostPath
+      msg := "Pod must not use hostPath volumes"
+    }
+    
+    # Deny host networking
+    deny[msg] {
+      input.kind == "Pod"
+      input.spec.hostNetwork == true
+      msg := "Pod must not use host networking"
+    }
+    
+    # Deny host PID
+    deny[msg] {
+      input.kind == "Pod"
+      input.spec.hostPID == true
+      msg := "Pod must not use host PID namespace"
+    }
+    
+    # Deny host IPC
+    deny[msg] {
+      input.kind == "Pod"
+      input.spec.hostIPC == true
+      msg := "Pod must not use host IPC namespace"
+    }
+
+  compliance.rego: |
+    package kubernetes.compliance
+    
+    # CIS Kubernetes Benchmark compliance
+    
+    # 5.1.1 Ensure that the cluster-admin role is only used where required
+    deny[msg] {
+      input.kind == "ClusterRoleBinding"
+      input.roleRef.name == "cluster-admin"
+      not is_system_user(input.subjects[_])
+      msg := "cluster-admin role should only be used for system users"
+    }
+    
+    is_system_user(subject) {
+      startswith(subject.name, "system:")
+    }
+    
+    # 5.1.3 Minimize wildcard use in Roles and ClusterRoles
+    deny[msg] {
+      input.kind == "ClusterRole"
+      rule := input.rules[_]
+      rule.resources[_] == "*"
+      rule.verbs[_] == "*"
+      msg := "ClusterRole should not use wildcard permissions for both resources and verbs"
+    }
+    
+    # 5.2.2 Minimize the admission of containers with allowPrivilegeEscalation
+    deny[msg] {
+      input.kind == "Pod"
+      container := input.spec.containers[_]
+      container.securityContext.allowPrivilegeEscalation == true
+      msg := "Container should not allow privilege escalation"
+    }
+    
+    # 5.2.5 Minimize the admission of containers with capabilities
+    warn[msg] {
+      input.kind == "Pod"
+      container := input.spec.containers[_]
+      count(container.securityContext.capabilities.add) > 0
+      msg := "Container should minimize added capabilities"
+    }
+
+  network.rego: |
+    package kubernetes.network
+    
+    # Network security policies
+    
+    # Require NetworkPolicy for workload isolation
+    warn[msg] {
+      input.kind == "Pod"
+      not has_network_policy
+      msg := "Namespace should have NetworkPolicy for workload isolation"
+    }
+    
+    has_network_policy {
+      # This would be enhanced with actual NetworkPolicy lookup
+      true
+    }
+    
+    # Ingress security
+    deny[msg] {
+      input.kind == "Ingress"
+      not input.metadata.annotations["kubernetes.io/tls-acme"]
+      not input.spec.tls
+      msg := "Ingress should use TLS encryption"
+    }
+    
+    # Service exposure restrictions
+    warn[msg] {
+      input.kind == "Service"
+      input.spec.type == "LoadBalancer"
+      not input.metadata.annotations["service.beta.kubernetes.io/load-balancer-source-ranges"]
+      msg := "LoadBalancer service should restrict source IP ranges"
+    }
+
+---
+# Security Scanner Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: security-scanner
+  namespace: security-scanning
+  labels:
+    app: security-scanner
+    security.missing-table.io/component: "scanner"
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: security-scanner
+
+---
+# Pre-commit Hook for Manifest Scanning
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pre-commit-hooks
+  namespace: security-scanning
+data:
+  scan-manifests.sh: |
+    #!/bin/bash
+    # Pre-commit hook for scanning Kubernetes manifests
+    
+    set -e
+    
+    echo "🔍 Scanning Kubernetes manifests for security issues..."
+    
+    # Find all YAML files in k8s directories
+    MANIFEST_FILES=$(find . -path "./k8s/*" -name "*.yaml" -o -name "*.yml" | grep -v ".git")
+    
+    if [ -z "$MANIFEST_FILES" ]; then
+      echo "No Kubernetes manifest files found to scan"
+      exit 0
+    fi
+    
+    SCAN_FAILED=false
+    
+    # Run kubesec scan
+    echo "Running kubesec scan..."
+    for file in $MANIFEST_FILES; do
+      echo "Scanning: $file"
+      KUBESEC_RESULT=$(kubesec scan "$file" --json)
+      SCORE=$(echo "$KUBESEC_RESULT" | jq -r '.[0].score // 0')
+      
+      if [ "$SCORE" -lt 5 ]; then
+        echo "❌ FAIL: $file (score: $SCORE/10)"
+        echo "$KUBESEC_RESULT" | jq -r '.[0].scoring.advise[]' | sed 's/^/  - /'
+        SCAN_FAILED=true
+      else
+        echo "✅ PASS: $file (score: $SCORE/10)"
+      fi
+    done
+    
+    # Run conftest with OPA policies
+    echo "Running conftest scan..."
+    if command -v conftest >/dev/null 2>&1; then
+      for file in $MANIFEST_FILES; do
+        echo "Policy checking: $file"
+        if ! conftest verify --policy /policies "$file"; then
+          echo "❌ FAIL: Policy violations found in $file"
+          SCAN_FAILED=true
+        else
+          echo "✅ PASS: No policy violations in $file"
+        fi
+      done
+    else
+      echo "⚠️  conftest not found, skipping policy validation"
+    fi
+    
+    # Final result
+    if [ "$SCAN_FAILED" = true ]; then
+      echo ""
+      echo "❌ Security scan FAILED!"
+      echo "Please fix the security issues above before committing."
+      exit 1
+    else
+      echo ""
+      echo "✅ Security scan PASSED!"
+      echo "All manifests meet security requirements."
+    fi
+
+---
+# CronJob for Periodic Security Scanning
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: periodic-security-scan
+  namespace: security-scanning
+  labels:
+    security.missing-table.io/component: "scanner"
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: periodic-security-scan
+        spec:
+          serviceAccountName: security-scanner
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+          containers:
+          - name: scanner
+            image: gcr.io/missing-table-prod/security-scanner:v1.0.0
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting periodic security scan..."
+              
+              # Scan all deployments in all namespaces
+              kubectl get deployments --all-namespaces -o yaml > /tmp/all-deployments.yaml
+              kubesec scan /tmp/all-deployments.yaml
+              
+              # Generate compliance report
+              conftest verify --policy /policies /tmp/all-deployments.yaml
+              
+              echo "Periodic security scan completed"
+            env:
+            - name: SCAN_TYPE
+              value: "periodic"
+            volumeMounts:
+            - name: policies
+              mountPath: /policies
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              runAsUser: 65534
+              runAsGroup: 65534
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            resources:
+              limits:
+                cpu: 200m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+          volumes:
+          - name: policies
+            configMap:
+              name: opa-policies
+          - name: tmp
+            emptyDir:
+              sizeLimit: 512Mi

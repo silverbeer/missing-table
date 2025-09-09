@@ -1,4 +1,4 @@
-const { defineConfig } = require('@vue/cli-service')
+const { defineConfig } = require('@vue/cli-service');
 module.exports = defineConfig({
   transpileDependencies: true,
   pages: {
@@ -6,5 +6,5 @@ module.exports = defineConfig({
       entry: 'src/main.js',
       title: 'Missing Table',
     },
-  }
-})
+  },
+});

@@ -1,0 +1,218 @@
+# Pod Security Standards and Policies for Missing Table Application
+apiVersion: v1
+kind: Pod
+metadata:
+  name: missing-table-backend
+  namespace: missing-table
+  labels:
+    app: missing-table
+    component: backend
+    security.policy/level: "restricted"
+  annotations:
+    seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+    container.apparmor.security.beta.kubernetes.io/backend: "runtime/default"
+spec:
+  serviceAccountName: missing-table-backend
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+    supplementalGroups: []
+  containers:
+  - name: backend
+    image: missing-table-backend:latest
+    imagePullPolicy: Always
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      capabilities:
+        drop:
+        - ALL
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+        ephemeral-storage: "100Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+        ephemeral-storage: "1Gi"
+    ports:
+    - containerPort: 8000
+      protocol: TCP
+      name: http
+    env:
+    - name: ENVIRONMENT
+      value: "production"
+    - name: LOG_LEVEL
+      value: "info"
+    - name: SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: missing-table-secrets
+          key: secret-key
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: var-tmp
+      mountPath: /var/tmp
+    - name: app-data
+      mountPath: /app/data
+    - name: app-logs
+      mountPath: /app/logs
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+        scheme: HTTP
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+        scheme: HTTP
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 6
+  volumes:
+  - name: tmp
+    emptyDir:
+      sizeLimit: "100Mi"
+  - name: var-tmp
+    emptyDir:
+      sizeLimit: "50Mi"
+  - name: app-data
+    persistentVolumeClaim:
+      claimName: backend-data-pvc
+  - name: app-logs
+    emptyDir:
+      sizeLimit: "200Mi"
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: missing-table-frontend
+  namespace: missing-table
+  labels:
+    app: missing-table
+    component: frontend
+    security.policy/level: "restricted"
+  annotations:
+    seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+    container.apparmor.security.beta.kubernetes.io/frontend: "runtime/default"
+spec:
+  serviceAccountName: missing-table-frontend
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+    supplementalGroups: []
+  containers:
+  - name: frontend
+    image: missing-table-frontend:latest
+    imagePullPolicy: Always
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1001
+      runAsGroup: 1001
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+        ephemeral-storage: "50Mi"
+      limits:
+        cpu: "250m"
+        memory: "256Mi"
+        ephemeral-storage: "500Mi"
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+      name: http
+    env:
+    - name: NODE_ENV
+      value: "production"
+    - name: NGINX_WORKER_PROCESSES
+      value: "auto"
+    volumeMounts:
+    - name: nginx-cache
+      mountPath: /var/cache/nginx
+    - name: nginx-run
+      mountPath: /var/run
+    - name: tmp
+      mountPath: /tmp
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+        scheme: HTTP
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8080
+        scheme: HTTP
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 6
+  volumes:
+  - name: nginx-cache
+    emptyDir:
+      sizeLimit: "50Mi"
+  - name: nginx-run
+    emptyDir:
+      sizeLimit: "10Mi"
+  - name: tmp
+    emptyDir:
+      sizeLimit: "50Mi"
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30

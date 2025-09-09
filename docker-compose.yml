@@ -1,30 +1,58 @@
 services:
+  # Backend API
   backend:
     build:
-      context: ./backend  # Path to your backend directory
-      dockerfile: Dockerfile  # Specify the Dockerfile if it's named differently
-    ports:
-      - "8000:8000"  # Map port 8000 on the host to port 8000 in the container
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: missing-table-backend
     environment:
-      - DATABASE_URL=sqlite:///./data/mlsnext_u13_fall.db
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54322/postgres
+      - REDIS_URL=redis://host.docker.internal:6379
+      - ENVIRONMENT=development
+      - LOG_LEVEL=info
+      - LOGFIRE_TOKEN=
+      - DISABLE_LOGFIRE=true
+      - DISABLE_SECURITY=true
+    ports:
+      - "8000:8000"
     volumes:
-      - ./backend/data:/app/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+      - ./backend:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
+  # Frontend
   frontend:
     build:
-      context: ./frontend  # Path to your frontend directory
-      dockerfile: Dockerfile  # Specify the Dockerfile if it's named differently
-    ports:
-      - "5001:5000"  # Change the host port to 5001
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: missing-table-frontend
     environment:
-      - VUE_APP_API_URL=http://localhost:8000/api
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+      - NODE_ENV=development
+      - VUE_APP_SUPABASE_URL=http://host.docker.internal:54321
+      - VUE_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      - VUE_APP_DISABLE_SECURITY=true
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["npm", "run", "serve", "--", "--host", "0.0.0.0"]
+
+  # Redis Cache (lightweight)
+  redis:
+    image: redis:7-alpine
+    container_name: missing-table-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

@@ -9,17 +9,20 @@ let csrfToken = null;
  */
 export async function fetchCSRFToken() {
   try {
-    const response = await fetch(`${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/csrf-token`, {
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
+    const response = await fetch(
+      `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/csrf-token`,
+      {
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+        },
       }
-    });
-    
+    );
+
     if (!response.ok) {
       throw new Error('Failed to fetch CSRF token');
     }
-    
+
     const data = await response.json();
     csrfToken = data.csrf_token;
     return csrfToken;
@@ -46,7 +49,7 @@ export async function addCSRFHeader(headers = {}) {
   const token = await getCSRFToken();
   return {
     ...headers,
-    'X-CSRF-Token': token
+    'X-CSRF-Token': token,
   };
 }
 

@@ -25,6 +25,14 @@ dependencies = [
     "playwright>=1.53.0",
     "slowapi>=0.1.9",
     "redis>=5.0.0",
+    "logfire>=0.64.0",
+    "opentelemetry-api>=1.28.0",
+    "opentelemetry-sdk>=1.28.0",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.49b0",
+    "opentelemetry-instrumentation-requests>=0.49b0",
+    "opentelemetry-instrumentation-redis>=0.49b0",
+    "user-agents>=2.2.0",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +40,13 @@ dev = [
     "pytest>=8.3.3",
     "pytest-cov>=6.0.0",
     "coverage>=7.6.4",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "bandit>=1.8.0",
+    "safety>=3.2.0",
+    "pre-commit>=4.0.0",
+    "types-requests>=2.32.0",
+    "types-python-dateutil>=2.9.0",
 ]
 
 [build-system]
@@ -48,5 +63,135 @@ mt-cli = "cli:app"
 dev-dependencies = [
     "pytest>=8.3.3",
     "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-xdist>=3.3.0",
     "coverage>=7.6.4",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "bandit>=1.8.0",
+    "safety>=3.2.0",
+    "pre-commit>=4.0.0",
+    "types-requests>=2.32.0",
+    "types-python-dateutil>=2.9.0",
+    "httpx>=0.27.0",
+]
+
+# Ruff configuration - Ultra-fast Python linter and formatter
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+fix = true
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "ARG",  # flake8-unused-arguments
+    "C90",  # mccabe complexity
+    "S",    # bandit security
+    "T20",  # flake8-print
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # Ruff-specific rules
+]
+ignore = [
+    "S101",   # Use of assert detected (OK for tests)
+    "S608",   # Possible SQL injection (we'll handle with careful review)
+    "B008",   # Do not perform function calls in argument defaults (OK for FastAPI)
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "ARG", "E501"]
+"**/migrations/*" = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# MyPy configuration - Static type checking
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+ignore_missing_imports = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "supabase.*",
+    "pandas.*",
+    "numpy.*",
+    "playwright.*",
+    "slowapi.*",
+    "redis.*"
+]
+ignore_missing_imports = true
+
+# Bandit configuration - Security linting
+[tool.bandit]
+exclude_dirs = ["tests", "migrations"]
+skips = ["B101", "B601"]  # Skip assert_used and shell_injection for now
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "migrations/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+precision = 2
+fail_under = 80
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers --cov=. --cov-report=term-missing --cov-report=html"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
 ]

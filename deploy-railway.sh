@@ -55,19 +55,19 @@ setup() {
     check_railway_auth
     
     # Setup backend
-    log_info "Setting up backend project..."
+    log_info "Setting up Missing Table backend project..."
     cd backend
-    railway init
+    railway init --name "missing-table-backend"
     railway add redis
     
-    log_success "Backend project created with Redis"
+    log_success "Missing Table backend project created with Redis"
     
     # Setup frontend
-    log_info "Setting up frontend project..."
+    log_info "Setting up Missing Table frontend project..."
     cd ../frontend
-    railway init
+    railway init --name "missing-table-frontend"
     
-    log_success "Frontend project created"
+    log_success "Missing Table frontend project created"
     
     cd ..
     
@@ -210,7 +210,7 @@ logs() {
 
 # Health check
 health() {
-    log_info "Running health checks..."
+    log_info "Running Missing Table health checks..."
     
     # Get URLs
     cd backend
@@ -219,19 +219,36 @@ health() {
     FRONTEND_URL="https://$(railway domain 2>/dev/null)"
     cd ..
     
+    echo "=== Missing Table Health Report ==="
+    echo "Backend URL: $BACKEND_URL"
+    echo "Frontend URL: $FRONTEND_URL"
+    echo
+    
     # Check backend health
     if curl -f "$BACKEND_URL/health" >/dev/null 2>&1; then
-        log_success "Backend health check passed: $BACKEND_URL/health"
+        log_success "✅ Backend API health check passed: $BACKEND_URL/health"
     else
-        log_error "Backend health check failed: $BACKEND_URL/health"
+        log_error "❌ Backend API health check failed: $BACKEND_URL/health"
+    fi
+    
+    # Check backend API endpoints
+    if curl -f "$BACKEND_URL/api/age-groups" >/dev/null 2>&1; then
+        log_success "✅ Backend API endpoints accessible"
+    else
+        log_error "❌ Backend API endpoints not accessible"
     fi
     
     # Check frontend
     if curl -f "$FRONTEND_URL" >/dev/null 2>&1; then
-        log_success "Frontend health check passed: $FRONTEND_URL"
+        log_success "✅ Frontend application accessible: $FRONTEND_URL"
     else
-        log_error "Frontend health check failed: $FRONTEND_URL"
+        log_error "❌ Frontend application not accessible: $FRONTEND_URL"
     fi
+    
+    echo
+    echo "🏈 Missing Table - U13 & U14 MLS Next Season Tracking"
+    echo "Access your app: $FRONTEND_URL"
+    echo "API Documentation: $BACKEND_URL/docs"
 }
 
 # Scale services

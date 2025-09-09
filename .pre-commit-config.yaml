@@ -1,0 +1,106 @@
+# Pre-commit hooks for comprehensive code quality
+# Run: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Ruff - Ultra-fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        name: ruff lint
+        args: [--fix]
+        types_or: [python, pyi, jupyter]
+      # Run the formatter
+      - id: ruff-format
+        name: ruff format
+        types_or: [python, pyi, jupyter]
+
+  # MyPy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        name: mypy type check
+        additional_dependencies:
+          - types-requests
+          - types-python-dateutil
+        args: [--config-file=backend/pyproject.toml]
+        files: ^backend/.*\.py$
+
+  # Bandit - Security linting
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        name: bandit security scan
+        args: [-c, backend/pyproject.toml]
+        files: ^backend/.*\.py$
+
+  # Safety - Check dependencies for known vulnerabilities
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+        name: safety dependency scan
+        files: ^backend/(pyproject\.toml|requirements.*\.txt)$
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: trim trailing whitespace
+      - id: end-of-file-fixer
+        name: fix end of files
+      - id: check-yaml
+        name: check yaml syntax
+        args: [--unsafe]  # Allow custom YAML tags
+      - id: check-json
+        name: check json syntax
+      - id: check-toml
+        name: check toml syntax
+      - id: check-merge-conflict
+        name: check for merge conflicts
+      - id: check-added-large-files
+        name: check for large files
+        args: [--maxkb=1000]
+      - id: detect-private-key
+        name: detect private keys
+
+  # Docker hooks
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.13.1-beta
+    hooks:
+      - id: hadolint-docker
+        name: hadolint dockerfile lint
+        args: [--ignore, DL3008, --ignore, DL3009]
+
+  # Frontend hooks (we'll add these when we configure frontend tools)
+  # - repo: local
+  #   hooks:
+  #     - id: biome-check
+  #       name: biome lint and format
+  #       entry: npx @biomejs/biome check --write
+  #       language: system
+  #       files: ^frontend/.*\.(js|ts|jsx|tsx|json)$
+  #       pass_filenames: false
+
+# Global exclusions
+exclude: |
+  (?x)^(
+      .*\.min\.(js|css)|
+      .*-lock\.(json|yaml)|
+      .*\.lock|
+      node_modules/.*|
+      \.git/.*|
+      \.venv/.*|
+      venv/.*|
+      __pycache__/.*|
+      \.pytest_cache/.*|
+      \.coverage|
+      htmlcov/.*|
+      dist/.*|
+      build/.*
+  )$

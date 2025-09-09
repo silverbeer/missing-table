@@ -19,7 +19,7 @@ Use the convenient shell script for common operations:
 # Restore from specific backup
 ./scripts/db_tools.sh restore database_backup_20231220_143022.json
 
-# Reset database and repopulate with basic data
+# Reset database and restore from latest backup (PREFERRED)
 ./scripts/db_tools.sh reset
 
 # Clean up old backups (keep only 5 most recent)
@@ -142,11 +142,11 @@ uv run python ../scripts/restore_database.py backup_file.json --no-clear
 # 1. Backup current state
 ./scripts/db_tools.sh backup
 
-# 2. Apply migrations (db reset applies all migrations)
+# 2. Apply migrations (use db reset only for schema changes)
 npx supabase db reset
 
-# 3. Repopulate basic data
-cd backend && uv run python populate_teams_supabase.py
+# 3. Restore real data from backup (PREFERRED - maintains real data)
+./scripts/db_tools.sh restore
 ```
 
 **Scenario 3: Switching Branches**
@@ -157,7 +157,7 @@ cd backend && uv run python populate_teams_supabase.py
 # 2. Switch branches
 git checkout feature-branch
 
-# 3. Reset database for new branch
+# 3. Reset database and restore real data for new branch
 ./scripts/db_tools.sh reset
 ```
 
@@ -170,7 +170,7 @@ project/
 │   ├── backup_database.py       # Backup script
 │   └── restore_database.py      # Restore script
 ├── backend/
-│   └── populate_teams_supabase.py  # Basic data population
+│   └── [DEPRECATED] populate_teams_supabase.py  # Use db_tools.sh instead
 └── backups/
     ├── database_backup_20231220_143022.json
     ├── database_backup_20231220_151505.json
