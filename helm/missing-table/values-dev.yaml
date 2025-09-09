@@ -29,7 +29,7 @@ backend:
   image:
     tag: "latest"
   env:
-    databaseUrl: "postgresql://postgres:postgres@host.docker.internal:54322/postgres"
+    databaseUrl: "postgresql://postgres:postgres@192.168.1.17:54322/postgres"
     environment: "development"
     logLevel: "debug"  # More verbose logging for dev
     disableLogfire: "true"
@@ -37,7 +37,7 @@ backend:
     extra:
       DEBUG: "true"
       RELOAD: "true"
-      SUPABASE_URL: "http://host.docker.internal:54321"
+      SUPABASE_URL: "http://192.168.1.17:54321"
       SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
       SUPABASE_SERVICE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
   
@@ -66,7 +66,7 @@ frontend:
   env:
     nodeEnv: "development"
     apiUrl: "http://missing-table-backend:8000"
-    supabaseUrl: "http://host.docker.internal:54321"
+    supabaseUrl: "http://192.168.1.17:54321"
     supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
     vueAppDisableSecurity: "true"
     extra:
