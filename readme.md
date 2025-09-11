@@ -1,6 +1,6 @@
-# Sports League Management System
+# Missing Table
 
-A comprehensive web application for managing sports leagues, including teams, games, standings, and administrative functions. Features a modern FastAPI backend with authentication and a Vue.js frontend with admin panel.
+A comprehensive web application for managing competitive youth soccer leagues across multiple age groups and regions. Features a modern FastAPI backend with authentication and a Vue.js frontend with admin panel for complete league management.
 
 ## 🌟 Features
 
@@ -37,6 +37,26 @@ Before you begin, ensure you have the following installed:
 
 ## 🚀 Quick Start
 
+### Option A: Automated Setup (Recommended)
+
+```bash
+# Clone and setup
+git clone <repository-url>
+cd missing-table
+
+# Start Supabase
+supabase start
+
+# Run automated setup script
+./setup-local-env.sh
+
+# Start services (in separate terminals)
+cd backend && uv run python app.py     # Terminal 1
+cd frontend && npm run serve           # Terminal 2
+```
+
+### Option B: Manual Setup
+
 ### 1. Clone and Setup
 
 ```bash
@@ -44,27 +64,47 @@ git clone <repository-url>
 cd missing-table
 ```
 
-### 2. Start Supabase
+### 2. Start Supabase and Restore Data
 
 ```bash
-# Initialize and start local Supabase
-supabase init
+# Start local Supabase (seeding disabled by default)
 supabase start
+
+# Restore real data from backup instead of using seeds
+./scripts/db_tools.sh restore
 ```
 
-### 3. Start Backend
+### 3. Setup Backend Environment
 
 ```bash
 cd backend
-# Environment variables are loaded from .env.local automatically
+
+# Install Python dependencies
+uv sync
+
+# Create environment file with local Supabase credentials
+# (Get keys from `supabase status` output)
+cat > .env << 'EOF'
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_ANON_KEY=your_anon_key_from_supabase_status
+SUPABASE_SERVICE_KEY=your_service_key_from_supabase_status
+SUPABASE_JWT_SECRET=your_jwt_secret_from_supabase_status
+DISABLE_LOGFIRE=true
+EOF
+
+# Start backend
 uv run python app.py
 ```
 
-### 4. Start Frontend
+### 4. Setup Frontend
 
 ```bash
-cd ../frontend
+cd frontend
+
+# Install dependencies (expect some warnings about Node versions - these are safe to ignore)
 npm install
+
+# Start frontend
 npm run serve
 ```
 
@@ -72,8 +112,16 @@ npm run serve
 
 - **Frontend**: http://localhost:8081
 - **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+- **API Docs**: http://localhost:8000/docs  
 - **Supabase Studio**: http://localhost:54323
+
+## ⚠️ Development Notes
+
+### Node.js Version Warnings
+When running `npm install`, you may see warnings about Node.js engine versions. These are safe to ignore as the package.json has been updated to support Node.js 18+ and npm 9+.
+
+### Security Vulnerabilities
+The npm audit may report security vulnerabilities in development dependencies. These are primarily in the Vue CLI build tools and do not affect production runtime security.
 
 ## 📁 Project Structure
 

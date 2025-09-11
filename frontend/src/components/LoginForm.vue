@@ -1,7 +1,7 @@
 <template>
   <div class="login-form">
     <div class="form-container">
-      <h2>{{ isSignup ? 'Sign Up' : 'Login' }}</h2>
+      <h2>{{ showInviteSignup ? 'Sign Up with Invite' : 'Login' }}</h2>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
@@ -29,7 +29,19 @@
           />
         </div>
 
-        <div v-if="isSignup" class="form-group">
+        <div v-if="showInviteSignup" class="form-group">
+          <label for="inviteCode">Invite Code:</label>
+          <input
+            id="inviteCode"
+            v-model="form.inviteCode"
+            type="text"
+            required
+            :disabled="authStore.state.loading"
+            placeholder="Enter your invite code"
+          />
+        </div>
+
+        <div v-if="showInviteSignup" class="form-group">
           <label for="displayName">Display Name (optional):</label>
           <input
             id="displayName"
@@ -62,10 +74,16 @@
       </form>
 
       <div class="form-footer">
-        <p>
-          {{ isSignup ? 'Already have an account?' : "Don't have an account?" }}
-          <button @click="toggleMode" class="link-btn">
-            {{ isSignup ? 'Login' : 'Sign Up' }}
+        <p v-if="!showInviteSignup">
+          Have an invite code? 
+          <button @click="showInviteForm" class="link-btn">
+            Click here to Sign Up
+          </button>
+        </p>
+        <p v-if="showInviteSignup">
+          Already have an account?
+          <button @click="showLoginForm" class="link-btn">
+            Login
           </button>
         </p>
       </div>
@@ -128,6 +146,7 @@ export default {
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const isSignup = ref(false);
+    const showInviteSignup = ref(false);
     const showRoleSelection = ref(false);
     const selectedRole = ref('team-fan');
     const selectedTeamId = ref('');
@@ -137,10 +156,19 @@ export default {
       email: '',
       password: '',
       displayName: '',
+      inviteCode: '',
     });
 
-    const toggleMode = () => {
-      isSignup.value = !isSignup.value;
+    const showInviteForm = () => {
+      showInviteSignup.value = true;
+      isSignup.value = true;
+      authStore.clearError();
+      showRoleSelection.value = false;
+    };
+
+    const showLoginForm = () => {
+      showInviteSignup.value = false;
+      isSignup.value = false;
       authStore.clearError();
       showRoleSelection.value = false;
     };
@@ -158,11 +186,12 @@ export default {
     const handleSubmit = async () => {
       authStore.clearError();
 
-      if (isSignup.value) {
-        const result = await authStore.signup(
+      if (isSignup.value && showInviteSignup.value) {
+        const result = await authStore.signupWithInvite(
           form.email,
           form.password,
-          form.displayName
+          form.displayName,
+          form.inviteCode
         );
         if (result.success) {
           // Show role selection for new users
@@ -200,12 +229,14 @@ export default {
     return {
       authStore,
       isSignup,
+      showInviteSignup,
       form,
       showRoleSelection,
       selectedRole,
       selectedTeamId,
       teams,
-      toggleMode,
+      showInviteForm,
+      showLoginForm,
       handleSubmit,
       completeProfile,
     };

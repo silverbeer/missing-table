@@ -12,6 +12,7 @@ from auth import AuthManager, get_current_user_optional, get_current_user_requir
 from rate_limiter import create_rate_limit_middleware, rate_limit
 from csrf_protection import csrf_middleware, get_csrf_token, provide_csrf_token
 from api.invites import router as invites_router
+from services import InviteService
 
 # Security monitoring imports (conditional)
 DISABLE_SECURITY = os.getenv('DISABLE_SECURITY', 'false').lower() == 'true'
@@ -185,6 +186,7 @@ class UserSignup(BaseModel):
     email: str
     password: str
     display_name: str | None = None
+    invite_code: str | None = None
 
 
 class UserLogin(BaseModel):
@@ -218,15 +220,29 @@ app.include_router(invites_router)
 @app.post("/api/auth/signup")
 # @rate_limit("3 per hour")
 async def signup(request: Request, user_data: UserSignup):
-    """User signup endpoint with security monitoring."""
+    """User signup endpoint with invite code validation and security monitoring."""
     with logfire.span("auth_signup") as span:
         span.set_attribute("auth.email", user_data.email)
         client_ip = security_monitor.get_client_ip(request) if security_monitor else "unknown"
         span.set_attribute("auth.client_ip", client_ip)
         
         try:
+            # REQUIRE INVITE CODE - this site is invite-only
+            if not user_data.invite_code:
+                raise HTTPException(status_code=400, detail="Invite code is required for registration")
+            
+            # Validate invite code first
+            invite_service = InviteService(db_conn_holder_obj.client)
+            invitation = invite_service.validate_invite_code(user_data.invite_code)
+            
+            if not invitation:
+                raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+            
+            span.set_attribute("auth.invite_code", user_data.invite_code)
+            span.set_attribute("auth.invite_type", invitation.get('invite_type'))
+            
             # Analyze signup request for threats
-            payload = {"email": user_data.email, "display_name": user_data.display_name}
+            payload = {"email": user_data.email, "display_name": user_data.display_name, "invite_code": user_data.invite_code}
             threat_events = security_monitor.analyze_request_for_threats(request, payload) if security_monitor else []
             
             # Log any threats detected during signup
@@ -244,10 +260,29 @@ async def signup(request: Request, user_data: UserSignup):
             })
             
             if response.user:
+                # Redeem the invitation
+                invite_redeemed = invite_service.redeem_invitation(user_data.invite_code, response.user.id)
+                
+                # Create user profile with invite information
+                profile_data = {
+                    "id": response.user.id,
+                    "email": user_data.email,
+                    "display_name": user_data.display_name or user_data.email.split('@')[0],
+                    "role": invitation.get('invite_type', 'team_fan').replace('_', '-'),
+                    "team_id": invitation.get('team_id'),
+                    "assigned_age_group_id": invitation.get('age_group_id'),
+                    "invited_via_code": user_data.invite_code if invite_redeemed else None
+                }
+                
+                # Insert user profile
+                db_conn_holder_obj.client.table('user_profiles').insert(profile_data).execute()
+                
                 logfire.info(
                     "User signup successful",
                     email=user_data.email,
                     user_id=response.user.id,
+                    invite_code=user_data.invite_code,
+                    invite_type=invitation.get('invite_type'),
                     client_ip=client_ip
                 )
                 span.set_attribute("auth.success", True)
