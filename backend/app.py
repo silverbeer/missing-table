@@ -266,7 +266,6 @@ async def signup(request: Request, user_data: UserSignup):
                 # Create user profile with invite information
                 profile_data = {
                     "id": response.user.id,
-                    "email": user_data.email,
                     "display_name": user_data.display_name or user_data.email.split('@')[0],
                     "role": invitation.get('invite_type', 'team_fan').replace('_', '-'),
                     "team_id": invitation.get('team_id'),

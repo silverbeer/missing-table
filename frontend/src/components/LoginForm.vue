@@ -75,16 +75,14 @@
 
       <div class="form-footer">
         <p v-if="!showInviteSignup">
-          Have an invite code? 
+          Have an invite code?
           <button @click="showInviteForm" class="link-btn">
             Click here to Sign Up
           </button>
         </p>
         <p v-if="showInviteSignup">
           Already have an account?
-          <button @click="showLoginForm" class="link-btn">
-            Login
-          </button>
+          <button @click="showLoginForm" class="link-btn">Login</button>
         </p>
       </div>
 
