@@ -165,6 +165,31 @@ stop_database() {
     fi
 }
 
+# Seed database with test data
+seed_database() {
+    print_header "Seeding E2E Database with Test Data"
+    
+    cd "$PROJECT_ROOT" || exit 1
+    
+    # Load e2e environment and run fixed seeding script
+    export $(grep -v '^#' .env.e2e | xargs)
+    
+    cd backend || exit 1
+    
+    if command -v uv &> /dev/null; then
+        uv run python ../scripts/e2e-seed-fixed.py
+    else
+        python3 ../scripts/e2e-seed-fixed.py
+    fi
+    
+    if [ $? -eq 0 ]; then
+        print_success "Database seeded with test data"
+    else
+        print_error "Failed to seed database"
+        exit 1
+    fi
+}
+
 # Main execution
 main() {
     case "${1:-}" in
@@ -180,12 +205,29 @@ main() {
             stop_database
             exit 0
             ;;
+        --seed-only)
+            # Only seed, don't start/stop
+            seed_database
+            ;;
         "")
-            # Default: setup database
+            # Default: complete setup - start, reset, seed
+            print_header "Complete E2E Database Setup"
             check_requirements
             start_e2e_database
             wait_for_database
-            show_connection_info
+            
+            # Reset database to apply all migrations
+            print_warning "Resetting database to apply migrations..."
+            cd "$PROJECT_ROOT/supabase-e2e" || exit 1
+            supabase db reset --workdir .
+            cd "$PROJECT_ROOT" || exit 1
+            
+            # Seed with test data
+            seed_database
+            
+            print_success "E2E database is ready!"
+            echo
+            print_warning "Run tests with: cd backend && export \$(grep -v '^#' ../.env.e2e | xargs) && uv run pytest -m e2e"
             ;;
         *)
             print_error "Unknown option: $1"
