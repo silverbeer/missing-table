@@ -199,6 +199,9 @@
               <th class="border-b text-center w-24">Score</th>
               <th class="border-b text-center w-24">Game Type</th>
               <th class="border-b text-right w-20">Result</th>
+              <th v-if="canEditGames" class="border-b text-center w-24">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -219,6 +222,15 @@
                 {{ game.game_type_name || 'League' }}
               </td>
               <td class="border-b text-right">{{ getResult(game) }}</td>
+              <td v-if="canEditGames" class="border-b text-center">
+                <button
+                  v-if="canEditGame(game)"
+                  @click="editGame(game)"
+                  class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Edit
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -227,26 +239,45 @@
         <p>No games found for the selected team.</p>
       </div>
     </div>
+
+    <!-- Game Edit Modal -->
+    <GameEditModal
+      :show="showEditModal"
+      :game="editingGame"
+      :teams="teams"
+      :seasons="seasons"
+      :game-types="gameTypes"
+      :age-groups="ageGroups"
+      @close="closeEditModal"
+      @updated="onGameUpdated"
+    />
   </div>
 </template>
 
 <script>
 import { ref, onMounted, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import GameEditModal from '@/components/GameEditModal.vue';
 
 export default {
   name: 'ScoresSchedule',
+  components: {
+    GameEditModal,
+  },
   setup() {
     const authStore = useAuthStore();
     const teams = ref([]);
     const games = ref([]);
     const ageGroups = ref([]);
     const seasons = ref([]);
+    const gameTypes = ref([]);
     const selectedTeam = ref('');
     const selectedAgeGroupId = ref(2); // Default to U14
     const selectedSeasonId = ref(3); // Default to 2025-2026
     const error = ref(null);
     const loading = ref(true);
+    const showEditModal = ref(false);
+    const editingGame = ref(null);
 
     const fetchAgeGroups = async () => {
       try {
@@ -275,6 +306,16 @@ export default {
         }
       } catch (err) {
         console.error('Error fetching seasons:', err);
+      }
+    };
+
+    const fetchGameTypes = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/game-types');
+        if (!response.ok) throw new Error('Failed to fetch game types');
+        gameTypes.value = await response.json();
+      } catch (err) {
+        console.error('Error fetching game types:', err);
       }
     };
 
@@ -568,8 +609,50 @@ export default {
       }
     );
 
+    // Permission checks
+    const canEditGames = computed(() => {
+      return authStore.isAdmin || authStore.isTeamManager;
+    });
+
+    const canEditGame = game => {
+      // Admins can edit all games
+      if (authStore.isAdmin) {
+        return true;
+      }
+
+      // Team managers can only edit games involving their team
+      if (authStore.isTeamManager && authStore.userTeamId) {
+        return (
+          game.home_team_id === authStore.userTeamId ||
+          game.away_team_id === authStore.userTeamId
+        );
+      }
+
+      return false;
+    };
+
+    const editGame = game => {
+      editingGame.value = game;
+      showEditModal.value = true;
+    };
+
+    const closeEditModal = () => {
+      showEditModal.value = false;
+      editingGame.value = null;
+    };
+
+    const onGameUpdated = () => {
+      // Refresh the games list after a successful update
+      fetchGames();
+    };
+
     onMounted(async () => {
-      await Promise.all([fetchAgeGroups(), fetchSeasons(), fetchTeams()]);
+      await Promise.all([
+        fetchAgeGroups(),
+        fetchSeasons(),
+        fetchGameTypes(),
+        fetchTeams(),
+      ]);
     });
 
     return {
@@ -593,6 +676,11 @@ export default {
       getSelectedTeamName,
       formatSeasonDates,
       getSegmentGridClass,
+      canEditGames,
+      canEditGame,
+      editGame,
+      closeEditModal,
+      onGameUpdated,
     };
   },
 };

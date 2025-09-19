@@ -831,10 +831,19 @@ async def add_game(game: EnhancedGame):
 
 @app.put("/api/games/{game_id}")
 async def update_game(
-    game_id: int, game: EnhancedGame, current_user: dict[str, Any] = Depends(require_admin)
+    game_id: int, game: EnhancedGame, current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
 ):
-    """Update an existing game (admin only)."""
+    """Update an existing game (admin or team manager only)."""
     try:
+        # Get current game to check permissions
+        current_game = sports_dao.get_game_by_id(game_id)
+        if not current_game:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        # Check if user can edit this game
+        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to edit this game")
+        
         success = sports_dao.update_game(
             game_id=game_id,
             home_team_id=game.home_team_id,
@@ -857,9 +866,18 @@ async def update_game(
 
 
 @app.delete("/api/games/{game_id}")
-async def delete_game(game_id: int, current_user: dict[str, Any] = Depends(require_admin)):
-    """Delete a game (admin only)."""
+async def delete_game(game_id: int, current_user: dict[str, Any] = Depends(require_team_manager_or_admin)):
+    """Delete a game (admin or team manager only)."""
     try:
+        # Get current game to check permissions
+        current_game = sports_dao.get_game_by_id(game_id)
+        if not current_game:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        # Check if user can edit this game
+        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to delete this game")
+        
         success = sports_dao.delete_game(game_id)
         if success:
             return {"message": "Game deleted successfully"}
