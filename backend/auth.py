@@ -4,6 +4,8 @@ Authentication and authorization utilities for the sports league backend.
 
 import logging
 import os
+import secrets
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any
 
@@ -23,6 +25,7 @@ class AuthManager:
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
         self.jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+        self.service_account_secret = os.getenv("SERVICE_ACCOUNT_SECRET", secrets.token_urlsafe(32))
 
         if not self.jwt_secret:
             raise ValueError(
@@ -74,18 +77,74 @@ class AuthManager:
             logger.error(f"Error verifying token: {e}")
             return None
 
+    def create_service_account_token(self, service_name: str, permissions: list[str], expires_days: int = 365) -> str:
+        """Create a service account JWT token for automated systems."""
+        expiration = datetime.now(timezone.utc) + timedelta(days=expires_days)
+
+        payload = {
+            "sub": f"service-{service_name}",
+            "iss": "missing-table",
+            "aud": "service-account",
+            "exp": int(expiration.timestamp()),
+            "iat": int(datetime.now(timezone.utc).timestamp()),
+            "service_name": service_name,
+            "permissions": permissions,
+            "role": "service_account"
+        }
+
+        return jwt.encode(payload, self.service_account_secret, algorithm="HS256")
+
+    def verify_service_account_token(self, token: str) -> dict[str, Any] | None:
+        """Verify service account JWT token and return service data."""
+        try:
+            payload = jwt.decode(
+                token, self.service_account_secret,
+                algorithms=["HS256"],
+                audience="service-account"
+            )
+
+            service_name = payload.get("service_name")
+            permissions = payload.get("permissions", [])
+
+            if not service_name:
+                return None
+
+            return {
+                "service_id": payload.get("sub"),
+                "service_name": service_name,
+                "permissions": permissions,
+                "role": "service_account",
+                "is_service_account": True
+            }
+
+        except jwt.ExpiredSignatureError:
+            logger.warning("Service account token has expired")
+            return None
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid service account token: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error verifying service account token: {e}")
+            return None
+
     def get_current_user(
         self, credentials: HTTPAuthorizationCredentials = Depends(security)
     ) -> dict[str, Any]:
-        """FastAPI dependency to get current authenticated user."""
+        """FastAPI dependency to get current authenticated user or service account."""
         if not credentials:
             raise HTTPException(status_code=401, detail="Authentication required")
 
+        # Try regular user token first
         user_data = self.verify_token(credentials.credentials)
-        if not user_data:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        if user_data:
+            return user_data
 
-        return user_data
+        # Try service account token
+        service_data = self.verify_service_account_token(credentials.credentials)
+        if service_data:
+            return service_data
+
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     def require_role(self, required_roles: list):
         """Decorator to require specific roles."""
@@ -189,3 +248,54 @@ def require_team_manager_or_admin(
     if role not in ["admin", "team-manager"]:
         raise HTTPException(status_code=403, detail="Team manager or admin access required")
     return current_user
+
+
+def require_admin_or_service_account(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, Any]:
+    """Require admin role or service account with appropriate permissions."""
+    role = current_user.get("role")
+
+    # Allow admin users
+    if role == "admin":
+        return current_user
+
+    # Allow service accounts with game management permissions
+    if role == "service_account":
+        permissions = current_user.get("permissions", [])
+        if "manage_games" in permissions:
+            return current_user
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="Service account requires 'manage_games' permission"
+            )
+
+    raise HTTPException(status_code=403, detail="Admin or authorized service account access required")
+
+
+def require_game_management_permission(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, Any]:
+    """Require permission to manage games (admin, team-manager, or service account)."""
+    role = current_user.get("role")
+
+    # Allow admin and team managers
+    if role in ["admin", "team-manager"]:
+        return current_user
+
+    # Allow service accounts with game management permissions
+    if role == "service_account":
+        permissions = current_user.get("permissions", [])
+        if "manage_games" in permissions:
+            return current_user
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="Service account requires 'manage_games' permission"
+            )
+
+    raise HTTPException(
+        status_code=403,
+        detail="Admin, team manager, or authorized service account access required"
+    )

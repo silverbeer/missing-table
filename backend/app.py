@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin
+from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin, require_admin_or_service_account, require_game_management_permission
 from rate_limiter import create_rate_limit_middleware, rate_limit
 from csrf_protection import csrf_middleware, get_csrf_token, provide_csrf_token
 from api.invites import router as invites_router
@@ -772,8 +772,8 @@ async def get_games(
 
 
 @app.post("/api/games")
-async def add_game(game: EnhancedGame):
-    """Add a new game with enhanced schema."""
+async def add_game(game: EnhancedGame, current_user: dict[str, Any] = Depends(require_game_management_permission)):
+    """Add a new game with enhanced schema (requires admin, team manager, or service account with manage_games permission)."""
     try:
         success = sports_dao.add_game(
             home_team_id=game.home_team_id,
@@ -797,9 +797,9 @@ async def add_game(game: EnhancedGame):
 
 @app.put("/api/games/{game_id}")
 async def update_game(
-    game_id: int, game: EnhancedGame, current_user: dict[str, Any] = Depends(require_admin)
+    game_id: int, game: EnhancedGame, current_user: dict[str, Any] = Depends(require_admin_or_service_account)
 ):
-    """Update an existing game (admin only)."""
+    """Update an existing game (admin or service account with manage_games permission)."""
     try:
         success = sports_dao.update_game(
             game_id=game_id,
