@@ -538,6 +538,25 @@ class EnhancedSportsDAO:
             print(f"Error updating game: {e}")
             return False
 
+    def get_game_by_id(self, game_id: int) -> dict | None:
+        """Get a single game by ID."""
+        try:
+            response = (
+                self.client.table("games")
+                .select("*")
+                .eq("id", game_id)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            else:
+                return None
+
+        except Exception as e:
+            print(f"Error retrieving game by ID: {e}")
+            return None
+
     def delete_game(self, game_id: int) -> bool:
         """Delete a game."""
         try:

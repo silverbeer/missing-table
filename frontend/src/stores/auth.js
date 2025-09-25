@@ -87,6 +87,39 @@ export const useAuthStore = () => {
     }
   };
 
+  const signupWithInvite = async (email, password, displayName, inviteCode) => {
+    try {
+      setLoading(true);
+      clearError();
+
+      const response = await fetch('http://localhost:8000/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          display_name: displayName || email.split('@')[0],
+          invite_code: inviteCode,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Signup failed');
+      }
+
+      const data = await response.json();
+      return { success: true, message: data.message || 'Signup successful!' };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const login = async (email, password) => {
     try {
       setLoading(true);
@@ -378,6 +411,7 @@ export const useAuthStore = () => {
 
     // Actions
     signup,
+    signupWithInvite,
     login,
     logout,
     forceLogout,
