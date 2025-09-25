@@ -112,7 +112,50 @@ GET /api/divisions      # Get division IDs
 
 ## 🔄 Match-Scraper Workflow
 
-### 1. Schedule Import
+### 1. Health Check (First Priority)
+```python
+import requests
+
+# Always check backend health before proceeding
+def check_backend_health():
+    try:
+        # Basic health check
+        response = requests.get(f"{MISSING_TABLE_API_BASE_URL}/health", timeout=10)
+        if response.status_code == 200:
+            health_data = response.json()
+            if health_data.get("status") == "healthy":
+                print(f"✅ Backend is healthy - version {health_data.get('version', 'unknown')}")
+                return True
+
+        print(f"❌ Backend health check failed: {response.status_code}")
+        return False
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Cannot reach backend: {e}")
+        return False
+
+# Optional: Full health check for detailed diagnostics
+def full_health_check():
+    try:
+        response = requests.get(f"{MISSING_TABLE_API_BASE_URL}/health/full", timeout=15)
+        if response.status_code == 200:
+            health_data = response.json()
+            print(f"📊 Full Health Check:")
+            print(f"   Status: {health_data.get('status')}")
+            print(f"   Database: {health_data.get('checks', {}).get('database', {}).get('status')}")
+            print(f"   Reference Data: {health_data.get('checks', {}).get('reference_data', {}).get('status')}")
+            return health_data.get("status") == "healthy"
+    except Exception as e:
+        print(f"❌ Full health check failed: {e}")
+        return False
+
+# Use in match-scraper startup
+if not check_backend_health():
+    print("Backend is not ready. Exiting match-scraper.")
+    exit(1)
+```
+
+### 2. Schedule Import
 ```python
 import requests
 
@@ -185,7 +228,21 @@ headers = {"Authorization": f"Bearer {token}"}
 
 ## 🧪 Testing Integration
 
-### 1. Test Authentication
+### 1. Test Health Check (No Auth Required)
+```bash
+# Basic health check
+curl http://localhost:8000/health
+
+# Expected response:
+# {"status": "healthy", "version": "2.0.0", "schema": "enhanced"}
+
+# Full health check with database status
+curl http://localhost:8000/health/full
+
+# Expected response includes database and reference data status
+```
+
+### 2. Test Authentication
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \
      http://localhost:8000/api/games
