@@ -81,6 +81,10 @@ cd backend && uv run python make_user_admin.py --interactive       # Interactive
 # Available admin scripts:
 # - make_user_admin.py: Comprehensive user role management (RECOMMENDED)
 # - create_admin_invite.py: Creates invitation codes for new admin users
+# - reset_user_password.py: Reset user passwords in cloud environment
+
+# Password Reset (Cloud Environment)
+cd backend && uv run python reset_user_password.py --email "user@example.com" --password "newpassword" --confirm
 
 # Note: tdrake13@gmail.com has been configured as an admin user
 # Cleaned up: Removed redundant make_admin.py script (was hardcoded for tdrake13@gmail.com)
@@ -90,11 +94,123 @@ cd backend && uv run python make_user_admin.py --interactive       # Interactive
 # These scripts are kept for reference but use db_tools.sh restore instead
 ```
 
+## Environment Management
+
+The application now supports multiple environments: **local**, **dev** (cloud), and **prod** (cloud).
+
+### Environment Switching
+```bash
+# Switch environments
+./switch-env.sh local    # Local Supabase (default)
+./switch-env.sh dev      # Cloud development
+./switch-env.sh prod     # Cloud production
+
+# Check current environment
+./switch-env.sh status
+
+# Show help
+./switch-env.sh help
+```
+
+### Environment Setup
+
+#### 1. Local Environment (Default)
+- Uses local Supabase instance
+- Requires `npx supabase start`
+- Best for e2e testing and offline development
+- Configuration: `backend/.env.local`, `frontend/.env.local`
+
+#### 2. Cloud Development Environment
+- Uses Supabase cloud for cross-machine sync
+- Perfect for match-scraper integration
+- Configuration: `backend/.env.dev`, `frontend/.env.dev`
+
+**Setup Cloud Dev Environment:**
+```bash
+# 1. Configure your cloud credentials
+./setup-cloud-credentials.sh
+
+# 2. Switch to dev environment
+./switch-env.sh dev
+
+# 3. Apply migrations to cloud database
+npx supabase db push
+
+# 4. Migrate your data
+./scripts/db_tools.sh backup local    # Backup local data
+./scripts/db_tools.sh restore dev     # Restore to cloud
+```
+
+#### 3. Production Environment
+- Uses production Supabase project
+- Configuration: `backend/.env.prod`, `frontend/.env.prod`
+- Use with caution - production data
+
+### Environment-Aware Database Operations
+
+All database operations now support environment specification:
+
+```bash
+# Backup operations
+./scripts/db_tools.sh backup         # Current environment
+./scripts/db_tools.sh backup local   # Local environment
+./scripts/db_tools.sh backup dev     # Cloud dev environment
+
+# Restore operations
+./scripts/db_tools.sh restore                    # Latest backup to current env
+./scripts/db_tools.sh restore backup_file.json  # Specific backup to current env
+./scripts/db_tools.sh restore backup_file.json dev  # Specific backup to dev env
+
+# Reset operations (local only)
+./scripts/db_tools.sh reset local    # Reset local database
+```
+
+### Development Workflows
+
+#### Cross-Machine Development
+```bash
+# On Machine 1
+./switch-env.sh dev              # Switch to cloud dev
+./scripts/db_tools.sh backup     # Backup current state
+./start.sh                       # Develop with cloud database
+
+# On Machine 2
+./switch-env.sh dev              # Switch to cloud dev
+./start.sh                       # Access same cloud database
+```
+
+#### Match-Scraper Integration
+```bash
+# Setup stable cloud endpoint for match-scraper
+./switch-env.sh dev                              # Switch to dev environment
+./setup-cloud-credentials.sh                    # Configure cloud credentials
+./start.sh                                       # Start with cloud database
+
+# Generate service account token for match-scraper
+cd backend && uv run python create_service_account_token.py --service-name match-scraper --permissions manage_games
+```
+
+#### Testing Workflow
+```bash
+# Local testing (isolated)
+./switch-env.sh local
+npx supabase start
+./scripts/db_tools.sh restore
+./start.sh
+
+# Cloud testing (shared)
+./switch-env.sh dev
+./start.sh
+```
+
 ## Database Management Workflow
 
 ### Daily Development
+
+#### Local Development
 ```bash
-# Start development
+# Start local development
+./switch-env.sh local
 npx supabase start
 ./scripts/db_tools.sh restore    # Restore real data from latest backup
 
@@ -104,13 +220,29 @@ npx supabase start
 ./scripts/db_tools.sh backup     # Create backup of current state
 ```
 
+#### Cloud Development
+```bash
+# Start cloud development
+./switch-env.sh dev
+./start.sh                       # No need to start Supabase - using cloud
+
+# Your development work...
+
+# End of session (optional backup)
+./scripts/db_tools.sh backup dev # Create backup of current state
+```
+
 ### Testing New Features
 ```bash
-# Before major changes
-./scripts/db_tools.sh backup     # Create safety backup
+# Before major changes (environment-aware)
+./scripts/db_tools.sh backup     # Create safety backup for current environment
 
 # After testing, if things go wrong
 ./scripts/db_tools.sh restore    # Restore to last known good state
+
+# Cross-environment testing
+./scripts/db_tools.sh backup local      # Backup local state
+./scripts/db_tools.sh restore dev       # Copy local data to dev for testing
 ```
 
 ### System Health Monitoring

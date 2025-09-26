@@ -41,11 +41,12 @@ fi
 
 # Start backend
 echo -e "${YELLOW}Starting backend server...${NC}"
+
+# Show current environment
+current_env="${APP_ENV:-local}"
+echo "Using environment: $current_env"
+
 cd backend
-if [ -f ".env.local" ]; then
-    echo "Using .env.local configuration"
-    export $(grep -v '^#' .env.local | xargs)
-fi
 
 # Check if uv is available
 if command -v uv &> /dev/null; then

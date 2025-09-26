@@ -8,8 +8,25 @@ import httpx
 from dotenv import load_dotenv
 from supabase import create_client
 
-# Load environment variables
-load_dotenv()
+# Load environment variables with environment-specific support
+def load_environment():
+    """Load environment variables based on APP_ENV or default to local."""
+    # First load base .env file
+    load_dotenv()
+
+    # Determine which environment to use
+    app_env = os.getenv('APP_ENV', 'local')  # Default to local
+
+    # Load environment-specific file
+    env_file = f".env.{app_env}"
+    if os.path.exists(env_file):
+        load_dotenv(env_file, override=True)
+    else:
+        # Fallback to .env.local for backwards compatibility
+        if os.path.exists(".env.local"):
+            load_dotenv(".env.local", override=True)
+
+load_environment()
 
 
 class SupabaseConnection:

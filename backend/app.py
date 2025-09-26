@@ -51,9 +51,28 @@ else:
 from dao.enhanced_data_access_fixed import EnhancedSportsDAO
 from dao.enhanced_data_access_fixed import SupabaseConnection as DbConnectionHolder
 
-# Load environment variables
-load_dotenv()  # Load .env first
-load_dotenv(".env.local", override=True)  # Override with .env.local if it exists
+# Load environment variables with environment-specific support
+def load_environment():
+    """Load environment variables based on APP_ENV or default to local."""
+    # First load base .env file
+    load_dotenv()
+
+    # Determine which environment to use
+    app_env = os.getenv('APP_ENV', 'local')  # Default to local
+
+    # Load environment-specific file
+    env_file = f".env.{app_env}"
+    if os.path.exists(env_file):
+        print(f"Loading environment: {app_env} from {env_file}")
+        load_dotenv(env_file, override=True)
+    else:
+        print(f"Environment file {env_file} not found, using default configuration")
+        # Fallback to .env.local for backwards compatibility
+        if os.path.exists(".env.local"):
+            print("Falling back to .env.local")
+            load_dotenv(".env.local", override=True)
+
+load_environment()
 
 # Configure logging
 logging.basicConfig(
@@ -67,7 +86,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
 
 # Initialize Logfire and OpenTelemetry instrumentation
-if not DISABLE_SECURITY and not os.getenv('DISABLE_LOGFIRE'):
+if not DISABLE_SECURITY and not os.getenv('DISABLE_LOGFIRE', 'false').lower() == 'true':
     logfire.configure(
         token=os.getenv('LOGFIRE_TOKEN'),
         project_name=os.getenv('LOGFIRE_PROJECT', 'missing-table'),
