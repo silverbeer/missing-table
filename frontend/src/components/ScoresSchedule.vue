@@ -73,6 +73,68 @@
             </option>
           </select>
         </div>
+
+        <!-- Game Type Filter -->
+        <div>
+          <h3 class="text-sm font-medium text-gray-700 mb-3">Game Type</h3>
+          <div class="flex flex-wrap gap-2">
+            <button
+              @click="selectedGameTypeId = 1"
+              :class="[
+                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+                selectedGameTypeId === 1
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ]"
+            >
+              League
+            </button>
+            <button
+              @click="selectedGameTypeId = 3"
+              :class="[
+                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+                selectedGameTypeId === 3
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ]"
+            >
+              Friendly
+            </button>
+            <button
+              @click="selectedGameTypeId = 2"
+              :class="[
+                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+                selectedGameTypeId === 2
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ]"
+            >
+              Tournament
+            </button>
+            <button
+              @click="selectedGameTypeId = 4"
+              :class="[
+                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+                selectedGameTypeId === 4
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ]"
+            >
+              Playoff
+            </button>
+            <button
+              @click="selectedGameTypeId = null"
+              :class="[
+                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+                selectedGameTypeId === null
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ]"
+            >
+              All Games
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Display Filtered Games -->
@@ -274,6 +336,7 @@ export default {
     const selectedTeam = ref('');
     const selectedAgeGroupId = ref(2); // Default to U14
     const selectedSeasonId = ref(3); // Default to 2025-2026
+    const selectedGameTypeId = ref(1); // Default to League games (id: 1)
     const error = ref(null);
     const loading = ref(true);
     const showEditModal = ref(false);
@@ -469,14 +532,23 @@ export default {
       return season ? season.name : '';
     });
 
-    // Sort games by date in ascending order for display
+    // Sort games by date in ascending order for display and filter by game type
     const sortedGames = computed(() => {
-      return [...games.value].sort(
+      let filteredGames = [...games.value];
+
+      // Filter by game type if a specific type is selected (not "All Games")
+      if (selectedGameTypeId.value !== null) {
+        filteredGames = filteredGames.filter(
+          game => game.game_type_id === selectedGameTypeId.value
+        );
+      }
+
+      return filteredGames.sort(
         (a, b) => new Date(a.game_date) - new Date(b.game_date)
       );
     });
 
-    // Calculate season statistics
+    // Calculate season statistics based on selected game type filter
     const seasonStats = computed(() => {
       const currentDate = new Date();
       const stats = {
@@ -499,10 +571,21 @@ export default {
         lastFive: [],
       };
 
-      // Sort games by date (ascending order)
-      const sortedGames = [...games.value]
-        .filter(game => new Date(game.game_date) <= currentDate)
-        .sort((a, b) => new Date(a.game_date) - new Date(b.game_date));
+      // Sort games by date (ascending order) and filter by selected game type
+      let sortedGames = [...games.value].filter(
+        game => new Date(game.game_date) <= currentDate
+      );
+
+      // Apply game type filter if a specific type is selected
+      if (selectedGameTypeId.value !== null) {
+        sortedGames = sortedGames.filter(
+          game => game.game_type_id === selectedGameTypeId.value
+        );
+      }
+
+      sortedGames = sortedGames.sort(
+        (a, b) => new Date(a.game_date) - new Date(b.game_date)
+      );
 
       sortedGames.forEach(game => {
         const selectedTeamId = parseInt(selectedTeam.value);
@@ -661,9 +744,11 @@ export default {
       sortedGames,
       ageGroups,
       seasons,
+      gameTypes,
       selectedTeam,
       selectedAgeGroupId,
       selectedSeasonId,
+      selectedGameTypeId,
       filteredTeams,
       selectedTeamLeagueInfo,
       selectedSeasonName,
@@ -681,6 +766,8 @@ export default {
       editGame,
       closeEditModal,
       onGameUpdated,
+      showEditModal,
+      editingGame,
     };
   },
 };

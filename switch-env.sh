@@ -147,13 +147,15 @@ switch_environment() {
 update_shell_config() {
     local target_env="$1"
 
-    # Determine shell config file
-    if [ -n "$ZSH_VERSION" ]; then
+    # Determine shell config file by checking user's actual shell
+    user_shell=$(basename "$SHELL")
+
+    if [ "$user_shell" = "zsh" ]; then
         shell_config="$HOME/.zshrc"
-    elif [ -n "$BASH_VERSION" ]; then
+    elif [ "$user_shell" = "bash" ]; then
         shell_config="$HOME/.bashrc"
     else
-        print_warning "Unknown shell. Please manually add 'export APP_ENV=$target_env' to your shell configuration."
+        print_warning "Unknown shell ($user_shell). Please manually add 'export APP_ENV=$target_env' to your shell configuration."
         return
     fi
 
