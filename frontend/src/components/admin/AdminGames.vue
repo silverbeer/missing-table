@@ -65,48 +65,53 @@
     <!-- Games Table -->
     <div
       v-else
-      class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
+      class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
     >
       <table class="min-w-full divide-y divide-gray-300">
         <thead class="bg-gray-50">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
             >
               Date
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Home Team
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Away Team
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
             >
               Score
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
             >
               Type
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
             >
               Season
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
             >
               Age Group
             </th>
             <th
-              class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+            >
+              Status
+            </th>
+            <th
+              class="px-4 py-3 text-right text-xs font-medium text-gray-500 bg-gray-50 uppercase tracking-wider w-44 sticky right-0"
             >
               Actions
             </th>
@@ -114,26 +119,26 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="game in games" :key="game.id">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
               {{ formatDate(game.game_date) }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+              class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
               {{ game.home_team_name }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+              class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
               {{ game.away_team_name }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
               <span v-if="game.home_score !== null && game.away_score !== null">
                 {{ game.home_score }} - {{ game.away_score }}
               </span>
               <span v-else class="text-gray-400 italic">Not played</span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                 :class="getGameTypeClass(game.game_type_name)"
@@ -141,27 +146,38 @@
                 {{ game.game_type_name }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ game.season_name }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ game.age_group_name }}
             </td>
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                :class="getStatusClass(game.status)"
+              >
+                {{ getStatusDisplay(game.status) }}
+              </span>
+            </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
+              class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium bg-gray-50 w-44 sticky right-0"
             >
-              <button
-                @click="editGame(game)"
-                class="text-blue-600 hover:text-blue-900 mr-3"
-              >
-                Edit
-              </button>
-              <button
-                @click="deleteGame(game)"
-                class="text-red-600 hover:text-red-900"
-              >
-                Delete
-              </button>
+              <div class="flex gap-2 justify-end items-center">
+                <button
+                  @click="editGame(game)"
+                  class="bg-blue-500 text-white px-2 py-1.5 rounded hover:bg-blue-600 font-medium text-xs min-w-[60px]"
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  @click="deleteGame(game)"
+                  class="bg-red-500 text-white px-2 py-1.5 rounded hover:bg-red-600 font-medium text-xs min-w-[70px]"
+                  title="Delete this game"
+                >
+                  🗑️ Delete
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -439,6 +455,25 @@ export default {
       return classes[gameTypeName] || 'bg-gray-100 text-gray-800';
     };
 
+    const getStatusClass = status => {
+      const classes = {
+        scheduled: 'bg-yellow-100 text-yellow-800',
+        played: 'bg-green-100 text-green-800',
+        postponed: 'bg-orange-100 text-orange-800',
+        cancelled: 'bg-red-100 text-red-800',
+      };
+      return classes[status] || 'bg-gray-100 text-gray-800';
+    };
+
+    const getStatusDisplay = status => {
+      if (!status) {
+        // Fallback for games without status field (backward compatibility)
+        return 'Unknown';
+      }
+      // Capitalize first letter
+      return status.charAt(0).toUpperCase() + status.slice(1);
+    };
+
     const editGame = game => {
       editingGame.value = game;
       editFormData.value = {
@@ -563,6 +598,8 @@ export default {
       fetchGames,
       formatDate,
       getGameTypeClass,
+      getStatusClass,
+      getStatusDisplay,
       editGame,
       updateGame,
       deleteGame,

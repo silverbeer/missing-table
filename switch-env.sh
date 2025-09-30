@@ -1,0 +1,193 @@
+#!/bin/bash
+# Environment Switcher Script for Missing Table Development
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+print_header() {
+    echo -e "${BLUE}=== $1 ===${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+show_help() {
+    echo "Environment Switcher for Missing Table Development"
+    echo ""
+    echo "Usage: $0 [ENVIRONMENT]"
+    echo ""
+    echo "Environments:"
+    echo "  local    Use local Supabase (requires 'npx supabase start')"
+    echo "  dev      Use cloud Supabase development environment"
+    echo "  prod     Use cloud Supabase production environment"
+    echo "  status   Show current environment configuration"
+    echo "  help     Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 local     # Switch to local development"
+    echo "  $0 dev       # Switch to cloud development"
+    echo "  $0 status    # Show current environment"
+    echo ""
+    echo "What this script does:"
+    echo "  - Sets APP_ENV environment variable for current session"
+    echo "  - Updates shell export in ~/.bashrc or ~/.zshrc"
+    echo "  - Shows which environment files will be loaded"
+    echo ""
+}
+
+show_status() {
+    print_header "Current Environment Status"
+
+    current_env="${APP_ENV:-local}"
+    echo "Current APP_ENV: $current_env"
+
+    # Check which files exist
+    echo ""
+    echo "Available environment files:"
+    for env in local dev prod; do
+        backend_file="$SCRIPT_DIR/backend/.env.$env"
+        frontend_file="$SCRIPT_DIR/frontend/.env.$env"
+
+        if [ -f "$backend_file" ] && [ -f "$frontend_file" ]; then
+            if [ "$env" = "$current_env" ]; then
+                echo -e "  ${GREEN}✅ $env (ACTIVE)${NC}"
+            else
+                echo -e "  ✅ $env"
+            fi
+        else
+            echo -e "  ${RED}❌ $env (missing files)${NC}"
+        fi
+    done
+
+    # Show what would be loaded
+    echo ""
+    echo "Environment files that would be loaded:"
+    echo "  Backend:  .env.$current_env"
+    echo "  Frontend: .env.$current_env"
+
+    # Check if Supabase is running for local env
+    if [ "$current_env" = "local" ]; then
+        echo ""
+        if curl -s http://127.0.0.1:54321/health > /dev/null 2>&1; then
+            print_success "Local Supabase is running"
+        else
+            print_warning "Local Supabase is not running. Run 'npx supabase start' to start it."
+        fi
+    fi
+}
+
+switch_environment() {
+    local target_env="$1"
+
+    # Validate environment
+    if [ "$target_env" != "local" ] && [ "$target_env" != "dev" ] && [ "$target_env" != "prod" ]; then
+        print_error "Invalid environment: $target_env"
+        echo "Valid environments: local, dev, prod"
+        exit 1
+    fi
+
+    # Check if environment files exist
+    backend_file="$SCRIPT_DIR/backend/.env.$target_env"
+    frontend_file="$SCRIPT_DIR/frontend/.env.$target_env"
+
+    if [ ! -f "$backend_file" ]; then
+        print_error "Backend environment file not found: $backend_file"
+        exit 1
+    fi
+
+    if [ ! -f "$frontend_file" ]; then
+        print_error "Frontend environment file not found: $frontend_file"
+        exit 1
+    fi
+
+    print_header "Switching to $target_env environment"
+
+    # Set environment variable for current session
+    export APP_ENV="$target_env"
+
+    # Update shell configuration
+    update_shell_config "$target_env"
+
+    print_success "Environment switched to: $target_env"
+    print_warning "Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc) to apply changes"
+
+    # Show next steps
+    echo ""
+    echo "Next steps:"
+    if [ "$target_env" = "local" ]; then
+        echo "  1. Start local Supabase: npx supabase start"
+        echo "  2. Restore data: ./scripts/db_tools.sh restore"
+        echo "  3. Start application: ./missing-table.sh start"
+    elif [ "$target_env" = "dev" ]; then
+        echo "  1. Update .env.dev with your cloud Supabase credentials"
+        echo "  2. Test connection: cd backend && uv run python -c 'from dao.enhanced_data_access_fixed import SupabaseConnection; SupabaseConnection()'"
+        echo "  3. Start application: ./missing-table.sh start"
+    elif [ "$target_env" = "prod" ]; then
+        echo "  1. Update .env.prod with production Supabase credentials"
+        echo "  2. Deploy using your production deployment method"
+        print_warning "Production environment - use with caution!"
+    fi
+}
+
+update_shell_config() {
+    local target_env="$1"
+
+    # Determine shell config file
+    if [ -n "$ZSH_VERSION" ]; then
+        shell_config="$HOME/.zshrc"
+    elif [ -n "$BASH_VERSION" ]; then
+        shell_config="$HOME/.bashrc"
+    else
+        print_warning "Unknown shell. Please manually add 'export APP_ENV=$target_env' to your shell configuration."
+        return
+    fi
+
+    # Remove any existing APP_ENV export
+    if [ -f "$shell_config" ]; then
+        # Create backup
+        cp "$shell_config" "$shell_config.backup.$(date +%Y%m%d_%H%M%S)"
+
+        # Remove existing APP_ENV lines
+        grep -v "^export APP_ENV=" "$shell_config" > "$shell_config.tmp"
+        mv "$shell_config.tmp" "$shell_config"
+    fi
+
+    # Add new APP_ENV export
+    echo "export APP_ENV=$target_env" >> "$shell_config"
+
+    print_success "Updated $shell_config with APP_ENV=$target_env"
+}
+
+# Main script logic
+case "${1:-help}" in
+    local|dev|prod)
+        switch_environment "$1"
+        ;;
+    status)
+        show_status
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        print_error "Unknown command: ${1:-[none]}"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

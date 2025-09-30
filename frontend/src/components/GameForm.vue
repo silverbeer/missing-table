@@ -83,6 +83,63 @@
         </div>
       </div>
 
+      <!-- Division Row (only for League games) -->
+      <div
+        v-if="isLeagueGame"
+        class="p-3 bg-blue-50 rounded-md border border-blue-200"
+      >
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1"
+              >Division <span class="text-red-500">*</span></label
+            >
+            <select
+              v-model="selectedDivision"
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              required
+            >
+              <option value="">Select Division</option>
+              <option
+                v-for="division in divisions"
+                :key="division.id"
+                :value="division.id"
+              >
+                {{ division.name }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-600 mt-1">
+              Division is required for League games to ensure proper standings
+              calculation
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Status Row -->
+      <div class="p-3 bg-green-50 rounded-md border border-green-200">
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1"
+              >Game Status <span class="text-red-500">*</span></label
+            >
+            <select
+              v-model="selectedStatus"
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              required
+            >
+              <option value="scheduled">Scheduled</option>
+              <option value="played">Played</option>
+              <option value="postponed">Postponed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <p class="text-xs text-gray-600 mt-1">
+              Status determines whether the game counts toward standings. Only
+              "Played" games affect team standings.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Date and Teams Row -->
       <div class="grid grid-cols-3 gap-3">
         <div>
@@ -195,11 +252,13 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
+import { useAuthStore } from '../stores/auth';
 
 export default {
   name: 'GameForm',
   setup() {
+    const { apiRequest } = useAuthStore();
     const teams = ref([]);
     const error = ref(false);
     const message = ref('');
@@ -215,9 +274,18 @@ export default {
     const activeSeasons = ref([]);
     const ageGroups = ref([]);
     const gameTypes = ref([]);
+    const divisions = ref([]);
     const selectedSeason = ref(null);
     const selectedAgeGroup = ref(null);
     const selectedGameType = ref(null);
+    const selectedDivision = ref(null);
+    const selectedStatus = ref('scheduled');
+
+    // Computed property to check if current game type is League
+    const isLeagueGame = computed(() => {
+      const leagueGameType = gameTypes.value.find(gt => gt.name === 'League');
+      return selectedGameType.value === leagueGameType?.id;
+    });
 
     const fetchTeams = async () => {
       try {
@@ -290,6 +358,20 @@ export default {
             gameTypes.value[0]?.id;
         }
 
+        // Fetch divisions
+        const divisionsResponse = await fetch(
+          'http://localhost:8000/api/divisions'
+        );
+        if (divisionsResponse.ok) {
+          divisions.value = await divisionsResponse.json();
+          // Default to Northeast for League games
+          if (divisions.value.length > 0) {
+            selectedDivision.value =
+              divisions.value.find(d => d.name === 'Northeast')?.id ||
+              divisions.value[0]?.id;
+          }
+        }
+
         // After all defaults are set, fetch teams
         if (selectedGameType.value && selectedAgeGroup.value) {
           await fetchTeams();
@@ -316,10 +398,10 @@ export default {
         }
 
         const result = await response.json();
-        return result.exists;
+        return result;
       } catch (err) {
         console.error('Error checking for duplicate game:', err);
-        return false; // Fail open if we can't check
+        return { exists: false }; // Fail open if we can't check
       }
     };
 
@@ -335,7 +417,19 @@ export default {
         season_id: selectedSeason.value,
         age_group_id: selectedAgeGroup.value,
         game_type_id: selectedGameType.value,
+        status: selectedStatus.value,
       };
+
+      // Add division_id for League games
+      const leagueGameType = gameTypes.value.find(gt => gt.name === 'League');
+      if (selectedGameType.value === leagueGameType?.id) {
+        if (!selectedDivision.value) {
+          message.value = 'Division is required for League games';
+          error.value = true;
+          return;
+        }
+        gameDataToSubmit.division_id = selectedDivision.value;
+      }
 
       console.log('Game Data before stringification:', gameDataToSubmit);
       const requestBody = JSON.stringify(gameDataToSubmit);
@@ -363,10 +457,12 @@ export default {
         return;
       }
 
-      // Check for duplicate game when scheduling
+      // Check for existing game
+      const gameCheck = await checkDuplicateGame();
+
       if (formType.value === 'schedule') {
-        const isDuplicate = await checkDuplicateGame();
-        if (isDuplicate) {
+        // When scheduling, prevent duplicates
+        if (gameCheck.exists) {
           message.value = 'This game is already scheduled for this date';
           error.value = true;
           return;
@@ -374,21 +470,36 @@ export default {
       }
 
       try {
-        const response = await fetch('http://localhost:8000/api/games', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: requestBody,
-        });
+        let result;
 
-        const result = await response.json();
+        if (
+          formType.value === 'score' &&
+          gameCheck.exists &&
+          gameCheck.game_id
+        ) {
+          // Update existing game
+          result = await apiRequest(
+            `http://localhost:8000/api/games/${gameCheck.game_id}`,
+            {
+              method: 'PUT',
+              body: requestBody,
+            }
+          );
+        } else {
+          // Create new game
+          result = await apiRequest('http://localhost:8000/api/games', {
+            method: 'POST',
+            body: requestBody,
+          });
+        }
 
-        if (response.ok) {
+        if (result) {
           message.value =
             formType.value === 'schedule'
               ? 'Game scheduled successfully'
-              : 'Score submitted successfully';
+              : gameCheck.exists
+                ? 'Score updated successfully'
+                : 'Score submitted successfully';
           error.value = false;
           // Reset form
           gameData.value = {
@@ -436,6 +547,22 @@ export default {
       }
     );
 
+    // Watch for changes in game type to handle division requirements
+    watch(selectedGameType, newGameType => {
+      const leagueGameType = gameTypes.value.find(gt => gt.name === 'League');
+      if (newGameType === leagueGameType?.id) {
+        // Auto-select Northeast division for League games if available
+        if (divisions.value.length > 0 && !selectedDivision.value) {
+          selectedDivision.value =
+            divisions.value.find(d => d.name === 'Northeast')?.id ||
+            divisions.value[0]?.id;
+        }
+      } else {
+        // Clear division for non-League games
+        selectedDivision.value = null;
+      }
+    });
+
     onMounted(async () => {
       await fetchReferenceData();
     });
@@ -451,9 +578,13 @@ export default {
       activeSeasons,
       ageGroups,
       gameTypes,
+      divisions,
       selectedSeason,
       selectedAgeGroup,
       selectedGameType,
+      selectedDivision,
+      selectedStatus,
+      isLeagueGame,
     };
   },
 };
