@@ -9,8 +9,26 @@ This is a full-stack web application for managing MLS Next sports league standin
 ## Key Commands
 
 ### Development
+
+#### Service Management (Recommended)
 ```bash
-# Start both frontend and backend
+# Comprehensive service management script
+./missing-table.sh start    # Start both backend and frontend
+./missing-table.sh stop     # Stop all running services
+./missing-table.sh restart  # Restart all services
+./missing-table.sh status   # Show service status and PIDs
+./missing-table.sh logs     # View recent service logs (static)
+./missing-table.sh tail     # Follow logs in real-time (Ctrl+C to stop)
+
+# Handles processes started by Claude or manually
+# Logs stored in ~/.missing-table/logs/
+# Works with both local and dev environments
+# tail command supports both multitail and standard tail -f
+```
+
+#### Manual Commands
+```bash
+# Legacy start script (interactive, blocks terminal)
 ./start.sh
 
 # Start with Supabase included
@@ -188,6 +206,35 @@ All database operations now support environment specification:
 
 # Generate service account token for match-scraper
 cd backend && uv run python create_service_account_token.py --service-name match-scraper --permissions manage_games
+```
+
+### Duplicate Game Cleanup
+
+Interactive tool to find and clean up duplicate games using typer and rich:
+
+```bash
+# Scan for duplicates without making changes
+cd backend && uv run python cleanup_duplicate_games.py scan
+
+# Show database statistics
+cd backend && uv run python cleanup_duplicate_games.py stats
+
+# Preview what would be deleted (dry run)
+cd backend && uv run python cleanup_duplicate_games.py clean --dry-run
+
+# Interactive mode - review and choose what to delete
+cd backend && uv run python cleanup_duplicate_games.py interactive
+
+# Automatic cleanup (with backup)
+cd backend && uv run python cleanup_duplicate_games.py clean --no-dry-run
+
+# Export duplicates to JSON for analysis
+cd backend && uv run python cleanup_duplicate_games.py scan --format json --save duplicates.json
+
+# IMPORTANT: The tool identifies duplicates using the same criteria as database constraints:
+# - For manual games: same teams, date, season, age group, game type, division
+# - For external games: same match_id
+# - Always keeps the newest game in each duplicate group by default
 ```
 
 #### Testing Workflow

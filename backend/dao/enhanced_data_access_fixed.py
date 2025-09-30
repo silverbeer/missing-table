@@ -35,8 +35,8 @@ class SupabaseConnection:
     def __init__(self):
         """Initialize Supabase client with custom SSL configuration."""
         self.url = os.getenv("SUPABASE_URL")
-        # For local development, prefer ANON_KEY over SERVICE_KEY
-        self.key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_SERVICE_KEY")
+        # Backend should always use SERVICE_KEY for administrative operations
+        self.key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
 
         if not self.url or not self.key:
             raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file")
@@ -494,6 +494,7 @@ class EnhancedSportsDAO:
         age_group_id: int,
         game_type_id: int,
         division_id: int | None = None,
+        status: str | None = "scheduled",
     ) -> bool:
         """Add a new game."""
         try:
@@ -512,12 +513,55 @@ class EnhancedSportsDAO:
             if division_id:
                 data["division_id"] = division_id
 
+            # Add status if provided
+            if status:
+                data["status"] = status
+
             response = self.client.table("games").insert(data).execute()
 
             return bool(response.data)
 
         except Exception as e:
             print(f"Error adding game: {e}")
+            return False
+
+    def add_game_with_match_id(
+        self,
+        home_team_id: int,
+        away_team_id: int,
+        game_date: str,
+        home_score: int,
+        away_score: int,
+        season_id: int,
+        age_group_id: int,
+        game_type_id: int,
+        match_id: str,
+        division_id: int | None = None,
+    ) -> bool:
+        """Add a new game with external match_id."""
+        try:
+            data = {
+                "game_date": game_date,
+                "home_team_id": home_team_id,
+                "away_team_id": away_team_id,
+                "home_score": home_score,
+                "away_score": away_score,
+                "season_id": season_id,
+                "age_group_id": age_group_id,
+                "game_type_id": game_type_id,
+                "match_id": match_id,
+            }
+
+            # Add division if provided
+            if division_id:
+                data["division_id"] = division_id
+
+            response = self.client.table("games").insert(data).execute()
+
+            return bool(response.data)
+
+        except Exception as e:
+            print(f"Error adding game with match_id: {e}")
             return False
 
     def update_game(
@@ -532,6 +576,7 @@ class EnhancedSportsDAO:
         age_group_id: int,
         game_type_id: int,
         division_id: int | None = None,
+        status: str | None = None,
     ) -> bool:
         """Update an existing game."""
         try:
@@ -546,6 +591,10 @@ class EnhancedSportsDAO:
                 "game_type_id": game_type_id,
                 "division_id": division_id,
             }
+
+            # Add status if provided
+            if status:
+                data["status"] = status
 
             response = self.client.table("games").update(data).eq("id", game_id).execute()
 
@@ -594,8 +643,24 @@ class EnhancedSportsDAO:
             # Get games
             response = query.execute()
 
-            # Filter by game type name
+            # Filter by game type name and status
             games = [g for g in response.data if g.get("game_type", {}).get("name") == game_type]
+
+            # Filter to only include played games (exclude scheduled/postponed/cancelled)
+            # Use status field if available, otherwise fallback to date-based logic for backwards compatibility
+            played_games = []
+            for game in games:
+                game_status = game.get("status")
+                if game_status:
+                    # Use status field if available
+                    if game_status == "played":
+                        played_games.append(game)
+                else:
+                    # Fallback to date-based logic for backwards compatibility
+                    from datetime import date
+                    game_date = date.fromisoformat(game["game_date"])
+                    if game_date <= date.today():
+                        played_games.append(game)
 
             # Calculate standings
             from collections import defaultdict
@@ -613,7 +678,7 @@ class EnhancedSportsDAO:
                 }
             )
 
-            for game in games:
+            for game in played_games:
                 home_team = game["home_team"]["name"]
                 away_team = game["away_team"]["name"]
                 home_score = game["home_score"]

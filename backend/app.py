@@ -74,9 +74,10 @@ def load_environment():
 
 load_environment()
 
-# Configure logging
+# Configure logging with environment-based level
+log_level = os.getenv('LOG_LEVEL', 'info').upper()
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=getattr(logging, log_level, logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
@@ -189,6 +190,7 @@ class EnhancedGame(BaseModel):
     age_group_id: int
     game_type_id: int
     division_id: int | None = None
+    status: str | None = "scheduled"  # scheduled, played, postponed, cancelled
 
 
 class Team(BaseModel):
@@ -791,9 +793,11 @@ async def get_games(
 
 
 @app.post("/api/games")
-async def add_game(game: EnhancedGame, current_user: dict[str, Any] = Depends(require_game_management_permission)):
+async def add_game(request: Request, game: EnhancedGame, current_user: dict[str, Any] = Depends(require_game_management_permission)):
     """Add a new game with enhanced schema (requires admin, team manager, or service account with manage_games permission)."""
     try:
+        logger.info(f"POST /api/games - User: {current_user.get('email', 'unknown')}, Role: {current_user.get('role', 'unknown')}")
+        logger.info(f"POST /api/games - Game data: {game.model_dump()}")
         success = sports_dao.add_game(
             home_team_id=game.home_team_id,
             away_team_id=game.away_team_id,
@@ -804,6 +808,7 @@ async def add_game(game: EnhancedGame, current_user: dict[str, Any] = Depends(re
             age_group_id=game.age_group_id,
             game_type_id=game.game_type_id,
             division_id=game.division_id,
+            status=game.status,
         )
         if success:
             return {"message": "Game added successfully"}
@@ -831,6 +836,7 @@ async def update_game(
             age_group_id=game.age_group_id,
             game_type_id=game.game_type_id,
             division_id=game.division_id,
+            status=game.status,
         )
         if success:
             return {"message": "Game updated successfully"}
@@ -1233,22 +1239,149 @@ async def delete_team_mapping(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === Match-Scraper Integration Endpoints ===
+
+@app.post("/api/match-scraper/games")
+async def add_or_update_scraped_game(
+    request: Request,
+    game: EnhancedGame,
+    match_id: str,
+    current_user: dict[str, Any] = Depends(require_game_management_permission)
+):
+    """Add or update a game from match-scraper with intelligent duplicate handling."""
+    try:
+        logger.info(f"POST /api/match-scraper/games - Match ID: {match_id}")
+        logger.info(f"POST /api/match-scraper/games - Game data: {game.model_dump()}")
+
+        # Check if game already exists by match_id
+        existing_game_response = await check_game(
+            date=game.game_date,
+            homeTeam=str(game.home_team_id),
+            awayTeam=str(game.away_team_id),
+            season_id=game.season_id,
+            age_group_id=game.age_group_id,
+            game_type_id=game.game_type_id,
+            division_id=game.division_id,
+            match_id=match_id
+        )
+
+        if existing_game_response["exists"]:
+            existing_game_id = existing_game_response["game_id"]
+            logger.info(f"Updating existing game {existing_game_id} with match_id {match_id}")
+
+            # Update existing game
+            success = sports_dao.update_game(
+                game_id=existing_game_id,
+                home_team_id=game.home_team_id,
+                away_team_id=game.away_team_id,
+                game_date=game.game_date,
+                home_score=game.home_score,
+                away_score=game.away_score,
+                season_id=game.season_id,
+                age_group_id=game.age_group_id,
+                game_type_id=game.game_type_id,
+                division_id=game.division_id,
+            )
+
+            if success:
+                return {
+                    "message": "Game updated successfully",
+                    "action": "updated",
+                    "game_id": existing_game_id,
+                    "match_id": match_id
+                }
+            else:
+                raise HTTPException(status_code=500, detail="Failed to update game")
+        else:
+            logger.info(f"Creating new game with match_id {match_id}")
+
+            # Create new game with match_id
+            success = sports_dao.add_game_with_match_id(
+                home_team_id=game.home_team_id,
+                away_team_id=game.away_team_id,
+                game_date=game.game_date,
+                home_score=game.home_score,
+                away_score=game.away_score,
+                season_id=game.season_id,
+                age_group_id=game.age_group_id,
+                game_type_id=game.game_type_id,
+                division_id=game.division_id,
+                match_id=match_id,
+            )
+
+            if success:
+                return {
+                    "message": "Game created successfully",
+                    "action": "created",
+                    "match_id": match_id
+                }
+            else:
+                raise HTTPException(status_code=500, detail="Failed to create game")
+
+    except Exception as e:
+        logger.error(f"Error in match-scraper game endpoint: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # === Backward Compatibility Endpoints ===
 
 
 @app.get("/api/check-game")
-async def check_game(date: str, homeTeam: str, awayTeam: str):
-    """Check if a game exists (backward compatibility)."""
+async def check_game(
+    date: str,
+    homeTeam: str,
+    awayTeam: str,
+    season_id: int | None = None,
+    age_group_id: int | None = None,
+    game_type_id: int | None = None,
+    division_id: int | None = None,
+    match_id: str | None = None
+):
+    """Enhanced game existence check with comprehensive duplicate detection."""
     try:
-        # Check if a game already exists for this date and teams
+        # First check by match_id if provided (for external systems like match-scraper)
+        if match_id:
+            games = sports_dao.get_all_games()
+            for game in games:
+                if game.get("match_id") == match_id:
+                    return {
+                        "exists": True,
+                        "game_id": game.get("id"),
+                        "game": game,
+                        "match_type": "external_match_id"
+                    }
+
+        # Check for duplicate based on comprehensive game context
         games = sports_dao.get_all_games()
         for game in games:
-            if (
+            # Basic match: date and teams
+            basic_match = (
                 str(game.get("game_date")) == date
                 and str(game.get("home_team_id")) == homeTeam
                 and str(game.get("away_team_id")) == awayTeam
-            ):
-                return {"exists": True}
+            )
+
+            if basic_match:
+                # Enhanced match: include season, age group, game type, division if provided
+                enhanced_match = True
+
+                if season_id and game.get("season_id") != season_id:
+                    enhanced_match = False
+                if age_group_id and game.get("age_group_id") != age_group_id:
+                    enhanced_match = False
+                if game_type_id and game.get("game_type_id") != game_type_id:
+                    enhanced_match = False
+                if division_id and game.get("division_id") != division_id:
+                    enhanced_match = False
+
+                return {
+                    "exists": True,
+                    "game_id": game.get("id"),
+                    "game": game,
+                    "match_type": "enhanced_context" if enhanced_match else "basic_context",
+                    "enhanced_match": enhanced_match
+                }
+
         return {"exists": False}
     except Exception as e:
         logger.error(f"Error checking game: {e!s}")
