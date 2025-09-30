@@ -5,11 +5,61 @@ This directory contains comprehensive tests for the sports league management bac
 ## Test Structure
 
 ### Test Files
-- `test_supabase_connection.py` - Tests direct Supabase connection and basic database operations
+- **`test_api_endpoints.py`** - Basic API endpoint functionality tests (**NEW - 76 e2e tests**)
+- **`test_auth_endpoints.py`** - Authentication and authorization tests (**NEW - Comprehensive auth testing**)
+- **`test_enhanced_e2e.py`** - Complex workflows and business logic tests (**NEW - Advanced e2e scenarios**)
 - `test_dao.py` - Tests the Enhanced DAO layer functionality
-- `test_api_endpoints.py` - Tests all FastAPI endpoints
-- `test_cli.py` - Tests CLI functionality
-- `test_e2e_supabase.py` - Legacy comprehensive e2e test (kept for reference)
+- `test_supabase_connection.py` - Tests direct Supabase connection and basic database operations (if exists)
+- `test_cli.py` - Tests CLI functionality (if exists)
+- Legacy files kept for reference
+
+### New E2E Test Coverage
+## 🚀 Quick Start
+
+**Want to run comprehensive e2e tests right now?**
+
+```bash
+# 1. Setup isolated test database (one-time)
+./scripts/e2e-db-setup.sh
+
+# 2. Seed with test data (one-time)  
+./scripts/e2e-db-seed.sh
+
+# 3. Run all 76 e2e tests
+cd backend && uv run pytest -m e2e
+```
+
+✅ **Safe**: Uses separate database - won't affect your development data  
+✅ **Fast**: Clean test data provides consistent, quick test runs  
+✅ **Comprehensive**: Tests all API endpoints, auth flows, and business logic
+
+## Test Coverage Summary
+
+The new test suite provides **76 comprehensive e2e tests** covering:
+
+#### Core API Endpoints (test_api_endpoints.py)
+- **Health checks** - Basic `/health` and comprehensive `/health/full`
+- **Reference data** - Age groups, seasons, game types, divisions, positions
+- **Teams** - Team listing, filtering, validation
+- **Games** - Game data, filtering, team-specific games  
+- **League tables** - Standings calculation and filtering
+- **Error handling** - Invalid inputs, edge cases, malformed requests
+
+#### Authentication & Security (test_auth_endpoints.py)
+- **Signup flows** - Valid/invalid email, password strength, missing fields
+- **Login flows** - Credential validation, rate limiting
+- **Token management** - Refresh tokens, JWT validation, token formats
+- **Protected endpoints** - Authorization requirements testing
+- **Admin endpoints** - Role-based access control validation
+- **Security edge cases** - Malformed tokens, rate limiting, input validation
+
+#### Advanced Workflows (test_enhanced_e2e.py)
+- **Invite system** - Complete invite workflow testing (8 endpoints)
+- **Game lifecycle** - Data consistency across multiple endpoints
+- **Business logic** - Standings calculations, referential integrity
+- **Filtering & pagination** - Complex filter combinations, limits
+- **Data integrity** - Cross-endpoint validation, concurrent access
+- **Edge cases** - Extreme values, invalid parameters, system stability
 
 ### Configuration Files
 - `conftest.py` - Pytest fixtures and configuration
@@ -19,38 +69,56 @@ This directory contains comprehensive tests for the sports league management bac
 
 ## Prerequisites
 
-### 1. Local Supabase Setup
-Make sure you have a local Supabase instance running:
+### Database Setup Options
+
+The test suite uses a **separate e2e database** that's isolated from your development data.
+
+#### Option 1: E2E Tests (Recommended)
+For running the new comprehensive e2e test suite:
 
 ```bash
-# Start local Supabase (from backend directory)
-./scripts/start/start_local.sh
+# 1. Setup E2E test database (isolated from development)
+./scripts/e2e-db-setup.sh
 
-# Or manually start Supabase CLI
-supabase start
+# 2. Seed with minimal test data
+./scripts/e2e-db-seed.sh
+
+# 3. Run e2e tests
+cd backend && uv run pytest -m e2e
 ```
 
-### 2. Environment Variables
-Create a `.env.local` file in the backend directory:
+#### Option 2: Legacy Integration Tests
+For running legacy integration tests against local development database:
 
 ```bash
-# Local Supabase Configuration
-SUPABASE_URL=http://localhost:54321
-SUPABASE_SERVICE_KEY=your_service_key_here
-SUPABASE_ANON_KEY=your_anon_key_here
+# 1. Start local development database
+supabase start --workdir supabase-local
+
+# 2. Restore production-like data
+./scripts/db_tools.sh restore
+
+# 3. Run integration tests
+cd backend && uv run pytest -m integration
 ```
 
-**Note**: Get your keys by running `supabase status` after starting the local instance.
+### Environment Files
+The test suite automatically uses the appropriate environment:
+- **E2E tests**: Uses `.env.e2e` (automatically loaded)
+- **Integration tests**: Uses `.env.local` (for development database)
 
-### 3. Database Setup
-Ensure your database has reference data:
-
-```bash
-# Run database setup scripts
-uv run python scripts/setup/populate_reference_data.py
-```
+### Database Isolation
+- **Local Development**: `supabase-local/` (port 54321) - Your development data
+- **E2E Testing**: `supabase-e2e/` (separate instance) - Clean test data
+- Tests are prevented from accidentally using development database
 
 ## Running Tests
+
+### Quick Start - E2E Tests
+```bash
+# Setup and run e2e tests (recommended)
+./scripts/e2e-db-setup.sh && ./scripts/e2e-db-seed.sh
+cd backend && uv run pytest -m e2e
+```
 
 ### Run All Tests
 ```bash
@@ -60,17 +128,32 @@ uv run pytest
 
 ### Run by Category
 ```bash
+# E2E tests (recommended - comprehensive API testing)
+uv run pytest -m e2e
+
 # Integration tests (database connection)
 uv run pytest -m integration
-
-# End-to-end tests (full API)
-uv run pytest -m e2e
 
 # Slow tests (CLI)
 uv run pytest -m slow
 
 # Fast tests only
 uv run pytest -m "not slow"
+```
+
+### E2E Test Categories
+```bash
+# Basic API endpoint tests
+uv run pytest tests/test_api_endpoints.py
+
+# Authentication and security tests
+uv run pytest tests/test_auth_endpoints.py
+
+# Complex workflow tests
+uv run pytest tests/test_enhanced_e2e.py
+
+# All e2e tests with coverage
+uv run pytest -m e2e --cov=.
 ```
 
 ### Run Specific Test Files
@@ -188,35 +271,64 @@ Tests run against your local Supabase instance. The tests are designed to:
 
 ### Common Issues
 
-#### "Local Supabase not running"
+#### "E2E Supabase not running" 
 ```bash
-# Start local Supabase
-supabase start
+# Setup E2E database
+./scripts/e2e-db-setup.sh
 
 # Check status
-supabase status
+./scripts/e2e-db-setup.sh --status
+
+# Stop E2E database
+./scripts/e2e-db-setup.sh --stop
 ```
 
-#### "SUPABASE_SERVICE_KEY not set"
+#### "Tests must run against e2e database"
+This error means tests are trying to use the development database. Fix:
 ```bash
-# Get your keys
-supabase status
+# Ensure E2E database is running
+./scripts/e2e-db-setup.sh
 
-# Set environment variables
-export SUPABASE_URL=http://localhost:54321
-export SUPABASE_SERVICE_KEY=your_key_here
+# Check that .env.e2e exists and has correct port (55321)
+cat .env.e2e
+
+# Tests should automatically load .env.e2e
 ```
 
-#### "Reference data missing"
+#### "Reference data missing" in E2E tests
 ```bash
-# Populate reference data
-uv run python scripts/setup/populate_reference_data.py
+# Seed E2E database with test data
+./scripts/e2e-db-seed.sh
+
+# Reset E2E database if corrupted
+./scripts/e2e-db-seed.sh --reset
+```
+
+#### Running both databases simultaneously
+```bash
+# Development database (port 54321)
+supabase start --workdir supabase-local
+
+# E2E database (separate instance) 
+./scripts/e2e-db-setup.sh
+
+# Both can run at the same time on different ports
+```
+
+#### Legacy: "Local Supabase not running"
+```bash
+# For integration tests against development database
+supabase start --workdir supabase-local
+supabase status
 ```
 
 #### API tests failing
 ```bash
 # Make sure FastAPI server is NOT running during tests
 # Tests use TestClient which starts its own server
+
+# Ensure using correct database
+uv run pytest -m e2e -v  # Should show e2e database URL in output
 ```
 
 #### Coverage issues

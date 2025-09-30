@@ -11,7 +11,8 @@ from typing import Optional, List, Dict, Any
 from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin, require_admin_or_service_account, require_game_management_permission
 from rate_limiter import create_rate_limit_middleware, rate_limit
 from csrf_protection import csrf_middleware, get_csrf_token, provide_csrf_token
-from api.invites import router as invites_router
+# from api.invites import router as invites_router  # Removed for simplified auth
+# from services import InviteService  # Removed for simplified auth
 
 # Security monitoring imports (conditional)
 DISABLE_SECURITY = os.getenv('DISABLE_SECURITY', 'false').lower() == 'true'
@@ -231,7 +232,7 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 # === Include API Routers ===
-app.include_router(invites_router)
+# app.include_router(invites_router)  # Removed for simplified auth
 
 # === Authentication Endpoints ===
 
@@ -244,16 +245,16 @@ async def signup(request: Request, user_data: UserSignup):
         span.set_attribute("auth.email", user_data.email)
         client_ip = security_monitor.get_client_ip(request) if security_monitor else "unknown"
         span.set_attribute("auth.client_ip", client_ip)
-        
+
         try:
             # Analyze signup request for threats
             payload = {"email": user_data.email, "display_name": user_data.display_name}
             threat_events = security_monitor.analyze_request_for_threats(request, payload) if security_monitor else []
-            
+
             # Log any threats detected during signup
             for event in threat_events:
                 security_monitor.log_security_event(event) if security_monitor else None
-            
+
             response = db_conn_holder_obj.client.auth.sign_up({
                 "email": user_data.email,
                 "password": user_data.password,
@@ -263,7 +264,7 @@ async def signup(request: Request, user_data: UserSignup):
                     }
                 }
             })
-            
+
             if response.user:
                 logfire.info(
                     "User signup successful",
@@ -273,7 +274,7 @@ async def signup(request: Request, user_data: UserSignup):
                 )
                 span.set_attribute("auth.success", True)
                 span.set_attribute("auth.user_id", response.user.id)
-                
+
                 return {
                     "message": "User created successfully. Please check your email for verification.",
                     "user_id": response.user.id
@@ -281,14 +282,14 @@ async def signup(request: Request, user_data: UserSignup):
             else:
                 span.set_attribute("auth.success", False)
                 raise HTTPException(status_code=400, detail="Failed to create user")
-                
+
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Signup error: {e}")
             span.set_attribute("auth.success", False)
             span.set_attribute("auth.error", str(e))
-            
+
             logfire.error(
                 "User signup failed",
                 email=user_data.email,
@@ -825,6 +826,15 @@ async def update_game(
 ):
     """Update an existing game (admin or service account with manage_games permission)."""
     try:
+        # Get current game to check permissions
+        current_game = sports_dao.get_game_by_id(game_id)
+        if not current_game:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        # Check if user can edit this game
+        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to edit this game")
+        
         success = sports_dao.update_game(
             game_id=game_id,
             home_team_id=game.home_team_id,
@@ -848,9 +858,18 @@ async def update_game(
 
 
 @app.delete("/api/games/{game_id}")
-async def delete_game(game_id: int, current_user: dict[str, Any] = Depends(require_admin)):
-    """Delete a game (admin only)."""
+async def delete_game(game_id: int, current_user: dict[str, Any] = Depends(require_team_manager_or_admin)):
+    """Delete a game (admin or team manager only)."""
     try:
+        # Get current game to check permissions
+        current_game = sports_dao.get_game_by_id(game_id)
+        if not current_game:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        # Check if user can edit this game
+        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to delete this game")
+        
         success = sports_dao.delete_game(game_id)
         if success:
             return {"message": "Game deleted successfully"}

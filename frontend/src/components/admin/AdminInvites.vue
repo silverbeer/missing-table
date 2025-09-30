@@ -119,7 +119,7 @@
           <p class="text-gray-600 mt-2">
             Share this registration link:<br />
             <code class="text-xs break-all"
-              >{{ window.location.origin }}/register?code={{
+              >{{ currentOrigin }}/register?code={{
                 createdInvite.invite_code
               }}</code
             >
@@ -235,7 +235,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
@@ -247,6 +247,14 @@ const invites = ref([]);
 const loading = ref(false);
 const createdInvite = ref(null);
 const statusFilter = ref('');
+
+// Safely get the current origin
+const currentOrigin = computed(() => {
+  if (typeof window !== 'undefined' && window.location) {
+    return window.location.origin;
+  }
+  return 'http://localhost:8080'; // fallback for SSR or when window is undefined
+});
 
 const newInvite = ref({
   inviteType: '',
@@ -403,7 +411,7 @@ const getAgeGroupName = ageGroupId => {
 };
 
 const copyInviteLink = code => {
-  const link = `${window.location.origin}/register?code=${code}`;
+  const link = `${currentOrigin.value}/register?code=${code}`;
   navigator.clipboard.writeText(link);
   alert('Registration link copied to clipboard!');
 };

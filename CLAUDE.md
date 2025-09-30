@@ -66,9 +66,10 @@ helm upgrade missing-table ./missing-table --namespace missing-table
 
 ### Database/Supabase
 ```bash
-npx supabase start    # Start local Supabase
-npx supabase stop     # Stop local Supabase
-npx supabase status   # Check status and get URLs
+# Supabase CLI installed via Homebrew
+supabase start    # Start local Supabase
+supabase stop     # Stop local Supabase
+supabase status   # Check status and get URLs
 
 # IMPORTANT: Database Restoration
 # NEVER use `npx supabase db reset` or seed sample data
