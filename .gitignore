@@ -45,3 +45,26 @@ __pycache__/
 .venv/
 venv/
 ENV/
+
+# Database backups and temporary data
+backups/
+backup_*.json
+*.backup
+database_backup_*.json
+database_backup_*.sql
+
+# Tokens and secrets
+*-token.txt
+*_token.txt
+match-scraper-token.txt
+
+# Temporary scripts (keep permanent utility scripts)
+fix_*.py
+populate_teams_dev.py
+populate_teams_simple.py
+restore_*.py
+find_max_id.py
+team_name_mappings.json
+
+# Service management scripts (if temporary)
+missing-table.sh
