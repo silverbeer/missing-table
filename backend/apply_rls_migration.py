@@ -27,14 +27,19 @@ def apply_migration():
 
     print(f"🔗 Connecting to database...")
 
-    # Read migration file
-    migration_path = Path(__file__).parent.parent / "supabase-local" / "migrations" / "011_enable_rls_security.sql"
+    # Read migration file (can be passed as argument)
+    if len(sys.argv) > 1:
+        migration_file = sys.argv[1]
+        migration_path = Path(__file__).parent.parent / "supabase-local" / "migrations" / migration_file
+    else:
+        # Default to RLS migration
+        migration_path = Path(__file__).parent.parent / "supabase-local" / "migrations" / "011_enable_rls_security.sql"
 
     if not migration_path.exists():
         print(f"❌ Error: Migration file not found at {migration_path}")
         sys.exit(1)
 
-    print(f"📄 Reading migration from {migration_path}...")
+    print(f"📄 Reading migration from {migration_path.name}...")
     migration_sql = migration_path.read_text()
 
     # Connect to database
