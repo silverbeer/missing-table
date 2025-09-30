@@ -124,6 +124,7 @@ start_backend() {
 
     # Set INFO log level for cleaner output during development
     export LOG_LEVEL=info
+    export APP_ENV="$current_env"
 
     cd backend
 
@@ -132,10 +133,10 @@ start_backend() {
     echo "Backend logs: $backend_log"
 
     if command -v uv &> /dev/null; then
-        nohup uv run python app.py > "$backend_log" 2>&1 &
+        APP_ENV="$current_env" nohup uv run python app.py > "$backend_log" 2>&1 &
     else
         echo -e "${YELLOW}uv not found, using python directly${NC}"
-        nohup python app.py > "$backend_log" 2>&1 &
+        APP_ENV="$current_env" nohup python app.py > "$backend_log" 2>&1 &
     fi
 
     local backend_pid=$!
@@ -176,6 +177,10 @@ start_frontend() {
         return 1
     fi
 
+    # Get current environment
+    current_env="${APP_ENV:-local}"
+    export APP_ENV="$current_env"
+
     cd frontend
 
     # Check if node_modules exists
@@ -188,7 +193,7 @@ start_frontend() {
     local frontend_log="$LOG_DIR/frontend.log"
     echo "Frontend logs: $frontend_log"
 
-    nohup npm run serve > "$frontend_log" 2>&1 &
+    APP_ENV="$current_env" nohup npm run serve > "$frontend_log" 2>&1 &
     local frontend_pid=$!
     echo $frontend_pid > "$FRONTEND_PID_FILE"
     cd ..
