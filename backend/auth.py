@@ -131,19 +131,30 @@ class AuthManager:
         self, credentials: HTTPAuthorizationCredentials = Depends(security)
     ) -> dict[str, Any]:
         """FastAPI dependency to get current authenticated user or service account."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Auth attempt - Credentials present: {credentials is not None}")
+
         if not credentials:
+            logger.warning("Auth failed - No credentials provided")
             raise HTTPException(status_code=401, detail="Authentication required")
+
+        logger.info(f"Auth attempt - Token prefix: {credentials.credentials[:20] if len(credentials.credentials) > 20 else credentials.credentials}...")
 
         # Try regular user token first
         user_data = self.verify_token(credentials.credentials)
         if user_data:
+            logger.info(f"Auth success - Regular user: {user_data.get('email', 'unknown')}")
             return user_data
 
         # Try service account token
         service_data = self.verify_service_account_token(credentials.credentials)
         if service_data:
+            logger.info(f"Auth success - Service account: {service_data.get('service_name', 'unknown')}")
             return service_data
 
+        logger.warning("Auth failed - Invalid or expired token")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     def require_role(self, required_roles: list):
@@ -278,23 +289,33 @@ def require_game_management_permission(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ) -> dict[str, Any]:
     """Require permission to manage games (admin, team-manager, or service account)."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     role = current_user.get("role")
+    email = current_user.get("email", "unknown")
+
+    logger.info(f"Game management permission check - User: {email}, Role: {role}, User data: {current_user}")
 
     # Allow admin and team managers
     if role in ["admin", "team-manager"]:
+        logger.info(f"Access granted - User {email} has role {role}")
         return current_user
 
     # Allow service accounts with game management permissions
     if role == "service_account":
         permissions = current_user.get("permissions", [])
         if "manage_games" in permissions:
+            logger.info(f"Access granted - Service account {email} has manage_games permission")
             return current_user
         else:
+            logger.warning(f"Access denied - Service account {email} missing manage_games permission. Has: {permissions}")
             raise HTTPException(
                 status_code=403,
                 detail="Service account requires 'manage_games' permission"
             )
 
+    logger.warning(f"Access denied - User {email} has insufficient role: {role}")
     raise HTTPException(
         status_code=403,
         detail="Admin, team manager, or authorized service account access required"

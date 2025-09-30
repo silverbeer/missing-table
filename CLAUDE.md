@@ -10,9 +10,9 @@ This is a full-stack web application for managing MLS Next sports league standin
 
 ### Development
 
-#### Service Management (Recommended)
+#### Service Management
 ```bash
-# Comprehensive service management script
+# Primary service management script
 ./missing-table.sh start    # Start both backend and frontend
 ./missing-table.sh stop     # Stop all running services
 ./missing-table.sh restart  # Restart all services
@@ -26,11 +26,8 @@ This is a full-stack web application for managing MLS Next sports league standin
 # tail command supports both multitail and standard tail -f
 ```
 
-#### Manual Commands
+#### Alternative Start Methods
 ```bash
-# Legacy start script (interactive, blocks terminal)
-./start.sh
-
 # Start with Supabase included
 ./start-with-supabase.sh
 
@@ -190,11 +187,11 @@ All database operations now support environment specification:
 # On Machine 1
 ./switch-env.sh dev              # Switch to cloud dev
 ./scripts/db_tools.sh backup     # Backup current state
-./start.sh                       # Develop with cloud database
+./missing-table.sh start         # Develop with cloud database
 
 # On Machine 2
 ./switch-env.sh dev              # Switch to cloud dev
-./start.sh                       # Access same cloud database
+./missing-table.sh start         # Access same cloud database
 ```
 
 #### Match-Scraper Integration
@@ -202,7 +199,7 @@ All database operations now support environment specification:
 # Setup stable cloud endpoint for match-scraper
 ./switch-env.sh dev                              # Switch to dev environment
 ./setup-cloud-credentials.sh                    # Configure cloud credentials
-./start.sh                                       # Start with cloud database
+./missing-table.sh start                        # Start with cloud database
 
 # Generate service account token for match-scraper
 cd backend && uv run python create_service_account_token.py --service-name match-scraper --permissions manage_games
@@ -243,11 +240,11 @@ cd backend && uv run python cleanup_duplicate_games.py scan --format json --save
 ./switch-env.sh local
 npx supabase start
 ./scripts/db_tools.sh restore
-./start.sh
+./missing-table.sh start
 
 # Cloud testing (shared)
 ./switch-env.sh dev
-./start.sh
+./missing-table.sh start
 ```
 
 ## Database Management Workflow
@@ -271,7 +268,7 @@ npx supabase start
 ```bash
 # Start cloud development
 ./switch-env.sh dev
-./start.sh                       # No need to start Supabase - using cloud
+./missing-table.sh start         # No need to start Supabase - using cloud
 
 # Your development work...
 

@@ -132,11 +132,11 @@ switch_environment() {
     if [ "$target_env" = "local" ]; then
         echo "  1. Start local Supabase: npx supabase start"
         echo "  2. Restore data: ./scripts/db_tools.sh restore"
-        echo "  3. Start application: ./start.sh"
+        echo "  3. Start application: ./missing-table.sh start"
     elif [ "$target_env" = "dev" ]; then
         echo "  1. Update .env.dev with your cloud Supabase credentials"
         echo "  2. Test connection: cd backend && uv run python -c 'from dao.enhanced_data_access_fixed import SupabaseConnection; SupabaseConnection()'"
-        echo "  3. Start application: ./start.sh"
+        echo "  3. Start application: ./missing-table.sh start"
     elif [ "$target_env" = "prod" ]; then
         echo "  1. Update .env.prod with production Supabase credentials"
         echo "  2. Deploy using your production deployment method"

@@ -81,7 +81,7 @@ dev: ## Start development servers (backend + frontend)
 	@echo "🚀 Starting development servers..."
 	@echo "Backend: http://localhost:8000"
 	@echo "Frontend: http://localhost:8080"
-	./start.sh
+	./missing-table.sh start
 
 dev-backend: ## Start only backend development server
 	@echo "🐍 Starting FastAPI backend..."

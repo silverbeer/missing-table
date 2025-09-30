@@ -67,4 +67,4 @@ find_max_id.py
 team_name_mappings.json
 
 # Service management scripts (if temporary)
-missing-table.sh
+# missing-table.sh - now permanent utility

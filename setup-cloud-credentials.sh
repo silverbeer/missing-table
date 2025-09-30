@@ -166,7 +166,7 @@ echo "   ./scripts/db_tools.sh backup"
 echo "   ./scripts/db_tools.sh restore --cloud"
 echo ""
 echo "3. Test the full setup:"
-echo "   ./start.sh"
+echo "   ./missing-table.sh start"
 echo ""
 
 print_success "Cloud credentials configuration complete!"
