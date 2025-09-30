@@ -45,6 +45,16 @@ Integration plan for connecting match-scraper with missing-table to handle MLS N
 - **Conflict resolution**: Built into the main endpoint via `data_source` field
 - **Smart behavior**: Updates existing MLS games, prevents duplicates for manual games
 
+### Service Account Setup:
+```bash
+# 1. Add to .env file (NEVER commit these values):
+SCRAPER_USER_EMAIL=scraper-service@missing-table.local
+SCRAPER_USER_PASSWORD=your-secure-password-here
+
+# 2. Run the setup script:
+cd backend && uv run python create_scraper_user.py
+```
+
 ### Admin Tools:
 - `PUT /api/admin/games/{id}/toggle-lock` - Lock/unlock scores manually
 - `GET /api/admin/games/conflicts` - View games with score discrepancies

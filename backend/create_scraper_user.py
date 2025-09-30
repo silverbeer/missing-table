@@ -18,14 +18,24 @@ async def create_scraper_service_user():
     """Create a service user for the match-scraper"""
 
     # Initialize Supabase client
-    url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
-    key = os.getenv("SUPABASE_SERVICE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU")
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_KEY")
+
+    if not url or not key:
+        print("❌ Error: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in .env file")
+        return False
 
     client = create_client(url, key)
 
-    # Service user credentials
-    email = "scraper-service@missing-table.local"
-    password = "scraper-service-password-change-in-production"
+    # Service user credentials from environment
+    email = os.getenv("SCRAPER_USER_EMAIL", "scraper-service@missing-table.local")
+    password = os.getenv("SCRAPER_USER_PASSWORD")
+
+    if not password:
+        print("❌ Error: SCRAPER_USER_PASSWORD must be set in .env file")
+        print("   Generate a secure password and add to .env:")
+        print("   SCRAPER_USER_PASSWORD=your-secure-password-here")
+        return False
 
     try:
         print("🤖 Creating match-scraper service user...")
