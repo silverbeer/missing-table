@@ -6,3 +6,8 @@
 # Created by pytest automatically.
 tests/.pytest_cache/**/*
 fly.toml
+
+# Exclude environment files - use Kubernetes env vars instead
+.env
+.env.*
+!.env.example

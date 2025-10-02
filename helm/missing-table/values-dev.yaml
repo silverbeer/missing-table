@@ -1,81 +1,99 @@
-# Development environment overrides for missing-table Helm chart
+# Dev environment configuration for GKE
+# Overrides values.yaml for GKE dev deployment
 
-# Reduced resource requirements for local development
-resourceQuota:
-  requests:
-    cpu: "2"
-    memory: "4Gi"
-  limits:
-    cpu: "4"
-    memory: "8Gi"
-  pods: "10"
-  pvcs: "5"
+# Namespace for dev
+namespace: missing-table-dev
 
-# Redis with minimal resources for development
-redis:
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-  
-  persistence:
-    size: 500Mi  # Smaller storage for dev
-
-# Backend with development settings
+# Backend configuration
 backend:
+  replicaCount: 1
+
   image:
-    tag: "latest"
+    repository: us-central1-docker.pkg.dev/missing-table/missing-table/backend
+    tag: latest
+    pullPolicy: Always  # Always pull latest for dev
+
   env:
-    databaseUrl: "postgresql://postgres:postgres@192.168.1.17:54322/postgres"
+    # Supabase Cloud Dev Environment
+    databaseUrl: "postgresql://postgres.ppgxasqgqbnauvxozmjw:bdn8ZKX-jmn2rwh!xey@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
     environment: "development"
-    logLevel: "debug"  # More verbose logging for dev
+    logLevel: "info"
     disableLogfire: "true"
     disableSecurity: "true"
     extra:
-      DEBUG: "true"
-      RELOAD: "true"
-      SUPABASE_URL: "http://192.168.1.17:54321"
-      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
-      SUPABASE_SERVICE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
-  
-  command:
-    - "uv"
-    - "run"
-    - "uvicorn"
-    - "app:app"
-    - "--host"
-    - "0.0.0.0"
-    - "--port"
-    - "8000"
-  
+      SUPABASE_URL: "https://ppgxasqgqbnauvxozmjw.supabase.co"
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0ODQ5MTAsImV4cCI6MjA2NzA2MDkxMH0.5R1E-CpsZJU_4tRaaYrq4P00IhIrsIjqo0zQuX-rBHQ"
+      SUPABASE_SERVICE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTQ4NDkxMCwiZXhwIjoyMDY3MDYwOTEwfQ.QMPR89Da_ozg29Y50QVzTgrmmu2bq2rz5D5PiM-rZk0"
+      SUPABASE_JWT_SECRET: "K2y0g5mRi2ovGOwaPnawQjEoMrbBoHF5gSkAtmGYBc43ETdDVQl3h7hGuaA5DZZQ1ymXtMhggA6OlX7TySH43w=="
+      SERVICE_ACCOUNT_SECRET: "TRuSNNHcVAb86bIBy465es-8k-c4DVeQ_oSKKFP9Tr4"
+      CORS_ORIGINS: "http://34.133.125.204:8080"
+
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  service:
+    loadBalancer:
+      enabled: true  # Enable LoadBalancer for external access
+      port: 8000
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+
+  image:
+    repository: us-central1-docker.pkg.dev/missing-table/missing-table/frontend
+    tag: prod  # Use production build for faster startup
+    pullPolicy: Always  # Always pull latest for dev
+
+  env:
+    nodeEnv: "production"  # Use production mode for pre-built app
+    # Backend external LoadBalancer IP
+    apiUrl: "http://34.135.217.253:8000"
+    supabaseUrl: "https://ppgxasqgqbnauvxozmjw.supabase.co"
+    supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0ODQ5MTAsImV4cCI6MjA2NzA2MDkxMH0.5R1E-CpsZJU_4tRaaYrq4P00IhIrsIjqo0zQuX-rBHQ"
+    vueAppDisableSecurity: "true"
+    extra: {}
+
+  # Use Dockerfile CMD (serve -s dist -l 8080) instead of npm run serve
+  command: []
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
     limits:
       cpu: 500m
       memory: 512Mi
 
-# Frontend with development settings
-frontend:
-  image:
-    tag: "latest"
-  env:
-    nodeEnv: "development"
-    apiUrl: "http://missing-table-backend:8000"
-    supabaseUrl: "http://192.168.1.17:54321"
-    supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
-    vueAppDisableSecurity: "true"
-    extra:
-      VUE_APP_DEBUG: "true"
-  
+  livenessProbe:
+    initialDelaySeconds: 10  # Production image starts quickly
+    periodSeconds: 10
+
+  readinessProbe:
+    initialDelaySeconds: 5  # Production image starts quickly
+    periodSeconds: 5
+
+  service:
+    type: LoadBalancer  # Expose frontend via LoadBalancer
+
+# Redis configuration
+redis:
+  enabled: true
+  replicaCount: 1
+
   resources:
     requests:
-      cpu: 100m
+      cpu: 250m  # Bumped for Autopilot minimum
       memory: 256Mi
     limits:
       cpu: 500m
-      memory: 1Gi
+      memory: 512Mi
+
+  persistence:
+    size: 1Gi
+    storageClass: "standard-rwo"  # GKE default storage class
