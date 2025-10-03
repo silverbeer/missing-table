@@ -1,8 +1,28 @@
 # Dev environment configuration for GKE
 # Overrides values.yaml for GKE dev deployment
 
+# USAGE:
+# 1. Copy this file: cp values-dev.yaml.example values-dev.yaml
+# 2. Fill in your actual secrets in values-dev.yaml
+# 3. NEVER commit values-dev.yaml to git (it's in .gitignore)
+
 # Namespace for dev
 namespace: missing-table-dev
+
+# Secrets (stored in Kubernetes Secret)
+# SECURITY: Fill in actual values in values-dev.yaml (not this example file)
+secrets:
+  # Database credentials
+  databaseUrl: "postgresql://user:PASSWORD@host:port/database"
+
+  # Supabase credentials
+  supabaseUrl: "https://your-project.supabase.co"
+  supabaseAnonKey: "your-anon-key-here"
+  supabaseServiceKey: "your-service-role-key-here"
+  supabaseJwtSecret: "your-jwt-secret-here"
+
+  # Application secrets
+  serviceAccountSecret: "your-service-account-secret-here"
 
 # Backend configuration
 backend:
@@ -14,18 +34,13 @@ backend:
     pullPolicy: Always  # Always pull latest for dev
 
   env:
-    # Supabase Cloud Dev Environment
-    databaseUrl: "postgresql://postgres.ppgxasqgqbnauvxozmjw:bdn8ZKX-jmn2rwh!xey@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    # Non-sensitive configuration
     environment: "development"
     logLevel: "info"
     disableLogfire: "true"
     disableSecurity: "true"
     extra:
-      SUPABASE_URL: "https://ppgxasqgqbnauvxozmjw.supabase.co"
-      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0ODQ5MTAsImV4cCI6MjA2NzA2MDkxMH0.5R1E-CpsZJU_4tRaaYrq4P00IhIrsIjqo0zQuX-rBHQ"
-      SUPABASE_SERVICE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTQ4NDkxMCwiZXhwIjoyMDY3MDYwOTEwfQ.QMPR89Da_ozg29Y50QVzTgrmmu2bq2rz5D5PiM-rZk0"
-      SUPABASE_JWT_SECRET: "K2y0g5mRi2ovGOwaPnawQjEoMrbBoHF5gSkAtmGYBc43ETdDVQl3h7hGuaA5DZZQ1ymXtMhggA6OlX7TySH43w=="
-      SERVICE_ACCOUNT_SECRET: "TRuSNNHcVAb86bIBy465es-8k-c4DVeQ_oSKKFP9Tr4"
+      # CORS configuration (non-sensitive)
       CORS_ORIGINS: "http://34.133.125.204:8080,https://dev.missingtable.com"
 
   resources:
@@ -52,10 +67,9 @@ frontend:
 
   env:
     nodeEnv: "production"  # Use production mode for pre-built app
-    # Backend external LoadBalancer IP
+    # Frontend settings (non-sensitive)
+    # Note: Supabase URL and keys are compiled into frontend Docker image
     apiUrl: "http://34.135.217.253:8000"
-    supabaseUrl: "https://ppgxasqgqbnauvxozmjw.supabase.co"
-    supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0ODQ5MTAsImV4cCI6MjA2NzA2MDkxMH0.5R1E-CpsZJU_4tRaaYrq4P00IhIrsIjqo0zQuX-rBHQ"
     vueAppDisableSecurity: "true"
     extra: {}
 

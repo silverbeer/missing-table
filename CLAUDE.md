@@ -75,6 +75,29 @@ The dev environment is deployed to GKE with HTTPS and custom domain:
 - [GKE HTTPS & Domain Setup Guide](./docs/GKE_HTTPS_DOMAIN_SETUP.md) - Full step-by-step guide
 - [Quick Reference](./docs/HTTPS_QUICK_REFERENCE.md) - Common commands and troubleshooting
 
+### Secret Management (GKE)
+
+**SECURITY:** Secrets are managed using Kubernetes Secrets and are NEVER committed to git.
+
+**Documentation:**
+- [Secret Management Guide](./docs/SECRET_MANAGEMENT.md) - Complete secret management documentation
+
+**Quick setup:**
+```bash
+# Copy example file and fill in real secrets
+cp helm/missing-table/values-dev.yaml.example helm/missing-table/values-dev.yaml
+vim helm/missing-table/values-dev.yaml  # Add your secrets
+
+# Deploy (creates Kubernetes Secret automatically)
+helm upgrade missing-table ./missing-table -n missing-table-dev \
+  --values ./missing-table/values-dev.yaml --wait
+```
+
+**Files:**
+- `helm/missing-table/values-dev.yaml` - Real secrets (gitignored, local only)
+- `helm/missing-table/values-dev.yaml.example` - Template (committed to git)
+- `helm/missing-table/templates/secrets.yaml` - Kubernetes Secret template
+
 **Quick checks:**
 ```bash
 # Check SSL certificate status

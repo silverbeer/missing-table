@@ -80,3 +80,8 @@ terraform/**/terraform.tfstate.backup
 terraform/**/terraform.tfvars
 terraform/**/*.tfplan
 terraform/**/.terraform.tfstate.lock.info
+
+# Helm values files with secrets
+# Keep example files (*.example) but ignore actual values files
+helm/**/values-*.yaml
+!helm/**/values-*.yaml.example
