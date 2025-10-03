@@ -67,18 +67,24 @@ gcloud dns record-sets create <domain>. --zone=missingtable-zone \
 ### Rebuild & Deploy Frontend
 
 ```bash
-# 1. Edit Dockerfile (update VUE_APP_API_URL)
-vim frontend/Dockerfile
+# 1. Update build configuration (if needed)
+vim frontend/build.env  # Edit VUE_APP_API_URL or other settings
 
-# 2. Build
+# 2. Build and push (using script - recommended)
+./scripts/build-and-push.sh --env dev --frontend-only
+
+# OR manual build:
+cd frontend && source build.env
 docker buildx build --platform linux/amd64 \
+  --build-arg VUE_APP_API_URL="$VUE_APP_API_URL" \
+  --build-arg VUE_APP_SUPABASE_URL="$VUE_APP_SUPABASE_URL" \
+  --build-arg VUE_APP_SUPABASE_ANON_KEY="$VUE_APP_SUPABASE_ANON_KEY" \
+  --build-arg VUE_APP_DISABLE_SECURITY="$VUE_APP_DISABLE_SECURITY" \
   -t us-central1-docker.pkg.dev/missing-table/missing-table/frontend:dev \
-  -f frontend/Dockerfile frontend --load
-
-# 3. Push
+  -f Dockerfile . --load
 docker push us-central1-docker.pkg.dev/missing-table/missing-table/frontend:dev
 
-# 4. Restart
+# 3. Restart
 kubectl rollout restart deployment/missing-table-frontend -n missing-table-dev
 kubectl rollout status deployment/missing-table-frontend -n missing-table-dev
 ```
@@ -202,12 +208,18 @@ missing-table/
 ├── k8s/
 │   └── ingress-dev.yaml          # Ingress + SSL config
 ├── helm/missing-table/
-│   └── values-dev.yaml            # Backend CORS config
+│   ├── values-dev.yaml            # Backend secrets (gitignored)
+│   └── values-dev.yaml.example   # Template
 ├── frontend/
-│   └── Dockerfile                 # Frontend API URL
+│   ├── Dockerfile                 # Frontend build config (no hardcoded values)
+│   ├── build.env                  # Frontend build vars (gitignored)
+│   └── build.env.example          # Template
+├── scripts/
+│   └── build-and-push.sh         # Automated build script
 └── docs/
     ├── GKE_HTTPS_DOMAIN_SETUP.md # Full documentation
-    └── HTTPS_QUICK_REFERENCE.md  # This file
+    ├── HTTPS_QUICK_REFERENCE.md  # This file
+    └── SECRET_MANAGEMENT.md      # Secret management guide
 ```
 
 ---

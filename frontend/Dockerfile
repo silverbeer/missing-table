@@ -13,11 +13,18 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
-# Set build-time environment variables for Vue.js
-ENV VUE_APP_API_URL=https://dev.missingtable.com
-ENV VUE_APP_SUPABASE_URL=https://ppgxasqgqbnauvxozmjw.supabase.co
-ENV VUE_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0ODQ5MTAsImV4cCI6MjA2NzA2MDkxMH0.5R1E-CpsZJU_4tRaaYrq4P00IhIrsIjqo0zQuX-rBHQ
-ENV VUE_APP_DISABLE_SECURITY=true
+# Build arguments (must be provided at build time)
+# Note: Supabase anon key is PUBLIC by design (protected by RLS policies)
+ARG VUE_APP_API_URL
+ARG VUE_APP_SUPABASE_URL
+ARG VUE_APP_SUPABASE_ANON_KEY
+ARG VUE_APP_DISABLE_SECURITY
+
+# Set as environment variables for Vue.js build
+ENV VUE_APP_API_URL=$VUE_APP_API_URL
+ENV VUE_APP_SUPABASE_URL=$VUE_APP_SUPABASE_URL
+ENV VUE_APP_SUPABASE_ANON_KEY=$VUE_APP_SUPABASE_ANON_KEY
+ENV VUE_APP_DISABLE_SECURITY=$VUE_APP_DISABLE_SECURITY
 
 # Build the application
 RUN npm run build

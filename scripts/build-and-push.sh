@@ -141,6 +141,25 @@ if [ "$BUILD_FRONTEND" = true ]; then
     echo -e "${GREEN}Building frontend image...${NC}"
     cd "$PROJECT_ROOT/frontend"
 
+    # Load build environment variables
+    if [ -f "build.env" ]; then
+        echo -e "${BLUE}Loading build configuration from build.env${NC}"
+        source build.env
+    else
+        echo -e "${RED}Error: build.env not found${NC}"
+        echo "Create it from the example: cp build.env.example build.env"
+        exit 1
+    fi
+
+    # Validate required build args
+    REQUIRED_VARS=("VUE_APP_API_URL" "VUE_APP_SUPABASE_URL" "VUE_APP_SUPABASE_ANON_KEY" "VUE_APP_DISABLE_SECURITY")
+    for var in "${REQUIRED_VARS[@]}"; do
+        if [ -z "${!var}" ]; then
+            echo -e "${RED}Error: $var not set in build.env${NC}"
+            exit 1
+        fi
+    done
+
     # Choose Dockerfile based on environment
     DOCKERFILE="Dockerfile"
     if [ "$ENVIRONMENT" = "dev" ] && [ -f "Dockerfile.dev" ]; then
@@ -150,7 +169,13 @@ if [ "$BUILD_FRONTEND" = true ]; then
     fi
 
     echo -e "${BLUE}Using Dockerfile: $DOCKERFILE${NC}"
-    docker build --platform linux/amd64 -t ${REGISTRY}/frontend:${TAG} -f ${DOCKERFILE} .
+    echo -e "${BLUE}API URL: $VUE_APP_API_URL${NC}"
+    docker build --platform linux/amd64 \
+        --build-arg VUE_APP_API_URL="$VUE_APP_API_URL" \
+        --build-arg VUE_APP_SUPABASE_URL="$VUE_APP_SUPABASE_URL" \
+        --build-arg VUE_APP_SUPABASE_ANON_KEY="$VUE_APP_SUPABASE_ANON_KEY" \
+        --build-arg VUE_APP_DISABLE_SECURITY="$VUE_APP_DISABLE_SECURITY" \
+        -t ${REGISTRY}/frontend:${TAG} -f ${DOCKERFILE} .
 
     echo -e "${GREEN}Pushing frontend image...${NC}"
     docker push ${REGISTRY}/frontend:${TAG}

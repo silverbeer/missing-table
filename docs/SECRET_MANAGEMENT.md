@@ -20,19 +20,36 @@ values-dev.yaml (local only, gitignored)
 
 ## Secret Storage
 
-### What Gets Stored as Secrets
+### What Gets Stored as Secrets (Backend Only)
 
 - **Database credentials** - Connection strings with passwords
-- **Supabase Service Key** - Admin access key (very sensitive!)
-- **Supabase JWT Secret** - For token verification
+- **Supabase Service Key** (`service_role`) - Admin access key (VERY sensitive!)
+- **Supabase JWT Secret** - For token verification on backend
 - **Service Account Secrets** - For service-to-service authentication
 
 ### What's NOT Secret (Safe to Commit)
 
-- **Supabase Anon Key** - Public-facing key (compiled into frontend)
+- **Supabase Anon Key** (`anon` role) - **Public by design**, embedded in frontend code
+  - Protected by Row Level Security (RLS) policies in database
+  - This is how Supabase authentication works - anon key is meant to be public
+  - Found in: `frontend/Dockerfile` (build arg)
 - **Supabase URL** - Public endpoint
 - **CORS origins** - Domain configuration
 - **Environment settings** - Log levels, feature flags
+
+### Important: Anon Key vs Service Key
+
+**Frontend (Public):**
+```javascript
+// ✅ SAFE - Anon key is designed to be public
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+```
+
+**Backend (Secret):**
+```python
+# ❌ NEVER expose - Service key gives admin access
+supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+```
 
 ## Setup Instructions
 
@@ -269,11 +286,60 @@ helm upgrade missing-table ./missing-table -n missing-table-dev --values ./missi
 kubectl rollout restart deployment/missing-table-backend -n missing-table-dev
 ```
 
+## Frontend Build Configuration
+
+The frontend uses **build arguments** for environment-specific configuration. Build values are stored in `frontend/build.env` (gitignored).
+
+### Setup
+
+```bash
+# 1. Create build configuration from example
+cd frontend
+cp build.env.example build.env
+
+# 2. Edit with your values
+vim build.env
+```
+
+### Build with Script (Recommended)
+
+```bash
+# Automatically loads frontend/build.env and builds with correct args
+./scripts/build-and-push.sh --env dev --frontend-only
+```
+
+### Manual Build
+
+```bash
+# Load build configuration
+cd frontend
+source build.env
+
+# Build with args
+docker buildx build --platform linux/amd64 \
+  --build-arg VUE_APP_API_URL="$VUE_APP_API_URL" \
+  --build-arg VUE_APP_SUPABASE_URL="$VUE_APP_SUPABASE_URL" \
+  --build-arg VUE_APP_SUPABASE_ANON_KEY="$VUE_APP_SUPABASE_ANON_KEY" \
+  --build-arg VUE_APP_DISABLE_SECURITY="$VUE_APP_DISABLE_SECURITY" \
+  -t us-central1-docker.pkg.dev/missing-table/missing-table/frontend:dev \
+  -f Dockerfile . --load
+```
+
+### Why Build Args?
+- Different API URLs per environment (dev/staging/prod)
+- Compile-time configuration (better performance than runtime env vars)
+- Anon keys are public but might differ per environment
+- No hardcoded values in Dockerfile (cleaner git history)
+
 ## Files Reference
 
 ```
 missing-table/
 ├── .gitignore                              # Protects secrets from git
+├── frontend/
+│   ├── Dockerfile                          # No hardcoded values (uses ARG)
+│   ├── build.env                           # Build config (gitignored)
+│   └── build.env.example                   # Template (committed)
 ├── helm/missing-table/
 │   ├── templates/
 │   │   ├── secrets.yaml                    # Secret manifest template
@@ -282,6 +348,8 @@ missing-table/
 │   ├── values-dev.yaml.example             # Template (committed)
 │   ├── values-prod.yaml                    # REAL secrets (gitignored)
 │   └── values-prod.yaml.example            # Template (committed)
+├── scripts/
+│   └── build-and-push.sh                   # Loads frontend/build.env
 └── docs/
     └── SECRET_MANAGEMENT.md                # This file
 ```
