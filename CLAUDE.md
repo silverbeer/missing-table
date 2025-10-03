@@ -64,6 +64,29 @@ helm upgrade missing-table ./missing-table --namespace missing-table
 - **Docker Compose**: Quick local development, testing single services, CI/CD
 - **Helm/K8s**: Production deployment, scaling, team collaboration via Rancher
 
+### HTTPS & Custom Domain (GKE)
+
+The dev environment is deployed to GKE with HTTPS and custom domain:
+- **Dev URL:** https://dev.missingtable.com
+- **SSL:** Google-managed certificates (auto-renewing)
+- **Load Balancer:** GCP Ingress (Application LB)
+
+**Complete setup documentation:**
+- [GKE HTTPS & Domain Setup Guide](./docs/GKE_HTTPS_DOMAIN_SETUP.md) - Full step-by-step guide
+- [Quick Reference](./docs/HTTPS_QUICK_REFERENCE.md) - Common commands and troubleshooting
+
+**Quick checks:**
+```bash
+# Check SSL certificate status
+kubectl get managedcertificate -n missing-table-dev
+
+# Check Ingress status
+kubectl get ingress -n missing-table-dev
+
+# Test HTTPS
+curl -I https://dev.missingtable.com
+```
+
 ### Database/Supabase
 ```bash
 # Supabase CLI installed via Homebrew

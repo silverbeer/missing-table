@@ -344,7 +344,9 @@ export default {
 
     const fetchAgeGroups = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/age-groups');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+        );
         if (!response.ok) throw new Error('Failed to fetch age groups');
         const data = await response.json();
         ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name));
@@ -355,7 +357,9 @@ export default {
 
     const fetchSeasons = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/seasons');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+        );
         if (!response.ok) throw new Error('Failed to fetch seasons');
         const data = await response.json();
         seasons.value = data.sort(
@@ -374,7 +378,9 @@ export default {
 
     const fetchGameTypes = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/game-types');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
+        );
         if (!response.ok) throw new Error('Failed to fetch game types');
         gameTypes.value = await response.json();
       } catch (err) {
@@ -384,7 +390,9 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/teams');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        );
         if (!response.ok) {
           throw new Error('Failed to fetch teams');
         }
@@ -422,12 +430,8 @@ export default {
           'season:',
           selectedSeasonId.value
         );
-        const url = `http://localhost:8000/api/games/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('Failed to fetch games');
-        }
-        games.value = await response.json();
+        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}`;
+        games.value = await authStore.apiRequest(url);
         console.log('Games received:', games.value);
       } catch (err) {
         error.value = err.message;

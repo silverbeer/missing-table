@@ -157,10 +157,13 @@ export default {
           updateData.positions = editForm.positions;
         }
 
-        await authStore.apiRequest('http://localhost:8000/api/auth/profile', {
-          method: 'PUT',
-          body: JSON.stringify(updateData),
-        });
+        await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/profile`,
+          {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+          }
+        );
 
         // Refresh profile data
         await authStore.fetchProfile();

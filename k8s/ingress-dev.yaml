@@ -1,0 +1,51 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: missing-table-ingress
+  namespace: missing-table-dev
+  annotations:
+    # Use GCP Global Load Balancer
+    kubernetes.io/ingress.class: "gce"
+    # Enable HTTPS redirect
+    kubernetes.io/ingress.allow-http: "true"
+    # Use Google-managed SSL certificate
+    networking.gke.io/managed-certificates: "missing-table-dev-cert"
+    # Use the reserved static IP
+    kubernetes.io/ingress.global-static-ip-name: "missing-table-dev-ip"
+spec:
+  rules:
+  - host: dev.missingtable.com
+    http:
+      paths:
+      # Backend API routes (must come before catch-all)
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: missing-table-backend
+            port:
+              number: 8000
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: missing-table-backend
+            port:
+              number: 8000
+      # Frontend (catch-all - must be last)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: missing-table-frontend
+            port:
+              number: 8080
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: missing-table-dev-cert
+  namespace: missing-table-dev
+spec:
+  domains:
+    - dev.missingtable.com

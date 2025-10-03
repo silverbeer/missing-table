@@ -198,7 +198,9 @@ export default {
     const fetchDivisions = async () => {
       try {
         loading.value = true;
-        const response = await fetch('http://localhost:8000/api/divisions');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
+        );
         if (!response.ok) throw new Error('Failed to fetch divisions');
         divisions.value = await response.json();
       } catch (err) {
@@ -210,7 +212,9 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/teams');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        );
         if (!response.ok) throw new Error('Failed to fetch teams');
         teams.value = await response.json();
       } catch (err) {
@@ -240,7 +244,7 @@ export default {
         console.log('User role:', authStore.userRole.value);
 
         const response = await authStore.apiRequest(
-          'http://localhost:8000/api/divisions',
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
           {
             method: 'POST',
             body: JSON.stringify(formData.value),
@@ -270,7 +274,7 @@ export default {
       try {
         formLoading.value = true;
         await authStore.apiRequest(
-          `http://localhost:8000/api/divisions/${editingDivision.value.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions/${editingDivision.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(formData.value),
@@ -298,7 +302,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `http://localhost:8000/api/divisions/${division.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions/${division.id}`,
           {
             method: 'DELETE',
           }

@@ -18,6 +18,9 @@ This guide covers deploying the Missing Table application to Google Kubernetes E
    # Install required tools
    brew install google-cloud-sdk terraform helm kubectl
 
+   # Install GKE auth plugin (required for kubectl)
+   gcloud components install gke-gcloud-auth-plugin
+
    # Authenticate with GCP
    gcloud auth login
    gcloud config set project missing-table
@@ -81,7 +84,7 @@ terraform apply
 
 ```bash
 # Get cluster credentials
-gcloud container clusters get-credentials gke-dev-cluster \
+gcloud container clusters get-credentials missing-table-dev \
   --region=us-central1 \
   --project=missing-table
 

@@ -385,7 +385,7 @@ export default {
     const fetchGames = async () => {
       try {
         loading.value = true;
-        let url = 'http://localhost:8000/api/games';
+        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games`;
         const params = new URLSearchParams();
 
         if (filterSeason.value) params.append('season_id', filterSeason.value);
@@ -419,10 +419,18 @@ export default {
       try {
         const [teamsRes, seasonsRes, gameTypesRes, ageGroupsRes] =
           await Promise.all([
-            fetch('http://localhost:8000/api/teams'),
-            fetch('http://localhost:8000/api/seasons'),
-            fetch('http://localhost:8000/api/game-types'),
-            fetch('http://localhost:8000/api/age-groups'),
+            fetch(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+            ),
+            fetch(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+            ),
+            fetch(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
+            ),
+            fetch(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+            ),
           ]);
 
         if (teamsRes.ok) teams.value = await teamsRes.json();
@@ -502,7 +510,7 @@ export default {
         };
 
         await authStore.apiRequest(
-          `http://localhost:8000/api/games/${editingGame.value.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${editingGame.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(gameData),
@@ -539,7 +547,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `http://localhost:8000/api/games/${game.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${game.id}`,
           {
             method: 'DELETE',
           }

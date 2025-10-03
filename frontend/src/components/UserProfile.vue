@@ -227,7 +227,7 @@ export default {
       try {
         loadingUsers.value = true;
         const response = await authStore.apiRequest(
-          'http://localhost:8000/api/auth/users'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users`
         );
         users.value = response;
         console.log('Successfully fetched users for admin');
@@ -249,7 +249,9 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/teams');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        );
         const data = await response.json();
         teams.value = data;
       } catch (error) {
@@ -260,7 +262,7 @@ export default {
     const updateUserRole = async (userId, newRole) => {
       try {
         await authStore.apiRequest(
-          'http://localhost:8000/api/auth/users/role',
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users/role`,
           {
             method: 'PUT',
             body: JSON.stringify({

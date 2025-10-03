@@ -293,7 +293,7 @@ export default {
 
     const loadTeams = async () => {
       try {
-        let url = 'http://localhost:8000/api/teams';
+        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`;
         if (filterGameType.value && filterAgeGroup.value) {
           url += `?game_type_id=${filterGameType.value}&age_group_id=${filterAgeGroup.value}`;
         }
@@ -312,7 +312,7 @@ export default {
       try {
         // Load age groups
         const ageGroupsResponse = await fetch(
-          'http://localhost:8000/api/age-groups'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
         );
         if (ageGroupsResponse.ok) {
           ageGroups.value = await ageGroupsResponse.json();
@@ -320,7 +320,7 @@ export default {
 
         // Load game types
         const gameTypesResponse = await fetch(
-          'http://localhost:8000/api/game-types'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
         );
         if (gameTypesResponse.ok) {
           gameTypes.value = await gameTypesResponse.json();
@@ -362,16 +362,19 @@ export default {
     const addTeam = async () => {
       try {
         // First create the team
-        const teamResponse = await fetch('http://localhost:8000/api/teams', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newTeam.value.name,
-            city: newTeam.value.city,
-            age_group_ids: [parseInt(newTeam.value.ageGroupId)],
-            division_ids: [],
-          }),
-        });
+        const teamResponse = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: newTeam.value.name,
+              city: newTeam.value.city,
+              age_group_ids: [parseInt(newTeam.value.ageGroupId)],
+              division_ids: [],
+            }),
+          }
+        );
 
         if (!teamResponse.ok) throw new Error('Failed to create team');
 

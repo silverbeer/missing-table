@@ -10,7 +10,7 @@ backend:
 
   image:
     repository: us-central1-docker.pkg.dev/missing-table/missing-table/backend
-    tag: latest
+    tag: dev  # Use dev tag for dev environment
     pullPolicy: Always  # Always pull latest for dev
 
   env:
@@ -26,7 +26,7 @@ backend:
       SUPABASE_SERVICE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTQ4NDkxMCwiZXhwIjoyMDY3MDYwOTEwfQ.QMPR89Da_ozg29Y50QVzTgrmmu2bq2rz5D5PiM-rZk0"
       SUPABASE_JWT_SECRET: "K2y0g5mRi2ovGOwaPnawQjEoMrbBoHF5gSkAtmGYBc43ETdDVQl3h7hGuaA5DZZQ1ymXtMhggA6OlX7TySH43w=="
       SERVICE_ACCOUNT_SECRET: "TRuSNNHcVAb86bIBy465es-8k-c4DVeQ_oSKKFP9Tr4"
-      CORS_ORIGINS: "http://34.133.125.204:8080"
+      CORS_ORIGINS: "http://34.133.125.204:8080,https://dev.missingtable.com"
 
   resources:
     requests:
@@ -47,7 +47,7 @@ frontend:
 
   image:
     repository: us-central1-docker.pkg.dev/missing-table/missing-table/frontend
-    tag: prod  # Use production build for faster startup
+    tag: dev  # Use dev tag for dev environment
     pullPolicy: Always  # Always pull latest for dev
 
   env:
@@ -82,8 +82,9 @@ frontend:
     type: LoadBalancer  # Expose frontend via LoadBalancer
 
 # Redis configuration
+# Disabled - rate limiting is not currently enabled in the application
 redis:
-  enabled: true
+  enabled: false
   replicaCount: 1
 
   resources:
