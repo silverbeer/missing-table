@@ -31,8 +31,32 @@
 
       <!-- Content based on auth status -->
       <div v-if="!authStore.state.loading">
-        <!-- Public Content (always visible) -->
-        <div class="mb-4">
+        <!-- Show welcome message if not authenticated -->
+        <div
+          v-if="!authStore.isAuthenticated"
+          class="bg-white rounded-lg shadow p-8 text-center"
+        >
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            Welcome to Missing Table
+          </h2>
+          <p class="text-gray-600 mb-6">
+            This is an invite-only platform for tracking MLS Next league
+            standings and games.
+          </p>
+          <p class="text-gray-600 mb-6">
+            Please log in to view league data and access your personalized
+            dashboard.
+          </p>
+          <button
+            @click="showLoginModal = true"
+            class="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+          >
+            Login
+          </button>
+        </div>
+
+        <!-- Tabs for authenticated users -->
+        <div v-else class="mb-4">
           <nav class="flex space-x-4" aria-label="Tabs">
             <button
               v-for="tab in availableTabs"
@@ -50,8 +74,11 @@
           </nav>
         </div>
 
-        <!-- Tab Content -->
-        <div class="bg-white rounded-lg shadow">
+        <!-- Tab Content (only for authenticated users) -->
+        <div
+          v-if="authStore.isAuthenticated"
+          class="bg-white rounded-lg shadow"
+        >
           <!-- Standings -->
           <div v-if="currentTab === 'table'" class="p-4">
             <h2 class="text-xl font-semibold mb-4">League Standings</h2>
@@ -124,8 +151,8 @@ export default {
 
     // Define all possible tabs
     const allTabs = [
-      { id: 'table', name: 'Standings', requiresAuth: false },
-      { id: 'scores', name: 'Games', requiresAuth: false },
+      { id: 'table', name: 'Standings', requiresAuth: true },
+      { id: 'scores', name: 'Games', requiresAuth: true },
       {
         id: 'add-game',
         name: 'Add Game',

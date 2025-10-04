@@ -186,10 +186,12 @@
 
 <script>
 import { ref, onMounted, watch } from 'vue';
+import { useAuthStore } from '../stores/auth';
 
 export default {
   name: 'LeagueTable',
   setup() {
+    const authStore = useAuthStore();
     const tableData = ref([]);
     const ageGroups = ref([]);
     const divisions = ref([]);
@@ -267,6 +269,12 @@ export default {
     };
 
     const fetchTableData = async () => {
+      // Guard against unauthorized access
+      if (!authStore.isAuthenticated.value) {
+        console.warn('User not authenticated, cannot fetch table data');
+        return;
+      }
+
       loading.value = true;
       console.log('Fetching table data...', {
         seasonId: selectedSeasonId.value,
@@ -303,6 +311,15 @@ export default {
 
     onMounted(async () => {
       console.log('LeagueTable component mounted');
+
+      // Only fetch data if user is authenticated
+      if (!authStore.isAuthenticated.value) {
+        console.warn('User not authenticated, skipping data fetch');
+        loading.value = false;
+        error.value = 'Please log in to view standings';
+        return;
+      }
+
       await Promise.all([fetchAgeGroups(), fetchDivisions(), fetchSeasons()]);
       fetchTableData();
     });

@@ -417,6 +417,12 @@ export default {
     };
 
     const fetchGames = async () => {
+      // Guard against unauthorized access
+      if (!authStore.isAuthenticated.value) {
+        console.warn('User not authenticated, cannot fetch games');
+        return;
+      }
+
       if (!selectedTeam.value) {
         console.log('No team selected, skipping fetch.');
         games.value = []; // Clear games if no team is selected
@@ -734,6 +740,14 @@ export default {
     };
 
     onMounted(async () => {
+      // Only fetch data if user is authenticated
+      if (!authStore.isAuthenticated.value) {
+        console.warn('User not authenticated, skipping data fetch');
+        loading.value = false;
+        error.value = 'Please log in to view games';
+        return;
+      }
+
       await Promise.all([
         fetchAgeGroups(),
         fetchSeasons(),
