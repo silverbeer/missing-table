@@ -78,6 +78,7 @@ class SportsDAO:
                         "away_team": row["away_team"],
                         "home_score": row["home_score"],
                         "away_score": row["away_score"],
+                        "match_status": row.get("match_status"),
                     }
                 )
             return games
@@ -109,6 +110,7 @@ class SportsDAO:
                         "away_team": row["away_team"],
                         "home_score": row["home_score"],
                         "away_score": row["away_score"],
+                        "match_status": row.get("match_status"),
                     }
                 )
             return games
