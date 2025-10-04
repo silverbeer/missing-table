@@ -136,11 +136,8 @@ Transfer the fresh backup file from your primary development machine:
 ### 1. Start Full Development Stack
 
 ```bash
-# Option 1: Start both frontend and backend
-./start.sh
-
-# Option 2: Start with Supabase monitoring
-./start-with-supabase.sh
+# Start both frontend and backend
+./missing-table.sh start
 
 # This starts:
 # - Backend API: http://localhost:8000

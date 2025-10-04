@@ -128,10 +128,8 @@ def get_cors_origins():
         "http://192.168.1.2:8081",
     ]
 
-    # Add production origins for Railway deployment
+    # Add production origins
     production_origins = [
-        "https://missing-table-frontend-production.up.railway.app",
-        "https://missing-table-production.up.railway.app",
         "https://missingtable.com",
         "https://www.missingtable.com",
     ]

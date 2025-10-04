@@ -28,9 +28,6 @@ This is a full-stack web application for managing MLS Next sports league standin
 
 #### Alternative Start Methods
 ```bash
-# Start with Supabase included
-./start-with-supabase.sh
-
 # Frontend only (http://localhost:8080)
 cd frontend && npm run serve
 
