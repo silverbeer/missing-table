@@ -101,7 +101,7 @@ jobs:
         retention-days: 30
 
   secret-scan:
-    name: Secret Scanning
+    name: Secret Scanning (Trivy)
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -120,9 +120,16 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: secret-scan-results
+        name: trivy-secret-scan-results
         path: trivy-secret-results.txt
         retention-days: 30
+
+    - name: Note about additional secret scanning
+      run: |
+        echo "ℹ️  This workflow uses Trivy for secret scanning." >> $GITHUB_STEP_SUMMARY
+        echo "For comprehensive secret detection, see the 'Secret Detection' workflow:" >> $GITHUB_STEP_SUMMARY
+        echo "- Gitleaks (on every push/PR)" >> $GITHUB_STEP_SUMMARY
+        echo "- detect-secrets (on every push/PR)" >> $GITHUB_STEP_SUMMARY
 
   dependency-scan:
     name: Dependency Scanning

@@ -6,6 +6,33 @@
 
 The application uses **Kubernetes Secrets** to manage sensitive credentials in the GKE deployment. Secrets are never committed to git.
 
+### Multi-Layer Secret Protection
+
+The project implements **defense in depth** with multiple layers of secret detection:
+
+1. **🔒 Local Pre-commit Hook** (detect-secrets)
+   - Runs automatically before every commit
+   - Scans staged files for secrets
+   - Blocks commits containing secrets
+   - Fast and immediate feedback
+
+2. **🔒 GitHub Actions CI/CD** (gitleaks + detect-secrets)
+   - Runs on every push and pull request
+   - Gitleaks: High-performance secret scanner
+   - detect-secrets: Additional validation layer
+   - Blocks merges if secrets detected
+
+3. **🔒 File System Protection** (.gitignore)
+   - Prevents secret files from being staged
+   - `helm/**/values-*.yaml`
+   - `frontend/build.env`
+   - Backend `.env` files
+
+4. **🔒 Scheduled Scans** (Trivy)
+   - Daily security scans
+   - Detects secrets in entire codebase
+   - Part of comprehensive security workflow
+
 ## Architecture
 
 ```
@@ -352,6 +379,70 @@ missing-table/
 │   └── build-and-push.sh                   # Loads frontend/build.env
 └── docs/
     └── SECRET_MANAGEMENT.md                # This file
+```
+
+## Secret Scanning Tools
+
+### detect-secrets (Local)
+
+**Installation:**
+```bash
+# Install with uv
+uv tool install detect-secrets
+```
+
+**Common Commands:**
+```bash
+# Scan for new secrets
+detect-secrets scan --baseline .secrets.baseline
+
+# Update baseline with new legitimate secrets
+detect-secrets scan --update .secrets.baseline
+
+# Audit baseline (mark false positives)
+detect-secrets audit .secrets.baseline
+
+# Test hook manually
+detect-secrets-hook --baseline .secrets.baseline <file>
+```
+
+**Handling False Positives:**
+1. Run: `detect-secrets audit .secrets.baseline`
+2. Navigate to each secret
+3. Press `y` to mark as real secret, `n` for false positive, `s` to skip
+4. Commit updated baseline
+
+### Gitleaks (CI/CD)
+
+Gitleaks runs automatically in GitHub Actions. To run locally:
+
+```bash
+# Install (macOS)
+brew install gitleaks
+
+# Scan repository
+gitleaks detect --config .gitleaks.toml
+
+# Scan specific files
+gitleaks detect --source /path/to/file
+```
+
+**Configuration:** `.gitleaks.toml` - Custom rules and allowlists
+
+### Pre-commit Hook
+
+The pre-commit hook (`.husky/pre-commit`) automatically runs detect-secrets on staged files.
+
+**To bypass** (NOT recommended):
+```bash
+git commit --no-verify
+```
+
+**Better approach - update baseline:**
+```bash
+detect-secrets scan --update .secrets.baseline
+git add .secrets.baseline
+git commit
 ```
 
 ## Emergency Procedures

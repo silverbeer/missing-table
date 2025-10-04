@@ -79,6 +79,12 @@ The dev environment is deployed to GKE with HTTPS and custom domain:
 
 **SECURITY:** Secrets are managed using Kubernetes Secrets and are NEVER committed to git.
 
+**Multi-layer protection:**
+- 🔒 **Local pre-commit hook** (detect-secrets) - Blocks commits with secrets
+- 🔒 **GitHub Actions CI/CD** (gitleaks + detect-secrets) - Scans every push/PR
+- 🔒 **File system protection** (.gitignore) - Prevents staging secret files
+- 🔒 **Scheduled scans** (Trivy) - Daily comprehensive security scans
+
 **Documentation:**
 - [Secret Management Guide](./docs/SECRET_MANAGEMENT.md) - Complete secret management documentation
 
@@ -93,10 +99,24 @@ helm upgrade missing-table ./missing-table -n missing-table-dev \
   --values ./missing-table/values-dev.yaml --wait
 ```
 
+**Secret scanning tools:**
+```bash
+# Install detect-secrets
+uv tool install detect-secrets
+
+# Scan for secrets before commit
+detect-secrets scan --baseline .secrets.baseline
+
+# Pre-commit hook runs automatically
+# Configured in: .husky/pre-commit
+```
+
 **Files:**
 - `helm/missing-table/values-dev.yaml` - Real secrets (gitignored, local only)
 - `helm/missing-table/values-dev.yaml.example` - Template (committed to git)
 - `helm/missing-table/templates/secrets.yaml` - Kubernetes Secret template
+- `.secrets.baseline` - detect-secrets baseline
+- `.gitleaks.toml` - Gitleaks configuration
 
 **Quick checks:**
 ```bash
