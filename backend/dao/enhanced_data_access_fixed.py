@@ -474,6 +474,7 @@ class EnhancedSportsDAO:
                     "division_name": game["division"]["name"]
                     if game.get("division")
                     else "Unknown",
+                    "match_status": game.get("match_status", "scheduled"),
                 }
                 games.append(flat_game)
 
