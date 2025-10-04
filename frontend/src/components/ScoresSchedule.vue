@@ -260,6 +260,7 @@
               <th class="border-b text-left px-2">Team</th>
               <th class="border-b text-center w-24">Score</th>
               <th class="border-b text-center w-24">Game Type</th>
+              <th class="border-b text-center w-24">Status</th>
               <th class="border-b text-right w-20">Result</th>
               <th v-if="canEditGames" class="border-b text-center w-24">
                 Actions
@@ -282,6 +283,21 @@
               </td>
               <td class="border-b text-center">
                 {{ game.game_type_name || 'League' }}
+              </td>
+              <td class="border-b text-center">
+                <span
+                  :class="{
+                    'px-2 py-1 rounded text-xs font-medium': true,
+                    'bg-green-100 text-green-800': game.status === 'played',
+                    'bg-blue-100 text-blue-800': game.status === 'scheduled',
+                    'bg-yellow-100 text-yellow-800':
+                      game.status === 'postponed',
+                    'bg-red-100 text-red-800': game.status === 'cancelled',
+                    'bg-gray-100 text-gray-800': !game.status,
+                  }"
+                >
+                  {{ game.status || 'scheduled' }}
+                </span>
               </td>
               <td class="border-b text-right">{{ getResult(game) }}</td>
               <td v-if="canEditGames" class="border-b text-center">
