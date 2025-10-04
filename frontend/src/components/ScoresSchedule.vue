@@ -288,15 +288,18 @@
                 <span
                   :class="{
                     'px-2 py-1 rounded text-xs font-medium': true,
-                    'bg-green-100 text-green-800': game.status === 'played',
-                    'bg-blue-100 text-blue-800': game.status === 'scheduled',
+                    'bg-green-100 text-green-800':
+                      game.match_status === 'played',
+                    'bg-blue-100 text-blue-800':
+                      game.match_status === 'scheduled',
                     'bg-yellow-100 text-yellow-800':
-                      game.status === 'postponed',
-                    'bg-red-100 text-red-800': game.status === 'cancelled',
-                    'bg-gray-100 text-gray-800': !game.status,
+                      game.match_status === 'postponed',
+                    'bg-red-100 text-red-800':
+                      game.match_status === 'cancelled',
+                    'bg-gray-100 text-gray-800': !game.match_status,
                   }"
                 >
-                  {{ game.status || 'scheduled' }}
+                  {{ game.match_status || 'scheduled' }}
                 </span>
               </td>
               <td class="border-b text-right">{{ getResult(game) }}</td>

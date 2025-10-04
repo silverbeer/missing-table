@@ -1,14 +1,14 @@
--- Add status column to games table
+-- Add match_status column to games table
 ALTER TABLE games
-ADD COLUMN status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'played', 'postponed', 'cancelled'));
+ADD COLUMN match_status VARCHAR(20) DEFAULT 'scheduled' CHECK (match_status IN ('scheduled', 'played', 'postponed', 'cancelled'));
 
 -- Add index for performance
-CREATE INDEX idx_games_status ON games(status);
+CREATE INDEX idx_games_match_status ON games(match_status);
 
--- Update existing games to have 'played' status if they have scores
+-- Update existing games played before 10/3/2025 to have 'played' status
 UPDATE games
-SET status = 'played'
-WHERE home_score IS NOT NULL AND away_score IS NOT NULL AND home_score > 0 OR away_score > 0;
+SET match_status = 'played'
+WHERE game_date < '2025-10-03';
 
 -- Comment explaining the column
-COMMENT ON COLUMN games.status IS 'Game status: scheduled (default), played, postponed, or cancelled';
+COMMENT ON COLUMN games.match_status IS 'Game status: scheduled (default), played, postponed, or cancelled';
