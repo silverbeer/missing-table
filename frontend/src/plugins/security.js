@@ -62,13 +62,16 @@ const SecurityPlugin = {
 
   getCSPPolicy() {
     // Define a strict CSP policy
+    // Use API URL from environment variable
+    const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:8000';
+
     const policy = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https:",
-      "connect-src 'self' http://localhost:8000 https://api.github.com ws: wss:",
+      `connect-src 'self' ${apiUrl} https://api.github.com ws: wss:`,
       "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",

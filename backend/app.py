@@ -127,23 +127,25 @@ def get_cors_origins():
         "http://192.168.1.2:8080",
         "http://192.168.1.2:8081",
     ]
-    
-    # Add production origins for Railway deployment
+
+    # Add production origins
     production_origins = [
-        "https://missing-table-frontend-production.up.railway.app",
-        "https://missing-table-production.up.railway.app",
         "https://missingtable.com",
         "https://www.missingtable.com",
     ]
-    
+
+    # Allow additional CORS origins from environment variable
+    extra_origins_str = os.getenv('CORS_ORIGINS', '')
+    extra_origins = [origin.strip() for origin in extra_origins_str.split(',') if origin.strip()]
+
     # Get environment-specific origins
     environment = os.getenv('ENVIRONMENT', 'development')
     if environment == 'production':
         # In production, allow both local (for development) and production origins
-        return local_origins + production_origins
+        return local_origins + production_origins + extra_origins
     else:
         # In development, only allow local origins
-        return local_origins
+        return local_origins + extra_origins
 
 origins = get_cors_origins()
 

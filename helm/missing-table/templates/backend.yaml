@@ -29,8 +29,38 @@ spec:
         - containerPort: 8000
           name: http
         env:
+        # Sensitive values from secrets
         - name: DATABASE_URL
-          value: {{ .Values.backend.env.databaseUrl | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: database-url
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-url
+        - name: SUPABASE_ANON_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-anon-key
+        - name: SUPABASE_SERVICE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-service-key
+        - name: SUPABASE_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-jwt-secret
+        - name: SERVICE_ACCOUNT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: service-account-secret
+        # Non-sensitive configuration
         - name: REDIS_URL
           value: "redis://{{ include "missing-table.fullname" . }}-redis:6379"
         - name: ENVIRONMENT

@@ -28,9 +28,6 @@ This is a full-stack web application for managing MLS Next sports league standin
 
 #### Alternative Start Methods
 ```bash
-# Start with Supabase included
-./start-with-supabase.sh
-
 # Frontend only (http://localhost:8080)
 cd frontend && npm run serve
 
@@ -63,6 +60,73 @@ helm upgrade missing-table ./missing-table --namespace missing-table
 ### When to use which:
 - **Docker Compose**: Quick local development, testing single services, CI/CD
 - **Helm/K8s**: Production deployment, scaling, team collaboration via Rancher
+
+### HTTPS & Custom Domain (GKE)
+
+The dev environment is deployed to GKE with HTTPS and custom domain:
+- **Dev URL:** https://dev.missingtable.com
+- **SSL:** Google-managed certificates (auto-renewing)
+- **Load Balancer:** GCP Ingress (Application LB)
+
+**Complete setup documentation:**
+- [GKE HTTPS & Domain Setup Guide](./docs/GKE_HTTPS_DOMAIN_SETUP.md) - Full step-by-step guide
+- [Quick Reference](./docs/HTTPS_QUICK_REFERENCE.md) - Common commands and troubleshooting
+
+### Secret Management (GKE)
+
+**SECURITY:** Secrets are managed using Kubernetes Secrets and are NEVER committed to git.
+
+**Multi-layer protection:**
+- 🔒 **Local pre-commit hook** (detect-secrets) - Blocks commits with secrets
+- 🔒 **GitHub Actions CI/CD** (gitleaks + detect-secrets) - Scans every push/PR
+- 🔒 **File system protection** (.gitignore) - Prevents staging secret files
+- 🔒 **Scheduled scans** (Trivy) - Daily comprehensive security scans
+
+**Documentation:**
+- [Secret Management Guide](./docs/SECRET_MANAGEMENT.md) - Secret storage, detection, and prevention
+- [Secret Runtime Loading](./docs/SECRET_RUNTIME_LOADING.md) - How secrets are loaded in local vs GKE
+
+**Quick setup:**
+```bash
+# Copy example file and fill in real secrets
+cp helm/missing-table/values-dev.yaml.example helm/missing-table/values-dev.yaml
+vim helm/missing-table/values-dev.yaml  # Add your secrets
+
+# Deploy (creates Kubernetes Secret automatically)
+helm upgrade missing-table ./missing-table -n missing-table-dev \
+  --values ./missing-table/values-dev.yaml --wait
+```
+
+**Secret scanning tools:**
+```bash
+# Install detect-secrets
+uv tool install detect-secrets
+
+# Scan for secrets before commit
+detect-secrets scan --baseline .secrets.baseline
+
+# Pre-commit hook runs automatically
+# Configured in: .husky/pre-commit
+```
+
+**Files:**
+- `helm/missing-table/values-dev.yaml` - Real secrets (gitignored, local only)
+- `helm/missing-table/values-dev.yaml.example` - Template (committed to git)
+- `helm/missing-table/templates/secrets.yaml` - Kubernetes Secret template
+- `.secrets.baseline` - detect-secrets baseline
+- `.gitleaks.toml` - Gitleaks configuration
+
+**Quick checks:**
+```bash
+# Check SSL certificate status
+kubectl get managedcertificate -n missing-table-dev
+
+# Check Ingress status
+kubectl get ingress -n missing-table-dev
+
+# Test HTTPS
+curl -I https://dev.missingtable.com
+```
 
 ### Database/Supabase
 ```bash

@@ -1,2 +1,16 @@
 #!/usr/bin/env sh
+
+# Get the project root directory
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+
+# Run detect-secrets to prevent committing secrets
+echo "🔍 Scanning for secrets..."
+if ! detect-secrets-hook --baseline "$PROJECT_ROOT/.secrets.baseline" $(git diff --cached --name-only --diff-filter=ACM); then
+    echo "❌ Secret detected! Commit blocked."
+    echo "If this is a false positive, update .secrets.baseline:"
+    echo "   detect-secrets scan --update .secrets.baseline"
+    exit 1
+fi
+
+# Run lint-staged for frontend
 cd frontend && npx lint-staged

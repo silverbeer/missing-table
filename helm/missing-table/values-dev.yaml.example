@@ -1,0 +1,114 @@
+# Dev environment configuration for GKE
+# Overrides values.yaml for GKE dev deployment
+
+# USAGE:
+# 1. Copy this file: cp values-dev.yaml.example values-dev.yaml
+# 2. Fill in your actual secrets in values-dev.yaml
+# 3. NEVER commit values-dev.yaml to git (it's in .gitignore)
+
+# Namespace for dev
+namespace: missing-table-dev
+
+# Secrets (stored in Kubernetes Secret)
+# SECURITY: Fill in actual values in values-dev.yaml (not this example file)
+secrets:
+  # Database credentials
+  databaseUrl: "postgresql://user:PASSWORD@host:port/database"
+
+  # Supabase credentials
+  supabaseUrl: "https://your-project.supabase.co"
+  supabaseAnonKey: "your-anon-key-here"
+  supabaseServiceKey: "your-service-role-key-here"
+  supabaseJwtSecret: "your-jwt-secret-here"
+
+  # Application secrets
+  serviceAccountSecret: "your-service-account-secret-here"
+
+# Backend configuration
+backend:
+  replicaCount: 1
+
+  image:
+    repository: us-central1-docker.pkg.dev/missing-table/missing-table/backend
+    tag: dev  # Use dev tag for dev environment
+    pullPolicy: Always  # Always pull latest for dev
+
+  env:
+    # Non-sensitive configuration
+    environment: "development"
+    logLevel: "info"
+    disableLogfire: "true"
+    disableSecurity: "true"
+    extra:
+      # CORS configuration (non-sensitive)
+      CORS_ORIGINS: "http://34.133.125.204:8080,https://dev.missingtable.com"
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  service:
+    loadBalancer:
+      enabled: true  # Enable LoadBalancer for external access
+      port: 8000
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+
+  image:
+    repository: us-central1-docker.pkg.dev/missing-table/missing-table/frontend
+    tag: dev  # Use dev tag for dev environment
+    pullPolicy: Always  # Always pull latest for dev
+
+  env:
+    nodeEnv: "production"  # Use production mode for pre-built app
+    # Frontend settings (non-sensitive)
+    # Note: Supabase URL and keys are compiled into frontend Docker image
+    apiUrl: "http://34.135.217.253:8000"
+    vueAppDisableSecurity: "true"
+    extra: {}
+
+  # Use Dockerfile CMD (serve -s dist -l 8080) instead of npm run serve
+  command: []
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  livenessProbe:
+    initialDelaySeconds: 10  # Production image starts quickly
+    periodSeconds: 10
+
+  readinessProbe:
+    initialDelaySeconds: 5  # Production image starts quickly
+    periodSeconds: 5
+
+  service:
+    type: LoadBalancer  # Expose frontend via LoadBalancer
+
+# Redis configuration
+# Disabled - rate limiting is not currently enabled in the application
+redis:
+  enabled: false
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 250m  # Bumped for Autopilot minimum
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  persistence:
+    size: 1Gi
+    storageClass: "standard-rwo"  # GKE default storage class

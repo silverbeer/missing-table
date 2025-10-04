@@ -3,6 +3,9 @@ import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
 
 // Remove Supabase client - using backend API instead
 
+// API URL from environment variable
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8000';
+
 // Auth store
 const state = reactive({
   user: null,
@@ -60,7 +63,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await fetch('http://localhost:8000/api/auth/signup', {
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +95,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await fetch('http://localhost:8000/api/auth/signup', {
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +128,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -162,7 +165,7 @@ export const useAuthStore = () => {
       setLoading(true);
 
       // Call backend logout endpoint
-      await apiCall('http://localhost:8000/api/auth/logout', {
+      await apiCall(`${API_URL}/api/auth/logout`, {
         method: 'POST',
       });
 
@@ -204,7 +207,7 @@ export const useAuthStore = () => {
     try {
       if (!state.session) return;
 
-      const response = await apiCall('http://localhost:8000/api/auth/me');
+      const response = await apiCall(`${API_URL}/api/auth/me`);
       if (response && response.success) {
         setProfile(response.user.profile);
         return response.user.profile;
@@ -223,7 +226,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await apiCall('http://localhost:8000/api/auth/profile', {
+      const response = await apiCall(`${API_URL}/api/auth/profile`, {
         method: 'PUT',
         body: JSON.stringify({
           ...updates,
@@ -257,7 +260,7 @@ export const useAuthStore = () => {
       }
 
       // Get current user info from backend
-      const response = await apiCall('http://localhost:8000/api/auth/me');
+      const response = await apiCall(`${API_URL}/api/auth/me`);
 
       if (response && response.success) {
         setUser(response.user);
@@ -354,7 +357,7 @@ export const useAuthStore = () => {
         throw new Error('No refresh token');
       }
 
-      const response = await fetch('http://localhost:8000/api/auth/refresh', {
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
