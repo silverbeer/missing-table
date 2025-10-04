@@ -177,7 +177,9 @@ export default {
     const fetchAgeGroups = async () => {
       try {
         loading.value = true;
-        const response = await fetch('http://localhost:8000/api/age-groups');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+        );
         if (!response.ok) throw new Error('Failed to fetch age groups');
         ageGroups.value = await response.json();
       } catch (err) {
@@ -189,7 +191,9 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/teams');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        );
         if (!response.ok) throw new Error('Failed to fetch teams');
         teams.value = await response.json();
       } catch (err) {
@@ -210,10 +214,13 @@ export default {
     const createAgeGroup = async () => {
       try {
         formLoading.value = true;
-        await authStore.apiRequest('http://localhost:8000/api/age-groups', {
-          method: 'POST',
-          body: JSON.stringify(formData.value),
-        });
+        await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
+          {
+            method: 'POST',
+            body: JSON.stringify(formData.value),
+          }
+        );
 
         await fetchAgeGroups();
         closeModals();
@@ -235,7 +242,7 @@ export default {
       try {
         formLoading.value = true;
         await authStore.apiRequest(
-          `http://localhost:8000/api/age-groups/${editingAgeGroup.value.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups/${editingAgeGroup.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(formData.value),
@@ -263,7 +270,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `http://localhost:8000/api/age-groups/${ageGroup.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups/${ageGroup.id}`,
           {
             method: 'DELETE',
           }

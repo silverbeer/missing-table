@@ -145,7 +145,7 @@ export default {
       try {
         loadingUsers.value = true;
         const response = await authStore.apiRequest(
-          'http://localhost:8000/api/auth/users'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users`
         );
         users.value = response;
       } catch (error) {
@@ -161,7 +161,7 @@ export default {
     const updateUserRole = async (userId, newRole) => {
       try {
         await authStore.apiRequest(
-          'http://localhost:8000/api/auth/users/role',
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users/role`,
           {
             method: 'PUT',
             body: JSON.stringify({

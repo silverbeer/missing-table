@@ -112,22 +112,22 @@ backend:
 # Frontend configuration
 frontend:
   replicaCount: 1
-  
+
   image:
     repository: missing-table-frontend
     tag: ""  # Defaults to chart appVersion
     pullPolicy: IfNotPresent
-  
+
   env:
     nodeEnv: "development"
     # UPDATED: Use internal k8s service name instead of LoadBalancer IP
     apiUrl: "http://missing-table-backend:8000"
     # REMOVED: Supabase env vars no longer needed - frontend uses backend API
     # supabaseUrl: No longer needed
-    # supabaseAnonKey: No longer needed  
+    # supabaseAnonKey: No longer needed
     vueAppDisableSecurity: "true"
     extra: {}  # Additional environment variables
-  
+
   command:
     - "npm"
     - "run"
@@ -135,11 +135,11 @@ frontend:
     - "--"
     - "--host"
     - "0.0.0.0"
-  
+
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 250m
+      memory: 256Mi
     limits:
       cpu: 500m
       memory: 512Mi

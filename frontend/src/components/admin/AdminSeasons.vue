@@ -219,7 +219,9 @@ export default {
     const fetchSeasons = async () => {
       try {
         loading.value = true;
-        const response = await fetch('http://localhost:8000/api/seasons');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+        );
         if (!response.ok) throw new Error('Failed to fetch seasons');
         seasons.value = await response.json();
       } catch (err) {
@@ -231,7 +233,9 @@ export default {
 
     const fetchGames = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/games');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games`
+        );
         if (!response.ok) throw new Error('Failed to fetch games');
         games.value = await response.json();
       } catch (err) {
@@ -257,10 +261,13 @@ export default {
     const createSeason = async () => {
       try {
         formLoading.value = true;
-        await authStore.apiRequest('http://localhost:8000/api/seasons', {
-          method: 'POST',
-          body: JSON.stringify(formData.value),
-        });
+        await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`,
+          {
+            method: 'POST',
+            body: JSON.stringify(formData.value),
+          }
+        );
 
         await fetchSeasons();
         closeModals();
@@ -282,7 +289,7 @@ export default {
       try {
         formLoading.value = true;
         await authStore.apiRequest(
-          `http://localhost:8000/api/seasons/${editingSeason.value.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons/${editingSeason.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(formData.value),
@@ -309,7 +316,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `http://localhost:8000/api/seasons/${season.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons/${season.id}`,
           {
             method: 'DELETE',
           }

@@ -293,7 +293,7 @@ export default {
         console.log('Current selectedGameType:', selectedGameType.value);
         console.log('Current selectedAgeGroup:', selectedAgeGroup.value);
 
-        let url = 'http://localhost:8000/api/teams';
+        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`;
 
         // Add filtering if both game type and age group are selected
         if (selectedGameType.value && selectedAgeGroup.value) {
@@ -324,7 +324,7 @@ export default {
       try {
         // Fetch active seasons (current and future)
         const activeSeasonsResponse = await fetch(
-          'http://localhost:8000/api/active-seasons'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/active-seasons`
         );
         if (activeSeasonsResponse.ok) {
           activeSeasons.value = await activeSeasonsResponse.json();
@@ -336,7 +336,7 @@ export default {
 
         // Fetch age groups
         const ageGroupsResponse = await fetch(
-          'http://localhost:8000/api/age-groups'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
         );
         if (ageGroupsResponse.ok) {
           ageGroups.value = await ageGroupsResponse.json();
@@ -348,7 +348,7 @@ export default {
 
         // Fetch game types
         const gameTypesResponse = await fetch(
-          'http://localhost:8000/api/game-types'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
         );
         if (gameTypesResponse.ok) {
           gameTypes.value = await gameTypesResponse.json();
@@ -360,7 +360,7 @@ export default {
 
         // Fetch divisions
         const divisionsResponse = await fetch(
-          'http://localhost:8000/api/divisions'
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
         );
         if (divisionsResponse.ok) {
           divisions.value = await divisionsResponse.json();
@@ -390,7 +390,7 @@ export default {
         });
 
         const response = await fetch(
-          `http://localhost:8000/api/check-game?${params.toString()}`
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/check-game?${params.toString()}`
         );
 
         if (!response.ok) {
@@ -479,7 +479,7 @@ export default {
         ) {
           // Update existing game
           result = await apiRequest(
-            `http://localhost:8000/api/games/${gameCheck.game_id}`,
+            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${gameCheck.game_id}`,
             {
               method: 'PUT',
               body: requestBody,
@@ -487,10 +487,13 @@ export default {
           );
         } else {
           // Create new game
-          result = await apiRequest('http://localhost:8000/api/games', {
-            method: 'POST',
-            body: requestBody,
-          });
+          result = await apiRequest(
+            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games`,
+            {
+              method: 'POST',
+              body: requestBody,
+            }
+          );
         }
 
         if (result) {

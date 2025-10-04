@@ -202,7 +202,9 @@ export default {
 
     const fetchAgeGroups = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/age-groups');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+        );
         if (!response.ok) throw new Error('Failed to fetch age groups');
         const data = await response.json();
         ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name));
@@ -219,7 +221,9 @@ export default {
 
     const fetchDivisions = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/divisions');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
+        );
         if (!response.ok) throw new Error('Failed to fetch divisions');
         const data = await response.json();
         divisions.value = data.sort((a, b) => a.name.localeCompare(b.name));
@@ -236,7 +240,9 @@ export default {
 
     const fetchSeasons = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/seasons');
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+        );
         if (!response.ok) throw new Error('Failed to fetch seasons');
         const data = await response.json();
         // Sort seasons by start date (most recent first)
@@ -268,7 +274,7 @@ export default {
         divisionId: selectedDivisionId.value,
       });
       try {
-        const url = `http://localhost:8000/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
+        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
         const response = await fetch(url);
         console.log('Response:', response);
 

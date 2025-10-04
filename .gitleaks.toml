@@ -1,0 +1,85 @@
+# Gitleaks configuration for missing-table project
+# Documentation: https://github.com/gitleaks/gitleaks
+
+title = "Missing Table Gitleaks Configuration"
+
+# Extend the default gitleaks config
+[extend]
+useDefault = true
+
+# Paths to exclude from scanning
+[allowlist]
+description = "Allowlisted files and patterns"
+paths = [
+    '''\.secrets\.baseline$''',
+    '''package-lock\.json$''',
+    '''poetry\.lock$''',
+    '''.*\.lock$''',
+    '''^\.git/''',
+    '''^node_modules/''',
+    '''^\.venv/''',
+    '''^venv/''',
+    '''^dist/''',
+    '''^build/''',
+    '''.*\.min\.(js|css)$''',
+    # Migration files often have example data
+    '''^supabase-local/migrations/''',
+    '''^supabase/migrations/''',
+]
+
+# Regexes to exclude
+regexes = [
+    # Ignore localhost/example URLs
+    '''postgresql://postgres:postgres@localhost''',
+    '''http://localhost''',
+    '''https://localhost''',
+    # Ignore placeholder/example values
+    '''your-.*-key-here''',
+    '''your-.*-secret-here''',
+    '''YOUR_.*''',
+    '''CHANGE_ME''',
+    '''REPLACE_ME''',
+    # Ignore common false positives
+    '''example\.com''',
+    '''test@example\.com''',
+]
+
+# Stopwords to reduce false positives
+stopwords = [
+    "example",
+    "sample",
+    "test",
+    "demo",
+    "placeholder",
+    "template",
+]
+
+# Custom rules for this project
+[[rules]]
+id = "supabase-service-key"
+description = "Supabase Service Role Key (CRITICAL)"
+regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[\w-]*\.[\w-]*'''
+tags = ["key", "supabase", "critical"]
+entropy = 3.5
+
+[[rules]]
+id = "generic-high-entropy-secret"
+description = "Generic High Entropy Secret"
+regex = '''[a-zA-Z0-9_-]{32,}'''
+entropy = 4.5
+tags = ["secret", "entropy"]
+
+# File-specific rules
+[[rules]]
+id = "helm-values-secrets"
+description = "Secrets in Helm values files"
+path = '''helm/.*/values-.*\.yaml$'''
+regex = '''(password|secret|key|token):\s*["']?[^"\s]{8,}["']?'''
+tags = ["helm", "kubernetes", "critical"]
+
+[[rules]]
+id = "dockerfile-secrets"
+description = "Hardcoded secrets in Dockerfile"
+path = '''Dockerfile.*'''
+regex = '''(ENV|ARG)\s+(.*_KEY|.*_SECRET|.*_PASSWORD|.*_TOKEN)=["']?[^"\s]{8,}["']?'''
+tags = ["docker", "secret"]
