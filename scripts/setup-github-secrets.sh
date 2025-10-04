@@ -1,6 +1,7 @@
 #!/bin/bash
 # Setup GitHub Secrets for GKE Deployment
 # This script uses GitHub CLI (gh) to add required secrets to the repository
+# It automatically pulls values from your current environment (backend/.env.dev)
 
 set -e
 
@@ -42,30 +43,49 @@ fi
 echo "📦 Repository: $REPO"
 echo ""
 
-# Function to add a secret
-add_secret() {
+# Load environment variables from .env.dev
+if [ -f "backend/.env.dev" ]; then
+    echo "📄 Loading environment from backend/.env.dev..."
+    set -a  # Automatically export all variables
+    source backend/.env.dev
+    set +a
+    echo "✅ Environment loaded"
+    echo ""
+else
+    echo "⚠️  backend/.env.dev not found"
+    echo "   This script works best when run from the repository root"
+    echo "   with backend/.env.dev configured"
+    echo ""
+    read -p "Continue anyway? (y/n): " continue_anyway
+    if [ "$continue_anyway" != "y" ]; then
+        exit 1
+    fi
+fi
+
+# Function to add a secret from environment variable
+add_secret_from_env() {
     local secret_name=$1
-    local secret_description=$2
-    local default_value=$3
+    local env_var_name=$2
+    local description=$3
 
     echo "─────────────────────────────────────────"
     echo "Setting: $secret_name"
-    echo "Description: $secret_description"
-    echo ""
+    echo "Description: $description"
 
-    if [ -n "$default_value" ]; then
-        read -p "Enter value (or press Enter for default): " secret_value
-        if [ -z "$secret_value" ]; then
-            secret_value="$default_value"
-        fi
-    else
-        read -p "Enter value: " secret_value
-    fi
+    # Get value from environment variable
+    local secret_value="${!env_var_name}"
 
     if [ -z "$secret_value" ]; then
-        echo "⚠️  Skipping $secret_name (no value provided)"
-        echo ""
-        return
+        echo "⚠️  ${env_var_name} not found in environment"
+        read -p "Enter value manually (or 'skip'): " manual_value
+        if [ "$manual_value" = "skip" ] || [ -z "$manual_value" ]; then
+            echo "⚠️  Skipping $secret_name"
+            echo ""
+            return
+        fi
+        secret_value="$manual_value"
+    else
+        echo "✓ Using value from \$${env_var_name}"
     fi
 
     echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO"
@@ -125,41 +145,43 @@ add_secret_from_file \
     "GCP service account JSON key for authentication" \
     "$HOME/.config/gcloud/application_default_credentials.json"
 
-# Load environment variables from .env.dev if it exists
-if [ -f "backend/.env.dev" ]; then
-    echo "📄 Found backend/.env.dev - loading values..."
-    source backend/.env.dev
-fi
-
-# 2. Supabase URL
-add_secret \
+# 2. Supabase URL (from environment)
+add_secret_from_env \
     "SUPABASE_URL" \
-    "Supabase project URL (pulled from environment)" \
-    "${SUPABASE_URL:-}"
+    "SUPABASE_URL" \
+    "Supabase project URL"
 
-# 3. Supabase Anon Key
-add_secret \
+# 3. Supabase Anon Key (from environment)
+add_secret_from_env \
     "SUPABASE_ANON_KEY" \
-    "Supabase anonymous key (pulled from environment)" \
-    "${SUPABASE_ANON_KEY:-}"
+    "SUPABASE_ANON_KEY" \
+    "Supabase anonymous key"
 
-# 4. Supabase Service Key
-add_secret \
+# 4. Supabase Service Key (from environment)
+add_secret_from_env \
     "SUPABASE_SERVICE_KEY" \
-    "Supabase service role key (pulled from environment)" \
-    "${SUPABASE_SERVICE_KEY:-}"
+    "SUPABASE_SERVICE_KEY" \
+    "Supabase service role key"
 
-# 5. Supabase JWT Secret
-add_secret \
+# 5. Supabase JWT Secret (from environment)
+add_secret_from_env \
     "SUPABASE_JWT_SECRET" \
-    "Supabase JWT secret (pulled from environment)" \
-    "${SUPABASE_JWT_SECRET:-}"
+    "SUPABASE_JWT_SECRET" \
+    "Supabase JWT secret"
 
-# 6. Service Account Secret
-add_secret \
+# 6. Service Account Secret (from environment or generate new)
+if [ -z "$SERVICE_ACCOUNT_SECRET" ]; then
+    echo "─────────────────────────────────────────"
+    echo "Setting: SERVICE_ACCOUNT_SECRET"
+    echo "Description: Service account secret for API access"
+    echo "⚠️  SERVICE_ACCOUNT_SECRET not found in environment"
+    echo "🔒 Generating new random secret..."
+    SERVICE_ACCOUNT_SECRET=$(openssl rand -base64 32)
+fi
+add_secret_from_env \
     "SERVICE_ACCOUNT_SECRET" \
-    "Service account secret for API access" \
-    "${SERVICE_ACCOUNT_SECRET:-$(openssl rand -base64 32)}"
+    "SERVICE_ACCOUNT_SECRET" \
+    "Service account secret for API access"
 
 echo "════════════════════════════════════════"
 echo ""
