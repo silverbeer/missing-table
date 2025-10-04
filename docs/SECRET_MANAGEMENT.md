@@ -6,6 +6,15 @@
 
 The application uses **Kubernetes Secrets** to manage sensitive credentials in the GKE deployment. Secrets are never committed to git.
 
+**📖 For runtime secret loading details, see:** [Secret Runtime Loading](./SECRET_RUNTIME_LOADING.md)
+
+This document covers:
+- How secrets are stored and managed
+- Secret detection and prevention
+- Emergency procedures
+
+For how secrets are actually **loaded at runtime** in different environments (local vs GKE), see the dedicated runtime loading guide.
+
 ### Multi-Layer Secret Protection
 
 The project implements **defense in depth** with multiple layers of secret detection:

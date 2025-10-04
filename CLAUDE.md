@@ -86,7 +86,8 @@ The dev environment is deployed to GKE with HTTPS and custom domain:
 - 🔒 **Scheduled scans** (Trivy) - Daily comprehensive security scans
 
 **Documentation:**
-- [Secret Management Guide](./docs/SECRET_MANAGEMENT.md) - Complete secret management documentation
+- [Secret Management Guide](./docs/SECRET_MANAGEMENT.md) - Secret storage, detection, and prevention
+- [Secret Runtime Loading](./docs/SECRET_RUNTIME_LOADING.md) - How secrets are loaded in local vs GKE
 
 **Quick setup:**
 ```bash
