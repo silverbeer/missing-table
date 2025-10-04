@@ -131,29 +131,35 @@ if [ -f "backend/.env.dev" ]; then
     source backend/.env.dev
 fi
 
-# 2. Supabase URL (Dev)
+# 2. Supabase URL
 add_secret \
-    "SUPABASE_URL_DEV" \
-    "Supabase project URL for dev environment" \
+    "SUPABASE_URL" \
+    "Supabase project URL (pulled from environment)" \
     "${SUPABASE_URL:-}"
 
-# 3. Supabase Anon Key (Dev)
+# 3. Supabase Anon Key
 add_secret \
-    "SUPABASE_ANON_KEY_DEV" \
-    "Supabase anonymous key for dev environment" \
+    "SUPABASE_ANON_KEY" \
+    "Supabase anonymous key (pulled from environment)" \
     "${SUPABASE_ANON_KEY:-}"
 
-# 4. Supabase Service Key (Dev)
+# 4. Supabase Service Key
 add_secret \
-    "SUPABASE_SERVICE_KEY_DEV" \
-    "Supabase service role key for dev environment" \
+    "SUPABASE_SERVICE_KEY" \
+    "Supabase service role key (pulled from environment)" \
     "${SUPABASE_SERVICE_KEY:-}"
 
-# 5. JWT Secret (Dev)
+# 5. Supabase JWT Secret
 add_secret \
-    "JWT_SECRET_DEV" \
-    "JWT secret for dev environment authentication" \
-    "${JWT_SECRET:-}"
+    "SUPABASE_JWT_SECRET" \
+    "Supabase JWT secret (pulled from environment)" \
+    "${SUPABASE_JWT_SECRET:-}"
+
+# 6. Service Account Secret
+add_secret \
+    "SERVICE_ACCOUNT_SECRET" \
+    "Service account secret for API access" \
+    "${SERVICE_ACCOUNT_SECRET:-$(openssl rand -base64 32)}"
 
 echo "════════════════════════════════════════"
 echo ""

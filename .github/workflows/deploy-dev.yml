@@ -76,28 +76,86 @@ jobs:
       with:
         version: 'latest'
 
+    - name: Create values-dev.yaml from GitHub Secrets
+      run: |
+        echo "Creating values-dev.yaml from GitHub secrets..."
+
+        cat > helm/missing-table/values-dev.yaml <<EOF
+        # Dev environment configuration for GKE (Auto-generated from GitHub Secrets)
+        namespace: missing-table-dev
+
+        secrets:
+          supabaseUrl: "${{ secrets.SUPABASE_URL }}"
+          supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY }}"
+          supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
+          supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
+          serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
+
+        backend:
+          replicaCount: 1
+          image:
+            repository: us-central1-docker.pkg.dev/missing-table/missing-table/backend
+            tag: ${{ github.sha }}
+            pullPolicy: Always
+          env:
+            environment: "development"
+            logLevel: "info"
+            disableLogfire: "true"
+            disableSecurity: "true"
+            extra:
+              CORS_ORIGINS: "http://34.133.125.204:8080,https://dev.missingtable.com"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          service:
+            loadBalancer:
+              enabled: true
+              port: 8000
+
+        frontend:
+          replicaCount: 1
+          image:
+            repository: us-central1-docker.pkg.dev/missing-table/missing-table/frontend
+            tag: ${{ github.sha }}
+            pullPolicy: Always
+          env:
+            nodeEnv: "production"
+            apiUrl: "http://34.135.217.253:8000"
+            vueAppDisableSecurity: "true"
+            extra: {}
+          command: []
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          service:
+            type: LoadBalancer
+
+        redis:
+          enabled: false
+        EOF
+
     - name: Deploy to GKE with Helm
       run: |
-        # Create values-dev.yaml from secrets (if it doesn't exist in repo)
-        if [ ! -f helm/missing-table/values-dev.yaml ]; then
-          echo "Creating values-dev.yaml from template..."
-          cp helm/missing-table/values-dev.yaml.example helm/missing-table/values-dev.yaml
-
-          # Replace placeholders with secrets
-          sed -i "s|SUPABASE_URL_PLACEHOLDER|${{ secrets.SUPABASE_URL_DEV }}|g" helm/missing-table/values-dev.yaml
-          sed -i "s|SUPABASE_ANON_KEY_PLACEHOLDER|${{ secrets.SUPABASE_ANON_KEY_DEV }}|g" helm/missing-table/values-dev.yaml
-          sed -i "s|SUPABASE_SERVICE_KEY_PLACEHOLDER|${{ secrets.SUPABASE_SERVICE_KEY_DEV }}|g" helm/missing-table/values-dev.yaml
-          sed -i "s|JWT_SECRET_PLACEHOLDER|${{ secrets.JWT_SECRET_DEV }}|g" helm/missing-table/values-dev.yaml
-        fi
-
         # Deploy using Helm
         helm upgrade missing-table ./helm/missing-table \
           --install \
           --namespace ${{ env.NAMESPACE }} \
           --create-namespace \
           --values ./helm/missing-table/values-dev.yaml \
-          --set backend.image.tag=${{ github.sha }} \
-          --set frontend.image.tag=${{ github.sha }} \
           --wait \
           --timeout 5m
 
