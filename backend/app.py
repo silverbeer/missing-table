@@ -194,6 +194,9 @@ class EnhancedGame(BaseModel):
     game_type_id: int
     division_id: int | None = None
     status: str | None = "scheduled"  # scheduled, played, postponed, cancelled
+    created_by: str | None = None  # User ID who created the game (for audit trail)
+    updated_by: str | None = None  # User ID who last updated the game
+    source: str = "manual"  # Source: manual, match-scraper, import
 
 
 class Team(BaseModel):
@@ -812,6 +815,8 @@ async def add_game(request: Request, game: EnhancedGame, current_user: dict[str,
             game_type_id=game.game_type_id,
             division_id=game.division_id,
             status=game.status,
+            created_by=current_user.get("user_id"),  # Track who created the game
+            source=game.source,  # Track source (manual, match-scraper, etc.)
         )
         if success:
             return {"message": "Game added successfully"}
@@ -849,6 +854,7 @@ async def update_game(
             game_type_id=game.game_type_id,
             division_id=game.division_id,
             status=game.status,
+            updated_by=current_user.get("user_id"),  # Track who updated the game
         )
         if success:
             return {"message": "Game updated successfully"}
@@ -1302,6 +1308,7 @@ async def add_or_update_scraped_game(
                 age_group_id=game.age_group_id,
                 game_type_id=game.game_type_id,
                 division_id=game.division_id,
+                updated_by=current_user.get("user_id"),  # Track scraper updates
             )
 
             if success:
@@ -1328,6 +1335,8 @@ async def add_or_update_scraped_game(
                 game_type_id=game.game_type_id,
                 division_id=game.division_id,
                 match_id=match_id,
+                created_by=current_user.get("user_id"),  # Track scraper creation
+                source="match-scraper",  # Mark as scraped data
             )
 
             if success:

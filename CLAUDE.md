@@ -13,12 +13,18 @@ This is a full-stack web application for managing MLS Next sports league standin
 #### Service Management
 ```bash
 # Primary service management script
+./missing-table.sh dev      # Start with auto-reload (RECOMMENDED for development)
 ./missing-table.sh start    # Start both backend and frontend
 ./missing-table.sh stop     # Stop all running services
 ./missing-table.sh restart  # Restart all services
 ./missing-table.sh status   # Show service status and PIDs
 ./missing-table.sh logs     # View recent service logs (static)
 ./missing-table.sh tail     # Follow logs in real-time (Ctrl+C to stop)
+
+# Development mode features:
+# - Backend: Auto-reload on Python file changes (uvicorn --reload)
+# - Frontend: Hot module replacement on Vue file changes (built-in)
+# - No need to restart after code changes!
 
 # Handles processes started by Claude or manually
 # Logs stored in ~/.missing-table/logs/
