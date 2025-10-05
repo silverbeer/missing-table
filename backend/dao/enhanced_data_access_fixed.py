@@ -703,6 +703,10 @@ class EnhancedSportsDAO:
                 home_score = game["home_score"]
                 away_score = game["away_score"]
 
+                # Skip games without scores
+                if home_score is None or away_score is None:
+                    continue
+
                 # Update stats
                 standings[home_team]["played"] += 1
                 standings[away_team]["played"] += 1
