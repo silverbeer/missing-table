@@ -62,7 +62,7 @@ jobs:
         IMAGE_LATEST=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/missing-table/frontend:latest
 
         docker build -f frontend/Dockerfile \
-          --build-arg VUE_APP_API_URL=http://34.135.217.253:8000 \
+          --build-arg VUE_APP_API_URL=https://dev.missingtable.com \
           --build-arg VUE_APP_SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
           --build-arg VUE_APP_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
           --build-arg VUE_APP_DISABLE_SECURITY=true \
