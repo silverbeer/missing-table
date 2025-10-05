@@ -37,16 +37,14 @@ class SupabaseConnection:
         self.url = os.getenv("SUPABASE_URL")
         # Backend should always use SERVICE_KEY for administrative operations
         self.key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
-        # Store ANON_KEY separately for auth operations (signup, login)
-        self.anon_key = os.getenv("SUPABASE_ANON_KEY")
 
         if not self.url or not self.key:
             raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file")
-
+        
         # Debug output
         print(f"DEBUG: Connecting to Supabase URL: {self.url}")
         print(f"DEBUG: Using key type: {'SERVICE_KEY' if 'SUPABASE_SERVICE_KEY' in os.environ and self.key == os.getenv('SUPABASE_SERVICE_KEY') else 'ANON_KEY'}")
-
+        
         try:
             # Try with custom httpx client
             transport = httpx.HTTPTransport(retries=3)
@@ -55,35 +53,18 @@ class SupabaseConnection:
             # Create custom client with extended timeout and retries
             http_client = httpx.Client(transport=transport, timeout=timeout, follow_redirects=True)
 
-            # Create Supabase client with custom HTTP client (using SERVICE_KEY for admin operations)
+            # Create Supabase client with custom HTTP client
             self.client = create_client(self.url, self.key, options={"httpx_client": http_client})
-
-            # Create separate auth client using ANON_KEY for user authentication
-            if self.anon_key:
-                http_client_auth = httpx.Client(transport=transport, timeout=timeout, follow_redirects=True)
-                self.auth_client = create_client(self.url, self.anon_key, options={"httpx_client": http_client_auth})
-                print("Auth client (ANON_KEY) and admin client (SERVICE_KEY) established.")
-            else:
-                # Fallback to using the same client if ANON_KEY not available
-                self.auth_client = self.client
-                print("Connection to Supabase established (using single client).")
+            print("Connection to Supabase established.")
 
         except Exception:
             # Fallback to standard client
             self.client = create_client(self.url, self.key)
-            if self.anon_key:
-                self.auth_client = create_client(self.url, self.anon_key)
-            else:
-                self.auth_client = self.client
             print("Connection to Supabase established.")
 
     def get_client(self):
-        """Get the Supabase client instance (admin client with SERVICE_KEY)."""
+        """Get the Supabase client instance."""
         return self.client
-
-    def get_auth_client(self):
-        """Get the Supabase auth client instance (uses ANON_KEY for user authentication)."""
-        return self.auth_client
 
 
 class EnhancedSportsDAO:

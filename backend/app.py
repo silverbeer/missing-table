@@ -257,7 +257,7 @@ async def signup(request: Request, user_data: UserSignup):
             for event in threat_events:
                 security_monitor.log_security_event(event) if security_monitor else None
 
-            response = db_conn_holder_obj.auth_client.auth.sign_up({
+            response = db_conn_holder_obj.client.auth.sign_up({
                 "email": user_data.email,
                 "password": user_data.password,
                 "options": {
@@ -318,7 +318,7 @@ async def login(request: Request, user_data: UserLogin):
             for event in threat_events:
                 security_monitor.log_security_event(event) if security_monitor else None
             
-            response = db_conn_holder_obj.auth_client.auth.sign_in_with_password({
+            response = db_conn_holder_obj.client.auth.sign_in_with_password({
                 "email": user_data.email,
                 "password": user_data.password
             })
@@ -412,7 +412,7 @@ async def login(request: Request, user_data: UserLogin):
 async def logout(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """User logout endpoint."""
     try:
-        db_conn_holder_obj.auth_client.auth.sign_out()
+        db_conn_holder_obj.client.auth.sign_out()
         return {
             "success": True,
             "message": "Logged out successfully"
@@ -520,7 +520,7 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
     """Refresh JWT token using refresh token."""
     with logfire.span("auth_refresh") as span:
         try:
-            response = db_conn_holder_obj.auth_client.auth.refresh_session(refresh_data.refresh_token)
+            response = db_conn_holder_obj.client.auth.refresh_session(refresh_data.refresh_token)
             
             if response.session:
                 span.set_attribute("auth.success", True)
