@@ -15,7 +15,7 @@ env:
   PROJECT_ID: missing-table
   REGION: us-central1
   GAR_LOCATION: us-central1
-  CLUSTER_NAME: gke-dev-cluster
+  CLUSTER_NAME: missing-table-dev
   NAMESPACE: missing-table-dev
 
 jobs:
