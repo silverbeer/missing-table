@@ -4,6 +4,35 @@
       <div class="p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Game</h3>
 
+        <!-- Audit Trail Info -->
+        <div
+          v-if="game && (game.created_at || game.updated_at)"
+          class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-600 space-y-1"
+        >
+          <div v-if="game.source" class="flex items-center space-x-2">
+            <span class="font-medium">Source:</span>
+            <span
+              :class="{
+                'px-2 py-0.5 rounded text-xs font-medium': true,
+                'bg-purple-100 text-purple-800':
+                  game.source === 'match-scraper',
+                'bg-gray-100 text-gray-700': game.source === 'manual',
+                'bg-yellow-100 text-yellow-700': game.source === 'import',
+              }"
+            >
+              {{ getSourceText(game.source) }}
+            </span>
+          </div>
+          <div v-if="game.created_at">
+            <span class="font-medium">Created:</span>
+            {{ formatDate(game.created_at) }}
+          </div>
+          <div v-if="game.updated_at">
+            <span class="font-medium">Last Updated:</span>
+            {{ formatDate(game.updated_at) }}
+          </div>
+        </div>
+
         <form @submit.prevent="updateGame()">
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
@@ -236,6 +265,27 @@ export default {
       { immediate: true }
     );
 
+    const formatDate = dateString => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    };
+
+    const getSourceText = source => {
+      const sourceMap = {
+        manual: 'Manually entered',
+        'match-scraper': 'Auto-scraped',
+        import: 'Imported from backup',
+      };
+      return sourceMap[source] || source;
+    };
+
     const updateGame = async () => {
       if (!props.game) return;
 
@@ -249,6 +299,17 @@ export default {
           home_score: formData.value.home_score || 0,
           away_score: formData.value.away_score || 0,
         };
+
+        // Auto-set status based on whether scores are entered
+        // If both scores are provided (not null), mark as played
+        if (
+          formData.value.home_score !== null &&
+          formData.value.away_score !== null
+        ) {
+          gameData.status = 'played';
+        } else {
+          gameData.status = 'scheduled';
+        }
 
         await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${props.game.id}`,
@@ -282,6 +343,8 @@ export default {
       loading,
       error,
       updateGame,
+      formatDate,
+      getSourceText,
     };
   },
 };

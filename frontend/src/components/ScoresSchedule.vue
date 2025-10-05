@@ -261,6 +261,7 @@
               <th class="border-b text-center w-24">Score</th>
               <th class="border-b text-center w-24">Game Type</th>
               <th class="border-b text-center w-24">Status</th>
+              <th class="border-b text-center w-16">Source</th>
               <th class="border-b text-right w-20">Result</th>
               <th v-if="canEditGames" class="border-b text-center w-24">
                 Actions
@@ -279,7 +280,7 @@
                 {{ getTeamDisplay(game) }}
               </td>
               <td class="border-b text-center">
-                {{ game.home_score }} - {{ game.away_score }}
+                {{ getScoreDisplay(game) }}
               </td>
               <td class="border-b text-center">
                 {{ game.game_type_name || 'League' }}
@@ -300,6 +301,20 @@
                   }"
                 >
                   {{ game.match_status || 'scheduled' }}
+                </span>
+              </td>
+              <td class="border-b text-center">
+                <span
+                  :title="getSourceTooltip(game)"
+                  :class="{
+                    'px-2 py-1 rounded text-xs font-medium': true,
+                    'bg-purple-100 text-purple-800':
+                      game.source === 'match-scraper',
+                    'bg-gray-100 text-gray-700': game.source === 'manual',
+                    'bg-yellow-100 text-yellow-700': game.source === 'import',
+                  }"
+                >
+                  {{ getSourceDisplay(game.source) }}
                 </span>
               </td>
               <td class="border-b text-right">{{ getResult(game) }}</td>
@@ -482,16 +497,44 @@ export default {
       return team ? team.name : 'Selected Team';
     };
 
-    const getResult = game => {
-      const gameDate = new Date(game.game_date);
-      const currentDate = new Date();
+    const getScoreDisplay = game => {
+      // Only show scores for games that have been played
+      if (game.match_status !== 'played') {
+        return '-'; // Return dash for games not yet played
+      }
+      return `${game.home_score} - ${game.away_score}`;
+    };
 
-      // Check if the game date is in the future
-      if (gameDate > currentDate) {
-        return 'Scheduled'; // Return 'Scheduled' for future games
+    const getSourceDisplay = source => {
+      if (!source || source === 'manual') return '✏️';
+      if (source === 'match-scraper') return '🤖';
+      if (source === 'import') return '📥';
+      return '?';
+    };
+
+    const getSourceTooltip = game => {
+      const source = game.source || 'manual';
+      const sourceText =
+        {
+          manual: 'Manually entered',
+          'match-scraper': 'Auto-scraped from official source',
+          import: 'Imported from backup',
+        }[source] || 'Unknown source';
+
+      if (game.updated_at) {
+        const date = new Date(game.updated_at).toLocaleDateString();
+        return `${sourceText} • Last updated: ${date}`;
+      }
+      return sourceText;
+    };
+
+    const getResult = game => {
+      // Only show results for games that have been played
+      if (game.match_status !== 'played') {
+        return '-'; // Return dash for games not yet played
       }
 
-      // Determine the result for past games
+      // Determine the result for played games
       const selectedTeamId = parseInt(selectedTeam.value);
       if (game.home_team_id === selectedTeamId) {
         return game.home_score > game.away_score
@@ -792,6 +835,9 @@ export default {
       error,
       loading,
       onTeamChange,
+      getScoreDisplay,
+      getSourceDisplay,
+      getSourceTooltip,
       getResult,
       seasonStats,
       getTeamDisplay,
