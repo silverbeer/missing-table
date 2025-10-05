@@ -687,12 +687,12 @@ class EnhancedSportsDAO:
             games = [g for g in response.data if g.get("game_type", {}).get("name") == game_type]
 
             # Filter to only include played games (exclude scheduled/postponed/cancelled)
-            # Use status field if available, otherwise fallback to date-based logic for backwards compatibility
+            # Use match_status field if available, otherwise fallback to date-based logic for backwards compatibility
             played_games = []
             for game in games:
-                game_status = game.get("status")
+                game_status = game.get("match_status")
                 if game_status:
-                    # Use status field if available
+                    # Use match_status field if available
                     if game_status == "played":
                         played_games.append(game)
                 else:
