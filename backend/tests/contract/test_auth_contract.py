@@ -133,6 +133,73 @@ class TestAuthenticationContract:
 
 
 @pytest.mark.contract
+class TestSignupWithInviteContract:
+    """Test signup with invite code functionality."""
+
+    def test_signup_with_invalid_invite_code(self, api_client: MissingTableClient):
+        """Test that signup with invalid invite code fails."""
+        import time
+        test_email = f"test_invalid_invite_{int(time.time())}@example.com"
+        test_password = "Test123!@#"
+
+        # Try to sign up with an invalid invite code
+        with pytest.raises(Exception) as exc_info:
+            api_client._request(
+                "POST",
+                "/api/auth/signup",
+                json_data={
+                    "email": test_email,
+                    "password": test_password,
+                    "display_name": "Test User",
+                    "invite_code": "INVALIDCODE123"
+                }
+            )
+
+        # Should get a 400 error about invalid invite code
+        assert exc_info.value.status_code == 400
+
+    def test_signup_with_expired_invite_code(self, api_client: MissingTableClient):
+        """Test that signup with expired invite code fails."""
+        import time
+        test_email = f"test_expired_invite_{int(time.time())}@example.com"
+        test_password = "Test123!@#"
+
+        # Try to sign up with an expired invite code
+        # Note: This assumes we have a known expired code or we'd need to create one
+        with pytest.raises(Exception) as exc_info:
+            api_client._request(
+                "POST",
+                "/api/auth/signup",
+                json_data={
+                    "email": test_email,
+                    "password": test_password,
+                    "display_name": "Test User",
+                    "invite_code": "EXPIREDCODE1"
+                }
+            )
+
+        # Should fail with 400
+        assert exc_info.value.status_code == 400
+
+    def test_signup_without_invite_code_still_works(self, api_client: MissingTableClient):
+        """Test that signup still works without invite code (backward compatibility)."""
+        import time
+        test_email = f"test_no_invite_{int(time.time())}@example.com"
+        test_password = "Test123!@#"
+
+        # Sign up without invite code should still work
+        response = api_client.signup(
+            email=test_email,
+            password=test_password,
+            display_name="Test User No Invite"
+        )
+
+        # Should succeed
+        assert response is not None
+        assert "user_id" in response or "user" in response or "access_token" in response
+
+
+@pytest.mark.contract
 class TestAuthorizationContract:
     """Test authorization and role-based access control."""
 

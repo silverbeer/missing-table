@@ -11,8 +11,8 @@ from typing import Optional, List, Dict, Any
 from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin, require_admin_or_service_account, require_game_management_permission
 from rate_limiter import create_rate_limit_middleware, rate_limit
 from csrf_protection import csrf_middleware, get_csrf_token, provide_csrf_token
-# from api.invites import router as invites_router  # Removed for simplified auth
-# from services import InviteService  # Removed for simplified auth
+from api.invites import router as invites_router
+from services import InviteService
 
 # Security monitoring imports (conditional)
 DISABLE_SECURITY = os.getenv('DISABLE_SECURITY', 'false').lower() == 'true'
@@ -212,6 +212,7 @@ class UserSignup(BaseModel):
     email: str
     password: str
     display_name: str | None = None
+    invite_code: str | None = None
 
 
 class UserLogin(BaseModel):
@@ -237,7 +238,7 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 # === Include API Routers ===
-# app.include_router(invites_router)  # Removed for simplified auth
+app.include_router(invites_router)
 
 # === Authentication Endpoints ===
 
@@ -252,6 +253,23 @@ async def signup(request: Request, user_data: UserSignup):
         span.set_attribute("auth.client_ip", client_ip)
 
         try:
+            # Validate invite code if provided
+            invite_info = None
+            if user_data.invite_code:
+                invite_service = InviteService(db_conn_holder_obj.client)
+                invite_info = invite_service.validate_invite_code(user_data.invite_code)
+                if not invite_info:
+                    raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+
+                # If invite has email specified, verify it matches
+                if invite_info.get('email') and invite_info['email'] != user_data.email:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"This invite code is for {invite_info['email']}. Please use that email address."
+                    )
+
+                logger.info(f"Valid invite code for {invite_info['invite_type']}: {user_data.invite_code}")
+
             # Analyze signup request for threats
             payload = {"email": user_data.email, "display_name": user_data.display_name}
             threat_events = security_monitor.analyze_request_for_threats(request, payload) if security_monitor else []
@@ -271,17 +289,48 @@ async def signup(request: Request, user_data: UserSignup):
             })
 
             if response.user:
+                # If signup with invite code, update user profile with role and team
+                if invite_info:
+                    # Map invite type to user role (using hyphens to match DB constraint)
+                    role_mapping = {
+                        'team_manager': 'team-manager',
+                        'team_player': 'team-player',
+                        'team_fan': 'team-fan'
+                    }
+                    role = role_mapping.get(invite_info['invite_type'], 'team-fan')
+
+                    # Update user profile
+                    update_data = {
+                        'role': role,
+                        'team_id': invite_info['team_id']
+                    }
+
+                    db_conn_holder_obj.client.table('user_profiles')\
+                        .update(update_data)\
+                        .eq('id', response.user.id)\
+                        .execute()
+
+                    # Redeem the invitation
+                    invite_service.redeem_invitation(user_data.invite_code, response.user.id)
+
+                    logger.info(f"User {response.user.id} assigned role {role} via invite code")
+
                 logfire.info(
                     "User signup successful",
                     email=user_data.email,
                     user_id=response.user.id,
-                    client_ip=client_ip
+                    client_ip=client_ip,
+                    used_invite=bool(user_data.invite_code)
                 )
                 span.set_attribute("auth.success", True)
                 span.set_attribute("auth.user_id", response.user.id)
 
+                message = "User created successfully."
+                if invite_info:
+                    message += f" You have been assigned to {invite_info['team_name']} as a {invite_info['invite_type'].replace('_', ' ')}."
+
                 return {
-                    "message": "User created successfully. Please check your email for verification.",
+                    "message": message,
                     "user_id": response.user.id
                 }
             else:
@@ -793,6 +842,33 @@ async def get_games(
         return games
     except Exception as e:
         logger.error(f"Error retrieving games: {e!s}")
+        raise HTTPException(
+            status_code=503, detail="Database connection failed. Please check Supabase connection."
+        )
+
+
+@app.get("/api/games/{game_id}")
+async def get_game(request: Request, game_id: int):
+    """Get a specific game by ID."""
+    try:
+        # Get all games and filter by ID
+        if security_monitor:
+            client_ip = security_monitor.get_client_ip(request)
+            games = sports_dao.get_all_games(client_ip=client_ip)
+        else:
+            games = sports_dao.get_all_games()
+
+        # Find the game with matching ID
+        game = next((g for g in games if g.get("id") == game_id), None)
+
+        if not game:
+            raise HTTPException(status_code=404, detail=f"Game with ID {game_id} not found")
+
+        return game
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving game {game_id}: {e!s}")
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )

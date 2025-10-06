@@ -38,7 +38,17 @@
             required
             :disabled="authStore.state.loading"
             placeholder="Enter your invite code"
+            @blur="validateInviteCode"
           />
+          <div v-if="inviteInfo" class="invite-info">
+            <p>
+              ✓ Valid invite for <strong>{{ inviteInfo.team_name }}</strong>
+            </p>
+            <p>
+              Role:
+              <strong>{{ inviteInfo.invite_type.replace('_', ' ') }}</strong>
+            </p>
+          </div>
         </div>
 
         <div v-if="showInviteSignup" class="form-group">
@@ -149,6 +159,7 @@ export default {
     const selectedRole = ref('team-fan');
     const selectedTeamId = ref('');
     const teams = ref([]);
+    const inviteInfo = ref(null);
 
     const form = reactive({
       email: '',
@@ -169,6 +180,30 @@ export default {
       isSignup.value = false;
       authStore.clearError();
       showRoleSelection.value = false;
+    };
+
+    const validateInviteCode = async () => {
+      if (!form.inviteCode || form.inviteCode.length < 8) {
+        inviteInfo.value = null;
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/invites/validate/${form.inviteCode}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          inviteInfo.value = data;
+        } else {
+          inviteInfo.value = null;
+          authStore.setError('Invalid or expired invite code');
+        }
+      } catch (error) {
+        console.error('Error validating invite:', error);
+        inviteInfo.value = null;
+      }
     };
 
     const fetchTeams = async () => {
@@ -194,9 +229,12 @@ export default {
           form.inviteCode
         );
         if (result.success) {
-          // Show role selection for new users
-          showRoleSelection.value = true;
-          await fetchTeams();
+          // Role and team are already set by the backend via invite code
+          // Now log the user in automatically
+          const loginResult = await authStore.login(form.email, form.password);
+          if (loginResult.success) {
+            emit('login-success');
+          }
         }
       } else {
         const result = await authStore.login(form.email, form.password);
@@ -235,8 +273,10 @@ export default {
       selectedRole,
       selectedTeamId,
       teams,
+      inviteInfo,
       showInviteForm,
       showLoginForm,
+      validateInviteCode,
       handleSubmit,
       completeProfile,
     };
@@ -411,5 +451,23 @@ export default {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
+}
+
+.invite-info {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.invite-info p {
+  margin: 0.25rem 0;
+  color: #155724;
+}
+
+.invite-info strong {
+  color: #0f4c20;
 }
 </style>

@@ -161,25 +161,46 @@ class MissingTableClient:
         )
         data = response.json()
 
-        # Store tokens for future requests
-        self._access_token = data.get("access_token")
-        self._refresh_token = data.get("refresh_token")
-
-        return data
+        # Handle nested session structure from API
+        if "session" in data:
+            session = data["session"]
+            self._access_token = session.get("access_token")
+            self._refresh_token = session.get("refresh_token")
+            # Return flattened structure for backward compatibility
+            return {
+                "access_token": self._access_token,
+                "refresh_token": self._refresh_token,
+                "token_type": session.get("token_type", "bearer"),
+                "user": data.get("user"),
+                "message": data.get("message"),
+            }
+        else:
+            # Fallback for flat structure
+            self._access_token = data.get("access_token")
+            self._refresh_token = data.get("refresh_token")
+            return data
 
     def signup(self, email: str, password: str, display_name: str | None = None) -> dict[str, Any]:
         """
         Sign up a new user.
 
         Returns:
-            Dict with access_token, refresh_token, and user info
+            Dict with user info (may include access_token depending on API configuration)
         """
         payload = {"email": email, "password": password}
         if display_name:
             payload["display_name"] = display_name
 
         response = self._request("POST", "/api/auth/signup", json_data=payload)
-        return response.json()
+        data = response.json()
+
+        # Handle nested session structure if tokens are returned
+        if "session" in data:
+            session = data["session"]
+            self._access_token = session.get("access_token")
+            self._refresh_token = session.get("refresh_token")
+
+        return data
 
     def logout(self) -> dict[str, Any]:
         """Logout the current user."""
@@ -197,10 +218,21 @@ class MissingTableClient:
         response = self._request("POST", "/api/auth/refresh", json_data=model.model_dump())
         data = response.json()
 
-        # Update access token
-        self._access_token = data.get("access_token")
-
-        return data
+        # Handle nested session structure
+        if "session" in data:
+            session = data["session"]
+            self._access_token = session.get("access_token")
+            self._refresh_token = session.get("refresh_token")
+            # Return flattened structure for backward compatibility
+            return {
+                "access_token": self._access_token,
+                "refresh_token": self._refresh_token,
+                "token_type": session.get("token_type", "bearer"),
+            }
+        else:
+            # Fallback for flat structure
+            self._access_token = data.get("access_token")
+            return data
 
     def get_profile(self) -> dict[str, Any]:
         """Get current user's profile."""
