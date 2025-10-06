@@ -293,23 +293,30 @@ export default {
         loading.value = true;
         error.value = null;
 
-        // Convert empty scores to 0 for API
+        // Build game data for API
         const gameData = {
           ...formData.value,
-          home_score: formData.value.home_score || 0,
-          away_score: formData.value.away_score || 0,
         };
 
-        // Auto-set status based on whether scores are entered
-        // If both scores are provided (not null), mark as played
-        if (
+        // Ensure scores are numbers (convert empty/null to 0)
+        gameData.home_score =
+          formData.value.home_score !== null && formData.value.home_score !== ''
+            ? Number(formData.value.home_score)
+            : 0;
+        gameData.away_score =
+          formData.value.away_score !== null && formData.value.away_score !== ''
+            ? Number(formData.value.away_score)
+            : 0;
+
+        // Auto-set status based on whether valid scores are entered
+        // If both scores are valid numbers (not just empty/0), mark as played
+        const hasValidScores =
           formData.value.home_score !== null &&
-          formData.value.away_score !== null
-        ) {
-          gameData.status = 'played';
-        } else {
-          gameData.status = 'scheduled';
-        }
+          formData.value.home_score !== '' &&
+          formData.value.away_score !== null &&
+          formData.value.away_score !== '';
+
+        gameData.status = hasValidScores ? 'played' : 'scheduled';
 
         await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${props.game.id}`,
