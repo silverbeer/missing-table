@@ -7,12 +7,23 @@ retry logic, and full Pydantic model validation.
 """
 
 from .client import MissingTableClient
-from .exceptions import APIError, AuthenticationError, NotFoundError, ValidationError
+from .exceptions import (
+    APIError,
+    AuthenticationError,
+    AuthorizationError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+    ValidationError,
+)
 
 __all__ = [
     "MissingTableClient",
     "APIError",
     "AuthenticationError",
+    "AuthorizationError",
     "NotFoundError",
     "ValidationError",
+    "RateLimitError",
+    "ServerError",
 ]

@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Load OpenAPI schema
 schema_path = Path(__file__).parent.parent.parent / "openapi.json"
-schema = schemathesis.from_path(str(schema_path))
+schema = schemathesis.openapi.from_file(str(schema_path))
 
 
 # Configure hypothesis settings for property-based testing
