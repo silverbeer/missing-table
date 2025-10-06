@@ -193,7 +193,7 @@ class EnhancedGame(BaseModel):
     age_group_id: int
     game_type_id: int
     division_id: int | None = None
-    status: str | None = "scheduled"  # scheduled, played, postponed, cancelled
+    status: str | None = "scheduled"  # scheduled, played, postponed, cancelled (maps to match_status in DB)
     created_by: str | None = None  # User ID who created the game (for audit trail)
     updated_by: str | None = None  # User ID who last updated the game
     source: str = "manual"  # Source: manual, match-scraper, import
@@ -915,12 +915,13 @@ async def patch_game(
         if game_patch.away_score is not None and game_patch.away_score < 0:
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
-        # Validate match_status if provided
-        valid_statuses = ["scheduled", "completed", "TBD", "postponed", "cancelled"]
-        if game_patch.match_status is not None and game_patch.match_status not in valid_statuses:
+        # Validate match_status if provided (must match database CHECK constraint)
+        valid_statuses = ["scheduled", "played", "postponed", "cancelled"]
+        status_to_check = game_patch.match_status or game_patch.status
+        if status_to_check is not None and status_to_check not in valid_statuses:
             raise HTTPException(
                 status_code=400,
-                detail=f"match_status must be one of: {', '.join(valid_statuses)}"
+                detail=f"status must be one of: {', '.join(valid_statuses)}"
             )
 
         # Build update data, using existing values for fields not provided
