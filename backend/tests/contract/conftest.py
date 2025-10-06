@@ -1,11 +1,45 @@
 """Pytest configuration for contract tests."""
 
 import os
+import sys
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
+from rich.console import Console
 
 from api_client import MissingTableClient
+
+console = Console()
+
+
+def check_server_running(base_url: str) -> bool:
+    """Check if the backend server is running."""
+    try:
+        response = httpx.get(f"{base_url}/health", timeout=2.0)
+        return response.status_code == 200
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return False
+
+
+@pytest.fixture(scope="session", autouse=True)
+def verify_server_running(api_base_url: str = "http://localhost:8000"):
+    """Verify server is running before contract tests start."""
+    if not check_server_running(api_base_url):
+        console.print("\n[bold red]❌ Backend server is not running![/bold red]\n")
+        console.print(f"   Contract tests require a running server at: [cyan]{api_base_url}[/cyan]\n")
+        console.print("   [bold]Please start the server first:[/bold]\n")
+        console.print("   [yellow]Terminal 1:[/yellow]")
+        console.print("   $ cd backend")
+        console.print("   $ ./missing-table.sh dev\n")
+        console.print("   [yellow]Terminal 2:[/yellow]")
+        console.print("   $ cd backend")
+        console.print("   $ uv run pytest tests/contract/ -m contract -v\n")
+        console.print("   [dim]Or use FastAPI TestClient for tests that don't need a real server[/dim]\n")
+
+        pytest.exit("Backend server not running. Start server and try again.", returncode=1)
+
+    console.print(f"\n[green]✅ Server running at {api_base_url}[/green]\n")
 
 
 @pytest.fixture(scope="session")
