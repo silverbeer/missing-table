@@ -837,11 +837,11 @@ async def update_game(
         current_game = sports_dao.get_game_by_id(game_id)
         if not current_game:
             raise HTTPException(status_code=404, detail="Game not found")
-        
+
         # Check if user can edit this game
         if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
             raise HTTPException(status_code=403, detail="You don't have permission to edit this game")
-        
+
         success = sports_dao.update_game(
             game_id=game_id,
             home_team_id=game.home_team_id,
@@ -862,6 +862,96 @@ async def update_game(
             raise HTTPException(status_code=500, detail="Failed to update game")
     except Exception as e:
         logger.error(f"Error updating game: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class GamePatch(BaseModel):
+    """Model for partial game updates."""
+    home_score: int | None = None
+    away_score: int | None = None
+    match_status: str | None = None
+    game_date: str | None = None
+    home_team_id: int | None = None
+    away_team_id: int | None = None
+    season_id: int | None = None
+    age_group_id: int | None = None
+    game_type_id: int | None = None
+    division_id: int | None = None
+    status: str | None = None
+
+    class Config:
+        # Validation for scores
+        @staticmethod
+        def validate_score(v):
+            if v is not None and v < 0:
+                raise ValueError("Score must be non-negative")
+            return v
+
+
+@app.patch("/api/games/{game_id}")
+async def patch_game(
+    game_id: int,
+    game_patch: GamePatch,
+    current_user: dict[str, Any] = Depends(require_game_management_permission)
+):
+    """Partially update a game (requires manage_games permission).
+
+    This endpoint allows updating specific fields without requiring all fields.
+    Commonly used for score updates from match-scraper.
+    """
+    try:
+        # Get current game to check permissions and get existing values
+        current_game = sports_dao.get_game_by_id(game_id)
+        if not current_game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        # Check if user can edit this game
+        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to edit this game")
+
+        # Validate scores if provided
+        if game_patch.home_score is not None and game_patch.home_score < 0:
+            raise HTTPException(status_code=400, detail="home_score must be non-negative")
+        if game_patch.away_score is not None and game_patch.away_score < 0:
+            raise HTTPException(status_code=400, detail="away_score must be non-negative")
+
+        # Validate match_status if provided
+        valid_statuses = ["scheduled", "completed", "TBD", "postponed", "cancelled"]
+        if game_patch.match_status is not None and game_patch.match_status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"match_status must be one of: {', '.join(valid_statuses)}"
+            )
+
+        # Build update data, using existing values for fields not provided
+        update_data = {
+            "game_id": game_id,
+            "home_team_id": game_patch.home_team_id if game_patch.home_team_id is not None else current_game['home_team_id'],
+            "away_team_id": game_patch.away_team_id if game_patch.away_team_id is not None else current_game['away_team_id'],
+            "game_date": game_patch.game_date if game_patch.game_date is not None else current_game['game_date'],
+            "home_score": game_patch.home_score if game_patch.home_score is not None else current_game['home_score'],
+            "away_score": game_patch.away_score if game_patch.away_score is not None else current_game['away_score'],
+            "season_id": game_patch.season_id if game_patch.season_id is not None else current_game['season_id'],
+            "age_group_id": game_patch.age_group_id if game_patch.age_group_id is not None else current_game['age_group_id'],
+            "game_type_id": game_patch.game_type_id if game_patch.game_type_id is not None else current_game['game_type_id'],
+            "division_id": game_patch.division_id if game_patch.division_id is not None else current_game.get('division_id'),
+            "status": game_patch.match_status if game_patch.match_status is not None else (game_patch.status if game_patch.status is not None else current_game.get('status', 'scheduled')),
+            "updated_by": current_user.get("user_id"),
+        }
+
+        success = sports_dao.update_game(**update_data)
+
+        if success:
+            # Return updated game object
+            updated_game = sports_dao.get_game_by_id(game_id)
+            return updated_game
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update game")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error patching game: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
