@@ -298,30 +298,42 @@ export default {
           ...formData.value,
         };
 
-        // Ensure scores are numbers (convert empty/null to 0)
-        gameData.home_score =
-          formData.value.home_score !== null && formData.value.home_score !== ''
-            ? Number(formData.value.home_score)
-            : 0;
-        gameData.away_score =
-          formData.value.away_score !== null && formData.value.away_score !== ''
-            ? Number(formData.value.away_score)
-            : 0;
+        // Parse scores - treat null/undefined/empty string as "no score entered"
+        // Note: 0 is a valid score (e.g., 3-0 game)
+        const homeScoreValue = formData.value.home_score;
+        const awayScoreValue = formData.value.away_score;
 
-        // Auto-set status based on whether valid scores are entered
-        // If both scores are valid numbers (not just empty/0), mark as played
-        const hasValidScores =
-          formData.value.home_score !== null &&
-          formData.value.home_score !== '' &&
-          formData.value.away_score !== null &&
-          formData.value.away_score !== '';
+        // Check if scores have been entered (not null, undefined, or empty string)
+        const homeScoreEntered =
+          homeScoreValue !== null &&
+          homeScoreValue !== undefined &&
+          homeScoreValue !== '';
+        const awayScoreEntered =
+          awayScoreValue !== null &&
+          awayScoreValue !== undefined &&
+          awayScoreValue !== '';
 
-        gameData.status = hasValidScores ? 'played' : 'scheduled';
+        // Convert to numbers, defaulting to 0 if not entered
+        gameData.home_score = homeScoreEntered ? Number(homeScoreValue) : 0;
+        gameData.away_score = awayScoreEntered ? Number(awayScoreValue) : 0;
+
+        // Auto-set status: if BOTH scores are entered, mark as played
+        gameData.status =
+          homeScoreEntered && awayScoreEntered ? 'played' : 'scheduled';
+
+        console.log('GameEditModal - Update data:', {
+          homeScoreValue,
+          awayScoreValue,
+          homeScoreEntered,
+          awayScoreEntered,
+          status: gameData.status,
+          fullGameData: gameData,
+        });
 
         await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${props.game.id}`,
           {
-            method: 'PUT',
+            method: 'PATCH',
             body: JSON.stringify(gameData),
           }
         );
