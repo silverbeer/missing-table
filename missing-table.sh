@@ -25,10 +25,11 @@ mkdir -p "$PID_DIR" "$LOG_DIR"
 usage() {
     echo -e "${BLUE}Missing Table Service Manager${NC}"
     echo ""
-    echo -e "${YELLOW}Usage:${NC} $0 {start|stop|restart|status|logs|tail}"
+    echo -e "${YELLOW}Usage:${NC} $0 {start|dev|stop|restart|status|logs|tail}"
     echo ""
     echo -e "${YELLOW}Commands:${NC}"
     echo "  start    - Start both backend and frontend services"
+    echo "  dev      - Start services in development mode with auto-reload"
     echo "  stop     - Stop all running services"
     echo "  restart  - Stop and start all services"
     echo "  status   - Show status of all services"
@@ -36,9 +37,9 @@ usage() {
     echo "  tail     - Follow logs in real-time (Ctrl+C to stop)"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo "  $0 start"
+    echo "  $0 dev       # Development mode with auto-reload"
+    echo "  $0 start     # Production mode"
     echo "  $0 status"
-    echo "  $0 restart"
     echo "  $0 tail"
     echo ""
 }
@@ -102,6 +103,7 @@ kill_process() {
 
 # Function to start backend
 start_backend() {
+    local dev_mode="${1:-false}"
     echo -e "${YELLOW}Starting backend server...${NC}"
 
     # Check if already running
@@ -133,7 +135,12 @@ start_backend() {
     echo "Backend logs: $backend_log"
 
     if command -v uv &> /dev/null; then
-        APP_ENV="$current_env" nohup uv run python app.py > "$backend_log" 2>&1 &
+        if [ "$dev_mode" = "true" ]; then
+            echo -e "${GREEN}Starting backend with auto-reload (uvicorn --reload)${NC}"
+            APP_ENV="$current_env" nohup uv run uvicorn app:app --host 0.0.0.0 --port $BACKEND_PORT --reload > "$backend_log" 2>&1 &
+        else
+            APP_ENV="$current_env" nohup uv run python app.py > "$backend_log" 2>&1 &
+        fi
     else
         echo -e "${YELLOW}uv not found, using python directly${NC}"
         APP_ENV="$current_env" nohup python app.py > "$backend_log" 2>&1 &
@@ -149,6 +156,9 @@ start_backend() {
     while [ $count -lt 10 ]; do
         if port_in_use $BACKEND_PORT; then
             echo -e "${GREEN}Backend started successfully (PID: $backend_pid)${NC}"
+            if [ "$dev_mode" = "true" ]; then
+                echo -e "${GREEN}  Auto-reload: ENABLED (code changes will reload automatically)${NC}"
+            fi
             return 0
         fi
         sleep 1
@@ -161,6 +171,7 @@ start_backend() {
 
 # Function to start frontend
 start_frontend() {
+    local dev_mode="${1:-false}"
     echo -e "${YELLOW}Starting frontend server...${NC}"
 
     # Check if already running
@@ -193,6 +204,7 @@ start_frontend() {
     local frontend_log="$LOG_DIR/frontend.log"
     echo "Frontend logs: $frontend_log"
 
+    # Note: npm run serve already has hot-reload by default (Vue CLI)
     APP_ENV="$current_env" nohup npm run serve > "$frontend_log" 2>&1 &
     local frontend_pid=$!
     echo $frontend_pid > "$FRONTEND_PID_FILE"
@@ -204,6 +216,7 @@ start_frontend() {
     while [ $count -lt 15 ]; do
         if port_in_use $FRONTEND_PORT; then
             echo -e "${GREEN}Frontend started successfully (PID: $frontend_pid)${NC}"
+            echo -e "${GREEN}  Hot-reload: ENABLED (Vue files auto-reload by default)${NC}"
             return 0
         fi
         sleep 1
@@ -216,7 +229,13 @@ start_frontend() {
 
 # Function to start all services
 start_services() {
-    echo -e "${GREEN}Starting Missing Table application...${NC}\n"
+    local dev_mode="${1:-false}"
+
+    if [ "$dev_mode" = "true" ]; then
+        echo -e "${GREEN}Starting Missing Table application in DEVELOPMENT mode...${NC}\n"
+    else
+        echo -e "${GREEN}Starting Missing Table application...${NC}\n"
+    fi
 
     # Check if we're in the right directory
     if [ ! -d "backend" ] || [ ! -d "frontend" ]; then
@@ -225,15 +244,21 @@ start_services() {
         return 1
     fi
 
-    start_backend
+    start_backend "$dev_mode"
     if [ $? -eq 0 ]; then
-        start_frontend
+        start_frontend "$dev_mode"
         if [ $? -eq 0 ]; then
             echo -e "\n${GREEN}All services started successfully!${NC}"
             echo -e "Backend: http://localhost:$BACKEND_PORT"
             echo -e "Frontend: http://localhost:$FRONTEND_PORT"
+            if [ "$dev_mode" = "true" ]; then
+                echo -e "\n${GREEN}Development mode: Code changes will auto-reload${NC}"
+                echo -e "  Backend: Python changes trigger uvicorn reload"
+                echo -e "  Frontend: Vue files trigger hot module replacement"
+            fi
             echo -e "\nUse '$0 status' to check service status"
             echo -e "Use '$0 logs' to view logs"
+            echo -e "Use '$0 tail' to follow logs in real-time"
             echo -e "Use '$0 stop' to stop all services"
         fi
     fi
@@ -404,7 +429,10 @@ tail_logs() {
 # Main script logic
 case "$1" in
     start)
-        start_services
+        start_services false
+        ;;
+    dev)
+        start_services true
         ;;
     stop)
         stop_services
@@ -412,7 +440,7 @@ case "$1" in
     restart)
         stop_services
         sleep 2
-        start_services
+        start_services false
         ;;
     status)
         show_status

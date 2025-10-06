@@ -411,6 +411,10 @@ class EnhancedSportsDAO:
                     "division_name": game["division"]["name"]
                     if game.get("division")
                     else "Unknown",
+                    "match_status": game.get("match_status"),
+                    "created_by": game.get("created_by"),
+                    "updated_by": game.get("updated_by"),
+                    "source": game.get("source", "manual"),
                     "created_at": game["created_at"],
                     "updated_at": game["updated_at"],
                 }
@@ -474,6 +478,12 @@ class EnhancedSportsDAO:
                     "division_name": game["division"]["name"]
                     if game.get("division")
                     else "Unknown",
+                    "match_status": game.get("match_status"),
+                    "created_by": game.get("created_by"),
+                    "updated_by": game.get("updated_by"),
+                    "source": game.get("source", "manual"),
+                    "created_at": game.get("created_at"),
+                    "updated_at": game.get("updated_at"),
                 }
                 games.append(flat_game)
 
@@ -495,8 +505,10 @@ class EnhancedSportsDAO:
         game_type_id: int,
         division_id: int | None = None,
         status: str | None = "scheduled",
+        created_by: str | None = None,
+        source: str = "manual",
     ) -> bool:
-        """Add a new game."""
+        """Add a new game with audit trail."""
         try:
             data = {
                 "game_date": game_date,
@@ -507,15 +519,16 @@ class EnhancedSportsDAO:
                 "season_id": season_id,
                 "age_group_id": age_group_id,
                 "game_type_id": game_type_id,
+                "source": source,
             }
 
-            # Add division if provided
+            # Add optional fields
             if division_id:
                 data["division_id"] = division_id
-
-            # Add status if provided
             if status:
                 data["status"] = status
+            if created_by:
+                data["created_by"] = created_by
 
             response = self.client.table("games").insert(data).execute()
 
@@ -537,8 +550,10 @@ class EnhancedSportsDAO:
         game_type_id: int,
         match_id: str,
         division_id: int | None = None,
+        created_by: str | None = None,
+        source: str = "match-scraper",
     ) -> bool:
-        """Add a new game with external match_id."""
+        """Add a new game with external match_id and audit trail."""
         try:
             data = {
                 "game_date": game_date,
@@ -550,11 +565,14 @@ class EnhancedSportsDAO:
                 "age_group_id": age_group_id,
                 "game_type_id": game_type_id,
                 "match_id": match_id,
+                "source": source,
             }
 
-            # Add division if provided
+            # Add optional fields
             if division_id:
                 data["division_id"] = division_id
+            if created_by:
+                data["created_by"] = created_by
 
             response = self.client.table("games").insert(data).execute()
 
@@ -577,8 +595,9 @@ class EnhancedSportsDAO:
         game_type_id: int,
         division_id: int | None = None,
         status: str | None = None,
+        updated_by: str | None = None,
     ) -> bool:
-        """Update an existing game."""
+        """Update an existing game with audit trail."""
         try:
             data = {
                 "game_date": game_date,
@@ -592,9 +611,11 @@ class EnhancedSportsDAO:
                 "division_id": division_id,
             }
 
-            # Add status if provided
+            # Add optional fields
             if status:
-                data["status"] = status
+                data["match_status"] = status
+            if updated_by:
+                data["updated_by"] = updated_by
 
             response = self.client.table("games").update(data).eq("id", game_id).execute()
 
@@ -666,12 +687,12 @@ class EnhancedSportsDAO:
             games = [g for g in response.data if g.get("game_type", {}).get("name") == game_type]
 
             # Filter to only include played games (exclude scheduled/postponed/cancelled)
-            # Use status field if available, otherwise fallback to date-based logic for backwards compatibility
+            # Use match_status field if available, otherwise fallback to date-based logic for backwards compatibility
             played_games = []
             for game in games:
-                game_status = game.get("status")
+                game_status = game.get("match_status")
                 if game_status:
-                    # Use status field if available
+                    # Use match_status field if available
                     if game_status == "played":
                         played_games.append(game)
                 else:
@@ -702,6 +723,10 @@ class EnhancedSportsDAO:
                 away_team = game["away_team"]["name"]
                 home_score = game["home_score"]
                 away_score = game["away_score"]
+
+                # Skip games without scores
+                if home_score is None or away_score is None:
+                    continue
 
                 # Update stats
                 standings[home_team]["played"] += 1

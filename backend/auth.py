@@ -211,6 +211,12 @@ class AuthManager:
         if role == "admin":
             return True
 
+        # Service accounts with manage_games permission can edit any game
+        if role == "service_account":
+            permissions = user_data.get("permissions", [])
+            if "manage_games" in permissions:
+                return True
+
         # Team managers can edit games involving their team
         if role == "team-manager" and user_team_id in [home_team_id, away_team_id]:
             return True
