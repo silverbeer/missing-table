@@ -200,4 +200,5 @@ markers = [
     "unit: marks tests as unit tests",
     "e2e: marks tests as end-to-end tests",
     "contract: marks tests as API contract tests",
+    "debug: marks tests for debugging specific issues",
 ]
