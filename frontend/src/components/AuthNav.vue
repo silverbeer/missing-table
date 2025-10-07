@@ -141,8 +141,10 @@ export default {
 
 .nav-brand h1 {
   margin: 0;
-  color: #333;
-  font-size: 1.5rem;
+  color: #2563eb;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .nav-links {

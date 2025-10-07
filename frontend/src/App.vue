@@ -13,9 +13,16 @@
 
     <!-- Main Content -->
     <div class="container mx-auto px-4 py-8">
-      <h1 class="text-3xl font-bold text-blue-600 mb-8">
-        Missing Table - Tracking U13 & U14 MLS Next Season
-      </h1>
+      <!-- Hero Section -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-blue-600 mb-2">
+          The standings you've been missing.
+        </h1>
+        <p class="text-lg text-gray-600">
+          Community-built standings, tracking the top youth soccer leagues in
+          the US
+        </p>
+      </div>
 
       <!-- Loading indicator -->
       <div v-if="authStore.state.loading" class="loading-container">
@@ -34,25 +41,29 @@
         <!-- Show welcome message if not authenticated -->
         <div
           v-if="!authStore.isAuthenticated"
-          class="bg-white rounded-lg shadow p-8 text-center"
+          class="bg-white rounded-lg shadow p-8 text-center max-w-2xl mx-auto"
         >
+          <div class="text-6xl mb-4">🔒</div>
           <h2 class="text-2xl font-bold text-gray-800 mb-4">
-            Welcome to Missing Table
+            Invite-Only Platform
           </h2>
-          <p class="text-gray-600 mb-6">
-            This is an invite-only platform for tracking MLS Next league
-            standings and games.
+          <p class="text-gray-700 mb-4 font-medium">
+            You must log in to access this site.
           </p>
           <p class="text-gray-600 mb-6">
-            Please log in to view league data and access your personalized
-            dashboard.
+            Missing Table is an invite-only community platform for tracking
+            youth soccer league standings and games. If you have an account,
+            please log in below.
           </p>
           <button
             @click="showLoginModal = true"
-            class="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+            class="bg-blue-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-blue-700 transition-colors text-lg"
           >
-            Login
+            Log In
           </button>
+          <p class="text-sm text-gray-500 mt-6">
+            Don't have an account? You'll need an invitation code to sign up.
+          </p>
         </div>
 
         <!-- Tabs for authenticated users -->
@@ -81,19 +92,16 @@
         >
           <!-- Standings -->
           <div v-if="currentTab === 'table'" class="p-4">
-            <h2 class="text-xl font-semibold mb-4">League Standings</h2>
             <LeagueTable />
           </div>
 
           <!-- Games -->
           <div v-if="currentTab === 'scores'" class="p-4">
-            <h2 class="text-xl font-semibold mb-4">Games</h2>
             <ScoresSchedule />
           </div>
 
           <!-- Add Game Form (auth required) -->
           <div v-if="currentTab === 'add-game'" class="p-4">
-            <h2 class="text-xl font-semibold mb-4">Schedule/Score Game</h2>
             <div v-if="!authStore.isAuthenticated" class="auth-required">
               <p>You must be logged in to add games.</p>
               <button @click="showLoginModal = true" class="login-prompt-btn">
@@ -113,7 +121,6 @@
 
           <!-- Admin Panel (admin only) -->
           <div v-if="currentTab === 'admin'" class="p-4">
-            <h2 class="text-xl font-semibold mb-4">Admin Panel</h2>
             <AdminPanel />
           </div>
         </div>
