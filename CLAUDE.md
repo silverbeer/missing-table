@@ -47,6 +47,32 @@ cd backend && uv run pytest
 cd frontend && npm run lint
 ```
 
+### Docker Image Building
+
+**CRITICAL**: Always use the `build-and-push.sh` script to build Docker images.
+This script handles platform-specific builds correctly (ARM64 for Mac, AMD64 for GKE).
+
+```bash
+# Build for cloud deployment (AMD64, push to registry)
+./build-and-push.sh backend dev      # Dev environment
+./build-and-push.sh frontend prod    # Production environment
+./build-and-push.sh all dev          # Build all services for dev
+
+# Build for local development (current platform, no push)
+./build-and-push.sh backend local
+./build-and-push.sh frontend local
+
+# After building for cloud, deploy to Kubernetes:
+kubectl rollout restart deployment/missing-table-backend -n missing-table-dev
+kubectl rollout status deployment/missing-table-backend -n missing-table-dev
+```
+
+**Why this script is required:**
+- GKE clusters run on AMD64 architecture
+- Mac computers use ARM64 architecture
+- Docker images must match the deployment platform
+- Manual docker build commands often fail with "no match for platform" errors
+
 ### Docker Compose (Local Development)
 ```bash
 docker-compose up     # Start all services (uses external DB)
@@ -64,6 +90,7 @@ helm upgrade missing-table ./missing-table --namespace missing-table
 ```
 
 ### When to use which:
+- **build-and-push.sh**: Building images for cloud deployment (ALWAYS use this for GKE)
 - **Docker Compose**: Quick local development, testing single services, CI/CD
 - **Helm/K8s**: Production deployment, scaling, team collaboration via Rancher
 

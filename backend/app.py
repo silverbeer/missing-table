@@ -128,6 +128,11 @@ def get_cors_origins():
         "http://192.168.1.2:8081",
     ]
 
+    # Add development cloud origins
+    dev_origins = [
+        "https://dev.missingtable.com",
+    ]
+
     # Add production origins
     production_origins = [
         "https://missingtable.com",
@@ -144,8 +149,8 @@ def get_cors_origins():
         # In production, allow both local (for development) and production origins
         return local_origins + production_origins + extra_origins
     else:
-        # In development, only allow local origins
-        return local_origins + extra_origins
+        # In development, allow local and dev cloud origins
+        return local_origins + dev_origins + extra_origins
 
 origins = get_cors_origins()
 
