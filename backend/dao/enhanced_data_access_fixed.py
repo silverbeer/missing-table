@@ -526,7 +526,7 @@ class EnhancedSportsDAO:
             if division_id:
                 data["division_id"] = division_id
             if status:
-                data["status"] = status
+                data["match_status"] = status  # Map status to match_status column
             if created_by:
                 data["created_by"] = created_by
 
