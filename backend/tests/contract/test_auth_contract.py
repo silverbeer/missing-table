@@ -6,6 +6,10 @@ from api_client import AuthenticationError, MissingTableClient, ValidationError
 
 
 @pytest.mark.contract
+@pytest.mark.backend
+@pytest.mark.auth
+@pytest.mark.api
+@pytest.mark.server
 class TestAuthenticationContract:
     """Test authentication endpoint contracts."""
 
@@ -13,7 +17,7 @@ class TestAuthenticationContract:
         """Test successful login returns expected structure."""
         # First create a test user
         test_email = "test_login@example.com"
-        test_password = "Test123!@#"
+        test_password = "Test123!@#"  # pragma: allowlist secret
 
         try:
             api_client.signup(email=test_email, password=test_password)
@@ -36,7 +40,7 @@ class TestAuthenticationContract:
     def test_login_invalid_credentials(self, api_client: MissingTableClient):
         """Test login with invalid credentials fails appropriately."""
         with pytest.raises(AuthenticationError) as exc_info:
-            api_client.login(email="invalid@example.com", password="wrongpassword")
+            api_client.login(email="invalid@example.com", password="wrongpassword")  # pragma: allowlist secret
 
         assert exc_info.value.status_code == 401
 
@@ -50,7 +54,7 @@ class TestAuthenticationContract:
         """Test successful signup returns expected structure."""
         import time
         test_email = f"test_signup_{int(time.time())}@example.com"
-        test_password = "Test123!@#"
+        test_password = "Test123!@#"  # pragma: allowlist secret
 
         response = api_client.signup(
             email=test_email,
@@ -65,7 +69,7 @@ class TestAuthenticationContract:
     def test_signup_duplicate_email(self, api_client: MissingTableClient):
         """Test signup with duplicate email fails."""
         test_email = "duplicate@example.com"
-        test_password = "Test123!@#"
+        test_password = "Test123!@#"  # pragma: allowlist secret
 
         # First signup should succeed
         try:
@@ -112,7 +116,7 @@ class TestAuthenticationContract:
         """Test refreshing access token."""
         # Login to get tokens
         test_email = "test_refresh@example.com"
-        test_password = "Test123!@#"
+        test_password = "Test123!@#"  # pragma: allowlist secret
 
         try:
             api_client.signup(email=test_email, password=test_password)
@@ -140,7 +144,7 @@ class TestSignupWithInviteContract:
         """Test that signup with invalid invite code fails."""
         import time
         test_email = f"test_invalid_invite_{int(time.time())}@example.com"
-        test_password = "Test123!@#"
+        test_password = "Test123!@#"  # pragma: allowlist secret
 
         # Try to sign up with an invalid invite code
         with pytest.raises(Exception) as exc_info:
@@ -162,7 +166,7 @@ class TestSignupWithInviteContract:
         """Test that signup with expired invite code fails."""
         import time
         test_email = f"test_expired_invite_{int(time.time())}@example.com"
-        test_password = "Test123!@#"
+        test_password = "Test123!@#"  # pragma: allowlist secret
 
         # Try to sign up with an expired invite code
         # Note: This assumes we have a known expired code or we'd need to create one
@@ -185,7 +189,7 @@ class TestSignupWithInviteContract:
         """Test that signup still works without invite code (backward compatibility)."""
         import time
         test_email = f"test_no_invite_{int(time.time())}@example.com"
-        test_password = "Test123!@#"
+        test_password = "Test123!@#"  # pragma: allowlist secret
 
         # Sign up without invite code should still work
         response = api_client.signup(

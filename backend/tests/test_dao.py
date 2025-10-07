@@ -5,6 +5,15 @@ Tests for the Enhanced DAO layer.
 import pytest
 from datetime import datetime
 
+# Module-level markers for all tests in this file
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.backend,
+    pytest.mark.dao,
+    pytest.mark.database,
+    pytest.mark.slow
+]
+
 
 @pytest.mark.integration
 def test_dao_initialization(enhanced_dao):
