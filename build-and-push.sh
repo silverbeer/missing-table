@@ -106,12 +106,35 @@ build_service() {
 
         # CRITICAL: GKE clusters run on AMD64 architecture
         # Always build for linux/amd64 when deploying to cloud
-        docker buildx build \
-            --platform linux/amd64 \
-            -t "${REGISTRY}/${service}:${tag}" \
-            -f "${dockerfile}" \
-            "${context}" \
-            --push
+
+        # Add build arguments for frontend
+        if [ "$service" = "frontend" ]; then
+            # Set API URL based on environment
+            if [ "$env" = "dev" ]; then
+                API_URL="https://dev.missingtable.com"
+            elif [ "$env" = "prod" ]; then
+                API_URL="https://missingtable.com"
+            else
+                API_URL="http://localhost:8000"
+            fi
+
+            print_info "Setting VUE_APP_API_URL=${API_URL}"
+
+            docker buildx build \
+                --platform linux/amd64 \
+                --build-arg VUE_APP_API_URL="${API_URL}" \
+                -t "${REGISTRY}/${service}:${tag}" \
+                -f "${dockerfile}" \
+                "${context}" \
+                --push
+        else
+            docker buildx build \
+                --platform linux/amd64 \
+                -t "${REGISTRY}/${service}:${tag}" \
+                -f "${dockerfile}" \
+                "${context}" \
+                --push
+        fi
 
         print_success "Built and pushed ${service}:${tag} to ${REGISTRY}"
     fi
