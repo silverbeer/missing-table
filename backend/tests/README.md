@@ -2,21 +2,57 @@
 
 This directory contains comprehensive tests for the sports league management backend.
 
+## 🎯 Test Types Overview
+
+| Type | Server? | Database? | Speed | Use Case |
+|------|---------|-----------|-------|----------|
+| **Contract** | ✅ **Yes** | ✅ Yes | 🐌 Slow | API changes, schema validation |
+| **E2E** | ❌ No (TestClient) | ✅ Yes | 🐌 Slow | Full workflows, integration |
+| **Integration** | ❌ No | ✅ Yes | ⏱️ Medium | Database layer testing |
+| **Unit** | ❌ No | ❌ No | ⚡ Fast | Individual functions |
+
+## 🚀 Quick Start
+
+### Run Fast Tests (No Server Required)
+```bash
+# Unit tests only
+uv run pytest -m unit -v
+
+# Unit + Integration
+uv run pytest -m "unit or integration" -v
+```
+
+### Run Contract Tests (Server Required!)
+```bash
+# Terminal 1: Start server
+./missing-table.sh dev
+
+# Terminal 2: Run contract tests
+uv run pytest tests/contract/ -m contract -v
+
+# Check API coverage
+uv run python scripts/check_api_coverage.py
+```
+
+### Run E2E Tests (No Server Required!)
+```bash
+# E2E tests use FastAPI TestClient (built-in server)
+uv run pytest -m e2e -v
+```
+
 ## Test Structure
 
 ### Test Files
-- **`test_api_endpoints.py`** - Basic API endpoint functionality tests (**NEW - 76 e2e tests**)
-- **`test_auth_endpoints.py`** - Authentication and authorization tests (**NEW - Comprehensive auth testing**)
-- **`test_enhanced_e2e.py`** - Complex workflows and business logic tests (**NEW - Advanced e2e scenarios**)
-- `test_dao.py` - Tests the Enhanced DAO layer functionality
-- `test_supabase_connection.py` - Tests direct Supabase connection and basic database operations (if exists)
-- `test_cli.py` - Tests CLI functionality (if exists)
-- Legacy files kept for reference
-
-### New E2E Test Coverage
-## 🚀 Quick Start
-
-**Want to run comprehensive e2e tests right now?**
+- **`contract/`** - API contract tests (**NEW - 23 tests, REQUIRES SERVER**)
+  - `test_auth_contract.py` - Authentication contract tests
+  - `test_games_contract.py` - Games endpoint contract tests
+  - `test_schemathesis.py` - Property-based schema tests
+- **`test_api_endpoints.py`** - Basic API endpoint functionality tests (76 e2e tests)
+- **`test_auth_endpoints.py`** - Authentication and authorization tests
+- **`test_enhanced_e2e.py`** - Complex workflows and business logic tests
+- `test_dao.py` - DAO layer unit/integration tests
+- `test_supabase_connection.py` - Database connection tests
+- `test_cli.py` - CLI functionality tests
 
 ```bash
 # 1. Setup isolated test database (one-time)
