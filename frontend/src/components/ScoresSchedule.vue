@@ -289,10 +289,10 @@
               <th class="border-b text-center w-32">Date</th>
               <th class="border-b text-left px-2">Team</th>
               <th class="border-b text-center w-24">Score</th>
+              <th class="border-b text-center w-20">Result</th>
               <th class="border-b text-center w-24">Game Type</th>
               <th class="border-b text-center w-24">Status</th>
               <th class="border-b text-center w-16">Source</th>
-              <th class="border-b text-right w-20">Result</th>
               <th v-if="canEditGames" class="border-b text-center w-24">
                 Actions
               </th>
@@ -311,6 +311,20 @@
               </td>
               <td class="border-b text-center">
                 {{ getScoreDisplay(game) }}
+              </td>
+              <td class="border-b text-center">
+                <span
+                  v-if="game.match_status === 'played'"
+                  class="px-2 py-1 rounded-full text-sm font-bold"
+                  :class="{
+                    'bg-green-100 text-green-800': getResult(game) === 'W',
+                    'bg-yellow-100 text-yellow-800': getResult(game) === 'T',
+                    'bg-red-100 text-red-800': getResult(game) === 'L',
+                  }"
+                >
+                  {{ getResult(game) }}
+                </span>
+                <span v-else class="text-gray-400">-</span>
               </td>
               <td class="border-b text-center">
                 {{ game.game_type_name || 'League' }}
@@ -347,7 +361,6 @@
                   {{ getSourceDisplay(game.source) }}
                 </span>
               </td>
-              <td class="border-b text-right">{{ getResult(game) }}</td>
               <td v-if="canEditGames" class="border-b text-center">
                 <button
                   v-if="canEditGame(game)"
