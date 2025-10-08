@@ -299,6 +299,53 @@ show_status() {
     echo -e "${BLUE}Missing Table Service Status${NC}"
     echo "================================"
 
+    # Show current environment/database
+    local current_env="${APP_ENV:-local}"
+    echo -e "\n${YELLOW}Environment:${NC}"
+    echo -e "  Current: ${GREEN}$current_env${NC}"
+
+    # Determine database connection based on environment
+    if [ "$current_env" = "local" ]; then
+        # Check if Supabase is running locally
+        if command -v npx &> /dev/null && npx supabase status 2>/dev/null | grep -q "API URL"; then
+            local supabase_url=$(npx supabase status 2>/dev/null | grep "API URL" | awk '{print $3}')
+            local studio_url=$(npx supabase status 2>/dev/null | grep "Studio URL" | awk '{print $3}')
+            echo -e "  Database: ${GREEN}Local Supabase${NC} ($supabase_url)"
+            echo -e "  Studio UI: ${GREEN}$studio_url${NC}"
+        else
+            echo -e "  Database: ${RED}Local Supabase (not running)${NC}"
+            echo -e "  ${BLUE}Tip:${NC} Start with 'npx supabase start'"
+        fi
+    elif [ "$current_env" = "dev" ]; then
+        echo -e "  Database: ${GREEN}Cloud Supabase (dev)${NC}"
+        # Extract Supabase URL from .env.dev if it exists
+        if [ -f "backend/.env.dev" ]; then
+            local supabase_url=$(grep "^SUPABASE_URL=" backend/.env.dev 2>/dev/null | cut -d '=' -f2)
+            if [ -n "$supabase_url" ]; then
+                # Extract project ref from URL (e.g., ppgxasqgqbnauvxozmjw from https://ppgxasqgqbnauvxozmjw.supabase.co)
+                local project_ref=$(echo "$supabase_url" | sed -n 's|https://\([^.]*\)\.supabase\.co|\1|p')
+                if [ -n "$project_ref" ]; then
+                    echo -e "  Studio UI: ${GREEN}https://supabase.com/dashboard/project/$project_ref${NC}"
+                fi
+            fi
+        fi
+    elif [ "$current_env" = "prod" ]; then
+        echo -e "  Database: ${GREEN}Cloud Supabase (prod)${NC}"
+        # Extract Supabase URL from .env.prod if it exists
+        if [ -f "backend/.env.prod" ]; then
+            local supabase_url=$(grep "^SUPABASE_URL=" backend/.env.prod 2>/dev/null | cut -d '=' -f2)
+            if [ -n "$supabase_url" ]; then
+                local project_ref=$(echo "$supabase_url" | sed -n 's|https://\([^.]*\)\.supabase\.co|\1|p')
+                if [ -n "$project_ref" ]; then
+                    echo -e "  Studio UI: ${GREEN}https://supabase.com/dashboard/project/$project_ref${NC}"
+                fi
+            fi
+        fi
+    fi
+
+    # Show how to switch environments
+    echo -e "  ${BLUE}Tip:${NC} Use './switch-env.sh <local|dev|prod>' to change environment"
+
     # Backend status
     echo -e "\n${YELLOW}Backend (Port $BACKEND_PORT):${NC}"
     if port_in_use $BACKEND_PORT; then

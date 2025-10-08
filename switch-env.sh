@@ -117,31 +117,47 @@ switch_environment() {
 
     print_header "Switching to $target_env environment"
 
-    # Set environment variable for current session
-    export APP_ENV="$target_env"
-
     # Update shell configuration
     update_shell_config "$target_env"
 
+    # Set environment variable for current session by sourcing the updated config
+    # Determine which shell config was updated
+    user_shell=$(basename "$SHELL")
+    if [ "$user_shell" = "zsh" ]; then
+        shell_config="$HOME/.zshrc"
+    elif [ "$user_shell" = "bash" ]; then
+        shell_config="$HOME/.bashrc"
+    fi
+
+    # Source the config if it exists
+    if [ -f "$shell_config" ]; then
+        source "$shell_config"
+    fi
+
+    # Also export directly for good measure
+    export APP_ENV="$target_env"
+
     print_success "Environment switched to: $target_env"
-    print_warning "Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc) to apply changes"
 
     # Show next steps
     echo ""
     echo "Next steps:"
     if [ "$target_env" = "local" ]; then
-        echo "  1. Start local Supabase: npx supabase start"
-        echo "  2. Restore data: ./scripts/db_tools.sh restore"
-        echo "  3. Start application: ./missing-table.sh start"
+        echo "  1. Restart services: ./missing-table.sh restart"
+        echo "  2. Start local Supabase (if needed): npx supabase start"
+        echo "  3. Restore data (if needed): ./scripts/db_tools.sh restore"
     elif [ "$target_env" = "dev" ]; then
-        echo "  1. Update .env.dev with your cloud Supabase credentials"
-        echo "  2. Test connection: cd backend && uv run python -c 'from dao.enhanced_data_access_fixed import SupabaseConnection; SupabaseConnection()'"
-        echo "  3. Start application: ./missing-table.sh start"
+        echo "  1. Restart services: ./missing-table.sh restart"
+        echo "  2. Verify cloud connection works"
     elif [ "$target_env" = "prod" ]; then
-        echo "  1. Update .env.prod with production Supabase credentials"
-        echo "  2. Deploy using your production deployment method"
+        echo "  1. Restart services: ./missing-table.sh restart"
         print_warning "Production environment - use with caution!"
     fi
+
+    echo ""
+    echo -e "${BLUE}Note:${NC} Services will use new environment after restart."
+    echo -e "${BLUE}Note:${NC} New terminal sessions will use $target_env by default."
+    echo -e "${BLUE}Note:${NC} Run 'source ~/.zshrc' to update current terminal session."
 }
 
 update_shell_config() {
