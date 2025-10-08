@@ -1,1 +1,5 @@
-"""Contract tests for API endpoints."""
+"""
+API Contract Tests
+
+These tests validate that the API adheres to its OpenAPI specification.
+"""
