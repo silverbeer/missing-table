@@ -2,9 +2,56 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 📚 Documentation First!
+
+**CRITICAL**: This project maintains world-class documentation. When making changes, ALWAYS update relevant documentation.
+
+### Documentation Structure
+
+All documentation lives in `docs/` with clear organization:
+- **[docs/README.md](docs/README.md)** - Master documentation hub (start here!)
+- **[docs/01-getting-started/](docs/01-getting-started/)** - Setup and first contribution
+- **[docs/02-development/](docs/02-development/)** - Daily workflows (THIS FILE'S CONTENT EXTRACTED HERE)
+- **[docs/03-architecture/](docs/03-architecture/)** - System design
+- **[docs/04-testing/](docs/04-testing/)** - Testing strategy
+- **[docs/05-deployment/](docs/05-deployment/)** - Deployment guides
+- **[docs/06-security/](docs/06-security/)** - Security practices
+- **[docs/07-operations/](docs/07-operations/)** - Operations and maintenance
+- **[docs/08-integrations/](docs/08-integrations/)** - External integrations
+- **[docs/09-cicd/](docs/09-cicd/)** - CI/CD pipeline
+- **[docs/10-contributing/](docs/10-contributing/)** - Contributing guides
+
+### When to Update Documentation
+
+**ALWAYS update docs when you**:
+- Add a new feature → Update relevant guide + README.md
+- Change a command or workflow → Update [docs/02-development/daily-workflow.md](docs/02-development/daily-workflow.md)
+- Modify architecture → Update [docs/03-architecture/](docs/03-architecture/)
+- Add/change tests → Update [docs/04-testing/](docs/04-testing/)
+- Change deployment process → Update [docs/05-deployment/](docs/05-deployment/)
+- Modify security → Update [docs/06-security/](docs/06-security/)
+
+### Documentation Standards
+
+Follow the standards in [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md):
+- Use consistent formatting
+- Include examples
+- Keep it beginner-friendly
+- Test all code examples
+- Update "Last Updated" dates
+
+**Remember**: Outdated docs are worse than no docs. Keep them current!
+
+---
+
 ## Project Overview
 
 This is a full-stack web application for managing MLS Next sports league standings and game schedules. It uses FastAPI (Python 3.13+) for the backend and Vue 3 for the frontend, with Supabase as the primary database.
+
+**For detailed information**, see:
+- **Architecture**: [docs/03-architecture/README.md](docs/03-architecture/README.md)
+- **Development Guide**: [docs/02-development/README.md](docs/02-development/README.md)
+- **Complete Documentation**: [docs/README.md](docs/README.md)
 
 ## Key Commands
 
@@ -490,5 +537,32 @@ Frontend → Backend API → Supabase
 - ✅ Better security (Supabase credentials only in backend)
 - ✅ Consistent API-first architecture
 
-### Current Branch
-Working on `v1.4` branch with security features and deployment improvements.
+---
+
+## 📖 Need More Information?
+
+This file contains **quick reference commands only**. For comprehensive information:
+
+### For Users/Contributors
+- **Getting Started**: [docs/01-getting-started/README.md](docs/01-getting-started/README.md)
+- **Contributing Guide**: [docs/10-contributing/README.md](docs/10-contributing/README.md)
+- **For Students**: [docs/10-contributing/for-students.md](docs/10-contributing/for-students.md)
+
+### For Developers
+- **Daily Workflow**: [docs/02-development/daily-workflow.md](docs/02-development/daily-workflow.md)
+- **Environment Management**: [docs/02-development/environment-management.md](docs/02-development/environment-management.md)
+- **Architecture**: [docs/03-architecture/README.md](docs/03-architecture/README.md)
+- **Testing**: [docs/04-testing/README.md](docs/04-testing/README.md)
+
+### For DevOps
+- **Deployment**: [docs/05-deployment/README.md](docs/05-deployment/README.md)
+- **Security**: [docs/06-security/README.md](docs/06-security/README.md)
+- **Operations**: [docs/07-operations/README.md](docs/07-operations/README.md)
+
+### Master Hub
+- **Complete Documentation**: [docs/README.md](docs/README.md) ⭐ Start here!
+
+---
+
+**Last Updated**: 2025-10-08
+**Documentation Standards**: [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
