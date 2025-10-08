@@ -81,6 +81,9 @@ cd backend && uv run python inspect_db.py games --season 2025-2026
 
 # Combine filters
 cd backend && uv run python inspect_db.py games --team IFA --age-group U14
+
+# Show SQL query for copy-paste into Supabase SQL Editor
+cd backend && uv run python inspect_db.py games --team IFA --show-sql
 ```
 
 ### Find Duplicate Games
@@ -101,6 +104,9 @@ This helps identify games that were imported multiple times or have data quality
 
 ```bash
 cd backend && uv run python inspect_db.py game-detail <GAME_ID>
+
+# Show SQL query for copy-paste into Supabase SQL Editor
+cd backend && uv run python inspect_db.py game-detail 123 --show-sql
 ```
 
 Shows comprehensive information about a specific game including:
@@ -115,6 +121,52 @@ Shows comprehensive information about a specific game including:
 ```bash
 cd backend && uv run python inspect_db.py game-detail 473
 ```
+
+## SQL Query Display
+
+### --show-sql Flag
+
+All commands support the `--show-sql` flag to display copy-paste ready SQL queries that can be run directly in the Supabase SQL Editor.
+
+**Example:**
+```bash
+cd backend && uv run python inspect_db.py games --team IFA --age-group U14 --show-sql
+```
+
+**Output:**
+```sql
+SELECT
+    g.id,
+    g.game_date,
+    g.home_score,
+    g.away_score,
+    g.match_status,
+    g.source,
+    ht.name AS home_team,
+    at.name AS away_team,
+    ag.name AS age_group,
+    s.name AS season,
+    gt.name AS game_type
+FROM games g
+LEFT JOIN teams ht ON g.home_team_id = ht.id
+LEFT JOIN teams at ON g.away_team_id = at.id
+LEFT JOIN age_groups ag ON g.age_group_id = ag.id
+LEFT JOIN seasons s ON g.season_id = s.id
+LEFT JOIN game_types gt ON g.game_type_id = gt.id
+WHERE (ht.name ILIKE '%IFA%' OR at.name ILIKE '%IFA%')
+  AND ag.name = 'U14'
+ORDER BY g.game_date DESC
+LIMIT 50;
+```
+
+**Benefits:**
+- Copy SQL directly to Supabase SQL Editor
+- Understand database structure and relationships
+- Modify queries for custom analysis
+- Learn SQL JOIN patterns
+
+**Default Behavior (without --show-sql):**
+Shows PostgREST query format with a tip about the --show-sql flag.
 
 ## Environment Management
 
