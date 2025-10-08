@@ -70,14 +70,16 @@ def authenticated_api_client(api_base_url: str) -> MissingTableClient:
 
     # Create a test user and login
     test_email = f"contract_test_{os.getpid()}@example.com"
-    test_password = "Test123!@#"
+    test_password = "Test123!@#"  # pragma: allowlist secret
 
     try:
         # Try to signup (may fail if user exists)
         client.signup(email=test_email, password=test_password, display_name="Contract Test User")
     except Exception:
-        # User probably exists, try to login
-        client.login(email=test_email, password=test_password)
+        pass  # User probably exists
+
+    # Always login to ensure we have tokens (signup doesn't auto-login)
+    client.login(email=test_email, password=test_password)
 
     yield client
     client.close()

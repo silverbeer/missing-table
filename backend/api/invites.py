@@ -175,7 +175,7 @@ async def create_team_fan_invite(
     if current_user['role'] not in ['admin', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
-    supabase = db_conn_holder_obj.client
+    supabase = service_client
     team_manager_service = TeamManagerService(supabase)
     
     # Handle different user ID field names
@@ -222,7 +222,7 @@ async def create_team_player_invite(
     if current_user['role'] not in ['admin', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
-    supabase = db_conn_holder_obj.client
+    supabase = service_client
     team_manager_service = TeamManagerService(supabase)
     
     # Handle different user ID field names
@@ -267,7 +267,7 @@ async def get_my_invitations(
     status: Optional[str] = Query(None, pattern="^(pending|used|expired)$")
 ):
     """Get all invitations created by the current user"""
-    supabase = db_conn_holder_obj.client
+    supabase = service_client
     invite_service = InviteService(supabase)
     
     # Handle different user ID field names
@@ -290,21 +290,21 @@ async def cancel_invitation(
     current_user=Depends(get_current_user_required)
 ):
     """Cancel a pending invitation"""
-    supabase = db_conn_holder_obj.client
+    supabase = service_client
     invite_service = InviteService(supabase)
-    
+
     # Check if user owns this invitation or is admin
-    invitations = invite_service.get_user_invitations(current_user['id'])
+    invitations = invite_service.get_user_invitations(current_user['user_id'])
     user_owns_invite = any(inv['id'] == invite_id for inv in invitations)
-    
+
     if not user_owns_invite and current_user['role'] != 'admin':
         raise HTTPException(status_code=403, detail="You can only cancel your own invitations")
-    
-    success = invite_service.cancel_invitation(invite_id, current_user['id'])
-    
+
+    success = invite_service.cancel_invitation(invite_id, current_user['user_id'])
+
     if not success:
-        raise HTTPException(status_code=400, detail="Failed to cancel invitation")
-    
+        raise HTTPException(status_code=404, detail="Invitation not found or already cancelled")
+
     return {"message": "Invitation cancelled successfully"}
 
 # Team manager assignments endpoint
@@ -314,7 +314,7 @@ async def get_team_manager_assignments(current_user=Depends(get_current_user_req
     if current_user['role'] not in ['admin', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
-    supabase = db_conn_holder_obj.client
+    supabase = service_client
     team_manager_service = TeamManagerService(supabase)
     
     assignments = team_manager_service.get_user_team_assignments(current_user['id'])
