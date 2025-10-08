@@ -78,6 +78,7 @@ dev-dependencies = [
     "openapi-spec-validator>=0.7.1",
     "datamodel-code-generator>=0.25.0",
     "respx>=0.21.0",
+    "pytest-json-report>=1.5.0",
 ]
 
 # Ruff configuration - Ultra-fast Python linter and formatter
@@ -195,9 +196,36 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "e2e: marks tests as end-to-end tests",
-    "contract: marks tests as API contract tests",
+    # Test Pyramid Levels (primary classification)
+    "unit: Unit tests - pure logic, no dependencies",
+    "integration: Integration tests - multiple components interacting",
+    "component: Component tests - UI component testing (frontend)",
+    "contract: API contract tests - validates API behavior",
+    "e2e: End-to-end tests - full user workflows",
+
+    # Stack Location
+    "backend: Backend Python/FastAPI tests",
+    "frontend: Frontend Vue/JavaScript tests",
+
+    # Module/Feature Areas
+    "auth: Authentication and authorization tests",
+    "dao: Data access layer tests",
+    "api: API endpoint tests",
+    "invite: Invite system tests",
+    "games: Game management tests",
+    "standings: League standings tests",
+    "admin: Admin functionality tests",
+
+    # Performance Characteristics
+    "fast: Fast tests < 100ms (default for unit tests)",
+    "slow: Slow tests > 1 second (database, network)",
+
+    # Dependencies
+    "database: Requires database connection",
+    "server: Requires running server",
+    "mock: Uses mocks/stubs only",
+    "external: Calls external services",
+
+    # Other
+    "debug: Debug tests for troubleshooting",
 ]

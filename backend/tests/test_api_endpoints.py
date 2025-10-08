@@ -263,7 +263,7 @@ class TestUnauthorizedEndpoints:
             "game_type_id": 1
         }
         response = test_client.post("/api/games", json=game_data)
-        assert response.status_code in [200, 422]  # May succeed or validation error
+        assert response.status_code == 403  # Forbidden - requires authentication
 
     @pytest.mark.e2e
     def test_admin_endpoints_unauthorized(self, test_client: TestClient):
