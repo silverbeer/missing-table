@@ -300,12 +300,12 @@ def games(
 
     for game in games_data:
         game_date = game["game_date"][:10] if game.get("game_date") else "-"
-        home_team = game.get("home_team", {}).get("name", "?")
-        away_team = game.get("away_team", {}).get("name", "?")
+        home_team_name = game.get("home_team", {}).get("name", "?")
+        away_team_name = game.get("away_team", {}).get("name", "?")
         score = f"{game.get('home_score', '-')} - {game.get('away_score', '-')}"
-        age_group = game.get("age_groups", {}).get("name", "-")
-        season = game.get("seasons", {}).get("name", "-")
-        source = game.get("source", "manual")
+        age_group_name = game.get("age_groups", {}).get("name", "-")
+        season_name = game.get("seasons", {}).get("name", "-")
+        source_name = game.get("source", "manual")
 
         # Highlight duplicates
         style = "red" if duplicates else None
@@ -313,12 +313,12 @@ def games(
         table.add_row(
             str(game["id"]),
             game_date,
-            home_team,
-            away_team,
+            home_team_name,
+            away_team_name,
             score,
-            age_group,
-            season,
-            source,
+            age_group_name,
+            season_name,
+            source_name,
             style=style
         )
 
