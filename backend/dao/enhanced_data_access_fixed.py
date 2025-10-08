@@ -415,6 +415,7 @@ class EnhancedSportsDAO:
                     "created_by": game.get("created_by"),
                     "updated_by": game.get("updated_by"),
                     "source": game.get("source", "manual"),
+                    "match_id": game.get("match_id"),  # External match identifier
                     "created_at": game["created_at"],
                     "updated_at": game["updated_at"],
                 }
