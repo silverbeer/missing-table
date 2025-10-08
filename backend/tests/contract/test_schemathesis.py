@@ -1,55 +1,41 @@
 """
-Schemathesis property-based contract tests.
+Schemathesis property-based API contract tests.
 
-This test uses Schemathesis to automatically generate test cases from the OpenAPI schema
-and verify that the API behaves correctly for all endpoints.
+These tests use Schemathesis to automatically generate test cases
+based on the OpenAPI schema.
 """
 
 import pytest
 import schemathesis
-from hypothesis import settings
 from pathlib import Path
 
-# Load OpenAPI schema with base_url
+
+# Load OpenAPI schema
 schema_path = Path(__file__).parent.parent.parent / "openapi.json"
 
-# Skip this test file for now - we'll use manual contract tests
-# Schemathesis integration can be added later after initial setup
-pytest.skip("Schemathesis tests require running server - skipping for initial setup", allow_module_level=True)
-
-
-@pytest.mark.contract
-@pytest.mark.skip(reason="Requires running API server")
-def test_api_schema_compliance():
-    """
-    Property-based test that verifies API compliance with OpenAPI schema.
-
-    This test:
-    - Generates random valid requests based on the schema
-    - Sends requests to the API
-    - Validates responses match the schema
-    - Checks for common issues (500 errors, schema violations, etc.)
-
-    Note: This requires a running API server. Use pytest with --base-url option.
-    """
-    schema = schemathesis.openapi.from_file(
-        str(schema_path),
-        base_url="http://localhost:8000"
+if not schema_path.exists():
+    pytest.skip(
+        "OpenAPI schema not found. Run: python backend/scripts/export_openapi.py",
+        allow_module_level=True
     )
 
-    # Example usage (not executed due to skip):
-    # for case in schema.get_all_cases():
-    #     case.call_and_validate()
+# Create schema from file
+schema = schemathesis.from_path(str(schema_path))
 
 
+@schema.parametrize()
 @pytest.mark.contract
-def test_schema_validation():
-    """Validate that the OpenAPI schema itself is valid."""
-    from openapi_spec_validator import validate
+def test_api_contract(case):
+    """
+    Property-based test that validates API responses against OpenAPI schema.
 
-    with open(schema_path) as f:
-        import json
-        spec = json.load(f)
+    This test:
+    - Generates requests based on the OpenAPI schema
+    - Sends requests to the API
+    - Validates responses match the schema
+    """
+    # Send request
+    response = case.call()
 
-    # This will raise an exception if schema is invalid
-    validate(spec)
+    # Check response is valid according to schema
+    case.validate_response(response)
