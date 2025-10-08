@@ -90,7 +90,8 @@ def get_supabase_client() -> Client:
 
 @app.command()
 def age_groups(
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information")
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information"),
+    show_sql: bool = typer.Option(False, "--show-sql", help="Show SQL query for Supabase SQL Editor")
 ):
     """List all age groups"""
     load_environment()
@@ -114,8 +115,14 @@ def age_groups(
     console.print(f"\n[green]Total:[/green] {len(response.data)} age groups")
 
     # Show SQL query reference
-    console.print(f"\n[dim]PostgREST Query:[/dim]")
-    console.print(f"[dim italic]GET /age_groups?select=*&order=name.asc[/dim italic]")
+    if show_sql:
+        sql_query = "SELECT *\nFROM age_groups\nORDER BY name ASC;"
+        console.print(f"\n[cyan]SQL Query (copy to Supabase SQL Editor):[/cyan]")
+        console.print(f"[white]{sql_query}[/white]")
+    else:
+        console.print(f"\n[dim]PostgREST Query:[/dim]")
+        console.print(f"[dim italic]GET /age_groups?select=*&order=name.asc[/dim italic]")
+        console.print(f"[dim]Tip: Use --show-sql to see SQL for Supabase SQL Editor[/dim]")
 
 
 @app.command()
@@ -209,6 +216,7 @@ def games(
     season: Optional[str] = typer.Option(None, "--season", "-s", help="Filter by season (e.g., 2025-2026)"),
     duplicates: bool = typer.Option(False, "--duplicates", "-d", help="Show only potential duplicates"),
     limit: int = typer.Option(50, "--limit", "-l", help="Max number of games to show"),
+    show_sql: bool = typer.Option(False, "--show-sql", help="Show SQL query for Supabase SQL Editor"),
 ):
     """List games with optional filtering"""
     load_environment()
@@ -323,34 +331,74 @@ def games(
         console.print(f"\n[green]Total:[/green] {len(games_data)} games")
 
     # Show SQL query reference
-    select_clause = (
-        "id, game_date, home_score, away_score, match_status, source, "
-        "home_team:teams!games_home_team_id_fkey(id, name), "
-        "away_team:teams!games_away_team_id_fkey(id, name), "
-        "age_groups(id, name), seasons(id, name), game_types(id, name)"
-    )
-    filters = {}
-    filter_notes = []
+    if show_sql:
+        # Build SQL query
+        sql_query = """SELECT
+    g.id,
+    g.game_date,
+    g.home_score,
+    g.away_score,
+    g.match_status,
+    g.source,
+    ht.name AS home_team,
+    at.name AS away_team,
+    ag.name AS age_group,
+    s.name AS season,
+    gt.name AS game_type
+FROM games g
+LEFT JOIN teams ht ON g.home_team_id = ht.id
+LEFT JOIN teams at ON g.away_team_id = at.id
+LEFT JOIN age_groups ag ON g.age_group_id = ag.id
+LEFT JOIN seasons s ON g.season_id = s.id
+LEFT JOIN game_types gt ON g.game_type_id = gt.id"""
 
-    if age_group:
-        filter_notes.append(f"age_groups.name = '{age_group}' (post-filter)")
-    if season:
-        filter_notes.append(f"seasons.name LIKE '%{season}%' (post-filter)")
-    if team:
-        filter_notes.append(f"teams.name ILIKE '%{team}%' (post-filter)")
+        # Add WHERE clauses
+        where_clauses = []
+        if team:
+            where_clauses.append(f"(ht.name ILIKE '%{team}%' OR at.name ILIKE '%{team}%')")
+        if age_group:
+            where_clauses.append(f"ag.name = '{age_group}'")
+        if season:
+            where_clauses.append(f"s.name LIKE '%{season}%'")
 
-    console.print(f"\n[dim]PostgREST Query:[/dim]")
-    console.print(f"[dim italic]GET /games?select={select_clause}&order=game_date.desc&limit={limit}[/dim italic]")
+        if where_clauses:
+            sql_query += "\nWHERE " + " AND ".join(where_clauses)
 
-    if filter_notes:
-        console.print(f"\n[dim]Additional Filters (applied client-side):[/dim]")
-        for note in filter_notes:
-            console.print(f"[dim italic]  - {note}[/dim italic]")
+        sql_query += f"\nORDER BY g.game_date DESC\nLIMIT {limit};"
+
+        console.print(f"\n[cyan]SQL Query (copy to Supabase SQL Editor):[/cyan]")
+        console.print(f"[white]{sql_query}[/white]")
+    else:
+        select_clause = (
+            "id, game_date, home_score, away_score, match_status, source, "
+            "home_team:teams!games_home_team_id_fkey(id, name), "
+            "away_team:teams!games_away_team_id_fkey(id, name), "
+            "age_groups(id, name), seasons(id, name), game_types(id, name)"
+        )
+        filter_notes = []
+
+        if age_group:
+            filter_notes.append(f"age_groups.name = '{age_group}' (post-filter)")
+        if season:
+            filter_notes.append(f"seasons.name LIKE '%{season}%' (post-filter)")
+        if team:
+            filter_notes.append(f"teams.name ILIKE '%{team}%' (post-filter)")
+
+        console.print(f"\n[dim]PostgREST Query:[/dim]")
+        console.print(f"[dim italic]GET /games?select={select_clause}&order=game_date.desc&limit={limit}[/dim italic]")
+
+        if filter_notes:
+            console.print(f"\n[dim]Additional Filters (applied client-side):[/dim]")
+            for note in filter_notes:
+                console.print(f"[dim italic]  - {note}[/dim italic]")
+
+        console.print(f"[dim]Tip: Use --show-sql to see SQL for Supabase SQL Editor[/dim]")
 
 
 @app.command()
 def game_detail(
     game_id: int = typer.Argument(..., help="Game ID to inspect"),
+    show_sql: bool = typer.Option(False, "--show-sql", help="Show SQL query for Supabase SQL Editor"),
 ):
     """Show detailed information about a specific game"""
     load_environment()
@@ -401,14 +449,35 @@ def game_detail(
     console.print(Panel(details, title=f"Game {game_id} Details", border_style="green"))
 
     # Show SQL query reference
-    select_clause = (
-        "*, "
-        "home_team:teams!games_home_team_id_fkey(id, name), "
-        "away_team:teams!games_away_team_id_fkey(id, name), "
-        "age_groups(id, name), divisions(id, name), seasons(id, name), game_types(id, name)"
-    )
-    console.print(f"\n[dim]PostgREST Query:[/dim]")
-    console.print(f"[dim italic]GET /games?select={select_clause}&id=eq.{game_id}[/dim italic]")
+    if show_sql:
+        sql_query = f"""SELECT
+    g.*,
+    ht.name AS home_team_name,
+    at.name AS away_team_name,
+    ag.name AS age_group_name,
+    d.name AS division_name,
+    s.name AS season_name,
+    gt.name AS game_type_name
+FROM games g
+LEFT JOIN teams ht ON g.home_team_id = ht.id
+LEFT JOIN teams at ON g.away_team_id = at.id
+LEFT JOIN age_groups ag ON g.age_group_id = ag.id
+LEFT JOIN divisions d ON g.division_id = d.id
+LEFT JOIN seasons s ON g.season_id = s.id
+LEFT JOIN game_types gt ON g.game_type_id = gt.id
+WHERE g.id = {game_id};"""
+        console.print(f"\n[cyan]SQL Query (copy to Supabase SQL Editor):[/cyan]")
+        console.print(f"[white]{sql_query}[/white]")
+    else:
+        select_clause = (
+            "*, "
+            "home_team:teams!games_home_team_id_fkey(id, name), "
+            "away_team:teams!games_away_team_id_fkey(id, name), "
+            "age_groups(id, name), divisions(id, name), seasons(id, name), game_types(id, name)"
+        )
+        console.print(f"\n[dim]PostgREST Query:[/dim]")
+        console.print(f"[dim italic]GET /games?select={select_clause}&id=eq.{game_id}[/dim italic]")
+        console.print(f"[dim]Tip: Use --show-sql to see SQL for Supabase SQL Editor[/dim]")
 
 
 @app.command()
