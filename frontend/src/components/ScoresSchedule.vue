@@ -67,7 +67,7 @@
               class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
             >
               <button
-                v-for="ageGroup in ageGroups"
+                v-for="ageGroup in filteredAgeGroups"
                 :key="ageGroup.id"
                 @click="selectedAgeGroupId = ageGroup.id"
                 :class="[
@@ -689,6 +689,20 @@ export default {
       return 'grid-cols-1 md:grid-cols-3';
     };
 
+    // Filter age groups to only show those that have teams
+    const filteredAgeGroups = computed(() => {
+      // Get unique age group IDs from teams
+      const teamAgeGroupIds = new Set();
+      teams.value.forEach(team => {
+        if (team.age_groups && Array.isArray(team.age_groups)) {
+          team.age_groups.forEach(ag => teamAgeGroupIds.add(ag.id));
+        }
+      });
+
+      // Filter age groups to only those with teams
+      return ageGroups.value.filter(ag => teamAgeGroupIds.has(ag.id));
+    });
+
     // Filter teams based on selected age group
     const filteredTeams = computed(() => {
       return teams.value.filter(team => {
@@ -943,6 +957,7 @@ export default {
       games,
       sortedGames,
       ageGroups,
+      filteredAgeGroups,
       seasons,
       gameTypes,
       selectedTeam,
