@@ -48,35 +48,60 @@ except Exception as e:
 # Test inserting a game with match_id
 print("\n3. Testing match_id functionality...")
 try:
-    test_match_id = "test-match-" + str(os.urandom(4).hex())
-
-    print(f"   Attempting to insert game with match_id: {test_match_id}")
-
-    # This will fail if column doesn't exist
-    test_data = {
-        "game_date": "2025-10-08",
-        "home_team_id": 1,
-        "away_team_id": 2,
-        "home_score": 0,
-        "away_score": 0,
-        "season_id": 1,
-        "age_group_id": 1,
-        "game_type_id": 1,
-        "match_id": test_match_id,
-        "source": "test"
-    }
-
-    insert_result = db.client.table('games').insert(test_data).execute()
-
-    if insert_result.data:
-        game_id = insert_result.data[0]['id']
-        print(f"   ✅ Successfully inserted test game (ID: {game_id})")
-
-        # Clean up test game
-        db.client.table('games').delete().eq('id', game_id).execute()
-        print(f"   🧹 Cleaned up test game")
+    # Get real team IDs from database
+    teams = db.client.table('teams').select('id').limit(2).execute()
+    if not teams.data or len(teams.data) < 2:
+        print("   ⚠️  Not enough teams in database to test, skipping insert test")
+        print("   ✅ Column verification passed (column exists and is readable)")
     else:
-        print("   ❌ Insert failed - no data returned")
+        team1_id = teams.data[0]['id']
+        team2_id = teams.data[1]['id']
+
+        # Get real season, age_group, game_type IDs
+        seasons = db.client.table('seasons').select('id').limit(1).execute()
+        age_groups = db.client.table('age_groups').select('id').limit(1).execute()
+        game_types = db.client.table('game_types').select('id').limit(1).execute()
+
+        if not seasons.data or not age_groups.data or not game_types.data:
+            print("   ⚠️  Missing reference data (seasons/age_groups/game_types), skipping insert test")
+            print("   ✅ Column verification passed (column exists and is readable)")
+        else:
+            test_match_id = "test-match-" + str(os.urandom(4).hex())
+
+            print(f"   Attempting to insert game with match_id: {test_match_id}")
+
+            # This will fail if column doesn't exist
+            test_data = {
+                "game_date": "2025-10-08",
+                "home_team_id": team1_id,
+                "away_team_id": team2_id,
+                "home_score": 0,
+                "away_score": 0,
+                "season_id": seasons.data[0]['id'],
+                "age_group_id": age_groups.data[0]['id'],
+                "game_type_id": game_types.data[0]['id'],
+                "match_id": test_match_id,
+                "source": "test"
+            }
+
+            insert_result = db.client.table('games').insert(test_data).execute()
+
+            if insert_result.data:
+                game_id = insert_result.data[0]['id']
+                print(f"   ✅ Successfully inserted test game (ID: {game_id})")
+
+                # Verify match_id was stored
+                stored_match_id = insert_result.data[0].get('match_id')
+                if stored_match_id == test_match_id:
+                    print(f"   ✅ match_id stored correctly: {stored_match_id}")
+                else:
+                    print(f"   ⚠️  match_id mismatch: expected {test_match_id}, got {stored_match_id}")
+
+                # Clean up test game
+                db.client.table('games').delete().eq('id', game_id).execute()
+                print(f"   🧹 Cleaned up test game")
+            else:
+                print("   ❌ Insert failed - no data returned")
 
 except Exception as e:
     print(f"   ❌ Error testing match_id: {e}")
