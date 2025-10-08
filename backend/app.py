@@ -202,6 +202,7 @@ class EnhancedGame(BaseModel):
     created_by: str | None = None  # User ID who created the game (for audit trail)
     updated_by: str | None = None  # User ID who last updated the game
     source: str = "manual"  # Source: manual, match-scraper, import
+    match_id: str | None = None  # External match identifier (e.g., from match-scraper)
 
 
 class Team(BaseModel):
@@ -898,6 +899,7 @@ async def add_game(request: Request, game: EnhancedGame, current_user: dict[str,
             status=game.status,
             created_by=current_user.get("user_id"),  # Track who created the game
             source=game.source,  # Track source (manual, match-scraper, etc.)
+            match_id=game.match_id,  # Store external match identifier if provided
         )
         if success:
             return {"message": "Game added successfully"}
@@ -936,6 +938,7 @@ async def update_game(
             division_id=game.division_id,
             status=game.status,
             updated_by=current_user.get("user_id"),  # Track who updated the game
+            match_id=game.match_id,  # Update match_id if provided
         )
         if success:
             return {"message": "Game updated successfully"}
@@ -959,6 +962,7 @@ class GamePatch(BaseModel):
     game_type_id: int | None = None
     division_id: int | None = None
     status: str | None = None
+    match_id: str | None = None  # External match identifier
 
     class Config:
         # Validation for scores
@@ -1018,6 +1022,7 @@ async def patch_game(
             "game_type_id": game_patch.game_type_id if game_patch.game_type_id is not None else current_game['game_type_id'],
             "division_id": game_patch.division_id if game_patch.division_id is not None else current_game.get('division_id'),
             "status": game_patch.match_status if game_patch.match_status is not None else (game_patch.status if game_patch.status is not None else current_game.get('status', 'scheduled')),
+            "match_id": game_patch.match_id if game_patch.match_id is not None else current_game.get('match_id'),
             "updated_by": current_user.get("user_id"),
         }
 
