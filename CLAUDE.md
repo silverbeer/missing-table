@@ -233,6 +233,18 @@ supabase status   # Check status and get URLs
 # - backend/populate_teams.py (uses hardcoded CSV paths)
 # - backend/populate_teams_supabase.py (uses hardcoded CSV paths)
 
+# Database Inspector (Troubleshooting)
+cd backend && uv run python inspect_db.py stats                      # Database statistics
+cd backend && uv run python inspect_db.py teams                       # List all teams
+cd backend && uv run python inspect_db.py teams --search IFA          # Search teams by name
+cd backend && uv run python inspect_db.py age-groups                  # List age groups
+cd backend && uv run python inspect_db.py divisions                   # List divisions
+cd backend && uv run python inspect_db.py games --limit 20            # List recent games
+cd backend && uv run python inspect_db.py games --team IFA            # Filter by team
+cd backend && uv run python inspect_db.py games --age-group U14       # Filter by age group
+cd backend && uv run python inspect_db.py games --duplicates          # Find duplicate games
+cd backend && uv run python inspect_db.py game-detail 123             # Detailed game info
+
 # User Administration (after users sign up)
 cd backend && uv run python make_user_admin.py --list              # List all users
 cd backend && uv run python make_user_admin.py --user-id USER_ID   # Make specific user admin
