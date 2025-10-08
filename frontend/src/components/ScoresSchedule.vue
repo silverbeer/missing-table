@@ -10,24 +10,71 @@
 
     <div v-else>
       <!-- Filters Section -->
-      <div class="mb-6 space-y-4">
-        <!-- Age Group and Season Row -->
-        <div
-          class="flex flex-col sm:flex-row sm:space-x-6 space-y-4 sm:space-y-0"
-        >
-          <!-- Age Group Links -->
-          <div class="flex-1">
-            <h3 class="text-sm font-medium text-gray-700 mb-3">Age Groups</h3>
-            <div class="flex flex-wrap gap-2">
+      <div class="mb-6">
+        <!-- Mobile: Collapsible Filters -->
+        <div class="lg:hidden mb-4">
+          <button
+            @click="showFilters = !showFilters"
+            class="w-full flex items-center justify-between px-4 py-3 bg-blue-600 text-white rounded-lg font-medium"
+          >
+            <span>Filters</span>
+            <svg
+              :class="[
+                'w-5 h-5 transition-transform',
+                showFilters ? 'rotate-180' : '',
+              ]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Filters Content -->
+        <div :class="['space-y-4', showFilters || 'hidden lg:block']">
+          <!-- Team Filter - Most Important, Always Visible -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Select Team</label
+            >
+            <select
+              v-model="selectedTeam"
+              @change="onTeamChange"
+              class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Teams</option>
+              <option
+                v-for="team in filteredTeams"
+                :key="team.id"
+                :value="team.id"
+              >
+                {{ team.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Age Group Filter -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 mb-2">Age Groups</h3>
+            <div
+              class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+            >
               <button
                 v-for="ageGroup in ageGroups"
                 :key="ageGroup.id"
                 @click="selectedAgeGroupId = ageGroup.id"
                 :class="[
-                  'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                   selectedAgeGroupId === ageGroup.id
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                 ]"
               >
                 {{ ageGroup.name }}
@@ -36,11 +83,11 @@
           </div>
 
           <!-- Season Dropdown -->
-          <div class="flex-1">
-            <h3 class="text-sm font-medium text-gray-700 mb-3">Season</h3>
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 mb-2">Season</h3>
             <select
               v-model="selectedSeasonId"
-              class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option
                 v-for="season in seasons"
@@ -51,88 +98,69 @@
               </option>
             </select>
           </div>
-        </div>
 
-        <!-- Team Filter -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
-            >Select Team</label
-          >
-          <select
-            v-model="selectedTeam"
-            @change="onTeamChange"
-            class="mt-1 block w-full max-w-md rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value="">All Teams</option>
-            <option
-              v-for="team in filteredTeams"
-              :key="team.id"
-              :value="team.id"
+          <!-- Game Type Filter -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 mb-2">Game Type</h3>
+            <div
+              class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
             >
-              {{ team.name }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Game Type Filter -->
-        <div>
-          <h3 class="text-sm font-medium text-gray-700 mb-3">Game Type</h3>
-          <div class="flex flex-wrap gap-2">
-            <button
-              @click="selectedGameTypeId = 1"
-              :class="[
-                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
-                selectedGameTypeId === 1
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-              ]"
-            >
-              League
-            </button>
-            <button
-              @click="selectedGameTypeId = 3"
-              :class="[
-                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
-                selectedGameTypeId === 3
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-              ]"
-            >
-              Friendly
-            </button>
-            <button
-              @click="selectedGameTypeId = 2"
-              :class="[
-                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
-                selectedGameTypeId === 2
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-              ]"
-            >
-              Tournament
-            </button>
-            <button
-              @click="selectedGameTypeId = 4"
-              :class="[
-                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
-                selectedGameTypeId === 4
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-              ]"
-            >
-              Playoff
-            </button>
-            <button
-              @click="selectedGameTypeId = null"
-              :class="[
-                'px-4 py-2 text-sm rounded-md font-medium transition-colors',
-                selectedGameTypeId === null
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-              ]"
-            >
-              All Games
-            </button>
+              <button
+                @click="selectedGameTypeId = 1"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  selectedGameTypeId === 1
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-300',
+                ]"
+              >
+                League
+              </button>
+              <button
+                @click="selectedGameTypeId = 3"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  selectedGameTypeId === 3
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-300',
+                ]"
+              >
+                Friendly
+              </button>
+              <button
+                @click="selectedGameTypeId = 2"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  selectedGameTypeId === 2
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-300',
+                ]"
+              >
+                Tournament
+              </button>
+              <button
+                @click="selectedGameTypeId = 4"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  selectedGameTypeId === 4
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-300',
+                ]"
+              >
+                Playoff
+              </button>
+              <button
+                @click="selectedGameTypeId = null"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  selectedGameTypeId === null
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-300',
+                ]"
+              >
+                All Games
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -159,10 +187,10 @@
         </div>
 
         <!-- Season Summary Stats -->
-        <div class="mb-4 space-y-4">
-          <div class="p-3 bg-gray-50 rounded-md border border-gray-200">
-            <h4 class="font-medium text-gray-700 mb-2">Season Summary</h4>
-            <div class="grid grid-cols-4 gap-2 text-sm">
+        <div class="mb-4 space-y-3">
+          <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h4 class="font-medium text-gray-700 mb-3">Season Summary</h4>
+            <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 text-sm">
               <div class="font-medium">GP: {{ seasonStats.gamesPlayed }}</div>
               <div class="font-medium">W: {{ seasonStats.wins }}</div>
               <div class="font-medium">D: {{ seasonStats.draws }}</div>
@@ -177,12 +205,12 @@
             </div>
           </div>
 
-          <!-- Season Segments - Only show if games exist in those periods -->
-          <div class="grid gap-4" :class="getSegmentGridClass()">
+          <!-- Season Segments - Stack on mobile -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <!-- Fall Segment - Only show if Fall games exist -->
             <div
               v-if="seasonStats.hasFallGames"
-              class="p-3 bg-blue-50 rounded-md border border-blue-100"
+              class="p-4 bg-blue-50 rounded-lg border border-blue-100"
             >
               <h4 class="font-medium text-blue-700 mb-2">Fall Segment</h4>
               <div class="grid grid-cols-3 gap-2 text-sm">
@@ -195,7 +223,7 @@
                 <div class="font-medium">
                   L: {{ seasonStats.fallLosses || 0 }}
                 </div>
-                <div class="col-span-3 text-xs text-gray-500">
+                <div class="col-span-3 text-xs text-gray-500 mt-1">
                   Aug - Dec games
                 </div>
               </div>
@@ -204,7 +232,7 @@
             <!-- Spring Segment - Only show if Spring games exist -->
             <div
               v-if="seasonStats.hasSpringGames"
-              class="p-3 bg-green-50 rounded-md border border-green-100"
+              class="p-4 bg-green-50 rounded-lg border border-green-100"
             >
               <h4 class="font-medium text-green-700 mb-2">Spring Segment</h4>
               <div class="grid grid-cols-3 gap-2 text-sm">
@@ -217,7 +245,7 @@
                 <div class="font-medium">
                   L: {{ seasonStats.springLosses || 0 }}
                 </div>
-                <div class="col-span-3 text-xs text-gray-500">
+                <div class="col-span-3 text-xs text-gray-500 mt-1">
                   Jan - July games
                 </div>
               </div>
@@ -226,15 +254,15 @@
             <!-- Last 5 Games - Only show if games exist -->
             <div
               v-if="seasonStats.gamesPlayed > 0"
-              class="p-3 bg-purple-50 rounded-md border border-purple-100"
+              class="p-4 bg-purple-50 rounded-lg border border-purple-100"
             >
               <h4 class="font-medium text-purple-700 mb-2">Last 5 Games</h4>
-              <div class="flex space-x-1">
+              <div class="flex space-x-2 justify-center sm:justify-start">
                 <template v-if="seasonStats.lastFive.length > 0">
                   <span
                     v-for="(result, index) in seasonStats.lastFive"
                     :key="index"
-                    class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium"
+                    class="w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium"
                     :class="{
                       'bg-green-100 text-green-800': result === 'W',
                       'bg-yellow-100 text-yellow-800': result === 'D',
@@ -252,7 +280,9 @@
             </div>
           </div>
         </div>
-        <table class="w-full border border-gray-300 table-fixed">
+
+        <!-- Desktop: Table View -->
+        <table class="hidden lg:table w-full border border-gray-300">
           <thead>
             <tr>
               <th class="border-b text-right w-12">#</th>
@@ -330,9 +360,98 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Mobile: Card View -->
+        <div class="lg:hidden space-y-3">
+          <div
+            v-for="(game, index) in sortedGames"
+            :key="game.game_date + '-' + index"
+            class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+          >
+            <!-- Game Number and Date -->
+            <div
+              class="flex items-center justify-between mb-3 pb-3 border-b border-gray-100"
+            >
+              <span class="text-xs font-medium text-gray-500"
+                >Game #{{ index + 1 }}</span
+              >
+              <span class="text-sm font-medium text-gray-700">{{
+                game.game_date
+              }}</span>
+            </div>
+
+            <!-- Teams and Score -->
+            <div class="mb-3">
+              <div class="text-base font-medium text-gray-900 mb-2">
+                {{ getTeamDisplay(game) }}
+              </div>
+              <div class="flex items-center space-x-3">
+                <span class="text-2xl font-bold text-gray-900">
+                  {{ getScoreDisplay(game) }}
+                </span>
+                <span
+                  v-if="game.match_status === 'played'"
+                  class="px-3 py-1 rounded-full text-sm font-bold"
+                  :class="{
+                    'bg-green-100 text-green-800': getResult(game) === 'W',
+                    'bg-yellow-100 text-yellow-800': getResult(game) === 'T',
+                    'bg-red-100 text-red-800': getResult(game) === 'L',
+                  }"
+                >
+                  {{ getResult(game) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Game Details -->
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span class="text-gray-500">Type:</span>
+                <span class="ml-1 font-medium">{{
+                  game.game_type_name || 'League'
+                }}</span>
+              </div>
+              <div>
+                <span class="text-gray-500">Status:</span>
+                <span
+                  class="ml-1 px-2 py-0.5 rounded text-xs font-medium"
+                  :class="{
+                    'bg-green-100 text-green-800':
+                      game.match_status === 'played',
+                    'bg-blue-100 text-blue-800':
+                      game.match_status === 'scheduled',
+                    'bg-yellow-100 text-yellow-800':
+                      game.match_status === 'postponed',
+                    'bg-red-100 text-red-800':
+                      game.match_status === 'cancelled',
+                    'bg-gray-100 text-gray-800': !game.match_status,
+                  }"
+                >
+                  {{ game.match_status || 'scheduled' }}
+                </span>
+              </div>
+              <div>
+                <span class="text-gray-500">Source:</span>
+                <span class="ml-1" :title="getSourceTooltip(game)">
+                  {{ getSourceDisplay(game.source) }}
+                </span>
+              </div>
+              <div v-if="canEditGames && canEditGame(game)" class="text-right">
+                <button
+                  @click="editGame(game)"
+                  class="text-blue-600 font-medium text-sm active:text-blue-800"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div v-else>
-        <p>No games found for the selected team.</p>
+        <p class="text-center text-gray-500 py-8">
+          No games found for the selected team.
+        </p>
       </div>
     </div>
 
@@ -375,6 +494,7 @@ export default {
     const loading = ref(true);
     const showEditModal = ref(false);
     const editingGame = ref(null);
+    const showFilters = ref(true); // Filters visible by default on mobile
 
     const fetchAgeGroups = async () => {
       try {
@@ -834,6 +954,7 @@ export default {
       selectedSeasonName,
       error,
       loading,
+      showFilters,
       onTeamChange,
       getScoreDisplay,
       getSourceDisplay,
