@@ -39,6 +39,29 @@ app = typer.Typer(help="Database Inspector - Direct database access for troubles
 console = Console()
 
 
+def print_sql_query(table: str, select: str = "*", filters: dict = None, order_by: str = None, limit: int = None):
+    """Print the equivalent SQL query for reference"""
+    query = f"SELECT {select}\nFROM {table}"
+
+    if filters:
+        where_clauses = []
+        for key, value in filters.items():
+            if isinstance(value, str):
+                where_clauses.append(f"{key} = '{value}'")
+            else:
+                where_clauses.append(f"{key} = {value}")
+        if where_clauses:
+            query += f"\nWHERE {' AND '.join(where_clauses)}"
+
+    if order_by:
+        query += f"\nORDER BY {order_by}"
+
+    if limit:
+        query += f"\nLIMIT {limit}"
+
+    console.print(f"\n[dim]SQL Query:[/dim]\n[dim italic]{query};[/dim italic]\n")
+
+
 def load_environment():
     """Load environment variables from .env file based on APP_ENV"""
     app_env = os.getenv("APP_ENV", "local")
@@ -90,6 +113,10 @@ def age_groups(
     console.print(table)
     console.print(f"\n[green]Total:[/green] {len(response.data)} age groups")
 
+    # Show SQL query reference
+    console.print(f"\n[dim]PostgREST Query:[/dim]")
+    console.print(f"[dim italic]GET /age_groups?select=*&order=name.asc[/dim italic]")
+
 
 @app.command()
 def divisions(
@@ -115,6 +142,10 @@ def divisions(
 
     console.print(table)
     console.print(f"\n[green]Total:[/green] {len(response.data)} divisions")
+
+    # Show SQL query reference
+    console.print(f"\n[dim]PostgREST Query:[/dim]")
+    console.print(f"[dim italic]GET /divisions?select=*&order=name.asc[/dim italic]")
 
 
 @app.command()
@@ -160,6 +191,15 @@ def teams(
 
     console.print(table)
     console.print(f"\n[green]Total:[/green] {len(teams_data)} teams")
+
+    # Show SQL query reference
+    console.print(f"\n[dim]PostgREST Query:[/dim]")
+    query_str = "GET /teams?select=id,name,city,academy_team,created_at&order=name.asc"
+    console.print(f"[dim italic]{query_str}[/dim italic]")
+
+    if search:
+        console.print(f"\n[dim]Additional Filters (applied client-side):[/dim]")
+        console.print(f"[dim italic]  - name ILIKE '%{search}%'[/dim italic]")
 
 
 @app.command()
@@ -282,6 +322,31 @@ def games(
     else:
         console.print(f"\n[green]Total:[/green] {len(games_data)} games")
 
+    # Show SQL query reference
+    select_clause = (
+        "id, game_date, home_score, away_score, match_status, source, "
+        "home_team:teams!games_home_team_id_fkey(id, name), "
+        "away_team:teams!games_away_team_id_fkey(id, name), "
+        "age_groups(id, name), seasons(id, name), game_types(id, name)"
+    )
+    filters = {}
+    filter_notes = []
+
+    if age_group:
+        filter_notes.append(f"age_groups.name = '{age_group}' (post-filter)")
+    if season:
+        filter_notes.append(f"seasons.name LIKE '%{season}%' (post-filter)")
+    if team:
+        filter_notes.append(f"teams.name ILIKE '%{team}%' (post-filter)")
+
+    console.print(f"\n[dim]PostgREST Query:[/dim]")
+    console.print(f"[dim italic]GET /games?select={select_clause}&order=game_date.desc&limit={limit}[/dim italic]")
+
+    if filter_notes:
+        console.print(f"\n[dim]Additional Filters (applied client-side):[/dim]")
+        for note in filter_notes:
+            console.print(f"[dim italic]  - {note}[/dim italic]")
+
 
 @app.command()
 def game_detail(
@@ -335,6 +400,16 @@ def game_detail(
 
     console.print(Panel(details, title=f"Game {game_id} Details", border_style="green"))
 
+    # Show SQL query reference
+    select_clause = (
+        "*, "
+        "home_team:teams!games_home_team_id_fkey(id, name), "
+        "away_team:teams!games_away_team_id_fkey(id, name), "
+        "age_groups(id, name), divisions(id, name), seasons(id, name), game_types(id, name)"
+    )
+    console.print(f"\n[dim]PostgREST Query:[/dim]")
+    console.print(f"[dim italic]GET /games?select={select_clause}&id=eq.{game_id}[/dim italic]")
+
 
 @app.command()
 def stats():
@@ -360,6 +435,14 @@ def stats():
     table.add_row("Seasons", str(seasons_count))
 
     console.print(table)
+
+    # Show SQL query reference
+    console.print(f"\n[dim]PostgREST Queries:[/dim]")
+    console.print(f"[dim italic]GET /teams?select=id&count=exact[/dim italic]")
+    console.print(f"[dim italic]GET /games?select=id&count=exact[/dim italic]")
+    console.print(f"[dim italic]GET /age_groups?select=id&count=exact[/dim italic]")
+    console.print(f"[dim italic]GET /divisions?select=id&count=exact[/dim italic]")
+    console.print(f"[dim italic]GET /seasons?select=id&count=exact[/dim italic]")
 
 
 if __name__ == "__main__":
