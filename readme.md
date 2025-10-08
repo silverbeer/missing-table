@@ -1,16 +1,68 @@
-# Missing Table
+<div align="center">
 
-A comprehensive web application for managing competitive youth soccer leagues across multiple age groups and regions. Features a modern FastAPI backend with authentication and a Vue.js frontend with admin panel for complete league management.
+# ⚽ Missing Table
 
-## 🌟 Features
+**A modern, full-stack web application for managing competitive youth soccer leagues**
 
-- **League Management**: Create and manage teams, games, seasons, and divisions
-- **Authentication & Authorization**: Role-based access control (Admin, Team Manager, User)
-- **Admin Panel**: Complete CRUD operations for all data types
-- **Real-time Standings**: Dynamic league tables with filtering
-- **Game Scheduling**: Schedule and manage league, friendly, and tournament games
-- **Team Types**: Support for league teams, guest teams, and academy teams
-- **Modern UI**: Responsive design with Tailwind CSS
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
+[![Vue.js 3](https://img.shields.io/badge/Vue.js-3.x-brightgreen.svg)](https://vuejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[Live Demo](https://dev.missingtable.com) • [Documentation](docs/README.md) • [Contributing](docs/10-contributing/README.md) • [Report Bug](https://github.com/silverbeer/missing-table/issues)
+
+</div>
+
+---
+
+## ✨ What is Missing Table?
+
+Missing Table is a **production-ready web application** designed for managing competitive youth soccer leagues across multiple age groups and regions. Built with modern technologies and best practices, it's perfect for:
+
+- 🏆 **League Administrators** - Manage teams, games, and standings
+- 👨‍💻 **Developers** - Learn modern web development with a real-world application
+- 🎓 **Students** - Gain hands-on experience with professional tools and workflows
+- 🤝 **Contributors** - Make meaningful contributions to an active open-source project
+
+---
+
+## 🎯 Key Features
+
+<table>
+<tr>
+<td width="50%">
+
+### 📊 League Management
+- Complete team, game, and season management
+- Support for multiple age groups (U13-U19)
+- Division and game type categorization
+- Real-time standings calculation
+
+### 🔐 Authentication & Security
+- Role-based access control (Admin, Team Manager, User)
+- JWT-based authentication
+- Secure secret management
+- Multi-layer security scanning
+
+</td>
+<td width="50%">
+
+### 💻 Modern Tech Stack
+- **Backend**: FastAPI (Python 3.13+)
+- **Frontend**: Vue.js 3 with Composition API
+- **Database**: PostgreSQL via Supabase
+- **Deployment**: Docker, Kubernetes (GKE)
+
+### 🧪 Quality & Testing
+- 80%+ test coverage goal
+- Automated CI/CD pipelines
+- Contract testing with Schemathesis
+- Comprehensive documentation
+
+</td>
+</tr>
+</table>
 
 ## 🏗️ Architecture
 
@@ -37,83 +89,61 @@ Before you begin, ensure you have the following installed:
 
 ## 🚀 Quick Start
 
-### Option A: Automated Setup (Recommended)
+Get up and running in **less than 5 minutes**:
 
 ```bash
-# Clone and setup
-git clone <repository-url>
+# 1. Clone the repository
+git clone https://github.com/silverbeer/missing-table.git
 cd missing-table
 
-# Start Supabase
+# 2. Start Supabase
 supabase start
 
-# Run automated setup script
-./setup-local-env.sh
-
-# Start services (in separate terminals)
-cd backend && uv run python app.py     # Terminal 1
-cd frontend && npm run serve           # Terminal 2
-```
-
-### Option B: Manual Setup
-
-### 1. Clone and Setup
-
-```bash
-git clone <repository-url>
-cd missing-table
-```
-
-### 2. Start Supabase and Restore Data
-
-```bash
-# Start local Supabase (seeding disabled by default)
-supabase start
-
-# Restore real data from backup instead of using seeds
+# 3. Restore database and start services
 ./scripts/db_tools.sh restore
+./missing-table.sh dev
+
+# 4. Open your browser
+# Frontend: http://localhost:8081
+# Backend API: http://localhost:8000/docs
 ```
 
-### 3. Setup Backend Environment
+**First time?** → See the **[Complete Getting Started Guide](docs/01-getting-started/README.md)** for detailed setup instructions.
 
-```bash
-cd backend
+---
 
-# Install Python dependencies
-uv sync
+## 📚 Comprehensive Documentation
 
-# Create environment file with local Supabase credentials
-# (Get keys from `supabase status` output)
-cat > .env << 'EOF'
-SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_ANON_KEY=your_anon_key_from_supabase_status
-SUPABASE_SERVICE_KEY=your_service_key_from_supabase_status
-SUPABASE_JWT_SECRET=your_jwt_secret_from_supabase_status
-DISABLE_LOGFIRE=true
-EOF
+We've built **world-class documentation** to help you succeed:
 
-# Start backend
-uv run python app.py
-```
+### 🎓 For Students & Learners
 
-### 4. Setup Frontend
+**New to open source?** Perfect! This project welcomes beginners.
 
-```bash
-cd frontend
+- **[For Students Guide](docs/10-contributing/for-students.md)** 🌟 - Start here if you're learning to code!
+- **[First Contribution](docs/01-getting-started/first-contribution.md)** - Make your first pull request
+- **[Contributing Guide](docs/10-contributing/README.md)** - Contribution guidelines and code of conduct
 
-# Install dependencies (expect some warnings about Node versions - these are safe to ignore)
-npm install
+### 💻 For Developers
 
-# Start frontend
-npm run serve
-```
+**Working on the codebase?** Everything you need is documented:
 
-### 5. Access the Application
+- **[Getting Started](docs/01-getting-started/)** - Complete setup guide
+- **[Development Guide](docs/02-development/)** - Daily workflows and commands
+- **[Architecture](docs/03-architecture/)** - System design and patterns
+- **[Testing](docs/04-testing/)** - Testing strategy and quality metrics
+- **[API Documentation](http://localhost:8000/docs)** - Interactive Swagger UI (when running)
 
-- **Frontend**: http://localhost:8081
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs  
-- **Supabase Studio**: http://localhost:54323
+### 🚀 For DevOps
+
+**Deploying or managing infrastructure?**
+
+- **[Deployment Guide](docs/05-deployment/)** - Docker, Kubernetes, GKE
+- **[Security](docs/06-security/)** - Security practices and compliance
+- **[Operations](docs/07-operations/)** - Monitoring, backups, incidents
+- **[CI/CD](docs/09-cicd/)** - Pipeline and quality gates
+
+### 📖 **[Complete Documentation Hub](docs/README.md)**
 
 ## ⚠️ Development Notes
 
@@ -302,11 +332,25 @@ All backups are stored in the `backups/` directory:
 3. **Database**: Create migrations for schema changes
 4. **Tests**: Add tests for new functionality
 
-## 📚 Documentation
+## 🤝 Contributing
 
-- **Backend**: See [backend/README.md](backend/README.md) for detailed backend documentation
-- **Tests**: See [backend/tests/README.md](backend/tests/README.md) for testing guide
-- **Development**: See [CLAUDE.md](CLAUDE.md) for development workflow and guidelines
+We **love** contributions! This project is designed to be welcoming to developers of all skill levels.
+
+### Ways to Contribute
+
+- 🐛 **Fix bugs** - Find and fix issues
+- ✨ **Add features** - Implement new functionality
+- 📚 **Improve docs** - Help others understand the project
+- 🧪 **Write tests** - Increase code coverage
+- 💡 **Share ideas** - Propose improvements
+
+### Getting Started with Contributing
+
+1. **[For Students](docs/10-contributing/for-students.md)** - Perfect for beginners! 🎓
+2. **[First Contribution](docs/01-getting-started/first-contribution.md)** - Step-by-step guide
+3. **[Contributing Guidelines](docs/10-contributing/README.md)** - Full contributor guide
+
+**Find a Good First Issue** → [Issues labeled `good-first-issue`](https://github.com/silverbeer/missing-table/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
 ## 🛠️ Technologies Used
 
@@ -317,13 +361,31 @@ All backups are stored in the `backups/` directory:
 - **Testing**: pytest, Vue Test Utils
 - **Development**: Supabase CLI, Docker
 
-## 🔄 Recent Updates (v1.1)
+## 📊 Quick Commands Reference
 
-- ✅ **Enhanced Authentication**: Proactive token refresh and improved session management
-- ✅ **Admin Panel**: Complete games management with edit/delete functionality
-- ✅ **UI Improvements**: Default to U14 age group and 2025-2026 season
-- ✅ **Error Handling**: Better error messages and session expiration handling
-- ✅ **Role-based Access**: Comprehensive admin endpoints with proper authorization
+```bash
+# Service Management
+./missing-table.sh dev      # Start with auto-reload (RECOMMENDED)
+./missing-table.sh status   # Show service status
+./missing-table.sh logs     # View logs
+
+# Database Operations
+./scripts/db_tools.sh backup    # Create backup
+./scripts/db_tools.sh restore   # Restore from backup
+./scripts/db_tools.sh list      # List backups
+
+# Testing
+cd backend && uv run pytest     # Backend tests
+cd frontend && npm test         # Frontend tests
+
+# Environment Switching
+./switch-env.sh local    # Local development
+./switch-env.sh dev      # Cloud development
+```
+
+**Full command reference** → [Daily Workflow Guide](docs/02-development/daily-workflow.md)
+
+---
 
 ## 🚨 Troubleshooting
 
@@ -343,4 +405,32 @@ All backups are stored in the `backups/` directory:
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🆘 Support & Community
+
+### Getting Help
+
+- 📖 **[Documentation](docs/README.md)** - Comprehensive guides
+- 🐛 **[Issues](https://github.com/silverbeer/missing-table/issues)** - Report bugs
+- 💬 **[Discussions](https://github.com/silverbeer/missing-table/discussions)** - Ask questions
+
+### Community
+
+- ⭐ **Star this repo** if you find it useful!
+- 🐦 **Share on Twitter** to help others discover it
+- 💼 **Add to LinkedIn** to showcase your contributions
+
+---
+
+<div align="center">
+
+**Ready to get started?**
+
+[📖 Read the Docs](docs/README.md) • [🚀 Quick Start](docs/01-getting-started/README.md) • [🤝 Contribute](docs/10-contributing/README.md)
+
+Made with ❤️ by the Missing Table community
+
+</div>
