@@ -234,9 +234,9 @@ export default {
     const fetchGames = async () => {
       try {
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games`
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`
         );
-        if (!response.ok) throw new Error('Failed to fetch games');
+        if (!response.ok) throw new Error('Failed to fetch matches');
         games.value = await response.json();
       } catch (err) {
         console.error('Error fetching games:', err);
