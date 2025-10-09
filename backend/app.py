@@ -22,7 +22,7 @@ if not DISABLE_SECURITY:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.instrumentation.requests import RequestsInstrumentor
     from security_middleware import SecurityMiddleware
-    from security_monitoring import get_security_monitor
+    from security_monitoring import get_security_monitor, SecurityEventType, SecuritySeverity, SecurityEvent
     from auth_security import get_auth_security_monitor
     from dao_security_wrapper import create_secure_dao
 else:
@@ -46,7 +46,27 @@ else:
             pass
         def debug(self, *args, **kwargs):
             pass
-    
+
+    # Mock security classes
+    from enum import Enum
+
+    class SecurityEventType(str, Enum):
+        XSS_ATTEMPT = "xss_attempt"
+        SQL_INJECTION_ATTEMPT = "sql_injection_attempt"
+        ANOMALOUS_BEHAVIOR = "anomalous_behavior"
+        SUSPICIOUS_REQUEST = "suspicious_request"
+
+    class SecuritySeverity(str, Enum):
+        LOW = "low"
+        MEDIUM = "medium"
+        HIGH = "high"
+        CRITICAL = "critical"
+
+    class SecurityEvent:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
     logfire = MockLogfire()
 
 from dao.enhanced_data_access_fixed import EnhancedSportsDAO
