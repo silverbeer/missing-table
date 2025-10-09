@@ -415,6 +415,7 @@ class EnhancedSportsDAO:
                     "created_by": game.get("created_by"),
                     "updated_by": game.get("updated_by"),
                     "source": game.get("source", "manual"),
+                    "match_id": game.get("match_id"),  # External match identifier
                     "created_at": game["created_at"],
                     "updated_at": game["updated_at"],
                 }
@@ -507,8 +508,9 @@ class EnhancedSportsDAO:
         status: str | None = "scheduled",
         created_by: str | None = None,
         source: str = "manual",
+        match_id: str | None = None,
     ) -> bool:
-        """Add a new game with audit trail."""
+        """Add a new game with audit trail and optional match_id."""
         try:
             data = {
                 "game_date": game_date,
@@ -529,6 +531,8 @@ class EnhancedSportsDAO:
                 data["match_status"] = status  # Map status to match_status column
             if created_by:
                 data["created_by"] = created_by
+            if match_id:
+                data["match_id"] = match_id
 
             response = self.client.table("games").insert(data).execute()
 
@@ -553,34 +557,25 @@ class EnhancedSportsDAO:
         created_by: str | None = None,
         source: str = "match-scraper",
     ) -> bool:
-        """Add a new game with external match_id and audit trail."""
-        try:
-            data = {
-                "game_date": game_date,
-                "home_team_id": home_team_id,
-                "away_team_id": away_team_id,
-                "home_score": home_score,
-                "away_score": away_score,
-                "season_id": season_id,
-                "age_group_id": age_group_id,
-                "game_type_id": game_type_id,
-                "match_id": match_id,
-                "source": source,
-            }
+        """Add a new game with external match_id and audit trail.
 
-            # Add optional fields
-            if division_id:
-                data["division_id"] = division_id
-            if created_by:
-                data["created_by"] = created_by
-
-            response = self.client.table("games").insert(data).execute()
-
-            return bool(response.data)
-
-        except Exception as e:
-            print(f"Error adding game with match_id: {e}")
-            return False
+        This is a convenience wrapper around add_game() for backwards compatibility.
+        Consider using add_game() directly with match_id parameter.
+        """
+        return self.add_game(
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            game_date=game_date,
+            home_score=home_score,
+            away_score=away_score,
+            season_id=season_id,
+            age_group_id=age_group_id,
+            game_type_id=game_type_id,
+            division_id=division_id,
+            created_by=created_by,
+            source=source,
+            match_id=match_id,
+        )
 
     def update_game(
         self,
@@ -596,8 +591,9 @@ class EnhancedSportsDAO:
         division_id: int | None = None,
         status: str | None = None,
         updated_by: str | None = None,
+        match_id: str | None = None,
     ) -> bool:
-        """Update an existing game with audit trail."""
+        """Update an existing game with audit trail and optional match_id."""
         try:
             data = {
                 "game_date": game_date,
@@ -616,6 +612,8 @@ class EnhancedSportsDAO:
                 data["match_status"] = status
             if updated_by:
                 data["updated_by"] = updated_by
+            if match_id is not None:  # Allow explicit None to clear match_id
+                data["match_id"] = match_id
 
             response = self.client.table("games").update(data).eq("id", game_id).execute()
 
