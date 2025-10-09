@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin, require_admin_or_service_account, require_game_management_permission
+from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin, require_admin_or_service_account, require_match_management_permission
 from rate_limiter import create_rate_limit_middleware, rate_limit
 from csrf_protection import csrf_middleware, get_csrf_token, provide_csrf_token
 from api.invites import router as invites_router
@@ -188,21 +188,21 @@ auth_manager = AuthManager(db_conn_holder_obj.client)
 
 
 # Enhanced Pydantic models
-class EnhancedGame(BaseModel):
-    game_date: str
+class EnhancedMatch(BaseModel):
+    match_date: str
     home_team_id: int
     away_team_id: int
     home_score: int
     away_score: int
     season_id: int
     age_group_id: int
-    game_type_id: int
+    match_type_id: int
     division_id: int | None = None
     status: str | None = "scheduled"  # scheduled, played, postponed, cancelled (maps to match_status in DB)
-    created_by: str | None = None  # User ID who created the game (for audit trail)
-    updated_by: str | None = None  # User ID who last updated the game
+    created_by: str | None = None  # User ID who created the match (for audit trail)
+    updated_by: str | None = None  # User ID who last updated the match
     source: str = "manual"  # Source: manual, match-scraper, import
-    match_id: str | None = None  # External match identifier (e.g., from match-scraper)
+    external_match_id: str | None = None  # External match identifier (e.g., from match-scraper)
 
 
 class Team(BaseModel):
@@ -750,7 +750,7 @@ async def get_current_season():
 
 @app.get("/api/active-seasons")
 async def get_active_seasons():
-    """Get active seasons (current and future) for scheduling new games."""
+    """Get active seasons (current and future) for scheduling new matches."""
     try:
         active_seasons = sports_dao.get_active_seasons()
         return active_seasons
@@ -759,14 +759,14 @@ async def get_active_seasons():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/game-types")
-async def get_game_types():
-    """Get all game types."""
+@app.get("/api/match-types")
+async def get_match_types():
+    """Get all match types."""
     try:
-        game_types = sports_dao.get_all_game_types()
-        return game_types
+        match_types = sports_dao.get_all_match_types()
+        return match_types
     except Exception as e:
-        logger.error(f"Error retrieving game types: {e!s}")
+        logger.error(f"Error retrieving match types: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -785,11 +785,11 @@ async def get_divisions():
 
 
 @app.get("/api/teams")
-async def get_teams(game_type_id: int | None = None, age_group_id: int | None = None):
-    """Get teams, optionally filtered by game type and age group."""
+async def get_teams(match_type_id: int | None = None, age_group_id: int | None = None):
+    """Get teams, optionally filtered by match type and age group."""
     try:
-        if game_type_id and age_group_id:
-            teams = sports_dao.get_teams_by_game_type_and_age_group(game_type_id, age_group_id)
+        if match_type_id and age_group_id:
+            teams = sports_dao.get_teams_by_match_type_and_age_group(match_type_id, age_group_id)
         else:
             teams = sports_dao.get_all_teams()
         return teams
@@ -816,153 +816,153 @@ async def add_team(team: Team):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# === Enhanced Game Endpoints ===
+# === Enhanced Match Endpoints ===
 
 
-@app.get("/api/games")
-async def get_games(
+@app.get("/api/matches")
+async def get_matches(
     request: Request,
     season_id: Optional[int] = Query(None, description="Filter by season ID"),
     age_group_id: Optional[int] = Query(None, description="Filter by age group ID"),
     division_id: Optional[int] = Query(None, description="Filter by division ID"),
-    game_type: Optional[str] = Query(None, description="Filter by game type name")
+    match_type: Optional[str] = Query(None, description="Filter by match type name")
 ):
-    """Get all games with optional filters."""
+    """Get all matches with optional filters."""
     try:
         if security_monitor:
             client_ip = security_monitor.get_client_ip(request)
-            games = sports_dao.get_all_games(
+            matches = sports_dao.get_all_matches(
                 client_ip=client_ip,
                 season_id=season_id,
                 age_group_id=age_group_id,
                 division_id=division_id,
-                game_type=game_type
+                match_type=match_type
             )
         else:
-            games = sports_dao.get_all_games(
+            matches = sports_dao.get_all_matches(
                 season_id=season_id,
                 age_group_id=age_group_id,
                 division_id=division_id,
-                game_type=game_type
+                match_type=match_type
             )
-        return games
+        return matches
     except Exception as e:
-        logger.error(f"Error retrieving games: {e!s}")
+        logger.error(f"Error retrieving matches: {e!s}")
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
 
 
-@app.get("/api/games/{game_id}")
-async def get_game(request: Request, game_id: int):
-    """Get a specific game by ID."""
+@app.get("/api/matches/{match_id}")
+async def get_match(request: Request, match_id: int):
+    """Get a specific match by ID."""
     try:
-        # Get all games and filter by ID
+        # Get all matches and filter by ID
         if security_monitor:
             client_ip = security_monitor.get_client_ip(request)
-            games = sports_dao.get_all_games(client_ip=client_ip)
+            matches = sports_dao.get_all_matches(client_ip=client_ip)
         else:
-            games = sports_dao.get_all_games()
+            matches = sports_dao.get_all_matches()
 
-        # Find the game with matching ID
-        game = next((g for g in games if g.get("id") == game_id), None)
+        # Find the match with matching ID
+        match = next((m for m in matches if m.get("id") == match_id), None)
 
-        if not game:
-            raise HTTPException(status_code=404, detail=f"Game with ID {game_id} not found")
+        if not match:
+            raise HTTPException(status_code=404, detail=f"Match with ID {match_id} not found")
 
-        return game
+        return match
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrieving game {game_id}: {e!s}")
+        logger.error(f"Error retrieving match {match_id}: {e!s}")
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
 
 
-@app.post("/api/games")
-async def add_game(request: Request, game: EnhancedGame, current_user: dict[str, Any] = Depends(require_game_management_permission)):
-    """Add a new game with enhanced schema (requires admin, team manager, or service account with manage_games permission)."""
+@app.post("/api/matches")
+async def add_match(request: Request, match: EnhancedMatch, current_user: dict[str, Any] = Depends(require_match_management_permission)):
+    """Add a new match with enhanced schema (requires admin, team manager, or service account with manage_matches permission)."""
     try:
-        logger.info(f"POST /api/games - User: {current_user.get('email', 'unknown')}, Role: {current_user.get('role', 'unknown')}")
-        logger.info(f"POST /api/games - Game data: {game.model_dump()}")
-        success = sports_dao.add_game(
-            home_team_id=game.home_team_id,
-            away_team_id=game.away_team_id,
-            game_date=game.game_date,
-            home_score=game.home_score,
-            away_score=game.away_score,
-            season_id=game.season_id,
-            age_group_id=game.age_group_id,
-            game_type_id=game.game_type_id,
-            division_id=game.division_id,
-            status=game.status,
-            created_by=current_user.get("user_id"),  # Track who created the game
-            source=game.source,  # Track source (manual, match-scraper, etc.)
-            match_id=game.match_id,  # Store external match identifier if provided
+        logger.info(f"POST /api/matches - User: {current_user.get('email', 'unknown')}, Role: {current_user.get('role', 'unknown')}")
+        logger.info(f"POST /api/matches - Match data: {match.model_dump()}")
+        success = sports_dao.add_match(
+            home_team_id=match.home_team_id,
+            away_team_id=match.away_team_id,
+            match_date=match.match_date,
+            home_score=match.home_score,
+            away_score=match.away_score,
+            season_id=match.season_id,
+            age_group_id=match.age_group_id,
+            match_type_id=match.match_type_id,
+            division_id=match.division_id,
+            status=match.status,
+            created_by=current_user.get("user_id"),  # Track who created the match
+            source=match.source,  # Track source (manual, match-scraper, etc.)
+            external_match_id=match.external_match_id,  # Store external match identifier if provided
         )
         if success:
-            return {"message": "Game added successfully"}
+            return {"message": "Match added successfully"}
         else:
-            raise HTTPException(status_code=500, detail="Failed to add game")
+            raise HTTPException(status_code=500, detail="Failed to add match")
     except Exception as e:
-        logger.error(f"Error adding game: {e!s}")
+        logger.error(f"Error adding match: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.put("/api/games/{game_id}")
-async def update_game(
-    game_id: int, game: EnhancedGame, current_user: dict[str, Any] = Depends(require_admin_or_service_account)
+@app.put("/api/matches/{match_id}")
+async def update_match(
+    match_id: int, match: EnhancedMatch, current_user: dict[str, Any] = Depends(require_admin_or_service_account)
 ):
-    """Update an existing game (admin or service account with manage_games permission)."""
+    """Update an existing match (admin or service account with manage_matches permission)."""
     try:
-        # Get current game to check permissions
-        current_game = sports_dao.get_game_by_id(game_id)
-        if not current_game:
-            raise HTTPException(status_code=404, detail="Game not found")
+        # Get current match to check permissions
+        current_match = sports_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
 
-        # Check if user can edit this game
-        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
-            raise HTTPException(status_code=403, detail="You don't have permission to edit this game")
+        # Check if user can edit this match
+        if not auth_manager.can_edit_match(current_user, current_match['home_team_id'], current_match['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to edit this match")
 
-        success = sports_dao.update_game(
-            game_id=game_id,
-            home_team_id=game.home_team_id,
-            away_team_id=game.away_team_id,
-            game_date=game.game_date,
-            home_score=game.home_score,
-            away_score=game.away_score,
-            season_id=game.season_id,
-            age_group_id=game.age_group_id,
-            game_type_id=game.game_type_id,
-            division_id=game.division_id,
-            status=game.status,
-            updated_by=current_user.get("user_id"),  # Track who updated the game
-            match_id=game.match_id,  # Update match_id if provided
+        success = sports_dao.update_match(
+            match_id=match_id,
+            home_team_id=match.home_team_id,
+            away_team_id=match.away_team_id,
+            match_date=match.match_date,
+            home_score=match.home_score,
+            away_score=match.away_score,
+            season_id=match.season_id,
+            age_group_id=match.age_group_id,
+            match_type_id=match.match_type_id,
+            division_id=match.division_id,
+            status=match.status,
+            updated_by=current_user.get("user_id"),  # Track who updated the match
+            external_match_id=match.external_match_id,  # Update external_match_id if provided
         )
         if success:
-            return {"message": "Game updated successfully"}
+            return {"message": "Match updated successfully"}
         else:
-            raise HTTPException(status_code=500, detail="Failed to update game")
+            raise HTTPException(status_code=500, detail="Failed to update match")
     except Exception as e:
-        logger.error(f"Error updating game: {e!s}")
+        logger.error(f"Error updating match: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class GamePatch(BaseModel):
-    """Model for partial game updates."""
+class MatchPatch(BaseModel):
+    """Model for partial match updates."""
     home_score: int | None = None
     away_score: int | None = None
     match_status: str | None = None
-    game_date: str | None = None
+    match_date: str | None = None
     home_team_id: int | None = None
     away_team_id: int | None = None
     season_id: int | None = None
     age_group_id: int | None = None
-    game_type_id: int | None = None
+    match_type_id: int | None = None
     division_id: int | None = None
     status: str | None = None
-    match_id: str | None = None  # External match identifier
+    external_match_id: str | None = None  # External match identifier
 
     class Config:
         # Validation for scores
@@ -973,36 +973,36 @@ class GamePatch(BaseModel):
             return v
 
 
-@app.patch("/api/games/{game_id}")
-async def patch_game(
-    game_id: int,
-    game_patch: GamePatch,
-    current_user: dict[str, Any] = Depends(require_game_management_permission)
+@app.patch("/api/matches/{match_id}")
+async def patch_match(
+    match_id: int,
+    match_patch: MatchPatch,
+    current_user: dict[str, Any] = Depends(require_match_management_permission)
 ):
-    """Partially update a game (requires manage_games permission).
+    """Partially update a match (requires manage_matches permission).
 
     This endpoint allows updating specific fields without requiring all fields.
     Commonly used for score updates from match-scraper.
     """
     try:
-        # Get current game to check permissions and get existing values
-        current_game = sports_dao.get_game_by_id(game_id)
-        if not current_game:
-            raise HTTPException(status_code=404, detail="Game not found")
+        # Get current match to check permissions and get existing values
+        current_match = sports_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
 
-        # Check if user can edit this game
-        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
-            raise HTTPException(status_code=403, detail="You don't have permission to edit this game")
+        # Check if user can edit this match
+        if not auth_manager.can_edit_match(current_user, current_match['home_team_id'], current_match['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to edit this match")
 
         # Validate scores if provided
-        if game_patch.home_score is not None and game_patch.home_score < 0:
+        if match_patch.home_score is not None and match_patch.home_score < 0:
             raise HTTPException(status_code=400, detail="home_score must be non-negative")
-        if game_patch.away_score is not None and game_patch.away_score < 0:
+        if match_patch.away_score is not None and match_patch.away_score < 0:
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
         # Validate match_status if provided (must match database CHECK constraint)
         valid_statuses = ["scheduled", "played", "postponed", "cancelled"]
-        status_to_check = game_patch.match_status or game_patch.status
+        status_to_check = match_patch.match_status or match_patch.status
         if status_to_check is not None and status_to_check not in valid_statuses:
             raise HTTPException(
                 status_code=400,
@@ -1011,71 +1011,71 @@ async def patch_game(
 
         # Build update data, using existing values for fields not provided
         update_data = {
-            "game_id": game_id,
-            "home_team_id": game_patch.home_team_id if game_patch.home_team_id is not None else current_game['home_team_id'],
-            "away_team_id": game_patch.away_team_id if game_patch.away_team_id is not None else current_game['away_team_id'],
-            "game_date": game_patch.game_date if game_patch.game_date is not None else current_game['game_date'],
-            "home_score": game_patch.home_score if game_patch.home_score is not None else current_game['home_score'],
-            "away_score": game_patch.away_score if game_patch.away_score is not None else current_game['away_score'],
-            "season_id": game_patch.season_id if game_patch.season_id is not None else current_game['season_id'],
-            "age_group_id": game_patch.age_group_id if game_patch.age_group_id is not None else current_game['age_group_id'],
-            "game_type_id": game_patch.game_type_id if game_patch.game_type_id is not None else current_game['game_type_id'],
-            "division_id": game_patch.division_id if game_patch.division_id is not None else current_game.get('division_id'),
-            "status": game_patch.match_status if game_patch.match_status is not None else (game_patch.status if game_patch.status is not None else current_game.get('status', 'scheduled')),
-            "match_id": game_patch.match_id if game_patch.match_id is not None else current_game.get('match_id'),
+            "match_id": match_id,
+            "home_team_id": match_patch.home_team_id if match_patch.home_team_id is not None else current_match['home_team_id'],
+            "away_team_id": match_patch.away_team_id if match_patch.away_team_id is not None else current_match['away_team_id'],
+            "match_date": match_patch.match_date if match_patch.match_date is not None else current_match['match_date'],
+            "home_score": match_patch.home_score if match_patch.home_score is not None else current_match['home_score'],
+            "away_score": match_patch.away_score if match_patch.away_score is not None else current_match['away_score'],
+            "season_id": match_patch.season_id if match_patch.season_id is not None else current_match['season_id'],
+            "age_group_id": match_patch.age_group_id if match_patch.age_group_id is not None else current_match['age_group_id'],
+            "match_type_id": match_patch.match_type_id if match_patch.match_type_id is not None else current_match['match_type_id'],
+            "division_id": match_patch.division_id if match_patch.division_id is not None else current_match.get('division_id'),
+            "status": match_patch.match_status if match_patch.match_status is not None else (match_patch.status if match_patch.status is not None else current_match.get('status', 'scheduled')),
+            "external_match_id": match_patch.external_match_id if match_patch.external_match_id is not None else current_match.get('external_match_id'),
             "updated_by": current_user.get("user_id"),
         }
 
-        success = sports_dao.update_game(**update_data)
+        success = sports_dao.update_match(**update_data)
 
         if success:
-            # Return updated game object
-            updated_game = sports_dao.get_game_by_id(game_id)
-            return updated_game
+            # Return updated match object
+            updated_match = sports_dao.get_match_by_id(match_id)
+            return updated_match
         else:
-            raise HTTPException(status_code=500, detail="Failed to update game")
+            raise HTTPException(status_code=500, detail="Failed to update match")
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error patching game: {e!s}")
+        logger.error(f"Error patching match: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/games/{game_id}")
-async def delete_game(game_id: int, current_user: dict[str, Any] = Depends(require_team_manager_or_admin)):
-    """Delete a game (admin or team manager only)."""
+@app.delete("/api/matches/{match_id}")
+async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(require_team_manager_or_admin)):
+    """Delete a match (admin or team manager only)."""
     try:
-        # Get current game to check permissions
-        current_game = sports_dao.get_game_by_id(game_id)
-        if not current_game:
-            raise HTTPException(status_code=404, detail="Game not found")
-        
-        # Check if user can edit this game
-        if not auth_manager.can_edit_game(current_user, current_game['home_team_id'], current_game['away_team_id']):
-            raise HTTPException(status_code=403, detail="You don't have permission to delete this game")
-        
-        success = sports_dao.delete_game(game_id)
+        # Get current match to check permissions
+        current_match = sports_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # Check if user can edit this match
+        if not auth_manager.can_edit_match(current_user, current_match['home_team_id'], current_match['away_team_id']):
+            raise HTTPException(status_code=403, detail="You don't have permission to delete this match")
+
+        success = sports_dao.delete_match(match_id)
         if success:
-            return {"message": "Game deleted successfully"}
+            return {"message": "Match deleted successfully"}
         else:
-            raise HTTPException(status_code=500, detail="Failed to delete game")
+            raise HTTPException(status_code=500, detail="Failed to delete match")
     except Exception as e:
-        logger.error(f"Error deleting game: {e!s}")
+        logger.error(f"Error deleting match: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/games/team/{team_id}")
-async def get_games_by_team(
+@app.get("/api/matches/team/{team_id}")
+async def get_matches_by_team(
     team_id: int, season_id: int | None = Query(None, description="Filter by season ID")
 ):
-    """Get games for a specific team."""
+    """Get matches for a specific team."""
     try:
-        games = sports_dao.get_games_by_team(team_id, season_id=season_id)
-        # Return empty array if no games found - this is not an error condition
-        return games if games else []
+        matches = sports_dao.get_matches_by_team(team_id, season_id=season_id)
+        # Return empty array if no matches found - this is not an error condition
+        return matches if matches else []
     except Exception as e:
-        logger.error(f"Error retrieving games for team '{team_id}': {e!s}")
+        logger.error(f"Error retrieving matches for team '{team_id}': {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1087,7 +1087,7 @@ async def get_table(
     season_id: int | None = Query(None, description="Filter by season ID"),
     age_group_id: int | None = Query(None, description="Filter by age group ID"),
     division_id: int | None = Query(None, description="Filter by division ID"),
-    game_type: str | None = Query("League", description="Game type (League, Tournament, etc.)"),
+    match_type: str | None = Query("League", description="Match type (League, Tournament, etc.)"),
 ):
     """Get league table with enhanced filtering."""
     try:
@@ -1120,7 +1120,7 @@ async def get_table(
             season_id=season_id,
             age_group_id=age_group_id,
             division_id=division_id,
-            game_type=game_type,
+            match_type=match_type,
         )
 
         return table
@@ -1315,8 +1315,8 @@ class TeamUpdate(BaseModel):
     academy_team: bool | None = False
 
 
-class TeamGameTypeMapping(BaseModel):
-    game_type_id: int
+class TeamMatchTypeMapping(BaseModel):
+    match_type_id: int
     age_group_id: int
 
 
@@ -1352,52 +1352,52 @@ async def delete_team(team_id: int, current_user: dict[str, Any] = Depends(requi
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/teams/{team_id}/game-types")
-async def add_team_game_type_participation(
+@app.post("/api/teams/{team_id}/match-types")
+async def add_team_match_type_participation(
     team_id: int,
-    mapping: TeamGameTypeMapping,
+    mapping: TeamMatchTypeMapping,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
-    """Add a team's participation in a specific game type and age group (admin only)."""
+    """Add a team's participation in a specific match type and age group (admin only)."""
     try:
-        success = sports_dao.add_team_game_type_participation(
-            team_id, mapping.game_type_id, mapping.age_group_id
+        success = sports_dao.add_team_match_type_participation(
+            team_id, mapping.match_type_id, mapping.age_group_id
         )
         if success:
-            return {"message": "Team game type participation added successfully"}
+            return {"message": "Team match type participation added successfully"}
         else:
             raise HTTPException(
-                status_code=500, detail="Failed to add team game type participation"
+                status_code=500, detail="Failed to add team match type participation"
             )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error adding team game type participation: {e!s}")
+        logger.error(f"Error adding team match type participation: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/teams/{team_id}/game-types/{game_type_id}/{age_group_id}")
-async def remove_team_game_type_participation(
+@app.delete("/api/teams/{team_id}/match-types/{match_type_id}/{age_group_id}")
+async def remove_team_match_type_participation(
     team_id: int,
-    game_type_id: int,
+    match_type_id: int,
     age_group_id: int,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
-    """Remove a team's participation in a specific game type and age group (admin only)."""
+    """Remove a team's participation in a specific match type and age group (admin only)."""
     try:
-        success = sports_dao.remove_team_game_type_participation(
-            team_id, game_type_id, age_group_id
+        success = sports_dao.remove_team_match_type_participation(
+            team_id, match_type_id, age_group_id
         )
         if success:
-            return {"message": "Team game type participation removed successfully"}
+            return {"message": "Team match type participation removed successfully"}
         else:
             raise HTTPException(
-                status_code=500, detail="Failed to remove team game type participation"
+                status_code=500, detail="Failed to remove team match type participation"
             )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error removing team game type participation: {e!s}")
+        logger.error(f"Error removing team match type participation: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1445,153 +1445,153 @@ async def delete_team_mapping(
 
 # === Match-Scraper Integration Endpoints ===
 
-@app.post("/api/match-scraper/games")
-async def add_or_update_scraped_game(
+@app.post("/api/match-scraper/matches")
+async def add_or_update_scraped_match(
     request: Request,
-    game: EnhancedGame,
-    match_id: str,
-    current_user: dict[str, Any] = Depends(require_game_management_permission)
+    match: EnhancedMatch,
+    external_match_id: str,
+    current_user: dict[str, Any] = Depends(require_match_management_permission)
 ):
-    """Add or update a game from match-scraper with intelligent duplicate handling."""
+    """Add or update a match from match-scraper with intelligent duplicate handling."""
     try:
-        logger.info(f"POST /api/match-scraper/games - Match ID: {match_id}")
-        logger.info(f"POST /api/match-scraper/games - Game data: {game.model_dump()}")
+        logger.info(f"POST /api/match-scraper/matches - External Match ID: {external_match_id}")
+        logger.info(f"POST /api/match-scraper/matches - Match data: {match.model_dump()}")
 
-        # Check if game already exists by match_id
-        existing_game_response = await check_game(
-            date=game.game_date,
-            homeTeam=str(game.home_team_id),
-            awayTeam=str(game.away_team_id),
-            season_id=game.season_id,
-            age_group_id=game.age_group_id,
-            game_type_id=game.game_type_id,
-            division_id=game.division_id,
-            match_id=match_id
+        # Check if match already exists by external_match_id
+        existing_match_response = await check_match(
+            date=match.match_date,
+            homeTeam=str(match.home_team_id),
+            awayTeam=str(match.away_team_id),
+            season_id=match.season_id,
+            age_group_id=match.age_group_id,
+            match_type_id=match.match_type_id,
+            division_id=match.division_id,
+            external_match_id=external_match_id
         )
 
-        if existing_game_response["exists"]:
-            existing_game_id = existing_game_response["game_id"]
-            logger.info(f"Updating existing game {existing_game_id} with match_id {match_id}")
+        if existing_match_response["exists"]:
+            existing_match_id = existing_match_response["match_id"]
+            logger.info(f"Updating existing match {existing_match_id} with external_match_id {external_match_id}")
 
-            # Update existing game
-            success = sports_dao.update_game(
-                game_id=existing_game_id,
-                home_team_id=game.home_team_id,
-                away_team_id=game.away_team_id,
-                game_date=game.game_date,
-                home_score=game.home_score,
-                away_score=game.away_score,
-                season_id=game.season_id,
-                age_group_id=game.age_group_id,
-                game_type_id=game.game_type_id,
-                division_id=game.division_id,
+            # Update existing match
+            success = sports_dao.update_match(
+                match_id=existing_match_id,
+                home_team_id=match.home_team_id,
+                away_team_id=match.away_team_id,
+                match_date=match.match_date,
+                home_score=match.home_score,
+                away_score=match.away_score,
+                season_id=match.season_id,
+                age_group_id=match.age_group_id,
+                match_type_id=match.match_type_id,
+                division_id=match.division_id,
                 updated_by=current_user.get("user_id"),  # Track scraper updates
             )
 
             if success:
                 return {
-                    "message": "Game updated successfully",
+                    "message": "Match updated successfully",
                     "action": "updated",
-                    "game_id": existing_game_id,
-                    "match_id": match_id
+                    "match_id": existing_match_id,
+                    "external_match_id": external_match_id
                 }
             else:
-                raise HTTPException(status_code=500, detail="Failed to update game")
+                raise HTTPException(status_code=500, detail="Failed to update match")
         else:
-            logger.info(f"Creating new game with match_id {match_id}")
+            logger.info(f"Creating new match with external_match_id {external_match_id}")
 
-            # Create new game with match_id
-            success = sports_dao.add_game_with_match_id(
-                home_team_id=game.home_team_id,
-                away_team_id=game.away_team_id,
-                game_date=game.game_date,
-                home_score=game.home_score,
-                away_score=game.away_score,
-                season_id=game.season_id,
-                age_group_id=game.age_group_id,
-                game_type_id=game.game_type_id,
-                division_id=game.division_id,
-                match_id=match_id,
+            # Create new match with external_match_id
+            success = sports_dao.add_match_with_external_id(
+                home_team_id=match.home_team_id,
+                away_team_id=match.away_team_id,
+                match_date=match.match_date,
+                home_score=match.home_score,
+                away_score=match.away_score,
+                season_id=match.season_id,
+                age_group_id=match.age_group_id,
+                match_type_id=match.match_type_id,
+                division_id=match.division_id,
+                external_match_id=external_match_id,
                 created_by=current_user.get("user_id"),  # Track scraper creation
                 source="match-scraper",  # Mark as scraped data
             )
 
             if success:
                 return {
-                    "message": "Game created successfully",
+                    "message": "Match created successfully",
                     "action": "created",
-                    "match_id": match_id
+                    "external_match_id": external_match_id
                 }
             else:
-                raise HTTPException(status_code=500, detail="Failed to create game")
+                raise HTTPException(status_code=500, detail="Failed to create match")
 
     except Exception as e:
-        logger.error(f"Error in match-scraper game endpoint: {e!s}")
+        logger.error(f"Error in match-scraper match endpoint: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # === Backward Compatibility Endpoints ===
 
 
-@app.get("/api/check-game")
-async def check_game(
+@app.get("/api/check-match")
+async def check_match(
     date: str,
     homeTeam: str,
     awayTeam: str,
     season_id: int | None = None,
     age_group_id: int | None = None,
-    game_type_id: int | None = None,
+    match_type_id: int | None = None,
     division_id: int | None = None,
-    match_id: str | None = None
+    external_match_id: str | None = None
 ):
-    """Enhanced game existence check with comprehensive duplicate detection."""
+    """Enhanced match existence check with comprehensive duplicate detection."""
     try:
-        # First check by match_id if provided (for external systems like match-scraper)
-        if match_id:
-            games = sports_dao.get_all_games()
-            for game in games:
-                if game.get("match_id") == match_id:
+        # First check by external_match_id if provided (for external systems like match-scraper)
+        if external_match_id:
+            matches = sports_dao.get_all_matches()
+            for match in matches:
+                if match.get("external_match_id") == external_match_id:
                     return {
                         "exists": True,
-                        "game_id": game.get("id"),
-                        "game": game,
+                        "match_id": match.get("id"),
+                        "match": match,
                         "match_type": "external_match_id"
                     }
 
-        # Check for duplicate based on comprehensive game context
-        games = sports_dao.get_all_games()
-        for game in games:
+        # Check for duplicate based on comprehensive match context
+        matches = sports_dao.get_all_matches()
+        for match in matches:
             # Basic match: date and teams
             basic_match = (
-                str(game.get("game_date")) == date
-                and str(game.get("home_team_id")) == homeTeam
-                and str(game.get("away_team_id")) == awayTeam
+                str(match.get("match_date")) == date
+                and str(match.get("home_team_id")) == homeTeam
+                and str(match.get("away_team_id")) == awayTeam
             )
 
             if basic_match:
-                # Enhanced match: include season, age group, game type, division if provided
+                # Enhanced match: include season, age group, match type, division if provided
                 enhanced_match = True
 
-                if season_id and game.get("season_id") != season_id:
+                if season_id and match.get("season_id") != season_id:
                     enhanced_match = False
-                if age_group_id and game.get("age_group_id") != age_group_id:
+                if age_group_id and match.get("age_group_id") != age_group_id:
                     enhanced_match = False
-                if game_type_id and game.get("game_type_id") != game_type_id:
+                if match_type_id and match.get("match_type_id") != match_type_id:
                     enhanced_match = False
-                if division_id and game.get("division_id") != division_id:
+                if division_id and match.get("division_id") != division_id:
                     enhanced_match = False
 
                 return {
                     "exists": True,
-                    "game_id": game.get("id"),
-                    "game": game,
+                    "match_id": match.get("id"),
+                    "match": match,
                     "match_type": "enhanced_context" if enhanced_match else "basic_context",
                     "enhanced_match": enhanced_match
                 }
 
         return {"exists": False}
     except Exception as e:
-        logger.error(f"Error checking game: {e!s}")
+        logger.error(f"Error checking match: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1770,17 +1770,17 @@ async def full_health_check():
     # Check reference data availability
     try:
         seasons = sports_dao.get_all_seasons()
-        game_types = sports_dao.get_all_game_types()
-        
+        match_types = sports_dao.get_all_match_types()
+
         health_status["checks"]["reference_data"] = {
             "status": "healthy",
             "message": "Reference data available",
             "seasons_count": len(seasons) if isinstance(seasons, list) else 0,
-            "game_types_count": len(game_types) if isinstance(game_types, list) else 0
+            "match_types_count": len(match_types) if isinstance(match_types, list) else 0
         }
-        
+
         # Check if we have essential reference data
-        if not seasons or not game_types:
+        if not seasons or not match_types:
             health_status["checks"]["reference_data"]["status"] = "warning"
             health_status["checks"]["reference_data"]["message"] = "Some reference data missing"
             

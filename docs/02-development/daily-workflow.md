@@ -164,28 +164,28 @@ cd backend && uv run python reset_user_password.py --email "user@example.com" --
 
 ---
 
-## 🧹 Duplicate Game Cleanup
+## 🧹 Duplicate Match Cleanup
 
-Interactive tool to find and clean up duplicate games:
+Interactive tool to find and clean up duplicate matches:
 
 ```bash
 # Scan for duplicates without making changes
-cd backend && uv run python cleanup_duplicate_games.py scan
+cd backend && uv run python cleanup_duplicate_matches.py scan
 
 # Show database statistics
-cd backend && uv run python cleanup_duplicate_games.py stats
+cd backend && uv run python cleanup_duplicate_matches.py stats
 
 # Preview what would be deleted (dry run)
-cd backend && uv run python cleanup_duplicate_games.py clean --dry-run
+cd backend && uv run python cleanup_duplicate_matches.py clean --dry-run
 
 # Interactive mode - review and choose what to delete
-cd backend && uv run python cleanup_duplicate_games.py interactive
+cd backend && uv run python cleanup_duplicate_matches.py interactive
 
 # Automatic cleanup (with backup)
-cd backend && uv run python cleanup_duplicate_games.py clean --no-dry-run
+cd backend && uv run python cleanup_duplicate_matches.py clean --no-dry-run
 
 # Export duplicates to JSON for analysis
-cd backend && uv run python cleanup_duplicate_games.py scan --format json --save duplicates.json
+cd backend && uv run python cleanup_duplicate_matches.py scan --format json --save duplicates.json
 ```
 
 ---

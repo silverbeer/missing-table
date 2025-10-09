@@ -1,12 +1,12 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Games Management</h3>
+      <h3 class="text-lg font-semibold text-gray-900">Matches Management</h3>
       <div class="flex space-x-3">
         <!-- Filters -->
         <select
           v-model="filterSeason"
-          @change="fetchGames"
+          @change="fetchMatches"
           class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Seasons</option>
@@ -16,23 +16,23 @@
         </select>
 
         <select
-          v-model="filterGameType"
-          @change="fetchGames"
+          v-model="filterMatchType"
+          @change="fetchMatches"
           class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">All Game Types</option>
+          <option value="">All Match Types</option>
           <option
-            v-for="gameType in gameTypes"
-            :key="gameType.id"
-            :value="gameType.id"
+            v-for="matchType in matchTypes"
+            :key="matchType.id"
+            :value="matchType.id"
           >
-            {{ gameType.name }}
+            {{ matchType.name }}
           </option>
         </select>
 
         <select
           v-model="filterAgeGroup"
-          @change="fetchGames"
+          @change="fetchMatches"
           class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Age Groups</option>
@@ -123,55 +123,55 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="game in games" :key="game.id">
+          <tr v-for="match in matches" :key="match.id">
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-              {{ formatDate(game.game_date) }}
+              {{ formatDate(match.match_date) }}
             </td>
             <td
               class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
-              {{ game.home_team_name }}
+              {{ match.home_team_name }}
             </td>
             <td
               class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
-              {{ game.away_team_name }}
+              {{ match.away_team_name }}
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-              <span v-if="game.home_score !== null && game.away_score !== null">
-                {{ game.home_score }} - {{ game.away_score }}
+              <span v-if="match.home_score !== null && match.away_score !== null">
+                {{ match.home_score }} - {{ match.away_score }}
               </span>
               <span v-else class="text-gray-400 italic">Not played</span>
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                :class="getGameTypeClass(game.game_type_name)"
+                :class="getMatchTypeClass(match.match_type_name)"
               >
-                {{ game.game_type_name }}
+                {{ match.match_type_name }}
               </span>
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ game.season_name }}
+              {{ match.season_name }}
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ game.age_group_name }}
+              {{ match.age_group_name }}
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                :class="getStatusClass(game.status)"
+                :class="getStatusClass(match.status)"
               >
-                {{ getStatusDisplay(game.status) }}
+                {{ getStatusDisplay(match.status) }}
               </span>
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
               <span
-                v-if="game.match_id"
+                v-if="match.match_id"
                 class="font-mono text-xs"
-                :title="`External Match ID: ${game.match_id}`"
+                :title="`External Match ID: ${match.match_id}`"
               >
-                {{ game.match_id }}
+                {{ match.match_id }}
               </span>
               <span v-else class="text-gray-400 italic text-xs">-</span>
             </td>
@@ -180,15 +180,15 @@
             >
               <div class="flex gap-2 justify-end items-center">
                 <button
-                  @click="editGame(game)"
+                  @click="editMatch(match)"
                   class="bg-blue-500 text-white px-2 py-1.5 rounded hover:bg-blue-600 font-medium text-xs min-w-[60px]"
                 >
                   ✏️ Edit
                 </button>
                 <button
-                  @click="deleteGame(game)"
+                  @click="deleteMatch(match)"
                   class="bg-red-500 text-white px-2 py-1.5 rounded hover:bg-red-600 font-medium text-xs min-w-[70px]"
-                  title="Delete this game"
+                  title="Delete this match"
                 >
                   🗑️ Delete
                 </button>
@@ -199,25 +199,25 @@
       </table>
 
       <!-- Empty state -->
-      <div v-if="!loading && games.length === 0" class="text-center py-12">
-        <div class="text-gray-500">No games found</div>
+      <div v-if="!loading && matches.length === 0" class="text-center py-12">
+        <div class="text-gray-500">No matches found</div>
       </div>
     </div>
 
-    <!-- Edit Game Modal -->
+    <!-- Edit Match Modal -->
     <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
       <div class="modal-content" @click.stop>
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Game</h3>
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Match</h3>
 
-          <form @submit.prevent="updateGame()">
+          <form @submit.prevent="updateMatch()">
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2"
                   >Date</label
                 >
                 <input
-                  v-model="editFormData.game_date"
+                  v-model="editFormData.match_date"
                   type="date"
                   required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -225,19 +225,19 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Game Type</label
+                  >Match Type</label
                 >
                 <select
-                  v-model="editFormData.game_type_id"
+                  v-model="editFormData.match_type_id"
                   required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option
-                    v-for="gameType in gameTypes"
-                    :key="gameType.id"
-                    :value="gameType.id"
+                    v-for="matchType in matchTypes"
+                    :key="matchType.id"
+                    :value="matchType.id"
                   >
-                    {{ gameType.name }}
+                    {{ matchType.name }}
                   </option>
                 </select>
               </div>
@@ -344,7 +344,7 @@
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Match ID
                 <span class="text-gray-400 text-xs"
-                  >(optional - for externally scraped games)</span
+                  >(optional - for externally scraped matches)</span
                 ></label
               >
               <input
@@ -368,7 +368,7 @@
                 :disabled="formLoading"
                 class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
               >
-                {{ formLoading ? 'Updating...' : 'Update Game' }}
+                {{ formLoading ? 'Updating...' : 'Update Match' }}
               </button>
             </div>
           </form>
@@ -383,50 +383,50 @@ import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 export default {
-  name: 'AdminGames',
+  name: 'AdminMatches',
   setup() {
     const authStore = useAuthStore();
-    const games = ref([]);
+    const matches = ref([]);
     const teams = ref([]);
     const seasons = ref([]);
-    const gameTypes = ref([]);
+    const matchTypes = ref([]);
     const ageGroups = ref([]);
     const loading = ref(true);
     const formLoading = ref(false);
     const error = ref(null);
     const showEditModal = ref(false);
-    const editingGame = ref(null);
+    const editingMatch = ref(null);
     const filterSeason = ref('');
-    const filterGameType = ref('');
+    const filterMatchType = ref('');
     const filterAgeGroup = ref('');
 
     const editFormData = ref({
-      game_date: '',
+      match_date: '',
       home_team_id: '',
       away_team_id: '',
       home_score: null,
       away_score: null,
-      game_type_id: '',
+      match_type_id: '',
       season_id: '',
       age_group_id: '',
       division_id: null,
       match_id: '',
     });
 
-    const fetchGames = async () => {
+    const fetchMatches = async () => {
       try {
         loading.value = true;
-        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games`;
+        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`;
         const params = new URLSearchParams();
 
         if (filterSeason.value) params.append('season_id', filterSeason.value);
-        if (filterGameType.value) {
-          // Find the game type name from the ID
-          const gameType = gameTypes.value.find(
-            gt => gt.id == filterGameType.value
+        if (filterMatchType.value) {
+          // Find the match type name from the ID
+          const matchType = matchTypes.value.find(
+            gt => gt.id == filterMatchType.value
           );
-          if (gameType) {
-            params.append('game_type', gameType.name);
+          if (matchType) {
+            params.append('match_type', matchType.name);
           }
         }
         if (filterAgeGroup.value)
@@ -437,8 +437,8 @@ export default {
         }
 
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch games');
-        games.value = await response.json();
+        if (!response.ok) throw new Error('Failed to fetch matches');
+        matches.value = await response.json();
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -448,7 +448,7 @@ export default {
 
     const fetchReferenceData = async () => {
       try {
-        const [teamsRes, seasonsRes, gameTypesRes, ageGroupsRes] =
+        const [teamsRes, seasonsRes, matchTypesRes, ageGroupsRes] =
           await Promise.all([
             fetch(
               `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
@@ -457,7 +457,7 @@ export default {
               `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
             ),
             fetch(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
             ),
             fetch(
               `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
@@ -466,7 +466,7 @@ export default {
 
         if (teamsRes.ok) teams.value = await teamsRes.json();
         if (seasonsRes.ok) seasons.value = await seasonsRes.json();
-        if (gameTypesRes.ok) gameTypes.value = await gameTypesRes.json();
+        if (matchTypesRes.ok) matchTypes.value = await matchTypesRes.json();
         if (ageGroupsRes.ok) {
           ageGroups.value = await ageGroupsRes.json();
           // Set U14 as default filter
@@ -484,14 +484,14 @@ export default {
       return new Date(dateString).toLocaleDateString();
     };
 
-    const getGameTypeClass = gameTypeName => {
+    const getMatchTypeClass = matchTypeName => {
       const classes = {
         League: 'bg-blue-100 text-blue-800',
         Friendly: 'bg-green-100 text-green-800',
         Tournament: 'bg-purple-100 text-purple-800',
         Playoff: 'bg-orange-100 text-orange-800',
       };
-      return classes[gameTypeName] || 'bg-gray-100 text-gray-800';
+      return classes[matchTypeName] || 'bg-gray-100 text-gray-800';
     };
 
     const getStatusClass = status => {
@@ -506,53 +506,53 @@ export default {
 
     const getStatusDisplay = status => {
       if (!status) {
-        // Fallback for games without status field (backward compatibility)
+        // Fallback for matches without status field (backward compatibility)
         return 'Unknown';
       }
       // Capitalize first letter
       return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
-    const editGame = game => {
-      editingGame.value = game;
+    const editMatch = match => {
+      editingMatch.value = match;
       editFormData.value = {
-        game_date: game.game_date,
-        home_team_id: game.home_team_id,
-        away_team_id: game.away_team_id,
-        home_score: game.home_score,
-        away_score: game.away_score,
-        game_type_id: game.game_type_id,
-        season_id: game.season_id,
-        age_group_id: game.age_group_id,
-        division_id: game.division_id,
-        match_id: game.match_id || '',
+        match_date: match.match_date,
+        home_team_id: match.home_team_id,
+        away_team_id: match.away_team_id,
+        home_score: match.home_score,
+        away_score: match.away_score,
+        match_type_id: match.match_type_id,
+        season_id: match.season_id,
+        age_group_id: match.age_group_id,
+        division_id: match.division_id,
+        match_id: match.match_id || '',
       };
       showEditModal.value = true;
     };
 
-    const updateGame = async () => {
+    const updateMatch = async () => {
       try {
         formLoading.value = true;
 
         // Convert empty scores to 0 for API
-        const gameData = {
+        const matchData = {
           ...editFormData.value,
           home_score: editFormData.value.home_score || 0,
           away_score: editFormData.value.away_score || 0,
         };
 
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${editingGame.value.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${editingMatch.value.id}`,
           {
             method: 'PUT',
-            body: JSON.stringify(gameData),
+            body: JSON.stringify(matchData),
           }
         );
 
-        await fetchGames();
+        await fetchMatches();
         closeEditModal();
       } catch (err) {
-        console.error('Update game error:', err);
+        console.error('Update match error:', err);
         if (
           err.message.includes('401') ||
           err.message.includes('Invalid or expired token') ||
@@ -561,17 +561,17 @@ export default {
           error.value =
             'Your session has expired. Please refresh the page or log out and log back in to continue.';
         } else {
-          error.value = err.message || 'Failed to update game';
+          error.value = err.message || 'Failed to update match';
         }
       } finally {
         formLoading.value = false;
       }
     };
 
-    const deleteGame = async game => {
+    const deleteMatch = async match => {
       if (
         !confirm(
-          `Are you sure you want to delete the game between ${game.home_team_name} and ${game.away_team_name} on ${formatDate(game.game_date)}?`
+          `Are you sure you want to delete the match between ${match.home_team_name} and ${match.away_team_name} on ${formatDate(match.match_date)}?`
         )
       ) {
         return;
@@ -579,15 +579,15 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${game.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${match.id}`,
           {
             method: 'DELETE',
           }
         );
 
-        await fetchGames();
+        await fetchMatches();
       } catch (err) {
-        console.error('Delete game error:', err);
+        console.error('Delete match error:', err);
         if (
           err.message.includes('401') ||
           err.message.includes('Invalid or expired token') ||
@@ -596,21 +596,21 @@ export default {
           error.value =
             'Your session has expired. Please refresh the page or log out and log back in to continue.';
         } else {
-          error.value = err.message || 'Failed to delete game';
+          error.value = err.message || 'Failed to delete match';
         }
       }
     };
 
     const closeEditModal = () => {
       showEditModal.value = false;
-      editingGame.value = null;
+      editingMatch.value = null;
       editFormData.value = {
-        game_date: '',
+        match_date: '',
         home_team_id: '',
         away_team_id: '',
         home_score: null,
         away_score: null,
-        game_type_id: '',
+        match_type_id: '',
         season_id: '',
         age_group_id: '',
         division_id: null,
@@ -618,14 +618,14 @@ export default {
     };
 
     onMounted(async () => {
-      await Promise.all([fetchGames(), fetchReferenceData()]);
+      await Promise.all([fetchMatches(), fetchReferenceData()]);
     });
 
     return {
-      games,
+      matches,
       teams,
       seasons,
-      gameTypes,
+      matchTypes,
       ageGroups,
       loading,
       formLoading,
@@ -633,16 +633,16 @@ export default {
       showEditModal,
       editFormData,
       filterSeason,
-      filterGameType,
+      filterMatchType,
       filterAgeGroup,
-      fetchGames,
+      fetchMatches,
       formatDate,
-      getGameTypeClass,
+      getMatchTypeClass,
       getStatusClass,
       getStatusDisplay,
-      editGame,
-      updateGame,
-      deleteGame,
+      editMatch,
+      updateMatch,
+      deleteMatch,
       closeEditModal,
     };
   },

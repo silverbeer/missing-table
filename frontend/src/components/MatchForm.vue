@@ -13,7 +13,7 @@
             value="schedule"
             class="form-radio text-blue-600"
           />
-          <span class="ml-2">Schedule New Game</span>
+          <span class="ml-2">Schedule New Match</span>
         </label>
         <label class="inline-flex items-center">
           <input
@@ -22,13 +22,13 @@
             value="score"
             class="form-radio text-blue-600"
           />
-          <span class="ml-2">Score Game</span>
+          <span class="ml-2">Score Match</span>
         </label>
       </div>
     </div>
 
-    <form @submit.prevent="submitGame" class="space-y-3">
-      <!-- Season/Age Group/Game Type Row -->
+    <form @submit.prevent="submitMatch" class="space-y-3">
+      <!-- Season/Age Group/Match Type Row -->
       <div class="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-md">
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1"
@@ -66,26 +66,26 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1"
-            >Game Type</label
+            >Match Type</label
           >
           <select
-            v-model="selectedGameType"
+            v-model="selectedMatchType"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           >
             <option
-              v-for="gameType in gameTypes"
-              :key="gameType.id"
-              :value="gameType.id"
+              v-for="matchType in matchTypes"
+              :key="matchType.id"
+              :value="matchType.id"
             >
-              {{ gameType.name }}
+              {{ matchType.name }}
             </option>
           </select>
         </div>
       </div>
 
-      <!-- Division Row (only for League games) -->
+      <!-- Division Row (only for League matches) -->
       <div
-        v-if="isLeagueGame"
+        v-if="isLeagueMatch"
         class="p-3 bg-blue-50 rounded-md border border-blue-200"
       >
         <div class="grid grid-cols-1 gap-3">
@@ -108,7 +108,7 @@
               </option>
             </select>
             <p class="text-xs text-gray-600 mt-1">
-              Division is required for League games to ensure proper standings
+              Division is required for League matches to ensure proper standings
               calculation
             </p>
           </div>
@@ -133,8 +133,8 @@
               <option value="cancelled">Cancelled</option>
             </select>
             <p class="text-xs text-gray-600 mt-1">
-              Status determines whether the game counts toward standings. Only
-              "Played" games affect team standings.
+              Status determines whether the match counts toward standings. Only
+              "Played" matches affect team standings.
             </p>
           </div>
         </div>
@@ -148,8 +148,8 @@
           >
           <input
             type="date"
-            v-model="gameData.date"
-            id="game_date"
+            v-model="matchData.date"
+            id="match_date"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
           />
@@ -160,7 +160,7 @@
             >Home Team</label
           >
           <select
-            v-model="gameData.homeTeam"
+            v-model="matchData.homeTeam"
             id="home_team"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
@@ -177,7 +177,7 @@
             >Away Team</label
           >
           <select
-            v-model="gameData.awayTeam"
+            v-model="matchData.awayTeam"
             id="away_team"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
@@ -190,7 +190,7 @@
         </div>
       </div>
 
-      <!-- Score Row (only show when scoring a game) -->
+      <!-- Score Row (only show when scoring a match) -->
       <div
         v-if="formType === 'score'"
         class="flex items-center justify-center space-x-4 py-2"
@@ -201,7 +201,7 @@
           >
           <input
             type="number"
-            v-model="gameData.homeScore"
+            v-model="matchData.homeScore"
             id="home_score"
             required
             min="0"
@@ -217,7 +217,7 @@
           >
           <input
             type="number"
-            v-model="gameData.awayScore"
+            v-model="matchData.awayScore"
             id="away_score"
             required
             min="0"
@@ -256,14 +256,14 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 
 export default {
-  name: 'GameForm',
+  name: 'MatchForm',
   setup() {
     const { apiRequest } = useAuthStore();
     const teams = ref([]);
     const error = ref(false);
     const message = ref('');
     const formType = ref('schedule');
-    const gameData = ref({
+    const matchData = ref({
       date: '',
       homeTeam: '',
       awayTeam: '',
@@ -273,31 +273,31 @@ export default {
 
     const activeSeasons = ref([]);
     const ageGroups = ref([]);
-    const gameTypes = ref([]);
+    const matchTypes = ref([]);
     const divisions = ref([]);
     const selectedSeason = ref(null);
     const selectedAgeGroup = ref(null);
-    const selectedGameType = ref(null);
+    const selectedMatchType = ref(null);
     const selectedDivision = ref(null);
     const selectedStatus = ref('scheduled');
 
-    // Computed property to check if current game type is League
-    const isLeagueGame = computed(() => {
-      const leagueGameType = gameTypes.value.find(gt => gt.name === 'League');
-      return selectedGameType.value === leagueGameType?.id;
+    // Computed property to check if current match type is League
+    const isLeagueMatch = computed(() => {
+      const leagueMatchType = matchTypes.value.find(gt => gt.name === 'League');
+      return selectedMatchType.value === leagueMatchType?.id;
     });
 
     const fetchTeams = async () => {
       try {
         console.log('=== FETCHING TEAMS ===');
-        console.log('Current selectedGameType:', selectedGameType.value);
+        console.log('Current selectedMatchType:', selectedMatchType.value);
         console.log('Current selectedAgeGroup:', selectedAgeGroup.value);
 
         let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`;
 
-        // Add filtering if both game type and age group are selected
-        if (selectedGameType.value && selectedAgeGroup.value) {
-          url += `?game_type_id=${selectedGameType.value}&age_group_id=${selectedAgeGroup.value}`;
+        // Add filtering if both match type and age group are selected
+        if (selectedMatchType.value && selectedAgeGroup.value) {
+          url += `?game_type_id=${selectedMatchType.value}&age_group_id=${selectedAgeGroup.value}`;
           console.log('Fetching filtered teams with URL:', url);
         } else {
           console.log('Fetching all teams (no filter)');
@@ -346,16 +346,16 @@ export default {
             ageGroups.value[0]?.id;
         }
 
-        // Fetch game types
-        const gameTypesResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
+        // Fetch match types
+        const matchTypesResponse = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
         );
-        if (gameTypesResponse.ok) {
-          gameTypes.value = await gameTypesResponse.json();
+        if (matchTypesResponse.ok) {
+          matchTypes.value = await matchTypesResponse.json();
           // Default to League
-          selectedGameType.value =
-            gameTypes.value.find(gt => gt.name === 'League')?.id ||
-            gameTypes.value[0]?.id;
+          selectedMatchType.value =
+            matchTypes.value.find(gt => gt.name === 'League')?.id ||
+            matchTypes.value[0]?.id;
         }
 
         // Fetch divisions
@@ -364,7 +364,7 @@ export default {
         );
         if (divisionsResponse.ok) {
           divisions.value = await divisionsResponse.json();
-          // Default to Northeast for League games
+          // Default to Northeast for League matches
           if (divisions.value.length > 0) {
             selectedDivision.value =
               divisions.value.find(d => d.name === 'Northeast')?.id ||
@@ -373,7 +373,7 @@ export default {
         }
 
         // After all defaults are set, fetch teams
-        if (selectedGameType.value && selectedAgeGroup.value) {
+        if (selectedMatchType.value && selectedAgeGroup.value) {
           await fetchTeams();
         }
       } catch (err) {
@@ -381,65 +381,65 @@ export default {
       }
     };
 
-    const checkDuplicateGame = async () => {
+    const checkDuplicateMatch = async () => {
       try {
         const params = new URLSearchParams({
-          date: gameData.value.date,
-          homeTeam: gameData.value.homeTeam,
-          awayTeam: gameData.value.awayTeam,
+          date: matchData.value.date,
+          homeTeam: matchData.value.homeTeam,
+          awayTeam: matchData.value.awayTeam,
         });
 
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/check-game?${params.toString()}`
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/check-match?${params.toString()}`
         );
 
         if (!response.ok) {
-          throw new Error('Failed to check for duplicate game');
+          throw new Error('Failed to check for duplicate match');
         }
 
         const result = await response.json();
         return result;
       } catch (err) {
-        console.error('Error checking for duplicate game:', err);
+        console.error('Error checking for duplicate match:', err);
         return { exists: false }; // Fail open if we can't check
       }
     };
 
-    const submitGame = async () => {
-      console.log('Submitting game...');
+    const submitMatch = async () => {
+      console.log('Submitting match...');
 
-      const gameDataToSubmit = {
-        game_date: gameData.value.date,
-        home_team_id: parseInt(gameData.value.homeTeam),
-        away_team_id: parseInt(gameData.value.awayTeam),
-        home_score: gameData.value.homeScore,
-        away_score: gameData.value.awayScore,
+      const matchDataToSubmit = {
+        match_date: matchData.value.date,
+        home_team_id: parseInt(matchData.value.homeTeam),
+        away_team_id: parseInt(matchData.value.awayTeam),
+        home_score: matchData.value.homeScore,
+        away_score: matchData.value.awayScore,
         season_id: selectedSeason.value,
         age_group_id: selectedAgeGroup.value,
-        game_type_id: selectedGameType.value,
+        match_type_id: selectedMatchType.value,
         status: selectedStatus.value,
       };
 
-      // Add division_id for League games
-      const leagueGameType = gameTypes.value.find(gt => gt.name === 'League');
-      if (selectedGameType.value === leagueGameType?.id) {
+      // Add division_id for League matches
+      const leagueMatchType = matchTypes.value.find(gt => gt.name === 'League');
+      if (selectedMatchType.value === leagueMatchType?.id) {
         if (!selectedDivision.value) {
-          message.value = 'Division is required for League games';
+          message.value = 'Division is required for League matches';
           error.value = true;
           return;
         }
-        gameDataToSubmit.division_id = selectedDivision.value;
+        matchDataToSubmit.division_id = selectedDivision.value;
       }
 
-      console.log('Game Data before stringification:', gameDataToSubmit);
-      const requestBody = JSON.stringify(gameDataToSubmit);
+      console.log('Match Data before stringification:', matchDataToSubmit);
+      const requestBody = JSON.stringify(matchDataToSubmit);
       console.log('Request Body (JSON):', requestBody);
 
       error.value = false;
       message.value = '';
 
       // Validate teams are different
-      if (gameData.value.homeTeam === gameData.value.awayTeam) {
+      if (matchData.value.homeTeam === matchData.value.awayTeam) {
         message.value = 'Home and Away teams cannot be the same';
         error.value = true;
         return;
@@ -449,7 +449,7 @@ export default {
       if (
         !selectedSeason.value ||
         !selectedAgeGroup.value ||
-        !selectedGameType.value
+        !selectedMatchType.value
       ) {
         message.value =
           'Missing required data. Please try refreshing the page.';
@@ -457,13 +457,13 @@ export default {
         return;
       }
 
-      // Check for existing game
-      const gameCheck = await checkDuplicateGame();
+      // Check for existing match
+      const matchCheck = await checkDuplicateMatch();
 
       if (formType.value === 'schedule') {
         // When scheduling, prevent duplicates
-        if (gameCheck.exists) {
-          message.value = 'This game is already scheduled for this date';
+        if (matchCheck.exists) {
+          message.value = 'This match is already scheduled for this date';
           error.value = true;
           return;
         }
@@ -474,21 +474,21 @@ export default {
 
         if (
           formType.value === 'score' &&
-          gameCheck.exists &&
-          gameCheck.game_id
+          matchCheck.exists &&
+          matchCheck.match_id
         ) {
-          // Update existing game
+          // Update existing match
           result = await apiRequest(
-            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${gameCheck.game_id}`,
+            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${matchCheck.match_id}`,
             {
               method: 'PUT',
               body: requestBody,
             }
           );
         } else {
-          // Create new game
+          // Create new match
           result = await apiRequest(
-            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games`,
+            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`,
             {
               method: 'POST',
               body: requestBody,
@@ -499,13 +499,13 @@ export default {
         if (result) {
           message.value =
             formType.value === 'schedule'
-              ? 'Game scheduled successfully'
-              : gameCheck.exists
+              ? 'Match scheduled successfully'
+              : matchCheck.exists
                 ? 'Score updated successfully'
                 : 'Score submitted successfully';
           error.value = false;
           // Reset form
-          gameData.value = {
+          matchData.value = {
             date: '',
             homeTeam: '',
             awayTeam: '',
@@ -514,35 +514,35 @@ export default {
           };
           formType.value = 'schedule';
         } else {
-          message.value = result.detail || 'Error submitting game';
+          message.value = result.detail || 'Error submitting match';
           error.value = true;
         }
       } catch (err) {
-        console.error('Error submitting game:', err);
-        message.value = 'Error submitting game';
+        console.error('Error submitting match:', err);
+        message.value = 'Error submitting match';
         error.value = true;
       }
     };
 
-    // Watch for changes in game type or age group to refetch teams
+    // Watch for changes in match type or age group to refetch teams
     watch(
-      [selectedGameType, selectedAgeGroup],
+      [selectedMatchType, selectedAgeGroup],
       async (newValues, oldValues) => {
         console.log('=== WATCHER TRIGGERED ===');
         console.log('New values:', newValues);
         console.log('Old values:', oldValues);
-        console.log('selectedGameType.value:', selectedGameType.value);
+        console.log('selectedMatchType.value:', selectedMatchType.value);
         console.log('selectedAgeGroup.value:', selectedAgeGroup.value);
 
-        if (selectedGameType.value && selectedAgeGroup.value) {
+        if (selectedMatchType.value && selectedAgeGroup.value) {
           console.log(
-            'Both game type and age group are set, fetching teams...'
+            'Both match type and age group are set, fetching teams...'
           );
           await fetchTeams();
           // Reset team selections when filter changes
           console.log('Resetting team selections');
-          gameData.value.homeTeam = '';
-          gameData.value.awayTeam = '';
+          matchData.value.homeTeam = '';
+          matchData.value.awayTeam = '';
         } else {
           console.log('Game type or age group not set, skipping team fetch');
         }
@@ -550,18 +550,18 @@ export default {
       }
     );
 
-    // Watch for changes in game type to handle division requirements
-    watch(selectedGameType, newGameType => {
-      const leagueGameType = gameTypes.value.find(gt => gt.name === 'League');
-      if (newGameType === leagueGameType?.id) {
-        // Auto-select Northeast division for League games if available
+    // Watch for changes in match type to handle division requirements
+    watch(selectedMatchType, newMatchType => {
+      const leagueMatchType = matchTypes.value.find(gt => gt.name === 'League');
+      if (newMatchType === leagueMatchType?.id) {
+        // Auto-select Northeast division for League matches if available
         if (divisions.value.length > 0 && !selectedDivision.value) {
           selectedDivision.value =
             divisions.value.find(d => d.name === 'Northeast')?.id ||
             divisions.value[0]?.id;
         }
       } else {
-        // Clear division for non-League games
+        // Clear division for non-League matches
         selectedDivision.value = null;
       }
     });
@@ -572,22 +572,22 @@ export default {
 
     return {
       teams,
-      gameData,
+      matchData,
       message,
       error,
       formType,
-      submitGame,
-      checkDuplicateGame,
+      submitMatch,
+      checkDuplicateMatch,
       activeSeasons,
       ageGroups,
-      gameTypes,
+      matchTypes,
       divisions,
       selectedSeason,
       selectedAgeGroup,
-      selectedGameType,
+      selectedMatchType,
       selectedDivision,
       selectedStatus,
-      isLeagueGame,
+      isLeagueMatch,
     };
   },
 };

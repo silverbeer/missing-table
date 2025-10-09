@@ -138,10 +138,10 @@ Save this token securely - it won't be shown again!
 
 **💾 Save this token - you'll use it in Bruno!**
 
-### 2. Submit Game Data (Service Account)
+### 2. Submit Match Data (Service Account)
 
 ```
-POST https://dev.missingtable.com/api/games
+POST https://dev.missingtable.com/api/matches
 ```
 
 **Headers:**
@@ -159,7 +159,7 @@ Content-Type: application/json
   "away_score": 1,
   "date": "2025-10-05",
   "season_id": 2,
-  "game_type": "league",
+  "match_type": "league",
   "match_id": "external-id-123"
 }
 ```
@@ -263,17 +263,17 @@ headers {
 
 #### Service Account Request
 
-**File:** `Create Game (Service).bru`
+**File:** `Create Match (Service).bru`
 
 ```
 meta {
-  name: Create Game (Service Account)
+  name: Create Match (Service Account)
   type: http
   seq: 4
 }
 
 post {
-  url: {{base_url}}/api/games
+  url: {{base_url}}/api/matches
   body: json
 }
 
@@ -290,7 +290,7 @@ body:json {
     "away_score": 1,
     "date": "2025-10-05",
     "season_id": 2,
-    "game_type": "league",
+    "match_type": "league",
     "match_id": "match-scraper-test-001"
   }
 }
@@ -348,7 +348,7 @@ Start with public endpoints to verify connectivity:
 
 1. **Generate token:** Run `create_service_account_token.py`
 2. **Save token:** Add to Bruno environment
-3. **Submit data:** `POST /api/games` with service token
+3. **Submit data:** `POST /api/matches` with service token
 
 ---
 
@@ -400,7 +400,7 @@ Start with public endpoints to verify connectivity:
 cd backend
 uv run python create_service_account_token.py \
   --service-name match-scraper \
-  --permissions manage_games
+  --permissions manage_matches
 ```
 
 ### Step 2: Save Token in Bruno
@@ -417,9 +417,9 @@ service_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 GET {{base_url}}/api/teams
 ```
 
-**Create Game:**
+**Create Match:**
 ```
-POST {{base_url}}/api/games
+POST {{base_url}}/api/matches
 Authorization: Bearer {{service_token}}
 
 {
@@ -429,14 +429,14 @@ Authorization: Bearer {{service_token}}
   "away_score": 1,
   "date": "2025-10-05",
   "season_id": 2,
-  "game_type": "league",
+  "match_type": "league",
   "match_id": "scraper-test-001"
 }
 ```
 
-**Verify Game Created:**
+**Verify Match Created:**
 ```
-GET {{base_url}}/api/games?season_id=2
+GET {{base_url}}/api/matches?season_id=2
 ```
 
 ---
@@ -449,4 +449,4 @@ GET {{base_url}}/api/games?season_id=2
 
 ---
 
-**Last Updated:** October 4, 2025
+**Last Updated:** October 9, 2025

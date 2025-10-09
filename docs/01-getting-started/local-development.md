@@ -128,7 +128,7 @@ Transfer the fresh backup file from your primary development machine:
 
 # The restore script will show:
 # ✓ Total records restored: 502
-# ✓ Teams: 21, Games: 347, etc.
+# ✓ Teams: 21, Matches: 347, etc.
 ```
 
 ## Development Workflow
@@ -162,7 +162,7 @@ npx supabase start
 
 1. **Frontend:** http://localhost:8080
    - Should show league standings
-   - Teams and games should match primary development machine data
+   - Teams and matches should match primary development machine data
 
 2. **Backend API:** http://localhost:8000/docs
    - Swagger UI should be accessible
@@ -170,7 +170,7 @@ npx supabase start
 
 3. **Supabase Studio:** http://localhost:54323
    - Browse tables to verify data transfer
-   - Check teams, games, user_profiles tables
+   - Check teams, matches, user_profiles tables
 
 ## Testing and Validation
 
@@ -191,7 +191,7 @@ cd frontend && npm run lint
 ./scripts/db_tools.sh backup
 
 # Compare record counts with primary development machine
-# Should match: 21 teams, 347 games, etc.
+# Should match: 21 teams, 347 matches, etc.
 ```
 
 ### 3. Full Stack Integration Test

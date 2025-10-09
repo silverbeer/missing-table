@@ -46,7 +46,7 @@ Follow the standards in [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
 
 ## Project Overview
 
-This is a full-stack web application for managing MLS Next sports league standings and game schedules. It uses FastAPI (Python 3.13+) for the backend and Vue 3 for the frontend, with Supabase as the primary database.
+This is a full-stack web application for managing MLS Next sports league standings and match schedules. It uses FastAPI (Python 3.13+) for the backend and Vue 3 for the frontend, with Supabase as the primary database.
 
 **For detailed information**, see:
 - **Architecture**: [docs/03-architecture/README.md](docs/03-architecture/README.md)
@@ -239,11 +239,11 @@ cd backend && uv run python inspect_db.py teams                       # List all
 cd backend && uv run python inspect_db.py teams --search IFA          # Search teams by name
 cd backend && uv run python inspect_db.py age-groups                  # List age groups
 cd backend && uv run python inspect_db.py divisions                   # List divisions
-cd backend && uv run python inspect_db.py games --limit 20            # List recent games
-cd backend && uv run python inspect_db.py games --team IFA            # Filter by team
-cd backend && uv run python inspect_db.py games --age-group U14       # Filter by age group
-cd backend && uv run python inspect_db.py games --duplicates          # Find duplicate games
-cd backend && uv run python inspect_db.py game-detail 123             # Detailed game info
+cd backend && uv run python inspect_db.py matches --limit 20          # List recent matches
+cd backend && uv run python inspect_db.py matches --team IFA          # Filter by team
+cd backend && uv run python inspect_db.py matches --age-group U14     # Filter by age group
+cd backend && uv run python inspect_db.py matches --duplicates        # Find duplicate matches
+cd backend && uv run python inspect_db.py match-detail 123            # Detailed match info
 
 # User Administration (after users sign up)
 cd backend && uv run python make_user_admin.py --list              # List all users
@@ -359,36 +359,36 @@ All database operations now support environment specification:
 ./missing-table.sh start                        # Start with cloud database
 
 # Generate service account token for match-scraper
-cd backend && uv run python create_service_account_token.py --service-name match-scraper --permissions manage_games
+cd backend && uv run python create_service_account_token.py --service-name match-scraper --permissions manage_matches
 ```
 
-### Duplicate Game Cleanup
+### Duplicate Match Cleanup
 
-Interactive tool to find and clean up duplicate games using typer and rich:
+Interactive tool to find and clean up duplicate matches using typer and rich:
 
 ```bash
 # Scan for duplicates without making changes
-cd backend && uv run python cleanup_duplicate_games.py scan
+cd backend && uv run python cleanup_duplicate_matches.py scan
 
 # Show database statistics
-cd backend && uv run python cleanup_duplicate_games.py stats
+cd backend && uv run python cleanup_duplicate_matches.py stats
 
 # Preview what would be deleted (dry run)
-cd backend && uv run python cleanup_duplicate_games.py clean --dry-run
+cd backend && uv run python cleanup_duplicate_matches.py clean --dry-run
 
 # Interactive mode - review and choose what to delete
-cd backend && uv run python cleanup_duplicate_games.py interactive
+cd backend && uv run python cleanup_duplicate_matches.py interactive
 
 # Automatic cleanup (with backup)
-cd backend && uv run python cleanup_duplicate_games.py clean --no-dry-run
+cd backend && uv run python cleanup_duplicate_matches.py clean --no-dry-run
 
 # Export duplicates to JSON for analysis
-cd backend && uv run python cleanup_duplicate_games.py scan --format json --save duplicates.json
+cd backend && uv run python cleanup_duplicate_matches.py scan --format json --save duplicates.json
 
 # IMPORTANT: The tool identifies duplicates using the same criteria as database constraints:
-# - For manual games: same teams, date, season, age group, game type, division
-# - For external games: same match_id
-# - Always keeps the newest game in each duplicate group by default
+# - For manual matches: same teams, date, season, age group, match type, division
+# - For external matches: same match_id
+# - Always keeps the newest match in each duplicate group by default
 ```
 
 #### Testing Workflow
@@ -495,7 +495,7 @@ npx supabase db reset            # ONLY for schema changes
 - **Vue 3 application** with components in `frontend/src/components/`
 - **Key components**:
   - `LeagueTable.vue` - Standings display
-  - `ScoresSchedule.vue` - Games and schedules
+  - `ScoresSchedule.vue` - Matches and schedules
   - `AdminPanel.vue` - Admin functionality
   - `AuthNav.vue`, `LoginForm.vue` - Authentication UI
 - **State management** in `frontend/src/stores/`
@@ -504,17 +504,20 @@ npx supabase db reset            # ONLY for schema changes
 ### Database Schema
 The application uses these main tables:
 - `teams` - Team information with age group and division
-- `games` - Game records with scores and dates
+- `matches` - Match records with scores and dates
 - `seasons` - Season definitions
 - `age_groups` - Age group categories
 - `divisions` - Division levels
+- `match_types` - Match type categories
+- `team_match_types` - Team-specific match type assignments
 - `user_profiles` - User data with roles
 
 ### API Endpoints
 Key API routes in the backend:
 - `/api/auth/*` - Authentication endpoints
 - `/api/standings` - League standings data
-- `/api/games` - Game schedules and scores
+- `/api/matches` - Match schedules and scores
+- `/api/match-types` - Match type management
 - `/api/teams` - Team information
 - `/api/admin/*` - Admin operations
 
@@ -576,5 +579,5 @@ This file contains **quick reference commands only**. For comprehensive informat
 
 ---
 
-**Last Updated**: 2025-10-08
+**Last Updated**: 2025-10-09
 **Documentation Standards**: [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)

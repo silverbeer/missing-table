@@ -62,9 +62,9 @@
           <AdminTeams />
         </div>
 
-        <!-- Games Management -->
-        <div v-if="currentSection === 'games'" class="p-6">
-          <AdminGames />
+        <!-- Matches Management -->
+        <div v-if="currentSection === 'matches'" class="p-6">
+          <AdminMatches />
         </div>
 
         <!-- Invites Management -->
@@ -83,7 +83,7 @@ import AdminAgeGroups from './admin/AdminAgeGroups.vue';
 import AdminSeasons from './admin/AdminSeasons.vue';
 import AdminDivisions from './admin/AdminDivisions.vue';
 import AdminTeams from './admin/AdminTeams.vue';
-import AdminGames from './admin/AdminGames.vue';
+import AdminMatches from './admin/AdminMatches.vue';
 import AdminInvites from './admin/AdminInvites.vue';
 
 export default {
@@ -93,7 +93,7 @@ export default {
     AdminSeasons,
     AdminDivisions,
     AdminTeams,
-    AdminGames,
+    AdminMatches,
     AdminInvites,
   },
   setup() {
@@ -105,7 +105,7 @@ export default {
       { id: 'seasons', name: 'Seasons' },
       { id: 'divisions', name: 'Divisions' },
       { id: 'teams', name: 'Teams' },
-      { id: 'games', name: 'Games' },
+      { id: 'matches', name: 'Matches' },
       { id: 'invites', name: 'Invites' },
     ];
 

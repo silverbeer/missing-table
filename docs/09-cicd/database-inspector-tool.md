@@ -13,9 +13,9 @@ A powerful CLI tool for inspecting and troubleshooting database data directly vi
 - **Direct Database Access**: Connects directly to Supabase, bypassing backend DAOs for raw data inspection
 - **Environment Aware**: Automatically loads `.env.{APP_ENV}` files (local/dev/prod)
 - **Rich Terminal UI**: Beautiful tables and panels using the `rich` library
-- **Comprehensive Commands**: Browse age groups, divisions, teams, games with filtering
-- **Duplicate Detection**: Identifies duplicate games based on key criteria
-- **Detailed Inspection**: Deep-dive into individual game records
+- **Comprehensive Commands**: Browse age groups, divisions, teams, matches with filtering
+- **Duplicate Detection**: Identifies duplicate matches based on key criteria
+- **Detailed Inspection**: Deep-dive into individual match records
 
 ## Installation
 
@@ -34,7 +34,7 @@ uv sync  # Ensure dependencies are installed
 cd backend && uv run python inspect_db.py stats
 ```
 
-Shows counts for teams, games, age groups, divisions, and seasons.
+Shows counts for teams, matches, age groups, divisions, and seasons.
 
 ### Browse Teams
 
@@ -61,65 +61,65 @@ cd backend && uv run python inspect_db.py age-groups
 cd backend && uv run python inspect_db.py divisions
 ```
 
-### Browse Games
+### Browse Matches
 
 ```bash
-# List recent games (default limit: 50)
-cd backend && uv run python inspect_db.py games
+# List recent matches (default limit: 50)
+cd backend && uv run python inspect_db.py matches
 
 # Increase limit
-cd backend && uv run python inspect_db.py games --limit 100
+cd backend && uv run python inspect_db.py matches --limit 100
 
 # Filter by team name
-cd backend && uv run python inspect_db.py games --team IFA
+cd backend && uv run python inspect_db.py matches --team IFA
 
 # Filter by age group
-cd backend && uv run python inspect_db.py games --age-group U14
+cd backend && uv run python inspect_db.py matches --age-group U14
 
 # Filter by season
-cd backend && uv run python inspect_db.py games --season 2025-2026
+cd backend && uv run python inspect_db.py matches --season 2025-2026
 
 # Combine filters
-cd backend && uv run python inspect_db.py games --team IFA --age-group U14
+cd backend && uv run python inspect_db.py matches --team IFA --age-group U14
 
 # Show SQL query for copy-paste into Supabase SQL Editor
-cd backend && uv run python inspect_db.py games --team IFA --show-sql
+cd backend && uv run python inspect_db.py matches --team IFA --show-sql
 ```
 
-### Find Duplicate Games
+### Find Duplicate Matches
 
 ```bash
-cd backend && uv run python inspect_db.py games --duplicates
+cd backend && uv run python inspect_db.py matches --duplicates
 ```
 
 **Duplicate Detection Criteria:**
-- Same game date
+- Same match date
 - Same home and away teams
 - Same season
-- Same game type
+- Same match type
 
-This helps identify games that were imported multiple times or have data quality issues.
+This helps identify matches that were imported multiple times or have data quality issues.
 
-### Game Details
+### Match Details
 
 ```bash
-cd backend && uv run python inspect_db.py game-detail <GAME_ID>
+cd backend && uv run python inspect_db.py match-detail <MATCH_ID>
 
 # Show SQL query for copy-paste into Supabase SQL Editor
-cd backend && uv run python inspect_db.py game-detail 123 --show-sql
+cd backend && uv run python inspect_db.py match-detail 123 --show-sql
 ```
 
-Shows comprehensive information about a specific game including:
-- Game metadata (ID, date, status, source)
+Shows comprehensive information about a specific match including:
+- Match metadata (ID, date, status, source)
 - Team information (home/away with IDs)
 - Score
-- Competition details (season, age group, division, game type)
+- Competition details (season, age group, division, match type)
 - Creation/update timestamps
-- Match ID (for external games)
+- Match ID (for external matches)
 
 **Example:**
 ```bash
-cd backend && uv run python inspect_db.py game-detail 473
+cd backend && uv run python inspect_db.py match-detail 473
 ```
 
 ## SQL Query Display
@@ -130,32 +130,32 @@ All commands support the `--show-sql` flag to display copy-paste ready SQL queri
 
 **Example:**
 ```bash
-cd backend && uv run python inspect_db.py games --team IFA --age-group U14 --show-sql
+cd backend && uv run python inspect_db.py matches --team IFA --age-group U14 --show-sql
 ```
 
 **Output:**
 ```sql
 SELECT
-    g.id,
-    g.game_date,
-    g.home_score,
-    g.away_score,
-    g.match_status,
-    g.source,
+    m.id,
+    m.match_date,
+    m.home_score,
+    m.away_score,
+    m.match_status,
+    m.source,
     ht.name AS home_team,
     at.name AS away_team,
     ag.name AS age_group,
     s.name AS season,
-    gt.name AS game_type
-FROM games g
-LEFT JOIN teams ht ON g.home_team_id = ht.id
-LEFT JOIN teams at ON g.away_team_id = at.id
-LEFT JOIN age_groups ag ON g.age_group_id = ag.id
-LEFT JOIN seasons s ON g.season_id = s.id
-LEFT JOIN game_types gt ON g.game_type_id = gt.id
+    mt.name AS match_type
+FROM matches m
+LEFT JOIN teams ht ON m.home_team_id = ht.id
+LEFT JOIN teams at ON m.away_team_id = at.id
+LEFT JOIN age_groups ag ON m.age_group_id = ag.id
+LEFT JOIN seasons s ON m.season_id = s.id
+LEFT JOIN match_types mt ON m.match_type_id = mt.id
 WHERE (ht.name ILIKE '%IFA%' OR at.name ILIKE '%IFA%')
   AND ag.name = 'U14'
-ORDER BY g.game_date DESC
+ORDER BY m.match_date DESC
 LIMIT 50;
 ```
 
@@ -194,33 +194,33 @@ cd backend && uv run python inspect_db.py games --team IFA
 
 ## Use Cases
 
-### 1. Investigating Duplicate Games
+### 1. Investigating Duplicate Matches
 
-**Problem**: User sees duplicate U14 IFA games, suspects one is actually a U13 game.
+**Problem**: User sees duplicate U14 IFA matches, suspects one is actually a U13 match.
 
 **Solution:**
 ```bash
-# Find all IFA games
-cd backend && uv run python inspect_db.py games --team IFA --age-group U14
+# Find all IFA matches
+cd backend && uv run python inspect_db.py matches --team IFA --age-group U14
 
 # Check for duplicates
-cd backend && uv run python inspect_db.py games --team IFA --duplicates
+cd backend && uv run python inspect_db.py matches --team IFA --duplicates
 
-# Inspect specific game details
-cd backend && uv run python inspect_db.py game-detail 473
+# Inspect specific match details
+cd backend && uv run python inspect_db.py match-detail 473
 ```
 
 ### 2. Verifying Age Group Assignments
 
-**Problem**: Match-scraper may have assigned wrong age group to games.
+**Problem**: Match-scraper may have assigned wrong age group to matches.
 
 **Solution:**
 ```bash
-# List all games for a team across all age groups
-cd backend && uv run python inspect_db.py games --team "IFA"
+# List all matches for a team across all age groups
+cd backend && uv run python inspect_db.py matches --team "IFA"
 
 # Check specific age group
-cd backend && uv run python inspect_db.py games --team "IFA" --age-group U13
+cd backend && uv run python inspect_db.py matches --team "IFA" --age-group U13
 ```
 
 ### 3. Data Quality Auditing
@@ -234,20 +234,20 @@ cd backend && uv run python inspect_db.py games --team "IFA" --age-group U13
 ./switch-env.sh dev && cd backend && uv run python inspect_db.py stats
 
 # Find all duplicates in production
-./switch-env.sh prod && cd backend && uv run python inspect_db.py games --duplicates
+./switch-env.sh prod && cd backend && uv run python inspect_db.py matches --duplicates
 ```
 
 ### 4. Debugging Import Issues
 
-**Problem**: Games imported from external source have issues.
+**Problem**: Matches imported from external source have issues.
 
 **Solution:**
 ```bash
 # Filter by source
-cd backend && uv run python inspect_db.py games --limit 100 | grep "import"
+cd backend && uv run python inspect_db.py matches --limit 100 | grep "import"
 
 # Check specific season
-cd backend && uv run python inspect_db.py games --season "2025-2026"
+cd backend && uv run python inspect_db.py matches --season "2025-2026"
 ```
 
 ## Technical Details
@@ -283,13 +283,13 @@ def load_environment():
 | `age-groups` | List all age groups | `--verbose` |
 | `divisions` | List all divisions | `--verbose` |
 | `teams` | List teams | `--search`, `--verbose` |
-| `games` | List games | `--team`, `--age-group`, `--season`, `--duplicates`, `--limit` |
-| `game-detail` | Show game details | `<GAME_ID>` (required) |
+| `matches` | List matches | `--team`, `--age-group`, `--season`, `--duplicates`, `--limit` |
+| `match-detail` | Show match details | `<MATCH_ID>` (required) |
 
 ## Related Tools
 
 - **db_tools.sh**: Database backup/restore operations
-- **cleanup_duplicate_games.py**: Interactive duplicate cleanup tool
+- **cleanup_duplicate_matches.py**: Interactive duplicate cleanup tool
 - **missing-table.sh**: Service management with database status
 
 ## Troubleshooting
@@ -321,12 +321,12 @@ Consider adding:
 - Export to CSV/JSON for offline analysis
 - Bulk update commands (change age group, fix duplicates)
 - Data validation rules (check for missing required fields)
-- Integration with cleanup_duplicate_games.py
-- Visualization of game distributions by age group/division
+- Integration with cleanup_duplicate_matches.py
+- Visualization of match distributions by age group/division
 
 ---
 
-**Last Updated**: 2025-10-08
+**Last Updated**: 2025-10-09
 **Author**: Claude Code
 **Related Files**:
 - `backend/inspect_db.py`

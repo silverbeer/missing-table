@@ -121,7 +121,7 @@ class EnhancedSportsDAO:
             return None
 
     def get_active_seasons(self) -> list[dict]:
-        """Get active seasons (current and future) for scheduling new games."""
+        """Get active seasons (current and future) for scheduling new matches."""
         try:
             from datetime import date
 
@@ -140,13 +140,13 @@ class EnhancedSportsDAO:
             print(f"Error querying active seasons: {e}")
             return []
 
-    def get_all_game_types(self) -> list[dict]:
-        """Get all game types."""
+    def get_all_match_types(self) -> list[dict]:
+        """Get all match types."""
         try:
-            response = self.client.table("game_types").select("*").order("name").execute()
+            response = self.client.table("match_types").select("*").order("name").execute()
             return response.data
         except Exception as e:
-            print(f"Error querying game types: {e}")
+            print(f"Error querying match types: {e}")
             return []
 
     def get_all_divisions(self) -> list[dict]:
@@ -203,10 +203,10 @@ class EnhancedSportsDAO:
             print(f"Error querying teams: {e}")
             return []
 
-    def get_teams_by_game_type_and_age_group(
-        self, game_type_id: int, age_group_id: int
+    def get_teams_by_match_type_and_age_group(
+        self, match_type_id: int, age_group_id: int
     ) -> list[dict]:
-        """Get teams that can participate in a specific game type and age group."""
+        """Get teams that can participate in a specific match type and age group."""
         try:
             response = (
                 self.client.table("teams")
@@ -222,15 +222,15 @@ class EnhancedSportsDAO:
                         name
                     )
                 ),
-                team_game_types!inner (
-                    game_type_id,
+                team_match_types!inner (
+                    match_type_id,
                     age_group_id,
                     is_active
                 )
             """)
-                .eq("team_game_types.game_type_id", game_type_id)
-                .eq("team_game_types.age_group_id", age_group_id)
-                .eq("team_game_types.is_active", True)
+                .eq("team_match_types.match_type_id", match_type_id)
+                .eq("team_match_types.age_group_id", age_group_id)
+                .eq("team_match_types.is_active", True)
                 .order("name")
                 .execute()
             )
@@ -253,38 +253,38 @@ class EnhancedSportsDAO:
 
             return teams
         except Exception as e:
-            print(f"Error querying teams by game type and age group: {e}")
+            print(f"Error querying teams by match type and age group: {e}")
             return []
 
-    def add_team_game_type_participation(
-        self, team_id: int, game_type_id: int, age_group_id: int
+    def add_team_match_type_participation(
+        self, team_id: int, match_type_id: int, age_group_id: int
     ) -> bool:
-        """Add a team's participation in a specific game type and age group."""
+        """Add a team's participation in a specific match type and age group."""
         try:
-            self.client.table("team_game_types").insert(
+            self.client.table("team_match_types").insert(
                 {
                     "team_id": team_id,
-                    "game_type_id": game_type_id,
+                    "match_type_id": match_type_id,
                     "age_group_id": age_group_id,
                     "is_active": True,
                 }
             ).execute()
             return True
         except Exception as e:
-            print(f"Error adding team game type participation: {e}")
+            print(f"Error adding team match type participation: {e}")
             return False
 
-    def remove_team_game_type_participation(
-        self, team_id: int, game_type_id: int, age_group_id: int
+    def remove_team_match_type_participation(
+        self, team_id: int, match_type_id: int, age_group_id: int
     ) -> bool:
-        """Remove a team's participation in a specific game type and age group."""
+        """Remove a team's participation in a specific match type and age group."""
         try:
-            self.client.table("team_game_types").update({"is_active": False}).eq(
+            self.client.table("team_match_types").update({"is_active": False}).eq(
                 "team_id", team_id
-            ).eq("game_type_id", game_type_id).eq("age_group_id", age_group_id).execute()
+            ).eq("match_type_id", match_type_id).eq("age_group_id", age_group_id).execute()
             return True
         except Exception as e:
-            print(f"Error removing team game type participation: {e}")
+            print(f"Error removing team match type participation: {e}")
             return False
 
     def add_team(
@@ -341,24 +341,24 @@ class EnhancedSportsDAO:
             print(f"Error updating team division: {e}")
             return False
 
-    # === Game Methods ===
+    # === Match Methods ===
 
-    def get_all_games(
+    def get_all_matches(
         self,
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
-        game_type: str | None = None,
+        match_type: str | None = None,
     ) -> list[dict]:
-        """Get all games with optional filters."""
+        """Get all matches with optional filters."""
         try:
-            query = self.client.table("games").select("""
+            query = self.client.table("matches").select("""
                 *,
-                home_team:teams!games_home_team_id_fkey(id, name),
-                away_team:teams!games_away_team_id_fkey(id, name),
+                home_team:teams!matches_home_team_id_fkey(id, name),
+                away_team:teams!matches_away_team_id_fkey(id, name),
                 season:seasons(id, name),
                 age_group:age_groups(id, name),
-                game_type:game_types(id, name),
+                match_type:match_types(id, name),
                 division:divisions(id, name)
             """)
 
@@ -370,75 +370,75 @@ class EnhancedSportsDAO:
             if division_id:
                 query = query.eq("division_id", division_id)
 
-            response = query.order("game_date", desc=True).execute()
+            response = query.order("match_date", desc=True).execute()
 
-            # Filter by game_type name if specified (post-query filtering)
-            filtered_games = response.data
-            if game_type:
-                filtered_games = [
-                    game
-                    for game in response.data
-                    if game.get("game_type", {}).get("name") == game_type
+            # Filter by match_type name if specified (post-query filtering)
+            filtered_matches = response.data
+            if match_type:
+                filtered_matches = [
+                    match
+                    for match in response.data
+                    if match.get("match_type", {}).get("name") == match_type
                 ]
 
             # Flatten the response for easier use
-            games = []
-            for game in filtered_games:
-                flat_game = {
-                    "id": game["id"],
-                    "game_date": game["game_date"],
-                    "home_team_id": game["home_team_id"],
-                    "away_team_id": game["away_team_id"],
-                    "home_team_name": game["home_team"]["name"]
-                    if game.get("home_team")
+            matches = []
+            for match in filtered_matches:
+                flat_match = {
+                    "id": match["id"],
+                    "match_date": match["match_date"],
+                    "home_team_id": match["home_team_id"],
+                    "away_team_id": match["away_team_id"],
+                    "home_team_name": match["home_team"]["name"]
+                    if match.get("home_team")
                     else "Unknown",
-                    "away_team_name": game["away_team"]["name"]
-                    if game.get("away_team")
+                    "away_team_name": match["away_team"]["name"]
+                    if match.get("away_team")
                     else "Unknown",
-                    "home_score": game["home_score"],
-                    "away_score": game["away_score"],
-                    "season_id": game["season_id"],
-                    "season_name": game["season"]["name"] if game.get("season") else "Unknown",
-                    "age_group_id": game["age_group_id"],
-                    "age_group_name": game["age_group"]["name"]
-                    if game.get("age_group")
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "season_id": match["season_id"],
+                    "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+                    "age_group_id": match["age_group_id"],
+                    "age_group_name": match["age_group"]["name"]
+                    if match.get("age_group")
                     else "Unknown",
-                    "game_type_id": game["game_type_id"],
-                    "game_type_name": game["game_type"]["name"]
-                    if game.get("game_type")
+                    "match_type_id": match["match_type_id"],
+                    "match_type_name": match["match_type"]["name"]
+                    if match.get("match_type")
                     else "Unknown",
-                    "division_id": game.get("division_id"),
-                    "division_name": game["division"]["name"]
-                    if game.get("division")
+                    "division_id": match.get("division_id"),
+                    "division_name": match["division"]["name"]
+                    if match.get("division")
                     else "Unknown",
-                    "match_status": game.get("match_status"),
-                    "created_by": game.get("created_by"),
-                    "updated_by": game.get("updated_by"),
-                    "source": game.get("source", "manual"),
-                    "match_id": game.get("match_id"),  # External match identifier
-                    "created_at": game["created_at"],
-                    "updated_at": game["updated_at"],
+                    "match_status": match.get("match_status"),
+                    "created_by": match.get("created_by"),
+                    "updated_by": match.get("updated_by"),
+                    "source": match.get("source", "manual"),
+                    "match_id": match.get("match_id"),  # External match identifier
+                    "created_at": match["created_at"],
+                    "updated_at": match["updated_at"],
                 }
-                games.append(flat_game)
+                matches.append(flat_match)
 
-            return games
+            return matches
 
         except Exception as e:
-            print(f"Error querying games: {e}")
+            print(f"Error querying matches: {e}")
             return []
 
-    def get_games_by_team(self, team_id: int, season_id: int | None = None) -> list[dict]:
-        """Get all games for a specific team."""
+    def get_matches_by_team(self, team_id: int, season_id: int | None = None) -> list[dict]:
+        """Get all matches for a specific team."""
         try:
             query = (
-                self.client.table("games")
+                self.client.table("matches")
                 .select("""
                 *,
-                home_team:teams!games_home_team_id_fkey(id, name),
-                away_team:teams!games_away_team_id_fkey(id, name),
+                home_team:teams!matches_home_team_id_fkey(id, name),
+                away_team:teams!matches_away_team_id_fkey(id, name),
                 season:seasons(id, name),
                 age_group:age_groups(id, name),
-                game_type:game_types(id, name),
+                match_type:match_types(id, name),
                 division:divisions(id, name)
             """)
                 .or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
@@ -447,80 +447,80 @@ class EnhancedSportsDAO:
             if season_id:
                 query = query.eq("season_id", season_id)
 
-            response = query.order("game_date", desc=True).execute()
+            response = query.order("match_date", desc=True).execute()
 
-            # Flatten response (same as get_all_games)
-            games = []
-            for game in response.data:
-                flat_game = {
-                    "id": game["id"],
-                    "game_date": game["game_date"],
-                    "home_team_id": game["home_team_id"],
-                    "away_team_id": game["away_team_id"],
-                    "home_team_name": game["home_team"]["name"]
-                    if game.get("home_team")
+            # Flatten response (same as get_all_matches)
+            matches = []
+            for match in response.data:
+                flat_match = {
+                    "id": match["id"],
+                    "match_date": match["match_date"],
+                    "home_team_id": match["home_team_id"],
+                    "away_team_id": match["away_team_id"],
+                    "home_team_name": match["home_team"]["name"]
+                    if match.get("home_team")
                     else "Unknown",
-                    "away_team_name": game["away_team"]["name"]
-                    if game.get("away_team")
+                    "away_team_name": match["away_team"]["name"]
+                    if match.get("away_team")
                     else "Unknown",
-                    "home_score": game["home_score"],
-                    "away_score": game["away_score"],
-                    "season_id": game["season_id"],
-                    "season_name": game["season"]["name"] if game.get("season") else "Unknown",
-                    "age_group_id": game["age_group_id"],
-                    "age_group_name": game["age_group"]["name"]
-                    if game.get("age_group")
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "season_id": match["season_id"],
+                    "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+                    "age_group_id": match["age_group_id"],
+                    "age_group_name": match["age_group"]["name"]
+                    if match.get("age_group")
                     else "Unknown",
-                    "game_type_id": game["game_type_id"],
-                    "game_type_name": game["game_type"]["name"]
-                    if game.get("game_type")
+                    "match_type_id": match["match_type_id"],
+                    "match_type_name": match["match_type"]["name"]
+                    if match.get("match_type")
                     else "Unknown",
-                    "division_id": game.get("division_id"),
-                    "division_name": game["division"]["name"]
-                    if game.get("division")
+                    "division_id": match.get("division_id"),
+                    "division_name": match["division"]["name"]
+                    if match.get("division")
                     else "Unknown",
-                    "match_status": game.get("match_status"),
-                    "created_by": game.get("created_by"),
-                    "updated_by": game.get("updated_by"),
-                    "source": game.get("source", "manual"),
-                    "created_at": game.get("created_at"),
-                    "updated_at": game.get("updated_at"),
+                    "match_status": match.get("match_status"),
+                    "created_by": match.get("created_by"),
+                    "updated_by": match.get("updated_by"),
+                    "source": match.get("source", "manual"),
+                    "created_at": match.get("created_at"),
+                    "updated_at": match.get("updated_at"),
                 }
-                games.append(flat_game)
+                matches.append(flat_match)
 
-            return games
+            return matches
 
         except Exception as e:
-            print(f"Error querying games by team: {e}")
+            print(f"Error querying matches by team: {e}")
             return []
 
-    def add_game(
+    def add_match(
         self,
         home_team_id: int,
         away_team_id: int,
-        game_date: str,
+        match_date: str,
         home_score: int,
         away_score: int,
         season_id: int,
         age_group_id: int,
-        game_type_id: int,
+        match_type_id: int,
         division_id: int | None = None,
         status: str | None = "scheduled",
         created_by: str | None = None,
         source: str = "manual",
-        match_id: str | None = None,
+        external_match_id: str | None = None,
     ) -> bool:
-        """Add a new game with audit trail and optional match_id."""
+        """Add a new match with audit trail and optional external match_id."""
         try:
             data = {
-                "game_date": game_date,
+                "match_date": match_date,
                 "home_team_id": home_team_id,
                 "away_team_id": away_team_id,
                 "home_score": home_score,
                 "away_score": away_score,
                 "season_id": season_id,
                 "age_group_id": age_group_id,
-                "game_type_id": game_type_id,
+                "match_type_id": match_type_id,
                 "source": source,
             }
 
@@ -531,79 +531,79 @@ class EnhancedSportsDAO:
                 data["match_status"] = status  # Map status to match_status column
             if created_by:
                 data["created_by"] = created_by
-            if match_id:
-                data["match_id"] = match_id
+            if external_match_id:
+                data["match_id"] = external_match_id
 
-            response = self.client.table("games").insert(data).execute()
+            response = self.client.table("matches").insert(data).execute()
 
             return bool(response.data)
 
         except Exception as e:
-            print(f"Error adding game: {e}")
+            print(f"Error adding match: {e}")
             return False
 
-    def add_game_with_match_id(
+    def add_match_with_external_id(
         self,
         home_team_id: int,
         away_team_id: int,
-        game_date: str,
+        match_date: str,
         home_score: int,
         away_score: int,
         season_id: int,
         age_group_id: int,
-        game_type_id: int,
-        match_id: str,
+        match_type_id: int,
+        external_match_id: str,
         division_id: int | None = None,
         created_by: str | None = None,
         source: str = "match-scraper",
     ) -> bool:
-        """Add a new game with external match_id and audit trail.
+        """Add a new match with external match_id and audit trail.
 
-        This is a convenience wrapper around add_game() for backwards compatibility.
-        Consider using add_game() directly with match_id parameter.
+        This is a convenience wrapper around add_match() for backwards compatibility.
+        Consider using add_match() directly with external_match_id parameter.
         """
-        return self.add_game(
+        return self.add_match(
             home_team_id=home_team_id,
             away_team_id=away_team_id,
-            game_date=game_date,
+            match_date=match_date,
             home_score=home_score,
             away_score=away_score,
             season_id=season_id,
             age_group_id=age_group_id,
-            game_type_id=game_type_id,
+            match_type_id=match_type_id,
             division_id=division_id,
             created_by=created_by,
             source=source,
-            match_id=match_id,
+            external_match_id=external_match_id,
         )
 
-    def update_game(
+    def update_match(
         self,
-        game_id: int,
+        match_id: int,
         home_team_id: int,
         away_team_id: int,
-        game_date: str,
+        match_date: str,
         home_score: int,
         away_score: int,
         season_id: int,
         age_group_id: int,
-        game_type_id: int,
+        match_type_id: int,
         division_id: int | None = None,
         status: str | None = None,
         updated_by: str | None = None,
-        match_id: str | None = None,
+        external_match_id: str | None = None,
     ) -> bool:
-        """Update an existing game with audit trail and optional match_id."""
+        """Update an existing match with audit trail and optional external match_id."""
         try:
             data = {
-                "game_date": game_date,
+                "match_date": match_date,
                 "home_team_id": home_team_id,
                 "away_team_id": away_team_id,
                 "home_score": home_score,
                 "away_score": away_score,
                 "season_id": season_id,
                 "age_group_id": age_group_id,
-                "game_type_id": game_type_id,
+                "match_type_id": match_type_id,
                 "division_id": division_id,
             }
 
@@ -612,24 +612,24 @@ class EnhancedSportsDAO:
                 data["match_status"] = status
             if updated_by:
                 data["updated_by"] = updated_by
-            if match_id is not None:  # Allow explicit None to clear match_id
-                data["match_id"] = match_id
+            if external_match_id is not None:  # Allow explicit None to clear match_id
+                data["match_id"] = external_match_id
 
-            response = self.client.table("games").update(data).eq("id", game_id).execute()
+            response = self.client.table("matches").update(data).eq("id", match_id).execute()
 
             return bool(response.data)
 
         except Exception as e:
-            print(f"Error updating game: {e}")
+            print(f"Error updating match: {e}")
             return False
 
-    def get_game_by_id(self, game_id: int) -> dict | None:
-        """Get a single game by ID."""
+    def get_match_by_id(self, match_id: int) -> dict | None:
+        """Get a single match by ID."""
         try:
             response = (
-                self.client.table("games")
+                self.client.table("matches")
                 .select("*")
-                .eq("id", game_id)
+                .eq("id", match_id)
                 .execute()
             )
 
@@ -639,18 +639,18 @@ class EnhancedSportsDAO:
                 return None
 
         except Exception as e:
-            print(f"Error retrieving game by ID: {e}")
+            print(f"Error retrieving match by ID: {e}")
             return None
 
-    def delete_game(self, game_id: int) -> bool:
-        """Delete a game."""
+    def delete_match(self, match_id: int) -> bool:
+        """Delete a match."""
         try:
-            response = self.client.table("games").delete().eq("id", game_id).execute()
+            response = self.client.table("matches").delete().eq("id", match_id).execute()
 
             return True  # Supabase delete returns empty data even on success
 
         except Exception as e:
-            print(f"Error deleting game: {e}")
+            print(f"Error deleting match: {e}")
             return False
 
     def get_league_table(
@@ -658,16 +658,16 @@ class EnhancedSportsDAO:
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
-        game_type: str = "League",
+        match_type: str = "League",
     ) -> list[dict]:
         """Generate league table with optional filters."""
         try:
             # Build query
-            query = self.client.table("games").select("""
+            query = self.client.table("matches").select("""
                 *,
-                home_team:teams!games_home_team_id_fkey(id, name),
-                away_team:teams!games_away_team_id_fkey(id, name),
-                game_type:game_types(id, name)
+                home_team:teams!matches_home_team_id_fkey(id, name),
+                away_team:teams!matches_away_team_id_fkey(id, name),
+                match_type:match_types(id, name)
             """)
 
             # Apply filters
@@ -678,27 +678,27 @@ class EnhancedSportsDAO:
             if division_id:
                 query = query.eq("division_id", division_id)
 
-            # Get games
+            # Get matches
             response = query.execute()
 
-            # Filter by game type name and status
-            games = [g for g in response.data if g.get("game_type", {}).get("name") == game_type]
+            # Filter by match type name and status
+            matches = [m for m in response.data if m.get("match_type", {}).get("name") == match_type]
 
-            # Filter to only include played games (exclude scheduled/postponed/cancelled)
+            # Filter to only include played matches (exclude scheduled/postponed/cancelled)
             # Use match_status field if available, otherwise fallback to date-based logic for backwards compatibility
-            played_games = []
-            for game in games:
-                game_status = game.get("match_status")
-                if game_status:
+            played_matches = []
+            for match in matches:
+                match_status = match.get("match_status")
+                if match_status:
                     # Use match_status field if available
-                    if game_status == "played":
-                        played_games.append(game)
+                    if match_status == "played":
+                        played_matches.append(match)
                 else:
                     # Fallback to date-based logic for backwards compatibility
                     from datetime import date
-                    game_date = date.fromisoformat(game["game_date"])
-                    if game_date <= date.today():
-                        played_games.append(game)
+                    match_date = date.fromisoformat(match["match_date"])
+                    if match_date <= date.today():
+                        played_matches.append(match)
 
             # Calculate standings
             from collections import defaultdict
@@ -716,13 +716,13 @@ class EnhancedSportsDAO:
                 }
             )
 
-            for game in played_games:
-                home_team = game["home_team"]["name"]
-                away_team = game["away_team"]["name"]
-                home_score = game["home_score"]
-                away_score = game["away_score"]
+            for match in played_matches:
+                home_team = match["home_team"]["name"]
+                away_team = match["away_team"]["name"]
+                home_score = match["home_score"]
+                away_score = match["away_score"]
 
-                # Skip games without scores
+                # Skip matches without scores
                 if home_score is None or away_score is None:
                     continue
 

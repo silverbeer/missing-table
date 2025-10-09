@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Populate team_game_types table to fix Add Game team dropdown."""
+"""Populate team_match_types table to fix Add Match team dropdown."""
 
 import os
 from dotenv import load_dotenv
@@ -25,21 +25,21 @@ key = os.getenv("SUPABASE_SERVICE_KEY")
 
 supabase: Client = create_client(url, key)
 
-def populate_team_game_types():
-    """Populate team_game_types table based on team_mappings and game_types."""
+def populate_team_match_types():
+    """Populate team_match_types table based on team_mappings and match_types."""
 
-    print("🔄 Populating team_game_types table...")
+    print("🔄 Populating team_match_types table...")
     print()
 
     # Check current state
     try:
-        current_data = supabase.table("team_game_types").select("*").execute()
-        print(f"📊 Current team_game_types entries: {len(current_data.data)}")
+        current_data = supabase.table("team_match_types").select("*").execute()
+        print(f"📊 Current team_match_types entries: {len(current_data.data)}")
 
         if len(current_data.data) > 0:
-            print("✅ team_game_types table already has data!")
+            print("✅ team_match_types table already has data!")
             print("   Clearing existing data to ensure clean population...")
-            supabase.table("team_game_types").delete().neq('id', 0).execute()
+            supabase.table("team_match_types").delete().neq('id', 0).execute()
             print("   Cleared existing data.")
 
     except Exception as e:
@@ -59,50 +59,50 @@ def populate_team_game_types():
         print(f"❌ Error getting team mappings: {e}")
         return False
 
-    # Get all game types
+    # Get all match types
     try:
-        game_types = supabase.table("game_types").select("id, name").execute()
-        print(f"📊 Found {len(game_types.data)} game types")
+        match_types = supabase.table("match_types").select("id, name").execute()
+        print(f"📊 Found {len(match_types.data)} match types")
 
-        for gt in game_types.data:
-            print(f"   - {gt['name']} (ID: {gt['id']})")
+        for mt in match_types.data:
+            print(f"   - {mt['name']} (ID: {mt['id']})")
 
     except Exception as e:
-        print(f"❌ Error getting game types: {e}")
+        print(f"❌ Error getting match types: {e}")
         return False
 
-    # Create team_game_types entries for each combination
-    print("🔄 Creating team_game_types entries...")
+    # Create team_match_types entries for each combination
+    print("🔄 Creating team_match_types entries...")
 
-    team_game_types_data = []
+    team_match_types_data = []
 
     for tm in team_mappings.data:
-        for gt in game_types.data:
+        for mt in match_types.data:
             entry = {
                 'team_id': tm['team_id'],
-                'game_type_id': gt['id'],
+                'match_type_id': mt['id'],
                 'age_group_id': tm['age_group_id'],
                 'is_active': True
             }
-            team_game_types_data.append(entry)
+            team_match_types_data.append(entry)
 
-    print(f"📊 Will create {len(team_game_types_data)} team_game_types entries")
+    print(f"📊 Will create {len(team_match_types_data)} team_match_types entries")
 
     # Insert in batches
     batch_size = 100
     total_inserted = 0
 
     try:
-        for i in range(0, len(team_game_types_data), batch_size):
-            batch = team_game_types_data[i:i + batch_size]
-            result = supabase.table("team_game_types").insert(batch).execute()
+        for i in range(0, len(team_match_types_data), batch_size):
+            batch = team_match_types_data[i:i + batch_size]
+            result = supabase.table("team_match_types").insert(batch).execute()
             total_inserted += len(result.data)
             print(f"   ✅ Inserted batch {i//batch_size + 1}: {len(result.data)} entries")
 
-        print(f"✅ Successfully created {total_inserted} team_game_types entries")
+        print(f"✅ Successfully created {total_inserted} team_match_types entries")
 
     except Exception as e:
-        print(f"❌ Error inserting team_game_types: {e}")
+        print(f"❌ Error inserting team_match_types: {e}")
         return False
 
     # Verify the fix
@@ -110,11 +110,11 @@ def populate_team_game_types():
 
     try:
         # Test the specific query that was failing
-        verification_query = supabase.table("team_game_types").select("*").eq('game_type_id', 1).eq('age_group_id', 1).execute()
+        verification_query = supabase.table("team_match_types").select("*").eq('match_type_id', 1).eq('age_group_id', 1).execute()
         print(f"✅ League + U13 combinations: {len(verification_query.data)} entries")
 
         if len(verification_query.data) > 0:
-            print("🎉 team_game_types table is now properly populated!")
+            print("🎉 team_match_types table is now properly populated!")
             return True
         else:
             print("⚠️ No League + U13 entries found. Something may be wrong.")
@@ -125,18 +125,18 @@ def populate_team_game_types():
         return False
 
 if __name__ == "__main__":
-    print("⚽ Team Game Types Populator")
+    print("⚽ Team Match Types Populator")
     print("=" * 40)
 
-    success = populate_team_game_types()
+    success = populate_team_match_types()
 
     if success:
         print()
-        print("✅ Successfully populated team_game_types table!")
-        print("   The Add Game screen team dropdowns should now work properly.")
+        print("✅ Successfully populated team_match_types table!")
+        print("   The Add Match screen team dropdowns should now work properly.")
         print()
         print("🔍 Test the teams API with:")
-        print("   curl 'http://127.0.0.1:8000/api/teams?game_type_id=1&age_group_id=1'")
+        print("   curl 'http://127.0.0.1:8000/api/teams?match_type_id=1&age_group_id=1'")
     else:
         print()
-        print("❌ Failed to populate team_game_types table. Check the errors above.")
+        print("❌ Failed to populate team_match_types table. Check the errors above.")
