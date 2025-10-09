@@ -297,7 +297,7 @@ export default {
 
         // Add filtering if both match type and age group are selected
         if (selectedMatchType.value && selectedAgeGroup.value) {
-          url += `?game_type_id=${selectedMatchType.value}&age_group_id=${selectedAgeGroup.value}`;
+          url += `?match_type_id=${selectedMatchType.value}&age_group_id=${selectedAgeGroup.value}`;
           console.log('Fetching filtered teams with URL:', url);
         } else {
           console.log('Fetching all teams (no filter)');
