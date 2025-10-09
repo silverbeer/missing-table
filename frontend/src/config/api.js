@@ -47,7 +47,7 @@ export const API_ENDPOINTS = {
   TEAMS: `${API_BASE_URL}/api/teams`,
   AGE_GROUPS: `${API_BASE_URL}/api/age-groups`,
   SEASONS: `${API_BASE_URL}/api/seasons`,
-  GAMES: `${API_BASE_URL}/api/games`,
+  MATCHES: `${API_BASE_URL}/api/matches`,
   STANDINGS: `${API_BASE_URL}/api/standings`,
 };
 

@@ -95,23 +95,23 @@
             <LeagueTable />
           </div>
 
-          <!-- Games -->
+          <!-- Matches -->
           <div v-if="currentTab === 'scores'" class="p-4">
             <ScoresSchedule />
           </div>
 
-          <!-- Add Game Form (auth required) -->
-          <div v-if="currentTab === 'add-game'" class="p-4">
+          <!-- Add Match Form (auth required) -->
+          <div v-if="currentTab === 'add-match'" class="p-4">
             <div v-if="!authStore.isAuthenticated" class="auth-required">
-              <p>You must be logged in to add games.</p>
+              <p>You must be logged in to add matches.</p>
               <button @click="showLoginModal = true" class="login-prompt-btn">
                 Login
               </button>
             </div>
             <div v-else-if="!authStore.canManageTeam" class="permission-denied">
-              <p>You need team manager or admin permissions to add games.</p>
+              <p>You need team manager or admin permissions to add matches.</p>
             </div>
-            <GameForm v-else />
+            <MatchForm v-else />
           </div>
 
           <!-- Profile (auth required) -->
@@ -132,7 +132,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from './stores/auth';
-import GameForm from './components/GameForm.vue';
+import MatchForm from './components/MatchForm.vue';
 import LeagueTable from './components/LeagueTable.vue';
 import ScoresSchedule from './components/ScoresSchedule.vue';
 import AuthNav from './components/AuthNav.vue';
@@ -143,7 +143,7 @@ import AdminPanel from './components/AdminPanel.vue';
 export default {
   name: 'App',
   components: {
-    GameForm,
+    MatchForm,
     LeagueTable,
     ScoresSchedule,
     AuthNav,
@@ -159,10 +159,10 @@ export default {
     // Define all possible tabs
     const allTabs = [
       { id: 'table', name: 'Standings', requiresAuth: true },
-      { id: 'scores', name: 'Games', requiresAuth: true },
+      { id: 'scores', name: 'Matches', requiresAuth: true },
       {
-        id: 'add-game',
-        name: 'Add Game',
+        id: 'add-match',
+        name: 'Add Match',
         requiresAuth: true,
         requiresRole: ['admin', 'team-manager'],
       },

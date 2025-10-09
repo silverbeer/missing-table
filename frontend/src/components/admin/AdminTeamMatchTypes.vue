@@ -1,6 +1,8 @@
 <template>
   <div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-2xl font-bold mb-6">Manage Team Game Type Participation</h2>
+    <h2 class="text-2xl font-bold mb-6">
+      Manage Team Match Type Participation
+    </h2>
 
     <!-- Add Team Section -->
     <div class="mb-8 p-4 border border-gray-200 rounded-lg">
@@ -63,24 +65,24 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Game Types
+            Match Types
             <span class="text-xs text-gray-500"
               >(auto-selected based on team type)</span
             >
           </label>
           <div class="space-y-1">
             <label
-              v-for="gameType in gameTypes"
-              :key="gameType.id"
+              v-for="matchType in matchTypes"
+              :key="matchType.id"
               class="flex items-center text-sm"
             >
               <input
                 type="checkbox"
-                :value="gameType.id"
-                v-model="newTeam.gameTypeIds"
+                :value="matchType.id"
+                v-model="newTeam.matchTypeIds"
                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span class="ml-2">{{ gameType.name }}</span>
+              <span class="ml-2">{{ matchType.name }}</span>
             </label>
           </div>
         </div>
@@ -91,7 +93,7 @@
           !newTeam.name ||
           !newTeam.ageGroupId ||
           !newTeam.teamType ||
-          newTeam.gameTypeIds.length === 0
+          newTeam.matchTypeIds.length === 0
         "
         class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300"
       >
@@ -132,19 +134,19 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1"
-            >Filter by Game Type</label
+            >Filter by Match Type</label
           >
           <select
-            v-model="filterGameType"
+            v-model="filterMatchType"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           >
-            <option value="">All Game Types</option>
+            <option value="">All Match Types</option>
             <option
-              v-for="gameType in gameTypes"
-              :key="gameType.id"
-              :value="gameType.id"
+              v-for="matchType in matchTypes"
+              :key="matchType.id"
+              :value="matchType.id"
             >
-              {{ gameType.name }}
+              {{ matchType.name }}
             </option>
           </select>
         </div>
@@ -181,7 +183,7 @@
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Game Types
+                Match Types
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -214,16 +216,16 @@
                   <div v-for="ageGroup in team.age_groups" :key="ageGroup.id">
                     <span class="font-medium">{{ ageGroup.name }}:</span>
                     <span
-                      v-for="gameType in gameTypes"
-                      :key="gameType.id"
+                      v-for="matchType in matchTypes"
+                      :key="matchType.id"
                       class="inline-block text-xs px-2 py-1 rounded mr-1"
                       :class="
-                        teamCanParticipate(team.id, gameType.id, ageGroup.id)
+                        teamCanParticipate(team.id, matchType.id, ageGroup.id)
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-500'
                       "
                     >
-                      {{ gameType.name }}
+                      {{ matchType.name }}
                     </span>
                   </div>
                 </div>
@@ -260,23 +262,23 @@
 import { ref, onMounted, computed } from 'vue';
 
 export default {
-  name: 'AdminTeamGameTypes',
+  name: 'AdminTeamMatchTypes',
   setup() {
     const teams = ref([]);
     const ageGroups = ref([]);
-    const gameTypes = ref([]);
+    const matchTypes = ref([]);
     const message = ref('');
     const error = ref(false);
 
     const filterAgeGroup = ref('');
-    const filterGameType = ref('');
+    const filterMatchType = ref('');
 
     const newTeam = ref({
       name: '',
       city: '',
       teamType: '',
       ageGroupId: '',
-      gameTypeIds: [],
+      matchTypeIds: [],
     });
 
     const filteredTeams = computed(() => {
@@ -294,8 +296,8 @@ export default {
     const loadTeams = async () => {
       try {
         let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`;
-        if (filterGameType.value && filterAgeGroup.value) {
-          url += `?game_type_id=${filterGameType.value}&age_group_id=${filterAgeGroup.value}`;
+        if (filterMatchType.value && filterAgeGroup.value) {
+          url += `?match_type_id=${filterMatchType.value}&age_group_id=${filterAgeGroup.value}`;
         }
 
         const response = await fetch(url);
@@ -318,12 +320,12 @@ export default {
           ageGroups.value = await ageGroupsResponse.json();
         }
 
-        // Load game types
-        const gameTypesResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
+        // Load match types
+        const matchTypesResponse = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
         );
-        if (gameTypesResponse.ok) {
-          gameTypes.value = await gameTypesResponse.json();
+        if (matchTypesResponse.ok) {
+          matchTypes.value = await matchTypesResponse.json();
         }
       } catch (err) {
         console.error('Error loading reference data:', err);
@@ -331,18 +333,20 @@ export default {
     };
 
     const onTeamTypeChange = () => {
-      // Auto-select game types based on team type
+      // Auto-select match types based on team type
       const teamType = newTeam.value.teamType;
-      const leagueId = gameTypes.value.find(gt => gt.name === 'League')?.id;
-      const friendlyId = gameTypes.value.find(gt => gt.name === 'Friendly')?.id;
-      const tournamentId = gameTypes.value.find(
+      const leagueId = matchTypes.value.find(gt => gt.name === 'League')?.id;
+      const friendlyId = matchTypes.value.find(
+        gt => gt.name === 'Friendly'
+      )?.id;
+      const tournamentId = matchTypes.value.find(
         gt => gt.name === 'Tournament'
       )?.id;
-      const playoffId = gameTypes.value.find(gt => gt.name === 'Playoff')?.id;
+      const playoffId = matchTypes.value.find(gt => gt.name === 'Playoff')?.id;
 
       if (teamType === 'league') {
-        // League teams can participate in all game types
-        newTeam.value.gameTypeIds = [
+        // League teams can participate in all match types
+        newTeam.value.matchTypeIds = [
           leagueId,
           friendlyId,
           tournamentId,
@@ -350,12 +354,14 @@ export default {
         ].filter(id => id);
       } else if (teamType === 'guest') {
         // Guest teams typically only for friendlies
-        newTeam.value.gameTypeIds = [friendlyId].filter(id => id);
+        newTeam.value.matchTypeIds = [friendlyId].filter(id => id);
       } else if (teamType === 'tournament') {
         // Tournament teams for tournaments and friendlies
-        newTeam.value.gameTypeIds = [tournamentId, friendlyId].filter(id => id);
+        newTeam.value.matchTypeIds = [tournamentId, friendlyId].filter(
+          id => id
+        );
       } else {
-        newTeam.value.gameTypeIds = [];
+        newTeam.value.matchTypeIds = [];
       }
     };
 
@@ -378,16 +384,16 @@ export default {
 
         if (!teamResponse.ok) throw new Error('Failed to create team');
 
-        // Then add game type participation for each selected game type
+        // Then add match type participation for each selected match type
         await teamResponse.json();
         // Note: This would need the team ID from the response
         // For now, we'll reload teams to see the new team
 
-        const gameTypeNames = newTeam.value.gameTypeIds
-          .map(id => gameTypes.value.find(gt => gt.id === id)?.name)
+        const matchTypeNames = newTeam.value.matchTypeIds
+          .map(id => matchTypes.value.find(gt => gt.id === id)?.name)
           .join(', ');
 
-        message.value = `${newTeam.value.teamType.charAt(0).toUpperCase() + newTeam.value.teamType.slice(1)} team "${newTeam.value.name}" added successfully for ${gameTypeNames} games`;
+        message.value = `${newTeam.value.teamType.charAt(0).toUpperCase() + newTeam.value.teamType.slice(1)} team "${newTeam.value.name}" added successfully for ${matchTypeNames} matches`;
         error.value = false;
 
         // Reset form
@@ -396,7 +402,7 @@ export default {
           city: '',
           teamType: '',
           ageGroupId: '',
-          gameTypeIds: [],
+          matchTypeIds: [],
         };
 
         // Reload teams
@@ -429,11 +435,11 @@ export default {
     return {
       teams,
       ageGroups,
-      gameTypes,
+      matchTypes,
       message,
       error,
       filterAgeGroup,
-      filterGameType,
+      filterMatchType,
       newTeam,
       filteredTeams,
       loadTeams,

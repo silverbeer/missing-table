@@ -26,8 +26,8 @@ def main():
     parser.add_argument(
         "--permissions",
         nargs="+",
-        default=["manage_games"],
-        help="Permissions to grant (default: manage_games)"
+        default=["manage_matches"],
+        help="Permissions to grant (default: manage_matches)"
     )
     parser.add_argument(
         "--expires-days",
@@ -86,13 +86,13 @@ Usage:
 Example API calls:
 curl -H "Authorization: Bearer {token}" \\
      -H "Content-Type: application/json" \\
-     -X POST http://localhost:8000/api/games \\
-     -d '{{"game_date": "2024-03-15", "home_team_id": 1, ...}}'
+     -X POST http://localhost:8000/api/matches \\
+     -d '{{"match_date": "2024-03-15", "home_team_id": 1, ...}}'
 
 curl -H "Authorization: Bearer {token}" \\
      -H "Content-Type: application/json" \\
-     -X PUT http://localhost:8000/api/games/123 \\
-     -d '{{"game_date": "2024-03-15", "home_score": 2, "away_score": 1, ...}}'
+     -X PUT http://localhost:8000/api/matches/123 \\
+     -d '{{"match_date": "2024-03-15", "home_score": 2, "away_score": 1, ...}}'
 
 SECURITY NOTES:
 - Keep this token secure and never commit it to version control

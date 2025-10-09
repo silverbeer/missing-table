@@ -1,16 +1,16 @@
 -- Add match_id field for external match tracking (like match-scraper)
 -- and improve duplicate prevention
 
--- Add match_id column for external system tracking (numeric with room to grow)
+-- Add match_id column for external system tracking (TEXT for flexibility with external IDs)
 ALTER TABLE games
-ADD COLUMN match_id BIGINT NULL;
+ADD COLUMN IF NOT EXISTS match_id TEXT NULL;
 
 -- Create index for match_id lookups
-CREATE INDEX idx_games_match_id ON games(match_id) WHERE match_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_games_match_id ON games(match_id) WHERE match_id IS NOT NULL;
 
 -- Create composite unique constraint to prevent true duplicates
 -- (same teams, date, season, age group, game type, division)
-CREATE UNIQUE INDEX idx_games_unique_match ON games(
+CREATE UNIQUE INDEX IF NOT EXISTS idx_games_unique_match ON games(
     game_date,
     home_team_id,
     away_team_id,
@@ -21,7 +21,7 @@ CREATE UNIQUE INDEX idx_games_unique_match ON games(
 ) WHERE match_id IS NULL;
 
 -- Create separate unique constraint for external matches with match_id
-CREATE UNIQUE INDEX idx_games_unique_external_match ON games(match_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_games_unique_external_match ON games(match_id)
 WHERE match_id IS NOT NULL;
 
 -- Add comments for documentation
