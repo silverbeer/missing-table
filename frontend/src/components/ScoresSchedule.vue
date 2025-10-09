@@ -2,7 +2,7 @@
   <div>
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-4">
-      Loading teams and games...
+      Loading teams and matches...
     </div>
 
     <!-- Error State -->
@@ -99,17 +99,17 @@
             </select>
           </div>
 
-          <!-- Game Type Filter -->
+          <!-- Match Type Filter -->
           <div>
-            <h3 class="text-sm font-medium text-gray-700 mb-2">Game Type</h3>
+            <h3 class="text-sm font-medium text-gray-700 mb-2">Match Type</h3>
             <div
               class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
             >
               <button
-                @click="selectedGameTypeId = 1"
+                @click="selectedMatchTypeId = 1"
                 :class="[
                   'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                  selectedGameTypeId === 1
+                  selectedMatchTypeId === 1
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                 ]"
@@ -117,10 +117,10 @@
                 League
               </button>
               <button
-                @click="selectedGameTypeId = 3"
+                @click="selectedMatchTypeId = 3"
                 :class="[
                   'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                  selectedGameTypeId === 3
+                  selectedMatchTypeId === 3
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                 ]"
@@ -128,10 +128,10 @@
                 Friendly
               </button>
               <button
-                @click="selectedGameTypeId = 2"
+                @click="selectedMatchTypeId = 2"
                 :class="[
                   'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                  selectedGameTypeId === 2
+                  selectedMatchTypeId === 2
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                 ]"
@@ -139,10 +139,10 @@
                 Tournament
               </button>
               <button
-                @click="selectedGameTypeId = 4"
+                @click="selectedMatchTypeId = 4"
                 :class="[
                   'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                  selectedGameTypeId === 4
+                  selectedMatchTypeId === 4
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                 ]"
@@ -150,26 +150,26 @@
                 Playoff
               </button>
               <button
-                @click="selectedGameTypeId = null"
+                @click="selectedMatchTypeId = null"
                 :class="[
                   'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                  selectedGameTypeId === null
+                  selectedMatchTypeId === null
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                 ]"
               >
-                All Games
+                All Matches
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Display Filtered Games -->
+      <!-- Display Filtered Matchs -->
       <div v-if="sortedGames.length > 0">
         <div class="mb-4">
           <h3 class="text-lg font-semibold mb-2">
-            Games for {{ getSelectedTeamName() }}
+            Matchs for {{ getSelectedTeamName() }}
           </h3>
 
           <!-- League Information -->
@@ -191,7 +191,7 @@
           <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <h4 class="font-medium text-gray-700 mb-3">Season Summary</h4>
             <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 text-sm">
-              <div class="font-medium">GP: {{ seasonStats.gamesPlayed }}</div>
+              <div class="font-medium">GP: {{ seasonStats.matchesPlayed }}</div>
               <div class="font-medium">W: {{ seasonStats.wins }}</div>
               <div class="font-medium">D: {{ seasonStats.draws }}</div>
               <div class="font-medium">L: {{ seasonStats.losses }}</div>
@@ -207,7 +207,7 @@
 
           <!-- Season Segments - Stack on mobile -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <!-- Fall Segment - Only show if Fall games exist -->
+            <!-- Fall Segment - Only show if Fall matches exist -->
             <div
               v-if="seasonStats.hasFallGames"
               class="p-4 bg-blue-50 rounded-lg border border-blue-100"
@@ -224,12 +224,12 @@
                   L: {{ seasonStats.fallLosses || 0 }}
                 </div>
                 <div class="col-span-3 text-xs text-gray-500 mt-1">
-                  Aug - Dec games
+                  Aug - Dec matches
                 </div>
               </div>
             </div>
 
-            <!-- Spring Segment - Only show if Spring games exist -->
+            <!-- Spring Segment - Only show if Spring matches exist -->
             <div
               v-if="seasonStats.hasSpringGames"
               class="p-4 bg-green-50 rounded-lg border border-green-100"
@@ -246,17 +246,17 @@
                   L: {{ seasonStats.springLosses || 0 }}
                 </div>
                 <div class="col-span-3 text-xs text-gray-500 mt-1">
-                  Jan - July games
+                  Jan - July matches
                 </div>
               </div>
             </div>
 
-            <!-- Last 5 Games - Only show if games exist -->
+            <!-- Last 5 Matchs - Only show if matches exist -->
             <div
-              v-if="seasonStats.gamesPlayed > 0"
+              v-if="seasonStats.matchesPlayed > 0"
               class="p-4 bg-purple-50 rounded-lg border border-purple-100"
             >
-              <h4 class="font-medium text-purple-700 mb-2">Last 5 Games</h4>
+              <h4 class="font-medium text-purple-700 mb-2">Last 5 Matchs</h4>
               <div class="flex space-x-2 justify-center sm:justify-start">
                 <template v-if="seasonStats.lastFive.length > 0">
                   <span
@@ -274,7 +274,7 @@
                   </span>
                 </template>
                 <span v-else class="text-sm text-gray-500"
-                  >No recent games</span
+                  >No recent matches</span
                 >
               </div>
             </div>
@@ -290,7 +290,7 @@
               <th class="border-b text-left px-2">Team</th>
               <th class="border-b text-center w-24">Score</th>
               <th class="border-b text-center w-20">Result</th>
-              <th class="border-b text-center w-24">Game Type</th>
+              <th class="border-b text-center w-24">Match Type</th>
               <th class="border-b text-center w-24">Status</th>
               <th class="border-b text-center w-16">Source</th>
               <th v-if="canEditGames" class="border-b text-center w-24">
@@ -300,71 +300,71 @@
           </thead>
           <tbody>
             <tr
-              v-for="(game, index) in sortedGames"
-              :key="game.game_date"
+              v-for="(match, index) in sortedGames"
+              :key="match.id"
               :class="{ 'bg-gray-100': index % 2 === 0 }"
             >
               <td class="border-b text-right">{{ index + 1 }}</td>
-              <td class="border-b text-center">{{ game.game_date }}</td>
+              <td class="border-b text-center">{{ match.match_date }}</td>
               <td class="border-b text-left px-2">
-                {{ getTeamDisplay(game) }}
+                {{ getTeamDisplay(match) }}
               </td>
               <td class="border-b text-center">
-                {{ getScoreDisplay(game) }}
+                {{ getScoreDisplay(match) }}
               </td>
               <td class="border-b text-center">
                 <span
-                  v-if="game.match_status === 'played'"
+                  v-if="match.match_status === 'played'"
                   class="px-2 py-1 rounded-full text-sm font-bold"
                   :class="{
-                    'bg-green-100 text-green-800': getResult(game) === 'W',
-                    'bg-yellow-100 text-yellow-800': getResult(game) === 'T',
-                    'bg-red-100 text-red-800': getResult(game) === 'L',
+                    'bg-green-100 text-green-800': getResult(match) === 'W',
+                    'bg-yellow-100 text-yellow-800': getResult(match) === 'T',
+                    'bg-red-100 text-red-800': getResult(match) === 'L',
                   }"
                 >
-                  {{ getResult(game) }}
+                  {{ getResult(match) }}
                 </span>
                 <span v-else class="text-gray-400">-</span>
               </td>
               <td class="border-b text-center">
-                {{ game.game_type_name || 'League' }}
+                {{ match.match_type_name || 'League' }}
               </td>
               <td class="border-b text-center">
                 <span
                   :class="{
                     'px-2 py-1 rounded text-xs font-medium': true,
                     'bg-green-100 text-green-800':
-                      game.match_status === 'played',
+                      match.match_status === 'played',
                     'bg-blue-100 text-blue-800':
-                      game.match_status === 'scheduled',
+                      match.match_status === 'scheduled',
                     'bg-yellow-100 text-yellow-800':
-                      game.match_status === 'postponed',
+                      match.match_status === 'postponed',
                     'bg-red-100 text-red-800':
-                      game.match_status === 'cancelled',
-                    'bg-gray-100 text-gray-800': !game.match_status,
+                      match.match_status === 'cancelled',
+                    'bg-gray-100 text-gray-800': !match.match_status,
                   }"
                 >
-                  {{ game.match_status || 'scheduled' }}
+                  {{ match.match_status || 'scheduled' }}
                 </span>
               </td>
               <td class="border-b text-center">
                 <span
-                  :title="getSourceTooltip(game)"
+                  :title="getSourceTooltip(match)"
                   :class="{
                     'px-2 py-1 rounded text-xs font-medium': true,
                     'bg-purple-100 text-purple-800':
-                      game.source === 'match-scraper',
-                    'bg-gray-100 text-gray-700': game.source === 'manual',
-                    'bg-yellow-100 text-yellow-700': game.source === 'import',
+                      match.source === 'match-scraper',
+                    'bg-gray-100 text-gray-700': match.source === 'manual',
+                    'bg-yellow-100 text-yellow-700': match.source === 'import',
                   }"
                 >
-                  {{ getSourceDisplay(game.source) }}
+                  {{ getSourceDisplay(match.source) }}
                 </span>
               </td>
               <td v-if="canEditGames" class="border-b text-center">
                 <button
-                  v-if="canEditGame(game)"
-                  @click="editGame(game)"
+                  v-if="canEditGame(match)"
+                  @click="editMatch(match)"
                   class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                   Edit
@@ -377,11 +377,11 @@
         <!-- Mobile: Card View -->
         <div class="lg:hidden space-y-3">
           <div
-            v-for="(game, index) in sortedGames"
-            :key="game.game_date + '-' + index"
+            v-for="(match, index) in sortedGames"
+            :key="match.id"
             class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
           >
-            <!-- Game Number and Date -->
+            <!-- Match Number and Date -->
             <div
               class="flex items-center justify-between mb-3 pb-3 border-b border-gray-100"
             >
@@ -389,39 +389,39 @@
                 >Game #{{ index + 1 }}</span
               >
               <span class="text-sm font-medium text-gray-700">{{
-                game.game_date
+                match.match_date
               }}</span>
             </div>
 
             <!-- Teams and Score -->
             <div class="mb-3">
               <div class="text-base font-medium text-gray-900 mb-2">
-                {{ getTeamDisplay(game) }}
+                {{ getTeamDisplay(match) }}
               </div>
               <div class="flex items-center space-x-3">
                 <span class="text-2xl font-bold text-gray-900">
-                  {{ getScoreDisplay(game) }}
+                  {{ getScoreDisplay(match) }}
                 </span>
                 <span
-                  v-if="game.match_status === 'played'"
+                  v-if="match.match_status === 'played'"
                   class="px-3 py-1 rounded-full text-sm font-bold"
                   :class="{
-                    'bg-green-100 text-green-800': getResult(game) === 'W',
-                    'bg-yellow-100 text-yellow-800': getResult(game) === 'T',
-                    'bg-red-100 text-red-800': getResult(game) === 'L',
+                    'bg-green-100 text-green-800': getResult(match) === 'W',
+                    'bg-yellow-100 text-yellow-800': getResult(match) === 'T',
+                    'bg-red-100 text-red-800': getResult(match) === 'L',
                   }"
                 >
-                  {{ getResult(game) }}
+                  {{ getResult(match) }}
                 </span>
               </div>
             </div>
 
-            <!-- Game Details -->
+            <!-- Match Details -->
             <div class="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <span class="text-gray-500">Type:</span>
                 <span class="ml-1 font-medium">{{
-                  game.game_type_name || 'League'
+                  match.match_type_name || 'League'
                 }}</span>
               </div>
               <div>
@@ -430,28 +430,28 @@
                   class="ml-1 px-2 py-0.5 rounded text-xs font-medium"
                   :class="{
                     'bg-green-100 text-green-800':
-                      game.match_status === 'played',
+                      match.match_status === 'played',
                     'bg-blue-100 text-blue-800':
-                      game.match_status === 'scheduled',
+                      match.match_status === 'scheduled',
                     'bg-yellow-100 text-yellow-800':
-                      game.match_status === 'postponed',
+                      match.match_status === 'postponed',
                     'bg-red-100 text-red-800':
-                      game.match_status === 'cancelled',
-                    'bg-gray-100 text-gray-800': !game.match_status,
+                      match.match_status === 'cancelled',
+                    'bg-gray-100 text-gray-800': !match.match_status,
                   }"
                 >
-                  {{ game.match_status || 'scheduled' }}
+                  {{ match.match_status || 'scheduled' }}
                 </span>
               </div>
               <div>
                 <span class="text-gray-500">Source:</span>
-                <span class="ml-1" :title="getSourceTooltip(game)">
-                  {{ getSourceDisplay(game.source) }}
+                <span class="ml-1" :title="getSourceTooltip(match)">
+                  {{ getSourceDisplay(match.source) }}
                 </span>
               </div>
-              <div v-if="canEditGames && canEditGame(game)" class="text-right">
+              <div v-if="canEditGames && canEditGame(match)" class="text-right">
                 <button
-                  @click="editGame(game)"
+                  @click="editMatch(match)"
                   class="text-blue-600 font-medium text-sm active:text-blue-800"
                 >
                   Edit
@@ -463,18 +463,18 @@
       </div>
       <div v-else>
         <p class="text-center text-gray-500 py-8">
-          No games found for the selected team.
+          No matches found for the selected team.
         </p>
       </div>
     </div>
 
-    <!-- Game Edit Modal -->
-    <GameEditModal
+    <!-- Match Edit Modal -->
+    <MatchEditModal
       :show="showEditModal"
-      :game="editingGame"
+      :game="editingMatch"
       :teams="teams"
       :seasons="seasons"
-      :game-types="gameTypes"
+      :match-types="matchTypes"
       :age-groups="ageGroups"
       @close="closeEditModal"
       @updated="onGameUpdated"
@@ -485,28 +485,28 @@
 <script>
 import { ref, onMounted, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import GameEditModal from '@/components/GameEditModal.vue';
+import MatchEditModal from '@/components/MatchEditModal.vue';
 
 export default {
   name: 'ScoresSchedule',
   components: {
-    GameEditModal,
+    MatchEditModal,
   },
   setup() {
     const authStore = useAuthStore();
     const teams = ref([]);
-    const games = ref([]);
+    const matches = ref([]);
     const ageGroups = ref([]);
     const seasons = ref([]);
-    const gameTypes = ref([]);
+    const matchTypes = ref([]);
     const selectedTeam = ref('');
     const selectedAgeGroupId = ref(2); // Default to U14
     const selectedSeasonId = ref(3); // Default to 2025-2026
-    const selectedGameTypeId = ref(1); // Default to League games (id: 1)
+    const selectedMatchTypeId = ref(1); // Default to League matches (id: 1)
     const error = ref(null);
     const loading = ref(true);
     const showEditModal = ref(false);
-    const editingGame = ref(null);
+    const editingMatch = ref(null);
     const showFilters = ref(true); // Filters visible by default on mobile
 
     const fetchAgeGroups = async () => {
@@ -546,12 +546,12 @@ export default {
     const fetchGameTypes = async () => {
       try {
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/game-types`
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
         );
-        if (!response.ok) throw new Error('Failed to fetch game types');
-        gameTypes.value = await response.json();
+        if (!response.ok) throw new Error('Failed to fetch match types');
+        matchTypes.value = await response.json();
       } catch (err) {
-        console.error('Error fetching game types:', err);
+        console.error('Error fetching match types:', err);
       }
     };
 
@@ -572,8 +572,8 @@ export default {
           );
           if (playerTeam) {
             selectedTeam.value = String(authStore.userTeamId);
-            // Fetch games for the player's team
-            await fetchGames();
+            // Fetch matches for the player's team
+            await fetchMatches();
           }
         }
       } catch (err) {
@@ -583,29 +583,29 @@ export default {
       }
     };
 
-    const fetchGames = async () => {
+    const fetchMatches = async () => {
       // Guard against unauthorized access
       if (!authStore.isAuthenticated.value) {
-        console.warn('User not authenticated, cannot fetch games');
+        console.warn('User not authenticated, cannot fetch matches');
         return;
       }
 
       if (!selectedTeam.value) {
         console.log('No team selected, skipping fetch.');
-        games.value = []; // Clear games if no team is selected
+        matches.value = []; // Clear matches if no team is selected
         return; // Exit the function early
       }
 
       try {
         console.log(
-          'Fetching games for team:',
+          'Fetching matches for team:',
           selectedTeam.value,
           'season:',
           selectedSeasonId.value
         );
-        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}`;
-        games.value = await authStore.apiRequest(url);
-        console.log('Games received:', games.value);
+        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}`;
+        matches.value = await authStore.apiRequest(url);
+        console.log('Games received:', matches.value);
       } catch (err) {
         error.value = err.message;
       }
@@ -613,15 +613,15 @@ export default {
 
     const onTeamChange = async () => {
       console.log('Selected team:', selectedTeam.value);
-      await fetchGames();
+      await fetchMatches();
     };
 
-    const getTeamDisplay = game => {
+    const getTeamDisplay = match => {
       const selectedTeamId = parseInt(selectedTeam.value);
-      if (game.home_team_id === selectedTeamId) {
-        return `vs ${game.away_team_name}`;
+      if (match.home_team_id === selectedTeamId) {
+        return `vs ${match.away_team_name}`;
       } else {
-        return `@ ${game.home_team_name}`;
+        return `@ ${match.home_team_name}`;
       }
     };
 
@@ -630,12 +630,12 @@ export default {
       return team ? team.name : 'Selected Team';
     };
 
-    const getScoreDisplay = game => {
-      // Only show scores for games that have been played
-      if (game.match_status !== 'played') {
-        return '-'; // Return dash for games not yet played
+    const getScoreDisplay = match => {
+      // Only show scores for matches that have been played
+      if (match.match_status !== 'played') {
+        return '-'; // Return dash for matches not yet played
       }
-      return `${game.home_score} - ${game.away_score}`;
+      return `${match.home_score} - ${match.away_score}`;
     };
 
     const getSourceDisplay = source => {
@@ -645,8 +645,8 @@ export default {
       return '?';
     };
 
-    const getSourceTooltip = game => {
-      const source = game.source || 'manual';
+    const getSourceTooltip = match => {
+      const source = match.source || 'manual';
       const sourceText =
         {
           manual: 'Manually entered',
@@ -654,35 +654,35 @@ export default {
           import: 'Imported from backup',
         }[source] || 'Unknown source';
 
-      if (game.updated_at) {
-        const date = new Date(game.updated_at).toLocaleDateString();
+      if (match.updated_at) {
+        const date = new Date(match.updated_at).toLocaleDateString();
         return `${sourceText} • Last updated: ${date}`;
       }
       return sourceText;
     };
 
-    const getResult = game => {
-      // Only show results for games that have been played
-      if (game.match_status !== 'played') {
-        return '-'; // Return dash for games not yet played
+    const getResult = match => {
+      // Only show results for matches that have been played
+      if (match.match_status !== 'played') {
+        return '-'; // Return dash for matches not yet played
       }
 
-      // Determine the result for played games
+      // Determine the result for played matches
       const selectedTeamId = parseInt(selectedTeam.value);
-      if (game.home_team_id === selectedTeamId) {
-        return game.home_score > game.away_score
+      if (match.home_team_id === selectedTeamId) {
+        return match.home_score > match.away_score
           ? 'W'
-          : game.home_score < game.away_score
+          : match.home_score < match.away_score
             ? 'L'
             : 'T';
-      } else if (game.away_team_id === selectedTeamId) {
-        return game.away_score > game.home_score
+      } else if (match.away_team_id === selectedTeamId) {
+        return match.away_score > match.home_score
           ? 'W'
-          : game.away_score < game.home_score
+          : match.away_score < match.home_score
             ? 'L'
             : 'T';
       }
-      return ''; // Return empty if the selected team is not involved in the game
+      return ''; // Return empty if the selected team is not involved in the match
     };
 
     const formatSeasonDates = season => {
@@ -695,7 +695,7 @@ export default {
       const segmentCount =
         (seasonStats.value.hasFallGames ? 1 : 0) +
         (seasonStats.value.hasSpringGames ? 1 : 0) +
-        (seasonStats.value.gamesPlayed > 0 ? 1 : 0);
+        (seasonStats.value.matchesPlayed > 0 ? 1 : 0);
 
       if (segmentCount <= 1) return 'grid-cols-1';
       if (segmentCount === 2) return 'grid-cols-1 md:grid-cols-2';
@@ -751,27 +751,30 @@ export default {
       return season ? season.name : '';
     });
 
-    // Sort games by date in ascending order for display and filter by game type
+    // Sort matches by date in ascending order for display and filter by match type
     const sortedGames = computed(() => {
-      let filteredGames = [...games.value];
+      // Filter out any undefined/null items and ensure match_date exists
+      let filteredGames = [...matches.value].filter(
+        match => match && match.match_date
+      );
 
-      // Filter by game type if a specific type is selected (not "All Games")
-      if (selectedGameTypeId.value !== null) {
+      // Filter by match type if a specific type is selected (not "All Matches")
+      if (selectedMatchTypeId.value !== null) {
         filteredGames = filteredGames.filter(
-          game => game.game_type_id === selectedGameTypeId.value
+          match => match.match_type_id === selectedMatchTypeId.value
         );
       }
 
       return filteredGames.sort(
-        (a, b) => new Date(a.game_date) - new Date(b.game_date)
+        (a, b) => new Date(a.match_date) - new Date(b.match_date)
       );
     });
 
-    // Calculate season statistics based on selected game type filter
+    // Calculate season statistics based on selected match type filter
     const seasonStats = computed(() => {
       const currentDate = new Date();
       const stats = {
-        gamesPlayed: 0,
+        matchesPlayed: 0,
         wins: 0,
         draws: 0,
         losses: 0,
@@ -790,33 +793,33 @@ export default {
         lastFive: [],
       };
 
-      // Sort games by date (ascending order) and filter by selected game type
-      let sortedGames = [...games.value].filter(
-        game => new Date(game.game_date) <= currentDate
+      // Sort matches by date (ascending order) and filter by selected match type
+      let sortedGames = [...matches.value].filter(
+        match => new Date(match.match_date) <= currentDate
       );
 
-      // Apply game type filter if a specific type is selected
-      if (selectedGameTypeId.value !== null) {
+      // Apply match type filter if a specific type is selected
+      if (selectedMatchTypeId.value !== null) {
         sortedGames = sortedGames.filter(
-          game => game.game_type_id === selectedGameTypeId.value
+          match => match.match_type_id === selectedMatchTypeId.value
         );
       }
 
       sortedGames = sortedGames.sort(
-        (a, b) => new Date(a.game_date) - new Date(b.game_date)
+        (a, b) => new Date(a.match_date) - new Date(b.match_date)
       );
 
-      sortedGames.forEach(game => {
+      sortedGames.forEach(match => {
         const selectedTeamId = parseInt(selectedTeam.value);
-        const isHome = game.home_team_id === selectedTeamId;
-        const isAway = game.away_team_id === selectedTeamId;
+        const isHome = match.home_team_id === selectedTeamId;
+        const isAway = match.away_team_id === selectedTeamId;
 
         if (isHome || isAway) {
-          const teamScore = isHome ? game.home_score : game.away_score;
-          const opponentScore = isHome ? game.away_score : game.home_score;
+          const teamScore = isHome ? match.home_score : match.away_score;
+          const opponentScore = isHome ? match.away_score : match.home_score;
 
           // Basic stats
-          stats.gamesPlayed++;
+          stats.matchesPlayed++;
           stats.goalsFor += teamScore;
           stats.goalsAgainst += opponentScore;
 
@@ -833,12 +836,12 @@ export default {
             stats.draws++;
           }
 
-          // Determine if game is in Fall or Spring segment based on month
-          const gameDate = new Date(game.game_date);
-          const month = String(gameDate.getMonth() + 1).padStart(2, '0');
+          // Determine if match is in Fall or Spring segment based on month
+          const matchDate = new Date(match.match_date);
+          const month = String(matchDate.getMonth() + 1).padStart(2, '0');
           const isFall = ['08', '09', '10', '11', '12'].includes(month);
 
-          // Track that games exist in these periods
+          // Track that matches exist in these periods
           if (isFall) {
             stats.hasFallGames = true;
             if (result === 'W') stats.fallWins++;
@@ -851,14 +854,14 @@ export default {
             else stats.springLosses++;
           }
 
-          // Track last 5 games (will be reversed later to show most recent first)
+          // Track last 5 matches (will be reversed later to show most recent first)
           if (stats.lastFive.length < 5) {
             stats.lastFive.push(result);
           }
         }
       });
 
-      // Reverse lastFive to show most recent games first
+      // Reverse lastFive to show most recent matches first
       stats.lastFive = stats.lastFive.reverse();
 
       // Calculate final stats
@@ -881,18 +884,18 @@ export default {
       } else {
         selectedTeam.value = ''; // Clear team selection when filters change
       }
-      games.value = []; // Clear games
+      matches.value = []; // Clear matches
     });
 
-    // Watch for team changes to fetch games
+    // Watch for team changes to fetch matches
     watch(selectedTeam, () => {
-      fetchGames();
+      fetchMatches();
     });
 
-    // Watch for season changes to refetch games if team is selected
+    // Watch for season changes to refetch matches if team is selected
     watch(selectedSeasonId, () => {
       if (selectedTeam.value) {
-        fetchGames();
+        fetchMatches();
       }
     });
 
@@ -916,36 +919,36 @@ export default {
       return authStore.isAdmin || authStore.isTeamManager;
     });
 
-    const canEditGame = game => {
-      // Admins can edit all games
+    const canEditGame = match => {
+      // Admins can edit all matches
       if (authStore.isAdmin) {
         return true;
       }
 
-      // Team managers can only edit games involving their team
+      // Team managers can only edit matches involving their team
       if (authStore.isTeamManager && authStore.userTeamId) {
         return (
-          game.home_team_id === authStore.userTeamId ||
-          game.away_team_id === authStore.userTeamId
+          match.home_team_id === authStore.userTeamId ||
+          match.away_team_id === authStore.userTeamId
         );
       }
 
       return false;
     };
 
-    const editGame = game => {
-      editingGame.value = game;
+    const editMatch = match => {
+      editingMatch.value = match;
       showEditModal.value = true;
     };
 
     const closeEditModal = () => {
       showEditModal.value = false;
-      editingGame.value = null;
+      editingMatch.value = null;
     };
 
     const onGameUpdated = () => {
-      // Refresh the games list after a successful update
-      fetchGames();
+      // Refresh the matches list after a successful update
+      fetchMatches();
     };
 
     onMounted(async () => {
@@ -953,7 +956,7 @@ export default {
       if (!authStore.isAuthenticated.value) {
         console.warn('User not authenticated, skipping data fetch');
         loading.value = false;
-        error.value = 'Please log in to view games';
+        error.value = 'Please log in to view matches';
         return;
       }
 
@@ -967,16 +970,16 @@ export default {
 
     return {
       teams,
-      games,
+      matches,
       sortedGames,
       ageGroups,
       filteredAgeGroups,
       seasons,
-      gameTypes,
+      matchTypes,
       selectedTeam,
       selectedAgeGroupId,
       selectedSeasonId,
-      selectedGameTypeId,
+      selectedMatchTypeId,
       filteredTeams,
       selectedTeamLeagueInfo,
       selectedSeasonName,
@@ -995,11 +998,11 @@ export default {
       getSegmentGridClass,
       canEditGames,
       canEditGame,
-      editGame,
+      editMatch,
       closeEditModal,
       onGameUpdated,
       showEditModal,
-      editingGame,
+      editingMatch,
     };
   },
 };

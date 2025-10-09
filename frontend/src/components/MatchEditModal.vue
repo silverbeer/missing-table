@@ -2,45 +2,45 @@
   <div v-if="show" class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
       <div class="p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Game</h3>
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Match</h3>
 
         <!-- Audit Trail Info -->
         <div
-          v-if="game && (game.created_at || game.updated_at)"
+          v-if="match && (match.created_at || match.updated_at)"
           class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-600 space-y-1"
         >
-          <div v-if="game.source" class="flex items-center space-x-2">
+          <div v-if="match.source" class="flex items-center space-x-2">
             <span class="font-medium">Source:</span>
             <span
               :class="{
                 'px-2 py-0.5 rounded text-xs font-medium': true,
                 'bg-purple-100 text-purple-800':
-                  game.source === 'match-scraper',
-                'bg-gray-100 text-gray-700': game.source === 'manual',
-                'bg-yellow-100 text-yellow-700': game.source === 'import',
+                  match.source === 'match-scraper',
+                'bg-gray-100 text-gray-700': match.source === 'manual',
+                'bg-yellow-100 text-yellow-700': match.source === 'import',
               }"
             >
-              {{ getSourceText(game.source) }}
+              {{ getSourceText(match.source) }}
             </span>
           </div>
-          <div v-if="game.created_at">
+          <div v-if="match.created_at">
             <span class="font-medium">Created:</span>
-            {{ formatDate(game.created_at) }}
+            {{ formatDate(match.created_at) }}
           </div>
-          <div v-if="game.updated_at">
+          <div v-if="match.updated_at">
             <span class="font-medium">Last Updated:</span>
-            {{ formatDate(game.updated_at) }}
+            {{ formatDate(match.updated_at) }}
           </div>
         </div>
 
-        <form @submit.prevent="updateGame()">
+        <form @submit.prevent="updateMatch()">
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Date</label
               >
               <input
-                v-model="formData.game_date"
+                v-model="formData.match_date"
                 type="date"
                 required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -48,19 +48,19 @@
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Game Type</label
+                >Match Type</label
               >
               <select
-                v-model="formData.game_type_id"
+                v-model="formData.match_type_id"
                 required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option
-                  v-for="gameType in gameTypes"
-                  :key="gameType.id"
-                  :value="gameType.id"
+                  v-for="matchType in matchTypes"
+                  :key="matchType.id"
+                  :value="matchType.id"
                 >
-                  {{ gameType.name }}
+                  {{ matchType.name }}
                 </option>
               </select>
             </div>
@@ -184,7 +184,7 @@
               :disabled="loading"
               class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
             >
-              {{ loading ? 'Updating...' : 'Update Game' }}
+              {{ loading ? 'Updating...' : 'Update Match' }}
             </button>
           </div>
         </form>
@@ -198,13 +198,13 @@ import { ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 export default {
-  name: 'GameEditModal',
+  name: 'MatchEditModal',
   props: {
     show: {
       type: Boolean,
       default: false,
     },
-    game: {
+    match: {
       type: Object,
       default: null,
     },
@@ -216,7 +216,7 @@ export default {
       type: Array,
       default: () => [],
     },
-    gameTypes: {
+    matchTypes: {
       type: Array,
       default: () => [],
     },
@@ -232,32 +232,32 @@ export default {
     const error = ref(null);
 
     const formData = ref({
-      game_date: '',
+      match_date: '',
       home_team_id: '',
       away_team_id: '',
       home_score: null,
       away_score: null,
-      game_type_id: '',
+      match_type_id: '',
       season_id: '',
       age_group_id: '',
       division_id: null,
     });
 
-    // Watch for game prop changes to populate form
+    // Watch for match prop changes to populate form
     watch(
-      () => props.game,
-      newGame => {
-        if (newGame) {
+      () => props.match,
+      newMatch => {
+        if (newMatch) {
           formData.value = {
-            game_date: newGame.game_date,
-            home_team_id: newGame.home_team_id,
-            away_team_id: newGame.away_team_id,
-            home_score: newGame.home_score,
-            away_score: newGame.away_score,
-            game_type_id: newGame.game_type_id,
-            season_id: newGame.season_id,
-            age_group_id: newGame.age_group_id,
-            division_id: newGame.division_id,
+            match_date: newMatch.match_date,
+            home_team_id: newMatch.home_team_id,
+            away_team_id: newMatch.away_team_id,
+            home_score: newMatch.home_score,
+            away_score: newMatch.away_score,
+            match_type_id: newMatch.match_type_id,
+            season_id: newMatch.season_id,
+            age_group_id: newMatch.age_group_id,
+            division_id: newMatch.division_id,
           };
           error.value = null;
         }
@@ -286,20 +286,20 @@ export default {
       return sourceMap[source] || source;
     };
 
-    const updateGame = async () => {
-      if (!props.game) return;
+    const updateMatch = async () => {
+      if (!props.match) return;
 
       try {
         loading.value = true;
         error.value = null;
 
-        // Build game data for API
-        const gameData = {
+        // Build match data for API
+        const matchData = {
           ...formData.value,
         };
 
         // Parse scores - treat null/undefined/empty string as "no score entered"
-        // Note: 0 is a valid score (e.g., 3-0 game)
+        // Note: 0 is a valid score (e.g., 3-0 match)
         const homeScoreValue = formData.value.home_score;
         const awayScoreValue = formData.value.away_score;
 
@@ -314,34 +314,34 @@ export default {
           awayScoreValue !== '';
 
         // Convert to numbers, defaulting to 0 if not entered
-        gameData.home_score = homeScoreEntered ? Number(homeScoreValue) : 0;
-        gameData.away_score = awayScoreEntered ? Number(awayScoreValue) : 0;
+        matchData.home_score = homeScoreEntered ? Number(homeScoreValue) : 0;
+        matchData.away_score = awayScoreEntered ? Number(awayScoreValue) : 0;
 
         // Auto-set status: if BOTH scores are entered, mark as played
-        gameData.status =
+        matchData.status =
           homeScoreEntered && awayScoreEntered ? 'played' : 'scheduled';
 
-        console.log('GameEditModal - Update data:', {
+        console.log('MatchEditModal - Update data:', {
           homeScoreValue,
           awayScoreValue,
           homeScoreEntered,
           awayScoreEntered,
-          status: gameData.status,
-          fullGameData: gameData,
+          status: matchData.status,
+          fullMatchData: matchData,
         });
 
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/${props.game.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${props.match.id}`,
           {
             method: 'PATCH',
-            body: JSON.stringify(gameData),
+            body: JSON.stringify(matchData),
           }
         );
 
         emit('updated');
         emit('close');
       } catch (err) {
-        console.error('Update game error:', err);
+        console.error('Update match error:', err);
         if (
           err.message.includes('401') ||
           err.message.includes('Invalid or expired token') ||
@@ -350,7 +350,7 @@ export default {
           error.value =
             'Your session has expired. Please refresh the page or log out and log back in to continue.';
         } else {
-          error.value = err.message || 'Failed to update game';
+          error.value = err.message || 'Failed to update match';
         }
       } finally {
         loading.value = false;
@@ -361,7 +361,7 @@ export default {
       formData,
       loading,
       error,
-      updateGame,
+      updateMatch,
       formatDate,
       getSourceText,
     };

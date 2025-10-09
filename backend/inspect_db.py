@@ -6,7 +6,7 @@ A powerful CLI tool for inspecting and troubleshooting database data.
 Uses direct Supabase connection (bypassing DAOs) for raw data access.
 
 Features:
-- Browse age groups, divisions, teams, games
+- Browse age groups, divisions, teams, matches
 - Filter and search data
 - Identify duplicates and data issues
 - Beautiful rich table output
@@ -14,7 +14,7 @@ Features:
 
 Usage:
     python inspect_db.py teams --age-group U14
-    python inspect_db.py games --team IFA --duplicates
+    python inspect_db.py matches --team IFA --duplicates
     python inspect_db.py age-groups
 """
 
@@ -210,83 +210,83 @@ def teams(
 
 
 @app.command()
-def games(
+def matches(
     team: Optional[str] = typer.Option(None, "--team", "-t", help="Filter by team name"),
     age_group: Optional[str] = typer.Option(None, "--age-group", "-a", help="Filter by age group"),
     season: Optional[str] = typer.Option(None, "--season", "-s", help="Filter by season (e.g., 2025-2026)"),
     duplicates: bool = typer.Option(False, "--duplicates", "-d", help="Show only potential duplicates"),
-    limit: int = typer.Option(50, "--limit", "-l", help="Max number of games to show"),
+    limit: int = typer.Option(50, "--limit", "-l", help="Max number of matches to show"),
     show_sql: bool = typer.Option(False, "--show-sql", help="Show SQL query for Supabase SQL Editor"),
 ):
-    """List games with optional filtering"""
+    """List matches with optional filtering"""
     load_environment()
     supabase = get_supabase_client()
 
     # Build query
-    query = supabase.table("games").select(
-        "id, game_date, home_score, away_score, match_status, source, "
-        "home_team:teams!games_home_team_id_fkey(id, name), "
-        "away_team:teams!games_away_team_id_fkey(id, name), "
+    query = supabase.table("matches").select(
+        "id, match_date, home_score, away_score, match_status, source, "
+        "home_team:teams!matches_home_team_id_fkey(id, name), "
+        "away_team:teams!matches_away_team_id_fkey(id, name), "
         "age_groups(id, name), "
         "seasons(id, name), "
-        "game_types(id, name)"
-    ).order("game_date", desc=True).limit(limit)
+        "match_types(id, name)"
+    ).order("match_date", desc=True).limit(limit)
 
     response = query.execute()
-    games_data = response.data
+    matches_data = response.data
 
     # Apply filters
     if team:
-        games_data = [
-            g for g in games_data
-            if (g.get("home_team") and team.lower() in g["home_team"]["name"].lower()) or
-               (g.get("away_team") and team.lower() in g["away_team"]["name"].lower())
+        matches_data = [
+            m for m in matches_data
+            if (m.get("home_team") and team.lower() in m["home_team"]["name"].lower()) or
+               (m.get("away_team") and team.lower() in m["away_team"]["name"].lower())
         ]
 
     if age_group:
-        games_data = [
-            g for g in games_data
-            if g.get("age_groups") and g["age_groups"]["name"] == age_group
+        matches_data = [
+            m for m in matches_data
+            if m.get("age_groups") and m["age_groups"]["name"] == age_group
         ]
 
     if season:
-        games_data = [
-            g for g in games_data
-            if g.get("seasons") and season in g["seasons"]["name"]
+        matches_data = [
+            m for m in matches_data
+            if m.get("seasons") and season in m["seasons"]["name"]
         ]
 
     # Find duplicates if requested
     if duplicates:
         seen = {}
-        duplicate_games = []
+        duplicate_matches = []
 
-        for game in games_data:
-            if not game.get("home_team") or not game.get("away_team"):
+        for match in matches_data:
+            if not match.get("home_team") or not match.get("away_team"):
                 continue
 
             # Create key for duplicate detection
             key = (
-                game["game_date"],
-                game.get("home_team", {}).get("id"),
-                game.get("away_team", {}).get("id"),
-                game.get("seasons", {}).get("id"),
-                game.get("game_types", {}).get("id")
+                match["match_date"],
+                match.get("home_team", {}).get("id"),
+                match.get("away_team", {}).get("id"),
+                match.get("seasons", {}).get("id"),
+                match.get("match_types", {}).get("id")
             )
 
             if key in seen:
                 # Mark both as duplicates
-                if seen[key] not in duplicate_games:
-                    duplicate_games.append(seen[key])
-                duplicate_games.append(game)
+                if seen[key] not in duplicate_matches:
+                    duplicate_matches.append(seen[key])
+                duplicate_matches.append(match)
             else:
-                seen[key] = game
+                seen[key] = match
 
-        games_data = duplicate_games
+        matches_data = duplicate_matches
 
     # Create table
-    title = f"Games ({len(games_data)})"
+    title = f"Matches ({len(matches_data)})"
     if duplicates:
-        title = f"[red]Duplicate Games ({len(games_data)})[/red]"
+        title = f"[red]Duplicate Matches ({len(matches_data)})[/red]"
 
     table = Table(title=title, show_header=True, header_style="bold magenta")
     table.add_column("ID", style="cyan", width=5)
@@ -298,21 +298,21 @@ def games(
     table.add_column("Season", style="magenta", width=10)
     table.add_column("Source", style="dim", width=8)
 
-    for game in games_data:
-        game_date = game["game_date"][:10] if game.get("game_date") else "-"
-        home_team_name = game.get("home_team", {}).get("name", "?")
-        away_team_name = game.get("away_team", {}).get("name", "?")
-        score = f"{game.get('home_score', '-')} - {game.get('away_score', '-')}"
-        age_group_name = game.get("age_groups", {}).get("name", "-")
-        season_name = game.get("seasons", {}).get("name", "-")
-        source_name = game.get("source", "manual")
+    for match in matches_data:
+        match_date = match["match_date"][:10] if match.get("match_date") else "-"
+        home_team_name = match.get("home_team", {}).get("name", "?")
+        away_team_name = match.get("away_team", {}).get("name", "?")
+        score = f"{match.get('home_score', '-')} - {match.get('away_score', '-')}"
+        age_group_name = match.get("age_groups", {}).get("name", "-")
+        season_name = match.get("seasons", {}).get("name", "-")
+        source_name = match.get("source", "manual")
 
         # Highlight duplicates
         style = "red" if duplicates else None
 
         table.add_row(
-            str(game["id"]),
-            game_date,
+            str(match["id"]),
+            match_date,
             home_team_name,
             away_team_name,
             score,
@@ -324,33 +324,33 @@ def games(
 
     console.print(table)
 
-    if duplicates and games_data:
-        console.print(f"\n[red]Warning:[/red] Found {len(games_data)} potential duplicate games")
-        console.print("[yellow]Duplicates are based on: same date, teams, season, and game type[/yellow]")
+    if duplicates and matches_data:
+        console.print(f"\n[red]Warning:[/red] Found {len(matches_data)} potential duplicate matches")
+        console.print("[yellow]Duplicates are based on: same date, teams, season, and match type[/yellow]")
     else:
-        console.print(f"\n[green]Total:[/green] {len(games_data)} games")
+        console.print(f"\n[green]Total:[/green] {len(matches_data)} matches")
 
     # Show SQL query reference
     if show_sql:
         # Build SQL query
         sql_query = """SELECT
-    g.id,
-    g.game_date,
-    g.home_score,
-    g.away_score,
-    g.match_status,
-    g.source,
+    m.id,
+    m.match_date,
+    m.home_score,
+    m.away_score,
+    m.match_status,
+    m.source,
     ht.name AS home_team,
     at.name AS away_team,
     ag.name AS age_group,
     s.name AS season,
-    gt.name AS game_type
-FROM games g
-LEFT JOIN teams ht ON g.home_team_id = ht.id
-LEFT JOIN teams at ON g.away_team_id = at.id
-LEFT JOIN age_groups ag ON g.age_group_id = ag.id
-LEFT JOIN seasons s ON g.season_id = s.id
-LEFT JOIN game_types gt ON g.game_type_id = gt.id"""
+    mt.name AS match_type
+FROM matches m
+LEFT JOIN teams ht ON m.home_team_id = ht.id
+LEFT JOIN teams at ON m.away_team_id = at.id
+LEFT JOIN age_groups ag ON m.age_group_id = ag.id
+LEFT JOIN seasons s ON m.season_id = s.id
+LEFT JOIN match_types mt ON m.match_type_id = mt.id"""
 
         # Add WHERE clauses
         where_clauses = []
@@ -364,16 +364,16 @@ LEFT JOIN game_types gt ON g.game_type_id = gt.id"""
         if where_clauses:
             sql_query += "\nWHERE " + " AND ".join(where_clauses)
 
-        sql_query += f"\nORDER BY g.game_date DESC\nLIMIT {limit};"
+        sql_query += f"\nORDER BY m.match_date DESC\nLIMIT {limit};"
 
         console.print(f"\n[cyan]SQL Query (copy to Supabase SQL Editor):[/cyan]")
         console.print(f"[white]{sql_query}[/white]")
     else:
         select_clause = (
-            "id, game_date, home_score, away_score, match_status, source, "
-            "home_team:teams!games_home_team_id_fkey(id, name), "
-            "away_team:teams!games_away_team_id_fkey(id, name), "
-            "age_groups(id, name), seasons(id, name), game_types(id, name)"
+            "id, match_date, home_score, away_score, match_status, source, "
+            "home_team:teams!matches_home_team_id_fkey(id, name), "
+            "away_team:teams!matches_away_team_id_fkey(id, name), "
+            "age_groups(id, name), seasons(id, name), match_types(id, name)"
         )
         filter_notes = []
 
@@ -385,7 +385,7 @@ LEFT JOIN game_types gt ON g.game_type_id = gt.id"""
             filter_notes.append(f"teams.name ILIKE '%{team}%' (post-filter)")
 
         console.print(f"\n[dim]PostgREST Query:[/dim]")
-        console.print(f"[dim italic]GET /games?select={select_clause}&order=game_date.desc&limit={limit}[/dim italic]")
+        console.print(f"[dim italic]GET /matches?select={select_clause}&order=match_date.desc&limit={limit}[/dim italic]")
 
         if filter_notes:
             console.print(f"\n[dim]Additional Filters (applied client-side):[/dim]")
@@ -396,87 +396,87 @@ LEFT JOIN game_types gt ON g.game_type_id = gt.id"""
 
 
 @app.command()
-def game_detail(
-    game_id: int = typer.Argument(..., help="Game ID to inspect"),
+def match_detail(
+    match_id: int = typer.Argument(..., help="Match ID to inspect"),
     show_sql: bool = typer.Option(False, "--show-sql", help="Show SQL query for Supabase SQL Editor"),
 ):
-    """Show detailed information about a specific game"""
+    """Show detailed information about a specific match"""
     load_environment()
     supabase = get_supabase_client()
 
-    response = supabase.table("games").select(
+    response = supabase.table("matches").select(
         "*, "
-        "home_team:teams!games_home_team_id_fkey(id, name), "
-        "away_team:teams!games_away_team_id_fkey(id, name), "
+        "home_team:teams!matches_home_team_id_fkey(id, name), "
+        "away_team:teams!matches_away_team_id_fkey(id, name), "
         "age_groups(id, name), "
         "divisions(id, name), "
         "seasons(id, name), "
-        "game_types(id, name)"
-    ).eq("id", game_id).execute()
+        "match_types(id, name)"
+    ).eq("id", match_id).execute()
 
     if not response.data:
-        console.print(f"[red]Error:[/red] Game {game_id} not found")
+        console.print(f"[red]Error:[/red] Match {match_id} not found")
         raise typer.Exit(1)
 
-    game = response.data[0]
+    match = response.data[0]
 
     # Create detailed panel
     details = f"""
-[cyan]Game ID:[/cyan] {game['id']}
-[cyan]Date:[/cyan] {game.get('game_date', 'N/A')}
-[cyan]Status:[/cyan] {game.get('match_status', 'scheduled')}
-[cyan]Source:[/cyan] {game.get('source', 'manual')}
+[cyan]Match ID:[/cyan] {match['id']}
+[cyan]Date:[/cyan] {match.get('match_date', 'N/A')}
+[cyan]Status:[/cyan] {match.get('match_status', 'scheduled')}
+[cyan]Source:[/cyan] {match.get('source', 'manual')}
 
 [yellow]Teams:[/yellow]
-  Home: {game.get('home_team', {}).get('name', 'Unknown')} (ID: {game.get('home_team_id')})
-  Away: {game.get('away_team', {}).get('name', 'Unknown')} (ID: {game.get('away_team_id')})
+  Home: {match.get('home_team', {}).get('name', 'Unknown')} (ID: {match.get('home_team_id')})
+  Away: {match.get('away_team', {}).get('name', 'Unknown')} (ID: {match.get('away_team_id')})
 
 [yellow]Score:[/yellow]
-  {game.get('home_score', 0)} - {game.get('away_score', 0)}
+  {match.get('home_score', 0)} - {match.get('away_score', 0)}
 
 [yellow]Competition:[/yellow]
-  Season: {game.get('seasons', {}).get('name', 'Unknown')}
-  Age Group: {game.get('age_groups', {}).get('name', 'Unknown')}
-  Division: {game.get('divisions', {}).get('name', 'Unknown') if game.get('divisions') else 'N/A'}
-  Game Type: {game.get('game_types', {}).get('name', 'Unknown')}
+  Season: {match.get('seasons', {}).get('name', 'Unknown')}
+  Age Group: {match.get('age_groups', {}).get('name', 'Unknown')}
+  Division: {match.get('divisions', {}).get('name', 'Unknown') if match.get('divisions') else 'N/A'}
+  Match Type: {match.get('match_types', {}).get('name', 'Unknown')}
 
 [yellow]Metadata:[/yellow]
-  Created: {game.get('created_at', 'N/A')}
-  Updated: {game.get('updated_at', 'N/A')}
-  Match ID: {game.get('match_id', 'N/A')}
+  Created: {match.get('created_at', 'N/A')}
+  Updated: {match.get('updated_at', 'N/A')}
+  Match ID: {match.get('match_id', 'N/A')}
 """
 
-    console.print(Panel(details, title=f"Game {game_id} Details", border_style="green"))
+    console.print(Panel(details, title=f"Match {match_id} Details", border_style="green"))
 
     # Show SQL query reference
     if show_sql:
         sql_query = f"""SELECT
-    g.*,
+    m.*,
     ht.name AS home_team_name,
     at.name AS away_team_name,
     ag.name AS age_group_name,
     d.name AS division_name,
     s.name AS season_name,
-    gt.name AS game_type_name
-FROM games g
-LEFT JOIN teams ht ON g.home_team_id = ht.id
-LEFT JOIN teams at ON g.away_team_id = at.id
-LEFT JOIN age_groups ag ON g.age_group_id = ag.id
-LEFT JOIN divisions d ON g.division_id = d.id
-LEFT JOIN seasons s ON g.season_id = s.id
-LEFT JOIN game_types gt ON g.game_type_id = gt.id
-WHERE g.id = {game_id};"""
+    mt.name AS match_type_name
+FROM matches m
+LEFT JOIN teams ht ON m.home_team_id = ht.id
+LEFT JOIN teams at ON m.away_team_id = at.id
+LEFT JOIN age_groups ag ON m.age_group_id = ag.id
+LEFT JOIN divisions d ON m.division_id = d.id
+LEFT JOIN seasons s ON m.season_id = s.id
+LEFT JOIN match_types mt ON m.match_type_id = mt.id
+WHERE m.id = {match_id};"""
         console.print(f"\n[cyan]SQL Query (copy to Supabase SQL Editor):[/cyan]")
         console.print(f"[white]{sql_query}[/white]")
     else:
         select_clause = (
             "*, "
-            "home_team:teams!games_home_team_id_fkey(id, name), "
-            "away_team:teams!games_away_team_id_fkey(id, name), "
-            "age_groups(id, name), divisions(id, name), seasons(id, name), game_types(id, name)"
+            "home_team:teams!matches_home_team_id_fkey(id, name), "
+            "away_team:teams!matches_away_team_id_fkey(id, name), "
+            "age_groups(id, name), divisions(id, name), seasons(id, name), match_types(id, name)"
         )
         console.print(f"\n[dim]PostgREST Query:[/dim]")
-        console.print(f"[dim italic]GET /games?select={select_clause}&id=eq.{game_id}[/dim italic]")
+        console.print(f"[dim italic]GET /matches?select={select_clause}&id=eq.{match_id}[/dim italic]")
         console.print(f"[dim]Tip: Use --show-sql to see SQL for Supabase SQL Editor[/dim]")
 
 
@@ -488,7 +488,7 @@ def stats():
 
     # Get counts
     teams_count = len(supabase.table("teams").select("id", count="exact").execute().data)
-    games_count = len(supabase.table("games").select("id", count="exact").execute().data)
+    matches_count = len(supabase.table("matches").select("id", count="exact").execute().data)
     age_groups_count = len(supabase.table("age_groups").select("id", count="exact").execute().data)
     divisions_count = len(supabase.table("divisions").select("id", count="exact").execute().data)
     seasons_count = len(supabase.table("seasons").select("id", count="exact").execute().data)
@@ -498,7 +498,7 @@ def stats():
     table.add_column("Count", style="green", justify="right")
 
     table.add_row("Teams", str(teams_count))
-    table.add_row("Games", str(games_count))
+    table.add_row("Matches", str(matches_count))
     table.add_row("Age Groups", str(age_groups_count))
     table.add_row("Divisions", str(divisions_count))
     table.add_row("Seasons", str(seasons_count))
@@ -508,7 +508,7 @@ def stats():
     # Show SQL query reference
     console.print(f"\n[dim]PostgREST Queries:[/dim]")
     console.print(f"[dim italic]GET /teams?select=id&count=exact[/dim italic]")
-    console.print(f"[dim italic]GET /games?select=id&count=exact[/dim italic]")
+    console.print(f"[dim italic]GET /matches?select=id&count=exact[/dim italic]")
     console.print(f"[dim italic]GET /age_groups?select=id&count=exact[/dim italic]")
     console.print(f"[dim italic]GET /divisions?select=id&count=exact[/dim italic]")
     console.print(f"[dim italic]GET /seasons?select=id&count=exact[/dim italic]")

@@ -32,9 +32,9 @@ Use the convenient shell script for common operations:
 
 The backup system creates JSON exports of all important tables:
 
-- **Reference Data**: Age groups, divisions, game types, seasons
-- **Teams & Mappings**: Teams, team mappings, team-game type associations
-- **Games**: All game records
+- **Reference Data**: Age groups, divisions, match types, seasons
+- **Teams & Mappings**: Teams, team mappings, team-match type associations
+- **Matches**: All match records
 - **User Profiles**: User profile data (without sensitive auth info)
 
 ### Backup Files
@@ -192,7 +192,7 @@ project/
       {"id": 1, "name": "IFA", "city": "New York", ...},
       ...
     ],
-    "games": [...],
+    "matches": [...],
     ...
   }
 }
@@ -232,7 +232,7 @@ If you lose all data and backups:
 1. Reset database schema: `npx supabase db reset`
 2. Repopulate basic data: `./scripts/db_tools.sh reset`
 3. Manually recreate user accounts through the UI
-4. Re-enter any custom game/team data
+4. Re-enter any custom match/team data
 
 ## Best Practices
 

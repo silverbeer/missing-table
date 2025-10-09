@@ -200,24 +200,24 @@ class AuthManager:
 
         return False
 
-    def can_edit_game(
+    def can_edit_match(
         self, user_data: dict[str, Any], home_team_id: int, away_team_id: int
     ) -> bool:
-        """Check if user can edit a game between specific teams."""
+        """Check if user can edit a match between specific teams."""
         role = user_data.get("role")
         user_team_id = user_data.get("team_id")
 
-        # Admins can edit any game
+        # Admins can edit any match
         if role == "admin":
             return True
 
-        # Service accounts with manage_games permission can edit any game
+        # Service accounts with manage_matches permission can edit any match
         if role == "service_account":
             permissions = user_data.get("permissions", [])
-            if "manage_games" in permissions:
+            if "manage_matches" in permissions:
                 return True
 
-        # Team managers can edit games involving their team
+        # Team managers can edit matches involving their team
         if role == "team-manager" and user_team_id in [home_team_id, away_team_id]:
             return True
 
@@ -277,48 +277,48 @@ def require_admin_or_service_account(
     if role == "admin":
         return current_user
 
-    # Allow service accounts with game management permissions
+    # Allow service accounts with match management permissions
     if role == "service_account":
         permissions = current_user.get("permissions", [])
-        if "manage_games" in permissions:
+        if "manage_matches" in permissions:
             return current_user
         else:
             raise HTTPException(
                 status_code=403,
-                detail="Service account requires 'manage_games' permission"
+                detail="Service account requires 'manage_matches' permission"
             )
 
     raise HTTPException(status_code=403, detail="Admin or authorized service account access required")
 
 
-def require_game_management_permission(
+def require_match_management_permission(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ) -> dict[str, Any]:
-    """Require permission to manage games (admin, team-manager, or service account)."""
+    """Require permission to manage matches (admin, team-manager, or service account)."""
     import logging
     logger = logging.getLogger(__name__)
 
     role = current_user.get("role")
     email = current_user.get("email", "unknown")
 
-    logger.info(f"Game management permission check - User: {email}, Role: {role}, User data: {current_user}")
+    logger.info(f"Match management permission check - User: {email}, Role: {role}, User data: {current_user}")
 
     # Allow admin and team managers
     if role in ["admin", "team-manager"]:
         logger.info(f"Access granted - User {email} has role {role}")
         return current_user
 
-    # Allow service accounts with game management permissions
+    # Allow service accounts with match management permissions
     if role == "service_account":
         permissions = current_user.get("permissions", [])
-        if "manage_games" in permissions:
-            logger.info(f"Access granted - Service account {email} has manage_games permission")
+        if "manage_matches" in permissions:
+            logger.info(f"Access granted - Service account {email} has manage_matches permission")
             return current_user
         else:
-            logger.warning(f"Access denied - Service account {email} missing manage_games permission. Has: {permissions}")
+            logger.warning(f"Access denied - Service account {email} missing manage_matches permission. Has: {permissions}")
             raise HTTPException(
                 status_code=403,
-                detail="Service account requires 'manage_games' permission"
+                detail="Service account requires 'manage_matches' permission"
             )
 
     logger.warning(f"Access denied - User {email} has insufficient role: {role}")

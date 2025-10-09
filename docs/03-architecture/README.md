@@ -200,19 +200,23 @@ See: [Authentication Documentation](authentication.md)
 ```
 teams ─────┐
            │
-games ─────┼──── season ──── age_groups
+matches ───┼──── season ──── age_groups
            │
-           └──── divisions ── game_types
+           └──── divisions ── match_types
+                              │
+                              └──── team_match_types
 
 user_profiles ──── auth.users (Supabase)
 ```
 
 ### Key Relationships
 
-- **Teams** have games as home or away
-- **Games** belong to season, age group, division, game type
+- **Teams** have matches as home or away
+- **Matches** belong to season, age group, division, match type
+- **Match Types** define competition categories (league, friendly, tournament, etc.)
+- **Team Match Types** assign specific match types to teams
 - **User Profiles** extend Supabase auth with roles and metadata
-- **Standings** calculated from game results
+- **Standings** calculated from match results
 
 See: [Database Schema](database-schema.md)
 
