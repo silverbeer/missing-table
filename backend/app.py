@@ -5,7 +5,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin, require_admin_or_service_account, require_match_management_permission
@@ -235,15 +235,42 @@ class Team(BaseModel):
 
 # Auth-related models
 class UserSignup(BaseModel):
-    email: str
+    username: str  # Primary login credential (e.g., gabe_ifa_35)
     password: str
+    email: str | None = None  # Optional for notifications
+    phone_number: str | None = None  # Optional for SMS
     display_name: str | None = None
     invite_code: str | None = None
 
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v):
+        """Validate username format: 3-50 chars, alphanumeric and underscores only."""
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]{3,50}$', v):
+            raise ValueError(
+                'Username must be 3-50 characters long and contain only letters, numbers, and underscores'
+            )
+        return v.lower()  # Store usernames in lowercase for consistency
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        """Validate email format if provided."""
+        if v is not None and '@' not in v:
+            raise ValueError('Invalid email format')
+        return v
+
 
 class UserLogin(BaseModel):
-    email: str
+    username: str  # Changed from email
     password: str
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v):
+        """Ensure username is lowercase for lookup."""
+        return v.lower()
 
 
 class UserProfile(BaseModel):
@@ -272,13 +299,26 @@ app.include_router(invites_router)
 @app.post("/api/auth/signup")
 # @rate_limit("3 per hour")
 async def signup(request: Request, user_data: UserSignup):
-    """User signup endpoint with security monitoring."""
+    """User signup endpoint with username authentication."""
+    from auth import username_to_internal_email, check_username_available
+
     with logfire.span("auth_signup") as span:
-        span.set_attribute("auth.email", user_data.email)
+        span.set_attribute("auth.username", user_data.username)
         client_ip = security_monitor.get_client_ip(request) if security_monitor else "unknown"
         span.set_attribute("auth.client_ip", client_ip)
 
         try:
+            # Validate username availability
+            username_available = await check_username_available(
+                db_conn_holder_obj.client,
+                user_data.username
+            )
+            if not username_available:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Username '{user_data.username}' is already taken"
+                )
+
             # Validate invite code if provided
             invite_info = None
             if user_data.invite_code:
@@ -287,63 +327,79 @@ async def signup(request: Request, user_data: UserSignup):
                 if not invite_info:
                     raise HTTPException(status_code=400, detail="Invalid or expired invite code")
 
-                # If invite has email specified, verify it matches
-                if invite_info.get('email') and invite_info['email'] != user_data.email:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"This invite code is for {invite_info['email']}. Please use that email address."
-                    )
+                # If invite has email specified, verify it matches (if user provided email)
+                if invite_info.get('email') and user_data.email:
+                    if invite_info['email'] != user_data.email:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"This invite code is for {invite_info['email']}. Please use that email address."
+                        )
 
                 logger.info(f"Valid invite code for {invite_info['invite_type']}: {user_data.invite_code}")
 
             # Analyze signup request for threats
-            payload = {"email": user_data.email, "display_name": user_data.display_name}
+            payload = {
+                "username": user_data.username,
+                "email": user_data.email,
+                "display_name": user_data.display_name
+            }
             threat_events = security_monitor.analyze_request_for_threats(request, payload) if security_monitor else []
 
             # Log any threats detected during signup
             for event in threat_events:
                 security_monitor.log_security_event(event) if security_monitor else None
 
+            # Convert username to internal email for Supabase Auth
+            internal_email = username_to_internal_email(user_data.username)
+
+            # Create Supabase Auth user with internal email
             response = db_conn_holder_obj.client.auth.sign_up({
-                "email": user_data.email,
+                "email": internal_email,
                 "password": user_data.password,
                 "options": {
                     "data": {
-                        "display_name": user_data.display_name or user_data.email.split('@')[0]
+                        "username": user_data.username,
+                        "display_name": user_data.display_name or user_data.username,
+                        "is_username_auth": True
                     }
                 }
             })
 
             if response.user:
-                # If signup with invite code, update user profile with role and team
+                # Create/update user profile with username and optional contact info
+                profile_data = {
+                    'id': response.user.id,
+                    'username': user_data.username,
+                    'email': user_data.email,  # Optional real email
+                    'phone_number': user_data.phone_number,  # Optional phone
+                    'display_name': user_data.display_name or user_data.username,
+                    'role': 'team-fan'  # Default role
+                }
+
+                # If signup with invite code, override role and team
                 if invite_info:
-                    # Map invite type to user role (using hyphens to match DB constraint)
+                    # Map invite type to user role
                     role_mapping = {
                         'team_manager': 'team-manager',
                         'team_player': 'team-player',
                         'team_fan': 'team-fan'
                     }
-                    role = role_mapping.get(invite_info['invite_type'], 'team-fan')
+                    profile_data['role'] = role_mapping.get(invite_info['invite_type'], 'team-fan')
+                    profile_data['team_id'] = invite_info['team_id']
 
-                    # Update user profile
-                    update_data = {
-                        'role': role,
-                        'team_id': invite_info['team_id']
-                    }
+                # Insert user profile
+                db_conn_holder_obj.client.table('user_profiles')\
+                    .upsert(profile_data)\
+                    .execute()
 
-                    db_conn_holder_obj.client.table('user_profiles')\
-                        .update(update_data)\
-                        .eq('id', response.user.id)\
-                        .execute()
-
-                    # Redeem the invitation
+                # Redeem invitation if used
+                if invite_info:
                     invite_service.redeem_invitation(user_data.invite_code, response.user.id)
-
-                    logger.info(f"User {response.user.id} assigned role {role} via invite code")
+                    logger.info(f"User {response.user.id} assigned role {profile_data['role']} via invite code")
 
                 logfire.info(
                     "User signup successful",
-                    email=user_data.email,
+                    username=user_data.username,
                     user_id=response.user.id,
                     client_ip=client_ip,
                     used_invite=bool(user_data.invite_code)
@@ -351,13 +407,14 @@ async def signup(request: Request, user_data: UserSignup):
                 span.set_attribute("auth.success", True)
                 span.set_attribute("auth.user_id", response.user.id)
 
-                message = "User created successfully."
+                message = f"Account created successfully! Welcome, {user_data.username}!"
                 if invite_info:
                     message += f" You have been assigned to {invite_info['team_name']} as a {invite_info['invite_type'].replace('_', ' ')}."
 
                 return {
                     "message": message,
-                    "user_id": response.user.id
+                    "user_id": response.user.id,
+                    "username": user_data.username
                 }
             else:
                 span.set_attribute("auth.success", False)
@@ -381,109 +438,159 @@ async def signup(request: Request, user_data: UserSignup):
 @app.post("/api/auth/login")
 # @rate_limit("5 per minute")
 async def login(request: Request, user_data: UserLogin):
-    """User login endpoint with enhanced security monitoring."""
+    """User login endpoint with username authentication."""
+    from auth import username_to_internal_email
+
     with logfire.span("auth_login") as span:
-        span.set_attribute("auth.email", user_data.email)
+        span.set_attribute("auth.username", user_data.username)
         client_ip = security_monitor.get_client_ip(request) if security_monitor else "unknown"
         span.set_attribute("auth.client_ip", client_ip)
-        
+
         try:
+            # Convert username to internal email for Supabase Auth
+            internal_email = username_to_internal_email(user_data.username)
+
             # Analyze login request for threats
-            payload = {"email": user_data.email}
+            payload = {"username": user_data.username}
             threat_events = security_monitor.analyze_request_for_threats(request, payload) if security_monitor else []
-            
+
             # Log any threats detected during login
             for event in threat_events:
                 security_monitor.log_security_event(event) if security_monitor else None
-            
+
+            # Authenticate with Supabase using internal email
             response = db_conn_holder_obj.client.auth.sign_in_with_password({
-                "email": user_data.email,
+                "email": internal_email,
                 "password": user_data.password
             })
-            
+
             if response.user and response.session:
-                # Get user profile
-                profile_response = db_conn_holder_obj.client.table('user_profiles').select('*').eq('id', response.user.id).execute()
-                
+                # Get user profile with username
+                profile_response = db_conn_holder_obj.client.table('user_profiles')\
+                    .select('*')\
+                    .eq('id', response.user.id)\
+                    .execute()
+
                 # Handle multiple or no profiles
                 if profile_response.data and len(profile_response.data) > 0:
                     profile = profile_response.data[0]
                     if len(profile_response.data) > 1:
                         logger.warning(f"Multiple profiles found for user {response.user.id}, using first one")
                 else:
-                    profile = {}
-                
+                    profile = {'username': user_data.username}  # Fallback
+
                 # Analyze successful login with security monitoring
                 auth_attempt = auth_security_monitor.analyze_authentication_attempt(
-                    request, user_data.email, True, response.user.id
+                    request, user_data.username, True, response.user.id
                 ) if auth_security_monitor else None
-                
+
                 span.set_attribute("auth.success", True)
                 span.set_attribute("auth.user_id", response.user.id)
                 span.set_attribute("auth.risk_score", auth_attempt.risk_score if auth_attempt else 0)
-                
+
                 logfire.info(
                     "User login successful",
-                    email=user_data.email,
+                    username=user_data.username,
                     user_id=response.user.id,
                     client_ip=client_ip,
                     risk_score=auth_attempt.risk_score if auth_attempt else 0
                 )
-                
+
                 return {
-                    "success": True,
-                    "message": "Login successful",
+                    "access_token": response.session.access_token,
+                    "refresh_token": response.session.refresh_token,
                     "user": {
                         "id": response.user.id,
-                        "email": response.user.email,
-                        "profile": {
-                            "role": profile.get('role', 'team-fan'),
-                            "team_id": profile.get('team_id'),
-                            "display_name": profile.get('display_name'),
-                            "name": profile.get('name')
-                        }
-                    },
-                    "session": {
-                        "access_token": response.session.access_token,
-                        "refresh_token": response.session.refresh_token,
-                        "expires_at": response.session.expires_at,
-                        "token_type": "bearer"
+                        "username": profile.get('username'),
+                        "email": profile.get('email'),  # Real email if provided
+                        "display_name": profile.get('display_name'),
+                        "role": profile.get('role'),
+                        "team_id": profile.get('team_id')
                     }
                 }
             else:
                 # Analyze failed login
                 auth_attempt = auth_security_monitor.analyze_authentication_attempt(
-                    request, user_data.email, False, failure_reason="invalid_credentials"
+                    request, user_data.username, False, failure_reason="invalid_credentials"
                 ) if auth_security_monitor else None
-                
+
                 span.set_attribute("auth.success", False)
                 span.set_attribute("auth.risk_score", auth_attempt.risk_score if auth_attempt else 0)
-                
-                raise HTTPException(status_code=401, detail="Invalid credentials")
+
+                raise HTTPException(status_code=401, detail="Invalid username or password")
                 
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Login error: {e}")
-            
+
             # Analyze failed login
             auth_attempt = auth_security_monitor.analyze_authentication_attempt(
-                request, user_data.email, False, failure_reason=str(e)
+                request, user_data.username, False, failure_reason=str(e)
             ) if auth_security_monitor else None
-            
+
             span.set_attribute("auth.success", False)
             span.set_attribute("auth.error", str(e))
             span.set_attribute("auth.risk_score", auth_attempt.risk_score if auth_attempt else 0)
-            
+
             logfire.error(
                 "User login failed",
-                email=user_data.email,
+                username=user_data.username,
                 error=str(e),
                 client_ip=client_ip,
                 risk_score=auth_attempt.risk_score if auth_attempt else 0
             )
             
             raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+@app.get("/api/auth/username-available/{username}")
+async def check_username_availability(username: str):
+    """
+    Check if a username is available.
+
+    Returns:
+    - available: boolean
+    - suggestions: list of alternative usernames if taken
+    """
+    import re
+    from auth import check_username_available
+
+    try:
+        # Validate username format
+        if not re.match(r'^[a-zA-Z0-9_]{3,50}$', username):
+            return {
+                "available": False,
+                "message": "Username must be 3-50 characters (letters, numbers, underscores only)"
+            }
+
+        # Check availability
+        available = await check_username_available(db_conn_holder_obj.client, username)
+
+        if available:
+            return {
+                "available": True,
+                "message": f"Username '{username}' is available!"
+            }
+        else:
+            # Generate suggestions
+            import hashlib
+            hash_suffix = int(hashlib.md5(username.encode()).hexdigest(), 16) % 100
+            suggestions = [
+                f"{username}_1",
+                f"{username}_2",
+                f"{username}_{hash_suffix}",
+            ]
+
+            return {
+                "available": False,
+                "message": f"Username '{username}' is taken",
+                "suggestions": suggestions
+            }
+
+    except Exception as e:
+        logger.error(f"Error checking username: {e}")
+        raise HTTPException(status_code=500, detail="Error checking username availability")
 
 
 @app.post("/api/auth/logout")
@@ -904,7 +1011,9 @@ async def get_match(request: Request, match_id: int):
 async def add_match(request: Request, match: EnhancedMatch, current_user: dict[str, Any] = Depends(require_match_management_permission)):
     """Add a new match with enhanced schema (requires admin, team manager, or service account with manage_matches permission)."""
     try:
-        logger.info(f"POST /api/matches - User: {current_user.get('email', 'unknown')}, Role: {current_user.get('role', 'unknown')}")
+        # Use username for regular users, service_name for service accounts
+        user_identifier = current_user.get('username') or current_user.get('service_name', 'unknown')
+        logger.info(f"POST /api/matches - User: {user_identifier}, Role: {current_user.get('role', 'unknown')}")
         logger.info(f"POST /api/matches - Match data: {match.model_dump()}")
         success = sports_dao.add_match(
             home_team_id=match.home_team_id,
