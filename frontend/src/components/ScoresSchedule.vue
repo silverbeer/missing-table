@@ -301,7 +301,7 @@
           <tbody>
             <tr
               v-for="(match, index) in sortedGames"
-              :key="match.match_date"
+              :key="match.id"
               :class="{ 'bg-gray-100': index % 2 === 0 }"
             >
               <td class="border-b text-right">{{ index + 1 }}</td>
@@ -378,7 +378,7 @@
         <div class="lg:hidden space-y-3">
           <div
             v-for="(match, index) in sortedGames"
-            :key="match.match_date + '-' + index"
+            :key="match.id"
             class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
           >
             <!-- Match Number and Date -->
@@ -753,7 +753,10 @@ export default {
 
     // Sort matches by date in ascending order for display and filter by match type
     const sortedGames = computed(() => {
-      let filteredGames = [...matches.value];
+      // Filter out any undefined/null items and ensure match_date exists
+      let filteredGames = [...matches.value].filter(
+        match => match && match.match_date
+      );
 
       // Filter by match type if a specific type is selected (not "All Matches")
       if (selectedMatchTypeId.value !== null) {
