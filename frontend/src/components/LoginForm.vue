@@ -241,12 +241,15 @@ export default {
           form.password,
           form.displayName,
           form.inviteCode,
-          form.email  // Optional email
+          form.email // Optional email
         );
         if (result.success) {
           // Role and team are already set by the backend via invite code
           // Now log the user in automatically
-          const loginResult = await authStore.login(form.username, form.password);
+          const loginResult = await authStore.login(
+            form.username,
+            form.password
+          );
           if (loginResult.success) {
             emit('login-success');
           }

@@ -91,7 +91,13 @@ export const useAuthStore = () => {
     }
   };
 
-  const signupWithInvite = async (username, password, displayName, inviteCode, email = null) => {
+  const signupWithInvite = async (
+    username,
+    password,
+    displayName,
+    inviteCode,
+    email = null
+  ) => {
     try {
       setLoading(true);
       clearError();
@@ -146,7 +152,10 @@ export const useAuthStore = () => {
       const data = await response.json();
 
       setUser(data.user);
-      setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
       setProfile(data.user);
 
       // Store tokens for API calls
@@ -402,14 +411,17 @@ export const useAuthStore = () => {
     return apiCall(url, { ...options, headers });
   };
 
-  const checkUsernameAvailability = async (username) => {
+  const checkUsernameAvailability = async username => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/username-available/${username}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/api/auth/username-available/${username}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to check username availability');
