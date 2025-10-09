@@ -5,14 +5,16 @@
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
-          <label for="email">Email:</label>
+          <label for="username">Username:</label>
           <input
-            id="email"
-            v-model="form.email"
-            type="email"
+            id="username"
+            v-model="form.username"
+            type="text"
             required
             :disabled="authStore.state.loading"
-            placeholder="Enter your email"
+            placeholder="Enter your username"
+            pattern="[a-zA-Z0-9_]{3,50}"
+            title="Username must be 3-50 characters (letters, numbers, underscores only)"
           />
         </div>
 
@@ -59,6 +61,17 @@
             type="text"
             :disabled="authStore.state.loading"
             placeholder="Enter your display name"
+          />
+        </div>
+
+        <div v-if="showInviteSignup" class="form-group">
+          <label for="email">Email (optional):</label>
+          <input
+            id="email"
+            v-model="form.email"
+            type="email"
+            :disabled="authStore.state.loading"
+            placeholder="Enter your email (for notifications)"
           />
         </div>
 
@@ -162,9 +175,10 @@ export default {
     const inviteInfo = ref(null);
 
     const form = reactive({
-      email: '',
+      username: '',
       password: '',
       displayName: '',
+      email: '', // Optional email for invite signups
       inviteCode: '',
     });
 
@@ -223,21 +237,22 @@ export default {
 
       if (isSignup.value && showInviteSignup.value) {
         const result = await authStore.signupWithInvite(
-          form.email,
+          form.username,
           form.password,
           form.displayName,
-          form.inviteCode
+          form.inviteCode,
+          form.email  // Optional email
         );
         if (result.success) {
           // Role and team are already set by the backend via invite code
           // Now log the user in automatically
-          const loginResult = await authStore.login(form.email, form.password);
+          const loginResult = await authStore.login(form.username, form.password);
           if (loginResult.success) {
             emit('login-success');
           }
         }
       } else {
-        const result = await authStore.login(form.email, form.password);
+        const result = await authStore.login(form.username, form.password);
         if (result.success) {
           emit('login-success');
         }
