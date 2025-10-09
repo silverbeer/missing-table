@@ -1,6 +1,8 @@
 <template>
   <div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-2xl font-bold mb-6">Manage Team Match Type Participation</h2>
+    <h2 class="text-2xl font-bold mb-6">
+      Manage Team Match Type Participation
+    </h2>
 
     <!-- Add Team Section -->
     <div class="mb-8 p-4 border border-gray-200 rounded-lg">
@@ -334,7 +336,9 @@ export default {
       // Auto-select match types based on team type
       const teamType = newTeam.value.teamType;
       const leagueId = matchTypes.value.find(gt => gt.name === 'League')?.id;
-      const friendlyId = matchTypes.value.find(gt => gt.name === 'Friendly')?.id;
+      const friendlyId = matchTypes.value.find(
+        gt => gt.name === 'Friendly'
+      )?.id;
       const tournamentId = matchTypes.value.find(
         gt => gt.name === 'Tournament'
       )?.id;
@@ -353,7 +357,9 @@ export default {
         newTeam.value.matchTypeIds = [friendlyId].filter(id => id);
       } else if (teamType === 'tournament') {
         // Tournament teams for tournaments and friendlies
-        newTeam.value.matchTypeIds = [tournamentId, friendlyId].filter(id => id);
+        newTeam.value.matchTypeIds = [tournamentId, friendlyId].filter(
+          id => id
+        );
       } else {
         newTeam.value.matchTypeIds = [];
       }

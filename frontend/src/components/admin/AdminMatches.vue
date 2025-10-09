@@ -138,7 +138,9 @@
               {{ match.away_team_name }}
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-              <span v-if="match.home_score !== null && match.away_score !== null">
+              <span
+                v-if="match.home_score !== null && match.away_score !== null"
+              >
                 {{ match.home_score }} - {{ match.away_score }}
               </span>
               <span v-else class="text-gray-400 italic">Not played</span>

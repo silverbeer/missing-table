@@ -618,10 +618,10 @@ export default {
 
     const getTeamDisplay = match => {
       const selectedTeamId = parseInt(selectedTeam.value);
-      if (game.home_team_id === selectedTeamId) {
-        return `vs ${game.away_team_name}`;
+      if (match.home_team_id === selectedTeamId) {
+        return `vs ${match.away_team_name}`;
       } else {
-        return `@ ${game.home_team_name}`;
+        return `@ ${match.home_team_name}`;
       }
     };
 
@@ -632,10 +632,10 @@ export default {
 
     const getScoreDisplay = match => {
       // Only show scores for matches that have been played
-      if (game.match_status !== 'played') {
+      if (match.match_status !== 'played') {
         return '-'; // Return dash for matches not yet played
       }
-      return `${game.home_score} - ${game.away_score}`;
+      return `${match.home_score} - ${match.away_score}`;
     };
 
     const getSourceDisplay = source => {
@@ -654,8 +654,8 @@ export default {
           import: 'Imported from backup',
         }[source] || 'Unknown source';
 
-      if (game.updated_at) {
-        const date = new Date(game.updated_at).toLocaleDateString();
+      if (match.updated_at) {
+        const date = new Date(match.updated_at).toLocaleDateString();
         return `${sourceText} • Last updated: ${date}`;
       }
       return sourceText;
@@ -663,19 +663,19 @@ export default {
 
     const getResult = match => {
       // Only show results for matches that have been played
-      if (game.match_status !== 'played') {
+      if (match.match_status !== 'played') {
         return '-'; // Return dash for matches not yet played
       }
 
       // Determine the result for played matches
       const selectedTeamId = parseInt(selectedTeam.value);
-      if (game.home_team_id === selectedTeamId) {
+      if (match.home_team_id === selectedTeamId) {
         return match.home_score > match.away_score
           ? 'W'
           : match.home_score < match.away_score
             ? 'L'
             : 'T';
-      } else if (game.away_team_id === selectedTeamId) {
+      } else if (match.away_team_id === selectedTeamId) {
         return match.away_score > match.home_score
           ? 'W'
           : match.away_score < match.home_score
@@ -792,7 +792,7 @@ export default {
 
       // Sort matches by date (ascending order) and filter by selected match type
       let sortedGames = [...matches.value].filter(
-        match => new Date(game.match_date) <= currentDate
+        match => new Date(match.match_date) <= currentDate
       );
 
       // Apply match type filter if a specific type is selected
@@ -806,7 +806,7 @@ export default {
         (a, b) => new Date(a.match_date) - new Date(b.match_date)
       );
 
-      sortedGames.forEach(game => {
+      sortedGames.forEach(match => {
         const selectedTeamId = parseInt(selectedTeam.value);
         const isHome = match.home_team_id === selectedTeamId;
         const isAway = match.away_team_id === selectedTeamId;
@@ -834,8 +834,8 @@ export default {
           }
 
           // Determine if match is in Fall or Spring segment based on month
-          const matchDate = new Date(game.match_date);
-          const month = String(gameDate.getMonth() + 1).padStart(2, '0');
+          const matchDate = new Date(match.match_date);
+          const month = String(matchDate.getMonth() + 1).padStart(2, '0');
           const isFall = ['08', '09', '10', '11', '12'].includes(month);
 
           // Track that matches exist in these periods
