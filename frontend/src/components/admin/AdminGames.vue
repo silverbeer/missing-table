@@ -166,7 +166,11 @@
               </span>
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-              <span v-if="game.match_id" class="font-mono text-xs" :title="`External Match ID: ${game.match_id}`">
+              <span
+                v-if="game.match_id"
+                class="font-mono text-xs"
+                :title="`External Match ID: ${game.match_id}`"
+              >
                 {{ game.match_id }}
               </span>
               <span v-else class="text-gray-400 italic text-xs">-</span>
@@ -338,7 +342,10 @@
 
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Match ID <span class="text-gray-400 text-xs">(optional - for externally scraped games)</span></label
+                >Match ID
+                <span class="text-gray-400 text-xs"
+                  >(optional - for externally scraped games)</span
+                ></label
               >
               <input
                 v-model="editFormData.match_id"
