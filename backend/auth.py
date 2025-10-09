@@ -21,6 +21,54 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 
+# ============================================================================
+# Username Authentication Helper Functions
+# ============================================================================
+
+def username_to_internal_email(username: str) -> str:
+    """
+    Convert username to internal email format for Supabase Auth.
+
+    Example: gabe_ifa_35 -> gabe_ifa_35@missingtable.local
+    """
+    return f"{username.lower()}@missingtable.local"
+
+
+def internal_email_to_username(email: str) -> str | None:
+    """
+    Extract username from internal email format.
+
+    Example: gabe_ifa_35@missingtable.local -> gabe_ifa_35
+    Returns None if not an internal email.
+    """
+    if email.endswith('@missingtable.local'):
+        return email.replace('@missingtable.local', '')
+    return None
+
+
+def is_internal_email(email: str) -> bool:
+    """Check if email is an internal format."""
+    return email.endswith('@missingtable.local')
+
+
+async def check_username_available(supabase_client: Client, username: str) -> bool:
+    """
+    Check if username is available.
+
+    Returns True if username is available, False if taken.
+    """
+    try:
+        result = supabase_client.table('user_profiles')\
+            .select('id')\
+            .eq('username', username.lower())\
+            .execute()
+
+        return len(result.data) == 0
+    except Exception as e:
+        logger.error(f"Error checking username availability: {e}")
+        raise
+
+
 class AuthManager:
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
@@ -59,9 +107,27 @@ class AuthManager:
             if len(profile_response.data) > 1:
                 logger.warning(f"Multiple profiles found for user {user_id}, using first one")
 
+            # Extract username from profile (primary identifier)
+            username = profile.get("username")
+
+            # Get email from JWT payload (might be internal email format)
+            jwt_email = payload.get("email")
+
+            # Distinguish between internal email (username@missingtable.local) and real email
+            # Real email is stored in profile.email, internal email is in JWT
+            if jwt_email and is_internal_email(jwt_email):
+                # This is an internal email, extract username if not in profile
+                if not username:
+                    username = internal_email_to_username(jwt_email)
+                real_email = profile.get("email")  # Optional real email from profile
+            else:
+                # Legacy user with real email in JWT
+                real_email = jwt_email
+
             return {
                 "user_id": user_id,
-                "email": payload.get("email"),
+                "username": username,  # Primary identifier for username auth users
+                "email": real_email,  # Real email (optional, for notifications)
                 "role": profile["role"],
                 "team_id": profile.get("team_id"),
                 "display_name": profile.get("display_name"),
@@ -145,7 +211,7 @@ class AuthManager:
         # Try regular user token first
         user_data = self.verify_token(credentials.credentials)
         if user_data:
-            logger.info(f"Auth success - Regular user: {user_data.get('email', 'unknown')}")
+            logger.info(f"Auth success - Regular user: {user_data.get('username', 'unknown')}")
             return user_data
 
         # Try service account token
@@ -299,29 +365,30 @@ def require_match_management_permission(
     logger = logging.getLogger(__name__)
 
     role = current_user.get("role")
-    email = current_user.get("email", "unknown")
+    # Use username for regular users, service_name for service accounts
+    user_identifier = current_user.get("username") or current_user.get("service_name", "unknown")
 
-    logger.info(f"Match management permission check - User: {email}, Role: {role}, User data: {current_user}")
+    logger.info(f"Match management permission check - User: {user_identifier}, Role: {role}, User data: {current_user}")
 
     # Allow admin and team managers
     if role in ["admin", "team-manager"]:
-        logger.info(f"Access granted - User {email} has role {role}")
+        logger.info(f"Access granted - User {user_identifier} has role {role}")
         return current_user
 
     # Allow service accounts with match management permissions
     if role == "service_account":
         permissions = current_user.get("permissions", [])
         if "manage_matches" in permissions:
-            logger.info(f"Access granted - Service account {email} has manage_matches permission")
+            logger.info(f"Access granted - Service account {user_identifier} has manage_matches permission")
             return current_user
         else:
-            logger.warning(f"Access denied - Service account {email} missing manage_matches permission. Has: {permissions}")
+            logger.warning(f"Access denied - Service account {user_identifier} missing manage_matches permission. Has: {permissions}")
             raise HTTPException(
                 status_code=403,
                 detail="Service account requires 'manage_matches' permission"
             )
 
-    logger.warning(f"Access denied - User {email} has insufficient role: {role}")
+    logger.warning(f"Access denied - User {user_identifier} has insufficient role: {role}")
     raise HTTPException(
         status_code=403,
         detail="Admin, team manager, or authorized service account access required"

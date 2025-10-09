@@ -58,19 +58,42 @@
         <div v-else class="users-grid">
           <div v-for="user in users" :key="user.id" class="user-card">
             <div class="user-avatar">
-              {{ getInitials(user.display_name || user.email) }}
+              {{
+                getInitials(user.display_name || user.username || user.email)
+              }}
             </div>
             <div class="user-details">
-              <h4>{{ user.display_name || 'No name' }}</h4>
-              <p class="user-email">{{ user.email || 'No email' }}</p>
+              <h4>{{ user.display_name || user.username || 'No name' }}</h4>
+              <div class="user-info">
+                <p v-if="user.username" class="user-username">
+                  <span class="info-label">Username:</span> @{{ user.username }}
+                </p>
+                <p v-if="user.email" class="user-email">
+                  <span class="info-label">Email:</span> {{ user.email }}
+                </p>
+                <p v-if="!user.username && !user.email" class="user-email">
+                  <span class="info-label">No contact info</span>
+                </p>
+              </div>
               <span class="role-badge" :class="getRoleClass(user.role)">
                 {{ formatRole(user.role) }}
               </span>
               <div v-if="user.team" class="user-team">
-                Team: {{ user.team.name }}
+                <span class="info-label">Team:</span> {{ user.team.name }}
+              </div>
+              <div v-if="user.created_at" class="user-created">
+                <span class="info-label">Joined:</span>
+                {{ formatDate(user.created_at) }}
               </div>
             </div>
             <div class="user-actions">
+              <button
+                @click="openEditModal(user)"
+                class="edit-btn"
+                title="Edit user"
+              >
+                ✏️
+              </button>
               <select
                 :value="user.role"
                 @change="updateUserRole(user.id, $event.target.value)"
@@ -82,6 +105,74 @@
                 <option value="admin">Admin</option>
               </select>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit User Modal -->
+      <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>Edit User</h3>
+            <button @click="closeEditModal" class="close-btn">×</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Display Name</label>
+              <input
+                v-model="editForm.display_name"
+                type="text"
+                class="form-input"
+                placeholder="Display Name"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Username</label>
+              <input
+                v-model="editForm.username"
+                type="text"
+                class="form-input"
+                placeholder="username (3-50 chars, letters, numbers, underscores)"
+                @input="validateUsername"
+              />
+              <p v-if="usernameError" class="error-message">
+                {{ usernameError }}
+              </p>
+              <p v-else-if="editForm.username" class="help-text">
+                Login with: {{ editForm.username }}
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label>Email (for notifications)</label>
+              <input
+                v-model="editForm.email"
+                type="email"
+                class="form-input"
+                placeholder="email@example.com"
+                @input="validateEmail"
+              />
+              <p v-if="emailError" class="error-message">{{ emailError }}</p>
+            </div>
+
+            <div v-if="updateError" class="error-message">
+              {{ updateError }}
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button @click="closeEditModal" class="btn-secondary">
+              Cancel
+            </button>
+            <button
+              @click="saveUserProfile"
+              class="btn-primary"
+              :disabled="saving || !!usernameError || !!emailError"
+            >
+              {{ saving ? 'Saving...' : 'Save Changes' }}
+            </button>
           </div>
         </div>
       </div>
@@ -128,6 +219,19 @@ export default {
     const showUserManagement = ref(false);
     const loadingUsers = ref(false);
     const users = ref([]);
+
+    // Edit modal state
+    const showEditModal = ref(false);
+    const editingUser = ref(null);
+    const editForm = ref({
+      display_name: '',
+      username: '',
+      email: '',
+    });
+    const usernameError = ref('');
+    const emailError = ref('');
+    const updateError = ref('');
+    const saving = ref(false);
 
     const adminCount = computed(
       () => users.value.filter(u => u.role === 'admin').length
@@ -201,6 +305,118 @@ export default {
         .slice(0, 2);
     };
 
+    const formatDate = dateString => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    };
+
+    const openEditModal = user => {
+      editingUser.value = user;
+      editForm.value = {
+        display_name: user.display_name || '',
+        username: user.username || '',
+        email: user.email || '',
+      };
+      usernameError.value = '';
+      emailError.value = '';
+      updateError.value = '';
+      showEditModal.value = true;
+    };
+
+    const closeEditModal = () => {
+      showEditModal.value = false;
+      editingUser.value = null;
+      editForm.value = {
+        display_name: '',
+        username: '',
+        email: '',
+      };
+      usernameError.value = '';
+      emailError.value = '';
+      updateError.value = '';
+    };
+
+    const validateUsername = () => {
+      const username = editForm.value.username.trim();
+      if (!username) {
+        usernameError.value = '';
+        return;
+      }
+
+      const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
+      if (!usernameRegex.test(username)) {
+        usernameError.value =
+          'Username must be 3-50 characters (letters, numbers, underscores only)';
+        return;
+      }
+
+      usernameError.value = '';
+    };
+
+    const validateEmail = () => {
+      const email = editForm.value.email.trim();
+      if (!email) {
+        emailError.value = '';
+        return;
+      }
+
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        emailError.value = 'Invalid email format';
+        return;
+      }
+
+      emailError.value = '';
+    };
+
+    const saveUserProfile = async () => {
+      if (!editingUser.value) return;
+
+      try {
+        saving.value = true;
+        updateError.value = '';
+
+        const updateData = {
+          user_id: editingUser.value.id,
+        };
+
+        // Only include fields that were actually changed
+        if (editForm.value.display_name !== editingUser.value.display_name) {
+          updateData.display_name = editForm.value.display_name;
+        }
+        if (editForm.value.username !== (editingUser.value.username || '')) {
+          updateData.username = editForm.value.username;
+        }
+        if (editForm.value.email !== (editingUser.value.email || '')) {
+          updateData.email = editForm.value.email;
+        }
+
+        await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users/profile`,
+          {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+          }
+        );
+
+        // Refresh users list
+        await fetchUsers();
+
+        // Close modal
+        closeEditModal();
+      } catch (error) {
+        console.error('Error updating user profile:', error);
+        updateError.value = error.message || 'Failed to update user profile';
+      } finally {
+        saving.value = false;
+      }
+    };
+
     const navigateToAdmin = () => {
       // This would typically use vue-router
       // For now, just emit an event or use direct navigation
@@ -225,7 +441,20 @@ export default {
       formatRole,
       getRoleClass,
       getInitials,
+      formatDate,
       navigateToAdmin,
+      // Edit modal
+      showEditModal,
+      editForm,
+      usernameError,
+      emailError,
+      updateError,
+      saving,
+      openEditModal,
+      closeEditModal,
+      validateUsername,
+      validateEmail,
+      saveUserProfile,
     };
   },
 };
@@ -350,21 +579,56 @@ export default {
 }
 
 .user-details h4 {
-  margin: 0 0 5px 0;
+  margin: 0 0 8px 0;
   color: #1f2937;
   font-size: 16px;
+  font-weight: 600;
+}
+
+.user-info {
+  margin-bottom: 8px;
+}
+
+.user-info p {
+  margin: 3px 0;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.user-username {
+  color: #3b82f6;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .user-email {
   color: #6b7280;
-  font-size: 14px;
-  margin: 0 0 8px 0;
+  font-size: 13px;
 }
 
 .user-team {
   color: #059669;
   font-size: 12px;
   margin-top: 5px;
+}
+
+.user-created {
+  color: #9ca3af;
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 5px 0;
 }
 
 .role-select {
@@ -438,6 +702,165 @@ export default {
 }
 .role-fan {
   background-color: #e5e7eb;
+  color: #6b7280;
+}
+
+/* Edit user modal */
+.user-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.edit-btn {
+  padding: 6px 12px;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.edit-btn:hover {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 18px;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  ring: 2px;
+  ring-color: #93c5fd;
+}
+
+.help-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.error-message {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
   color: #6b7280;
 }
 </style>

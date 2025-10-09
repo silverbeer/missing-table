@@ -58,7 +58,7 @@ export const useAuthStore = () => {
     state.profile = profile;
   };
 
-  const signup = async (email, password, displayName) => {
+  const signup = async (username, password, displayName, email = null) => {
     try {
       setLoading(true);
       clearError();
@@ -69,9 +69,10 @@ export const useAuthStore = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email,
+          username,
           password,
-          display_name: displayName || email.split('@')[0],
+          display_name: displayName || username,
+          email, // Optional email for notifications
         }),
       });
 
@@ -90,7 +91,13 @@ export const useAuthStore = () => {
     }
   };
 
-  const signupWithInvite = async (email, password, displayName, inviteCode) => {
+  const signupWithInvite = async (
+    username,
+    password,
+    displayName,
+    inviteCode,
+    email = null
+  ) => {
     try {
       setLoading(true);
       clearError();
@@ -101,10 +108,11 @@ export const useAuthStore = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email,
+          username,
           password,
-          display_name: displayName || email.split('@')[0],
+          display_name: displayName || username,
           invite_code: inviteCode,
+          email, // Optional email for notifications
         }),
       });
 
@@ -123,7 +131,7 @@ export const useAuthStore = () => {
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (username, password) => {
     try {
       setLoading(true);
       clearError();
@@ -133,7 +141,7 @@ export const useAuthStore = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (!response.ok) {
@@ -144,12 +152,15 @@ export const useAuthStore = () => {
       const data = await response.json();
 
       setUser(data.user);
-      setSession(data.session);
-      setProfile(data.user.profile);
+      setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+      setProfile(data.user);
 
       // Store tokens for API calls
-      localStorage.setItem('auth_token', data.session.access_token);
-      localStorage.setItem('refresh_token', data.session.refresh_token);
+      localStorage.setItem('auth_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
 
       return { success: true, user: data.user };
     } catch (error) {
@@ -400,6 +411,30 @@ export const useAuthStore = () => {
     return apiCall(url, { ...options, headers });
   };
 
+  const checkUsernameAvailability = async username => {
+    try {
+      const response = await fetch(
+        `${API_URL}/api/auth/username-available/${username}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to check username availability');
+      }
+
+      const data = await response.json();
+      return data; // Returns { available, message, suggestions? }
+    } catch (error) {
+      console.error('Username availability check error:', error);
+      return { available: false, message: 'Error checking username' };
+    }
+  };
+
   return {
     // State
     state,
@@ -430,5 +465,6 @@ export const useAuthStore = () => {
     apiCall,
     refreshSession,
     isTokenExpiringSoon,
+    checkUsernameAvailability,
   };
 };
