@@ -111,6 +111,11 @@
               Status
             </th>
             <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+            >
+              Match ID
+            </th>
+            <th
               class="px-4 py-3 text-right text-xs font-medium text-gray-500 bg-gray-50 uppercase tracking-wider w-44 sticky right-0"
             >
               Actions
@@ -159,6 +164,12 @@
               >
                 {{ getStatusDisplay(game.status) }}
               </span>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+              <span v-if="game.match_id" class="font-mono text-xs" :title="`External Match ID: ${game.match_id}`">
+                {{ game.match_id }}
+              </span>
+              <span v-else class="text-gray-400 italic text-xs">-</span>
             </td>
             <td
               class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium bg-gray-50 w-44 sticky right-0"
@@ -325,6 +336,18 @@
               </div>
             </div>
 
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Match ID <span class="text-gray-400 text-xs">(optional - for externally scraped games)</span></label
+              >
+              <input
+                v-model="editFormData.match_id"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                placeholder="e.g., external-match-12345"
+              />
+            </div>
+
             <div class="flex justify-end space-x-3">
               <button
                 type="button"
@@ -380,6 +403,7 @@ export default {
       season_id: '',
       age_group_id: '',
       division_id: null,
+      match_id: '',
     });
 
     const fetchGames = async () => {
@@ -494,6 +518,7 @@ export default {
         season_id: game.season_id,
         age_group_id: game.age_group_id,
         division_id: game.division_id,
+        match_id: game.match_id || '',
       };
       showEditModal.value = true;
     };
