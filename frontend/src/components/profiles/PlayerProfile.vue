@@ -431,7 +431,7 @@ export default {
       try {
         loadingGames.value = true;
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/games/team/${teamId}`
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${teamId}`
         );
         if (response.ok) {
           teamGames.value = await response.json();
