@@ -287,6 +287,13 @@ class RoleUpdate(BaseModel):
     team_id: int | None = None
 
 
+class UserProfileUpdate(BaseModel):
+    user_id: str
+    username: str | None = None
+    display_name: str | None = None
+    email: str | None = None
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
@@ -814,6 +821,90 @@ async def update_user_role(
     except Exception as e:
         logger.error(f"Update user role error: {e}")
         raise HTTPException(status_code=500, detail="Failed to update user role")
+
+
+@app.put("/api/auth/users/profile")
+async def update_user_profile(
+    profile_data: UserProfileUpdate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Update user profile information (admin only)."""
+    import re
+
+    try:
+        update_data = {}
+
+        # Validate and handle username update
+        if profile_data.username is not None:
+            username = profile_data.username.strip()
+
+            # Validate username format
+            if username and not re.match(r"^[a-zA-Z0-9_]{3,50}$", username):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Username must be 3-50 characters (letters, numbers, underscores only)",
+                )
+
+            # Check if username is already taken by another user
+            if username:
+                existing = (
+                    db_conn_holder_obj.client.table("user_profiles")
+                    .select("id")
+                    .eq("username", username.lower())
+                    .execute()
+                )
+
+                if existing.data and existing.data[0]["id"] != profile_data.user_id:
+                    raise HTTPException(
+                        status_code=409, detail=f"Username '{username}' is already taken"
+                    )
+
+                update_data["username"] = username.lower()
+
+                # Update auth.users email to internal format
+                internal_email = f"{username.lower()}@missingtable.local"
+                try:
+                    db_conn_holder_obj.client.auth.admin.update_user_by_id(
+                        profile_data.user_id,
+                        {
+                            "email": internal_email,
+                            "user_metadata": {
+                                "username": username.lower(),
+                                "is_username_auth": True,
+                            },
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to update auth.users email: {e}")
+
+        # Handle display name update
+        if profile_data.display_name is not None:
+            update_data["display_name"] = profile_data.display_name.strip()
+
+        # Handle email update (real email for notifications)
+        if profile_data.email is not None:
+            email = profile_data.email.strip()
+            if email:
+                # Basic email validation
+                if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
+                    raise HTTPException(status_code=400, detail="Invalid email format")
+            update_data["email"] = email
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        # Update user_profiles
+        db_conn_holder_obj.client.table("user_profiles").update(update_data).eq(
+            "id", profile_data.user_id
+        ).execute()
+
+        return {"message": "User profile updated successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update user profile error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update user profile: {str(e)}")
 
 
 # === CSRF Token Endpoint ===
