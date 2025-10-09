@@ -300,29 +300,29 @@
           </thead>
           <tbody>
             <tr
-              v-for="(game, index) in sortedGames"
-              :key="game.match_date"
+              v-for="(match, index) in sortedGames"
+              :key="match.match_date"
               :class="{ 'bg-gray-100': index % 2 === 0 }"
             >
               <td class="border-b text-right">{{ index + 1 }}</td>
               <td class="border-b text-center">{{ match.match_date }}</td>
               <td class="border-b text-left px-2">
-                {{ getTeamDisplay(game) }}
+                {{ getTeamDisplay(match) }}
               </td>
               <td class="border-b text-center">
-                {{ getScoreDisplay(game) }}
+                {{ getScoreDisplay(match) }}
               </td>
               <td class="border-b text-center">
                 <span
-                  v-if="game.match_status === 'played'"
+                  v-if="match.match_status === 'played'"
                   class="px-2 py-1 rounded-full text-sm font-bold"
                   :class="{
-                    'bg-green-100 text-green-800': getResult(game) === 'W',
-                    'bg-yellow-100 text-yellow-800': getResult(game) === 'T',
-                    'bg-red-100 text-red-800': getResult(game) === 'L',
+                    'bg-green-100 text-green-800': getResult(match) === 'W',
+                    'bg-yellow-100 text-yellow-800': getResult(match) === 'T',
+                    'bg-red-100 text-red-800': getResult(match) === 'L',
                   }"
                 >
-                  {{ getResult(game) }}
+                  {{ getResult(match) }}
                 </span>
                 <span v-else class="text-gray-400">-</span>
               </td>
@@ -341,7 +341,7 @@
                       match.match_status === 'postponed',
                     'bg-red-100 text-red-800':
                       match.match_status === 'cancelled',
-                    'bg-gray-100 text-gray-800': !game.match_status,
+                    'bg-gray-100 text-gray-800': !match.match_status,
                   }"
                 >
                   {{ match.match_status || 'scheduled' }}
@@ -349,7 +349,7 @@
               </td>
               <td class="border-b text-center">
                 <span
-                  :title="getSourceTooltip(game)"
+                  :title="getSourceTooltip(match)"
                   :class="{
                     'px-2 py-1 rounded text-xs font-medium': true,
                     'bg-purple-100 text-purple-800':
@@ -358,13 +358,13 @@
                     'bg-yellow-100 text-yellow-700': match.source === 'import',
                   }"
                 >
-                  {{ getSourceDisplay(game.source) }}
+                  {{ getSourceDisplay(match.source) }}
                 </span>
               </td>
               <td v-if="canEditGames" class="border-b text-center">
                 <button
-                  v-if="canEditGame(game)"
-                  @click="editMatch(game)"
+                  v-if="canEditGame(match)"
+                  @click="editMatch(match)"
                   class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                   Edit
@@ -377,8 +377,8 @@
         <!-- Mobile: Card View -->
         <div class="lg:hidden space-y-3">
           <div
-            v-for="(game, index) in sortedGames"
-            :key="game.match_date + '-' + index"
+            v-for="(match, index) in sortedGames"
+            :key="match.match_date + '-' + index"
             class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
           >
             <!-- Match Number and Date -->
@@ -396,22 +396,22 @@
             <!-- Teams and Score -->
             <div class="mb-3">
               <div class="text-base font-medium text-gray-900 mb-2">
-                {{ getTeamDisplay(game) }}
+                {{ getTeamDisplay(match) }}
               </div>
               <div class="flex items-center space-x-3">
                 <span class="text-2xl font-bold text-gray-900">
-                  {{ getScoreDisplay(game) }}
+                  {{ getScoreDisplay(match) }}
                 </span>
                 <span
-                  v-if="game.match_status === 'played'"
+                  v-if="match.match_status === 'played'"
                   class="px-3 py-1 rounded-full text-sm font-bold"
                   :class="{
-                    'bg-green-100 text-green-800': getResult(game) === 'W',
-                    'bg-yellow-100 text-yellow-800': getResult(game) === 'T',
-                    'bg-red-100 text-red-800': getResult(game) === 'L',
+                    'bg-green-100 text-green-800': getResult(match) === 'W',
+                    'bg-yellow-100 text-yellow-800': getResult(match) === 'T',
+                    'bg-red-100 text-red-800': getResult(match) === 'L',
                   }"
                 >
-                  {{ getResult(game) }}
+                  {{ getResult(match) }}
                 </span>
               </div>
             </div>
@@ -437,7 +437,7 @@
                       match.match_status === 'postponed',
                     'bg-red-100 text-red-800':
                       match.match_status === 'cancelled',
-                    'bg-gray-100 text-gray-800': !game.match_status,
+                    'bg-gray-100 text-gray-800': !match.match_status,
                   }"
                 >
                   {{ match.match_status || 'scheduled' }}
@@ -445,13 +445,13 @@
               </div>
               <div>
                 <span class="text-gray-500">Source:</span>
-                <span class="ml-1" :title="getSourceTooltip(game)">
-                  {{ getSourceDisplay(game.source) }}
+                <span class="ml-1" :title="getSourceTooltip(match)">
+                  {{ getSourceDisplay(match.source) }}
                 </span>
               </div>
-              <div v-if="canEditGames && canEditGame(game)" class="text-right">
+              <div v-if="canEditGames && canEditGame(match)" class="text-right">
                 <button
-                  @click="editMatch(game)"
+                  @click="editMatch(match)"
                   class="text-blue-600 font-medium text-sm active:text-blue-800"
                 >
                   Edit
