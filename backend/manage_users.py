@@ -72,12 +72,12 @@ def list_users(supabase):
             box=box.ROUNDED,  # Rounded box with borders and lighter row separators
             row_styles=["", "dim"]  # Alternate row styling for better readability
         )
-        table.add_column("Username", style="green", width=15, no_wrap=True)
-        table.add_column("ID", style="dim", width=15, no_wrap=True)  # Wide enough for "8acbf82a3298..." (15 chars)
-        table.add_column("Role", style="yellow", width=14, no_wrap=True)
-        table.add_column("Display Name", style="cyan", width=20)
-        table.add_column("Team", style="blue", width=25)
-        table.add_column("Created", style="dim", width=10, no_wrap=True)
+        table.add_column("Username", style="green", no_wrap=True)
+        table.add_column("ID", style="dim", no_wrap=True)  # Full UUID
+        table.add_column("Role", style="yellow", no_wrap=True)
+        table.add_column("Display Name", style="cyan")
+        table.add_column("Team", style="blue")
+        table.add_column("Created", style="dim", no_wrap=True)
 
         for user in users_list:
             user_id = user.id if hasattr(user, 'id') else user.get('id')
@@ -121,7 +121,7 @@ def list_users(supabase):
 
             table.add_row(
                 username or "N/A",
-                user_id[:12] + "..." if user_id else "N/A",  # Show first 12 chars of ID (fits in 15-char column)
+                user_id if user_id else "N/A",  # Show full UUID
                 role_display,
                 display_name,
                 team_display,
