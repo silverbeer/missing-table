@@ -1149,7 +1149,7 @@ async def update_match(
         if not auth_manager.can_edit_match(current_user, current_match['home_team_id'], current_match['away_team_id']):
             raise HTTPException(status_code=403, detail="You don't have permission to edit this match")
 
-        success = sports_dao.update_match(
+        updated_match = sports_dao.update_match(
             match_id=match_id,
             home_team_id=match.home_team_id,
             away_team_id=match.away_team_id,
@@ -1164,7 +1164,7 @@ async def update_match(
             updated_by=current_user.get("user_id"),  # Track who updated the match
             external_match_id=match.external_match_id,  # Update external_match_id if provided
         )
-        if success:
+        if updated_match:
             return {"message": "Match updated successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to update match")
@@ -1225,7 +1225,7 @@ async def patch_match(
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
         # Validate match_status if provided (must match database CHECK constraint)
-        valid_statuses = ["scheduled", "played", "postponed", "cancelled"]
+        valid_statuses = ["scheduled", "live", "played", "postponed", "cancelled"]
         status_to_check = match_patch.match_status or match_patch.status
         if status_to_check is not None and status_to_check not in valid_statuses:
             raise HTTPException(
@@ -1245,24 +1245,28 @@ async def patch_match(
             "age_group_id": match_patch.age_group_id if match_patch.age_group_id is not None else current_match['age_group_id'],
             "match_type_id": match_patch.match_type_id if match_patch.match_type_id is not None else current_match['match_type_id'],
             "division_id": match_patch.division_id if match_patch.division_id is not None else current_match.get('division_id'),
-            "status": match_patch.match_status if match_patch.match_status is not None else (match_patch.status if match_patch.status is not None else current_match.get('status', 'scheduled')),
+            "status": match_patch.match_status if match_patch.match_status is not None else (match_patch.status if match_patch.status is not None else current_match.get('match_status', 'scheduled')),
             "external_match_id": match_patch.external_match_id if match_patch.external_match_id is not None else current_match.get('external_match_id'),
             "updated_by": current_user.get("user_id"),
         }
 
-        success = sports_dao.update_match(**update_data)
+        logger.info(f"PATCH /api/matches/{match_id} - Calling update_match with: {update_data}")
+        updated_match = sports_dao.update_match(**update_data)
+        logger.info(f"PATCH /api/matches/{match_id} - Update success: {bool(updated_match)}")
 
-        if success:
-            # Return updated match object
-            updated_match = sports_dao.get_match_by_id(match_id)
+        if updated_match:
+            # Return the updated match data directly from update_match
+            # This avoids read-after-write consistency issues
+            logger.info(f"PATCH /api/matches/{match_id} - Returning updated match: {updated_match}")
             return updated_match
         else:
+            logger.error(f"PATCH /api/matches/{match_id} - update_match returned None!")
             raise HTTPException(status_code=500, detail="Failed to update match")
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error patching match: {e!s}")
+        logger.error(f"Error patching match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1698,7 +1702,7 @@ async def add_or_update_scraped_match(
             logger.info(f"Updating existing match {existing_match_id} with external_match_id {external_match_id}")
 
             # Update existing match
-            success = sports_dao.update_match(
+            updated_match = sports_dao.update_match(
                 match_id=existing_match_id,
                 home_team_id=match.home_team_id,
                 away_team_id=match.away_team_id,
@@ -1712,7 +1716,7 @@ async def add_or_update_scraped_match(
                 updated_by=current_user.get("user_id"),  # Track scraper updates
             )
 
-            if success:
+            if updated_match:
                 return {
                     "message": "Match updated successfully",
                     "action": "updated",
