@@ -20,6 +20,7 @@ supabase = create_client(url, key)
 
 print("👥 Listing users via Admin API...\n")
 try:
+    # Get auth users
     response = supabase.auth.admin.list_users()
     users = response if isinstance(response, list) else []
 
@@ -27,11 +28,24 @@ try:
         print("No users found in auth.users\n")
     else:
         print(f"Found {len(users)} user(s):\n")
+
+        # Get user profiles with usernames
+        profiles_response = supabase.table('user_profiles').select('*').execute()
+        profiles = {p['id']: p for p in profiles_response.data} if profiles_response.data else {}
+
         for user in users:
+            profile = profiles.get(user.id, {})
+            username = profile.get('username') or user.user_metadata.get('username') if hasattr(user, 'user_metadata') else None
+
             print(f"  ID: {user.id}")
-            print(f"  Email: {user.email}")
+            print(f"  Username: {username or 'N/A'}")
+            print(f"  Email (internal): {user.email}")
+            print(f"  Email (real): {profile.get('email', 'N/A')}")
+            print(f"  Display Name: {profile.get('display_name', 'N/A')}")
+            print(f"  Role: {profile.get('role', 'N/A')}")
+            print(f"  Team ID: {profile.get('team_id', 'N/A')}")
             print(f"  Created: {user.created_at}")
-            print(f"  Metadata: {user.user_metadata if hasattr(user, 'user_metadata') else 'N/A'}")
+            print(f"  ⚠️  Password: HASHED (cannot be retrieved)")
             print("  " + "-" * 60)
 
 except Exception as e:

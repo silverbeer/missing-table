@@ -441,5 +441,73 @@ def info_command(
         raise typer.Exit(1)
 
 
+def delete_user(supabase, user_id, skip_confirm=False):
+    """Delete a user by ID."""
+    try:
+        console.print(f"[cyan]🔍 Fetching user: {user_id}...[/cyan]\n")
+
+        # Get profile first to show what we're deleting
+        profile_response = supabase.table('user_profiles').select('*, teams(name, city)').eq('id', user_id).execute()
+
+        if not profile_response.data:
+            console.print(f"[yellow]⚠️  No profile found for user: {user_id}[/yellow]")
+            console.print(f"[yellow]⚠️  Checking if user exists in auth.users...[/yellow]")
+        else:
+            profile = profile_response.data[0]
+            console.print(f"[red bold]User to DELETE:[/red bold]")
+            console.print(f"  User ID: [cyan]{user_id}[/cyan]")
+            console.print(f"  Username: [yellow]{profile.get('username', 'N/A')}[/yellow]")
+            console.print(f"  Display Name: {profile.get('display_name', 'N/A')}")
+            console.print(f"  Role: [magenta]{profile.get('role', 'N/A')}[/magenta]")
+            console.print(f"  Team: {profile.get('teams', {}).get('name', 'N/A') if profile.get('teams') else 'N/A'}")
+            console.print()
+
+        # Confirm deletion
+        if not skip_confirm:
+            if not Confirm.ask("[bold red]⚠️  Are you ABSOLUTELY SURE you want to DELETE this user permanently?[/bold red]"):
+                console.print("[yellow]Deletion cancelled[/yellow]")
+                return False
+
+        # Delete from user_profiles
+        console.print("[cyan]1. Deleting from user_profiles...[/cyan]")
+        supabase.table('user_profiles').delete().eq('id', user_id).execute()
+        console.print("[green]   ✓ Deleted from user_profiles[/green]")
+
+        # Delete from auth.users
+        console.print("[cyan]2. Deleting from auth.users...[/cyan]")
+        supabase.auth.admin.delete_user(user_id)
+        console.print("[green]   ✓ Deleted from auth.users[/green]")
+
+        console.print(f"\n[bold green]✅ User {user_id} deleted successfully![/bold green]")
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        return False
+
+
+@app.command("delete")
+def delete_command(
+    user_id: str = typer.Option(..., "--id", "-i", help="User ID to delete"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts")
+):
+    """Delete a user by ID from both auth.users and user_profiles."""
+    console.print("[bold red]🗑️  User Deletion Tool[/bold red]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    success = delete_user(supabase, user_id, skip_confirm=confirm)
+    if success:
+        console.print("\n[green]🎉 Deletion completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Deletion failed![/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
