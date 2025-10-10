@@ -64,11 +64,11 @@ def list_users(supabase):
 
         console.print(f"\n[bold cyan]👥 Found {len(users_list)} users:[/bold cyan]")
 
-        # Create a rich table for better display with light row separators
+        # Create a rich table for better display with row separators
         table = Table(
             show_header=True,
             header_style="bold magenta",
-            box=box.SIMPLE_HEAVY,  # Light lines between rows, heavy header
+            show_lines=True,  # Show lines between rows
             row_styles=["", "dim"]  # Alternate row styling for better readability
         )
         table.add_column("Username", style="green", width=15, no_wrap=True)
