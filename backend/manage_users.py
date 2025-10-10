@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
+from rich import box
 from supabase import create_client
 
 app = typer.Typer()
@@ -63,14 +64,19 @@ def list_users(supabase):
 
         console.print(f"\n[bold cyan]👥 Found {len(users_list)} users:[/bold cyan]")
 
-        # Create a rich table for better display
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Username", style="green", width=15)
-        table.add_column("ID", style="dim", width=8)  # Shortened ID
-        table.add_column("Role", style="yellow", width=12)
+        # Create a rich table for better display with light row separators
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            box=box.SIMPLE_HEAVY,  # Light lines between rows, heavy header
+            row_styles=["", "dim"]  # Alternate row styling for better readability
+        )
+        table.add_column("Username", style="green", width=15, no_wrap=True)
+        table.add_column("ID", style="dim", width=11, no_wrap=True)  # Wider for full 8 chars + "..."
+        table.add_column("Role", style="yellow", width=14, no_wrap=True)
         table.add_column("Display Name", style="cyan", width=20)
         table.add_column("Team", style="blue", width=25)
-        table.add_column("Created", style="dim", width=10)
+        table.add_column("Created", style="dim", width=10, no_wrap=True)
 
         for user in users_list:
             user_id = user.id if hasattr(user, 'id') else user.get('id')
