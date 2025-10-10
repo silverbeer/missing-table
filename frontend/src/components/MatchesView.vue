@@ -503,7 +503,7 @@ import { useAuthStore } from '@/stores/auth';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 
 export default {
-  name: 'ScoresSchedule',
+  name: 'MatchesView',
   components: {
     MatchEditModal,
   },
