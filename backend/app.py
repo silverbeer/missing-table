@@ -257,6 +257,9 @@ class UserSignup(BaseModel):
     @classmethod
     def validate_email(cls, v):
         """Validate email format if provided."""
+        # Convert empty string to None
+        if v == '':
+            return None
         if v is not None and '@' not in v:
             raise ValueError('Invalid email format')
         return v
@@ -374,11 +377,12 @@ async def signup(request: Request, user_data: UserSignup):
 
             if response.user:
                 # Create/update user profile with username and optional contact info
+                # Convert empty strings to None for optional fields
                 profile_data = {
                     'id': response.user.id,
                     'username': user_data.username,
-                    'email': user_data.email,  # Optional real email
-                    'phone_number': user_data.phone_number,  # Optional phone
+                    'email': user_data.email if user_data.email else None,  # Optional real email
+                    'phone_number': user_data.phone_number if user_data.phone_number else None,  # Optional phone
                     'display_name': user_data.display_name or user_data.username,
                     'role': 'team-fan'  # Default role
                 }
