@@ -224,7 +224,7 @@ def matches(
 
     # Build query
     query = supabase.table("matches").select(
-        "id, match_date, home_score, away_score, match_status, source, "
+        "id, match_date, home_score, away_score, match_status, match_id, source, "
         "home_team:teams!matches_home_team_id_fkey(id, name), "
         "away_team:teams!matches_away_team_id_fkey(id, name), "
         "age_groups(id, name), "
@@ -290,19 +290,23 @@ def matches(
 
     table = Table(title=title, show_header=True, header_style="bold magenta")
     table.add_column("ID", style="cyan", width=5)
-    table.add_column("Date", style="green", width=12)
-    table.add_column("Home Team", style="yellow", width=20)
-    table.add_column("Away Team", style="yellow", width=20)
-    table.add_column("Score", style="white", width=8)
-    table.add_column("Age", style="blue", width=6)
-    table.add_column("Season", style="magenta", width=10)
-    table.add_column("Source", style="dim", width=8)
+    table.add_column("Date", style="green", width=10)
+    table.add_column("Home Team", style="yellow", width=18)
+    table.add_column("Away Team", style="yellow", width=18)
+    table.add_column("Score", style="white", width=7)
+    table.add_column("Status", style="blue", width=9)
+    table.add_column("Match ID", style="cyan", width=12)
+    table.add_column("Age", style="blue", width=5)
+    table.add_column("Season", style="magenta", width=9)
+    table.add_column("Source", style="dim", width=7)
 
     for match in matches_data:
         match_date = match["match_date"][:10] if match.get("match_date") else "-"
         home_team_name = match.get("home_team", {}).get("name", "?")
         away_team_name = match.get("away_team", {}).get("name", "?")
         score = f"{match.get('home_score', '-')} - {match.get('away_score', '-')}"
+        match_status = match.get("match_status", "scheduled")
+        external_match_id = match.get("match_id", "-")
         age_group_name = match.get("age_groups", {}).get("name", "-")
         season_name = match.get("seasons", {}).get("name", "-")
         source_name = match.get("source", "manual")
@@ -316,6 +320,8 @@ def matches(
             home_team_name,
             away_team_name,
             score,
+            match_status,
+            str(external_match_id),
             age_group_name,
             season_name,
             source_name,
@@ -339,6 +345,7 @@ def matches(
     m.home_score,
     m.away_score,
     m.match_status,
+    m.match_id,
     m.source,
     ht.name AS home_team,
     at.name AS away_team,
@@ -370,7 +377,7 @@ LEFT JOIN match_types mt ON m.match_type_id = mt.id"""
         console.print(f"[white]{sql_query}[/white]")
     else:
         select_clause = (
-            "id, match_date, home_score, away_score, match_status, source, "
+            "id, match_date, home_score, away_score, match_status, match_id, source, "
             "home_team:teams!matches_home_team_id_fkey(id, name), "
             "away_team:teams!matches_away_team_id_fkey(id, name), "
             "age_groups(id, name), seasons(id, name), match_types(id, name)"
