@@ -69,10 +69,11 @@ def list_users(supabase):
             show_header=True,
             header_style="bold magenta",
             show_lines=True,  # Show lines between rows
+            box=box.HORIZONTALS,  # Light lines between rows, heavier border
             row_styles=["", "dim"]  # Alternate row styling for better readability
         )
         table.add_column("Username", style="green", width=15, no_wrap=True)
-        table.add_column("ID", style="dim", width=11, no_wrap=True)  # Wider for full 8 chars + "..."
+        table.add_column("ID", style="dim", width=13, no_wrap=True)  # Wider to fit "8acbf82a..." (13 chars)
         table.add_column("Role", style="yellow", width=14, no_wrap=True)
         table.add_column("Display Name", style="cyan", width=20)
         table.add_column("Team", style="blue", width=25)
