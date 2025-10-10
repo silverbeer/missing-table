@@ -65,38 +65,60 @@ def list_users(supabase):
 
         # Create a rich table for better display
         table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Email", style="cyan")
-        table.add_column("ID", style="dim", width=36)  # Full UUID width
-        table.add_column("Role", style="green")
-        table.add_column("Display Name", style="yellow")
-        table.add_column("Team ID", style="blue")
-        table.add_column("Created", style="dim")
+        table.add_column("Username", style="green", width=15)
+        table.add_column("ID", style="dim", width=8)  # Shortened ID
+        table.add_column("Role", style="yellow", width=12)
+        table.add_column("Display Name", style="cyan", width=20)
+        table.add_column("Team", style="blue", width=25)
+        table.add_column("Created", style="dim", width=10)
 
         for user in users_list:
             user_id = user.id if hasattr(user, 'id') else user.get('id')
             email = user.email if hasattr(user, 'email') else user.get('email')
             created_at = user.created_at if hasattr(user, 'created_at') else user.get('created_at')
 
-            # Get profile info
+            # Get profile info with team details
             try:
-                profile_result = supabase.table('user_profiles').select('role, display_name, team_id').eq('id', user_id).execute()
+                profile_result = supabase.table('user_profiles').select('username, role, display_name, team_id, teams(id, name)').eq('id', user_id).execute()
                 if profile_result.data:
                     profile = profile_result.data[0]
+                    username = profile.get('username', 'N/A')
                     role = profile.get('role', 'No role')
                     display_name = profile.get('display_name', 'No display name')
-                    team_id = profile.get('team_id', 'No team')
+                    team_id = profile.get('team_id')
+
+                    # Format team display (ID + Name for team-manager/team-player/team-fan)
+                    if team_id and profile.get('teams'):
+                        team_name = profile['teams'].get('name', 'Unknown')
+                        team_display = f"[{team_id}] {team_name}"
+                    elif team_id:
+                        team_display = f"[{team_id}] (name unknown)"
+                    else:
+                        team_display = "No team"
                 else:
-                    role = display_name = team_id = "No profile"
-            except:
-                role = display_name = team_id = "Profile error"
+                    username = role = display_name = team_display = "No profile"
+            except Exception as e:
+                username = role = display_name = team_display = f"Error: {str(e)[:10]}"
+
+            # Color code roles
+            if role == 'admin':
+                role_display = f"[bold red]{role}[/bold red]"
+            elif role == 'team-manager':
+                role_display = f"[bold yellow]{role}[/bold yellow]"
+            elif role == 'team-player':
+                role_display = f"[bold blue]{role}[/bold blue]"
+            elif role == 'team-fan':
+                role_display = f"[bold green]{role}[/bold green]"
+            else:
+                role_display = role
 
             table.add_row(
-                email,
-                user_id,  # Show full ID now that we have width set
-                role,
+                username or "N/A",
+                user_id[:8] + "..." if user_id else "N/A",  # Show first 8 chars of ID
+                role_display,
                 display_name,
-                str(team_id),
-                str(created_at)[:10] if created_at else "Unknown"  # Show just date
+                team_display,
+                str(created_at)[:10] if created_at else "Unknown"
             )
 
         console.print(table)
