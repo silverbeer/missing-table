@@ -247,6 +247,12 @@ export default {
     watch(
       () => props.match,
       newMatch => {
+        console.log('MatchEditModal - watch triggered, newMatch:', newMatch);
+        console.log('MatchEditModal - props.show:', props.show);
+        console.log('MatchEditModal - props.teams:', props.teams);
+        console.log('MatchEditModal - props.seasons:', props.seasons);
+        console.log('MatchEditModal - props.matchTypes:', props.matchTypes);
+        console.log('MatchEditModal - props.ageGroups:', props.ageGroups);
         if (newMatch) {
           formData.value = {
             match_date: newMatch.match_date,
@@ -259,7 +265,10 @@ export default {
             age_group_id: newMatch.age_group_id,
             division_id: newMatch.division_id,
           };
+          console.log('MatchEditModal - formData populated:', formData.value);
           error.value = null;
+        } else {
+          console.log('MatchEditModal - newMatch is null/undefined');
         }
       },
       { immediate: true }
