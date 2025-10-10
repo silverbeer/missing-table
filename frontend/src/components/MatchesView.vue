@@ -486,7 +486,7 @@
     <!-- Match Edit Modal -->
     <MatchEditModal
       :show="showEditModal"
-      :game="editingMatch"
+      :match="editingMatch"
       :teams="teams"
       :seasons="seasons"
       :match-types="matchTypes"
