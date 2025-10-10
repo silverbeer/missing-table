@@ -931,29 +931,51 @@ export default {
 
     // Permission checks
     const canEditGames = computed(() => {
-      return authStore.isAdmin || authStore.isTeamManager;
+      return authStore.isAdmin.value || authStore.isTeamManager.value;
     });
 
     const canEditGame = match => {
+      console.log('MatchesView - canEditGame called for match:', match.id);
+      console.log('MatchesView - authStore.isAdmin:', authStore.isAdmin.value);
+      console.log(
+        'MatchesView - authStore.isTeamManager:',
+        authStore.isTeamManager.value
+      );
+      console.log(
+        'MatchesView - authStore.userTeamId:',
+        authStore.userTeamId.value
+      );
+      console.log('MatchesView - match.home_team_id:', match.home_team_id);
+      console.log('MatchesView - match.away_team_id:', match.away_team_id);
+
       // Admins can edit all matches
-      if (authStore.isAdmin) {
+      if (authStore.isAdmin.value) {
+        console.log('MatchesView - User is admin, can edit');
         return true;
       }
 
       // Team managers can only edit matches involving their team
-      if (authStore.isTeamManager && authStore.userTeamId) {
-        return (
-          match.home_team_id === authStore.userTeamId ||
-          match.away_team_id === authStore.userTeamId
-        );
+      if (authStore.isTeamManager.value && authStore.userTeamId.value) {
+        const canEdit =
+          match.home_team_id === authStore.userTeamId.value ||
+          match.away_team_id === authStore.userTeamId.value;
+        console.log('MatchesView - Team manager check, canEdit:', canEdit);
+        return canEdit;
       }
 
+      console.log('MatchesView - User cannot edit this match');
       return false;
     };
 
     const editMatch = match => {
+      console.log('MatchesView - editMatch called with:', match);
       editingMatch.value = match;
       showEditModal.value = true;
+      console.log(
+        'MatchesView - editingMatch.value set to:',
+        editingMatch.value
+      );
+      console.log('MatchesView - showEditModal:', showEditModal.value);
     };
 
     const closeEditModal = () => {
