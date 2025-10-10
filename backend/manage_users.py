@@ -69,7 +69,7 @@ def list_users(supabase):
             show_header=True,
             header_style="bold magenta",
             show_lines=True,  # Show lines between rows
-            box=box.HORIZONTALS,  # Light lines between rows, heavier border
+            box=box.SIMPLE_HEAD,  # Border with lighter row separators
             row_styles=["", "dim"]  # Alternate row styling for better readability
         )
         table.add_column("Username", style="green", width=15, no_wrap=True)
