@@ -2,6 +2,7 @@
 """
 Reset user password in Supabase cloud environment.
 This script uses the admin/service role to reset a user's password.
+Supports username-based authentication.
 """
 
 import os
@@ -23,8 +24,17 @@ def load_environment():
         if app_env != 'local':
             print("Warning: Non-local environment requested but file not found")
 
-def reset_password(email: str, new_password: str):
-    """Reset a user's password using Supabase admin API."""
+def reset_password(username: str = None, email: str = None, new_password: str = None):
+    """Reset a user's password using Supabase admin API.
+
+    Args:
+        username: Username to look up (preferred method)
+        email: Email to look up (deprecated, for backwards compatibility)
+        new_password: New password to set
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
     load_environment()
 
     supabase_url = os.getenv('SUPABASE_URL')
@@ -34,39 +44,67 @@ def reset_password(email: str, new_password: str):
         print("❌ Error: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY")
         return False
 
+    if not username and not email:
+        print("❌ Error: Must provide either --username or --email")
+        return False
+
     try:
         # Create admin client with service key
         supabase = create_client(supabase_url, service_key)
 
-        print(f"🔍 Looking up user: {email}")
+        user_id = None
+        user_identifier = username or email
 
-        # Find user by email using admin API
-        # Note: Supabase admin methods require service role key
-        response = supabase.auth.admin.list_users()
+        # Look up user by username (preferred)
+        if username:
+            print(f"🔍 Looking up user by username: {username}")
 
-        user_found = None
+            # Query user_profiles table for username
+            profile_response = supabase.table('user_profiles')\
+                .select('id, username, email, display_name')\
+                .eq('username', username.lower())\
+                .execute()
 
-        # Handle different response structures
-        users_list = response if isinstance(response, list) else getattr(response, 'data', {}).get('users', [])
+            if profile_response.data and len(profile_response.data) > 0:
+                profile = profile_response.data[0]
+                user_id = profile['id']
+                print(f"✅ Found user profile:")
+                print(f"   Username: {profile.get('username')}")
+                print(f"   Display Name: {profile.get('display_name')}")
+                print(f"   Email: {profile.get('email', 'N/A')}")
+                print(f"   User ID: {user_id}")
+            else:
+                print(f"❌ User with username '{username}' not found")
+                return False
 
-        for user in users_list:
-            if hasattr(user, 'email') and user.email == email:
-                user_found = user
-                break
-            elif isinstance(user, dict) and user.get('email') == email:
-                user_found = user
-                break
+        # Fall back to email lookup (deprecated)
+        elif email:
+            print(f"🔍 Looking up user by email: {email}")
+            print("⚠️  Note: Email lookup is deprecated. Please use --username instead.")
 
-        if not user_found:
-            print(f"❌ User {email} not found")
-            return False
+            # Find user by email using admin API
+            response = supabase.auth.admin.list_users()
 
-        # Get user ID
-        user_id = user_found.id if hasattr(user_found, 'id') else user_found.get('id')
-        print(f"✅ Found user: {user_id}")
+            user_found = None
+            users_list = response if isinstance(response, list) else getattr(response, 'data', {}).get('users', [])
+
+            for user in users_list:
+                if hasattr(user, 'email') and user.email == email:
+                    user_found = user
+                    break
+                elif isinstance(user, dict) and user.get('email') == email:
+                    user_found = user
+                    break
+
+            if not user_found:
+                print(f"❌ User with email '{email}' not found")
+                return False
+
+            user_id = user_found.id if hasattr(user_found, 'id') else user_found.get('id')
+            print(f"✅ Found user: {user_id}")
 
         # Reset password using admin API
-        print(f"🔄 Resetting password for {email}...")
+        print(f"🔄 Resetting password for {user_identifier}...")
 
         reset_response = supabase.auth.admin.update_user_by_id(
             user_id,
@@ -76,8 +114,8 @@ def reset_password(email: str, new_password: str):
         )
 
         if reset_response.user:
-            print(f"✅ Password reset successful for {email}")
-            print(f"📧 User ID: {reset_response.user.id}")
+            print(f"✅ Password reset successful for {user_identifier}")
+            print(f"👤 User ID: {reset_response.user.id}")
             print(f"🔑 New password: {new_password}")
             return True
         else:
@@ -86,33 +124,59 @@ def reset_password(email: str, new_password: str):
 
     except Exception as e:
         print(f"❌ Error resetting password: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description='Reset user password in Supabase')
-    parser.add_argument('--email', required=True, help='User email to reset password for')
+    parser = argparse.ArgumentParser(
+        description='Reset user password in Supabase (supports username-based authentication)',
+        epilog='Examples:\n'
+               '  %(prog)s --username tom --password newpass123 --confirm\n'
+               '  %(prog)s --email user@example.com --password newpass123\n',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('--username', help='Username to reset password for (preferred)')
+    parser.add_argument('--email', help='User email to reset password for (deprecated)')
     parser.add_argument('--password', required=True, help='New password to set')
     parser.add_argument('--confirm', action='store_true', help='Skip confirmation prompt')
 
     args = parser.parse_args()
 
+    # Validate that at least one identifier is provided
+    if not args.username and not args.email:
+        parser.error("Must provide either --username or --email")
+
     print(f"🔐 Password Reset Tool")
-    print(f"📧 Email: {args.email}")
+    if args.username:
+        print(f"👤 Username: {args.username}")
+    if args.email:
+        print(f"📧 Email: {args.email}")
+        if args.username:
+            print("⚠️  Note: Both username and email provided. Using username (preferred).")
     print(f"🆕 New Password: {args.password}")
     print(f"🌍 Environment: {os.getenv('APP_ENV', 'dev')}")
 
     if not args.confirm:
-        confirm = input("\n⚠️  Are you sure you want to reset this password? (y/N): ")
+        user_identifier = args.username or args.email
+        confirm = input(f"\n⚠️  Are you sure you want to reset password for '{user_identifier}'? (y/N): ")
         if confirm.lower() != 'y':
             print("❌ Password reset cancelled")
             return
 
-    success = reset_password(args.email, args.password)
+    success = reset_password(
+        username=args.username,
+        email=args.email,
+        new_password=args.password
+    )
 
     if success:
         print("\n🎉 Password reset completed successfully!")
         print(f"💡 You can now log in with:")
-        print(f"   Email: {args.email}")
+        if args.username:
+            print(f"   Username: {args.username}")
+        if args.email:
+            print(f"   Email: {args.email}")
         print(f"   Password: {args.password}")
     else:
         print("\n💥 Password reset failed!")
