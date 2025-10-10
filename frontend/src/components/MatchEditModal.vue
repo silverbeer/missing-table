@@ -6,9 +6,15 @@
 
         <!-- Audit Trail Info -->
         <div
-          v-if="match && (match.created_at || match.updated_at)"
+          v-if="
+            match && (match.match_id || match.created_at || match.updated_at)
+          "
           class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-600 space-y-1"
         >
+          <div v-if="match.match_id" class="flex items-center space-x-2">
+            <span class="font-medium">External Match ID:</span>
+            <span class="font-mono text-gray-800">{{ match.match_id }}</span>
+          </div>
           <div v-if="match.source" class="flex items-center space-x-2">
             <span class="font-medium">Source:</span>
             <span
