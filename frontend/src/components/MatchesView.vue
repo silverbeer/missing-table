@@ -292,6 +292,7 @@
               <th class="border-b text-center w-20">Result</th>
               <th class="border-b text-center w-24">Match Type</th>
               <th class="border-b text-center w-24">Status</th>
+              <th class="border-b text-center w-32">Match ID</th>
               <th class="border-b text-center w-16">Source</th>
               <th v-if="canEditGames" class="border-b text-center w-24">
                 Actions
@@ -346,6 +347,16 @@
                 >
                   {{ match.match_status || 'scheduled' }}
                 </span>
+              </td>
+              <td class="border-b text-center">
+                <span
+                  v-if="match.match_id"
+                  class="text-xs font-mono text-gray-700"
+                  :title="`External Match ID: ${match.match_id}`"
+                >
+                  {{ match.match_id }}
+                </span>
+                <span v-else class="text-gray-400 text-xs">-</span>
               </td>
               <td class="border-b text-center">
                 <span
@@ -443,6 +454,10 @@
                   {{ match.match_status || 'scheduled' }}
                 </span>
               </div>
+              <div v-if="match.match_id">
+                <span class="text-gray-500">Match ID:</span>
+                <span class="ml-1 font-mono text-xs">{{ match.match_id }}</span>
+              </div>
               <div>
                 <span class="text-gray-500">Source:</span>
                 <span class="ml-1" :title="getSourceTooltip(match)">
@@ -471,7 +486,7 @@
     <!-- Match Edit Modal -->
     <MatchEditModal
       :show="showEditModal"
-      :game="editingMatch"
+      :match="editingMatch"
       :teams="teams"
       :seasons="seasons"
       :match-types="matchTypes"
@@ -488,7 +503,7 @@ import { useAuthStore } from '@/stores/auth';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 
 export default {
-  name: 'ScoresSchedule',
+  name: 'MatchesView',
   components: {
     MatchEditModal,
   },
@@ -916,20 +931,20 @@ export default {
 
     // Permission checks
     const canEditGames = computed(() => {
-      return authStore.isAdmin || authStore.isTeamManager;
+      return authStore.isAdmin.value || authStore.isTeamManager.value;
     });
 
     const canEditGame = match => {
       // Admins can edit all matches
-      if (authStore.isAdmin) {
+      if (authStore.isAdmin.value) {
         return true;
       }
 
       // Team managers can only edit matches involving their team
-      if (authStore.isTeamManager && authStore.userTeamId) {
+      if (authStore.isTeamManager.value && authStore.userTeamId.value) {
         return (
-          match.home_team_id === authStore.userTeamId ||
-          match.away_team_id === authStore.userTeamId
+          match.home_team_id === authStore.userTeamId.value ||
+          match.away_team_id === authStore.userTeamId.value
         );
       }
 

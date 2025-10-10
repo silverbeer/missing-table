@@ -97,7 +97,7 @@
 
           <!-- Matches -->
           <div v-if="currentTab === 'scores'" class="p-4">
-            <ScoresSchedule />
+            <MatchesView />
           </div>
 
           <!-- Add Match Form (auth required) -->
@@ -134,7 +134,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from './stores/auth';
 import MatchForm from './components/MatchForm.vue';
 import LeagueTable from './components/LeagueTable.vue';
-import ScoresSchedule from './components/ScoresSchedule.vue';
+import MatchesView from './components/MatchesView.vue';
 import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
 import ProfileRouter from './components/ProfileRouter.vue';
@@ -145,7 +145,7 @@ export default {
   components: {
     MatchForm,
     LeagueTable,
-    ScoresSchedule,
+    MatchesView,
     AuthNav,
     LoginForm,
     ProfileRouter,
