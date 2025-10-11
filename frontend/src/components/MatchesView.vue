@@ -315,7 +315,9 @@
               </td>
               <td class="border-b text-center">
                 <span
-                  v-if="match.match_status === 'played'"
+                  v-if="
+                    match.match_status === 'played' && getResult(match) !== '-'
+                  "
                   class="px-2 py-1 rounded-full text-sm font-bold"
                   :class="{
                     'bg-green-100 text-green-800': getResult(match) === 'W',
@@ -342,10 +344,16 @@
                       match.match_status === 'postponed',
                     'bg-red-100 text-red-800':
                       match.match_status === 'cancelled',
+                    'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
+                      match.match_status === 'live',
                     'bg-gray-100 text-gray-800': !match.match_status,
                   }"
                 >
-                  {{ match.match_status || 'scheduled' }}
+                  {{
+                    match.match_status === 'live'
+                      ? '🔴 LIVE'
+                      : match.match_status || 'scheduled'
+                  }}
                 </span>
               </td>
               <td class="border-b text-center">
@@ -414,7 +422,9 @@
                   {{ getScoreDisplay(match) }}
                 </span>
                 <span
-                  v-if="match.match_status === 'played'"
+                  v-if="
+                    match.match_status === 'played' && getResult(match) !== '-'
+                  "
                   class="px-3 py-1 rounded-full text-sm font-bold"
                   :class="{
                     'bg-green-100 text-green-800': getResult(match) === 'W',
@@ -448,10 +458,16 @@
                       match.match_status === 'postponed',
                     'bg-red-100 text-red-800':
                       match.match_status === 'cancelled',
+                    'bg-red-600 text-white font-extrabold px-3 py-1 animate-pulse shadow-lg whitespace-nowrap':
+                      match.match_status === 'live',
                     'bg-gray-100 text-gray-800': !match.match_status,
                   }"
                 >
-                  {{ match.match_status || 'scheduled' }}
+                  {{
+                    match.match_status === 'live'
+                      ? '🔴 LIVE'
+                      : match.match_status || 'scheduled'
+                  }}
                 </span>
               </div>
               <div v-if="match.match_id">
@@ -498,7 +514,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 
@@ -523,6 +539,7 @@ export default {
     const showEditModal = ref(false);
     const editingMatch = ref(null);
     const showFilters = ref(true); // Filters visible by default on mobile
+    let liveMatchRefreshInterval = null; // Auto-refresh interval for live matches
 
     const fetchAgeGroups = async () => {
       try {
@@ -646,10 +663,21 @@ export default {
     };
 
     const getScoreDisplay = match => {
-      // Only show scores for matches that have been played
-      if (match.match_status !== 'played') {
-        return '-'; // Return dash for matches not yet played
+      // Show scores for matches that have been played OR are currently live
+      if (match.match_status !== 'played' && match.match_status !== 'live') {
+        return '-'; // Return dash for scheduled/postponed/cancelled matches
       }
+
+      // Check if scores are available
+      if (
+        match.home_score === null ||
+        match.home_score === undefined ||
+        match.away_score === null ||
+        match.away_score === undefined
+      ) {
+        return '-'; // Return dash if scores haven't been entered yet
+      }
+
       return `${match.home_score} - ${match.away_score}`;
     };
 
@@ -677,12 +705,22 @@ export default {
     };
 
     const getResult = match => {
-      // Only show results for matches that have been played
+      // ONLY show results for matches that have been played (not live!)
       if (match.match_status !== 'played') {
-        return '-'; // Return dash for matches not yet played
+        return '-'; // Return dash for live/scheduled/postponed/cancelled matches
       }
 
-      // Determine the result for played matches
+      // Check if scores are available (both scores must be valid numbers)
+      if (
+        match.home_score === null ||
+        match.home_score === undefined ||
+        match.away_score === null ||
+        match.away_score === undefined
+      ) {
+        return '-'; // Return dash if scores haven't been entered yet
+      }
+
+      // Determine the result for played matches only
       const selectedTeamId = parseInt(selectedTeam.value);
       if (match.home_team_id === selectedTeamId) {
         return match.home_score > match.away_score
@@ -766,7 +804,7 @@ export default {
       return season ? season.name : '';
     });
 
-    // Sort matches by date in ascending order for display and filter by match type
+    // Sort matches: LIVE matches first, then by date ascending
     const sortedGames = computed(() => {
       // Filter out any undefined/null items and ensure match_date exists
       let filteredGames = [...matches.value].filter(
@@ -780,9 +818,20 @@ export default {
         );
       }
 
-      return filteredGames.sort(
-        (a, b) => new Date(a.match_date) - new Date(b.match_date)
-      );
+      // Sort: LIVE matches first, then by date ascending
+      return filteredGames.sort((a, b) => {
+        // LIVE matches always come first
+        if (a.match_status === 'live' && b.match_status !== 'live') return -1;
+        if (a.match_status !== 'live' && b.match_status === 'live') return 1;
+
+        // For non-LIVE matches (or both LIVE), sort by date
+        return new Date(a.match_date) - new Date(b.match_date);
+      });
+    });
+
+    // Check if there are any live matches
+    const hasLiveMatches = computed(() => {
+      return matches.value.some(match => match.match_status === 'live');
     });
 
     // Calculate season statistics based on selected match type filter
@@ -941,10 +990,10 @@ export default {
       }
 
       // Team managers can only edit matches involving their team
-      if (authStore.isTeamManager.value && authStore.userTeamId.value) {
+      if (authStore.isTeamManager.value && authStore.userTeamId) {
         return (
-          match.home_team_id === authStore.userTeamId.value ||
-          match.away_team_id === authStore.userTeamId.value
+          match.home_team_id === authStore.userTeamId ||
+          match.away_team_id === authStore.userTeamId
         );
       }
 
@@ -961,10 +1010,55 @@ export default {
       editingMatch.value = null;
     };
 
-    const onGameUpdated = () => {
-      // Refresh the matches list after a successful update
-      fetchMatches();
+    const onGameUpdated = updatedMatch => {
+      console.log('MatchesView - Received updated match:', updatedMatch);
+
+      if (updatedMatch && updatedMatch.id) {
+        // Update the match in the local array immediately
+        const index = matches.value.findIndex(m => m.id === updatedMatch.id);
+        if (index !== -1) {
+          console.log(
+            'MatchesView - Updating match in local array at index:',
+            index
+          );
+          matches.value[index] = updatedMatch;
+          // Force reactivity by creating a new array reference
+          matches.value = [...matches.value];
+        } else {
+          console.log(
+            'MatchesView - Match not found in local array, will refetch'
+          );
+          // Fallback to refetching if match not found
+          fetchMatches();
+        }
+      } else {
+        // Fallback: Refresh the matches list if no updated match data provided
+        console.log('MatchesView - No updated match data, refetching');
+        fetchMatches();
+      }
     };
+
+    // Watch for live matches and set up auto-refresh
+    watch(hasLiveMatches, newValue => {
+      // Clear any existing interval
+      if (liveMatchRefreshInterval) {
+        clearInterval(liveMatchRefreshInterval);
+        liveMatchRefreshInterval = null;
+      }
+
+      // If there are live matches, set up auto-refresh every 10 seconds
+      if (newValue && selectedTeam.value) {
+        console.log(
+          'Live match detected - enabling auto-refresh every 10 seconds'
+        );
+        liveMatchRefreshInterval = setInterval(() => {
+          console.log('Auto-refreshing match data for live matches...');
+          fetchMatches();
+        }, 10000); // Refresh every 10 seconds
+      } else {
+        console.log('No live matches - auto-refresh disabled');
+      }
+    });
 
     onMounted(async () => {
       // Only fetch data if user is authenticated
@@ -981,6 +1075,14 @@ export default {
         fetchGameTypes(),
         fetchTeams(),
       ]);
+    });
+
+    // Clean up interval on component unmount
+    onUnmounted(() => {
+      if (liveMatchRefreshInterval) {
+        clearInterval(liveMatchRefreshInterval);
+        liveMatchRefreshInterval = null;
+      }
     });
 
     return {

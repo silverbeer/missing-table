@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
+from rich import box
 from supabase import create_client
 
 app = typer.Typer()
@@ -63,40 +64,68 @@ def list_users(supabase):
 
         console.print(f"\n[bold cyan]👥 Found {len(users_list)} users:[/bold cyan]")
 
-        # Create a rich table for better display
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Email", style="cyan")
-        table.add_column("ID", style="dim", width=36)  # Full UUID width
-        table.add_column("Role", style="green")
-        table.add_column("Display Name", style="yellow")
-        table.add_column("Team ID", style="blue")
-        table.add_column("Created", style="dim")
+        # Create a rich table for better display with row separators
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            show_lines=True,  # Show lines between rows
+            box=box.ROUNDED,  # Rounded box with borders and lighter row separators
+            row_styles=["", "dim"]  # Alternate row styling for better readability
+        )
+        table.add_column("Username", style="green", no_wrap=True)
+        table.add_column("ID", style="dim", no_wrap=True)  # Full UUID
+        table.add_column("Role", style="yellow", no_wrap=True)
+        table.add_column("Display Name", style="cyan")
+        table.add_column("Team", style="blue")
+        table.add_column("Created", style="dim", no_wrap=True)
 
         for user in users_list:
             user_id = user.id if hasattr(user, 'id') else user.get('id')
             email = user.email if hasattr(user, 'email') else user.get('email')
             created_at = user.created_at if hasattr(user, 'created_at') else user.get('created_at')
 
-            # Get profile info
+            # Get profile info with team details
             try:
-                profile_result = supabase.table('user_profiles').select('role, display_name, team_id').eq('id', user_id).execute()
+                profile_result = supabase.table('user_profiles').select('username, role, display_name, team_id, teams(id, name)').eq('id', user_id).execute()
                 if profile_result.data:
                     profile = profile_result.data[0]
+                    username = profile.get('username', 'N/A')
                     role = profile.get('role', 'No role')
                     display_name = profile.get('display_name', 'No display name')
-                    team_id = profile.get('team_id', 'No team')
+                    team_id = profile.get('team_id')
+
+                    # Format team display (ID + Name for team-manager/team-player/team-fan)
+                    if team_id and profile.get('teams'):
+                        team_name = profile['teams'].get('name', 'Unknown')
+                        team_display = f"[{team_id}] {team_name}"
+                    elif team_id:
+                        team_display = f"[{team_id}] (name unknown)"
+                    else:
+                        team_display = "No team"
                 else:
-                    role = display_name = team_id = "No profile"
-            except:
-                role = display_name = team_id = "Profile error"
+                    username = role = display_name = team_display = "No profile"
+            except Exception as e:
+                username = role = display_name = team_display = f"Error: {str(e)[:10]}"
+
+            # Color code roles
+            if role == 'admin':
+                role_display = f"[bold red]{role}[/bold red]"
+            elif role == 'team-manager':
+                role_display = f"[bold yellow]{role}[/bold yellow]"
+            elif role == 'team-player':
+                role_display = f"[bold blue]{role}[/bold blue]"
+            elif role == 'team-fan':
+                role_display = f"[bold green]{role}[/bold green]"
+            else:
+                role_display = role
 
             table.add_row(
-                email,
-                user_id,  # Show full ID now that we have width set
-                role,
+                username or "N/A",
+                user_id if user_id else "N/A",  # Show full UUID
+                role_display,
                 display_name,
-                str(team_id),
-                str(created_at)[:10] if created_at else "Unknown"  # Show just date
+                team_display,
+                str(created_at)[:10] if created_at else "Unknown"
             )
 
         console.print(table)
@@ -438,6 +467,74 @@ def info_command(
         console.print("\n[green]🎉 Operation completed successfully![/green]")
     else:
         console.print("\n[red]💥 Operation failed![/red]")
+        raise typer.Exit(1)
+
+
+def delete_user(supabase, user_id, skip_confirm=False):
+    """Delete a user by ID."""
+    try:
+        console.print(f"[cyan]🔍 Fetching user: {user_id}...[/cyan]\n")
+
+        # Get profile first to show what we're deleting
+        profile_response = supabase.table('user_profiles').select('*, teams(name, city)').eq('id', user_id).execute()
+
+        if not profile_response.data:
+            console.print(f"[yellow]⚠️  No profile found for user: {user_id}[/yellow]")
+            console.print(f"[yellow]⚠️  Checking if user exists in auth.users...[/yellow]")
+        else:
+            profile = profile_response.data[0]
+            console.print(f"[red bold]User to DELETE:[/red bold]")
+            console.print(f"  User ID: [cyan]{user_id}[/cyan]")
+            console.print(f"  Username: [yellow]{profile.get('username', 'N/A')}[/yellow]")
+            console.print(f"  Display Name: {profile.get('display_name', 'N/A')}")
+            console.print(f"  Role: [magenta]{profile.get('role', 'N/A')}[/magenta]")
+            console.print(f"  Team: {profile.get('teams', {}).get('name', 'N/A') if profile.get('teams') else 'N/A'}")
+            console.print()
+
+        # Confirm deletion
+        if not skip_confirm:
+            if not Confirm.ask("[bold red]⚠️  Are you ABSOLUTELY SURE you want to DELETE this user permanently?[/bold red]"):
+                console.print("[yellow]Deletion cancelled[/yellow]")
+                return False
+
+        # Delete from user_profiles
+        console.print("[cyan]1. Deleting from user_profiles...[/cyan]")
+        supabase.table('user_profiles').delete().eq('id', user_id).execute()
+        console.print("[green]   ✓ Deleted from user_profiles[/green]")
+
+        # Delete from auth.users
+        console.print("[cyan]2. Deleting from auth.users...[/cyan]")
+        supabase.auth.admin.delete_user(user_id)
+        console.print("[green]   ✓ Deleted from auth.users[/green]")
+
+        console.print(f"\n[bold green]✅ User {user_id} deleted successfully![/bold green]")
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        return False
+
+
+@app.command("delete")
+def delete_command(
+    user_id: str = typer.Option(..., "--id", "-i", help="User ID to delete"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts")
+):
+    """Delete a user by ID from both auth.users and user_profiles."""
+    console.print("[bold red]🗑️  User Deletion Tool[/bold red]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    success = delete_user(supabase, user_id, skip_confirm=confirm)
+    if success:
+        console.print("\n[green]🎉 Deletion completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Deletion failed![/red]")
         raise typer.Exit(1)
 
 

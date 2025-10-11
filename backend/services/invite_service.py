@@ -93,49 +93,55 @@ class InviteService:
     def validate_invite_code(self, code: str) -> Optional[Dict]:
         """
         Validate an invite code
-        
+
         Args:
             code: The invite code to validate
-            
+
         Returns:
             Invitation details if valid, None otherwise
         """
         try:
-            # Get invitation by code
+            logger.info(f"Validating invite code: {code}")
+
+            # Get invitation by code (use .execute() without .single() to avoid exception on no results)
             response = self.supabase.table('invitations')\
                 .select('*, teams(name), age_groups(name)')\
                 .eq('invite_code', code)\
-                .single()\
                 .execute()
-            
-            if not response.data:
+
+            if not response.data or len(response.data) == 0:
+                logger.warning(f"Invite code {code} not found in database")
                 return None
-            
-            invitation = response.data
-            
+
+            invitation = response.data[0]
+            logger.info(f"Found invitation: status={invitation['status']}, expires_at={invitation['expires_at']}")
+
             # Check if already used
             if invitation['status'] != 'pending':
-                logger.warning(f"Invite code {code} already used")
+                logger.warning(f"Invite code {code} has status '{invitation['status']}' (not pending)")
                 return None
-            
+
             # Check if expired
             expires_at_str = invitation['expires_at']
             if expires_at_str.endswith('Z'):
                 expires_at_str = expires_at_str.replace('Z', '+00:00')
             expires_at = datetime.fromisoformat(expires_at_str)
-            
+
             # Make current time timezone-aware for comparison
             current_time = datetime.now(timezone.utc)
-            
+
+            logger.info(f"Invite code {code}: expires_at={expires_at}, current_time={current_time}, is_expired={expires_at < current_time}")
+
             if expires_at < current_time:
                 # Update status to expired
                 self.supabase.table('invitations')\
                     .update({'status': 'expired'})\
                     .eq('id', invitation['id'])\
                     .execute()
-                logger.warning(f"Invite code {code} expired")
+                logger.warning(f"Invite code {code} expired at {expires_at}")
                 return None
-            
+
+            logger.info(f"Invite code {code} is valid!")
             return {
                 'valid': True,
                 'id': invitation['id'],
@@ -146,9 +152,9 @@ class InviteService:
                 'age_group_name': invitation['age_groups']['name'] if invitation.get('age_groups') else None,
                 'email': invitation['email']
             }
-            
+
         except Exception as e:
-            logger.error(f"Error validating invite code {code}: {e}")
+            logger.error(f"Error validating invite code {code}: {e}", exc_info=True)
             return None
     
     def redeem_invitation(self, code: str, user_id: str) -> bool:

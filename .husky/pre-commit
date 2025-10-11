@@ -5,11 +5,15 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel)
 
 # Run detect-secrets to prevent committing secrets
 echo "🔍 Scanning for secrets..."
-if ! detect-secrets-hook --baseline "$PROJECT_ROOT/.secrets.baseline" $(git diff --cached --name-only --diff-filter=ACM); then
-    echo "❌ Secret detected! Commit blocked."
-    echo "If this is a false positive, update .secrets.baseline:"
-    echo "   detect-secrets scan --update .secrets.baseline"
-    exit 1
+# Exclude .secrets.baseline from scanning (it contains hashes of known false positives)
+FILES_TO_SCAN=$(git diff --cached --name-only --diff-filter=ACM | grep -v '.secrets.baseline')
+if [ -n "$FILES_TO_SCAN" ]; then
+    if ! detect-secrets-hook --baseline "$PROJECT_ROOT/.secrets.baseline" $FILES_TO_SCAN; then
+        echo "❌ Secret detected! Commit blocked."
+        echo "If this is a false positive, update .secrets.baseline:"
+        echo "   detect-secrets scan --baseline .secrets.baseline"
+        exit 1
+    fi
 fi
 
 # Run lint-staged for frontend

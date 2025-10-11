@@ -169,6 +169,26 @@
             </div>
           </div>
 
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Match Status</label
+            >
+            <select
+              v-model="formData.match_status"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="scheduled">Scheduled</option>
+              <option value="live">Live</option>
+              <option value="played">Played</option>
+              <option value="postponed">Postponed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <p class="mt-1 text-xs text-gray-500">
+              Set to "Live" when the match is in progress
+            </p>
+          </div>
+
           <!-- Error Display -->
           <div
             v-if="error"
@@ -247,6 +267,7 @@ export default {
       season_id: '',
       age_group_id: '',
       division_id: null,
+      match_status: 'scheduled',
     });
 
     // Watch for match prop changes to populate form
@@ -264,6 +285,7 @@ export default {
             season_id: newMatch.season_id,
             age_group_id: newMatch.age_group_id,
             division_id: newMatch.division_id,
+            match_status: newMatch.match_status || 'scheduled',
           };
           error.value = null;
         }
@@ -323,9 +345,8 @@ export default {
         matchData.home_score = homeScoreEntered ? Number(homeScoreValue) : 0;
         matchData.away_score = awayScoreEntered ? Number(awayScoreValue) : 0;
 
-        // Auto-set status: if BOTH scores are entered, mark as played
-        matchData.status =
-          homeScoreEntered && awayScoreEntered ? 'played' : 'scheduled';
+        // Use the manually selected status
+        matchData.status = formData.value.match_status;
 
         console.log('MatchEditModal - Update data:', {
           homeScoreValue,
@@ -336,7 +357,7 @@ export default {
           fullMatchData: matchData,
         });
 
-        await authStore.apiRequest(
+        const updatedMatch = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${props.match.id}`,
           {
             method: 'PATCH',
@@ -344,7 +365,13 @@ export default {
           }
         );
 
-        emit('updated');
+        console.log(
+          'MatchEditModal - Received updated match from API:',
+          updatedMatch
+        );
+
+        // Emit the updated match data so parent can update immediately
+        emit('updated', updatedMatch);
         emit('close');
       } catch (err) {
         console.error('Update match error:', err);

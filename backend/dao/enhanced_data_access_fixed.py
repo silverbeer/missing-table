@@ -483,6 +483,7 @@ class EnhancedSportsDAO:
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
+                    "match_id": match.get("match_id"),  # External match identifier
                     "created_at": match.get("created_at"),
                     "updated_at": match.get("updated_at"),
                 }
@@ -592,8 +593,11 @@ class EnhancedSportsDAO:
         status: str | None = None,
         updated_by: str | None = None,
         external_match_id: str | None = None,
-    ) -> bool:
-        """Update an existing match with audit trail and optional external match_id."""
+    ) -> dict | None:
+        """Update an existing match with audit trail and optional external match_id.
+
+        Returns the updated match data to avoid read-after-write consistency issues.
+        """
         try:
             data = {
                 "match_date": match_date,
@@ -615,26 +619,82 @@ class EnhancedSportsDAO:
             if external_match_id is not None:  # Allow explicit None to clear match_id
                 data["match_id"] = external_match_id
 
-            response = self.client.table("matches").update(data).eq("id", match_id).execute()
+            # Execute update
+            response = (
+                self.client.table("matches")
+                .update(data)
+                .eq("id", match_id)
+                .execute()
+            )
 
-            return bool(response.data)
+            # Small delay to allow Supabase cache to update (read-after-write consistency)
+            import time
+            time.sleep(0.1)  # 100ms delay
+
+            # Get the updated match to return with full relations
+            return self.get_match_by_id(match_id)
 
         except Exception as e:
             print(f"Error updating match: {e}")
-            return False
+            return None
 
     def get_match_by_id(self, match_id: int) -> dict | None:
-        """Get a single match by ID."""
+        """Get a single match by ID with all related data."""
         try:
             response = (
                 self.client.table("matches")
-                .select("*")
+                .select("""
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name),
+                    season:seasons(id, name),
+                    age_group:age_groups(id, name),
+                    match_type:match_types(id, name),
+                    division:divisions(id, name)
+                """)
                 .eq("id", match_id)
                 .execute()
             )
 
             if response.data and len(response.data) > 0:
-                return response.data[0]
+                match = response.data[0]
+                # Flatten the response to match the format from get_all_matches
+                flat_match = {
+                    "id": match["id"],
+                    "match_date": match["match_date"],
+                    "home_team_id": match["home_team_id"],
+                    "away_team_id": match["away_team_id"],
+                    "home_team_name": match["home_team"]["name"]
+                    if match.get("home_team")
+                    else "Unknown",
+                    "away_team_name": match["away_team"]["name"]
+                    if match.get("away_team")
+                    else "Unknown",
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "season_id": match["season_id"],
+                    "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+                    "age_group_id": match["age_group_id"],
+                    "age_group_name": match["age_group"]["name"]
+                    if match.get("age_group")
+                    else "Unknown",
+                    "match_type_id": match["match_type_id"],
+                    "match_type_name": match["match_type"]["name"]
+                    if match.get("match_type")
+                    else "Unknown",
+                    "division_id": match.get("division_id"),
+                    "division_name": match["division"]["name"]
+                    if match.get("division")
+                    else "Unknown",
+                    "match_status": match.get("match_status"),
+                    "created_by": match.get("created_by"),
+                    "updated_by": match.get("updated_by"),
+                    "source": match.get("source", "manual"),
+                    "match_id": match.get("match_id"),  # External match identifier
+                    "created_at": match["created_at"],
+                    "updated_at": match["updated_at"],
+                }
+                return flat_match
             else:
                 return None
 
