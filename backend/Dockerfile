@@ -34,7 +34,8 @@ COPY . .
 
 # Set ownership and permissions
 RUN chown -R appuser:appuser /app && \
-    chmod +x /app
+    chmod +x /app && \
+    chmod +x /app/docker-entrypoint.sh
 
 # Switch to non-root user
 USER appuser
@@ -49,5 +50,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Production command (no reload)
-CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Use entrypoint script to support both API and worker modes
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
+# Default to API mode
+CMD []
