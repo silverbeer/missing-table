@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "missing-table.fullname" . }}-celery-worker
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: celery-worker
+spec:
+  replicas: {{ .Values.celeryWorker.replicaCount | default 2 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "missing-table.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: celery-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "missing-table.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: celery-worker
+    spec:
+      containers:
+      - name: celery-worker
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        # Use entrypoint script to run as worker instead of API
+        command: ["/app/docker-entrypoint.sh"]
+        args: ["worker", "--loglevel=info"]
+        env:
+        # Sensitive values from secrets
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-url
+        - name: SUPABASE_ANON_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-anon-key
+        - name: SUPABASE_SERVICE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-service-key
+        - name: SUPABASE_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: supabase-jwt-secret
+        # Celery/RabbitMQ configuration
+        - name: CELERY_BROKER_URL
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://messaging-redis.messaging.svc.cluster.local:6379/0"
+        - name: RABBITMQ_URL
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
+        - name: REDIS_URL
+          value: "redis://messaging-redis.messaging.svc.cluster.local:6379/0"
+        # Environment configuration
+        - name: ENVIRONMENT
+          value: {{ .Values.backend.env.environment | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.backend.env.logLevel | quote }}
+        - name: DISABLE_LOGFIRE
+          value: {{ .Values.backend.env.disableLogfire | quote }}
+        - name: DISABLE_SECURITY
+          value: {{ .Values.backend.env.disableSecurity | quote }}
+        {{- range $key, $value := .Values.backend.env.extra }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.celeryWorker.resources | nindent 10 }}
+        # Celery workers don't have HTTP endpoints, so no probes
