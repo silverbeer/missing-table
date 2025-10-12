@@ -1,0 +1,15 @@
+apiVersion: v2
+name: messaging-platform
+description: RabbitMQ + Redis + Celery messaging infrastructure for distributed task processing
+type: application
+version: 0.1.0
+appVersion: "1.0"
+keywords:
+  - rabbitmq
+  - redis
+  - celery
+  - messaging
+  - task-queue
+maintainers:
+  - name: silverbeer
+    email: silverbeer@example.com
