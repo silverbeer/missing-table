@@ -1673,6 +1673,119 @@ async def delete_team_mapping(
 
 # === Match-Scraper Integration Endpoints ===
 
+# Pydantic model for async match submission
+class MatchSubmissionData(BaseModel):
+    """
+    Match data for async submission to Celery queue.
+    This model accepts flexible data from match-scraper.
+    """
+    home_team: str  # Team name (will be looked up)
+    away_team: str  # Team name (will be looked up)
+    match_date: str  # ISO format date
+    season: str  # Season name (e.g., "2024-25")
+    age_group: str | None = None
+    division: str | None = None
+    home_score: int | None = None
+    away_score: int | None = None
+    match_status: str = "scheduled"  # scheduled, live, played, postponed, cancelled
+    match_type: str | None = None
+    location: str | None = None
+    external_match_id: str | None = None  # External identifier for deduplication
+
+
+@app.post("/api/matches/submit")
+async def submit_match_async(
+    match_data: MatchSubmissionData,
+    current_user: dict[str, Any] = Depends(require_match_management_permission)
+):
+    """
+    Submit match data for async processing via Celery.
+
+    This endpoint queues match data to Celery workers for:
+    - Validation
+    - Team lookup
+    - Duplicate detection
+    - Database insertion
+
+    Returns a task ID for tracking the processing status.
+
+    Requires: admin, team-manager, or service account with manage_matches permission
+    """
+    try:
+        # Import Celery task
+        from celery_tasks.match_tasks import process_match_data
+
+        # Log the submission
+        user_identifier = current_user.get('username') or current_user.get('service_name', 'unknown')
+        logger.info(f"POST /api/matches/submit - User: {user_identifier}")
+        logger.info(f"POST /api/matches/submit - Match: {match_data.home_team} vs {match_data.away_team}")
+
+        # Convert Pydantic model to dict for Celery
+        match_dict = match_data.model_dump()
+
+        # Queue the task to Celery
+        task = process_match_data.delay(match_dict)
+
+        logger.info(f"Queued match processing task: {task.id}")
+
+        return {
+            "success": True,
+            "message": "Match data queued for processing",
+            "task_id": task.id,
+            "status_url": f"/api/matches/task/{task.id}",
+            "match": {
+                "home_team": match_data.home_team,
+                "away_team": match_data.away_team,
+                "match_date": match_data.match_date
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error submitting match for async processing: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to queue match: {str(e)}")
+
+
+@app.get("/api/matches/task/{task_id}")
+async def get_task_status(
+    task_id: str,
+    current_user: dict[str, Any] = Depends(require_match_management_permission)
+):
+    """
+    Get the status of a queued match processing task.
+
+    Returns:
+    - state: PENDING, STARTED, SUCCESS, FAILURE, RETRY
+    - result: Task result if completed successfully
+    - error: Error message if failed
+    """
+    try:
+        from celery.result import AsyncResult
+
+        task = AsyncResult(task_id)
+
+        response = {
+            "task_id": task_id,
+            "state": task.state,
+            "ready": task.ready(),
+        }
+
+        if task.ready():
+            if task.successful():
+                response["result"] = task.result
+                response["message"] = "Task completed successfully"
+            else:
+                response["error"] = str(task.info)
+                response["message"] = "Task failed"
+        else:
+            response["message"] = "Task is still processing"
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error retrieving task status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get task status: {str(e)}")
+
+
 @app.post("/api/match-scraper/matches")
 async def add_or_update_scraped_match(
     request: Request,
