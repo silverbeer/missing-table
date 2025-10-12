@@ -113,43 +113,34 @@ def process_match_data(self: DatabaseTask, match_data: Dict[str, Any]) -> Dict[s
             logger.warning(f"Away team not found: {away_team_name}. Creating placeholder.")
             raise ValueError(f"Team not found: {away_team_name}")
 
-        # Step 3: Prepare match record
-        match_record = {
-            'home_team_id': home_team['id'],
-            'away_team_id': away_team['id'],
-            'match_date': match_data['match_date'],
-            'season': match_data['season'],
-            'home_score': match_data.get('home_score'),
-            'away_score': match_data.get('away_score'),
-            'match_status': match_data.get('match_status', 'scheduled'),
-            'location': match_data.get('location'),
-            'source': 'match-scraper',  # Mark as externally sourced
-            'match_id': match_data.get('external_match_id'),  # External ID for deduplication
-        }
-
-        # Step 4: Check if match already exists (by external ID)
+        # Step 3: Check if match already exists (by external ID)
+        external_match_id = match_data.get('external_match_id')
         existing_match = None
-        if match_record.get('match_id'):
-            existing_match = self.dao.get_match_by_external_id(match_record['match_id'])
+        if external_match_id:
+            existing_match = self.dao.get_match_by_external_id(external_match_id)
 
-        # Step 5: Insert or update
+        # Step 4: Insert or update match
         if existing_match:
-            logger.info(f"Updating existing match ID {existing_match['id']}")
-            success = self.dao.update_match(
-                match_id=existing_match['id'],
-                **match_record
-            )
-            if success:
-                result = {
-                    'match_id': existing_match['id'],
-                    'status': 'updated',
-                    'message': f"Updated match: {home_team_name} vs {away_team_name}"
-                }
-            else:
-                raise Exception("Failed to update match")
+            logger.info(f"Match already exists with ID {existing_match['id']}. Skipping duplicate.")
+            result = {
+                'match_id': existing_match['id'],
+                'status': 'skipped',
+                'message': f"Match already exists: {home_team_name} vs {away_team_name}"
+            }
         else:
             logger.info(f"Creating new match: {home_team_name} vs {away_team_name}")
-            match_id = self.dao.create_match(**match_record)
+            match_id = self.dao.create_match(
+                home_team_id=home_team['id'],
+                away_team_id=away_team['id'],
+                match_date=match_data['match_date'],
+                season=match_data['season'],
+                home_score=match_data.get('home_score'),
+                away_score=match_data.get('away_score'),
+                match_status=match_data.get('match_status', 'scheduled'),
+                location=match_data.get('location'),
+                source='match-scraper',
+                match_id=external_match_id,
+            )
             if match_id:
                 result = {
                     'match_id': match_id,
