@@ -1,0 +1,90 @@
+---
+# RabbitMQ StatefulSet with persistent storage
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "messaging-platform.fullname" . }}-rabbitmq
+  labels:
+    {{- include "messaging-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+spec:
+  serviceName: {{ include "messaging-platform.fullname" . }}-rabbitmq
+  replicas: {{ .Values.rabbitmq.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "messaging-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rabbitmq
+  template:
+    metadata:
+      labels:
+        {{- include "messaging-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: "{{ .Values.rabbitmq.image.repository }}:{{ .Values.rabbitmq.image.tag }}"
+        imagePullPolicy: {{ .Values.rabbitmq.image.pullPolicy }}
+        ports:
+        - containerPort: 5672
+          name: amqp
+          protocol: TCP
+        - containerPort: 15672
+          name: management
+          protocol: TCP
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "messaging-platform.fullname" . }}-secrets
+              key: rabbitmq-username
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "messaging-platform.fullname" . }}-secrets
+              key: rabbitmq-password
+        - name: RABBITMQ_ERLANG_COOKIE
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "messaging-platform.fullname" . }}-secrets
+              key: rabbitmq-erlang-cookie
+        {{- if .Values.rabbitmq.persistence.enabled }}
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/rabbitmq
+        {{- end }}
+        resources:
+          {{- toYaml .Values.rabbitmq.resources | nindent 10 }}
+        livenessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - ping
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - check_port_connectivity
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+  {{- if .Values.rabbitmq.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        {{- include "messaging-platform.labels" . | nindent 8 }}
+    spec:
+      accessModes:
+        - {{ .Values.rabbitmq.persistence.accessMode }}
+      {{- if .Values.rabbitmq.persistence.storageClass }}
+      storageClassName: {{ .Values.rabbitmq.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.rabbitmq.persistence.size }}
+  {{- end }}

@@ -341,6 +341,163 @@ class EnhancedSportsDAO:
             print(f"Error updating team division: {e}")
             return False
 
+    def get_team_by_name(self, name: str) -> dict | None:
+        """Get a team by name (case-insensitive exact match).
+
+        Returns the first matching team with basic info (id, name, city).
+        For match-scraper integration, this helps look up teams by name.
+        """
+        try:
+            response = (
+                self.client.table("teams")
+                .select("id, name, city, academy_team")
+                .ilike("name", name)  # Case-insensitive match
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+
+        except Exception as e:
+            print(f"Error getting team by name '{name}': {e}")
+            return None
+
+    def get_match_by_external_id(self, external_match_id: str) -> dict | None:
+        """Get a match by its external match_id (from match-scraper).
+
+        This is used for deduplication - checking if a match from match-scraper
+        already exists in the database.
+
+        Returns:
+            Match dict with flattened structure, or None if not found
+        """
+        try:
+            response = (
+                self.client.table("matches")
+                .select("""
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name),
+                    season:seasons(id, name),
+                    age_group:age_groups(id, name),
+                    match_type:match_types(id, name),
+                    division:divisions(id, name)
+                """)
+                .eq("match_id", external_match_id)
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                match = response.data[0]
+                # Flatten to match format from get_match_by_id
+                flat_match = {
+                    "id": match["id"],
+                    "match_date": match["match_date"],
+                    "home_team_id": match["home_team_id"],
+                    "away_team_id": match["away_team_id"],
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "season_id": match["season_id"],
+                    "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+                    "age_group_id": match["age_group_id"],
+                    "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "match_type_id": match["match_type_id"],
+                    "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
+                    "division_id": match.get("division_id"),
+                    "division_name": match["division"]["name"] if match.get("division") else "Unknown",
+                    "match_status": match.get("match_status"),
+                    "created_by": match.get("created_by"),
+                    "updated_by": match.get("updated_by"),
+                    "source": match.get("source", "manual"),
+                    "match_id": match.get("match_id"),
+                    "created_at": match["created_at"],
+                    "updated_at": match["updated_at"],
+                }
+                return flat_match
+            return None
+
+        except Exception as e:
+            print(f"Error getting match by external ID '{external_match_id}': {e}")
+            return None
+
+    def create_match(
+        self,
+        home_team_id: int,
+        away_team_id: int,
+        match_date: str,
+        season: str,
+        home_score: int | None = None,
+        away_score: int | None = None,
+        match_status: str = "scheduled",
+        location: str | None = None,
+        source: str = "manual",
+        match_id: str | None = None,
+    ) -> int | None:
+        """Create a new match with simplified parameters.
+
+        This is a convenience method for match-scraper integration that accepts
+        team IDs directly and minimal required fields.
+
+        Args:
+            home_team_id: Database ID of home team
+            away_team_id: Database ID of away team
+            match_date: ISO format date string
+            season: Season name (e.g., "2025-26")
+            home_score: Home team score (optional)
+            away_score: Away team score (optional)
+            match_status: Match status (scheduled, live, completed, etc.)
+            location: Match location (optional)
+            source: Data source (default: "manual", use "match-scraper" for external)
+            match_id: External match ID for deduplication (optional)
+
+        Returns:
+            Created match ID, or None on failure
+        """
+        try:
+            # For now, use defaults for fields that match-scraper might not provide
+            # In Phase 5, we can enhance this to look up season/age_group/match_type IDs
+
+            # Get current season as fallback
+            current_season = self.get_current_season()
+            season_id = current_season['id'] if current_season else 1  # Fallback to ID 1
+
+            # Use default values for now (can be enhanced later)
+            age_group_id = 1  # Default U14
+            match_type_id = 1  # Default League
+            division_id = None
+
+            data = {
+                "match_date": match_date,
+                "home_team_id": home_team_id,
+                "away_team_id": away_team_id,
+                "home_score": home_score,
+                "away_score": away_score,
+                "season_id": season_id,
+                "age_group_id": age_group_id,
+                "match_type_id": match_type_id,
+                "division_id": division_id,
+                "match_status": match_status,
+                "source": source,
+            }
+
+            if match_id:
+                data["match_id"] = match_id
+
+            response = self.client.table("matches").insert(data).execute()
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]["id"]
+            return None
+
+        except Exception as e:
+            print(f"Error creating match: {e}")
+            return None
+
     # === Match Methods ===
 
     def get_all_matches(

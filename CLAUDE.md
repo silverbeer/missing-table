@@ -529,6 +529,47 @@ Key API routes in the backend:
 - Environment configuration switches between local and Supabase modes
 - Docker setup available for containerized deployment
 
+### RabbitMQ/Celery Distributed Messaging (In Progress)
+
+**Status:** 🚀 Phase 0 Complete - Message queue infrastructure implementation
+
+The application is being enhanced with a distributed messaging system using RabbitMQ and Celery to enable asynchronous processing of match data from the match-scraper.
+
+**Architecture:** Hybrid deployment model
+- **Cloud (GKE):** Frontend + Backend API (public services) - unchanged
+- **Local (K3s):** RabbitMQ + Celery Workers + Redis (private messaging infrastructure) - new
+
+**Implementation Tracking:**
+- Feature Branch: `feature/rabbitmq-celery-integration`
+- Documentation: [docs/rabbitmq-celery/README.md](docs/rabbitmq-celery/README.md)
+- Current Phase: [Phase 0 - Repository Setup](docs/rabbitmq-celery/00-PHASE-0-SETUP.md) ✅
+- Next Phase: Phase 1 - Message Queue Fundamentals
+
+**Quick Commands:**
+```bash
+# Switch to local K3s cluster for messaging platform
+kubectl config use-context rancher-desktop
+
+# Switch to GKE for backend/frontend
+kubectl config use-context gke_missing-table_us-central1_missing-table-dev
+
+# Deploy messaging platform (Phase 2+)
+helm upgrade --install messaging-platform \
+  ./helm/messaging-platform \
+  --values ./helm/messaging-platform/values-local.yaml \
+  -n messaging --create-namespace
+```
+
+**Benefits:**
+- ✅ Asynchronous, non-blocking match data processing
+- ✅ Automatic retries and error handling
+- ✅ Distributed processing with easy scaling
+- ✅ Full observability and monitoring
+- ✅ Cost-effective ($5/month vs $72/month full GKE)
+
+**Related Repositories:**
+- [match-scraper](https://github.com/silverbeer/match-scraper) - Branch: `feature/rabbitmq-integration`
+
 ### Authentication Architecture
 
 **✅ COMPLETED:** The application now uses a **backend-centered authentication architecture** that resolves Kubernetes networking issues.
@@ -579,5 +620,5 @@ This file contains **quick reference commands only**. For comprehensive informat
 
 ---
 
-**Last Updated**: 2025-10-09
+**Last Updated**: 2025-10-11
 **Documentation Standards**: [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)

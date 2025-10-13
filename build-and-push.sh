@@ -5,6 +5,7 @@
 # Usage:
 #   ./build-and-push.sh backend dev          # Build backend for dev (AMD64, push to registry)
 #   ./build-and-push.sh frontend prod        # Build frontend for prod (AMD64, push to registry)
+#   ./build-and-push.sh match-scraper dev    # Build match-scraper for dev (AMD64, push to registry)
 #   ./build-and-push.sh backend local        # Build backend for local (current platform)
 #   ./build-and-push.sh all dev              # Build all services for dev
 
@@ -14,11 +15,13 @@ set -e  # Exit on error
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
 REGISTRY="us-central1-docker.pkg.dev/missing-table/missing-table"
-SUPPORTED_SERVICES=("backend" "frontend" "all")
+MATCH_SCRAPER_REPO="/Users/silverbeer/gitrepos/match-scraper"
+SUPPORTED_SERVICES=("backend" "frontend" "match-scraper" "all")
 SUPPORTED_ENVIRONMENTS=("local" "dev" "prod")
 
 # Helper functions
@@ -26,19 +29,23 @@ print_usage() {
     echo "Usage: $0 <service> <environment>"
     echo ""
     echo "Services:"
-    echo "  backend   - Build backend service"
-    echo "  frontend  - Build frontend service"
-    echo "  all       - Build all services"
+    echo "  backend       - Build backend service (FastAPI)"
+    echo "  frontend      - Build frontend service (Vue 3)"
+    echo "  match-scraper - Build match-scraper service (from external repo)"
+    echo "  all           - Build all services (backend + frontend + match-scraper)"
     echo ""
     echo "Environments:"
-    echo "  local     - Build for local development (current platform, no push)"
-    echo "  dev       - Build for dev environment (AMD64, push to registry)"
-    echo "  prod      - Build for production (AMD64, push to registry)"
+    echo "  local         - Build for local development (current platform, no push)"
+    echo "  dev           - Build for dev environment (AMD64, push to registry)"
+    echo "  prod          - Build for production (AMD64, push to registry)"
     echo ""
     echo "Examples:"
     echo "  $0 backend dev"
     echo "  $0 frontend prod"
+    echo "  $0 match-scraper dev"
     echo "  $0 all dev"
+    echo ""
+    echo "Note: match-scraper is built from: $MATCH_SCRAPER_REPO"
 }
 
 print_error() {
@@ -51,6 +58,10 @@ print_success() {
 
 print_info() {
     echo -e "${YELLOW}INFO: $1${NC}"
+}
+
+print_step() {
+    echo -e "${BLUE}▶ $1${NC}"
 }
 
 # Validate arguments
@@ -81,11 +92,19 @@ fi
 build_service() {
     local service=$1
     local env=$2
-    local dockerfile="${service}/Dockerfile"
-    local context="${service}/"
     local tag="${env}"
 
-    print_info "Building ${service} for ${env} environment..."
+    # Handle match-scraper specially (external repo)
+    if [ "$service" = "match-scraper" ]; then
+        build_match_scraper "$env" "$tag"
+        return
+    fi
+
+    # For backend/frontend, use local directories
+    local dockerfile="${service}/Dockerfile"
+    local context="${service}/"
+
+    print_step "Building ${service} for ${env} environment..."
 
     # Determine platform and push strategy
     if [ "$env" = "local" ]; then
@@ -140,6 +159,59 @@ build_service() {
     fi
 }
 
+# Build match-scraper from external repo
+build_match_scraper() {
+    local env=$1
+    local tag=$2
+    local service="match-scraper"
+
+    print_step "Building ${service} from external repository..."
+
+    # Check if match-scraper repo exists
+    if [ ! -d "$MATCH_SCRAPER_REPO" ]; then
+        print_error "Match-scraper repository not found at: $MATCH_SCRAPER_REPO"
+        print_info "Please clone the repository first:"
+        echo "  git clone https://github.com/silverbeer/match-scraper.git $MATCH_SCRAPER_REPO"
+        exit 1
+    fi
+
+    # Save current directory
+    ORIGINAL_DIR=$(pwd)
+
+    # Change to match-scraper directory
+    cd "$MATCH_SCRAPER_REPO"
+
+    print_info "Building from: $MATCH_SCRAPER_REPO"
+
+    if [ "$env" = "local" ]; then
+        # Local build - use current platform, no push
+        PLATFORM=$(docker info --format '{{.Architecture}}')
+        print_info "Building for local platform: ${PLATFORM}"
+
+        docker build \
+            -t "${REGISTRY}/${service}:${tag}" \
+            .
+
+        print_success "Built ${service}:${tag} for local use"
+    else
+        # Cloud build - always use AMD64 (GKE requirement), push to registry
+        print_info "Building for AMD64 (GKE requirement) and pushing to registry..."
+        print_info "Image tag: ${REGISTRY}/${service}:latest"
+
+        # Always tag as 'latest' for match-scraper
+        docker buildx build \
+            --platform linux/amd64 \
+            -t "${REGISTRY}/${service}:latest" \
+            . \
+            --push
+
+        print_success "Built and pushed ${service}:latest to ${REGISTRY}"
+    fi
+
+    # Return to original directory
+    cd "$ORIGINAL_DIR"
+}
+
 # Main execution
 print_info "Starting build process..."
 print_info "Service: ${SERVICE}"
@@ -148,9 +220,16 @@ echo ""
 
 if [ "$SERVICE" = "all" ]; then
     # Build all services
+    print_info "Building all services for ${ENVIRONMENT} environment"
+    echo ""
+
     build_service "backend" "$ENVIRONMENT"
     echo ""
+
     build_service "frontend" "$ENVIRONMENT"
+    echo ""
+
+    build_service "match-scraper" "$ENVIRONMENT"
 else
     # Build single service
     build_service "$SERVICE" "$ENVIRONMENT"
@@ -163,12 +242,40 @@ print_success "Build process completed!"
 if [ "$ENVIRONMENT" != "local" ]; then
     echo ""
     print_info "Next steps:"
-    echo "  1. Deploy to Kubernetes:"
-    echo "     kubectl rollout restart deployment/missing-table-${SERVICE} -n missing-table-${ENVIRONMENT}"
-    echo ""
-    echo "  2. Check deployment status:"
-    echo "     kubectl rollout status deployment/missing-table-${SERVICE} -n missing-table-${ENVIRONMENT}"
-    echo ""
-    echo "  3. View logs:"
-    echo "     kubectl logs -f -l app.kubernetes.io/component=${SERVICE} -n missing-table-${ENVIRONMENT}"
+
+    if [ "$SERVICE" = "match-scraper" ]; then
+        echo "  Match-Scraper Deployment:"
+        echo "    1. Deploy CronJob:"
+        echo "       kubectl apply -f k8s/match-scraper-cronjob.yaml"
+        echo ""
+        echo "    2. Create test job:"
+        echo "       kubectl create job --from=cronjob/match-scraper test-\$(date +%s) -n missing-table-${ENVIRONMENT}"
+        echo ""
+        echo "    3. View logs:"
+        echo "       kubectl logs -f -l app=match-scraper -n missing-table-${ENVIRONMENT}"
+        echo ""
+        echo "    4. Check RabbitMQ queue:"
+        echo "       kubectl port-forward -n missing-table-${ENVIRONMENT} svc/messaging-rabbitmq 15672:15672"
+        echo "       # Open http://localhost:15672 (admin/admin123)"
+    elif [ "$SERVICE" = "all" ]; then
+        echo "  Backend/Frontend Deployment:"
+        echo "    1. Deploy with Helm:"
+        echo "       cd helm && ./deploy-helm.sh"
+        echo ""
+        echo "  Match-Scraper Deployment:"
+        echo "    1. Deploy CronJob:"
+        echo "       kubectl apply -f k8s/match-scraper-cronjob.yaml"
+        echo ""
+        echo "    2. Create test job:"
+        echo "       kubectl create job --from=cronjob/match-scraper test-\$(date +%s) -n missing-table-${ENVIRONMENT}"
+    else
+        echo "  1. Deploy to Kubernetes:"
+        echo "     kubectl rollout restart deployment/missing-table-${SERVICE} -n missing-table-${ENVIRONMENT}"
+        echo ""
+        echo "  2. Check deployment status:"
+        echo "     kubectl rollout status deployment/missing-table-${SERVICE} -n missing-table-${ENVIRONMENT}"
+        echo ""
+        echo "  3. View logs:"
+        echo "     kubectl logs -f -l app.kubernetes.io/component=${SERVICE} -n missing-table-${ENVIRONMENT}"
+    fi
 fi

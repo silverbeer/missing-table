@@ -1,0 +1,84 @@
+---
+# Redis StatefulSet with persistent storage
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "messaging-platform.fullname" . }}-redis
+  labels:
+    {{- include "messaging-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: {{ include "messaging-platform.fullname" . }}-redis
+  replicas: {{ .Values.redis.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "messaging-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "messaging-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+      - name: redis
+        image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+        imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+        ports:
+        - containerPort: 6379
+          name: redis
+          protocol: TCP
+        command:
+        - redis-server
+        {{- if .Values.redis.persistence.enabled }}
+        - --appendonly
+        - "yes"
+        - --dir
+        - /data
+        {{- else }}
+        - --appendonly
+        - "no"
+        - --save
+        - ""
+        {{- end }}
+        {{- if .Values.redis.persistence.enabled }}
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        {{- end }}
+        resources:
+          {{- toYaml .Values.redis.resources | nindent 10 }}
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+  {{- if .Values.redis.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        {{- include "messaging-platform.labels" . | nindent 8 }}
+    spec:
+      accessModes:
+        - {{ .Values.redis.persistence.accessMode }}
+      {{- if .Values.redis.persistence.storageClass }}
+      storageClassName: {{ .Values.redis.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.redis.persistence.size }}
+  {{- end }}

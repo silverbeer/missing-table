@@ -1,0 +1,23 @@
+---
+# RabbitMQ Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "messaging-platform.fullname" . }}-rabbitmq
+  labels:
+    {{- include "messaging-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+spec:
+  type: {{ .Values.rabbitmq.service.type }}
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: amqp
+    protocol: TCP
+  - name: management
+    port: 15672
+    targetPort: management
+    protocol: TCP
+  selector:
+    {{- include "messaging-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq

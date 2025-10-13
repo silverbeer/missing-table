@@ -1,0 +1,69 @@
+# values-local.yaml - Configuration for local K3s deployment
+#
+# This file contains values optimized for running the messaging platform
+# on a local Rancher Desktop K3s cluster
+
+# RabbitMQ Configuration
+rabbitmq:
+  replicaCount: 1
+
+  image:
+    repository: rabbitmq
+    tag: "3.13-management"
+    pullPolicy: IfNotPresent
+
+  auth:
+    username: admin
+    password: admin123
+    # Erlang cookie for clustering (required even for single node)
+    erlangCookie: "secretcookie123"
+
+  # Persistent storage for message durability
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    # Use default storage class for local K3s
+    storageClass: ""
+
+  service:
+    type: ClusterIP
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Redis Configuration
+redis:
+  replicaCount: 1
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  # Persistent storage for task results
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    storageClass: ""
+
+  service:
+    type: ClusterIP
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+# Global settings
+nameOverride: ""
+fullnameOverride: "messaging"

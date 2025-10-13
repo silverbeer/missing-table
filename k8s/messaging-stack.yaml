@@ -1,0 +1,14 @@
+# DEPRECATED: This file is no longer used
+# 
+# The messaging platform (RabbitMQ + Redis) is now deployed via Helm:
+#   helm upgrade --install messaging-platform ./helm/messaging-platform \
+#     -n missing-table-dev --values ./helm/messaging-platform/values-dev.yaml
+#
+# This standalone manifest has been replaced by the Helm chart which provides:
+# - Better configuration management
+# - Persistent storage with PVCs
+# - StatefulSets instead of Deployments
+# - Integrated secrets management
+#
+# Date deprecated: 2025-10-13
+# Reason: Consolidated deployment using Helm for better management

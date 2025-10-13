@@ -63,6 +63,13 @@ spec:
         # Non-sensitive configuration
         - name: REDIS_URL
           value: "redis://{{ include "missing-table.fullname" . }}-redis:6379"
+        # Celery/RabbitMQ configuration (for async API endpoints)
+        - name: CELERY_BROKER_URL
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://messaging-redis.messaging.svc.cluster.local:6379/0"
+        - name: RABBITMQ_URL
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
         - name: ENVIRONMENT
           value: {{ .Values.backend.env.environment | quote }}
         - name: LOG_LEVEL

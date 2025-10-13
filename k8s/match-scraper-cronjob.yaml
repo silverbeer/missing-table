@@ -1,0 +1,194 @@
+# Match-Scraper Kubernetes CronJob
+# Runs the web scraper on a schedule, submitting matches directly to RabbitMQ
+#
+# Key Features:
+# - Scheduled execution (every 6 hours)
+# - Direct RabbitMQ submission (no HTTP API dependency)
+# - Automatic retry on failure
+# - Resource limits for cost control
+# - Secrets management for credentials
+#
+# Deploy: kubectl apply -f k8s/match-scraper-cronjob.yaml
+# Test: kubectl create job --from=cronjob/match-scraper match-scraper-test-1 -n missing-table-dev
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: match-scraper
+  namespace: missing-table-dev
+  labels:
+    app: match-scraper
+    component: scraper
+    version: v1.0.0
+  annotations:
+    description: "Automated MLS match data scraper with RabbitMQ integration"
+spec:
+  # Schedule: Run every 6 hours (at minute 0 of every 6th hour)
+  # Cron format: minute hour day month weekday
+  # Examples:
+  #   "0 */6 * * *"  - Every 6 hours
+  #   "0 0,6,12,18 * * *" - At midnight, 6am, noon, 6pm
+  #   "0 9 * * *"    - Daily at 9am
+  schedule: "0 */6 * * *"
+
+  # Timezone (optional, defaults to UTC)
+  # timeZone: "America/New_York"
+
+  # Concurrency policy: Forbid = don't start new job if previous still running
+  # Other options: Allow, Replace
+  concurrencyPolicy: Forbid
+
+  # How many successful/failed jobs to keep for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+  # Deadline: Job must complete within 30 minutes
+  startingDeadlineSeconds: 1800
+
+  jobTemplate:
+    metadata:
+      labels:
+        app: match-scraper
+        component: scraper
+    spec:
+      # Retry up to 2 times if pod fails
+      backoffLimit: 2
+
+      # Clean up completed pods after 1 hour
+      ttlSecondsAfterFinished: 3600
+
+      template:
+        metadata:
+          labels:
+            app: match-scraper
+            component: scraper
+        spec:
+          # Don't restart on failure (CronJob will handle retry)
+          restartPolicy: OnFailure
+
+          containers:
+          - name: match-scraper
+            # Image from Google Artifact Registry
+            image: us-central1-docker.pkg.dev/missing-table/missing-table/match-scraper:latest
+            imagePullPolicy: Always
+
+            # Command override (customize age group, division, etc.)
+            command:
+              - "uv"
+              - "run"
+              - "mls-scraper"
+              - "scrape"
+              - "--age-group"
+              - "$(AGE_GROUP)"
+              - "--division"
+              - "$(DIVISION)"
+              - "--use-queue"  # Use RabbitMQ queue (not HTTP API)
+              - "--no-api"     # Disable HTTP API integration
+              - "--headless"   # Run browser in headless mode
+
+            env:
+            # RabbitMQ connection (from Kubernetes Secret)
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: missing-table-secrets
+                  key: rabbitmq-url
+                  optional: false
+
+            # Scraping configuration
+            - name: AGE_GROUP
+              value: "U14"
+
+            - name: DIVISION
+              value: "Northeast"
+
+            # Logging configuration
+            - name: LOG_LEVEL
+              value: "INFO"
+
+            - name: NO_COLOR
+              value: "1"  # Disable colors in logs (better for container logs)
+
+            # Resource limits (prevent runaway costs)
+            resources:
+              requests:
+                memory: "512Mi"   # Minimum memory guaranteed
+                cpu: "500m"       # 0.5 CPU cores minimum
+              limits:
+                memory: "1Gi"     # Maximum memory allowed
+                cpu: "1000m"      # 1 CPU core maximum
+
+            # Security context (run as non-root for security)
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false  # Playwright needs to write temp files
+
+          # Node selector (optional - run on specific node types)
+          # nodeSelector:
+          #   workload-type: batch
+
+          # Tolerations (optional - allow scheduling on tainted nodes)
+          # tolerations:
+          # - key: "batch-workload"
+          #   operator: "Equal"
+          #   value: "true"
+          #   effect: "NoSchedule"
+
+---
+# ServiceAccount for the scraper (optional - for RBAC)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: match-scraper
+  namespace: missing-table-dev
+  labels:
+    app: match-scraper
+
+---
+# ConfigMap for scraper configuration (optional alternative to env vars)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: match-scraper-config
+  namespace: missing-table-dev
+  labels:
+    app: match-scraper
+data:
+  age_groups: "U14,U15,U16,U17"
+  divisions: "Northeast,Southeast"
+  scrape_interval: "6h"
+  log_level: "INFO"
+
+---
+# Instructions for manual job execution:
+#
+# 1. Create a test job from the CronJob:
+#    kubectl create job --from=cronjob/match-scraper match-scraper-test-1 -n missing-table-dev
+#
+# 2. Watch job status:
+#    kubectl get jobs -n missing-table-dev -w
+#
+# 3. Check logs:
+#    kubectl logs -f job/match-scraper-test-1 -n missing-table-dev
+#
+# 4. Check RabbitMQ to see if messages were queued:
+#    kubectl port-forward -n missing-table-dev svc/messaging-rabbitmq 15672:15672
+#    Open http://localhost:15672 (admin/admin123)
+#    Check "Queues" tab for "matches" queue
+#
+# 5. Delete test job:
+#    kubectl delete job match-scraper-test-1 -n missing-table-dev
+#
+# 6. Suspend CronJob (pause scheduled runs):
+#    kubectl patch cronjob match-scraper -n missing-table-dev -p '{"spec":{"suspend":true}}'
+#
+# 7. Resume CronJob:
+#    kubectl patch cronjob match-scraper -n missing-table-dev -p '{"spec":{"suspend":false}}'
+#
+# 8. View CronJob details:
+#    kubectl describe cronjob match-scraper -n missing-table-dev
+#
+# 9. View recent job runs:
+#    kubectl get jobs -n missing-table-dev --selector=app=match-scraper

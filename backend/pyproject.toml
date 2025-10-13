@@ -33,6 +33,7 @@ dependencies = [
     "opentelemetry-instrumentation-requests>=0.49b0",
     "opentelemetry-instrumentation-redis>=0.49b0",
     "user-agents>=2.2.0",
+    "celery>=5.5.3",
 ]
 
 [project.optional-dependencies]
