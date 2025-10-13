@@ -291,13 +291,76 @@ Docker Compose
 ### Cloud Deployment (GKE)
 ```
 Google Kubernetes Engine
-├── Backend Pods
-├── Frontend Pods
-├── Redis (sessions)
+├── missing-table-dev namespace
+│   ├── Backend Pods
+│   ├── Frontend Pods
+│   └── Celery Worker Pods (2+ replicas)
+├── messaging namespace
+│   ├── RabbitMQ (message broker)
+│   └── Redis (result backend)
 └── Supabase Cloud (external)
 ```
 
 See: [Deployment Documentation](../05-deployment/)
+
+---
+
+## 🔄 Async Task Processing
+
+### Architecture Overview
+
+The system uses **Celery** with **RabbitMQ** and **Redis** for async task processing, enabling scalable, resilient match submission from external sources.
+
+```
+Match-Scraper (External)
+         │
+         │ HTTP POST
+         ↓
+┌────────────────────┐
+│  FastAPI Backend   │  POST /api/matches/submit
+│   (app.py)         │  GET /api/matches/task/{id}
+└─────────┬──────────┘
+          │ Queue Task
+          ↓
+┌────────────────────┐
+│     RabbitMQ       │  Message Broker
+│  (messaging ns)    │  Task Queue
+└─────────┬──────────┘
+          │ Distribute
+          ↓
+┌────────────────────┐
+│  Celery Workers    │  Process Tasks
+│  (2+ replicas)     │  Entity Resolution
+└─────────┬──────────┘  Database Ops
+          │ Store Result
+          ↓
+┌────────────────────┐
+│      Redis         │  Result Backend
+│  (messaging ns)    │  Task Status
+└────────────────────┘
+```
+
+### Key Features
+
+**Async Match Submission:**
+- Immediate API response (~100ms)
+- Background processing (~900ms)
+- No client waiting
+- Scalable with worker replicas
+
+**Entity Resolution:**
+- Match-scraper sends team **names** (not IDs)
+- Workers automatically resolve to database IDs
+- Handles missing entities gracefully
+- Deduplication via `external_match_id`
+
+**Resilience:**
+- Automatic retries on failures
+- Independent task processing
+- Failed tasks don't block queue
+- Observable via task status API
+
+See: [Backend Structure - Async Architecture](backend-structure.md#-async-task-processing-architecture)
 
 ---
 
