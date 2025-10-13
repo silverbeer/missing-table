@@ -36,6 +36,87 @@ class DatabaseTask(Task):
             self._dao = EnhancedSportsDAO(self._connection)
         return self._dao
 
+    def _check_needs_update(self, existing_match: Dict[str, Any], new_data: Dict[str, Any]) -> bool:
+        """
+        Check if the existing match needs to be updated based on new data.
+
+        Returns True if any of these conditions are met:
+        - Status changed (scheduled → played)
+        - Scores changed (were null, now have values)
+        - Scores were updated (different values)
+        """
+        # Check status change
+        existing_status = existing_match.get('match_status', 'scheduled')
+        new_status = new_data.get('match_status', 'scheduled')
+        if existing_status != new_status:
+            logger.debug(f"Status changed: {existing_status} → {new_status}")
+            return True
+
+        # Check score changes
+        existing_home_score = existing_match.get('home_score')
+        existing_away_score = existing_match.get('away_score')
+        new_home_score = new_data.get('home_score')
+        new_away_score = new_data.get('away_score')
+
+        # If new data has scores and they differ from existing
+        if new_home_score is not None and new_away_score is not None:
+            if (existing_home_score != new_home_score or
+                existing_away_score != new_away_score):
+                logger.debug(f"Scores changed: {existing_home_score}-{existing_away_score} → {new_home_score}-{new_away_score}")
+                return True
+
+        return False
+
+    def _update_match_scores(self, existing_match: Dict[str, Any], new_data: Dict[str, Any]) -> bool:
+        """
+        Update an existing match's scores and status.
+
+        This is a simplified update that only changes scores and status,
+        preserving all other match data.
+        """
+        try:
+            match_id = existing_match['id']
+
+            # Prepare update data
+            update_data = {}
+
+            # Update scores if provided
+            if new_data.get('home_score') is not None:
+                update_data['home_score'] = new_data['home_score']
+            if new_data.get('away_score') is not None:
+                update_data['away_score'] = new_data['away_score']
+
+            # Update status if provided
+            if new_data.get('match_status'):
+                update_data['match_status'] = new_data['match_status']
+
+            # Note: updated_by field expects UUID, not string.
+            # For match-scraper updates, we'll skip this field since it's optional.
+            # If we need to track match-scraper updates, we should use 'source' field instead.
+
+            if not update_data:
+                logger.warning(f"No update data provided for match {match_id}")
+                return False
+
+            # Execute update directly on matches table
+            response = (
+                self.dao.client.table("matches")
+                .update(update_data)
+                .eq("id", match_id)
+                .execute()
+            )
+
+            if response.data:
+                logger.info(f"Successfully updated match {match_id}: {update_data}")
+                return True
+            else:
+                logger.error(f"Update returned no data for match {match_id}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error updating match scores: {e}", exc_info=True)
+            return False
+
 
 @app.task(
     bind=True,
@@ -121,12 +202,28 @@ def process_match_data(self: DatabaseTask, match_data: Dict[str, Any]) -> Dict[s
 
         # Step 4: Insert or update match
         if existing_match:
-            logger.info(f"Match already exists with ID {existing_match['id']}. Skipping duplicate.")
-            result = {
-                'match_id': existing_match['id'],
-                'status': 'skipped',
-                'message': f"Match already exists: {home_team_name} vs {away_team_name}"
-            }
+            # Check if this is a score update
+            needs_update = self._check_needs_update(existing_match, match_data)
+
+            if needs_update:
+                logger.info(f"Updating existing match {existing_match['id']}: {home_team_name} vs {away_team_name}")
+                success = self._update_match_scores(existing_match, match_data)
+
+                if success:
+                    result = {
+                        'match_id': existing_match['id'],
+                        'status': 'updated',
+                        'message': f"Updated match scores: {home_team_name} vs {away_team_name}"
+                    }
+                else:
+                    raise Exception(f"Failed to update match {existing_match['id']}")
+            else:
+                logger.info(f"Match already exists with ID {existing_match['id']}. No changes needed.")
+                result = {
+                    'match_id': existing_match['id'],
+                    'status': 'skipped',
+                    'message': f"Match unchanged: {home_team_name} vs {away_team_name}"
+                }
         else:
             logger.info(f"Creating new match: {home_team_name} vs {away_team_name}")
             match_id = self.dao.create_match(
