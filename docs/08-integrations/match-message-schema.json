@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://missingtable.com/schemas/match-message-v1.json",
+  "title": "Match Data Message Contract",
+  "description": "Message format for match data submitted from match-scraper to RabbitMQ/Celery workers. This is the canonical contract between the producer (match-scraper) and consumer (celery workers).",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "home_team",
+    "away_team",
+    "date",
+    "season",
+    "age_group",
+    "match_type"
+  ],
+  "properties": {
+    "home_team": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Home team name (must match teams.name in database)",
+      "example": "Chicago Fire Juniors"
+    },
+    "away_team": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Away team name (must match teams.name in database)",
+      "example": "Indiana Fire Academy"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Match date in ISO 8601 format (YYYY-MM-DD)",
+      "example": "2025-10-13"
+    },
+    "season": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Season identifier (e.g., '2024-25', 'Fall 2024')",
+      "example": "2024-25"
+    },
+    "age_group": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Age group (must match age_groups.name in database)",
+      "example": "U14"
+    },
+    "match_type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Match type (must match match_types.name in database)",
+      "example": "League"
+    },
+    "division": {
+      "type": ["string", "null"],
+      "description": "Division name (optional, must match divisions.name if provided)",
+      "example": "Northeast"
+    },
+    "score_home": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Home team score (null if match not played yet)",
+      "example": 2
+    },
+    "score_away": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Away team score (null if match not played yet)",
+      "example": 1
+    },
+    "status": {
+      "type": ["string", "null"],
+      "enum": ["scheduled", "completed", "postponed", "cancelled", null],
+      "description": "Match status",
+      "example": "completed"
+    },
+    "match_id": {
+      "type": ["string", "null"],
+      "description": "External match ID from source system (for deduplication)",
+      "example": "mlsnext_12345"
+    },
+    "location": {
+      "type": ["string", "null"],
+      "description": "Match location/venue",
+      "example": "Toyota Park"
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Additional notes about the match",
+      "example": "Weather delay"
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "home_team": "Chicago Fire Juniors",
+      "away_team": "Indiana Fire Academy",
+      "date": "2025-10-13",
+      "season": "2024-25",
+      "age_group": "U14",
+      "match_type": "League",
+      "division": "Northeast",
+      "score_home": 2,
+      "score_away": 1,
+      "status": "completed",
+      "match_id": "mlsnext_12345",
+      "location": "Toyota Park"
+    },
+    {
+      "home_team": "Team A",
+      "away_team": "Team B",
+      "date": "2025-10-20",
+      "season": "2024-25",
+      "age_group": "U16",
+      "match_type": "Cup",
+      "score_home": null,
+      "score_away": null,
+      "status": "scheduled"
+    }
+  ],
+  "definitions": {
+    "celery_task": {
+      "task_name": "missing_table.tasks.process_match_data",
+      "queue": "matches",
+      "routing_key": "matches",
+      "description": "Celery task that processes this message"
+    }
+  },
+  "notes": [
+    "This schema is the single source of truth for the match message contract",
+    "Both match-scraper (producer) and missing-table workers (consumer) must validate against this schema",
+    "Version changes require coordination between both repositories",
+    "Breaking changes require a new schema version"
+  ]
+}
