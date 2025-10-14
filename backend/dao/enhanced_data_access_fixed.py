@@ -425,6 +425,112 @@ class EnhancedSportsDAO:
             print(f"Error getting match by external ID '{external_match_id}': {e}")
             return None
 
+    def get_match_by_teams_and_date(
+        self,
+        home_team_id: int,
+        away_team_id: int,
+        match_date: str
+    ) -> dict | None:
+        """Get a match by home/away teams and date.
+
+        This is used as a fallback for deduplication when match_id is not populated
+        (e.g., manually-entered matches without external match IDs).
+
+        Args:
+            home_team_id: Database ID of home team
+            away_team_id: Database ID of away team
+            match_date: ISO format date string (YYYY-MM-DD)
+
+        Returns:
+            Match dict with flattened structure, or None if not found
+        """
+        try:
+            response = (
+                self.client.table("matches")
+                .select("""
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name),
+                    season:seasons(id, name),
+                    age_group:age_groups(id, name),
+                    match_type:match_types(id, name),
+                    division:divisions(id, name)
+                """)
+                .eq("home_team_id", home_team_id)
+                .eq("away_team_id", away_team_id)
+                .eq("match_date", match_date)
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                match = response.data[0]
+                # Flatten to match format from get_match_by_id
+                flat_match = {
+                    "id": match["id"],
+                    "match_date": match["match_date"],
+                    "home_team_id": match["home_team_id"],
+                    "away_team_id": match["away_team_id"],
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "season_id": match["season_id"],
+                    "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+                    "age_group_id": match["age_group_id"],
+                    "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "match_type_id": match["match_type_id"],
+                    "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
+                    "division_id": match.get("division_id"),
+                    "division_name": match["division"]["name"] if match.get("division") else "Unknown",
+                    "match_status": match.get("match_status"),
+                    "created_by": match.get("created_by"),
+                    "updated_by": match.get("updated_by"),
+                    "source": match.get("source", "manual"),
+                    "match_id": match.get("match_id"),
+                    "created_at": match["created_at"],
+                    "updated_at": match["updated_at"],
+                }
+                return flat_match
+            return None
+
+        except Exception as e:
+            print(f"Error getting match by teams and date: {e}")
+            return None
+
+    def update_match_external_id(self, match_id: int, external_match_id: str) -> bool:
+        """Update only the external match_id field on an existing match.
+
+        This is used when a manually-entered match is matched with a scraped match,
+        allowing future scrapes to use the external_match_id for deduplication.
+
+        Args:
+            match_id: Database ID of the match to update
+            external_match_id: External match ID from match-scraper (e.g., "98966")
+
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            response = (
+                self.client.table("matches")
+                .update({
+                    "match_id": external_match_id,
+                    "source": "match-scraper",  # Update source to indicate scraper now manages this
+                })
+                .eq("id", match_id)
+                .execute()
+            )
+
+            if response.data:
+                print(f"Updated match {match_id} with external match_id: {external_match_id}")
+                return True
+            return False
+
+        except Exception as e:
+            print(f"Error updating match external_id: {e}")
+            return False
+
     def create_match(
         self,
         home_team_id: int,
