@@ -633,9 +633,11 @@ export default {
           'Fetching matches for team:',
           selectedTeam.value,
           'season:',
-          selectedSeasonId.value
+          selectedSeasonId.value,
+          'age_group:',
+          selectedAgeGroupId.value
         );
-        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}`;
+        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}`;
         matches.value = await authStore.apiRequest(url);
         console.log('Games received:', matches.value);
       } catch (err) {
@@ -958,6 +960,13 @@ export default {
 
     // Watch for season changes to refetch matches if team is selected
     watch(selectedSeasonId, () => {
+      if (selectedTeam.value) {
+        fetchMatches();
+      }
+    });
+
+    // Watch for age group changes to refetch matches if team is selected
+    watch(selectedAgeGroupId, () => {
       if (selectedTeam.value) {
         fetchMatches();
       }

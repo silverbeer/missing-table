@@ -584,7 +584,7 @@ class EnhancedSportsDAO:
             print(f"Error querying matches: {e}")
             return []
 
-    def get_matches_by_team(self, team_id: int, season_id: int | None = None) -> list[dict]:
+    def get_matches_by_team(self, team_id: int, season_id: int | None = None, age_group_id: int | None = None) -> list[dict]:
         """Get all matches for a specific team."""
         try:
             query = (
@@ -603,6 +603,9 @@ class EnhancedSportsDAO:
 
             if season_id:
                 query = query.eq("season_id", season_id)
+
+            if age_group_id:
+                query = query.eq("age_group_id", age_group_id)
 
             response = query.order("match_date", desc=True).execute()
 
