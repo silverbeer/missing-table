@@ -8,14 +8,14 @@ These tasks run asynchronously in Celery workers, allowing for:
 - Horizontal scaling of processing capacity
 """
 
-import logging
 from typing import Dict, Any
 from celery import Task
 from celery_app import app
 from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection
 from celery_tasks.validation_tasks import validate_match_data
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DatabaseTask(Task):

@@ -95,15 +95,10 @@ def load_environment():
 
 load_environment()
 
-# Configure logging with environment-based level
-log_level = os.getenv('LOG_LEVEL', 'info').upper()
-logging.basicConfig(
-    level=getattr(logging, log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-
-logger = logging.getLogger(__name__)
+# Configure structured logging with JSON output for Loki
+from logging_config import setup_logging, get_logger
+setup_logging(service_name="backend")
+logger = get_logger(__name__)
 
 app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
 
