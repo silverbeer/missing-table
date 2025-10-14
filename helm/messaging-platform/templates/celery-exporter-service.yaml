@@ -1,0 +1,21 @@
+{{- if .Values.celeryExporter.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "messaging-platform.fullname" . }}-celery-exporter
+  labels:
+    app: celery-exporter
+    {{- include "messaging-platform.labels" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9808"
+spec:
+  type: {{ .Values.celeryExporter.service.type }}
+  ports:
+  - port: {{ .Values.celeryExporter.service.port }}
+    targetPort: 9808
+    protocol: TCP
+    name: metrics
+  selector:
+    app: celery-exporter
+{{- end }}
