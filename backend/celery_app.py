@@ -70,13 +70,14 @@ app.conf.update(
 
     # Task routing
     task_routes={
-        'celery_tasks.match_tasks.*': {'queue': 'match_processing'},
+        'celery_tasks.match_tasks.*': {'queue': 'matches'},  # Route to 'matches' queue for match-scraper compatibility
         'celery_tasks.validation_tasks.*': {'queue': 'validation'},
     },
 
     # Queue configuration
     task_queues=(
-        Queue('match_processing', Exchange('match_processing'), routing_key='match.*'),
+        Queue('matches', Exchange('matches'), routing_key='matches.*'),  # Primary queue for match-scraper messages
+        Queue('match_processing', Exchange('match_processing'), routing_key='match.*'),  # Legacy queue
         Queue('validation', Exchange('validation'), routing_key='validation.*'),
         Queue('celery', Exchange('celery'), routing_key='celery'),  # Default queue
     ),
