@@ -633,9 +633,11 @@ export default {
           'Fetching matches for team:',
           selectedTeam.value,
           'season:',
-          selectedSeasonId.value
+          selectedSeasonId.value,
+          'age_group:',
+          selectedAgeGroupId.value
         );
-        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}`;
+        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}`;
         matches.value = await authStore.apiRequest(url);
         console.log('Games received:', matches.value);
       } catch (err) {
@@ -937,18 +939,18 @@ export default {
 
     // Watch for changes in age group and season to refresh teams and clear selection
     watch([selectedAgeGroupId, selectedSeasonId], () => {
-      // Only clear selection if it's not the player's team
-      if (authStore.userTeamId) {
-        const playerTeamStillAvailable = filteredTeams.value.some(
-          team => team.id === authStore.userTeamId
+      // Check if currently selected team is still available in filtered list
+      if (selectedTeam.value) {
+        const selectedTeamId = parseInt(selectedTeam.value);
+        const teamStillAvailable = filteredTeams.value.some(
+          team => team.id === selectedTeamId
         );
-        if (!playerTeamStillAvailable) {
-          selectedTeam.value = ''; // Clear if player's team not in filtered list
+        if (!teamStillAvailable) {
+          selectedTeam.value = ''; // Clear if selected team not in filtered list
+          matches.value = []; // Clear matches
         }
-      } else {
-        selectedTeam.value = ''; // Clear team selection when filters change
+        // If team is still available, the age group watcher will refetch matches
       }
-      matches.value = []; // Clear matches
     });
 
     // Watch for team changes to fetch matches
@@ -958,6 +960,13 @@ export default {
 
     // Watch for season changes to refetch matches if team is selected
     watch(selectedSeasonId, () => {
+      if (selectedTeam.value) {
+        fetchMatches();
+      }
+    });
+
+    // Watch for age group changes to refetch matches if team is selected
+    watch(selectedAgeGroupId, () => {
       if (selectedTeam.value) {
         fetchMatches();
       }

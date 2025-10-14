@@ -1295,11 +1295,13 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
 
 @app.get("/api/matches/team/{team_id}")
 async def get_matches_by_team(
-    team_id: int, season_id: int | None = Query(None, description="Filter by season ID")
+    team_id: int,
+    season_id: int | None = Query(None, description="Filter by season ID"),
+    age_group_id: int | None = Query(None, description="Filter by age group ID")
 ):
     """Get matches for a specific team."""
     try:
-        matches = sports_dao.get_matches_by_team(team_id, season_id=season_id)
+        matches = sports_dao.get_matches_by_team(team_id, season_id=season_id, age_group_id=age_group_id)
         # Return empty array if no matches found - this is not an error condition
         return matches if matches else []
     except Exception as e:
