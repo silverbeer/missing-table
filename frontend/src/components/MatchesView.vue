@@ -939,18 +939,18 @@ export default {
 
     // Watch for changes in age group and season to refresh teams and clear selection
     watch([selectedAgeGroupId, selectedSeasonId], () => {
-      // Only clear selection if it's not the player's team
-      if (authStore.userTeamId) {
-        const playerTeamStillAvailable = filteredTeams.value.some(
-          team => team.id === authStore.userTeamId
+      // Check if currently selected team is still available in filtered list
+      if (selectedTeam.value) {
+        const selectedTeamId = parseInt(selectedTeam.value);
+        const teamStillAvailable = filteredTeams.value.some(
+          team => team.id === selectedTeamId
         );
-        if (!playerTeamStillAvailable) {
-          selectedTeam.value = ''; // Clear if player's team not in filtered list
+        if (!teamStillAvailable) {
+          selectedTeam.value = ''; // Clear if selected team not in filtered list
+          matches.value = []; // Clear matches
         }
-      } else {
-        selectedTeam.value = ''; // Clear team selection when filters change
+        // If team is still available, the age group watcher will refetch matches
       }
-      matches.value = []; // Clear matches
     });
 
     // Watch for team changes to fetch matches
