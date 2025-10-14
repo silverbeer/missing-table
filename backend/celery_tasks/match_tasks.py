@@ -8,14 +8,14 @@ These tasks run asynchronously in Celery workers, allowing for:
 - Horizontal scaling of processing capacity
 """
 
-import logging
 from typing import Dict, Any
 from celery import Task
 from celery_app import app
 from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection
 from celery_tasks.validation_tasks import validate_match_data
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DatabaseTask(Task):
@@ -194,11 +194,43 @@ def process_match_data(self: DatabaseTask, match_data: Dict[str, Any]) -> Dict[s
             logger.warning(f"Away team not found: {away_team_name}. Creating placeholder.")
             raise ValueError(f"Team not found: {away_team_name}")
 
-        # Step 3: Check if match already exists (by external ID)
+        # Step 3: Check if match already exists
         external_match_id = match_data.get('external_match_id')
         existing_match = None
+
+        # First try: Look up by external ID (fast path for previously scraped matches)
         if external_match_id:
             existing_match = self.dao.get_match_by_external_id(external_match_id)
+            logger.debug(f"Lookup by external_match_id '{external_match_id}': {'found' if existing_match else 'not found'}")
+
+        # Second try: Fallback to lookup by teams + date (for manually-entered matches)
+        if not existing_match:
+            existing_match = self.dao.get_match_by_teams_and_date(
+                home_team_id=home_team['id'],
+                away_team_id=away_team['id'],
+                match_date=match_data['match_date']
+            )
+
+            if existing_match:
+                logger.info(
+                    f"Found manually-entered match via fallback lookup: "
+                    f"{home_team_name} vs {away_team_name} on {match_data['match_date']}"
+                )
+
+                # If found a match without external_match_id, populate it
+                if external_match_id and not existing_match.get('match_id'):
+                    logger.info(f"Populating match_id '{external_match_id}' on existing match {existing_match['id']}")
+                    success = self.dao.update_match_external_id(
+                        match_id=existing_match['id'],
+                        external_match_id=external_match_id
+                    )
+                    if success:
+                        # Update the existing_match dict to reflect the new match_id
+                        existing_match['match_id'] = external_match_id
+                        existing_match['source'] = 'match-scraper'
+                        logger.info(f"Successfully populated match_id on match {existing_match['id']}")
+                    else:
+                        logger.warning(f"Failed to populate match_id on match {existing_match['id']}")
 
         # Step 4: Insert or update match
         if existing_match:
