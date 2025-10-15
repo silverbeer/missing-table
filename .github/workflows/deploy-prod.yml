@@ -207,6 +207,11 @@ jobs:
               repository: ${{ env.REGISTRY }}/backend
               tag: prod
             replicas: 2
+            rabbitmq:
+              username: "${{ secrets.RABBITMQ_USERNAME_PROD }}"
+              password: "${{ secrets.RABBITMQ_PASSWORD_PROD }}"
+              host: "messaging-rabbitmq.messaging.svc.cluster.local"
+              port: 5672
 
           secrets:
             databaseUrl: "${{ secrets.DATABASE_URL_PROD }}"
@@ -215,12 +220,6 @@ jobs:
             supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY_PROD }}"
             supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET_PROD }}"
             serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET_PROD }}"
-
-          rabbitmq:
-            username: "${{ secrets.RABBITMQ_USERNAME_PROD }}"
-            password: "${{ secrets.RABBITMQ_PASSWORD_PROD }}"
-            host: "messaging-rabbitmq.missing-table-prod.svc.cluster.local"
-            port: 5672
 
           disableSecurity: false
 

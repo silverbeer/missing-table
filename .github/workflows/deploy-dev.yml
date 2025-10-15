@@ -194,6 +194,11 @@ jobs:
               repository: ${{ env.REGISTRY }}/backend
               tag: dev
             replicas: 1
+            rabbitmq:
+              username: "${{ secrets.RABBITMQ_USERNAME }}"
+              password: "${{ secrets.RABBITMQ_PASSWORD }}"
+              host: "messaging-rabbitmq.messaging.svc.cluster.local"
+              port: 5672
 
           secrets:
             databaseUrl: "${{ secrets.DATABASE_URL }}"
@@ -202,12 +207,6 @@ jobs:
             supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
             supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
             serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
-
-          rabbitmq:
-            username: "${{ secrets.RABBITMQ_USERNAME }}"
-            password: "${{ secrets.RABBITMQ_PASSWORD }}"
-            host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
-            port: 5672
           EOF
 
           echo "✅ Helm values file created"
