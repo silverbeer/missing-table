@@ -30,7 +30,6 @@
 
 <script>
 import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
 
 export default {
   name: 'VersionFooter',
@@ -43,12 +42,15 @@ export default {
     const fetchVersion = async () => {
       try {
         const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:8000';
-        const response = await axios.get(`${apiUrl}/api/version`);
+        const response = await fetch(`${apiUrl}/api/version`);
 
-        if (response.data) {
-          version.value = response.data.version;
-          environment.value = response.data.environment;
-          status.value = response.data.status;
+        if (response.ok) {
+          const data = await response.json();
+          version.value = data.version;
+          environment.value = data.environment;
+          status.value = data.status;
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
       } catch (error) {
         console.warn('Failed to fetch version info:', error);
