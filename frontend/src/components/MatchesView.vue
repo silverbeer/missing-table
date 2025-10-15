@@ -316,7 +316,8 @@
               <td class="border-b text-center">
                 <span
                   v-if="
-                    match.match_status === 'played' && getResult(match) !== '-'
+                    match.match_status === 'completed' &&
+                    getResult(match) !== '-'
                   "
                   class="px-2 py-1 rounded-full text-sm font-bold"
                   :class="{
@@ -337,7 +338,7 @@
                   :class="{
                     'px-2 py-1 rounded text-xs font-medium': true,
                     'bg-green-100 text-green-800':
-                      match.match_status === 'played',
+                      match.match_status === 'completed',
                     'bg-blue-100 text-blue-800':
                       match.match_status === 'scheduled',
                     'bg-yellow-100 text-yellow-800':
@@ -423,7 +424,8 @@
                 </span>
                 <span
                   v-if="
-                    match.match_status === 'played' && getResult(match) !== '-'
+                    match.match_status === 'completed' &&
+                    getResult(match) !== '-'
                   "
                   class="px-3 py-1 rounded-full text-sm font-bold"
                   :class="{
@@ -451,7 +453,7 @@
                   class="ml-1 px-2 py-0.5 rounded text-xs font-medium"
                   :class="{
                     'bg-green-100 text-green-800':
-                      match.match_status === 'played',
+                      match.match_status === 'completed',
                     'bg-blue-100 text-blue-800':
                       match.match_status === 'scheduled',
                     'bg-yellow-100 text-yellow-800':
@@ -665,8 +667,8 @@ export default {
     };
 
     const getScoreDisplay = match => {
-      // Show scores for matches that have been played OR are currently live
-      if (match.match_status !== 'played' && match.match_status !== 'live') {
+      // Show scores for matches that have been completed OR are currently live
+      if (match.match_status !== 'completed' && match.match_status !== 'live') {
         return '-'; // Return dash for scheduled/postponed/cancelled matches
       }
 
@@ -707,8 +709,8 @@ export default {
     };
 
     const getResult = match => {
-      // ONLY show results for matches that have been played (not live!)
-      if (match.match_status !== 'played') {
+      // ONLY show results for matches that have been completed (not live!)
+      if (match.match_status !== 'completed') {
         return '-'; // Return dash for live/scheduled/postponed/cancelled matches
       }
 
@@ -722,7 +724,7 @@ export default {
         return '-'; // Return dash if scores haven't been entered yet
       }
 
-      // Determine the result for played matches only
+      // Determine the result for completed matches only
       const selectedTeamId = parseInt(selectedTeam.value);
       if (match.home_team_id === selectedTeamId) {
         return match.home_score > match.away_score

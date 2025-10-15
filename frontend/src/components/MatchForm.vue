@@ -128,13 +128,13 @@
               required
             >
               <option value="scheduled">Scheduled</option>
-              <option value="played">Played</option>
+              <option value="completed">Completed</option>
               <option value="postponed">Postponed</option>
               <option value="cancelled">Cancelled</option>
             </select>
             <p class="text-xs text-gray-600 mt-1">
               Status determines whether the match counts toward standings. Only
-              "Played" matches affect team standings.
+              "Completed" matches affect team standings.
             </p>
           </div>
         </div>
