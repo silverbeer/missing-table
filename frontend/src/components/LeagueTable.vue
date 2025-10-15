@@ -316,7 +316,7 @@ export default {
       if (!authStore.isAuthenticated.value) {
         console.warn('User not authenticated, skipping data fetch');
         loading.value = false;
-        error.value = 'Please log in to view standings';
+        error.value = 'Please log in to view table';
         return;
       }
 
