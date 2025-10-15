@@ -1010,14 +1010,14 @@ class EnhancedSportsDAO:
             # Filter by match type name and status
             matches = [m for m in response.data if m.get("match_type", {}).get("name") == match_type]
 
-            # Filter to only include played matches (exclude scheduled/postponed/cancelled)
+            # Filter to only include completed matches (exclude scheduled/postponed/cancelled)
             # Use match_status field if available, otherwise fallback to date-based logic for backwards compatibility
             played_matches = []
             for match in matches:
                 match_status = match.get("match_status")
                 if match_status:
                     # Use match_status field if available
-                    if match_status == "played":
+                    if match_status == "completed":
                         played_matches.append(match)
                 else:
                     # Fallback to date-based logic for backwards compatibility

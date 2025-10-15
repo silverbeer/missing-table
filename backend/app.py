@@ -1220,7 +1220,7 @@ async def patch_match(
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
         # Validate match_status if provided (must match database CHECK constraint)
-        valid_statuses = ["scheduled", "live", "played", "postponed", "cancelled"]
+        valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled"]
         status_to_check = match_patch.match_status or match_patch.status
         if status_to_check is not None and status_to_check not in valid_statuses:
             raise HTTPException(
