@@ -218,7 +218,7 @@ jobs:
             rabbitmq:
               username: "${{ secrets.RABBITMQ_USERNAME }}"
               password: "${{ secrets.RABBITMQ_PASSWORD }}"
-              host: "messaging-rabbitmq.messaging.svc.cluster.local"
+              host: "messaging-rabbitmq"
               port: 5672
 
           secrets:
