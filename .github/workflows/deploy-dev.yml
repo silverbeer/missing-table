@@ -182,18 +182,39 @@ jobs:
               repository: ${{ env.REGISTRY }}/backend
               tag: dev
             replicas: 1
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
 
           frontend:
             image:
               repository: ${{ env.REGISTRY }}/frontend
               tag: dev
             replicas: 1
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "250m"
 
           celeryWorker:
             image:
               repository: ${{ env.REGISTRY }}/backend
               tag: dev
             replicas: 1
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
             rabbitmq:
               username: "${{ secrets.RABBITMQ_USERNAME }}"
               password: "${{ secrets.RABBITMQ_PASSWORD }}"
