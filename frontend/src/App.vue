@@ -16,7 +16,7 @@
       <!-- Hero Section -->
       <div class="text-center mb-8">
         <h1 class="text-4xl font-bold text-blue-600 mb-2">
-          The standings you've been missing.
+          The table you've been missing.
         </h1>
         <p class="text-lg text-gray-600">
           Community-built standings, tracking the top youth soccer leagues in
@@ -158,7 +158,7 @@ export default {
 
     // Define all possible tabs
     const allTabs = [
-      { id: 'table', name: 'Standings', requiresAuth: true },
+      { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
       {
         id: 'add-match',
