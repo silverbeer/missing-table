@@ -1,10 +1,10 @@
 # 🚀 Deployment Documentation
 
 > **Audience**: DevOps engineers, system administrators
-> **Prerequisites**: Docker, Kubernetes basics
-> **Environments**: Local, Dev (GKE), Production (planned)
+> **Prerequisites**: Docker, Kubernetes basics, GitHub Actions
+> **Environments**: Local, Dev (GKE), Production (GKE)
 
-Documentation for deploying the Missing Table application across different environments.
+Documentation for deploying the Missing Table application across different environments with automated CI/CD workflows.
 
 ---
 
@@ -12,49 +12,105 @@ Documentation for deploying the Missing Table application across different envir
 
 | Document | Description |
 |----------|-------------|
+| **[Production Runbook](production-runbook.md)** | ⭐ Complete production operations guide |
+| **[GKE Deployment](gke-deployment.md)** | Google Kubernetes Engine deployment |
+| **[HTTPS Setup](https-setup.md)** | SSL certificates and custom domains |
+| **[Quick Reference](https-quick-reference.md)** | Common commands and troubleshooting |
 | **[Docker Compose](docker-compose.md)** | Local containerized deployment |
 | **[Kubernetes](kubernetes.md)** | K8s concepts and configuration |
-| **[GKE Deployment](gke-deployment.md)** | Google Kubernetes Engine deployment |
 | **[Helm Charts](helm-charts.md)** | Helm deployment and configuration |
-| **[HTTPS Setup](https-setup.md)** | SSL certificates and custom domains |
-| **[Quick Reference](https-quick-reference.md)** | Common commands |
 | **[Infrastructure](infrastructure/)** | Terraform, ArgoCD, GitOps |
 
 ---
 
 ## 🎯 Deployment Options
 
-### Option 1: Local Development (Docker Compose)
-**Best for**: Local testing, quick iterations
+### Option 1: Automated CI/CD (Recommended)
+**Best for**: Production and dev deployments
+
+**Automatic deployments:**
+- **Dev Environment**: Push to feature branch → Auto-deploy to dev.missingtable.com
+- **Production**: Merge PR to main → Auto-deploy to missingtable.com
+
+**Workflows:**
+- `.github/workflows/deploy-dev.yml` - Development deployment
+- `.github/workflows/deploy-prod.yml` - Production deployment (with rollback)
+
+**Version management:**
 ```bash
-docker-compose up --build
+# Bump version
+./scripts/version-bump.sh major|minor|patch
+
+# Commit and push triggers deployment
+git add VERSION && git commit -m "chore: bump version to $(cat VERSION)"
+git push origin main
 ```
 
-### Option 2: Kubernetes (GKE)
-**Best for**: Dev, staging, production
+### Option 2: Manual Production Deployment (Emergency)
+**Best for**: Emergency deployments outside CI/CD
 ```bash
-./build-and-push.sh all dev
-helm upgrade --install missing-table ./helm/missing-table -n missing-table-dev
+# Interactive deployment with safety checks
+./scripts/deploy-prod.sh
+
+# Deploy specific version
+./scripts/deploy-prod.sh --version v1.2.3
+
+# Rollback if needed
+helm rollback missing-table -n missing-table-prod
 ```
 
-### Option 3: Bare Metal
+### Option 3: Local Development (Bare Metal)
 **Best for**: Development without Docker
 ```bash
 ./missing-table.sh dev
+```
+
+### Option 4: Local Development (Docker Compose)
+**Best for**: Local testing with containers
+```bash
+docker-compose up --build
 ```
 
 ---
 
 ## 🔧 Quick Commands
 
-### Docker Compose
+### Version Management
 ```bash
-docker-compose up --build        # Start all services
-docker-compose down              # Stop all services
-docker-compose logs -f backend   # Follow logs
+# Bump version
+./scripts/version-bump.sh patch    # 1.0.0 -> 1.0.1
+./scripts/version-bump.sh minor    # 1.0.0 -> 1.1.0
+./scripts/version-bump.sh major    # 1.0.0 -> 2.0.0
+
+# Check current version
+cat VERSION
 ```
 
-### Kubernetes (GKE)
+### Health Checks
+```bash
+# Check dev environment
+./scripts/health-check.sh dev
+
+# Check production environment
+./scripts/health-check.sh prod
+
+# Interactive mode
+./scripts/health-check.sh
+```
+
+### CI/CD Monitoring
+```bash
+# Watch GitHub Actions workflow
+gh run watch
+
+# List recent workflow runs
+gh run list
+
+# View workflow logs
+gh run view <run-id> --log
+```
+
+### Manual Kubernetes Operations
 ```bash
 # Build and push images
 ./build-and-push.sh all dev
@@ -67,6 +123,16 @@ helm upgrade --install missing-table ./helm/missing-table \
 # Check status
 kubectl get pods -n missing-table-dev
 kubectl logs -f deployment/missing-table-backend -n missing-table-dev
+
+# Rollback deployment
+helm rollback missing-table -n missing-table-dev
+```
+
+### Docker Compose
+```bash
+docker-compose up --build        # Start all services
+docker-compose down              # Stop all services
+docker-compose logs -f backend   # Follow logs
 ```
 
 ---
@@ -77,16 +143,30 @@ kubectl logs -f deployment/missing-table-backend -n missing-table-dev
 - **URL**: http://localhost:8081
 - **Database**: Local Supabase
 - **Purpose**: Development and testing
+- **Deployment**: Manual (`./missing-table.sh dev`)
 
 ### Dev (GKE)
 - **URL**: https://dev.missingtable.com
+- **Cluster**: `missing-table-dev` (us-central1)
+- **Namespace**: `missing-table-dev`
 - **Database**: Supabase Cloud (dev project)
-- **Purpose**: Integration testing, demos
+- **Purpose**: Integration testing, feature previews
+- **Deployment**: Automatic on feature branch push
+- **Replicas**: 1 (backend, frontend, celery-worker)
 
-### Production (Planned)
-- **URL**: https://missingtable.com (planned)
-- **Database**: Supabase Cloud (prod project)
+### Production (GKE)
+- **URL**: https://missingtable.com
+- **Cluster**: `missing-table-prod` (us-central1)
+- **Namespace**: `missing-table-prod`
+- **Database**: Supabase Cloud (production project)
 - **Purpose**: Live application
+- **Deployment**: Automatic on main branch merge (with rollback)
+- **Replicas**: 2 (backend, frontend, celery-worker)
+- **Features**:
+  - Google-managed SSL certificates
+  - Automatic rollback on failure
+  - Health check validation
+  - Version tracking with build IDs
 
 ---
 

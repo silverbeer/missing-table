@@ -1,0 +1,153 @@
+# Production environment configuration for GKE
+# COPY THIS FILE to values-prod.yaml and fill in real credentials
+# values-prod.yaml is gitignored and should never be committed
+
+# SECURITY: This is an EXAMPLE file with placeholders
+# The actual values-prod.yaml contains secrets and is gitignored
+
+# Namespace for production
+namespace: missing-table-prod
+
+# Secrets (stored in Kubernetes Secret)
+secrets:
+  # Database credentials - GET FROM PRODUCTION SUPABASE PROJECT
+  databaseUrl: "postgresql://postgres.YOUR_PROD_PROJECT_ID:YOUR_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+
+  # Supabase credentials - GET FROM PRODUCTION SUPABASE DASHBOARD
+  supabaseUrl: "https://YOUR_PROD_PROJECT_ID.supabase.co"
+  supabaseAnonKey: "YOUR_PRODUCTION_ANON_KEY_HERE"
+  supabaseServiceKey: "YOUR_PRODUCTION_SERVICE_KEY_HERE"
+  supabaseJwtSecret: "YOUR_PRODUCTION_JWT_SECRET_HERE"
+
+  # Application secrets - GENERATE NEW SECRET FOR PRODUCTION
+  # Use: openssl rand -base64 32
+  serviceAccountSecret: "YOUR_PRODUCTION_SERVICE_ACCOUNT_SECRET"
+
+# RabbitMQ configuration (for match-scraper integration)
+# IMPORTANT: Use same credentials as messaging-platform Helm chart
+rabbitmq:
+  username: "admin"
+  password: "CHANGE_THIS_IN_PRODUCTION"  # Must match messaging-platform values
+  host: "messaging-rabbitmq.missing-table-prod.svc.cluster.local"
+  port: 5672
+
+# Backend configuration
+backend:
+  replicaCount: 2  # Production uses 2 replicas for HA
+
+  image:
+    repository: us-central1-docker.pkg.dev/missing-table/missing-table/backend
+    tag: latest  # CI/CD will update with specific version tags
+    pullPolicy: Always
+
+  env:
+    # Non-sensitive configuration
+    environment: "production"
+    logLevel: "info"
+    disableLogfire: "false"  # Enable Logfire in production
+    disableSecurity: "false"  # Enable all security in production
+    extra:
+      # CORS configuration (non-sensitive)
+      CORS_ORIGINS: "https://missingtable.com,https://www.missingtable.com"
+
+  resources:
+    requests:
+      cpu: 500m  # Higher for production
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  service:
+    loadBalancer:
+      enabled: false  # Use Ingress instead of LoadBalancer
+      port: 8000
+
+# Frontend configuration
+frontend:
+  replicaCount: 2  # Production uses 2 replicas for HA
+
+  image:
+    repository: us-central1-docker.pkg.dev/missing-table/missing-table/frontend
+    tag: latest  # CI/CD will update with specific version tags
+    pullPolicy: Always
+
+  env:
+    nodeEnv: "production"
+    # Frontend settings (non-sensitive)
+    apiUrl: "https://missingtable.com"
+    vueAppDisableSecurity: "false"  # Enable security in production
+    extra: {}
+
+  # Use Dockerfile CMD (serve -s dist -l 8080) instead of npm run serve
+  command: []
+
+  resources:
+    requests:
+      cpu: 500m  # Higher for production
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  livenessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+  service:
+    type: ClusterIP  # Use Ingress instead of LoadBalancer
+
+# Celery Worker configuration
+celeryWorker:
+  replicaCount: 3  # Production uses more workers
+
+  rabbitmq:
+    username: "admin"
+    password: "CHANGE_THIS_IN_PRODUCTION"  # Must match above
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+# Redis configuration
+# Disabled - rate limiting is not currently enabled in the application
+redis:
+  enabled: false
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  persistence:
+    size: 1Gi
+    storageClass: "standard-rwo"  # GKE default storage class
+
+# SETUP INSTRUCTIONS:
+#
+# 1. Copy this file:
+#    cp helm/missing-table/values-prod.yaml.example helm/missing-table/values-prod.yaml
+#
+# 2. Fill in REAL production credentials from:
+#    - Supabase Production Project Dashboard (https://supabase.com/dashboard)
+#    - Generate new service account secret: openssl rand -base64 32
+#
+# 3. NEVER commit values-prod.yaml to git (it's already in .gitignore)
+#
+# 4. Deploy to production:
+#    helm upgrade --install missing-table ./helm/missing-table \
+#      --namespace missing-table-prod \
+#      --values ./helm/missing-table/values-prod.yaml \
+#      --create-namespace

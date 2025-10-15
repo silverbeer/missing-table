@@ -1,0 +1,391 @@
+name: Deploy to Dev Environment
+
+# Trigger on:
+# 1. Push to any branch except main (feature branches)
+# 2. Manual dispatch (for on-demand deployments)
+on:
+  push:
+    branches:
+      - '**'
+      - '!main'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/workflows/security-scan.yml'
+      - '.github/workflows/deploy-prod.yml'
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip health checks after deployment'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  GCP_REGION: us-central1
+  GKE_CLUSTER: missing-table-dev
+  GKE_ZONE: us-central1
+  NAMESPACE: missing-table-dev
+  REGISTRY: us-central1-docker.pkg.dev/missing-table/missing-table
+  ENVIRONMENT: dev
+
+permissions:
+  contents: read
+  id-token: write  # Required for Workload Identity Federation
+  pull-requests: write  # Required to comment on PRs
+
+jobs:
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.version-info.outputs.version }}
+      full-version: ${{ steps.version-info.outputs.full-version }}
+      backend-image: ${{ steps.image-info.outputs.backend-image }}
+      frontend-image: ${{ steps.image-info.outputs.frontend-image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set version information
+        id: version-info
+        run: |
+          # Read version from VERSION file
+          VERSION=$(cat VERSION | tr -d '\n\r' | tr -d ' ')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+          # Create full version with build ID (workflow run ID)
+          FULL_VERSION="v${VERSION}-build.${{ github.run_id }}"
+          echo "full-version=${FULL_VERSION}" >> $GITHUB_OUTPUT
+
+          # Set commit SHA (short)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          echo "commit-sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+
+          echo "📦 Version: ${FULL_VERSION}"
+          echo "📝 Commit: ${COMMIT_SHA}"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend
+        env:
+          BUILD_ID: ${{ github.run_id }}
+        run: |
+          echo "🔨 Building backend for dev environment..."
+
+          # Use build-and-push.sh script with version support
+          ./build-and-push.sh backend dev
+
+      - name: Build and push frontend
+        env:
+          BUILD_ID: ${{ github.run_id }}
+        run: |
+          echo "🔨 Building frontend for dev environment..."
+
+          # Use build-and-push.sh script with version support
+          ./build-and-push.sh frontend dev
+
+      - name: Set image info for deployment
+        id: image-info
+        run: |
+          VERSION="${{ steps.version-info.outputs.version }}"
+          FULL_VERSION="${{ steps.version-info.outputs.full-version }}"
+
+          # Images are tagged with environment tag (dev) and version tag
+          BACKEND_IMAGE="${{ env.REGISTRY }}/backend:dev"
+          FRONTEND_IMAGE="${{ env.REGISTRY }}/frontend:dev"
+
+          echo "backend-image=${BACKEND_IMAGE}" >> $GITHUB_OUTPUT
+          echo "frontend-image=${FRONTEND_IMAGE}" >> $GITHUB_OUTPUT
+
+          echo "🐳 Backend: ${BACKEND_IMAGE}"
+          echo "🐳 Frontend: ${FRONTEND_IMAGE}"
+
+      - name: Build summary
+        run: |
+          echo "### 🐳 Docker Images Built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version-info.outputs.full-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ steps.version-info.outputs.commit-sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Images:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: \`${{ steps.image-info.outputs.backend-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: \`${{ steps.image-info.outputs.frontend-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags created:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`dev\` (environment tag)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ steps.version-info.outputs.full-version }}\` (version with build ID)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`v${{ steps.version-info.outputs.version }}\` (semantic version)" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: Deploy to GKE Dev
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Verify cluster access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Create Helm values file
+        run: |
+          echo "📝 Creating Helm values file for dev environment..."
+
+          cat > helm/missing-table/values-dev.yaml << EOF
+          namespace: ${{ env.NAMESPACE }}
+
+          backend:
+            image:
+              repository: ${{ env.REGISTRY }}/backend
+              tag: dev
+            replicas: 1
+
+          frontend:
+            image:
+              repository: ${{ env.REGISTRY }}/frontend
+              tag: dev
+            replicas: 1
+
+          celeryWorker:
+            image:
+              repository: ${{ env.REGISTRY }}/backend
+              tag: dev
+            replicas: 1
+
+          secrets:
+            databaseUrl: "${{ secrets.DATABASE_URL }}"
+            supabaseUrl: "${{ secrets.SUPABASE_URL }}"
+            supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY }}"
+            supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
+            supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
+            serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
+
+          rabbitmq:
+            username: "${{ secrets.RABBITMQ_USERNAME }}"
+            password: "${{ secrets.RABBITMQ_PASSWORD }}"
+            host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
+            port: 5672
+          EOF
+
+          echo "✅ Helm values file created"
+
+      - name: Deploy with Helm
+        run: |
+          echo "🚀 Deploying to ${{ env.NAMESPACE }} namespace..."
+
+          helm upgrade missing-table ./helm/missing-table \
+            --namespace ${{ env.NAMESPACE }} \
+            --values ./helm/missing-table/values-dev.yaml \
+            --install \
+            --wait \
+            --timeout 10m \
+            --atomic
+
+          echo "✅ Deployment successful"
+
+      - name: Verify deployment
+        run: |
+          echo "📋 Checking deployment status..."
+
+          # Check backend deployment
+          kubectl rollout status deployment/missing-table-backend -n ${{ env.NAMESPACE }} --timeout=5m
+
+          # Check frontend deployment
+          kubectl rollout status deployment/missing-table-frontend -n ${{ env.NAMESPACE }} --timeout=5m
+
+          # Check celery worker deployment
+          kubectl rollout status deployment/missing-table-celery-worker -n ${{ env.NAMESPACE }} --timeout=5m
+
+          echo "✅ All deployments are ready"
+
+      - name: Get deployment info
+        id: deployment-info
+        run: |
+          echo "📊 Getting deployment information..."
+
+          # Get pod information
+          echo "Pods:"
+          kubectl get pods -n ${{ env.NAMESPACE }} -l app.kubernetes.io/name=missing-table
+
+          # Get service information
+          echo ""
+          echo "Services:"
+          kubectl get services -n ${{ env.NAMESPACE }}
+
+          # Get ingress information
+          echo ""
+          echo "Ingress:"
+          kubectl get ingress -n ${{ env.NAMESPACE }}
+
+          # Set deployment URL
+          DEPLOYMENT_URL="https://dev.missingtable.com"
+          echo "deployment-url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+
+      - name: Run health checks
+        if: github.event.inputs.skip_tests != 'true'
+        run: |
+          echo "🏥 Running health checks..."
+
+          # Wait a bit for services to stabilize
+          sleep 10
+
+          # Check backend health endpoint
+          BACKEND_URL="https://dev.missingtable.com/health"
+          echo "Checking backend health: ${BACKEND_URL}"
+
+          MAX_RETRIES=5
+          RETRY_DELAY=10
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            if curl -f -s "${BACKEND_URL}" > /dev/null; then
+              echo "✅ Backend health check passed"
+              break
+            else
+              if [ $i -eq $MAX_RETRIES ]; then
+                echo "❌ Backend health check failed after ${MAX_RETRIES} attempts"
+                exit 1
+              fi
+              echo "⏳ Attempt $i/$MAX_RETRIES failed, retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+          done
+
+          # Check frontend
+          FRONTEND_URL="https://dev.missingtable.com"
+          echo "Checking frontend: ${FRONTEND_URL}"
+
+          if curl -f -s "${FRONTEND_URL}" > /dev/null; then
+            echo "✅ Frontend check passed"
+          else
+            echo "❌ Frontend check failed"
+            exit 1
+          fi
+
+          # Check version endpoint
+          VERSION_URL="https://dev.missingtable.com/api/version"
+          echo "Checking version endpoint: ${VERSION_URL}"
+
+          VERSION_INFO=$(curl -s "${VERSION_URL}")
+          echo "Version info: ${VERSION_INFO}"
+
+          echo "✅ All health checks passed"
+
+      - name: Deployment summary
+        run: |
+          echo "### 🚀 Deployment to Dev Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.build-and-push.outputs.full-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Cluster:** \`${{ env.GKE_CLUSTER }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespace:** \`${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**🌐 Application URL:** https://dev.missingtable.com" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📦 Deployed Images" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: \`${{ needs.build-and-push.outputs.backend-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: \`${{ needs.build-and-push.outputs.frontend-image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 🎯 Monitoring Commands" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# View backend logs" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl logs -f -l app.kubernetes.io/component=backend -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# View frontend logs" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl logs -f -l app.kubernetes.io/component=frontend -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Check deployment status" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get deployments -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        if: github.event_name == 'push' && github.event.pull_request != null
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ needs.build-and-push.outputs.full-version }}';
+            const commitSha = '${{ github.sha }}'.substring(0, 7);
+            const deploymentUrl = 'https://dev.missingtable.com';
+
+            const comment = `### 🚀 Deployed to Dev Environment
+
+            **Version:** \`${version}\`
+            **Commit:** \`${commitSha}\`
+            **Environment:** \`dev\`
+
+            🌐 **Application:** ${deploymentUrl}
+            📊 **API Health:** ${deploymentUrl}/health
+            📦 **Version Info:** ${deploymentUrl}/api/version
+
+            #### Deployed Images:
+            - Backend: \`${{ needs.build-and-push.outputs.backend-image }}\`
+            - Frontend: \`${{ needs.build-and-push.outputs.frontend-image }}\`
+
+            ---
+            *Deployment completed at ${new Date().toISOString()}*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The deployment to dev environment failed. Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 🔍 Troubleshooting Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check pod status: \`kubectl get pods -n ${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check pod logs: \`kubectl logs -l app.kubernetes.io/name=missing-table -n ${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Check events: \`kubectl get events -n ${{ env.NAMESPACE }} --sort-by='.lastTimestamp'\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. Check deployment status: \`kubectl describe deployment -n ${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "5. Check Helm release: \`helm status missing-table -n ${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY

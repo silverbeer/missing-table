@@ -1,0 +1,179 @@
+<template>
+  <footer class="version-footer">
+    <div class="version-container">
+      <!-- Version info (left side) -->
+      <div class="version-info">
+        <span v-if="version" class="version-text">
+          {{ version }}
+          <span v-if="environment !== 'production'" class="environment-badge">
+            {{ environment }}
+          </span>
+        </span>
+        <span v-else class="version-loading">Loading version...</span>
+      </div>
+
+      <!-- Copyright/branding (center) -->
+      <div class="copyright">© {{ currentYear }} Missing Table</div>
+
+      <!-- Status indicator (right side) -->
+      <div class="status-indicator">
+        <span
+          v-if="status === 'healthy'"
+          class="status-dot status-healthy"
+        ></span>
+        <span v-else class="status-dot status-error"></span>
+        <span class="status-text">{{ status }}</span>
+      </div>
+    </div>
+  </footer>
+</template>
+
+<script>
+import { ref, onMounted, computed } from 'vue';
+import axios from 'axios';
+
+export default {
+  name: 'VersionFooter',
+  setup() {
+    const version = ref(null);
+    const environment = ref('unknown');
+    const status = ref('healthy');
+    const currentYear = computed(() => new Date().getFullYear());
+
+    const fetchVersion = async () => {
+      try {
+        const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:8000';
+        const response = await axios.get(`${apiUrl}/api/version`);
+
+        if (response.data) {
+          version.value = response.data.version;
+          environment.value = response.data.environment;
+          status.value = response.data.status;
+        }
+      } catch (error) {
+        console.warn('Failed to fetch version info:', error);
+        version.value = 'Unknown';
+        status.value = 'error';
+      }
+    };
+
+    onMounted(() => {
+      fetchVersion();
+    });
+
+    return {
+      version,
+      environment,
+      status,
+      currentYear,
+    };
+  },
+};
+</script>
+
+<style scoped>
+.version-footer {
+  background-color: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  padding: 0.75rem 1rem;
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.version-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.version-text {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8125rem;
+  color: #495057;
+}
+
+.version-loading {
+  color: #adb5bd;
+  font-style: italic;
+}
+
+.environment-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background-color: #ffc107;
+  color: #212529;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 0.5rem;
+}
+
+.environment-badge.dev {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.copyright {
+  text-align: center;
+  flex: 1;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-healthy {
+  background-color: #28a745;
+  box-shadow: 0 0 4px rgba(40, 167, 69, 0.5);
+}
+
+.status-error {
+  background-color: #dc3545;
+  box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+}
+
+.status-text {
+  font-size: 0.75rem;
+  color: #6c757d;
+  text-transform: capitalize;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .version-container {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+
+  .copyright {
+    order: -1;
+  }
+
+  .version-info,
+  .status-indicator {
+    justify-content: center;
+  }
+}
+</style>

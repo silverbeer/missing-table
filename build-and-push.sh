@@ -24,6 +24,12 @@ MATCH_SCRAPER_REPO="/Users/silverbeer/gitrepos/match-scraper"
 SUPPORTED_SERVICES=("backend" "frontend" "match-scraper" "all")
 SUPPORTED_ENVIRONMENTS=("local" "dev" "prod")
 
+# Version configuration
+VERSION_FILE="VERSION"
+APP_VERSION=""
+BUILD_ID="${BUILD_ID:-}"  # Can be set by CI/CD or passed as env var
+COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
 # Helper functions
 print_usage() {
     echo "Usage: $0 <service> <environment>"
@@ -64,6 +70,26 @@ print_step() {
     echo -e "${BLUE}▶ $1${NC}"
 }
 
+# Read version from VERSION file
+read_version() {
+    if [ -f "$VERSION_FILE" ]; then
+        APP_VERSION=$(cat "$VERSION_FILE" | tr -d '\n\r' | tr -d ' ')
+        print_info "Version from $VERSION_FILE: $APP_VERSION"
+    else
+        APP_VERSION="0.0.0"
+        print_error "VERSION file not found, using default: $APP_VERSION"
+    fi
+}
+
+# Generate full version string with build ID
+get_full_version() {
+    if [ -n "$BUILD_ID" ]; then
+        echo "v${APP_VERSION}-build.${BUILD_ID}"
+    else
+        echo "v${APP_VERSION}"
+    fi
+}
+
 # Validate arguments
 if [ $# -ne 2 ]; then
     print_error "Invalid number of arguments"
@@ -88,15 +114,19 @@ if [[ ! " ${SUPPORTED_ENVIRONMENTS[@]} " =~ " ${ENVIRONMENT} " ]]; then
     exit 1
 fi
 
-# Build function
+# Build function with versioning support
 build_service() {
     local service=$1
     local env=$2
-    local tag="${env}"
+    local env_tag="${env}"
+
+    # Get version information
+    local full_version=$(get_full_version)
+    local version_tag="${full_version}"
 
     # Handle match-scraper specially (external repo)
     if [ "$service" = "match-scraper" ]; then
-        build_match_scraper "$env" "$tag"
+        build_match_scraper "$env" "$env_tag"
         return
     fi
 
@@ -105,28 +135,69 @@ build_service() {
     local context="${service}/"
 
     print_step "Building ${service} for ${env} environment..."
+    print_info "Version: ${version_tag}"
+    print_info "Commit: ${COMMIT_SHA}"
+
+    # Build tags array
+    local build_tags=()
+    build_tags+=("${REGISTRY}/${service}:${env_tag}")  # Environment tag (dev/prod)
+
+    # Add version tags only for cloud builds
+    if [ "$env" != "local" ]; then
+        build_tags+=("${REGISTRY}/${service}:${version_tag}")  # Full version with build ID
+        build_tags+=("${REGISTRY}/${service}:v${APP_VERSION}")  # Semantic version only
+
+        # Add 'latest' tag for production only
+        if [ "$env" = "prod" ]; then
+            build_tags+=("${REGISTRY}/${service}:latest")
+        fi
+    fi
 
     # Determine platform and push strategy
     if [ "$env" = "local" ]; then
-        # Local build - use current platform, no push
+        # Local build - use current platform, no push, no version tags
         PLATFORM=$(docker info --format '{{.Architecture}}')
         print_info "Building for local platform: ${PLATFORM}"
 
+        # Build arguments
+        local build_args="--build-arg APP_VERSION=${APP_VERSION}"
+        build_args+=" --build-arg COMMIT_SHA=${COMMIT_SHA}"
+        build_args+=" --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        build_args+=" --build-arg ENVIRONMENT=${env}"
+
         docker build \
-            -t "${REGISTRY}/${service}:${tag}" \
+            $build_args \
+            -t "${REGISTRY}/${service}:${env_tag}" \
             -f "${dockerfile}" \
             "${context}"
 
-        print_success "Built ${service}:${tag} for local use"
+        print_success "Built ${service}:${env_tag} for local use"
 
     else
         # Cloud build - always use AMD64 (GKE requirement), push to registry
         print_info "Building for AMD64 (GKE requirement) and pushing to registry..."
+        print_info "Tags: ${build_tags[*]}"
 
         # CRITICAL: GKE clusters run on AMD64 architecture
         # Always build for linux/amd64 when deploying to cloud
 
-        # Add build arguments for frontend
+        # Build tag arguments for docker buildx
+        local tag_args=""
+        for tag in "${build_tags[@]}"; do
+            tag_args+=" -t ${tag}"
+        done
+
+        # Common build arguments
+        local build_args="--build-arg APP_VERSION=${APP_VERSION}"
+        build_args+=" --build-arg COMMIT_SHA=${COMMIT_SHA}"
+        build_args+=" --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        build_args+=" --build-arg ENVIRONMENT=${env}"
+
+        if [ -n "$BUILD_ID" ]; then
+            build_args+=" --build-arg BUILD_ID=${BUILD_ID}"
+        fi
+
+        # Add service-specific build arguments
         if [ "$service" = "frontend" ]; then
             # Set API URL based on environment
             if [ "$env" = "dev" ]; then
@@ -138,24 +209,23 @@ build_service() {
             fi
 
             print_info "Setting VUE_APP_API_URL=${API_URL}"
-
-            docker buildx build \
-                --platform linux/amd64 \
-                --build-arg VUE_APP_API_URL="${API_URL}" \
-                -t "${REGISTRY}/${service}:${tag}" \
-                -f "${dockerfile}" \
-                "${context}" \
-                --push
-        else
-            docker buildx build \
-                --platform linux/amd64 \
-                -t "${REGISTRY}/${service}:${tag}" \
-                -f "${dockerfile}" \
-                "${context}" \
-                --push
+            build_args+=" --build-arg VUE_APP_API_URL=${API_URL}"
+            build_args+=" --build-arg VUE_APP_VERSION=${APP_VERSION}"
         fi
 
-        print_success "Built and pushed ${service}:${tag} to ${REGISTRY}"
+        # Build and push with all tags
+        docker buildx build \
+            --platform linux/amd64 \
+            $build_args \
+            $tag_args \
+            -f "${dockerfile}" \
+            "${context}" \
+            --push
+
+        print_success "Built and pushed ${service} to ${REGISTRY}"
+        for tag in "${build_tags[@]}"; do
+            print_info "  - ${tag}"
+        done
     fi
 }
 
@@ -216,6 +286,14 @@ build_match_scraper() {
 print_info "Starting build process..."
 print_info "Service: ${SERVICE}"
 print_info "Environment: ${ENVIRONMENT}"
+
+# Read version for non-local builds
+if [ "$ENVIRONMENT" != "local" ]; then
+    read_version
+    print_info "Build ID: ${BUILD_ID:-<not set>}"
+    print_info "Commit SHA: ${COMMIT_SHA}"
+fi
+
 echo ""
 
 if [ "$SERVICE" = "all" ]; then
