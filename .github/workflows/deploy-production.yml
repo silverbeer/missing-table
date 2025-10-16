@@ -264,6 +264,10 @@ jobs:
                 cpu: "500m"
                 memory: "512Mi"
 
+          celeryWorker:
+            enabled: false
+            replicaCount: 0
+
           ingress:
             enabled: true
             host: ${{ env.DOMAIN }}
