@@ -220,10 +220,6 @@ jobs:
           kubectl cluster-info
           kubectl get nodes
 
-      - name: Create namespace if not exists
-        run: |
-          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
@@ -300,6 +296,7 @@ jobs:
             -n ${{ env.NAMESPACE }} \
             --values ./helm/missing-table/values-prod.yaml \
             --install \
+            --create-namespace \
             --atomic \
             --timeout 10m \
             --wait
