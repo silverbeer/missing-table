@@ -125,6 +125,9 @@
           </div>
         </div>
       </div>
+
+      <!-- Version Footer -->
+      <VersionFooter />
     </div>
   </div>
 </template>
@@ -139,6 +142,7 @@ import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
 import ProfileRouter from './components/ProfileRouter.vue';
 import AdminPanel from './components/AdminPanel.vue';
+import VersionFooter from './components/VersionFooter.vue';
 
 export default {
   name: 'App',
@@ -150,6 +154,7 @@ export default {
     LoginForm,
     ProfileRouter,
     AdminPanel,
+    VersionFooter,
   },
   setup() {
     const authStore = useAuthStore();

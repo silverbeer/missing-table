@@ -298,6 +298,10 @@ class RefreshTokenRequest(BaseModel):
 # === Include API Routers ===
 app.include_router(invites_router)
 
+# Version endpoint
+from endpoints.version import router as version_router
+app.include_router(version_router)
+
 # === Authentication Endpoints ===
 
 

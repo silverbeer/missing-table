@@ -15,9 +15,17 @@ from dotenv import load_dotenv
 backend_path = Path(__file__).parent.parent / 'backend'
 sys.path.append(str(backend_path))
 
-# Load environment variables
-env_path = backend_path / '.env.local'
+# Load environment variables based on APP_ENV
+app_env = os.getenv('APP_ENV', 'local')
+env_file = f'.env.{app_env}'
+env_path = backend_path / env_file
+
+if not env_path.exists():
+    # Fallback to .env if specific env file doesn't exist
+    env_path = backend_path / '.env'
+
 load_dotenv(env_path, override=True)
+print(f"✓ Loaded environment: {app_env}")
 
 # Initialize Supabase client
 url = os.getenv("SUPABASE_URL")
@@ -119,19 +127,19 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         # Reference data first (no dependencies)
         'age_groups',
         'divisions',
-        'game_types', 
+        'match_types',  # Updated from game_types
         'seasons',
-        
+
         # Teams (depend on divisions, age_groups)
         'teams',
         'team_mappings',
-        'team_game_types',
-        
+        'team_match_types',  # Updated from team_game_types
+
         # User profiles (special handling - skip auth.users)
         'user_profiles',
-        
-        # Games (depend on teams, seasons, etc.)
-        'games',
+
+        # Matches (depend on teams, seasons, etc.) - Updated from games
+        'matches',
     ]
     
     success_count = 0
