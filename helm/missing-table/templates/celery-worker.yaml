@@ -1,3 +1,4 @@
+{{- if .Values.celeryWorker.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -75,3 +76,4 @@ spec:
         resources:
           {{- toYaml .Values.celeryWorker.resources | nindent 10 }}
         # Celery workers don't have HTTP endpoints, so no probes
+{{- end }}
