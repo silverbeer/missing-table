@@ -2,13 +2,17 @@
 
 Complete guide for deploying Missing Table to production at `missingtable.com`.
 
-## 📋 Prerequisites
+## 📋 Prerequisites Checklist
 
 - [x] Production database set up and populated (Supabase)
 - [x] Static IP reserved in GCP: **35.190.120.93**
-- [ ] DNS configured in Namecheap
-- [ ] GitHub secrets configured
-- [ ] GKE cluster ready
+- [x] Cloud DNS zone created: `missingtable-zone`
+- [x] DNS nameservers configured in Namecheap
+- [x] DNS records created in Cloud DNS
+- [x] GitHub secrets configured
+- [x] GKE production cluster created
+- [ ] Production deployment completed
+- [ ] SSL certificate provisioned
 
 ## 🌐 Infrastructure
 
@@ -61,26 +65,194 @@ PROD_RABBITMQ_HOST=messaging-rabbitmq.missing-table-prod.svc.cluster.local
 
 ## 📡 DNS Configuration
 
-### Namecheap Setup
+**CRITICAL**: DNS is managed in **Google Cloud DNS**, NOT Namecheap BasicDNS or AdvancedDNS!
 
-1. Go to: https://ap.www.namecheap.com/domains/domaincontrolpanel/missingtable.com/advancedns
+### Architecture
 
-2. Add these **A Records**:
+```
+Namecheap (Domain Registrar)
+    ↓ (delegates via nameservers)
+Google Cloud DNS (DNS Management)
+    ↓ (hosts DNS records)
+A Records point to GCP Load Balancers
+```
 
-   | Type | Host | Value | TTL |
-   |------|------|-------|-----|
-   | A Record | @ | 35.190.120.93 | Automatic |
-   | A Record | www | 35.190.120.93 | Automatic |
-   | A Record | dev | 34.8.149.240 | Automatic |
+### Step 1: Verify Cloud DNS Zone Exists
 
-3. **Remove** any conflicting records (CNAME for @ or www)
+The Cloud DNS zone should already exist: `missingtable-zone`
 
-4. **Verify DNS propagation** (takes 5-30 minutes):
-   ```bash
-   dig missingtable.com +short
-   dig www.missingtable.com +short
-   # Both should return: 35.190.120.93
+```bash
+# Check if zone exists
+gcloud dns managed-zones describe missingtable-zone --project=missing-table
+
+# Expected nameservers:
+# - ns-cloud-d1.googledomains.com
+# - ns-cloud-d2.googledomains.com
+# - ns-cloud-d3.googledomains.com
+# - ns-cloud-d4.googledomains.com
+```
+
+### Step 2: Configure Namecheap Nameservers
+
+**⚠️ IMPORTANT**: Use **Custom DNS**, NOT BasicDNS or AdvancedDNS!
+
+1. Go to: https://ap.www.namecheap.com/domains/domaincontrolpanel/missingtable.com/domain
+
+2. Find the **NAMESERVERS** section
+
+3. Select **"Custom DNS"** (NOT BasicDNS, NOT AdvancedDNS)
+
+4. Enter these 4 nameservers:
    ```
+   ns-cloud-d1.googledomains.com
+   ns-cloud-d2.googledomains.com
+   ns-cloud-d3.googledomains.com
+   ns-cloud-d4.googledomains.com
+   ```
+
+5. Click **Save** (green checkmark)
+
+### Step 3: Verify DNS Records in Cloud DNS
+
+All DNS records are managed in Cloud DNS:
+
+```bash
+# List all DNS records
+gcloud dns record-sets list --zone=missingtable-zone --project=missing-table
+
+# Expected records:
+# missingtable.com         A    35.190.120.93 (production)
+# www.missingtable.com     A    35.190.120.93 (production)
+# dev.missingtable.com     A    34.8.149.240  (development)
+```
+
+If production records are missing, create them:
+
+```bash
+# Add root domain A record
+gcloud dns record-sets create missingtable.com. \
+  --rrdatas=35.190.120.93 \
+  --type=A \
+  --ttl=300 \
+  --zone=missingtable-zone \
+  --project=missing-table
+
+# Add www subdomain A record
+gcloud dns record-sets create www.missingtable.com. \
+  --rrdatas=35.190.120.93 \
+  --type=A \
+  --ttl=300 \
+  --zone=missingtable-zone \
+  --project=missing-table
+```
+
+### Step 4: Verify DNS Propagation
+
+**DNS propagation takes 5-30 minutes after updating nameservers in Namecheap.**
+
+```bash
+# Check nameservers (should show Google Cloud DNS)
+dig missingtable.com NS +short
+
+# Check production records (query Google DNS directly)
+dig @8.8.8.8 missingtable.com +short        # Should return: 35.190.120.93
+dig @8.8.8.8 www.missingtable.com +short    # Should return: 35.190.120.93
+dig @8.8.8.8 dev.missingtable.com +short    # Should return: 34.8.149.240
+```
+
+### DNS Troubleshooting
+
+**Problem**: DNS not resolving locally but works with `@8.8.8.8`
+
+**Cause**: Local DNS cache on your Mac
+
+**Fix**: Flush DNS cache
+```bash
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+```
+
+**Alternative**: Wait 5-15 minutes for cache to expire automatically
+
+## 🏗️ GKE Production Cluster Setup
+
+**IMPORTANT**: The production GKE cluster must be created before the first deployment.
+
+### Check if Cluster Exists
+
+```bash
+gcloud container clusters list --project=missing-table --filter="name=missing-table-prod"
+```
+
+### Create Production Cluster (if needed)
+
+If the cluster doesn't exist, create it:
+
+```bash
+gcloud container clusters create missing-table-prod \
+  --project=missing-table \
+  --region=us-central1 \
+  --machine-type=e2-standard-2 \
+  --disk-type=pd-standard \
+  --disk-size=30 \
+  --num-nodes=1 \
+  --enable-autoscaling \
+  --min-nodes=1 \
+  --max-nodes=3 \
+  --enable-autorepair \
+  --enable-autoupgrade \
+  --addons=HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver \
+  --no-enable-basic-auth \
+  --enable-ip-alias \
+  --network="projects/missing-table/global/networks/default" \
+  --subnetwork="projects/missing-table/regions/us-central1/subnetworks/default" \
+  --logging=SYSTEM,WORKLOAD \
+  --monitoring=SYSTEM
+```
+
+**⏱️ Cluster creation takes 5-10 minutes.**
+
+### Cluster Configuration
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| **Name** | `missing-table-prod` | Production cluster |
+| **Region** | `us-central1` | Regional (high availability) |
+| **Machine Type** | `e2-standard-2` | 2 vCPUs, 8GB RAM |
+| **Disk Type** | `pd-standard` | Standard persistent disk (quota friendly) |
+| **Disk Size** | `30GB` | Per node |
+| **Initial Nodes** | `1` | Can autoscale to 3 |
+| **Autoscaling** | Enabled | Min: 1, Max: 3 |
+| **Auto-repair** | Enabled | Automatic node repair |
+| **Auto-upgrade** | Enabled | Automatic Kubernetes version updates |
+
+**Note**: We use `pd-standard` disks instead of SSDs to avoid GCP quota issues. This is sufficient for production workloads.
+
+### Monitor Cluster Creation
+
+```bash
+# Check cluster status
+gcloud container clusters list --project=missing-table --filter="name=missing-table-prod"
+
+# Watch for STATUS to change from PROVISIONING to RUNNING
+# When ready, you'll see: STATUS: RUNNING
+```
+
+### Get Cluster Credentials
+
+Once the cluster is running, configure kubectl access:
+
+```bash
+gcloud container clusters get-credentials missing-table-prod \
+  --region=us-central1 \
+  --project=missing-table
+```
+
+### Create Production Namespace
+
+```bash
+kubectl create namespace missing-table-prod
+```
 
 ## 🚀 Deployment Workflow
 
@@ -219,6 +391,57 @@ kubectl top nodes
 
 ## 🐛 Troubleshooting
 
+### Deployment Fails: Cluster Not Found
+
+**Error**: `ResponseError: code=404, message=Not found: projects/.../clusters/missing-table-prod`
+
+**Cause**: Production GKE cluster doesn't exist
+
+**Fix**: Create the production cluster (see [GKE Production Cluster Setup](#-gke-production-cluster-setup))
+
+```bash
+# Verify cluster exists
+gcloud container clusters list --project=missing-table --filter="name=missing-table-prod"
+
+# If missing, create it (takes 5-10 minutes)
+# See "Create Production Cluster" section above
+```
+
+### DNS Not Resolving
+
+**Error**: `dig missingtable.com +short` returns nothing
+
+**Possible Causes**:
+
+1. **Namecheap using BasicDNS/AdvancedDNS instead of Custom DNS**
+   - Fix: Switch to Custom DNS with Google Cloud nameservers (see DNS Configuration section)
+
+2. **DNS records missing in Cloud DNS**
+   ```bash
+   # Check if records exist
+   gcloud dns record-sets list --zone=missingtable-zone --project=missing-table
+
+   # If missing, create them (see DNS Configuration section)
+   ```
+
+3. **Local DNS cache**
+   ```bash
+   # Test with Google DNS directly
+   dig @8.8.8.8 missingtable.com +short
+
+   # If that works, flush local cache
+   sudo dscacheutil -flushcache
+   sudo killall -HUP mDNSResponder
+   ```
+
+### Quota Exceeded Errors
+
+**Error**: `Insufficient regional quota to satisfy request: resource "SSD_TOTAL_GB"`
+
+**Cause**: GCP project has limited SSD quota
+
+**Fix**: Use standard persistent disks instead of SSDs (already configured in cluster creation command)
+
 ### Pods Not Starting
 
 ```bash
@@ -265,16 +488,46 @@ kubectl exec -it <backend-pod> -n missing-table-prod -- \
   python -c "from supabase import create_client; import os; client = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_KEY')); print(client.table('teams').select('count').execute())"
 ```
 
-## 📝 Post-Deployment Checklist
+## 📝 Complete Deployment Checklist
 
-- [ ] DNS resolves correctly (`dig missingtable.com`)
-- [ ] HTTPS is working (no certificate errors)
-- [ ] Can log in with admin account
-- [ ] Backend API responds (`/api/health`)
-- [ ] Frontend loads correctly
-- [ ] Database queries work (view teams/matches)
-- [ ] Users notified to change passwords
-- [ ] Monitoring/alerts configured
+### Pre-Deployment (Infrastructure Setup)
+
+- [x] Production Supabase database created and populated
+- [x] Static IP reserved in GCP (`35.190.120.93`)
+- [x] Cloud DNS zone created (`missingtable-zone`)
+- [x] Namecheap configured with Custom DNS nameservers
+- [x] DNS A records created in Cloud DNS
+- [x] GitHub secrets configured (all 9 production secrets)
+- [x] GKE production cluster created (`missing-table-prod`)
+- [x] Production namespace created (`missing-table-prod`)
+
+### During Deployment
+
+- [ ] GitHub Actions workflow completes successfully
+- [ ] Docker images built and pushed to Artifact Registry
+- [ ] Helm deployment completes without errors
+- [ ] Pods start successfully and reach Running state
+- [ ] Ingress created with correct IP and hostname
+- [ ] ManagedCertificate resource created
+
+### Post-Deployment Verification
+
+- [ ] DNS resolves correctly (test with `dig @8.8.8.8 missingtable.com`)
+- [ ] Backend pods are running (`kubectl get pods -n missing-table-prod`)
+- [ ] Frontend pods are running
+- [ ] Backend API responds (`curl https://missingtable.com/api/health`)
+- [ ] Frontend loads (`curl https://missingtable.com/`)
+- [ ] SSL certificate provisioned (10-20 min, check with `kubectl describe managedcertificate`)
+- [ ] Can log in with admin account (tom@missingtable.local)
+- [ ] Database queries work (view teams/matches in UI)
+- [ ] All 587 records visible (26 teams, 315 matches)
+
+### Post-Deployment Tasks
+
+- [ ] Users notified to change passwords from TempPassword123!
+- [ ] Monitoring/alerts configured (if applicable)
+- [ ] Update documentation with any lessons learned
+- [ ] Take backup of production database
 
 ## 🔗 Related Documentation
 
