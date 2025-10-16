@@ -67,7 +67,7 @@ spec:
         - name: CELERY_BROKER_URL
           value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
         - name: CELERY_RESULT_BACKEND
-          value: "redis://{{ .Values.celeryWorker.redis.host | default "messaging-redis" }}:{{ .Values.celeryWorker.redis.port | default 6379 }}/0"
+          value: "redis://messaging-redis:6379/0"
         - name: RABBITMQ_URL
           value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
         - name: ENVIRONMENT
