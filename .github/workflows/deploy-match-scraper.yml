@@ -156,20 +156,22 @@ jobs:
 
             # Create values-dev.yaml from GitHub Secrets
             cat > helm/missing-table/values-dev.yaml << EOF
-          secrets:
-            databaseUrl: "${{ secrets.DATABASE_URL }}"
-            supabaseUrl: "${{ secrets.SUPABASE_URL }}"
-            supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY }}"
-            supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
-            supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
-            serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
+namespace: ${{ env.NAMESPACE }}
 
-          rabbitmq:
-            username: "${{ secrets.RABBITMQ_USERNAME }}"
-            password: "${{ secrets.RABBITMQ_PASSWORD }}"
-            host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
-            port: 5672
-          EOF
+secrets:
+  databaseUrl: "${{ secrets.DATABASE_URL }}"
+  supabaseUrl: "${{ secrets.SUPABASE_URL }}"
+  supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY }}"
+  supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
+  supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
+  serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
+
+rabbitmq:
+  username: "${{ secrets.RABBITMQ_USERNAME }}"
+  password: "${{ secrets.RABBITMQ_PASSWORD }}"
+  host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
+  port: 5672
+EOF
           fi
 
           # Deploy Helm release to update secrets

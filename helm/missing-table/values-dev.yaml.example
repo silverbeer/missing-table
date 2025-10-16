@@ -95,6 +95,15 @@ frontend:
   service:
     type: LoadBalancer  # Expose frontend via LoadBalancer
 
+# RabbitMQ configuration (for match-scraper CronJob)
+# These credentials are used to generate the RabbitMQ connection URL
+# The URL is stored in Kubernetes Secret: missing-table-secrets
+rabbitmq:
+  username: "your-rabbitmq-username"
+  password: "your-rabbitmq-password"
+  host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
+  port: 5672
+
 # Redis configuration
 # Disabled - rate limiting is not currently enabled in the application
 redis:
