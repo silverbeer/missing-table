@@ -32,6 +32,11 @@ env:
   REGISTRY: us-central1-docker.pkg.dev/missing-table/missing-table
   ENVIRONMENT: dev
 
+# Prevent concurrent dev deployments
+concurrency:
+  group: dev-deployment
+  cancel-in-progress: true  # Cancel old deployment, run the new one
+
 permissions:
   contents: read
   id-token: write  # Required for Workload Identity Federation

@@ -39,6 +39,11 @@ env:
   REGISTRY: us-central1-docker.pkg.dev/missing-table/missing-table
   ENVIRONMENT: prod
 
+# Prevent concurrent production deployments
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false  # Let current deployment finish, queue the new one
+
 permissions:
   contents: write  # Required to create git tags
   id-token: write  # Required for Workload Identity Federation
