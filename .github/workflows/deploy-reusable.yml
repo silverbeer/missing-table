@@ -389,7 +389,7 @@ jobs:
             HELM_FLAGS="${HELM_FLAGS} --atomic --cleanup-on-fail"
           fi
 
-          # NOTE: Namespace is created by helm/missing-table/templates/namespace.yaml
+          # NOTE: Namespace should be created manually before first deployment
           helm upgrade missing-table ./helm/missing-table \
             --namespace ${{ inputs.namespace }} \
             --values ./helm/missing-table/values-${{ inputs.environment }}.yaml \
