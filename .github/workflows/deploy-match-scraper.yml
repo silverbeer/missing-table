@@ -150,28 +150,28 @@ jobs:
         run: |
           echo "📝 Updating Helm release to ensure RabbitMQ secrets are configured..."
 
-          # Check if values-dev.yaml exists in secrets
+          # Check if values-dev.yaml exists
           if [ ! -f "helm/missing-table/values-dev.yaml" ]; then
             echo "⚠️  values-dev.yaml not found, creating from secrets..."
 
             # Create values-dev.yaml from GitHub Secrets
-            cat > helm/missing-table/values-dev.yaml << EOF
-namespace: ${{ env.NAMESPACE }}
+            cat > helm/missing-table/values-dev.yaml <<EOF
+          namespace: ${{ env.NAMESPACE }}
 
-secrets:
-  databaseUrl: "${{ secrets.DATABASE_URL }}"
-  supabaseUrl: "${{ secrets.SUPABASE_URL }}"
-  supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY }}"
-  supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
-  supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
-  serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
+          secrets:
+            databaseUrl: "${{ secrets.DATABASE_URL }}"
+            supabaseUrl: "${{ secrets.SUPABASE_URL }}"
+            supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY }}"
+            supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
+            supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
+            serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
 
-rabbitmq:
-  username: "${{ secrets.RABBITMQ_USERNAME }}"
-  password: "${{ secrets.RABBITMQ_PASSWORD }}"
-  host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
-  port: 5672
-EOF
+          rabbitmq:
+            username: "${{ secrets.RABBITMQ_USERNAME }}"
+            password: "${{ secrets.RABBITMQ_PASSWORD }}"
+            host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
+            port: 5672
+          EOF
           fi
 
           # Deploy Helm release to update secrets
