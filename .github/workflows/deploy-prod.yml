@@ -33,9 +33,9 @@ on:
 
 env:
   GCP_REGION: us-central1
-  GKE_CLUSTER: missing-table-prod
+  GKE_CLUSTER: missing-table-dev  # Use dev cluster for both environments
   GKE_ZONE: us-central1
-  NAMESPACE: missing-table-prod
+  NAMESPACE: missing-table-prod  # But separate namespace for prod
   REGISTRY: us-central1-docker.pkg.dev/missing-table/missing-table
   ENVIRONMENT: prod
 
