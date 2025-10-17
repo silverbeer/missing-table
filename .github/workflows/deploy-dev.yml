@@ -175,15 +175,6 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Ensure namespace exists
-        run: |
-          echo "📝 Ensuring namespace ${{ env.NAMESPACE }} exists..."
-
-          # Create namespace if it doesn't exist
-          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-
-          echo "✅ Namespace ready"
-
       - name: Create Helm values file
         run: |
           echo "📝 Creating Helm values file for dev environment..."
@@ -251,10 +242,12 @@ jobs:
         run: |
           echo "🚀 Deploying to ${{ env.NAMESPACE }} namespace..."
 
+          # --create-namespace: Let Helm create and manage the namespace with proper labels
           helm upgrade missing-table ./helm/missing-table \
             --namespace ${{ env.NAMESPACE }} \
             --values ./helm/missing-table/values-dev.yaml \
             --install \
+            --create-namespace \
             --wait \
             --timeout 10m \
             --atomic
