@@ -317,6 +317,9 @@ jobs:
                 memory: "${{ inputs.frontend_resources_limits_memory }}"
                 cpu: "${{ inputs.frontend_resources_limits_cpu }}"
 
+          redis:
+            enabled: false  # Disabled - only used when security monitoring is enabled
+
           celeryWorker:
             enabled: false
             image:
