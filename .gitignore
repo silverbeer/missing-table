@@ -52,6 +52,14 @@ backup_*.json
 *.backup
 database_backup_*.json
 database_backup_*.sql
+restore_database_backup*.sql
+
+# Auth/user data backups (sensitive - contains emails, UUIDs)
+backend/auth_users_*.json
+backend/auth_backup_*.sql
+backend/*_backup_*.sql
+backend/production_schema_migration.sql
+backend/add_user_profiles_columns.sql
 
 # Tokens and secrets
 *-token.txt
