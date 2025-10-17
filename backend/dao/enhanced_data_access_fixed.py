@@ -893,9 +893,15 @@ class EnhancedSportsDAO:
                 .execute()
             )
 
-            # Small delay to allow Supabase cache to update (read-after-write consistency)
+            # Check if update actually affected any rows
+            if not response.data or len(response.data) == 0:
+                print(f"WARNING: Update match {match_id} failed - no rows affected")
+                # Return None to signal failure
+                return None
+
+            # Delay to allow Supabase cache to update (read-after-write consistency)
             import time
-            time.sleep(0.1)  # 100ms delay
+            time.sleep(0.3)  # 300ms delay - increased for reliable read-after-write
 
             # Get the updated match to return with full relations
             return self.get_match_by_id(match_id)
