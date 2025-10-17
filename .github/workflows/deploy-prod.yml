@@ -34,7 +34,6 @@ on:
 env:
   GCP_REGION: us-central1
   GKE_CLUSTER: missing-table-dev  # Use dev cluster for both environments
-  GKE_ZONE: us-central1
   NAMESPACE: missing-table-prod  # But separate namespace for prod
   REGISTRY: us-central1-docker.pkg.dev/missing-table/missing-table
   ENVIRONMENT: prod
@@ -152,332 +151,44 @@ jobs:
 
   deploy:
     name: Deploy to GKE Production
-    runs-on: ubuntu-latest
     needs: [build-and-push]
-    environment:
-      name: production
-      url: https://missingtable.com
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          install_components: 'gke-gcloud-auth-plugin'
-
-      - name: Get GKE credentials
-        run: |
-          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
-            --region ${{ env.GCP_REGION }} \
-            --project missing-table
-
-      - name: Verify cluster access
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: 'latest'
-
-      - name: Create Helm values file
-        run: |
-          echo "📝 Creating Helm values file for production environment..."
-
-          cat > helm/missing-table/values-prod.yaml << EOF
-          namespace: ${{ env.NAMESPACE }}
-
-          backend:
-            image:
-              repository: ${{ env.REGISTRY }}/backend
-              tag: prod
-            replicas: 2
-
-          frontend:
-            image:
-              repository: ${{ env.REGISTRY }}/frontend
-              tag: prod
-            replicas: 2
-
-          celeryWorker:
-            enabled: false
-            image:
-              repository: ${{ env.REGISTRY }}/backend
-              tag: prod
-            replicas: 2
-            rabbitmq:
-              username: "${{ secrets.RABBITMQ_USERNAME_PROD }}"
-              password: "${{ secrets.RABBITMQ_PASSWORD_PROD }}"
-              host: "messaging-rabbitmq.messaging.svc.cluster.local"
-              port: 5672
-
-          secrets:
-            databaseUrl: "${{ secrets.DATABASE_URL_PROD }}"
-            supabaseUrl: "${{ secrets.SUPABASE_URL_PROD }}"
-            supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY_PROD }}"
-            supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY_PROD }}"
-            supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET_PROD }}"
-            serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET_PROD }}"
-
-          disableSecurity: false
-
-          cors:
-            origins: "https://missingtable.com,https://www.missingtable.com"
-          EOF
-
-          echo "✅ Helm values file created"
-
-      - name: Backup current deployment
-        id: backup
-        run: |
-          echo "💾 Creating backup of current deployment..."
-
-          # Get current revision
-          CURRENT_REVISION=$(helm history missing-table -n ${{ env.NAMESPACE }} --max 1 -o json | jq -r '.[0].revision' || echo "0")
-          echo "current-revision=${CURRENT_REVISION}" >> $GITHUB_OUTPUT
-
-          # Get current image versions
-          CURRENT_BACKEND=$(kubectl get deployment missing-table-backend -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.template.spec.containers[0].image}' || echo "none")
-          CURRENT_FRONTEND=$(kubectl get deployment missing-table-frontend -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.template.spec.containers[0].image}' || echo "none")
-
-          echo "current-backend=${CURRENT_BACKEND}" >> $GITHUB_OUTPUT
-          echo "current-frontend=${CURRENT_FRONTEND}" >> $GITHUB_OUTPUT
-
-          echo "📊 Current state:"
-          echo "  Revision: ${CURRENT_REVISION}"
-          echo "  Backend: ${CURRENT_BACKEND}"
-          echo "  Frontend: ${CURRENT_FRONTEND}"
-
-      - name: Deploy with Helm (with automatic rollback)
-        id: deploy
-        run: |
-          echo "🚀 Deploying to ${{ env.NAMESPACE }} namespace..."
-          echo "⚠️  Using --atomic flag for automatic rollback on failure"
-
-          # Deploy with --atomic flag which automatically rolls back on failure
-          # NOTE: Namespace is created by helm/missing-table/templates/namespace.yaml
-          helm upgrade missing-table ./helm/missing-table \
-            --namespace ${{ env.NAMESPACE }} \
-            --values ./helm/missing-table/values-prod.yaml \
-            --install \
-            --wait \
-            --timeout 15m \
-            --atomic \
-            --cleanup-on-fail
-
-          echo "✅ Deployment successful"
-
-      - name: Verify deployment
-        run: |
-          echo "📋 Verifying deployment status..."
-
-          # Check backend deployment
-          kubectl rollout status deployment/missing-table-backend -n ${{ env.NAMESPACE }} --timeout=5m
-
-          # Check frontend deployment
-          kubectl rollout status deployment/missing-table-frontend -n ${{ env.NAMESPACE }} --timeout=5m
-
-          # Check celery worker deployment (if enabled)
-          # NOTE: Currently disabled until RabbitMQ/Celery integration is complete
-          # kubectl rollout status deployment/missing-table-celery-worker -n ${{ env.NAMESPACE }} --timeout=5m
-
-          echo "✅ All deployments are ready"
-
-      - name: Get deployment info
-        id: deployment-info
-        run: |
-          echo "📊 Getting deployment information..."
-
-          # Get new revision
-          NEW_REVISION=$(helm history missing-table -n ${{ env.NAMESPACE }} --max 1 -o json | jq -r '.[0].revision')
-          echo "new-revision=${NEW_REVISION}" >> $GITHUB_OUTPUT
-
-          # Get pod information
-          echo "Pods:"
-          kubectl get pods -n ${{ env.NAMESPACE }} -l app.kubernetes.io/name=missing-table
-
-          # Get service information
-          echo ""
-          echo "Services:"
-          kubectl get services -n ${{ env.NAMESPACE }}
-
-          # Get ingress information
-          echo ""
-          echo "Ingress:"
-          kubectl get ingress -n ${{ env.NAMESPACE }}
-
-          # Set deployment URL
-          DEPLOYMENT_URL="https://missingtable.com"
-          echo "deployment-url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-
-      - name: Run health checks
-        if: github.event.inputs.skip_tests != 'true'
-        run: |
-          echo "🏥 Running comprehensive health checks..."
-
-          # Wait for services to stabilize
-          sleep 15
-
-          # Check backend health endpoint
-          BACKEND_URL="https://missingtable.com/health"
-          echo "Checking backend health: ${BACKEND_URL}"
-
-          MAX_RETRIES=10
-          RETRY_DELAY=15
-
-          for i in $(seq 1 $MAX_RETRIES); do
-            if curl -f -s "${BACKEND_URL}" > /dev/null; then
-              echo "✅ Backend health check passed"
-              break
-            else
-              if [ $i -eq $MAX_RETRIES ]; then
-                echo "❌ Backend health check failed after ${MAX_RETRIES} attempts"
-                echo "🔄 Helm will automatically rollback due to --atomic flag"
-                exit 1
-              fi
-              echo "⏳ Attempt $i/$MAX_RETRIES failed, retrying in ${RETRY_DELAY}s..."
-              sleep $RETRY_DELAY
-            fi
-          done
-
-          # Check frontend
-          FRONTEND_URL="https://missingtable.com"
-          echo "Checking frontend: ${FRONTEND_URL}"
-
-          if curl -f -s "${FRONTEND_URL}" > /dev/null; then
-            echo "✅ Frontend check passed"
-          else
-            echo "❌ Frontend check failed"
-            echo "🔄 Helm will automatically rollback due to --atomic flag"
-            exit 1
-          fi
-
-          # Check version endpoint
-          VERSION_URL="https://missingtable.com/api/version"
-          echo "Checking version endpoint: ${VERSION_URL}"
-
-          VERSION_INFO=$(curl -s "${VERSION_URL}")
-          echo "Version info: ${VERSION_INFO}"
-
-          # Verify correct version is deployed
-          DEPLOYED_VERSION=$(echo $VERSION_INFO | jq -r '.version')
-          EXPECTED_VERSION="${{ needs.build-and-push.outputs.full-version }}"
-
-          if echo "$DEPLOYED_VERSION" | grep -q "${{ needs.build-and-push.outputs.version }}"; then
-            echo "✅ Correct version deployed: ${DEPLOYED_VERSION}"
-          else
-            echo "⚠️  Version mismatch - Expected: ${EXPECTED_VERSION}, Got: ${DEPLOYED_VERSION}"
-          fi
-
-          # Check API endpoints
-          echo "Checking API endpoints..."
-          curl -f -s "https://missingtable.com/api/standings" > /dev/null && echo "✅ Standings API OK" || echo "❌ Standings API failed"
-          curl -f -s "https://missingtable.com/api/matches" > /dev/null && echo "✅ Matches API OK" || echo "❌ Matches API failed"
-
-          echo "✅ All health checks passed"
-
-      - name: Create git tag
-        if: (github.event.inputs.create_git_tag != 'false') && success()
-        run: |
-          echo "🏷️  Creating git tag for release..."
-
-          VERSION="${{ needs.build-and-push.outputs.version }}"
-          TAG_NAME="v${VERSION}"
-          FULL_VERSION="${{ needs.build-and-push.outputs.full-version }}"
-
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Create annotated tag
-          git tag -a "${TAG_NAME}" -m "Release ${FULL_VERSION}
-
-          Deployed to production at $(date -u)
-          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          Build ID: ${{ github.run_id }}
-          Commit: ${{ needs.build-and-push.outputs.commit-sha }}"
-
-          # Push tag
-          git push origin "${TAG_NAME}"
-
-          echo "✅ Git tag created: ${TAG_NAME}"
-
-      - name: Deployment summary
-        if: success()
-        run: |
-          echo "### 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** \`production\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** \`${{ needs.build-and-push.outputs.full-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Git Tag:** \`v${{ needs.build-and-push.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Cluster:** \`${{ env.GKE_CLUSTER }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Namespace:** \`${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Helm Revision:** \`${{ steps.deployment-info.outputs.new-revision }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Deployed at:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🌐 Application URL:** https://missingtable.com" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 📦 Deployed Images" >> $GITHUB_STEP_SUMMARY
-          echo "- Backend: \`${{ needs.build-and-push.outputs.backend-image }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontend: \`${{ needs.build-and-push.outputs.frontend-image }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🔄 Rollback Information" >> $GITHUB_STEP_SUMMARY
-          echo "Previous revision: \`${{ steps.backup.outputs.current-revision }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "To rollback if needed:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "helm rollback missing-table ${{ steps.backup.outputs.current-revision }} -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🎯 Monitoring Commands" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# View backend logs" >> $GITHUB_STEP_SUMMARY
-          echo "kubectl logs -f -l app.kubernetes.io/component=backend -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# View frontend logs" >> $GITHUB_STEP_SUMMARY
-          echo "kubectl logs -f -l app.kubernetes.io/component=frontend -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Check deployment status" >> $GITHUB_STEP_SUMMARY
-          echo "kubectl get deployments -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# View Helm history" >> $GITHUB_STEP_SUMMARY
-          echo "helm history missing-table -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-      - name: Rollback summary
-        if: failure()
-        run: |
-          echo "### ❌ Production Deployment Failed - Automatic Rollback Triggered" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The deployment failed health checks and Helm automatically rolled back to the previous revision." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Previous State (restored):**" >> $GITHUB_STEP_SUMMARY
-          echo "- Revision: \`${{ steps.backup.outputs.current-revision }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Backend: \`${{ steps.backup.outputs.current-backend }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontend: \`${{ steps.backup.outputs.current-frontend }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🔍 Troubleshooting Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Check workflow logs above for specific error messages" >> $GITHUB_STEP_SUMMARY
-          echo "2. Verify health check endpoints are working: \`curl https://missingtable.com/health\`" >> $GITHUB_STEP_SUMMARY
-          echo "3. Check pod status: \`kubectl get pods -n ${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "4. Check pod logs: \`kubectl logs -l app.kubernetes.io/name=missing-table -n ${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "5. Check events: \`kubectl get events -n ${{ env.NAMESPACE }} --sort-by='.lastTimestamp'\`" >> $GITHUB_STEP_SUMMARY
-          echo "6. Check Helm status: \`helm status missing-table -n ${{ env.NAMESPACE }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Production site should still be operational on the previous version.**" >> $GITHUB_STEP_SUMMARY
-
-      - name: Notify on failure
-        if: failure()
-        run: |
-          echo "🔔 Production deployment failed and was automatically rolled back."
-          echo "Previous version has been restored."
-          echo "Please check the logs and fix issues before retrying."
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      environment: production
+      namespace: missing-table-prod
+      gke_cluster: missing-table-dev  # Use dev cluster with separate namespace
+      gcp_region: us-central1
+      deployment_url: https://missingtable.com
+      replica_count_backend: 2  # Production uses 2 replicas for HA
+      replica_count_frontend: 2  # Production uses 2 replicas for HA
+      helm_timeout: '15m'  # Longer timeout for production
+      health_check_retries: 10  # More retries for production
+      health_check_delay: 15  # Longer delay between retries
+      enable_backup: true  # Enable backup and automatic rollback
+      enable_git_tag: ${{ github.event.inputs.create_git_tag != 'false' }}  # Create git tags for production
+      enable_pr_comment: false  # Don't comment on PRs for production
+      skip_tests: ${{ github.event.inputs.skip_tests == 'true' }}
+      cors_origins: 'https://missingtable.com,https://www.missingtable.com'
+      backend_resources_requests_cpu: '500m'  # Higher for production
+      backend_resources_requests_memory: '1Gi'
+      backend_resources_limits_cpu: '2000m'
+      backend_resources_limits_memory: '2Gi'
+      frontend_resources_requests_cpu: '500m'  # Higher for production
+      frontend_resources_requests_memory: '512Mi'
+      frontend_resources_limits_cpu: '1000m'
+      frontend_resources_limits_memory: '1Gi'
+      commit_sha: ${{ needs.build-and-push.outputs.commit-sha }}
+      version: ${{ needs.build-and-push.outputs.version }}
+      full_version: ${{ needs.build-and-push.outputs.full-version }}
+      backend_image: ${{ needs.build-and-push.outputs.backend-image }}
+      frontend_image: ${{ needs.build-and-push.outputs.frontend-image }}
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL_PROD }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY_PROD }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY_PROD }}
+      SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET_PROD }}
+      SERVICE_ACCOUNT_SECRET: ${{ secrets.SERVICE_ACCOUNT_SECRET_PROD }}
+      RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME_PROD }}
+      RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD_PROD }}

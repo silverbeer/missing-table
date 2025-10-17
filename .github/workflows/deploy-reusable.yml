@@ -1,0 +1,717 @@
+name: Reusable Deploy Workflow
+
+# This is a reusable workflow that handles the deployment process for both dev and prod environments
+# It eliminates code duplication between deploy-dev.yml and deploy-prod.yml
+#
+# Usage:
+#   jobs:
+#     deploy:
+#       uses: ./.github/workflows/deploy-reusable.yml
+#       with:
+#         environment: dev
+#         namespace: missing-table-dev
+#         ...
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment name (dev or prod)'
+        required: true
+        type: string
+      namespace:
+        description: 'Kubernetes namespace'
+        required: true
+        type: string
+      gke_cluster:
+        description: 'GKE cluster name'
+        required: true
+        type: string
+      gcp_region:
+        description: 'GCP region'
+        required: true
+        type: string
+      deployment_url:
+        description: 'Deployment URL (e.g., https://dev.missingtable.com)'
+        required: true
+        type: string
+      replica_count_backend:
+        description: 'Number of backend replicas'
+        required: false
+        type: number
+        default: 1
+      replica_count_frontend:
+        description: 'Number of frontend replicas'
+        required: false
+        type: number
+        default: 1
+      helm_timeout:
+        description: 'Helm deployment timeout (e.g., 10m, 15m)'
+        required: false
+        type: string
+        default: '10m'
+      health_check_retries:
+        description: 'Number of health check retries'
+        required: false
+        type: number
+        default: 5
+      health_check_delay:
+        description: 'Delay between health check retries (seconds)'
+        required: false
+        type: number
+        default: 10
+      enable_backup:
+        description: 'Enable deployment backup and rollback'
+        required: false
+        type: boolean
+        default: false
+      enable_git_tag:
+        description: 'Create git tag after successful deployment'
+        required: false
+        type: boolean
+        default: false
+      enable_pr_comment:
+        description: 'Comment on PR after deployment'
+        required: false
+        type: boolean
+        default: false
+      skip_tests:
+        description: 'Skip health checks after deployment'
+        required: false
+        type: boolean
+        default: false
+      cors_origins:
+        description: 'CORS origins for the backend'
+        required: false
+        type: string
+        default: ''
+      backend_resources_requests_cpu:
+        description: 'Backend CPU request'
+        required: false
+        type: string
+        default: '250m'
+      backend_resources_requests_memory:
+        description: 'Backend memory request'
+        required: false
+        type: string
+        default: '256Mi'
+      backend_resources_limits_cpu:
+        description: 'Backend CPU limit'
+        required: false
+        type: string
+        default: '500m'
+      backend_resources_limits_memory:
+        description: 'Backend memory limit'
+        required: false
+        type: string
+        default: '512Mi'
+      frontend_resources_requests_cpu:
+        description: 'Frontend CPU request'
+        required: false
+        type: string
+        default: '100m'
+      frontend_resources_requests_memory:
+        description: 'Frontend memory request'
+        required: false
+        type: string
+        default: '128Mi'
+      frontend_resources_limits_cpu:
+        description: 'Frontend CPU limit'
+        required: false
+        type: string
+        default: '250m'
+      frontend_resources_limits_memory:
+        description: 'Frontend memory limit'
+        required: false
+        type: string
+        default: '256Mi'
+      commit_sha:
+        description: 'Commit SHA for deployment'
+        required: true
+        type: string
+      version:
+        description: 'Semantic version (e.g., 1.0.0)'
+        required: true
+        type: string
+      full_version:
+        description: 'Full version with build ID (e.g., v1.0.0-build.123)'
+        required: true
+        type: string
+      backend_image:
+        description: 'Backend Docker image with tag'
+        required: true
+        type: string
+      frontend_image:
+        description: 'Frontend Docker image with tag'
+        required: true
+        type: string
+    secrets:
+      GCP_SA_KEY:
+        required: true
+      DATABASE_URL:
+        required: true
+      SUPABASE_URL:
+        required: true
+      SUPABASE_ANON_KEY:
+        required: true
+      SUPABASE_SERVICE_KEY:
+        required: true
+      SUPABASE_JWT_SECRET:
+        required: true
+      SERVICE_ACCOUNT_SECRET:
+        required: true
+      RABBITMQ_USERNAME:
+        required: false
+      RABBITMQ_PASSWORD:
+        required: false
+
+env:
+  REGISTRY: us-central1-docker.pkg.dev/missing-table/missing-table
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.deployment_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Verify Docker images exist
+        run: |
+          echo "🔍 Verifying Docker images exist in registry..."
+
+          # Check backend image
+          echo "Checking backend image: ${{ inputs.backend_image }}"
+          if gcloud artifacts docker images describe ${{ inputs.backend_image }} --format=json > /dev/null 2>&1; then
+            BACKEND_SIZE=$(gcloud artifacts docker images describe ${{ inputs.backend_image }} --format='value(image_summary.image_size)' || echo "unknown")
+            BACKEND_DIGEST=$(gcloud artifacts docker images describe ${{ inputs.backend_image }} --format='value(image_summary.digest)' || echo "unknown")
+            echo "✅ Backend image exists"
+            echo "   Size: ${BACKEND_SIZE}"
+            echo "   Digest: ${BACKEND_DIGEST}"
+          else
+            echo "❌ Backend image not found in registry!"
+            exit 1
+          fi
+
+          # Check frontend image
+          echo ""
+          echo "Checking frontend image: ${{ inputs.frontend_image }}"
+          if gcloud artifacts docker images describe ${{ inputs.frontend_image }} --format=json > /dev/null 2>&1; then
+            FRONTEND_SIZE=$(gcloud artifacts docker images describe ${{ inputs.frontend_image }} --format='value(image_summary.image_size)' || echo "unknown")
+            FRONTEND_DIGEST=$(gcloud artifacts docker images describe ${{ inputs.frontend_image }} --format='value(image_summary.digest)' || echo "unknown")
+            echo "✅ Frontend image exists"
+            echo "   Size: ${FRONTEND_SIZE}"
+            echo "   Digest: ${FRONTEND_DIGEST}"
+          else
+            echo "❌ Frontend image not found in registry!"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All Docker images verified and ready for deployment"
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ inputs.gke_cluster }} \
+            --region ${{ inputs.gcp_region }} \
+            --project missing-table
+
+      - name: Verify cluster access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Pre-deployment checks
+        run: |
+          echo "🔍 Running pre-deployment checks..."
+
+          # Check if namespace exists
+          echo "Checking namespace: ${{ inputs.namespace }}"
+          if kubectl get namespace ${{ inputs.namespace }} > /dev/null 2>&1; then
+            echo "✅ Namespace exists"
+          else
+            echo "ℹ️  Namespace does not exist - Helm will create it"
+          fi
+
+          # Verify Docker images are pullable
+          echo ""
+          echo "Verifying image tags in values file..."
+          echo "Backend: ${{ inputs.backend_image }}"
+          echo "Frontend: ${{ inputs.frontend_image }}"
+
+          # Check cluster resources
+          echo ""
+          echo "Checking cluster capacity..."
+          kubectl top nodes || echo "⚠️  Metrics not available"
+
+          # Check for any existing failed pods in the namespace
+          echo ""
+          if kubectl get namespace ${{ inputs.namespace }} > /dev/null 2>&1; then
+            echo "Checking for failed pods in namespace..."
+            FAILED_PODS=$(kubectl get pods -n ${{ inputs.namespace }} --field-selector=status.phase=Failed -o name 2>/dev/null | wc -l)
+            if [ "$FAILED_PODS" -gt 0 ]; then
+              echo "⚠️  Found ${FAILED_PODS} failed pods in namespace"
+              kubectl get pods -n ${{ inputs.namespace }} --field-selector=status.phase=Failed
+            else
+              echo "✅ No failed pods found"
+            fi
+          fi
+
+          echo ""
+          echo "✅ Pre-deployment checks complete"
+
+      - name: Create Helm values file
+        run: |
+          echo "📝 Creating Helm values file for ${{ inputs.environment }} environment..."
+
+          cat > helm/missing-table/values-${{ inputs.environment }}.yaml << EOF
+          namespace: ${{ inputs.namespace }}
+
+          backend:
+            image:
+              repository: ${{ env.REGISTRY }}/backend
+              tag: ${{ inputs.environment }}
+            replicas: ${{ inputs.replica_count_backend }}
+            resources:
+              requests:
+                memory: "${{ inputs.backend_resources_requests_memory }}"
+                cpu: "${{ inputs.backend_resources_requests_cpu }}"
+              limits:
+                memory: "${{ inputs.backend_resources_limits_memory }}"
+                cpu: "${{ inputs.backend_resources_limits_cpu }}"
+
+          frontend:
+            image:
+              repository: ${{ env.REGISTRY }}/frontend
+              tag: ${{ inputs.environment }}
+            replicas: ${{ inputs.replica_count_frontend }}
+            command: []  # Use Dockerfile CMD (serve -s dist) not npm run serve
+            resources:
+              requests:
+                memory: "${{ inputs.frontend_resources_requests_memory }}"
+                cpu: "${{ inputs.frontend_resources_requests_cpu }}"
+              limits:
+                memory: "${{ inputs.frontend_resources_limits_memory }}"
+                cpu: "${{ inputs.frontend_resources_limits_cpu }}"
+
+          redis:
+            enabled: false  # Disabled - only used when security monitoring is enabled
+
+          celeryWorker:
+            enabled: false
+            image:
+              repository: ${{ env.REGISTRY }}/backend
+              tag: ${{ inputs.environment }}
+            replicas: 1
+            rabbitmq:
+              username: "${{ secrets.RABBITMQ_USERNAME }}"
+              password: "${{ secrets.RABBITMQ_PASSWORD }}"
+              host: "messaging-rabbitmq.messaging.svc.cluster.local"
+              port: 5672
+
+          secrets:  # pragma: allowlist secret
+            databaseUrl: "${{ secrets.DATABASE_URL }}"
+            supabaseUrl: "${{ secrets.SUPABASE_URL }}"
+            supabaseAnonKey: "${{ secrets.SUPABASE_ANON_KEY }}"
+            supabaseServiceKey: "${{ secrets.SUPABASE_SERVICE_KEY }}"
+            supabaseJwtSecret: "${{ secrets.SUPABASE_JWT_SECRET }}"
+            serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
+
+          disableSecurity: false
+          EOF
+
+          # Add CORS origins if provided
+          if [ -n "${{ inputs.cors_origins }}" ]; then
+            cat >> helm/missing-table/values-${{ inputs.environment }}.yaml << EOF
+
+          cors:
+            origins: "${{ inputs.cors_origins }}"
+          EOF
+          fi
+
+          echo "✅ Helm values file created"
+
+      - name: Backup current deployment
+        if: inputs.enable_backup
+        id: backup
+        run: |
+          echo "💾 Creating backup of current deployment..."
+
+          # Get current revision
+          CURRENT_REVISION=$(helm history missing-table -n ${{ inputs.namespace }} --max 1 -o json | jq -r '.[0].revision' || echo "0")
+          echo "current-revision=${CURRENT_REVISION}" >> $GITHUB_OUTPUT
+
+          # Get current image versions
+          CURRENT_BACKEND=$(kubectl get deployment missing-table-backend -n ${{ inputs.namespace }} -o jsonpath='{.spec.template.spec.containers[0].image}' || echo "none")
+          CURRENT_FRONTEND=$(kubectl get deployment missing-table-frontend -n ${{ inputs.namespace }} -o jsonpath='{.spec.template.spec.containers[0].image}' || echo "none")
+
+          echo "current-backend=${CURRENT_BACKEND}" >> $GITHUB_OUTPUT
+          echo "current-frontend=${CURRENT_FRONTEND}" >> $GITHUB_OUTPUT
+
+          echo "📊 Current state:"
+          echo "  Revision: ${CURRENT_REVISION}"
+          echo "  Backend: ${CURRENT_BACKEND}"
+          echo "  Frontend: ${CURRENT_FRONTEND}"
+
+      - name: Deploy with Helm
+        id: deploy
+        run: |
+          echo "🚀 Deploying to ${{ inputs.namespace }} namespace..."
+
+          HELM_FLAGS="--install --wait --timeout ${{ inputs.helm_timeout }}"
+
+          # Add atomic flag for production deployments (with backup enabled)
+          if [ "${{ inputs.enable_backup }}" == "true" ]; then
+            echo "⚠️  Using --atomic flag for automatic rollback on failure"
+            HELM_FLAGS="${HELM_FLAGS} --atomic --cleanup-on-fail"
+          fi
+
+          # NOTE: Namespace is created by helm/missing-table/templates/namespace.yaml
+          helm upgrade missing-table ./helm/missing-table \
+            --namespace ${{ inputs.namespace }} \
+            --values ./helm/missing-table/values-${{ inputs.environment }}.yaml \
+            ${HELM_FLAGS}
+
+          echo "✅ Deployment successful"
+
+      - name: Monitor pod startup
+        run: |
+          echo "👀 Monitoring pod startup and events..."
+
+          # Get pod status
+          echo ""
+          echo "Pod status:"
+          kubectl get pods -n ${{ inputs.namespace }} -l app.kubernetes.io/name=missing-table
+
+          # Check for image pull issues
+          echo ""
+          echo "Checking for image pull events..."
+          kubectl get events -n ${{ inputs.namespace }} \
+            --field-selector involvedObject.kind=Pod \
+            --sort-by='.lastTimestamp' \
+            | grep -i -E '(pull|image|error|fail|pending)' || echo "No image pull issues detected"
+
+          # Show recent pod events
+          echo ""
+          echo "Recent pod events (last 5 minutes):"
+          kubectl get events -n ${{ inputs.namespace }} \
+            --sort-by='.lastTimestamp' \
+            --field-selector type!=Normal \
+            | tail -20 || echo "No warning/error events found"
+
+          # Check pod resource usage
+          echo ""
+          echo "Pod resource status:"
+          kubectl describe pods -n ${{ inputs.namespace }} -l app.kubernetes.io/name=missing-table \
+            | grep -A 5 "Conditions:" || true
+
+          echo ""
+          echo "✅ Pod monitoring complete"
+
+      - name: Verify deployment
+        run: |
+          echo "📋 Verifying deployment status..."
+
+          # Check backend deployment
+          kubectl rollout status deployment/missing-table-backend -n ${{ inputs.namespace }} --timeout=5m
+
+          # Check frontend deployment
+          kubectl rollout status deployment/missing-table-frontend -n ${{ inputs.namespace }} --timeout=5m
+
+          # Check celery worker deployment (if enabled)
+          # NOTE: Currently disabled until RabbitMQ/Celery integration is complete
+          # kubectl rollout status deployment/missing-table-celery-worker -n ${{ inputs.namespace }} --timeout=5m
+
+          echo "✅ All deployments are ready"
+
+      - name: Get deployment info
+        id: deployment-info
+        run: |
+          echo "📊 Getting deployment information..."
+
+          # Get new revision
+          NEW_REVISION=$(helm history missing-table -n ${{ inputs.namespace }} --max 1 -o json | jq -r '.[0].revision')
+          echo "new-revision=${NEW_REVISION}" >> $GITHUB_OUTPUT
+
+          # Get pod information
+          echo "Pods:"
+          kubectl get pods -n ${{ inputs.namespace }} -l app.kubernetes.io/name=missing-table
+
+          # Get service information
+          echo ""
+          echo "Services:"
+          kubectl get services -n ${{ inputs.namespace }}
+
+          # Get ingress information
+          echo ""
+          echo "Ingress:"
+          kubectl get ingress -n ${{ inputs.namespace }}
+
+      - name: Run health checks
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          echo "🏥 Running comprehensive health checks..."
+
+          # Wait for services to stabilize
+          sleep 15
+
+          # Check backend health endpoint
+          BACKEND_URL="${{ inputs.deployment_url }}/health"
+          echo "Checking backend health: ${BACKEND_URL}"
+
+          MAX_RETRIES=${{ inputs.health_check_retries }}
+          RETRY_DELAY=${{ inputs.health_check_delay }}
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            if curl -f -s "${BACKEND_URL}" > /dev/null; then
+              echo "✅ Backend health check passed"
+              break
+            else
+              if [ $i -eq $MAX_RETRIES ]; then
+                echo "❌ Backend health check failed after ${MAX_RETRIES} attempts"
+                if [ "${{ inputs.enable_backup }}" == "true" ]; then
+                  echo "🔄 Helm will automatically rollback due to --atomic flag"
+                fi
+                exit 1
+              fi
+              echo "⏳ Attempt $i/$MAX_RETRIES failed, retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+          done
+
+          # Check frontend
+          FRONTEND_URL="${{ inputs.deployment_url }}"
+          echo "Checking frontend: ${FRONTEND_URL}"
+
+          if curl -f -s "${FRONTEND_URL}" > /dev/null; then
+            echo "✅ Frontend check passed"
+          else
+            echo "❌ Frontend check failed"
+            if [ "${{ inputs.enable_backup }}" == "true" ]; then
+              echo "🔄 Helm will automatically rollback due to --atomic flag"
+            fi
+            exit 1
+          fi
+
+          # Check version endpoint
+          VERSION_URL="${{ inputs.deployment_url }}/api/version"
+          echo "Checking version endpoint: ${VERSION_URL}"
+
+          VERSION_INFO=$(curl -s "${VERSION_URL}")
+          echo "Version info: ${VERSION_INFO}"
+
+          # Verify correct version is deployed
+          DEPLOYED_VERSION=$(echo $VERSION_INFO | jq -r '.version')
+          EXPECTED_VERSION="${{ inputs.full_version }}"
+
+          if echo "$DEPLOYED_VERSION" | grep -q "${{ inputs.version }}"; then
+            echo "✅ Correct version deployed: ${DEPLOYED_VERSION}"
+          else
+            echo "⚠️  Version mismatch - Expected: ${EXPECTED_VERSION}, Got: ${DEPLOYED_VERSION}"
+          fi
+
+          # Check API endpoints
+          echo "Checking API endpoints..."
+          curl -f -s "${{ inputs.deployment_url }}/api/standings" > /dev/null && echo "✅ Standings API OK" || echo "❌ Standings API failed"
+          curl -f -s "${{ inputs.deployment_url }}/api/matches" > /dev/null && echo "✅ Matches API OK" || echo "❌ Matches API failed"
+
+          echo "✅ All health checks passed"
+
+      - name: Create git tag
+        if: inputs.enable_git_tag && success()
+        run: |
+          echo "🏷️  Creating git tag for release..."
+
+          VERSION="${{ inputs.version }}"
+          TAG_NAME="v${VERSION}"
+          FULL_VERSION="${{ inputs.full_version }}"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag
+          git tag -a "${TAG_NAME}" -m "Release ${FULL_VERSION}
+
+          Deployed to ${{ inputs.environment }} at $(date -u)
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Build ID: ${{ github.run_id }}
+          Commit: ${{ inputs.commit_sha }}"
+
+          # Push tag
+          git push origin "${TAG_NAME}"
+
+          echo "✅ Git tag created: ${TAG_NAME}"
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "### 🚀 Deployment to ${{ inputs.environment }} Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ inputs.full_version }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.enable_git_tag }}" == "true" ]; then
+            echo "**Git Tag:** \`v${{ inputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "**Cluster:** \`${{ inputs.gke_cluster }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespace:** \`${{ inputs.namespace }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Helm Revision:** \`${{ steps.deployment-info.outputs.new-revision }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**🌐 Application URL:** ${{ inputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📦 Deployed Images" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: \`${{ inputs.backend_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: \`${{ inputs.frontend_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.enable_backup }}" == "true" ]; then
+            echo "#### 🔄 Rollback Information" >> $GITHUB_STEP_SUMMARY
+            echo "Previous revision: \`${{ steps.backup.outputs.current-revision }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To rollback if needed:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "helm rollback missing-table ${{ steps.backup.outputs.current-revision }} -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "#### 🎯 Monitoring Commands" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# View backend logs" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl logs -f -l app.kubernetes.io/component=backend -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# View frontend logs" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl logs -f -l app.kubernetes.io/component=frontend -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Check deployment status" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get deployments -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# View Helm history" >> $GITHUB_STEP_SUMMARY
+          echo "helm history missing-table -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        if: inputs.enable_pr_comment && github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const version = '${{ inputs.full_version }}';
+            const commitSha = '${{ inputs.commit_sha }}';
+            const deploymentUrl = '${{ inputs.deployment_url }}';
+            const environment = '${{ inputs.environment }}';
+
+            const comment = `### 🚀 Deployed to ${environment.charAt(0).toUpperCase() + environment.slice(1)} Environment
+
+            **Version:** \`${version}\`
+            **Commit:** \`${commitSha}\`
+            **Environment:** \`${environment}\`
+
+            🌐 **Application:** ${deploymentUrl}
+            📊 **API Health:** ${deploymentUrl}/health
+            📦 **Version Info:** ${deploymentUrl}/api/version
+
+            #### Deployed Images:
+            - Backend: \`${{ inputs.backend_image }}\`
+            - Frontend: \`${{ inputs.frontend_image }}\`
+
+            ---
+            *Deployment completed at ${new Date().toISOString()}*`;
+
+            // Only comment on PRs
+            if (context.payload.pull_request) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+      - name: Rollback summary
+        if: failure()
+        run: |
+          echo "### ❌ Deployment to ${{ inputs.environment }} Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.enable_backup }}" == "true" ]; then
+            echo "The deployment failed and Helm automatically rolled back to the previous revision." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Previous State (restored):**" >> $GITHUB_STEP_SUMMARY
+            echo "- Revision: \`${{ steps.backup.outputs.current-revision }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Backend: \`${{ steps.backup.outputs.current-backend }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Frontend: \`${{ steps.backup.outputs.current-frontend }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "The deployment failed. Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "#### 🔍 Troubleshooting Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Common timeout causes:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐳 Large Docker images taking too long to pull" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔒 SSL certificate provisioning delay (first-time deployment)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 Resource constraints in cluster" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 Image pull errors (image not found or access denied)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Diagnostic commands:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# 1. Check workflow logs above for specific error messages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 2. Verify Docker images exist in registry" >> $GITHUB_STEP_SUMMARY
+          echo "gcloud artifacts docker images list ${{ env.REGISTRY }}/backend --include-tags" >> $GITHUB_STEP_SUMMARY
+          echo "gcloud artifacts docker images list ${{ env.REGISTRY }}/frontend --include-tags" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 3. Check if namespace exists" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get namespace ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 4. Check pod status and events" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get pods -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get events -n ${{ inputs.namespace }} --sort-by='.lastTimestamp' | tail -30" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 5. Check pod logs for errors" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl logs -l app.kubernetes.io/name=missing-table -n ${{ inputs.namespace }} --tail=100" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 6. Check Helm status" >> $GITHUB_STEP_SUMMARY
+          echo "helm status missing-table -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "helm history missing-table -n ${{ inputs.namespace }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 7. Verify health endpoints (if namespace exists)" >> $GITHUB_STEP_SUMMARY
+          echo "curl -I ${{ inputs.deployment_url }}/health" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**If images are missing:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Check the 'Build and Push Images' job logs" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify \`build-and-push.sh\` script ran successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- Manually verify images with: \`gcloud artifacts docker images describe ${{ inputs.backend_image }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "🔔 Deployment to ${{ inputs.environment }} failed."
+          if [ "${{ inputs.enable_backup }}" == "true" ]; then
+            echo "Previous version has been automatically rolled back."
+          fi
+          echo "Please check the logs and fix issues before retrying."
