@@ -156,6 +156,25 @@ frontend:
     type: LoadBalancer
     loadBalancerIP: ""  # Let Rancher Desktop assign
 
+# Celery Worker configuration
+celeryWorker:
+  enabled: false  # Disabled until RabbitMQ/Celery integration is complete
+  replicaCount: 2
+
+  rabbitmq:
+    username: "admin"
+    password: "admin"
+    host: "messaging-rabbitmq.messaging.svc.cluster.local"
+    port: 5672
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
 # Service Account configuration
 serviceAccount:
   create: false

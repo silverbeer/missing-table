@@ -104,6 +104,25 @@ rabbitmq:
   host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
   port: 5672
 
+# Celery Worker configuration
+celeryWorker:
+  enabled: false  # Disabled until RabbitMQ/Celery integration is complete
+  replicaCount: 2
+
+  rabbitmq:
+    username: "your-rabbitmq-username"
+    password: "your-rabbitmq-password"
+    host: "messaging-rabbitmq.missing-table-dev.svc.cluster.local"
+    port: 5672
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
 # Redis configuration
 # Disabled - rate limiting is not currently enabled in the application
 redis:

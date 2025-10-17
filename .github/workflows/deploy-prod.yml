@@ -203,6 +203,7 @@ jobs:
             replicas: 2
 
           celeryWorker:
+            enabled: false
             image:
               repository: ${{ env.REGISTRY }}/backend
               tag: prod
@@ -279,8 +280,9 @@ jobs:
           # Check frontend deployment
           kubectl rollout status deployment/missing-table-frontend -n ${{ env.NAMESPACE }} --timeout=5m
 
-          # Check celery worker deployment
-          kubectl rollout status deployment/missing-table-celery-worker -n ${{ env.NAMESPACE }} --timeout=5m
+          # Check celery worker deployment (if enabled)
+          # NOTE: Currently disabled until RabbitMQ/Celery integration is complete
+          # kubectl rollout status deployment/missing-table-celery-worker -n ${{ env.NAMESPACE }} --timeout=5m
 
           echo "✅ All deployments are ready"
 

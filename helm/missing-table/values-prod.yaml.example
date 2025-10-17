@@ -103,6 +103,7 @@ frontend:
 
 # Celery Worker configuration
 celeryWorker:
+  enabled: false  # Disabled until RabbitMQ/Celery integration is complete
   replicaCount: 3  # Production uses more workers
 
   rabbitmq:
