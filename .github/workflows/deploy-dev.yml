@@ -246,7 +246,6 @@ jobs:
             --namespace ${{ env.NAMESPACE }} \
             --values ./helm/missing-table/values-dev.yaml \
             --install \
-            --create-namespace \
             --wait \
             --timeout 10m \
             --atomic
