@@ -110,6 +110,11 @@ Welcome to the Missing Table documentation! This guide will help you get started
 - **[API Usage](08-integrations/api-usage.md)** - Using the Missing Table API
 - **[Bruno Testing](08-integrations/bruno-testing.md)** - API testing with Bruno
 
+### [Implementation Guides](implementation-guides/)
+> Detailed implementation plans for major features
+
+- **[Live Match Feature](implementation-guides/live-match-feature.md)** 🔴 Real-time match tracking with Supabase
+
 ### [09 - CI/CD](09-cicd/)
 > Continuous integration and deployment pipelines
 
