@@ -242,12 +242,11 @@ jobs:
         run: |
           echo "🚀 Deploying to ${{ env.NAMESPACE }} namespace..."
 
-          # --create-namespace: Let Helm create and manage the namespace with proper labels
+          # NOTE: Namespace is created by helm/missing-table/templates/namespace.yaml
           helm upgrade missing-table ./helm/missing-table \
             --namespace ${{ env.NAMESPACE }} \
             --values ./helm/missing-table/values-dev.yaml \
             --install \
-            --create-namespace \
             --wait \
             --timeout 10m \
             --atomic

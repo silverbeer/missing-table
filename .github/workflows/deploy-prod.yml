@@ -263,12 +263,11 @@ jobs:
           echo "⚠️  Using --atomic flag for automatic rollback on failure"
 
           # Deploy with --atomic flag which automatically rolls back on failure
-          # --create-namespace: Let Helm create and manage the namespace with proper labels
+          # NOTE: Namespace is created by helm/missing-table/templates/namespace.yaml
           helm upgrade missing-table ./helm/missing-table \
             --namespace ${{ env.NAMESPACE }} \
             --values ./helm/missing-table/values-prod.yaml \
             --install \
-            --create-namespace \
             --wait \
             --timeout 15m \
             --atomic \
