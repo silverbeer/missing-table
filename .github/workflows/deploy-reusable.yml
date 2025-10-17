@@ -308,6 +308,7 @@ jobs:
               repository: ${{ env.REGISTRY }}/frontend
               tag: ${{ inputs.environment }}
             replicas: ${{ inputs.replica_count_frontend }}
+            command: []  # Use Dockerfile CMD (serve -s dist) not npm run serve
             resources:
               requests:
                 memory: "${{ inputs.frontend_resources_requests_memory }}"
