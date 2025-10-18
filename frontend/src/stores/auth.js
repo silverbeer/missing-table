@@ -56,6 +56,11 @@ export const useAuthStore = () => {
 
   const setProfile = profile => {
     state.profile = profile;
+    if (profile) {
+      localStorage.setItem('auth_profile', JSON.stringify(profile));
+    } else {
+      localStorage.removeItem('auth_profile');
+    }
   };
 
   const signup = async (username, password, displayName, email = null) => {
@@ -156,11 +161,14 @@ export const useAuthStore = () => {
         access_token: data.access_token,
         refresh_token: data.refresh_token,
       });
+      // Login endpoint returns role/team_id directly on user object
       setProfile(data.user);
 
       // Store tokens for API calls
       localStorage.setItem('auth_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
+
+      console.log('Login successful - Profile set:', data.user);
 
       return { success: true, user: data.user };
     } catch (error) {
@@ -270,13 +278,28 @@ export const useAuthStore = () => {
         return;
       }
 
-      // Get current user info from backend
+      // Try to restore profile from localStorage first (fast)
+      const savedProfile = localStorage.getItem('auth_profile');
+      if (savedProfile) {
+        try {
+          const profile = JSON.parse(savedProfile);
+          setProfile(profile);
+          setSession({ access_token: token }); // Minimal session object
+        } catch (e) {
+          console.error('Failed to parse saved profile:', e);
+        }
+      }
+
+      // Get current user info from backend (verify and refresh)
       const response = await apiCall(`${API_URL}/api/auth/me`);
 
       if (response && response.success) {
         setUser(response.user);
-        setProfile(response.user.profile);
+        // /api/auth/me returns role/team_id nested in user.profile
+        const profileData = response.user.profile || response.user;
+        setProfile(profileData);
         setSession({ access_token: token }); // Minimal session object
+        console.log('Initialize - Profile loaded:', profileData);
       } else {
         // Invalid token, clear storage
         localStorage.clear();

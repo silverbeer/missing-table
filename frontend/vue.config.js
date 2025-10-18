@@ -7,4 +7,7 @@ module.exports = defineConfig({
       title: 'Missing Table',
     },
   },
+  devServer: {
+    allowedHosts: 'all',
+  },
 });
