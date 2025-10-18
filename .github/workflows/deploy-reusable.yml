@@ -295,6 +295,11 @@ jobs:
               repository: ${{ env.REGISTRY }}/backend
               tag: ${{ inputs.environment }}
             replicas: ${{ inputs.replica_count_backend }}
+            env:
+              environment: "${{ inputs.environment }}"
+              logLevel: "info"
+              disableLogfire: "true"
+              disableSecurity: "true"
             resources:
               requests:
                 memory: "${{ inputs.backend_resources_requests_memory }}"
