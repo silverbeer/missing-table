@@ -1,0 +1,15 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: {{ include "missing-table.fullname" . }}-cert
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  domains:
+  {{- range .Values.ingress.hosts }}
+  - {{ . }}
+  {{- end }}
+{{- end }}

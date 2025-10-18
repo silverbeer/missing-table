@@ -346,6 +346,14 @@ jobs:
             serviceAccountSecret: "${{ secrets.SERVICE_ACCOUNT_SECRET }}"
 
           disableSecurity: false
+
+          # Ingress configuration for cloud environments (dev and prod)
+          ingress:
+            enabled: true
+            staticIpName: "missing-table-${{ inputs.environment }}-ip"
+            hosts:
+              - "${{ inputs.environment == 'prod' && 'missingtable.com' || 'dev.missingtable.com' }}"
+              ${{ inputs.environment == 'prod' && '- "www.missingtable.com"' || '' }}
           EOF
 
           # Add CORS origins if provided

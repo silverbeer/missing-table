@@ -179,3 +179,9 @@ celeryWorker:
 serviceAccount:
   create: false
   name: ""
+
+# Ingress configuration
+ingress:
+  enabled: false  # Disabled by default, enable in environment-specific values
+  staticIpName: ""  # Set in environment-specific values (e.g., "missing-table-prod-ip")
+  hosts: []  # List of hostnames (e.g., ["missingtable.com", "www.missingtable.com"])
