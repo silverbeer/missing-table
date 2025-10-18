@@ -154,7 +154,7 @@ jobs:
     needs: [build-and-push]
     uses: ./.github/workflows/deploy-reusable.yml
     with:
-      environment: production
+      environment: prod
       namespace: missing-table-prod
       gke_cluster: missing-table-dev  # Use dev cluster with separate namespace
       gcp_region: us-central1
