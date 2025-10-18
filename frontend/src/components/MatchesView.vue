@@ -1001,10 +1001,11 @@ export default {
       }
 
       // Team managers can only edit matches involving their team
-      if (authStore.isTeamManager.value && authStore.userTeamId) {
+      // IMPORTANT: userTeamId is a computed property, so we need .value
+      if (authStore.isTeamManager.value && authStore.userTeamId.value) {
         return (
-          match.home_team_id === authStore.userTeamId ||
-          match.away_team_id === authStore.userTeamId
+          match.home_team_id === authStore.userTeamId.value ||
+          match.away_team_id === authStore.userTeamId.value
         );
       }
 
