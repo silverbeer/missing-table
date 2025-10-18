@@ -32,6 +32,45 @@ def load_environment():
     else:
         print(f"Environment file {env_file} not found, using defaults")
 
+def find_user_by_identifier(supabase, identifier):
+    """
+    Find a user by email or username.
+    Returns (user_id, identifier_used, identifier_type) or (None, None, None) if not found.
+    """
+    # Check if identifier looks like email or username
+    if '@' in identifier and not identifier.endswith('@missingtable.local'):
+        # Real email - search in auth.users
+        response = supabase.auth.admin.list_users()
+        users_list = response if isinstance(response, list) else getattr(response, 'data', {}).get('users', [])
+
+        for user in users_list:
+            user_email = user.email if hasattr(user, 'email') else user.get('email')
+            if user_email == identifier:
+                user_id = user.id if hasattr(user, 'id') else user.get('id')
+                return (user_id, identifier, 'email')
+        return (None, None, None)
+    else:
+        # Username or internal email - search in user_profiles first
+        profile_response = supabase.table('user_profiles').select('id, username, display_name').eq('username', identifier).execute()
+
+        if profile_response.data:
+            user_id = profile_response.data[0]['id']
+            username = profile_response.data[0]['username']
+            return (user_id, username, 'username')
+
+        # If not found by username, try as internal email in auth.users
+        internal_email = identifier if '@missingtable.local' in identifier else f"{identifier}@missingtable.local"
+        response = supabase.auth.admin.list_users()
+        users_list = response if isinstance(response, list) else getattr(response, 'data', {}).get('users', [])
+
+        for user in users_list:
+            user_email = user.email if hasattr(user, 'email') else user.get('email')
+            if user_email == internal_email:
+                user_id = user.id if hasattr(user, 'id') else user.get('id')
+                return (user_id, internal_email, 'internal_email')
+
+        return (None, None, None)
+
 def generate_secure_password(length=12):
     """Generate a secure random password."""
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
@@ -70,22 +109,24 @@ def list_users(supabase):
             header_style="bold magenta",
             show_lines=True,  # Show lines between rows
             box=box.ROUNDED,  # Rounded box with borders and lighter row separators
-            row_styles=["", "dim"]  # Alternate row styling for better readability
+            row_styles=["", "dim"],  # Alternate row styling for better readability
+            width=150  # Set reasonable max width
         )
-        table.add_column("Username", style="green", no_wrap=True)
-        table.add_column("ID", style="dim", no_wrap=True)  # Full UUID
-        table.add_column("Role", style="yellow", no_wrap=True)
-        table.add_column("Display Name", style="cyan")
-        table.add_column("Team", style="blue")
-        table.add_column("Created", style="dim", no_wrap=True)
+        table.add_column("Username/Email", style="green", max_width=25)
+        table.add_column("ID", style="dim", max_width=12, overflow="ellipsis")  # Truncate UUID
+        table.add_column("Role", style="yellow", max_width=15)
+        table.add_column("Display Name", style="cyan", max_width=20)
+        table.add_column("Team", style="blue", max_width=25)
+        table.add_column("Created", style="dim", max_width=10, no_wrap=True)
 
         for user in users_list:
             user_id = user.id if hasattr(user, 'id') else user.get('id')
-            email = user.email if hasattr(user, 'email') else user.get('email')
+            auth_email = user.email if hasattr(user, 'email') else user.get('email')
             created_at = user.created_at if hasattr(user, 'created_at') else user.get('created_at')
 
             # Get profile info with team details
             try:
+                # Try to select email column, but it might not exist in all schemas
                 profile_result = supabase.table('user_profiles').select('username, role, display_name, team_id, teams(id, name)').eq('id', user_id).execute()
                 if profile_result.data:
                     profile = profile_result.data[0]
@@ -93,6 +134,17 @@ def list_users(supabase):
                     role = profile.get('role', 'No role')
                     display_name = profile.get('display_name', 'No display name')
                     team_id = profile.get('team_id')
+
+                    # Determine identifier to show (username > email > auth_email)
+                    # Username authentication users will have username field
+                    # Legacy email users will have email in auth but not username
+                    if username and username != 'N/A':
+                        identifier = username
+                    elif profile.get('email'):
+                        identifier = profile.get('email')
+                    else:
+                        # Fallback to auth email (might be internal format like user@missingtable.local)
+                        identifier = auth_email if auth_email and not auth_email.endswith('@missingtable.local') else "N/A"
 
                     # Format team display (ID + Name for team-manager/team-player/team-fan)
                     if team_id and profile.get('teams'):
@@ -103,9 +155,11 @@ def list_users(supabase):
                     else:
                         team_display = "No team"
                 else:
-                    username = role = display_name = team_display = "No profile"
+                    identifier = auth_email if auth_email else "N/A"
+                    role = display_name = team_display = "No profile"
             except Exception as e:
-                username = role = display_name = team_display = f"Error: {str(e)[:10]}"
+                identifier = auth_email if auth_email else "N/A"
+                role = display_name = team_display = f"Error: {str(e)[:30]}"
 
             # Color code roles
             if role == 'admin':
@@ -120,8 +174,8 @@ def list_users(supabase):
                 role_display = role
 
             table.add_row(
-                username or "N/A",
-                user_id if user_id else "N/A",  # Show full UUID
+                identifier or "N/A",
+                user_id[:8] if user_id else "N/A",  # Show first 8 chars of UUID
                 role_display,
                 display_name,
                 team_display,
@@ -248,27 +302,20 @@ def create_user(supabase, email, password=None, role='user', display_name=None, 
         print(f"❌ Error creating user: {e}")
         return False
 
-def update_user_role(supabase, email, new_role):
-    """Update a user's role."""
+def update_user_role(supabase, identifier, new_role):
+    """Update a user's role (accepts username or email)."""
     try:
-        print(f"🔍 Looking up user: {email}")
+        console.print(f"[cyan]🔍 Looking up user: {identifier}[/cyan]")
 
-        # Find user by email
-        response = supabase.auth.admin.list_users()
-        users_list = response if isinstance(response, list) else getattr(response, 'data', {}).get('users', [])
+        # Find user by username or email
+        user_id, found_identifier, id_type = find_user_by_identifier(supabase, identifier)
 
-        user_found = None
-        for user in users_list:
-            user_email = user.email if hasattr(user, 'email') else user.get('email')
-            if user_email == email:
-                user_found = user
-                break
-
-        if not user_found:
-            print(f"❌ User {email} not found")
+        if not user_id:
+            console.print(f"[red]❌ User '{identifier}' not found[/red]")
+            console.print("[yellow]💡 Hint: Use 'manage_users.py list' to see all users[/yellow]")
             return False
 
-        user_id = user_found.id if hasattr(user_found, 'id') else user_found.get('id')
+        console.print(f"[green]✓ Found user: {found_identifier} (via {id_type})[/green]")
 
         # Update role in user_profiles
         update_response = supabase.table('user_profiles').update({
@@ -276,15 +323,129 @@ def update_user_role(supabase, email, new_role):
         }).eq('id', user_id).execute()
 
         if update_response.data:
-            print(f"✅ Role updated successfully for {email}")
-            print(f"👤 New role: {new_role}")
+            console.print(f"\n[bold green]✅ Role updated successfully![/bold green]")
+            console.print(f"  User: [cyan]{found_identifier}[/cyan]")
+            console.print(f"  New role: [yellow]{new_role}[/yellow]")
             return True
         else:
-            print(f"❌ Role update failed")
+            console.print("[red]❌ Role update failed[/red]")
             return False
 
     except Exception as e:
-        print(f"❌ Error updating role: {e}")
+        console.print(f"[red]❌ Error updating role: {e}[/red]")
+        return False
+
+def update_user_team(supabase, identifier, team_id):
+    """Update a user's team assignment."""
+    try:
+        console.print(f"[cyan]🔍 Looking up user: {identifier}[/cyan]")
+
+        # Check if identifier looks like email or username
+        if '@' in identifier:
+            # Search by email
+            response = supabase.auth.admin.list_users()
+            users_list = response if isinstance(response, list) else getattr(response, 'data', {}).get('users', [])
+
+            user_found = None
+            for user in users_list:
+                user_email = user.email if hasattr(user, 'email') else user.get('email')
+                if user_email == identifier:
+                    user_found = user
+                    break
+
+            if not user_found:
+                console.print(f"[red]❌ User {identifier} not found[/red]")
+                return False
+
+            user_id = user_found.id if hasattr(user_found, 'id') else user_found.get('id')
+        else:
+            # Search by username in user_profiles
+            profile_response = supabase.table('user_profiles').select('id, username, display_name, role').eq('username', identifier).execute()
+
+            if not profile_response.data:
+                console.print(f"[red]❌ User with username '{identifier}' not found[/red]")
+                return False
+
+            user_id = profile_response.data[0]['id']
+
+        # Get team info to verify it exists
+        team_response = supabase.table('teams').select('id, name, city').eq('id', team_id).execute()
+
+        if not team_response.data:
+            console.print(f"[red]❌ Team ID {team_id} not found[/red]")
+            console.print("[yellow]💡 Hint: Use 'manage_users.py teams' to list all teams[/yellow]")
+            return False
+
+        team_info = team_response.data[0]
+        console.print(f"[green]✓ Found team: {team_info['name']} (ID: {team_info['id']})[/green]")
+
+        # Get current user info
+        profile_response = supabase.table('user_profiles').select('username, display_name, role, team_id').eq('id', user_id).execute()
+        current_profile = profile_response.data[0] if profile_response.data else {}
+
+        # Update team_id in user_profiles
+        update_response = supabase.table('user_profiles').update({
+            'team_id': team_id
+        }).eq('id', user_id).execute()
+
+        if update_response.data:
+            console.print(f"\n[bold green]✅ Team assignment updated successfully![/bold green]")
+            console.print(f"  User: [cyan]{current_profile.get('username') or current_profile.get('display_name', 'N/A')}[/cyan]")
+            console.print(f"  Role: [yellow]{current_profile.get('role', 'N/A')}[/yellow]")
+            console.print(f"  Previous Team: [dim]{current_profile.get('team_id', 'None')}[/dim]")
+            console.print(f"  New Team: [green]{team_info['name']} [ID: {team_id}][/green]")
+            return True
+        else:
+            console.print("[red]❌ Team assignment failed[/red]")
+            return False
+
+    except Exception as e:
+        console.print(f"[red]❌ Error updating team: {e}[/red]")
+        return False
+
+def list_teams(supabase):
+    """List all teams in the system."""
+    try:
+        console.print("[cyan]📋 Fetching all teams...[/cyan]\n")
+
+        # Get all teams (basic info only due to schema)
+        teams_response = supabase.table('teams').select('id, name, city, academy_team').order('name').execute()
+
+        if not teams_response.data:
+            console.print("[yellow]No teams found[/yellow]")
+            return True
+
+        console.print(f"[bold cyan]🏆 Found {len(teams_response.data)} teams:[/bold cyan]\n")
+
+        # Create a rich table
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            show_lines=True,
+            box=box.ROUNDED,
+            row_styles=["", "dim"]
+        )
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Team Name", style="green")
+        table.add_column("City", style="blue")
+        table.add_column("Type", style="dim")
+
+        for team in teams_response.data:
+            team_id = str(team['id'])
+            team_name = team['name']
+            city = team.get('city', 'N/A')
+
+            # Team type
+            team_type = "Academy" if team.get('academy_team') else "Regular"
+
+            table.add_row(team_id, team_name, city, team_type)
+
+        console.print(table)
+        console.print("\n[dim]💡 Tip: Use 'manage_users.py team --user USERNAME --team-id ID' to assign users to teams[/dim]")
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ Error listing teams: {e}[/red]")
         return False
 
 def get_user_info(supabase, email):
@@ -421,16 +582,16 @@ def create_command(
 
 @app.command("role")
 def role_command(
-    email: str = typer.Option(..., "--email", "-e", help="User email"),
+    user: str = typer.Option(..., "--user", "-u", help="Username or email"),
     role: str = typer.Option(..., "--role", "-r", help="New role"),
     confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts")
 ):
-    """Update a user's role."""
+    """Update a user's role (accepts username or email)."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
     console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
 
     if not confirm:
-        if not Confirm.ask(f"⚠️  Change role for {email} to {role}?"):
+        if not Confirm.ask(f"⚠️  Change role for {user} to {role}?"):
             console.print("[yellow]❌ Role change cancelled[/yellow]")
             raise typer.Exit(0)
 
@@ -440,7 +601,7 @@ def role_command(
     if not supabase:
         raise typer.Exit(1)
 
-    success = update_user_role(supabase, email, role)
+    success = update_user_role(supabase, user, role)
     if success:
         console.print("\n[green]🎉 Operation completed successfully![/green]")
     else:
@@ -535,6 +696,55 @@ def delete_command(
         console.print("\n[green]🎉 Deletion completed successfully![/green]")
     else:
         console.print("\n[red]💥 Deletion failed![/red]")
+        raise typer.Exit(1)
+
+
+@app.command("team")
+def team_command(
+    user: str = typer.Option(..., "--user", "-u", help="User email or username"),
+    team_id: int = typer.Option(..., "--team-id", "-t", help="Team ID to assign"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts")
+):
+    """Assign a user to a team."""
+    console.print("[bold cyan]👥 User Team Assignment Tool[/bold cyan]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    if not confirm:
+        if not Confirm.ask(f"⚠️  Assign {user} to team ID {team_id}?"):
+            console.print("[yellow]❌ Team assignment cancelled[/yellow]")
+            raise typer.Exit(0)
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    success = update_user_team(supabase, user, team_id)
+    if success:
+        console.print("\n[green]🎉 Operation completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Operation failed![/red]")
+        raise typer.Exit(1)
+
+
+@app.command("teams")
+def teams_command():
+    """List all teams in the system."""
+    console.print("[bold cyan]🏆 Team Management Tool[/bold cyan]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    success = list_teams(supabase)
+    if success:
+        console.print("\n[green]🎉 Operation completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Operation failed![/red]")
         raise typer.Exit(1)
 
 
