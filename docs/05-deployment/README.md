@@ -15,6 +15,7 @@ Documentation for deploying the Missing Table application across different envir
 | **[Production Runbook](production-runbook.md)** | ⭐ Complete production operations guide |
 | **[GKE Deployment](gke-deployment.md)** | Google Kubernetes Engine deployment |
 | **[HTTPS Setup](https-setup.md)** | SSL certificates and custom domains |
+| **[HTTPS Architecture](https-architecture.md)** | 📚 **Learning Guide** - How HTTPS and load balancers work |
 | **[Quick Reference](https-quick-reference.md)** | Common commands and troubleshooting |
 | **[Docker Compose](docker-compose.md)** | Local containerized deployment |
 | **[Kubernetes](kubernetes.md)** | K8s concepts and configuration |
