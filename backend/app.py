@@ -152,6 +152,8 @@ def get_cors_origins():
     production_origins = [
         "https://missingtable.com",
         "https://www.missingtable.com",
+        "http://missingtable.com",  # Fallback for users accessing via HTTP (redirect doesn't work yet)
+        "http://www.missingtable.com",
     ]
 
     # Allow additional CORS origins from environment variable
