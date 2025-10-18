@@ -184,11 +184,11 @@ jobs:
       frontend_image: ${{ needs.build-and-push.outputs.frontend-image }}
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL_PROD }}
-      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY_PROD }}
-      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY_PROD }}
-      SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET_PROD }}
-      SERVICE_ACCOUNT_SECRET: ${{ secrets.SERVICE_ACCOUNT_SECRET_PROD }}
-      RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME_PROD }}
-      RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD_PROD }}
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_KEY }}
+      SUPABASE_JWT_SECRET: ${{ secrets.PROD_SUPABASE_JWT_SECRET }}
+      SERVICE_ACCOUNT_SECRET: ${{ secrets.PROD_SERVICE_ACCOUNT_SECRET }}
+      RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
+      RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
