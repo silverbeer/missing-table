@@ -159,8 +159,8 @@ jobs:
       gke_cluster: missing-table-dev  # Use dev cluster with separate namespace
       gcp_region: us-central1
       deployment_url: https://missingtable.com
-      replica_count_backend: 2  # Production uses 2 replicas for HA
-      replica_count_frontend: 2  # Production uses 2 replicas for HA
+      replica_count_backend: 1  # Temporary: reduced due to memory constraints
+      replica_count_frontend: 1  # Temporary: reduced due to memory constraints
       helm_timeout: '15m'  # Longer timeout for production
       health_check_retries: 10  # More retries for production
       health_check_delay: 15  # Longer delay between retries
