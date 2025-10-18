@@ -106,7 +106,7 @@ backend:
   
   service:
     loadBalancer:
-      enabled: true
+      enabled: false  # Disabled in favor of Ingress for external access
       port: 8000
 
 # Frontend configuration
@@ -153,7 +153,7 @@ frontend:
     periodSeconds: 5
   
   service:
-    type: LoadBalancer
+    type: ClusterIP  # Changed from LoadBalancer - using Ingress for external access
     loadBalancerIP: ""  # Let Rancher Desktop assign
 
 # Celery Worker configuration
