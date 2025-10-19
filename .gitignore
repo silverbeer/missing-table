@@ -100,3 +100,9 @@ frontend/build.env
 frontend/.env.build
 !frontend/build.env.example
 !frontend/.env.build.example
+
+# K3s Kubernetes secrets and configs
+# Keep templates (*.template) but ignore actual files
+k3s/worker/configmap-*.yaml
+k3s/worker/secret-*.yaml
+!k3s/worker/*.template
