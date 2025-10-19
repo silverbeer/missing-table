@@ -41,9 +41,15 @@ class DatabaseTask(Task):
         Check if the existing match needs to be updated based on new data.
 
         Returns True if any of these conditions are met:
-        - Status changed (scheduled → played)
+        - Status changed (scheduled → tbd, tbd → completed, etc.)
         - Scores changed (were null, now have values)
         - Scores were updated (different values)
+
+        Status transition examples:
+        - scheduled → tbd: Match played, awaiting score
+        - tbd → tbd: No change (skip)
+        - tbd → completed: Score posted (update with scores)
+        - scheduled → completed: Direct completion (skip tbd)
         """
         # Check status change
         existing_status = existing_match.get('match_status', 'scheduled')

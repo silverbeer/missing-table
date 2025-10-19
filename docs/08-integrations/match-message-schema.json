@@ -3,7 +3,7 @@
   "$id": "https://missingtable.com/schemas/match-message-v1.json",
   "title": "Match Data Message Contract",
   "description": "Message format for match data submitted from match-scraper to RabbitMQ/Celery workers. This is the canonical contract between the producer (match-scraper) and consumer (celery workers).",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "object",
   "required": [
     "home_team",
@@ -69,8 +69,8 @@
     },
     "status": {
       "type": ["string", "null"],
-      "enum": ["scheduled", "completed", "postponed", "cancelled", null],
-      "description": "Match status",
+      "enum": ["scheduled", "tbd", "completed", "postponed", "cancelled", null],
+      "description": "Match status. 'tbd' (to be determined) indicates match has been played but score is not yet available.",
       "example": "completed"
     },
     "match_id": {
@@ -115,6 +115,18 @@
       "score_home": null,
       "score_away": null,
       "status": "scheduled"
+    },
+    {
+      "home_team": "Team C",
+      "away_team": "Team D",
+      "date": "2025-10-15",
+      "season": "2024-25",
+      "age_group": "U18",
+      "match_type": "League",
+      "score_home": null,
+      "score_away": null,
+      "status": "tbd",
+      "notes": "Match played, score pending from source"
     }
   ],
   "definitions": {

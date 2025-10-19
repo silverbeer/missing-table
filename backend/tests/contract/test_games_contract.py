@@ -195,7 +195,7 @@ class TestGamesBusinessLogic:
         """Test that games have valid status values."""
         games = api_client.get_games(limit=10)
 
-        valid_statuses = ["scheduled", "played", "postponed", "cancelled", "completed"]
+        valid_statuses = ["scheduled", "tbd", "played", "postponed", "cancelled", "completed"]
 
         for game in games:
             status = game.get("status") or game.get("match_status")
