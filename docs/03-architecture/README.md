@@ -288,18 +288,22 @@ Docker Compose
 └── Supabase (local)
 ```
 
-### Cloud Deployment (GKE)
+### Cloud Deployment (GKE) - Hybrid Model
 ```
-Google Kubernetes Engine
+Google Kubernetes Engine (Public Services)
 ├── missing-table-dev namespace
-│   ├── Backend Pods
-│   ├── Frontend Pods
-│   └── Celery Worker Pods (2+ replicas)
-├── messaging namespace
-│   ├── RabbitMQ (message broker)
-│   └── Redis (result backend)
+│   ├── Backend Pods (FastAPI)
+│   └── Frontend Pods (Vue.js)
 └── Supabase Cloud (external)
+
+Local K3s Cluster (Private Messaging)
+└── messaging namespace
+    ├── RabbitMQ (message broker)
+    ├── Redis (result backend)
+    └── Celery Worker Pods (2+ replicas)
 ```
+
+**Architecture Decision**: Redis and Celery workers run exclusively on local K3s (Rancher Desktop) to reduce GKE costs (~$72/month → ~$5/month) while maintaining all async processing capabilities.
 
 See: [Deployment Documentation](../05-deployment/)
 

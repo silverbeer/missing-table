@@ -617,8 +617,10 @@ Key API routes in the backend:
 The application is being enhanced with a distributed messaging system using RabbitMQ and Celery to enable asynchronous processing of match data from the match-scraper.
 
 **Architecture:** Hybrid deployment model
-- **Cloud (GKE):** Frontend + Backend API (public services) - unchanged
-- **Local (K3s):** RabbitMQ + Celery Workers + Redis (private messaging infrastructure) - new
+- **Cloud (GKE):** Frontend + Backend API ONLY (public services)
+- **Local (K3s):** RabbitMQ + Celery Workers + Redis (private messaging infrastructure)
+
+**Important:** Redis and Celery workers are NOT deployed to GKE to save costs and align with the hybrid architecture. These components run exclusively on your local K3s cluster (Rancher Desktop).
 
 **Implementation Tracking:**
 - Feature Branch: `feature/rabbitmq-celery-integration`
