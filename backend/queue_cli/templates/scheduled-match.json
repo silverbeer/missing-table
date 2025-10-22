@@ -1,0 +1,14 @@
+{
+  "home_team": "Chicago Fire Juniors",
+  "away_team": "Indiana Fire Academy",
+  "match_date": "2025-11-15T14:00:00Z",
+  "season": "2024-25",
+  "age_group": "U16",
+  "division": "Central",
+  "home_score": null,
+  "away_score": null,
+  "match_status": "scheduled",
+  "match_type": "League",
+  "external_match_id": "test-match-002",
+  "location": "Away Field"
+}

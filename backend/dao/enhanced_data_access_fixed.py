@@ -364,6 +364,29 @@ class EnhancedSportsDAO:
             print(f"Error getting team by name '{name}': {e}")
             return None
 
+    def get_age_group_by_name(self, name: str) -> dict | None:
+        """Get an age group by name (case-insensitive exact match).
+
+        Returns the age group record (id, name).
+        For match-scraper integration, this helps look up age groups by name.
+        """
+        try:
+            response = (
+                self.client.table("age_groups")
+                .select("id, name")
+                .ilike("name", name)  # Case-insensitive match
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+
+        except Exception as e:
+            print(f"Error getting age group by name '{name}': {e}")
+            return None
+
     def get_match_by_external_id(self, external_match_id: str) -> dict | None:
         """Get a match by its external match_id (from match-scraper).
 
@@ -424,6 +447,118 @@ class EnhancedSportsDAO:
         except Exception as e:
             print(f"Error getting match by external ID '{external_match_id}': {e}")
             return None
+
+    def get_match_by_teams_and_date(
+        self,
+        home_team_id: int,
+        away_team_id: int,
+        match_date: str,
+        age_group_id: int | None = None
+    ) -> dict | None:
+        """Get a match by home/away teams, date, and optionally age group.
+
+        This is used as a fallback for deduplication when match_id is not populated
+        (e.g., manually-entered matches without external match IDs).
+
+        Args:
+            home_team_id: Database ID of home team
+            away_team_id: Database ID of away team
+            match_date: ISO format date string (YYYY-MM-DD)
+            age_group_id: Optional database ID of age group (recommended to avoid false matches)
+
+        Returns:
+            Match dict with flattened structure, or None if not found
+        """
+        try:
+            query = (
+                self.client.table("matches")
+                .select("""
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name),
+                    season:seasons(id, name),
+                    age_group:age_groups(id, name),
+                    match_type:match_types(id, name),
+                    division:divisions(id, name)
+                """)
+                .eq("home_team_id", home_team_id)
+                .eq("away_team_id", away_team_id)
+                .eq("match_date", match_date)
+            )
+
+            # Add age_group filter if provided (prevents matching different age groups)
+            if age_group_id is not None:
+                query = query.eq("age_group_id", age_group_id)
+
+            response = query.limit(1).execute()
+
+            if response.data and len(response.data) > 0:
+                match = response.data[0]
+                # Flatten to match format from get_match_by_id
+                flat_match = {
+                    "id": match["id"],
+                    "match_date": match["match_date"],
+                    "home_team_id": match["home_team_id"],
+                    "away_team_id": match["away_team_id"],
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "season_id": match["season_id"],
+                    "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+                    "age_group_id": match["age_group_id"],
+                    "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "match_type_id": match["match_type_id"],
+                    "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
+                    "division_id": match.get("division_id"),
+                    "division_name": match["division"]["name"] if match.get("division") else "Unknown",
+                    "match_status": match.get("match_status"),
+                    "created_by": match.get("created_by"),
+                    "updated_by": match.get("updated_by"),
+                    "source": match.get("source", "manual"),
+                    "match_id": match.get("match_id"),
+                    "created_at": match["created_at"],
+                    "updated_at": match["updated_at"],
+                }
+                return flat_match
+            return None
+
+        except Exception as e:
+            print(f"Error getting match by teams and date: {e}")
+            return None
+
+    def update_match_external_id(self, match_id: int, external_match_id: str) -> bool:
+        """Update only the external match_id field on an existing match.
+
+        This is used when a manually-entered match is matched with a scraped match,
+        allowing future scrapes to use the external_match_id for deduplication.
+
+        Args:
+            match_id: Database ID of the match to update
+            external_match_id: External match ID from match-scraper (e.g., "98966")
+
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            response = (
+                self.client.table("matches")
+                .update({
+                    "match_id": external_match_id,
+                    "source": "match-scraper",  # Update source to indicate scraper now manages this
+                })
+                .eq("id", match_id)
+                .execute()
+            )
+
+            if response.data:
+                print(f"Updated match {match_id} with external match_id: {external_match_id}")
+                return True
+            return False
+
+        except Exception as e:
+            print(f"Error updating match external_id: {e}")
+            return False
 
     def create_match(
         self,
@@ -584,7 +719,7 @@ class EnhancedSportsDAO:
             print(f"Error querying matches: {e}")
             return []
 
-    def get_matches_by_team(self, team_id: int, season_id: int | None = None) -> list[dict]:
+    def get_matches_by_team(self, team_id: int, season_id: int | None = None, age_group_id: int | None = None) -> list[dict]:
         """Get all matches for a specific team."""
         try:
             query = (
@@ -603,6 +738,9 @@ class EnhancedSportsDAO:
 
             if season_id:
                 query = query.eq("season_id", season_id)
+
+            if age_group_id:
+                query = query.eq("age_group_id", age_group_id)
 
             response = query.order("match_date", desc=True).execute()
 
@@ -784,9 +922,15 @@ class EnhancedSportsDAO:
                 .execute()
             )
 
-            # Small delay to allow Supabase cache to update (read-after-write consistency)
+            # Check if update actually affected any rows
+            if not response.data or len(response.data) == 0:
+                print(f"WARNING: Update match {match_id} failed - no rows affected")
+                # Return None to signal failure
+                return None
+
+            # Delay to allow Supabase cache to update (read-after-write consistency)
             import time
-            time.sleep(0.1)  # 100ms delay
+            time.sleep(0.3)  # 300ms delay - increased for reliable read-after-write
 
             # Get the updated match to return with full relations
             return self.get_match_by_id(match_id)
@@ -901,14 +1045,14 @@ class EnhancedSportsDAO:
             # Filter by match type name and status
             matches = [m for m in response.data if m.get("match_type", {}).get("name") == match_type]
 
-            # Filter to only include played matches (exclude scheduled/postponed/cancelled)
+            # Filter to only include completed matches (exclude scheduled/postponed/cancelled)
             # Use match_status field if available, otherwise fallback to date-based logic for backwards compatibility
             played_matches = []
             for match in matches:
                 match_status = match.get("match_status")
                 if match_status:
                     # Use match_status field if available
-                    if match_status == "played":
+                    if match_status == "completed":
                         played_matches.append(match)
                 else:
                     # Fallback to date-based logic for backwards compatibility
