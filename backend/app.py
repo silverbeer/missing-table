@@ -95,15 +95,10 @@ def load_environment():
 
 load_environment()
 
-# Configure logging with environment-based level
-log_level = os.getenv('LOG_LEVEL', 'info').upper()
-logging.basicConfig(
-    level=getattr(logging, log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-
-logger = logging.getLogger(__name__)
+# Configure structured logging with JSON output for Loki
+from logging_config import setup_logging, get_logger
+setup_logging(service_name="backend")
+logger = get_logger(__name__)
 
 app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
 
@@ -153,7 +148,7 @@ def get_cors_origins():
         "https://dev.missingtable.com",
     ]
 
-    # Add production origins
+    # Add production origins (HTTPS only - HTTP redirects to HTTPS via FrontendConfig)
     production_origins = [
         "https://missingtable.com",
         "https://www.missingtable.com",
@@ -302,6 +297,10 @@ class RefreshTokenRequest(BaseModel):
 
 # === Include API Routers ===
 app.include_router(invites_router)
+
+# Version endpoint
+from endpoints.version import router as version_router
+app.include_router(version_router)
 
 # === Authentication Endpoints ===
 
@@ -1225,7 +1224,7 @@ async def patch_match(
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
         # Validate match_status if provided (must match database CHECK constraint)
-        valid_statuses = ["scheduled", "live", "played", "postponed", "cancelled"]
+        valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled"]
         status_to_check = match_patch.match_status or match_patch.status
         if status_to_check is not None and status_to_check not in valid_statuses:
             raise HTTPException(
@@ -1295,11 +1294,13 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
 
 @app.get("/api/matches/team/{team_id}")
 async def get_matches_by_team(
-    team_id: int, season_id: int | None = Query(None, description="Filter by season ID")
+    team_id: int,
+    season_id: int | None = Query(None, description="Filter by season ID"),
+    age_group_id: int | None = Query(None, description="Filter by age group ID")
 ):
     """Get matches for a specific team."""
     try:
-        matches = sports_dao.get_matches_by_team(team_id, season_id=season_id)
+        matches = sports_dao.get_matches_by_team(team_id, season_id=season_id, age_group_id=age_group_id)
         # Return empty array if no matches found - this is not an error condition
         return matches if matches else []
     except Exception as e:

@@ -48,7 +48,6 @@ export const API_ENDPOINTS = {
   AGE_GROUPS: `${API_BASE_URL}/api/age-groups`,
   SEASONS: `${API_BASE_URL}/api/seasons`,
   MATCHES: `${API_BASE_URL}/api/matches`,
-  STANDINGS: `${API_BASE_URL}/api/standings`,
 };
 
 console.log('API Configuration:', {

@@ -16,7 +16,7 @@
       <!-- Hero Section -->
       <div class="text-center mb-8">
         <h1 class="text-4xl font-bold text-blue-600 mb-2">
-          The standings you've been missing.
+          The table you've been missing.
         </h1>
         <p class="text-lg text-gray-600">
           Community-built standings, tracking the top youth soccer leagues in
@@ -125,6 +125,9 @@
           </div>
         </div>
       </div>
+
+      <!-- Version Footer -->
+      <VersionFooter />
     </div>
   </div>
 </template>
@@ -139,6 +142,7 @@ import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
 import ProfileRouter from './components/ProfileRouter.vue';
 import AdminPanel from './components/AdminPanel.vue';
+import VersionFooter from './components/VersionFooter.vue';
 
 export default {
   name: 'App',
@@ -150,6 +154,7 @@ export default {
     LoginForm,
     ProfileRouter,
     AdminPanel,
+    VersionFooter,
   },
   setup() {
     const authStore = useAuthStore();
@@ -158,7 +163,7 @@ export default {
 
     // Define all possible tabs
     const allTabs = [
-      { id: 'table', name: 'Standings', requiresAuth: true },
+      { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
       {
         id: 'add-match',

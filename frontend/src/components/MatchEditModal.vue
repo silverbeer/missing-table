@@ -180,7 +180,7 @@
             >
               <option value="scheduled">Scheduled</option>
               <option value="live">Live</option>
-              <option value="played">Played</option>
+              <option value="completed">Completed</option>
               <option value="postponed">Postponed</option>
               <option value="cancelled">Cancelled</option>
             </select>

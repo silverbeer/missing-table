@@ -63,13 +63,15 @@ spec:
         # Non-sensitive configuration
         - name: REDIS_URL
           value: "redis://{{ include "missing-table.fullname" . }}-redis:6379"
+        {{- if .Values.celeryWorker.enabled }}
         # Celery/RabbitMQ configuration (for async API endpoints)
         - name: CELERY_BROKER_URL
-          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
         - name: CELERY_RESULT_BACKEND
-          value: "redis://messaging-redis.messaging.svc.cluster.local:6379/0"
+          value: "redis://messaging-redis:6379/0"
         - name: RABBITMQ_URL
-          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
+        {{- end }}
         - name: ENVIRONMENT
           value: {{ .Values.backend.env.environment | quote }}
         - name: LOG_LEVEL

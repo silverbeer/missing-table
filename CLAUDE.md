@@ -152,6 +152,87 @@ The dev environment is deployed to GKE with HTTPS and custom domain:
 - [GKE HTTPS & Domain Setup Guide](./docs/GKE_HTTPS_DOMAIN_SETUP.md) - Full step-by-step guide
 - [Quick Reference](./docs/HTTPS_QUICK_REFERENCE.md) - Common commands and troubleshooting
 
+### Production Environment
+
+The production environment is deployed to GKE with HTTPS and custom domain:
+- **Production URL:** https://missingtable.com
+- **Dev URL:** https://dev.missingtable.com
+- **GKE Cluster:** `missing-table-prod` (production), `missing-table-dev` (development)
+- **SSL:** Google-managed certificates (auto-renewing)
+- **Database:** Supabase (separate production and dev projects)
+
+#### Deployment Workflows
+
+**Automated CI/CD:**
+- **Feature branches → Dev:** Commits to feature branches automatically deploy to dev
+- **Main branch → Production:** Merging PR to main automatically deploys to production
+- **Automatic rollback:** Production deployments rollback automatically on failure
+- **Versioning:** Semantic versioning with build IDs (e.g., v1.0.0-build.123)
+
+**Key files:**
+- `.github/workflows/deploy-dev.yml` - Auto-deploy to dev on feature branch push
+- `.github/workflows/deploy-prod.yml` - Auto-deploy to prod on main branch push
+- `VERSION` - Semantic version file (MAJOR.MINOR.PATCH)
+- `scripts/version-bump.sh` - Bump version (major/minor/patch)
+- `scripts/deploy-prod.sh` - Manual production deployment (emergency only)
+- `scripts/health-check.sh` - Health check utility for all environments
+
+#### Version Management
+
+```bash
+# Bump version
+./scripts/version-bump.sh major    # 1.0.0 -> 2.0.0
+./scripts/version-bump.sh minor    # 1.0.0 -> 1.1.0
+./scripts/version-bump.sh patch    # 1.0.0 -> 1.0.1 (default)
+
+# After bumping, commit and push to trigger deployment
+git add VERSION
+git commit -m "chore: bump version to $(cat VERSION)"
+git push origin main  # Triggers production deployment
+```
+
+#### Health Checks
+
+```bash
+# Check dev environment
+./scripts/health-check.sh dev
+
+# Check production environment
+./scripts/health-check.sh prod
+
+# Check custom URL
+./scripts/health-check.sh https://custom.example.com
+
+# Interactive mode
+./scripts/health-check.sh
+```
+
+#### Production Deployment
+
+**Automated (Recommended):**
+```bash
+# 1. Create PR from feature branch
+# 2. Review and approve PR
+# 3. Merge to main - triggers automatic deployment
+# 4. Monitor: https://github.com/silverbeer/missing-table/actions
+```
+
+**Manual (Emergency Only):**
+```bash
+# Interactive deployment
+./scripts/deploy-prod.sh
+
+# Deploy specific version
+./scripts/deploy-prod.sh --version v1.2.3
+
+# Rollback production
+helm rollback missing-table -n missing-table-prod
+```
+
+**Documentation:**
+- [Production Runbook](./docs/05-deployment/production-runbook.md) - Complete operations guide
+- [Deployment Guide](./docs/05-deployment/README.md) - Deployment overview
+
 ### Secret Management (GKE)
 
 **SECURITY:** Secrets are managed using Kubernetes Secrets and are NEVER committed to git.
@@ -620,5 +701,5 @@ This file contains **quick reference commands only**. For comprehensive informat
 
 ---
 
-**Last Updated**: 2025-10-11
+**Last Updated**: 2025-10-22
 **Documentation Standards**: [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)

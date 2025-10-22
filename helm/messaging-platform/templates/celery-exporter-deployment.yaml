@@ -1,0 +1,55 @@
+{{- if .Values.celeryExporter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "messaging-platform.fullname" . }}-celery-exporter
+  labels:
+    app: celery-exporter
+    {{- include "messaging-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.celeryExporter.replicaCount }}
+  selector:
+    matchLabels:
+      app: celery-exporter
+  template:
+    metadata:
+      labels:
+        app: celery-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9808"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: celery-exporter
+        image: "{{ .Values.celeryExporter.image.repository }}:{{ .Values.celeryExporter.image.tag }}"
+        imagePullPolicy: {{ .Values.celeryExporter.image.pullPolicy }}
+        ports:
+        - containerPort: 9808
+          name: metrics
+          protocol: TCP
+        env:
+        - name: CELERY_BROKER_URL
+          value: "amqp://{{ .Values.rabbitmq.auth.username }}:{{ .Values.rabbitmq.auth.password }}@{{ include "messaging-platform.fullname" . }}-rabbitmq:5672//"
+        {{- if .Values.redis.enabled }}
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://{{ include "messaging-platform.fullname" . }}-redis:6379/0"
+        {{- end }}
+        - name: CELERY_EXPORTER_BROKER_TRANSPORT_OPTIONS
+          value: '{"max_retries": 3, "interval_start": 0, "interval_step": 0.2, "interval_max": 0.5}'
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9808
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9808
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+        resources:
+          {{- toYaml .Values.celeryExporter.resources | nindent 10 }}
+{{- end }}

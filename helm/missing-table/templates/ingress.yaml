@@ -1,0 +1,48 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "missing-table.fullname" . }}-ingress
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.ingress.staticIpName }}
+    networking.gke.io/managed-certificates: {{ include "missing-table.fullname" . }}-cert
+    networking.gke.io/v1beta1.FrontendConfig: {{ include "missing-table.fullname" . }}-frontend-config
+    # Allow HTTP traffic (will be redirected to HTTPS by FrontendConfig)
+    kubernetes.io/ingress.allow-http: "true"
+spec:
+  rules:
+  {{- range .Values.ingress.hosts }}
+  - host: {{ . }}
+    http:
+      paths:
+      # API endpoints
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "missing-table.fullname" $ }}-backend
+            port:
+              number: 8000
+      # Health check endpoint
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "missing-table.fullname" $ }}-backend
+            port:
+              number: 8000
+      # Frontend (catch-all)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "missing-table.fullname" $ }}-frontend
+            port:
+              number: 8080
+  {{- end }}
+{{- end }}

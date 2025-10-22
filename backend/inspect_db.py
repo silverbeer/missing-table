@@ -499,6 +499,8 @@ def stats():
     age_groups_count = len(supabase.table("age_groups").select("id", count="exact").execute().data)
     divisions_count = len(supabase.table("divisions").select("id", count="exact").execute().data)
     seasons_count = len(supabase.table("seasons").select("id", count="exact").execute().data)
+    user_profiles_count = len(supabase.table("user_profiles").select("id", count="exact").execute().data)
+    team_match_types_count = len(supabase.table("team_match_types").select("id", count="exact").execute().data)
 
     table = Table(title="Database Statistics", show_header=True, header_style="bold magenta")
     table.add_column("Table", style="cyan")
@@ -509,6 +511,8 @@ def stats():
     table.add_row("Age Groups", str(age_groups_count))
     table.add_row("Divisions", str(divisions_count))
     table.add_row("Seasons", str(seasons_count))
+    table.add_row("User Profiles", str(user_profiles_count))
+    table.add_row("Team Match Types", str(team_match_types_count))
 
     console.print(table)
 
@@ -519,6 +523,8 @@ def stats():
     console.print(f"[dim italic]GET /age_groups?select=id&count=exact[/dim italic]")
     console.print(f"[dim italic]GET /divisions?select=id&count=exact[/dim italic]")
     console.print(f"[dim italic]GET /seasons?select=id&count=exact[/dim italic]")
+    console.print(f"[dim italic]GET /user_profiles?select=id&count=exact[/dim italic]")
+    console.print(f"[dim italic]GET /team_match_types?select=id&count=exact[/dim italic]")
 
 
 if __name__ == "__main__":

@@ -106,7 +106,7 @@ backend:
   
   service:
     loadBalancer:
-      enabled: true
+      enabled: false  # Disabled in favor of Ingress for external access
       port: 8000
 
 # Frontend configuration
@@ -153,10 +153,35 @@ frontend:
     periodSeconds: 5
   
   service:
-    type: LoadBalancer
+    type: ClusterIP  # Changed from LoadBalancer - using Ingress for external access
     loadBalancerIP: ""  # Let Rancher Desktop assign
+
+# Celery Worker configuration
+celeryWorker:
+  enabled: false  # Disabled until RabbitMQ/Celery integration is complete
+  replicaCount: 2
+
+  rabbitmq:
+    username: "admin"
+    password: "admin"
+    host: "messaging-rabbitmq.messaging.svc.cluster.local"
+    port: 5672
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
 
 # Service Account configuration
 serviceAccount:
   create: false
   name: ""
+
+# Ingress configuration
+ingress:
+  enabled: false  # Disabled by default, enable in environment-specific values
+  staticIpName: ""  # Set in environment-specific values (e.g., "missing-table-prod-ip")
+  hosts: []  # List of hostnames (e.g., ["missingtable.com", "www.missingtable.com"])

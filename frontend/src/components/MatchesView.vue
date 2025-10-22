@@ -316,7 +316,8 @@
               <td class="border-b text-center">
                 <span
                   v-if="
-                    match.match_status === 'played' && getResult(match) !== '-'
+                    match.match_status === 'completed' &&
+                    getResult(match) !== '-'
                   "
                   class="px-2 py-1 rounded-full text-sm font-bold"
                   :class="{
@@ -337,7 +338,7 @@
                   :class="{
                     'px-2 py-1 rounded text-xs font-medium': true,
                     'bg-green-100 text-green-800':
-                      match.match_status === 'played',
+                      match.match_status === 'completed',
                     'bg-blue-100 text-blue-800':
                       match.match_status === 'scheduled',
                     'bg-yellow-100 text-yellow-800':
@@ -423,7 +424,8 @@
                 </span>
                 <span
                   v-if="
-                    match.match_status === 'played' && getResult(match) !== '-'
+                    match.match_status === 'completed' &&
+                    getResult(match) !== '-'
                   "
                   class="px-3 py-1 rounded-full text-sm font-bold"
                   :class="{
@@ -451,7 +453,7 @@
                   class="ml-1 px-2 py-0.5 rounded text-xs font-medium"
                   :class="{
                     'bg-green-100 text-green-800':
-                      match.match_status === 'played',
+                      match.match_status === 'completed',
                     'bg-blue-100 text-blue-800':
                       match.match_status === 'scheduled',
                     'bg-yellow-100 text-yellow-800':
@@ -633,9 +635,11 @@ export default {
           'Fetching matches for team:',
           selectedTeam.value,
           'season:',
-          selectedSeasonId.value
+          selectedSeasonId.value,
+          'age_group:',
+          selectedAgeGroupId.value
         );
-        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}`;
+        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}`;
         matches.value = await authStore.apiRequest(url);
         console.log('Games received:', matches.value);
       } catch (err) {
@@ -663,8 +667,8 @@ export default {
     };
 
     const getScoreDisplay = match => {
-      // Show scores for matches that have been played OR are currently live
-      if (match.match_status !== 'played' && match.match_status !== 'live') {
+      // Show scores for matches that have been completed OR are currently live
+      if (match.match_status !== 'completed' && match.match_status !== 'live') {
         return '-'; // Return dash for scheduled/postponed/cancelled matches
       }
 
@@ -705,8 +709,8 @@ export default {
     };
 
     const getResult = match => {
-      // ONLY show results for matches that have been played (not live!)
-      if (match.match_status !== 'played') {
+      // ONLY show results for matches that have been completed (not live!)
+      if (match.match_status !== 'completed') {
         return '-'; // Return dash for live/scheduled/postponed/cancelled matches
       }
 
@@ -720,7 +724,7 @@ export default {
         return '-'; // Return dash if scores haven't been entered yet
       }
 
-      // Determine the result for played matches only
+      // Determine the result for completed matches only
       const selectedTeamId = parseInt(selectedTeam.value);
       if (match.home_team_id === selectedTeamId) {
         return match.home_score > match.away_score
@@ -937,18 +941,18 @@ export default {
 
     // Watch for changes in age group and season to refresh teams and clear selection
     watch([selectedAgeGroupId, selectedSeasonId], () => {
-      // Only clear selection if it's not the player's team
-      if (authStore.userTeamId) {
-        const playerTeamStillAvailable = filteredTeams.value.some(
-          team => team.id === authStore.userTeamId
+      // Check if currently selected team is still available in filtered list
+      if (selectedTeam.value) {
+        const selectedTeamId = parseInt(selectedTeam.value);
+        const teamStillAvailable = filteredTeams.value.some(
+          team => team.id === selectedTeamId
         );
-        if (!playerTeamStillAvailable) {
-          selectedTeam.value = ''; // Clear if player's team not in filtered list
+        if (!teamStillAvailable) {
+          selectedTeam.value = ''; // Clear if selected team not in filtered list
+          matches.value = []; // Clear matches
         }
-      } else {
-        selectedTeam.value = ''; // Clear team selection when filters change
+        // If team is still available, the age group watcher will refetch matches
       }
-      matches.value = []; // Clear matches
     });
 
     // Watch for team changes to fetch matches
@@ -958,6 +962,13 @@ export default {
 
     // Watch for season changes to refetch matches if team is selected
     watch(selectedSeasonId, () => {
+      if (selectedTeam.value) {
+        fetchMatches();
+      }
+    });
+
+    // Watch for age group changes to refetch matches if team is selected
+    watch(selectedAgeGroupId, () => {
       if (selectedTeam.value) {
         fetchMatches();
       }
@@ -990,10 +1001,11 @@ export default {
       }
 
       // Team managers can only edit matches involving their team
-      if (authStore.isTeamManager.value && authStore.userTeamId) {
+      // IMPORTANT: userTeamId is a computed property, so we need .value
+      if (authStore.isTeamManager.value && authStore.userTeamId.value) {
         return (
-          match.home_team_id === authStore.userTeamId ||
-          match.away_team_id === authStore.userTeamId
+          match.home_team_id === authStore.userTeamId.value ||
+          match.away_team_id === authStore.userTeamId.value
         );
       }
 
