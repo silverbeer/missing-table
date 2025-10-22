@@ -41,9 +41,15 @@ class DatabaseTask(Task):
         Check if the existing match needs to be updated based on new data.
 
         Returns True if any of these conditions are met:
-        - Status changed (scheduled → played)
+        - Status changed (scheduled → tbd, tbd → completed, etc.)
         - Scores changed (were null, now have values)
         - Scores were updated (different values)
+
+        Status transition examples:
+        - scheduled → tbd: Match played, awaiting score
+        - tbd → tbd: No change (skip)
+        - tbd → completed: Score posted (update with scores)
+        - scheduled → completed: Direct completion (skip tbd)
         """
         # Check status change
         existing_status = existing_match.get('match_status', 'scheduled')
@@ -203,18 +209,29 @@ def process_match_data(self: DatabaseTask, match_data: Dict[str, Any]) -> Dict[s
             existing_match = self.dao.get_match_by_external_id(external_match_id)
             logger.debug(f"Lookup by external_match_id '{external_match_id}': {'found' if existing_match else 'not found'}")
 
-        # Second try: Fallback to lookup by teams + date (for manually-entered matches)
+        # Second try: Fallback to lookup by teams + date + age_group (for manually-entered matches)
         if not existing_match:
+            # Look up age_group_id if age_group is provided
+            age_group_id = None
+            if match_data.get('age_group'):
+                age_group = self.dao.get_age_group_by_name(match_data['age_group'])
+                if age_group:
+                    age_group_id = age_group['id']
+                else:
+                    logger.warning(f"Age group not found: {match_data['age_group']}")
+
             existing_match = self.dao.get_match_by_teams_and_date(
                 home_team_id=home_team['id'],
                 away_team_id=away_team['id'],
-                match_date=match_data['match_date']
+                match_date=match_data['match_date'],
+                age_group_id=age_group_id
             )
 
             if existing_match:
                 logger.info(
                     f"Found manually-entered match via fallback lookup: "
                     f"{home_team_name} vs {away_team_name} on {match_data['match_date']}"
+                    + (f" ({match_data['age_group']})" if match_data.get('age_group') else "")
                 )
 
                 # If found a match without external_match_id, populate it

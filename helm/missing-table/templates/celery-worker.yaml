@@ -1,4 +1,3 @@
-{{- if .Values.celeryWorker.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -53,13 +52,13 @@ spec:
               key: supabase-jwt-secret
         # Celery/RabbitMQ configuration
         - name: CELERY_BROKER_URL
-          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
         - name: CELERY_RESULT_BACKEND
-          value: "redis://messaging-redis:6379/0"
+          value: "redis://messaging-redis.messaging.svc.cluster.local:6379/0"
         - name: RABBITMQ_URL
-          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.messaging.svc.cluster.local:5672//"
         - name: REDIS_URL
-          value: "redis://messaging-redis:6379/0"
+          value: "redis://messaging-redis.messaging.svc.cluster.local:6379/0"
         # Environment configuration
         - name: ENVIRONMENT
           value: {{ .Values.backend.env.environment | quote }}
@@ -76,4 +75,3 @@ spec:
         resources:
           {{- toYaml .Values.celeryWorker.resources | nindent 10 }}
         # Celery workers don't have HTTP endpoints, so no probes
-{{- end }}

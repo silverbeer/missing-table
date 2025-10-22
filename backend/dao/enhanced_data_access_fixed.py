@@ -364,6 +364,29 @@ class EnhancedSportsDAO:
             print(f"Error getting team by name '{name}': {e}")
             return None
 
+    def get_age_group_by_name(self, name: str) -> dict | None:
+        """Get an age group by name (case-insensitive exact match).
+
+        Returns the age group record (id, name).
+        For match-scraper integration, this helps look up age groups by name.
+        """
+        try:
+            response = (
+                self.client.table("age_groups")
+                .select("id, name")
+                .ilike("name", name)  # Case-insensitive match
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+
+        except Exception as e:
+            print(f"Error getting age group by name '{name}': {e}")
+            return None
+
     def get_match_by_external_id(self, external_match_id: str) -> dict | None:
         """Get a match by its external match_id (from match-scraper).
 
@@ -429,9 +452,10 @@ class EnhancedSportsDAO:
         self,
         home_team_id: int,
         away_team_id: int,
-        match_date: str
+        match_date: str,
+        age_group_id: int | None = None
     ) -> dict | None:
-        """Get a match by home/away teams and date.
+        """Get a match by home/away teams, date, and optionally age group.
 
         This is used as a fallback for deduplication when match_id is not populated
         (e.g., manually-entered matches without external match IDs).
@@ -440,12 +464,13 @@ class EnhancedSportsDAO:
             home_team_id: Database ID of home team
             away_team_id: Database ID of away team
             match_date: ISO format date string (YYYY-MM-DD)
+            age_group_id: Optional database ID of age group (recommended to avoid false matches)
 
         Returns:
             Match dict with flattened structure, or None if not found
         """
         try:
-            response = (
+            query = (
                 self.client.table("matches")
                 .select("""
                     *,
@@ -459,9 +484,13 @@ class EnhancedSportsDAO:
                 .eq("home_team_id", home_team_id)
                 .eq("away_team_id", away_team_id)
                 .eq("match_date", match_date)
-                .limit(1)
-                .execute()
             )
+
+            # Add age_group filter if provided (prevents matching different age groups)
+            if age_group_id is not None:
+                query = query.eq("age_group_id", age_group_id)
+
+            response = query.limit(1).execute()
 
             if response.data and len(response.data) > 0:
                 match = response.data[0]

@@ -1,0 +1,15 @@
+{
+  "home_team": "IFA 2012 Red",
+  "away_team": "Chicago Fire Juniors",
+  "match_date": "2025-10-14T10:00:00Z",
+  "season": "2024-25",
+  "age_group": "U14",
+  "division": "Northeast",
+  "home_score": null,
+  "away_score": null,
+  "match_status": "tbd",
+  "match_type": "League",
+  "external_match_id": "test-match-003",
+  "location": "Neutral Field",
+  "notes": "Match played, awaiting official scores"
+}

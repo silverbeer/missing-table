@@ -5,12 +5,12 @@ Tasks for validating match data before processing.
 These ensure data quality and prevent invalid data from entering the database.
 """
 
+import logging
 from typing import Dict, Any, List
 from datetime import datetime
 from celery_app import app
-from logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @app.task(name='celery_tasks.validation_tasks.validate_match_data')
@@ -102,27 +102,13 @@ def validate_match_data(match_data: Dict[str, Any]) -> Dict[str, Any]:
     elif len(season) < 4:
         warnings.append(f"Unusual season format: {season}")
 
-    # Log validation result with structured data
+    # Log validation result
     if errors:
-        logger.warning(
-            "match_validation_failed",
-            home_team=home_team,
-            away_team=away_team,
-            errors=errors
-        )
+        logger.warning(f"Validation failed for match {home_team} vs {away_team}: {errors}")
     elif warnings:
-        logger.info(
-            "match_validation_warning",
-            home_team=home_team,
-            away_team=away_team,
-            warnings=warnings
-        )
+        logger.info(f"Validation passed with warnings for {home_team} vs {away_team}: {warnings}")
     else:
-        logger.debug(
-            "match_validation_passed",
-            home_team=home_team,
-            away_team=away_team
-        )
+        logger.debug(f"Validation passed for {home_team} vs {away_team}")
 
     return {
         'valid': len(errors) == 0,

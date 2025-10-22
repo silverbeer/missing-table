@@ -18,10 +18,6 @@ spec:
     port: 15672
     targetPort: management
     protocol: TCP
-  - name: prometheus
-    port: 15692
-    targetPort: 15692
-    protocol: TCP
   selector:
     {{- include "messaging-platform.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: rabbitmq

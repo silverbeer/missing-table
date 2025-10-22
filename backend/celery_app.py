@@ -21,10 +21,6 @@ import os
 from celery import Celery
 from kombu import Exchange, Queue
 
-# Configure structured logging for Celery workers
-from logging_config import setup_logging, get_logger
-setup_logging(service_name="celery-worker")
-logger = get_logger(__name__)
 # Celery broker and result backend configuration
 # These can be overridden with environment variables
 # Default to cluster-internal names, fallback to localhost for local development
@@ -74,14 +70,13 @@ app.conf.update(
 
     # Task routing
     task_routes={
-        'celery_tasks.match_tasks.*': {'queue': 'matches'},  # Route to 'matches' queue for match-scraper compatibility
+        'celery_tasks.match_tasks.*': {'queue': 'match_processing'},
         'celery_tasks.validation_tasks.*': {'queue': 'validation'},
     },
 
     # Queue configuration
     task_queues=(
-        Queue('matches', Exchange('matches'), routing_key='matches.*'),  # Primary queue for match-scraper messages
-        Queue('match_processing', Exchange('match_processing'), routing_key='match.*'),  # Legacy queue
+        Queue('match_processing', Exchange('match_processing'), routing_key='match.*'),
         Queue('validation', Exchange('validation'), routing_key='validation.*'),
         Queue('celery', Exchange('celery'), routing_key='celery'),  # Default queue
     ),
@@ -93,14 +88,6 @@ app.conf.update(
 
 # Auto-discover tasks in celery_tasks module
 app.autodiscover_tasks(['celery_tasks'])
-
-# Log Celery app initialization
-logger.info(
-    "celery_app_initialized",
-    broker_url=BROKER_URL.split('@')[-1] if '@' in BROKER_URL else BROKER_URL,  # Hide credentials
-    result_backend=RESULT_BACKEND.split('@')[-1] if '@' in RESULT_BACKEND else RESULT_BACKEND,
-    queues=['matches', 'match_processing', 'validation', 'celery']
-)
 
 if __name__ == '__main__':
     app.start()
