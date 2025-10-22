@@ -620,7 +620,7 @@ The application is being enhanced with a distributed messaging system using Rabb
 - **Cloud (GKE):** Frontend + Backend API ONLY (public services)
 - **Local (K3s):** RabbitMQ + Celery Workers + Redis (private messaging infrastructure)
 
-**Important:** Redis and Celery workers are NOT deployed to GKE to save costs and align with the hybrid architecture. These components run exclusively on your local K3s cluster (Rancher Desktop).
+**Important:** Redis and Celery workers are NOT deployed to GKE to save costs and align with the hybrid architecture. These components run exclusively on your local K3s cluster (Rancher Desktop) in the `match-scraper` namespace.
 
 **Implementation Tracking:**
 - Feature Branch: `feature/rabbitmq-celery-integration`
@@ -636,11 +636,14 @@ kubectl config use-context rancher-desktop
 # Switch to GKE for backend/frontend
 kubectl config use-context gke_missing-table_us-central1_missing-table-dev
 
-# Deploy messaging platform (Phase 2+)
+# Deploy messaging platform to match-scraper namespace
 helm upgrade --install messaging-platform \
   ./helm/messaging-platform \
   --values ./helm/messaging-platform/values-local.yaml \
-  -n messaging --create-namespace
+  -n match-scraper --create-namespace
+
+# Verify deployment
+kubectl get all -n match-scraper
 ```
 
 **Benefits:**

@@ -297,7 +297,7 @@ Google Kubernetes Engine (Public Services)
 └── Supabase Cloud (external)
 
 Local K3s Cluster (Private Messaging)
-└── messaging namespace
+└── match-scraper namespace
     ├── RabbitMQ (message broker)
     ├── Redis (result backend)
     └── Celery Worker Pods (2+ replicas)
