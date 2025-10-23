@@ -89,7 +89,7 @@ def validate_match_data(match_data: Dict[str, Any]) -> Dict[str, Any]:
             errors.append("away_score must be an integer")
 
     # Validate match status
-    valid_statuses = ['scheduled', 'live', 'completed', 'cancelled', 'postponed']
+    valid_statuses = ['scheduled', 'tbd', 'live', 'completed', 'cancelled', 'postponed']
     if 'match_status' in match_data:
         status = match_data['match_status']
         if status and status not in valid_statuses:

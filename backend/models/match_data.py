@@ -33,8 +33,8 @@ class MatchData(BaseModel):
     division: str | None = Field(None, description="Division name")
     score_home: int | None = Field(None, ge=0, description="Home team score")
     score_away: int | None = Field(None, ge=0, description="Away team score")
-    status: Literal["scheduled", "completed", "postponed", "cancelled"] | None = Field(
-        None, description="Match status"
+    status: Literal["scheduled", "tbd", "completed", "postponed", "cancelled"] | None = Field(
+        None, description="Match status (tbd = match played, score pending)"
     )
     match_id: str | None = Field(None, description="External match ID for deduplication")
     location: str | None = Field(None, description="Match location/venue")
