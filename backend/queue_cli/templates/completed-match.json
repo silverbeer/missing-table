@@ -1,0 +1,14 @@
+{
+  "home_team": "IFA 2012 Red",
+  "away_team": "Inter Miami CF Academy 2012",
+  "match_date": "2025-10-15T14:00:00Z",
+  "season": "2024-25",
+  "age_group": "U14",
+  "division": "Northeast",
+  "home_score": 3,
+  "away_score": 1,
+  "match_status": "completed",
+  "match_type": "League",
+  "external_match_id": "test-match-001",
+  "location": "Home Field"
+}

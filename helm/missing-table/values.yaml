@@ -29,8 +29,9 @@ limitRange:
     memory: "128Mi"
 
 # Redis configuration
+# Disabled: Redis runs on local K3s cluster, not in GKE
 redis:
-  enabled: true
+  enabled: false
   replicaCount: 1
   
   image:
@@ -157,8 +158,9 @@ frontend:
     loadBalancerIP: ""  # Let Rancher Desktop assign
 
 # Celery Worker configuration
+# Disabled: Celery workers run on local K3s cluster, not in GKE
 celeryWorker:
-  enabled: false  # Disabled until RabbitMQ/Celery integration is complete
+  enabled: false
   replicaCount: 2
 
   rabbitmq:

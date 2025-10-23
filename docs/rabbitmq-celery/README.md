@@ -118,19 +118,13 @@ By completing this implementation, you will become an expert in:
 ### [Phase 5: Observability & Monitoring](./05-PHASE-5-OBSERVABILITY.md) 📋 Planned
 **Duration:** 3-4 days
 
-- Enable RabbitMQ Prometheus plugin (built-in, port 15692)
-- Deploy Celery exporter (danihodovic/celery-exporter)
-- Deploy local Prometheus with remote write to Grafana Cloud
-- Import pre-built dashboards (RabbitMQ #10120, Celery #10026)
-- Configure alert rules (broker down, high queue depth, task failures)
-- Set up notification channels (email, Slack, PagerDuty)
+- Configure Prometheus exporters (RabbitMQ, Celery)
+- Set up Grafana Cloud integration
+- Create monitoring dashboards
+- Define alert rules
+- Test alerting
 
-**Key Metrics:**
-- RabbitMQ: Queue depth, message rates, consumer count, memory usage
-- Celery: Worker status, task throughput, success rates, processing latency
-- Full metrics list in comprehensive documentation
-
-**Key Deliverable:** Production-ready monitoring + Grafana Cloud dashboards + Alert rules
+**Key Deliverable:** Monitoring dashboards + "Distributed Systems Observability" guide
 
 ---
 
@@ -220,40 +214,6 @@ kubectl port-forward svc/rabbitmq 15672:15672 -n messaging
 
 # View RabbitMQ logs
 kubectl logs -f statefulset/rabbitmq -n messaging
-```
-
-**Observability (Phase 5):**
-```bash
-# Enable observability in Helm
-# Edit values-local.yaml:
-#   prometheus.enabled: true
-#   celeryExporter.enabled: true
-#   grafanaCloud.enabled: true
-
-# Create Grafana Cloud credentials secret
-kubectl create secret generic grafana-cloud-credentials \
-  --from-literal=url="https://prometheus-prod-XX.grafana.net/api/prom/push" \
-  --from-literal=username="YOUR_USERNAME" \
-  --from-literal=password="YOUR_API_KEY" \
-  -n messaging
-
-# Access Prometheus UI
-kubectl port-forward svc/messaging-prometheus 9090:9090 -n messaging
-# Open http://localhost:9090
-
-# Access RabbitMQ metrics
-kubectl port-forward svc/messaging-rabbitmq 15692:15692 -n messaging
-curl http://localhost:15692/metrics
-
-# Access Celery metrics
-kubectl port-forward svc/messaging-celery-exporter 9808:9808 -n messaging
-curl http://localhost:9808/metrics
-
-# View Prometheus logs
-kubectl logs -f deployment/messaging-prometheus -n messaging
-
-# Check Prometheus targets
-curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
 ```
 
 ---
