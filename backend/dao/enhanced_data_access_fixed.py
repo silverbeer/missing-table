@@ -640,6 +640,7 @@ class EnhancedSportsDAO:
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
+        team_id: int | None = None,
         match_type: str | None = None,
     ) -> list[dict]:
         """Get all matches with optional filters."""
@@ -661,6 +662,10 @@ class EnhancedSportsDAO:
                 query = query.eq("age_group_id", age_group_id)
             if division_id:
                 query = query.eq("division_id", division_id)
+
+            # For team_id, we need to match either home_team_id OR away_team_id
+            if team_id:
+                query = query.or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
 
             response = query.order("match_date", desc=True).execute()
 

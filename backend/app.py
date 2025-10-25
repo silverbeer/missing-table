@@ -1046,6 +1046,7 @@ async def get_matches(
     season_id: Optional[int] = Query(None, description="Filter by season ID"),
     age_group_id: Optional[int] = Query(None, description="Filter by age group ID"),
     division_id: Optional[int] = Query(None, description="Filter by division ID"),
+    team_id: Optional[int] = Query(None, description="Filter by team ID (home or away)"),
     match_type: Optional[str] = Query(None, description="Filter by match type name")
 ):
     """Get all matches with optional filters."""
@@ -1057,6 +1058,7 @@ async def get_matches(
                 season_id=season_id,
                 age_group_id=age_group_id,
                 division_id=division_id,
+                team_id=team_id,
                 match_type=match_type
             )
         else:
@@ -1064,6 +1066,7 @@ async def get_matches(
                 season_id=season_id,
                 age_group_id=age_group_id,
                 division_id=division_id,
+                team_id=team_id,
                 match_type=match_type
             )
         return matches

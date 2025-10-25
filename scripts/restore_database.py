@@ -68,31 +68,56 @@ def restore_table(table_name: str, data: list):
     if not data:
         print(f"Skipping {table_name} (no data)")
         return True
-        
+
     try:
         print(f"Restoring {table_name} ({len(data)} records)...")
-        
+
         # Insert in batches to avoid timeout
         batch_size = 100
         total_inserted = 0
-        
+
         for i in range(0, len(data), batch_size):
             batch = data[i:i + batch_size]
-            
+
             result = supabase.table(table_name).insert(batch).execute()
-            
+
             if result.data:
                 total_inserted += len(result.data)
                 print(f"  ✓ Inserted batch {i//batch_size + 1}: {len(result.data)} records")
             else:
                 print(f"  ⚠ Batch {i//batch_size + 1} returned no data")
-        
+
         print(f"  ✅ Successfully restored {total_inserted} records to {table_name}")
         return True
-        
+
     except Exception as e:
         print(f"  ❌ Error restoring {table_name}: {e}")
         return False
+
+def reset_sequences():
+    """Reset all PostgreSQL sequences to match max IDs in tables.
+
+    This prevents 'duplicate key' errors after data restoration by ensuring
+    all sequences are synchronized with the actual max IDs.
+    """
+    try:
+        print("🔄 Resetting PostgreSQL sequences...")
+
+        # Call the reset_all_sequences() function created in migration
+        result = supabase.rpc('reset_all_sequences').execute()
+
+        if result.data is not None:
+            sequences_reset = result.data
+            print(f"  ✅ Reset {sequences_reset} sequence(s)")
+            return True
+        else:
+            print("  ⚠️ Sequence reset function returned no data")
+            return True  # Don't fail restore if sequence reset has issues
+
+    except Exception as e:
+        print(f"  ⚠️ Warning: Could not reset sequences: {e}")
+        print("  ℹ️  You may need to manually run: SELECT reset_all_sequences();")
+        return True  # Don't fail the entire restore
 
 def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     """Restore database from a backup file."""
@@ -164,17 +189,23 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
             print(f"Skipping {table} (not in backup)")
     
     print("=" * 50)
-    
+
+    # Reset all sequences after data restoration
+    # This is CRITICAL to prevent "duplicate key" errors when inserting new records
+    print()
+    reset_sequences()
+    print()
+
     if success_count == total_tables:
         print(f"✅ Restoration completed successfully!")
         print(f"📊 Restored {success_count}/{total_tables} tables")
-        
+
         # Summary of restored data
         total_records = 0
         for table, data in tables_data.items():
             if isinstance(data, list) and table != 'auth_users_metadata':
                 total_records += len(data)
-        
+
         print(f"📈 Total records restored: {total_records}")
         return True
     else:
