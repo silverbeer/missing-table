@@ -1,0 +1,18 @@
+# Mark generated/vendor files to exclude from language stats
+*.min.js linguist-generated=true
+*.min.css linguist-generated=true
+package-lock.json linguist-generated=true
+
+# Documentation
+*.md linguist-documentation=true
+docs/** linguist-documentation=true
+
+# Ensure backend Python is counted
+backend/**/*.py linguist-detectable=true
+
+# Ensure frontend Vue/JS is counted  
+frontend/**/*.vue linguist-detectable=true
+frontend/**/*.js linguist-detectable=true
+
+# Don't count lock files in stats
+poetry.lock linguist-generated=true
