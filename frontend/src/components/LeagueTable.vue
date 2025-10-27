@@ -204,11 +204,9 @@ export default {
 
     const fetchAgeGroups = async () => {
       try {
-        const response = await fetch(
+        const data = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
         );
-        if (!response.ok) throw new Error('Failed to fetch age groups');
-        const data = await response.json();
         ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name));
 
         // Set U14 as default if available
@@ -223,11 +221,9 @@ export default {
 
     const fetchDivisions = async () => {
       try {
-        const response = await fetch(
+        const data = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
         );
-        if (!response.ok) throw new Error('Failed to fetch divisions');
-        const data = await response.json();
         divisions.value = data.sort((a, b) => a.name.localeCompare(b.name));
 
         // Set Northeast as default if available
@@ -242,11 +238,9 @@ export default {
 
     const fetchSeasons = async () => {
       try {
-        const response = await fetch(
+        const data = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
         );
-        if (!response.ok) throw new Error('Failed to fetch seasons');
-        const data = await response.json();
         // Sort seasons by start date (most recent first)
         seasons.value = data.sort(
           (a, b) => new Date(b.start_date) - new Date(a.start_date)
@@ -269,12 +263,6 @@ export default {
     };
 
     const fetchTableData = async () => {
-      // Guard against unauthorized access
-      if (!authStore.isAuthenticated.value) {
-        console.warn('User not authenticated, cannot fetch table data');
-        return;
-      }
-
       loading.value = true;
       console.log('Fetching table data...', {
         seasonId: selectedSeasonId.value,
@@ -283,15 +271,7 @@ export default {
       });
       try {
         const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
-        const response = await fetch(url);
-        console.log('Response:', response);
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || 'Failed to fetch table data');
-        }
-
-        const data = await response.json();
+        const data = await authStore.apiRequest(url);
         console.log('Table data received:', data);
 
         tableData.value = data;
@@ -311,15 +291,6 @@ export default {
 
     onMounted(async () => {
       console.log('LeagueTable component mounted');
-
-      // Only fetch data if user is authenticated
-      if (!authStore.isAuthenticated.value) {
-        console.warn('User not authenticated, skipping data fetch');
-        loading.value = false;
-        error.value = 'Please log in to view table';
-        return;
-      }
-
       await Promise.all([fetchAgeGroups(), fetchDivisions(), fetchSeasons()]);
       fetchTableData();
     });

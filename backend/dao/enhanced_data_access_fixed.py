@@ -3,10 +3,13 @@ Enhanced Supabase data access layer with SSL fix.
 """
 
 import os
+import structlog
 
 import httpx
 from dotenv import load_dotenv
 from supabase import create_client
+
+logger = structlog.get_logger()
 
 # Load environment variables with environment-specific support
 def load_environment():
@@ -148,6 +151,15 @@ class EnhancedSportsDAO:
         except Exception as e:
             print(f"Error querying match types: {e}")
             return []
+
+    def get_match_type_by_id(self, match_type_id: int) -> dict | None:
+        """Get match type by ID."""
+        try:
+            response = self.client.table("match_types").select("*").eq("id", match_type_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error querying match type: {e}")
+            return None
 
     def get_all_divisions(self) -> list[dict]:
         """Get all divisions."""
@@ -387,6 +399,29 @@ class EnhancedSportsDAO:
             print(f"Error getting age group by name '{name}': {e}")
             return None
 
+    def get_division_by_name(self, name: str) -> dict | None:
+        """Get a division by name (case-insensitive exact match).
+
+        Returns the division record (id, name).
+        For match-scraper integration, this helps look up divisions by name.
+        """
+        try:
+            response = (
+                self.client.table("divisions")
+                .select("id, name")
+                .ilike("name", name)  # Case-insensitive match
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+
+        except Exception as e:
+            print(f"Error getting division by name '{name}': {e}")
+            return None
+
     def get_match_by_external_id(self, external_match_id: str) -> dict | None:
         """Get a match by its external match_id (from match-scraper).
 
@@ -572,6 +607,8 @@ class EnhancedSportsDAO:
         location: str | None = None,
         source: str = "manual",
         match_id: str | None = None,
+        age_group: str | None = None,
+        division: str | None = None,
     ) -> int | None:
         """Create a new match with simplified parameters.
 
@@ -589,22 +626,44 @@ class EnhancedSportsDAO:
             location: Match location (optional)
             source: Data source (default: "manual", use "match-scraper" for external)
             match_id: External match ID for deduplication (optional)
+            age_group: Age group name (e.g., "U14", "U13") - will be looked up in database
+            division: Division name (e.g., "Northeast") - will be looked up in database
 
         Returns:
             Created match ID, or None on failure
         """
         try:
-            # For now, use defaults for fields that match-scraper might not provide
-            # In Phase 5, we can enhance this to look up season/age_group/match_type IDs
-
             # Get current season as fallback
             current_season = self.get_current_season()
             season_id = current_season['id'] if current_season else 1  # Fallback to ID 1
 
-            # Use default values for now (can be enhanced later)
-            age_group_id = 1  # Default U14
-            match_type_id = 1  # Default League
+            # Look up age_group_id from age_group name
+            age_group_id = 1  # Default fallback
+            if age_group:
+                age_group_record = self.get_age_group_by_name(age_group)
+                if age_group_record:
+                    age_group_id = age_group_record['id']
+                    logger.debug(f"Mapped age_group '{age_group}' to ID {age_group_id}")
+                else:
+                    logger.warning(f"Age group '{age_group}' not found in database, using default ID {age_group_id}")
+
+            # Look up division_id from division name
             division_id = None
+            if division:
+                division_record = self.get_division_by_name(division)
+                if division_record:
+                    division_id = division_record['id']
+                    logger.debug(f"Mapped division '{division}' to ID {division_id}")
+                else:
+                    logger.error(f"Division '{division}' not found in database")
+                    if source == "match-scraper":
+                        raise ValueError(f"Division '{division}' is required for match-scraper but not found in database")
+            elif source == "match-scraper":
+                # Division is required for match-scraper sourced games
+                logger.error("Division is required for match-scraper sourced matches but was not provided")
+                raise ValueError("Division is required for match-scraper sourced matches")
+
+            match_type_id = 1  # Default League
 
             data = {
                 "match_date": match_date,
@@ -642,6 +701,8 @@ class EnhancedSportsDAO:
         division_id: int | None = None,
         team_id: int | None = None,
         match_type: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> list[dict]:
         """Get all matches with optional filters."""
         try:
@@ -662,6 +723,12 @@ class EnhancedSportsDAO:
                 query = query.eq("age_group_id", age_group_id)
             if division_id:
                 query = query.eq("division_id", division_id)
+
+            # Date range filters
+            if start_date:
+                query = query.gte("match_date", start_date)
+            if end_date:
+                query = query.lte("match_date", end_date)
 
             # For team_id, we need to match either home_team_id OR away_team_id
             if team_id:

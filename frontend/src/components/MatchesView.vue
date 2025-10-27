@@ -9,6 +9,34 @@
     <div v-if="error" class="text-red-600 p-4 mb-4">Error: {{ error }}</div>
 
     <div v-else>
+      <!-- View Tabs: All Matches vs My Club -->
+      <div class="mb-6 border-b border-gray-200">
+        <nav class="flex space-x-4" aria-label="Match view tabs">
+          <button
+            @click="selectedViewTab = 'all'"
+            :class="[
+              'py-3 px-4 text-sm font-medium border-b-2 transition-colors',
+              selectedViewTab === 'all'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+            ]"
+          >
+            All Matches
+          </button>
+          <button
+            @click="selectedViewTab = 'myclub'"
+            :class="[
+              'py-3 px-4 text-sm font-medium border-b-2 transition-colors',
+              selectedViewTab === 'myclub'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+            ]"
+          >
+            My Club
+          </button>
+        </nav>
+      </div>
+
       <!-- Filters Section -->
       <div class="mb-6">
         <!-- Mobile: Collapsible Filters -->
@@ -39,8 +67,8 @@
 
         <!-- Filters Content -->
         <div :class="['space-y-4', showFilters || 'hidden lg:block']">
-          <!-- Team Filter - Most Important, Always Visible -->
-          <div>
+          <!-- Team Filter - Only show on My Club tab -->
+          <div v-if="selectedViewTab === 'myclub'">
             <label class="block text-sm font-medium text-gray-700 mb-2"
               >Select Team</label
             >
@@ -49,7 +77,7 @@
               @change="onTeamChange"
               class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">All Teams</option>
+              <option value="">-- Select a team --</option>
               <option
                 v-for="team in filteredTeams"
                 :key="team.id"
@@ -162,32 +190,75 @@
               </button>
             </div>
           </div>
+
+          <!-- Time Range Filter - Only show on "All Matches" tab -->
+          <div v-if="selectedViewTab === 'all'">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">
+              Week Navigation
+            </h3>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                @click="weekOffset--"
+                class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-gray-100 text-gray-700 active:bg-gray-300 hover:bg-gray-200"
+              >
+                ← Previous
+              </button>
+              <button
+                @click="weekOffset = 0"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  weekOffset === 0
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-300 hover:bg-gray-200',
+                ]"
+              >
+                This Week
+              </button>
+              <button
+                @click="weekOffset++"
+                class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-gray-100 text-gray-700 active:bg-gray-300 hover:bg-gray-200"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Display Filtered Matchs -->
       <div v-if="sortedGames.length > 0">
         <div class="mb-4">
-          <h3 class="text-lg font-semibold mb-2">
-            Matchs for {{ getSelectedTeamName() }}
-          </h3>
+          <!-- All Matches: Show week range -->
+          <div v-if="selectedViewTab === 'all'">
+            <h3 class="text-lg font-semibold mb-2">{{ weekRangeDisplay }}</h3>
+          </div>
 
-          <!-- League Information -->
-          <div
-            v-if="selectedTeamLeagueInfo"
-            class="inline-flex items-center space-x-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-md text-sm"
-          >
-            <span class="font-medium text-blue-800">League:</span>
-            <span class="text-blue-700"
-              >{{ selectedTeamLeagueInfo.ageGroup }}
-              {{ selectedTeamLeagueInfo.division }}</span
+          <!-- My Club: Show team name and league info -->
+          <div v-else>
+            <h3 class="text-lg font-semibold mb-2">
+              Matchs for {{ getSelectedTeamName() }}
+            </h3>
+
+            <!-- League Information -->
+            <div
+              v-if="selectedTeamLeagueInfo"
+              class="inline-flex items-center space-x-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-md text-sm"
             >
-            <span class="text-blue-600">• {{ selectedSeasonName }}</span>
+              <span class="font-medium text-blue-800">League:</span>
+              <span class="text-blue-700"
+                >{{ selectedTeamLeagueInfo.ageGroup }}
+                {{ selectedTeamLeagueInfo.division }}</span
+              >
+              <span class="text-blue-600">• {{ selectedSeasonName }}</span>
+            </div>
           </div>
         </div>
 
-        <!-- Season Summary Stats -->
-        <div class="mb-4 space-y-3">
+        <!-- Season Summary Stats - Only show on My Club tab when a team is selected -->
+        <div
+          v-if="selectedViewTab === 'myclub' && selectedTeam"
+          class="mb-4 space-y-3"
+        >
           <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <h4 class="font-medium text-gray-700 mb-3">Season Summary</h4>
             <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 text-sm">
@@ -285,11 +356,21 @@
         <table class="hidden lg:table w-full border border-gray-300">
           <thead>
             <tr>
-              <th class="border-b text-right w-12">#</th>
+              <th
+                v-if="selectedViewTab === 'myclub'"
+                class="border-b text-right w-12"
+              >
+                #
+              </th>
               <th class="border-b text-center w-32">Date</th>
               <th class="border-b text-left px-2">Team</th>
               <th class="border-b text-center w-24">Score</th>
-              <th class="border-b text-center w-20">Result</th>
+              <th
+                v-if="selectedViewTab === 'myclub'"
+                class="border-b text-center w-20"
+              >
+                Result
+              </th>
               <th class="border-b text-center w-24">Match Type</th>
               <th class="border-b text-center w-24">Status</th>
               <th class="border-b text-center w-32">Match ID</th>
@@ -305,15 +386,24 @@
               :key="match.id"
               :class="{ 'bg-gray-100': index % 2 === 0 }"
             >
-              <td class="border-b text-right">{{ index + 1 }}</td>
-              <td class="border-b text-center">{{ match.match_date }}</td>
-              <td class="border-b text-left px-2">
-                {{ getTeamDisplay(match) }}
+              <td
+                v-if="selectedViewTab === 'myclub'"
+                class="border-b text-right"
+              >
+                {{ index + 1 }}
               </td>
+              <td class="border-b text-center">{{ match.match_date }}</td>
+              <td
+                class="border-b text-left px-2"
+                v-html="getTeamDisplay(match)"
+              ></td>
               <td class="border-b text-center">
                 {{ getScoreDisplay(match) }}
               </td>
-              <td class="border-b text-center">
+              <td
+                v-if="selectedViewTab === 'myclub'"
+                class="border-b text-center"
+              >
                 <span
                   v-if="
                     match.match_status === 'completed' &&
@@ -415,9 +505,10 @@
 
             <!-- Teams and Score -->
             <div class="mb-3">
-              <div class="text-base font-medium text-gray-900 mb-2">
-                {{ getTeamDisplay(match) }}
-              </div>
+              <div
+                class="text-base font-medium text-gray-900 mb-2"
+                v-html="getTeamDisplay(match)"
+              ></div>
               <div class="flex items-center space-x-3">
                 <span class="text-2xl font-bold text-gray-900">
                   {{ getScoreDisplay(match) }}
@@ -532,10 +623,12 @@ export default {
     const ageGroups = ref([]);
     const seasons = ref([]);
     const matchTypes = ref([]);
+    const selectedViewTab = ref('all'); // Default to "All Matches" tab
     const selectedTeam = ref('');
     const selectedAgeGroupId = ref(2); // Default to U14
     const selectedSeasonId = ref(3); // Default to 2025-2026
     const selectedMatchTypeId = ref(1); // Default to League matches (id: 1)
+    const weekOffset = ref(0); // 0 = current week, -1 = last week, +1 = next week
     const error = ref(null);
     const loading = ref(true);
     const showEditModal = ref(false);
@@ -545,11 +638,9 @@ export default {
 
     const fetchAgeGroups = async () => {
       try {
-        const response = await fetch(
+        const data = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
         );
-        if (!response.ok) throw new Error('Failed to fetch age groups');
-        const data = await response.json();
         ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error('Error fetching age groups:', err);
@@ -558,11 +649,9 @@ export default {
 
     const fetchSeasons = async () => {
       try {
-        const response = await fetch(
+        const data = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
         );
-        if (!response.ok) throw new Error('Failed to fetch seasons');
-        const data = await response.json();
         seasons.value = data.sort(
           (a, b) => new Date(b.start_date) - new Date(a.start_date)
         );
@@ -579,25 +668,46 @@ export default {
 
     const fetchGameTypes = async () => {
       try {
-        const response = await fetch(
+        matchTypes.value = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
         );
-        if (!response.ok) throw new Error('Failed to fetch match types');
-        matchTypes.value = await response.json();
       } catch (err) {
         console.error('Error fetching match types:', err);
       }
     };
 
+    const getWeekBoundaries = offset => {
+      const now = new Date();
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+      // Calculate Monday of current week (adjust for Sunday = 0)
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const currentMonday = new Date(now);
+      currentMonday.setDate(now.getDate() - daysFromMonday);
+      currentMonday.setHours(0, 0, 0, 0);
+
+      // Apply week offset
+      const targetMonday = new Date(currentMonday);
+      targetMonday.setDate(currentMonday.getDate() + offset * 7);
+
+      // Calculate Sunday of target week
+      const targetSunday = new Date(targetMonday);
+      targetSunday.setDate(targetMonday.getDate() + 6);
+      targetSunday.setHours(23, 59, 59, 999);
+
+      return {
+        start_date: targetMonday.toISOString().split('T')[0],
+        end_date: targetSunday.toISOString().split('T')[0],
+        start: targetMonday,
+        end: targetSunday,
+      };
+    };
+
     const fetchTeams = async () => {
       try {
-        const response = await fetch(
+        teams.value = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
         );
-        if (!response.ok) {
-          throw new Error('Failed to fetch teams');
-        }
-        teams.value = await response.json();
 
         // Auto-select player's team if they're logged in
         if (authStore.userTeamId && !selectedTeam.value) {
@@ -611,6 +721,7 @@ export default {
           }
         }
       } catch (err) {
+        console.error('Error fetching teams:', err);
         error.value = err.message;
       } finally {
         loading.value = false;
@@ -618,16 +729,33 @@ export default {
     };
 
     const fetchMatches = async () => {
-      // Guard against unauthorized access
-      if (!authStore.isAuthenticated.value) {
-        console.warn('User not authenticated, cannot fetch matches');
-        return;
+      if (selectedViewTab.value === 'all') {
+        // All Matches view - fetch with date range
+        console.log(
+          'Fetching matches for All Matches with week offset:',
+          weekOffset.value
+        );
+        const { start_date, end_date } = getWeekBoundaries(weekOffset.value);
+
+        try {
+          const url =
+            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches?` +
+            `start_date=${start_date}&end_date=${end_date}` +
+            `&season_id=${selectedSeasonId.value}` +
+            `&age_group_id=${selectedAgeGroupId.value}`;
+          matches.value = await authStore.apiRequest(url);
+          console.log('All Matches received:', matches.value);
+        } catch (err) {
+          error.value = err.message;
+        }
+        return; // Exit after fetching All Matches
       }
 
+      // My Club view - fetch team-specific matches
       if (!selectedTeam.value) {
-        console.log('No team selected, skipping fetch.');
-        matches.value = []; // Clear matches if no team is selected
-        return; // Exit the function early
+        // No team selected yet in My Club tab
+        matches.value = [];
+        return;
       }
 
       try {
@@ -653,6 +781,32 @@ export default {
     };
 
     const getTeamDisplay = match => {
+      // All Matches view - show "Away Team @ Home Team" with win/loss/draw icons
+      if (selectedViewTab.value === 'all') {
+        // Only show icons for completed matches with scores
+        if (
+          match.match_status === 'completed' &&
+          match.home_score !== null &&
+          match.home_score !== undefined &&
+          match.away_score !== null &&
+          match.away_score !== undefined
+        ) {
+          if (match.away_score > match.home_score) {
+            // Away team won - bold winner, green checkmark, red X
+            return `<strong>${match.away_team_name}</strong> <span class="text-green-600 font-bold">✓</span> @ ${match.home_team_name} <span class="text-red-600 font-bold">✗</span>`;
+          } else if (match.away_score < match.home_score) {
+            // Home team won - bold winner, green checkmark, red X
+            return `${match.away_team_name} <span class="text-red-600 font-bold">✗</span> @ <strong>${match.home_team_name}</strong> <span class="text-green-600 font-bold">✓</span>`;
+          } else {
+            // Draw
+            return `${match.away_team_name} <span class="text-gray-500">=</span> @ ${match.home_team_name} <span class="text-gray-500">=</span>`;
+          }
+        }
+        // For scheduled/live/postponed matches, no icons
+        return `${match.away_team_name} @ ${match.home_team_name}`;
+      }
+
+      // My Club view - show opponent with @ or vs
       const selectedTeamId = parseInt(selectedTeam.value);
       if (match.home_team_id === selectedTeamId) {
         return `vs ${match.away_team_name}`;
@@ -682,6 +836,12 @@ export default {
         return '-'; // Return dash if scores haven't been entered yet
       }
 
+      // All Matches tab: show "Away Score - Home Score" to match "Away @ Home" format
+      if (selectedViewTab.value === 'all') {
+        return `${match.away_score} - ${match.home_score}`;
+      }
+
+      // My Club tab: show "Home Score - Away Score" (traditional format)
       return `${match.home_score} - ${match.away_score}`;
     };
 
@@ -709,6 +869,11 @@ export default {
     };
 
     const getResult = match => {
+      // All Matches view - no W/L/D perspective, show dash
+      if (selectedViewTab.value === 'all') {
+        return '-';
+      }
+
       // ONLY show results for matches that have been completed (not live!)
       if (match.match_status !== 'completed') {
         return '-'; // Return dash for live/scheduled/postponed/cancelled matches
@@ -806,6 +971,16 @@ export default {
     const selectedSeasonName = computed(() => {
       const season = seasons.value.find(s => s.id === selectedSeasonId.value);
       return season ? season.name : '';
+    });
+
+    // Get week range display for All Matches tab
+    const weekRangeDisplay = computed(() => {
+      const boundaries = getWeekBoundaries(weekOffset.value);
+      const options = { month: 'short', day: 'numeric' };
+      const startStr = boundaries.start.toLocaleDateString('en-US', options);
+      const endStr = boundaries.end.toLocaleDateString('en-US', options);
+      const year = boundaries.start.getFullYear();
+      return `${startStr} - ${endStr}, ${year}`;
     });
 
     // Sort matches: LIVE matches first, then by date ascending
@@ -955,21 +1130,31 @@ export default {
       }
     });
 
-    // Watch for team changes to fetch matches
-    watch(selectedTeam, () => {
+    // Watch for tab changes to refetch matches
+    watch(selectedViewTab, () => {
       fetchMatches();
     });
 
-    // Watch for season changes to refetch matches if team is selected
-    watch(selectedSeasonId, () => {
-      if (selectedTeam.value) {
+    // Watch for team changes to fetch matches (My Club tab)
+    watch(selectedTeam, () => {
+      if (selectedViewTab.value === 'myclub') {
         fetchMatches();
       }
     });
 
-    // Watch for age group changes to refetch matches if team is selected
+    // Watch for season changes to refetch matches
+    watch(selectedSeasonId, () => {
+      fetchMatches();
+    });
+
+    // Watch for age group changes to refetch matches
     watch(selectedAgeGroupId, () => {
-      if (selectedTeam.value) {
+      fetchMatches();
+    });
+
+    // Watch for week offset changes to refetch matches for All Matches view
+    watch(weekOffset, () => {
+      if (selectedViewTab.value === 'all') {
         fetchMatches();
       }
     });
@@ -1073,20 +1258,14 @@ export default {
     });
 
     onMounted(async () => {
-      // Only fetch data if user is authenticated
-      if (!authStore.isAuthenticated.value) {
-        console.warn('User not authenticated, skipping data fetch');
-        loading.value = false;
-        error.value = 'Please log in to view matches';
-        return;
-      }
-
       await Promise.all([
         fetchAgeGroups(),
         fetchSeasons(),
         fetchGameTypes(),
         fetchTeams(),
       ]);
+      // Fetch matches for the default "All Matches" tab with current week
+      await fetchMatches();
     });
 
     // Clean up interval on component unmount
@@ -1105,10 +1284,13 @@ export default {
       filteredAgeGroups,
       seasons,
       matchTypes,
+      selectedViewTab,
       selectedTeam,
       selectedAgeGroupId,
       selectedSeasonId,
       selectedMatchTypeId,
+      weekOffset,
+      weekRangeDisplay,
       filteredTeams,
       selectedTeamLeagueInfo,
       selectedSeasonName,
