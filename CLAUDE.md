@@ -373,6 +373,23 @@ SELECT add_schema_version('1.1.0', 'migration_name', 'Description');
 
 # CRITICAL: Always use db_tools.sh for database operations
 # This script handles proper data restoration with dependency ordering
+
+# IMPORTANT: Backups exclude user_profiles
+# Users are managed separately per environment (see User Management section below)
+# Backups only include: age_groups, divisions, match_types, seasons, teams, team_mappings, team_match_types, matches
+
+# User Management (per environment)
+# Users are NOT included in backups - manage separately in each environment
+./scripts/setup_environment_users.sh local   # Setup test users for local dev
+./scripts/setup_environment_users.sh dev     # Setup test users for cloud dev
+./scripts/setup_environment_users.sh prod    # Setup admin users for production
+
+# Or manually manage users with manage_users.py
+cd backend && APP_ENV=prod uv run python manage_users.py create --email user@example.com --role admin
+cd backend && APP_ENV=prod uv run python manage_users.py list
+cd backend && APP_ENV=prod uv run python manage_users.py role --user user@example.com --role admin
+
+# See docs/FOREIGN_KEY_DECISION.md for why users are managed separately
 ```
 
 #### Database Inspector (Troubleshooting)

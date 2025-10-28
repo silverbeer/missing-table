@@ -57,3 +57,47 @@ If you want to re-enable Supabase Auth integration:
 ✅ **Production is working correctly without these FK constraints**
 ✅ **All application functionality verified**
 ✅ **Decision: Leave constraints removed**
+
+## Backup & Restore Strategy
+
+**IMPORTANT**: Due to the UUID mismatch issue, we have implemented a separation between:
+- **Match/Team Data**: Backed up and restored between environments
+- **User Data**: Managed separately in each environment
+
+### What Gets Backed Up
+
+The backup/restore scripts (`scripts/backup_database.py` and `scripts/restore_database.py`) backup only:
+- age_groups
+- divisions
+- match_types
+- seasons
+- teams
+- team_mappings
+- team_match_types
+- matches
+
+**user_profiles is EXCLUDED** from backups to prevent UUID mismatches.
+
+### User Management Per Environment
+
+Each environment (local, dev, prod) manages its own users:
+
+```bash
+# Create standard test users for an environment
+./scripts/setup_environment_users.sh local
+./scripts/setup_environment_users.sh dev
+./scripts/setup_environment_users.sh prod
+
+# Or manually manage users
+cd backend
+APP_ENV=prod uv run python manage_users.py create --email user@example.com --role admin
+APP_ENV=prod uv run python manage_users.py list
+APP_ENV=prod uv run python manage_users.py role --user user@example.com --role admin
+```
+
+### Why This Approach?
+
+1. **UUID Integrity**: auth.users UUIDs are environment-specific and cannot be transferred
+2. **Security**: Production users should be real accounts, not test data
+3. **Flexibility**: Each environment can have different user sets
+4. **Simplicity**: No complex user synchronization logic needed

@@ -148,6 +148,12 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     print("=" * 50)
     
     # Define restoration order (respecting foreign key dependencies)
+    # NOTE: user_profiles is EXCLUDED from restoration
+    # Reason: Users and profiles are managed per-environment, not synced between dev/prod
+    # - Each environment has its own auth.users with different UUIDs
+    # - Restoring user_profiles from backup will cause UUID mismatches with auth.users
+    # - See docs/FOREIGN_KEY_DECISION.md for details
+    # - Use backend/manage_users.py to create users in each environment
     restoration_order = [
         # Reference data first (no dependencies)
         'age_groups',
@@ -160,8 +166,7 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         'team_mappings',
         'team_match_types',  # Updated from team_game_types
 
-        # User profiles (special handling - skip auth.users)
-        'user_profiles',
+        # user_profiles excluded - manage separately per environment
 
         # Matches (depend on teams, seasons, etc.) - Updated from games
         'matches',

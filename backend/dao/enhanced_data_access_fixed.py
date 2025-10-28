@@ -696,6 +696,7 @@ class EnhancedSportsDAO:
 
     def get_all_matches(
         self,
+        client_ip: str | None = None,
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
@@ -704,7 +705,18 @@ class EnhancedSportsDAO:
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> list[dict]:
-        """Get all matches with optional filters."""
+        """Get all matches with optional filters.
+
+        Args:
+            client_ip: Client IP address for logging/security (unused in query)
+            season_id: Filter by season ID
+            age_group_id: Filter by age group ID
+            division_id: Filter by division ID
+            team_id: Filter by team ID (home or away)
+            match_type: Filter by match type name
+            start_date: Filter by start date (YYYY-MM-DD)
+            end_date: Filter by end date (YYYY-MM-DD)
+        """
         try:
             query = self.client.table("matches").select("""
                 *,

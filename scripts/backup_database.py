@@ -66,6 +66,13 @@ def create_backup():
     print("=" * 50)
     
     # Define tables to backup in order of dependencies
+    # NOTE: user_profiles is EXCLUDED from backups
+    # Reason: Users and profiles are managed per-environment, not synced between dev/prod
+    # - Each environment has its own auth.users with different UUIDs
+    # - user_profiles.id must match auth.users.id (no FK constraint but logical requirement)
+    # - Restoring user_profiles from another environment causes UUID mismatches
+    # - See docs/FOREIGN_KEY_DECISION.md for details
+    # - Use backend/manage_users.py to create users in each environment
     tables_to_backup = [
         # Reference data (no dependencies)
         'age_groups',
@@ -81,8 +88,7 @@ def create_backup():
         # Matches (updated from games)
         'matches',
 
-        # Auth and users (special handling needed)
-        'user_profiles',
+        # user_profiles excluded - manage separately per environment
     ]
     
     backup_data = {
