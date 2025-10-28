@@ -80,6 +80,21 @@ spec:
           value: {{ .Values.backend.env.disableLogfire | quote }}
         - name: DISABLE_SECURITY
           value: {{ .Values.backend.env.disableSecurity | quote }}
+        # Version and build information
+        - name: APP_VERSION
+          value: {{ .Values.version | default "1.0.0" | quote }}
+        {{- if .Values.buildId }}
+        - name: BUILD_ID
+          value: {{ .Values.buildId | quote }}
+        {{- end }}
+        {{- if .Values.commitSha }}
+        - name: COMMIT_SHA
+          value: {{ .Values.commitSha | quote }}
+        {{- end }}
+        {{- if .Values.buildDate }}
+        - name: BUILD_DATE
+          value: {{ .Values.buildDate | quote }}
+        {{- end }}
         {{- range $key, $value := .Values.backend.env.extra }}
         - name: {{ $key }}
           value: {{ $value | quote }}

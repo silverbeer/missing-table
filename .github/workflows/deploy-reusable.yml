@@ -290,6 +290,12 @@ jobs:
           cat > helm/missing-table/values-${{ inputs.environment }}.yaml << EOF
           namespace: ${{ inputs.namespace }}
 
+          # Version and build metadata
+          version: "${{ inputs.version }}"
+          buildId: "${{ github.run_id }}"
+          commitSha: "${{ inputs.commit_sha }}"
+          buildDate: "${{ github.event.head_commit.timestamp }}"
+
           backend:
             image:
               repository: ${{ env.REGISTRY }}/backend
