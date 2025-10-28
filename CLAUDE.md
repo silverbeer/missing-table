@@ -44,6 +44,56 @@ Follow the standards in [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
 
 ---
 
+## 🚨 CRITICAL: Git Workflow - Protected Main Branch
+
+**⚠️ NEVER COMMIT DIRECTLY TO MAIN ⚠️**
+
+The `main` branch is **PROTECTED** and requires Pull Requests. Always follow this workflow:
+
+### Required Git Workflow
+
+```bash
+# 1. Create a feature branch from main
+git checkout main
+git pull origin main
+git checkout -b feature/your-feature-name
+
+# 2. Make your changes and commit to feature branch
+git add <files>
+git commit -m "feat: your commit message"
+
+# 3. Push feature branch
+git push origin feature/your-feature-name
+
+# 4. Create Pull Request via GitHub
+# Go to: https://github.com/silverbeer/missing-table/pulls
+# Click "New pull request"
+# Select your feature branch
+# Fill in PR description
+# Request review
+
+# 5. After PR approval and merge, delete feature branch
+git checkout main
+git pull origin main
+git branch -d feature/your-feature-name
+```
+
+### Branch Protection Rules
+- ❌ Cannot push directly to `main`
+- ❌ Cannot force-push to `main`
+- ✅ All changes must go through Pull Requests
+- ✅ PRs trigger automated CI/CD pipelines
+
+### Why This Matters
+- **Code Review**: All changes reviewed before merging
+- **CI/CD**: Automated testing and deployment workflows
+- **Safety**: Prevents accidental breaking changes in production
+- **Audit Trail**: Clear history of what changed and why
+
+**Always create a feature branch first!**
+
+---
+
 ## Project Overview
 
 This is a full-stack web application for managing MLS Next sports league standings and match schedules. It uses FastAPI (Python 3.13+) for the backend and Vue 3 for the frontend, with Supabase as the primary database.
