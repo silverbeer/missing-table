@@ -149,7 +149,11 @@ class MissingTableClient:
 
     def login(self, email: str, password: str) -> dict[str, Any]:
         """
-        Login with email and password.
+        Login with username (email) and password.
+
+        Args:
+            email: Username (can be email or username)
+            password: User password
 
         Returns:
             Dict with access_token, refresh_token, and user info
@@ -157,7 +161,7 @@ class MissingTableClient:
         response = self._request(
             "POST",
             "/api/auth/login",
-            json_data={"email": email, "password": password},
+            json_data={"username": email, "password": password},  # Backend expects 'username'
         )
         data = response.json()
 
@@ -419,8 +423,8 @@ class MissingTableClient:
         return response.json()
 
     def get_game_types(self) -> list[dict[str, Any]]:
-        """Get all game types."""
-        response = self._request("GET", "/api/game-types")
+        """Get all match types (game types)."""
+        response = self._request("GET", "/api/match-types")
         return response.json()
 
     def get_positions(self) -> list[dict[str, Any]]:

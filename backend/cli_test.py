@@ -23,17 +23,19 @@ Examples:
     uv run python cli_test.py ref divisions
 
     # Login and test authenticated endpoints
-    uv run python cli_test.py auth login --email user@example.com --password pass
+    uv run python cli_test.py auth login -u tom -p admin123
     uv run python cli_test.py auth profile
 
     # Use different environments
-    uv run python cli_test.py --base-url https://dev.missingtable.com matches list
+    uv run python cli_test.py -b https://dev.missingtable.com matches list
 """
 
 from datetime import datetime
 from typing import Optional
 import json
 import sys
+import os
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -57,13 +59,50 @@ console = Console()
 _client: Optional[MissingTableClient] = None
 _base_url: str = "http://localhost:8000"
 
+# Token storage path
+TOKEN_FILE = Path.home() / ".missing-table" / "cli-token.json"
+
+
+def save_token(access_token: str, refresh_token: str, base_url: str):
+    """Save authentication token to file."""
+    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    token_data = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "base_url": base_url
+    }
+    TOKEN_FILE.write_text(json.dumps(token_data, indent=2))
+    TOKEN_FILE.chmod(0o600)  # Secure the file
+
+
+def load_token(base_url: str) -> Optional[tuple[str, str]]:
+    """Load authentication token from file if it matches the base_url."""
+    if not TOKEN_FILE.exists():
+        return None
+
+    try:
+        token_data = json.loads(TOKEN_FILE.read_text())
+        # Only use token if it's for the same base_url
+        if token_data.get("base_url") == base_url:
+            return (token_data.get("access_token"), token_data.get("refresh_token"))
+    except Exception:
+        pass
+
+    return None
+
+
+def clear_token():
+    """Clear saved authentication token."""
+    if TOKEN_FILE.exists():
+        TOKEN_FILE.unlink()
+
 
 @app.callback()
 def main_callback(
     base_url: str = typer.Option(
         "http://localhost:8000",
         "--base-url",
-        "-u",
+        "-b",
         help="API base URL",
         envvar="BACKEND_URL",
     ),
@@ -74,11 +113,20 @@ def main_callback(
 
 
 def get_client(base_url: Optional[str] = None) -> MissingTableClient:
-    """Get or create API client."""
+    """Get or create API client with saved token if available."""
     global _client, _base_url
     url = base_url or _base_url
+
     if _client is None or _client.base_url != url:
-        _client = MissingTableClient(base_url=url)
+        # Try to load saved token
+        token_info = load_token(url)
+        if token_info:
+            access_token, refresh_token = token_info
+            _client = MissingTableClient(base_url=url, access_token=access_token)
+            _client._refresh_token = refresh_token
+        else:
+            _client = MissingTableClient(base_url=url)
+
     return _client
 
 
@@ -152,6 +200,15 @@ def handle_error(e: Exception, verbose: bool = False):
     """Handle and display errors nicely."""
     if isinstance(e, APIError):
         console.print(f"[bold red]API Error ({e.status_code}): {e.message}[/bold red]")
+
+        # Special handling for authentication errors
+        if e.status_code == 403 and "not authenticated" in e.message.lower():
+            console.print("\n[yellow]🔐 You need to login first![/yellow]")
+            console.print("[dim]Run:[/dim] [cyan]uv run python cli_test.py auth login -u <username> -p <password>[/cyan]")
+        elif e.status_code == 401:
+            console.print("\n[yellow]⏰ Your session has expired or token is invalid![/yellow]")
+            console.print("[dim]Please login again:[/dim] [cyan]uv run python cli_test.py auth login -u <username> -p <password>[/cyan]")
+
         if verbose and e.details:
             console.print("\n[dim]Error details:[/dim]")
             console.print(JSON(json.dumps(e.details)))
@@ -257,14 +314,28 @@ def list_matches(
                     console.print(f"[red]Age group '{age_group}' not found[/red]")
                     raise typer.Exit(1)
 
+        # Note: Backend expects match_type as name, not ID
+        match_type_name = None
         if game_type:
+            # Validate that the game type exists
             try:
+                # If it's an integer, look up the name
                 game_type_id = int(game_type)
+                game_types = client.get_game_types()
+                for gt in game_types:
+                    if gt.get('id') == game_type_id:
+                        match_type_name = gt.get('name')
+                        break
+                if match_type_name is None:
+                    console.print(f"[red]Game type ID '{game_type}' not found[/red]")
+                    raise typer.Exit(1)
             except ValueError:
+                # It's a name, validate it exists
                 game_type_id = get_game_type_id_by_name(client, game_type)
                 if game_type_id is None:
                     console.print(f"[red]Game type '{game_type}' not found[/red]")
                     raise typer.Exit(1)
+                match_type_name = game_type
 
         if team:
             try:
@@ -280,7 +351,7 @@ def list_matches(
             filters = []
             if season_id: filters.append(f"season_id={season_id}")
             if age_group_id: filters.append(f"age_group_id={age_group_id}")
-            if game_type_id: filters.append(f"game_type_id={game_type_id}")
+            if match_type_name: filters.append(f"match_type={match_type_name}")
             if team_id: filters.append(f"team_id={team_id}")
             if limit: filters.append(f"limit={limit}")
             if upcoming: filters.append("upcoming=true")
@@ -295,8 +366,8 @@ def list_matches(
             params["season_id"] = season_id
         if age_group_id is not None:
             params["age_group_id"] = age_group_id
-        if game_type_id is not None:
-            params["game_type_id"] = game_type_id
+        if match_type_name is not None:
+            params["match_type"] = match_type_name
         if team_id is not None:
             params["team_id"] = team_id
         if limit is not None:
@@ -316,6 +387,9 @@ def list_matches(
                 or search_lower in str(m.get('away_team_name', '')).lower()
             ]
 
+        # Sort by match_date ascending (oldest first, most recent last)
+        matches = sorted(matches, key=lambda m: m.get('match_date', ''))
+
         # Output
         if json_output:
             console.print(JSON(json.dumps(matches, indent=2)))
@@ -327,24 +401,67 @@ def list_matches(
 
         # Display matches in table
         table = Table(title=f"Matches ({len(matches)} found)", show_header=True, show_lines=False)
-        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("MT ID", style="cyan", no_wrap=True)
+        table.add_column("MLS ID", style="dim cyan", no_wrap=True)
         table.add_column("Date", style="magenta", no_wrap=True)
         table.add_column("Home Team", style="green")
         table.add_column("Away Team", style="blue")
         table.add_column("Score", justify="center", no_wrap=True)
+        table.add_column("Result", justify="center", no_wrap=True)
         table.add_column("Status", no_wrap=True)
         table.add_column("Season", no_wrap=True)
         table.add_column("Age", no_wrap=True)
 
         for match in matches:
             match_id = str(match.get('id', ''))
+            external_match_id = match.get('match_id') or match.get('external_match_id') or '-'
+            external_match_id_str = str(external_match_id) if external_match_id != '-' else '[dim]-[/dim]'
             date = format_date(match.get('match_date'))  # Fixed: was 'game_date', should be 'match_date'
             home_team = match.get('home_team_name', 'Unknown')
             away_team = match.get('away_team_name', 'Unknown')
-            home_score = match.get('home_score') or '-'
-            away_score = match.get('away_score') or '-'
-            score = f"{home_score} - {away_score}"
-            status = match.get('match_status', 'N/A')  # Fixed: was 'status', should be 'match_status'
+            home_team_id = match.get('home_team_id')
+            away_team_id = match.get('away_team_id')
+            home_score = match.get('home_score')
+            away_score = match.get('away_score')
+
+            # Format score
+            score_home = home_score if home_score is not None else '-'
+            score_away = away_score if away_score is not None else '-'
+            score = f"{score_home} - {score_away}"
+
+            status = match.get('match_status', 'N/A')  # Get status early for result calculation
+
+            # Calculate result (only for completed matches)
+            result = "-"
+            if status == 'completed' and home_score is not None and away_score is not None:
+                # Determine which team's perspective to show
+                if team_id is not None:
+                    # Show result from filtered team's perspective
+                    if home_team_id == team_id:
+                        # Filtered team is home
+                        if home_score > away_score:
+                            result = "[bold green]W[/bold green]"
+                        elif home_score < away_score:
+                            result = "[bold red]L[/bold red]"
+                        else:
+                            result = "[yellow]D[/yellow]"
+                    elif away_team_id == team_id:
+                        # Filtered team is away
+                        if away_score > home_score:
+                            result = "[bold green]W[/bold green]"
+                        elif away_score < home_score:
+                            result = "[bold red]L[/bold red]"
+                        else:
+                            result = "[yellow]D[/yellow]"
+                else:
+                    # No team filter, show from home team's perspective
+                    if home_score > away_score:
+                        result = "[bold green]W[/bold green]"
+                    elif home_score < away_score:
+                        result = "[bold red]L[/bold red]"
+                    else:
+                        result = "[yellow]D[/yellow]"
+
             season_name = match.get('season_name', 'N/A')
             age_group = match.get('age_group_name', 'N/A')
 
@@ -360,7 +477,7 @@ def list_matches(
             else:
                 status_display = status
 
-            table.add_row(match_id, date, home_team, away_team, score, status_display, season_name, age_group)
+            table.add_row(match_id, external_match_id_str, date, home_team, away_team, score, result, status_display, season_name, age_group)
 
         console.print(table)
 
@@ -416,6 +533,172 @@ def get_match(
         if verbose:
             console.print("\n[bold]Full Data:[/bold]")
             console.print(JSON(json.dumps(match, indent=2)))
+
+    except Exception as e:
+        handle_error(e, verbose)
+        raise typer.Exit(1)
+
+
+@matches_app.command("edit")
+def edit_match(
+    match_id: int = typer.Argument(..., help="Match ID to edit"),
+    home_score: Optional[int] = typer.Option(None, "--home-score", help="Update home team score"),
+    away_score: Optional[int] = typer.Option(None, "--away-score", help="Update away team score"),
+    status: Optional[str] = typer.Option(None, "--status", help="Update match status (scheduled, live, completed, postponed, cancelled)"),
+    match_date: Optional[str] = typer.Option(None, "--date", help="Update match date (YYYY-MM-DD)"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+):
+    """✏️  Edit/update a match by ID.
+
+    Examples:
+        # Update scores
+        cli_test.py matches edit 123 --home-score 2 --away-score 1
+
+        # Update status
+        cli_test.py matches edit 123 --status completed
+
+        # Update scores and status together
+        cli_test.py matches edit 123 --home-score 3 --away-score 2 --status completed
+
+        # Update match date
+        cli_test.py matches edit 123 --date 2025-11-15
+    """
+    try:
+        client = get_client()
+
+        # Check if any updates were provided
+        if not any([home_score is not None, away_score is not None, status, match_date]):
+            console.print("[red]❌ Error: No updates specified. Use --home-score, --away-score, --status, or --date[/red]")
+            raise typer.Exit(1)
+
+        # First, get the match details to show what's being updated
+        console.print(f"[cyan]Fetching match {match_id}...[/cyan]\n")
+        response = client._request("GET", f"/api/matches/{match_id}")
+        match = response.json()
+
+        # Display current match info
+        console.print(Panel(
+            f"[bold]Current Match:[/bold]\n"
+            f"ID: {match.get('id')}\n"
+            f"Date: {format_date(match.get('match_date'))}\n"
+            f"Teams: {match.get('home_team_name')} vs {match.get('away_team_name')}\n"
+            f"Score: {match.get('home_score', '-')} - {match.get('away_score', '-')}\n"
+            f"Status: {match.get('match_status')}\n"
+            f"Age Group: {match.get('age_group_name')}",
+            title="Match Details",
+            border_style="blue"
+        ))
+
+        # Build update payload
+        update_data = {}
+
+        if home_score is not None:
+            update_data["home_score"] = home_score
+        if away_score is not None:
+            update_data["away_score"] = away_score
+        if status:
+            # Validate status
+            valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled", "tbd"]
+            if status not in valid_statuses:
+                console.print(f"[red]❌ Invalid status '{status}'. Valid options: {', '.join(valid_statuses)}[/red]")
+                raise typer.Exit(1)
+            update_data["match_status"] = status
+        if match_date:
+            # Basic date format validation
+            try:
+                from datetime import datetime
+                datetime.strptime(match_date, '%Y-%m-%d')
+                update_data["match_date"] = match_date
+            except ValueError:
+                console.print("[red]❌ Invalid date format. Use YYYY-MM-DD (e.g., 2025-11-15)[/red]")
+                raise typer.Exit(1)
+
+        # Show what will be updated
+        console.print("\n[bold yellow]Updates to apply:[/bold yellow]")
+        for key, value in update_data.items():
+            console.print(f"  • {key}: [cyan]{value}[/cyan]")
+
+        # Confirm update
+        confirm = typer.confirm("\nProceed with update?")
+        if not confirm:
+            console.print("[yellow]Update cancelled.[/yellow]")
+            return
+
+        # Update the match
+        console.print(f"\n[cyan]Updating match {match_id}...[/cyan]")
+        update_response = client._request("PATCH", f"/api/matches/{match_id}", json_data=update_data)
+        updated_match = update_response.json()
+
+        console.print("[bold green]✓ Match updated successfully![/bold green]\n")
+
+        # Display updated match
+        console.print(Panel(
+            f"[bold]Updated Match:[/bold]\n"
+            f"ID: {updated_match.get('id')}\n"
+            f"Date: {format_date(updated_match.get('match_date'))}\n"
+            f"Teams: {updated_match.get('home_team_name')} vs {updated_match.get('away_team_name')}\n"
+            f"Score: {updated_match.get('home_score', '-')} - {updated_match.get('away_score', '-')}\n"
+            f"Status: {updated_match.get('match_status')}\n"
+            f"Age Group: {updated_match.get('age_group_name')}",
+            title="✓ Updated Match Details",
+            border_style="green"
+        ))
+
+        if verbose:
+            console.print("\n[bold]Full Updated Data:[/bold]")
+            console.print(JSON(json.dumps(updated_match, indent=2)))
+
+    except Exception as e:
+        handle_error(e, verbose)
+        raise typer.Exit(1)
+
+
+@matches_app.command("delete")
+def delete_match(
+    match_id: int = typer.Argument(..., help="Match ID to delete"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+):
+    """🗑️  Delete a match by ID."""
+    try:
+        client = get_client()
+
+        # First, get the match details
+        console.print(f"[cyan]Fetching match {match_id}...[/cyan]\n")
+        response = client._request("GET", f"/api/matches/{match_id}")
+        match = response.json()
+
+        # Display what will be deleted
+        console.print(Panel(
+            f"[bold red]Match to DELETE:[/bold red]\n"
+            f"ID: {match.get('id')}\n"
+            f"Date: {format_date(match.get('match_date'))}\n"
+            f"Teams: {match.get('home_team_name')} vs {match.get('away_team_name')}\n"
+            f"Age Group: {match.get('age_group_name')}\n"
+            f"Status: {match.get('match_status')}\n"
+            f"Source: {match.get('source', 'unknown')}\n"
+            f"External ID: {match.get('match_id', 'N/A')}",
+            title="⚠️  Confirm Deletion",
+            border_style="red"
+        ))
+
+        # Confirm deletion
+        if not force:
+            confirm = typer.confirm("\nAre you sure you want to delete this match?")
+            if not confirm:
+                console.print("[yellow]Deletion cancelled.[/yellow]")
+                return
+
+        # Delete the match
+        console.print(f"\n[red]Deleting match {match_id}...[/red]")
+        delete_response = client._request("DELETE", f"/api/matches/{match_id}")
+
+        if delete_response.status_code == 204 or delete_response.status_code == 200:
+            console.print(f"[bold green]✓ Match {match_id} deleted successfully![/bold green]")
+        else:
+            console.print(f"[bold red]✗ Failed to delete match. Status: {delete_response.status_code}[/bold red]")
+            if verbose:
+                console.print(delete_response.text)
 
     except Exception as e:
         handle_error(e, verbose)
@@ -664,7 +947,7 @@ app.add_typer(auth_app, name="auth")
 
 @auth_app.command("login")
 def login(
-    email: str = typer.Option(..., "--email", "-e", prompt=True),
+    username: str = typer.Option(..., "--username", "-u", prompt=True),
     password: str = typer.Option(..., "--password", "-p", prompt=True, hide_input=True),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ):
@@ -673,15 +956,23 @@ def login(
         client = get_client()
         console.print("[cyan]Logging in...[/cyan]")
 
-        result = client.login(email, password)
+        result = client.login(username, password)
+
+        # Save token for future commands
+        access_token = result.get('access_token')
+        refresh_token = result.get('refresh_token')
+        if access_token and refresh_token:
+            save_token(access_token, refresh_token, client.base_url)
+            console.print("[dim]✓ Token saved for future commands[/dim]")
 
         console.print("[bold green]✓ Login successful![/bold green]\n")
 
         user = result.get('user', {})
         console.print(Panel(
-            f"[bold]Email:[/bold] {user.get('email', 'N/A')}\n"
+            f"[bold]Username:[/bold] {user.get('username', 'N/A')}\n"
             f"[bold]Role:[/bold] {user.get('role', 'N/A')}\n"
-            f"[bold]Display Name:[/bold] {user.get('display_name', 'N/A')}",
+            f"[bold]Display Name:[/bold] {user.get('display_name', 'N/A')}\n"
+            f"[bold]Email:[/bold] {user.get('email', 'N/A')}",
             title="User Info",
             border_style="green",
         ))
@@ -712,16 +1003,33 @@ def get_profile(
             return
 
         console.print(Panel(
-            f"[bold]Email:[/bold] {profile.get('email', 'N/A')}\n"
+            f"[bold]Username:[/bold] {profile.get('username', 'N/A')}\n"
             f"[bold]Role:[/bold] {profile.get('role', 'N/A')}\n"
             f"[bold]Display Name:[/bold] {profile.get('display_name', 'N/A')}\n"
-            f"[bold]Team ID:[/bold] {profile.get('team_id', 'N/A')}",
+            f"[bold]Team ID:[/bold] {profile.get('team_id', 'N/A')}\n"
+            f"[bold]Email:[/bold] {profile.get('email', 'N/A')}",
             title="Profile",
             border_style="blue",
         ))
 
     except Exception as e:
         handle_error(e, verbose)
+        raise typer.Exit(1)
+
+
+@auth_app.command("logout")
+def logout():
+    """🚪 Logout and clear stored credentials."""
+    try:
+        if TOKEN_FILE.exists():
+            clear_token()
+            console.print("[bold green]✓ Logged out successfully![/bold green]")
+            console.print("[dim]Token cleared from storage[/dim]")
+        else:
+            console.print("[yellow]No active session found[/yellow]")
+
+    except Exception as e:
+        console.print(f"[red]❌ Error during logout: {e}[/red]")
         raise typer.Exit(1)
 
 

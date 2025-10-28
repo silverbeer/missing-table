@@ -317,6 +317,39 @@ def update_user_role(supabase, identifier, new_role):
 
         console.print(f"[green]✓ Found user: {found_identifier} (via {id_type})[/green]")
 
+        # Check if profile exists
+        profile_check = supabase.table('user_profiles').select('*').eq('id', user_id).execute()
+
+        if not profile_check.data:
+            # Profile doesn't exist, create it
+            console.print("[yellow]⚠️  No profile found, creating one...[/yellow]")
+
+            # Extract username from identifier if possible
+            if id_type == 'username':
+                username = found_identifier
+            elif '@missingtable.local' in found_identifier:
+                username = found_identifier.replace('@missingtable.local', '')
+            else:
+                username = found_identifier.split('@')[0]
+
+            profile_data = {
+                'id': user_id,
+                'role': new_role,
+                'username': username,
+                'display_name': username.title()
+            }
+
+            create_response = supabase.table('user_profiles').insert(profile_data).execute()
+
+            if create_response.data:
+                console.print(f"\n[bold green]✅ Profile created and role set successfully![/bold green]")
+                console.print(f"  User: [cyan]{username}[/cyan]")
+                console.print(f"  Role: [yellow]{new_role}[/yellow]")
+                return True
+            else:
+                console.print("[red]❌ Failed to create profile[/red]")
+                return False
+
         # Update role in user_profiles
         update_response = supabase.table('user_profiles').update({
             'role': new_role
@@ -746,6 +779,73 @@ def teams_command():
     else:
         console.print("\n[red]💥 Operation failed![/red]")
         raise typer.Exit(1)
+
+
+@app.command("env")
+def env_command():
+    """Show current environment configuration."""
+    console.print("[bold cyan]🌍 Environment Configuration[/bold cyan]\n")
+
+    # Get APP_ENV before loading
+    app_env = os.getenv('APP_ENV', 'dev')
+
+    # Load environment
+    load_environment()
+
+    # Get environment variables
+    supabase_url = os.getenv('SUPABASE_URL', 'Not set')
+    supabase_key = os.getenv('SUPABASE_SERVICE_KEY', 'Not set')
+    environment_var = os.getenv('ENVIRONMENT', 'Not set')
+
+    # Determine environment file
+    env_file = f".env.{app_env}"
+    env_file_exists = os.path.exists(env_file)
+
+    # Create info table
+    table = Table(
+        show_header=False,
+        box=box.ROUNDED,
+        padding=(0, 2),
+    )
+    table.add_column("Setting", style="cyan bold", no_wrap=True)
+    table.add_column("Value", style="white")
+
+    # Environment info
+    table.add_row("Current Environment", f"[yellow bold]{app_env}[/yellow bold]")
+    table.add_row("Environment File", f"{env_file} {'[green]✓ exists[/green]' if env_file_exists else '[red]✗ not found[/red]'}")
+    table.add_row("ENVIRONMENT var", environment_var)
+
+    # Supabase info
+    if supabase_url.startswith('http://127.0.0.1') or supabase_url.startswith('http://localhost'):
+        url_display = f"[blue]{supabase_url}[/blue] [dim](local)[/dim]"
+    elif 'supabase.co' in supabase_url:
+        # Show only domain for cloud
+        url_display = f"[green]{supabase_url.split('/')[2]}[/green] [dim](cloud)[/dim]"
+    else:
+        url_display = supabase_url
+
+    table.add_row("Supabase URL", url_display)
+
+    # Show key status (don't show actual key)
+    if supabase_key and supabase_key != 'Not set':
+        key_preview = f"{supabase_key[:20]}..." if len(supabase_key) > 20 else supabase_key
+        table.add_row("Service Key", f"[dim]{key_preview}[/dim] [green]✓ set[/green]")
+    else:
+        table.add_row("Service Key", "[red]✗ not set[/red]")
+
+    console.print(table)
+
+    # Additional info
+    console.print("\n[bold]Available environment files:[/bold]")
+    for env_name in ['local', 'dev', 'prod']:
+        env_path = f".env.{env_name}"
+        if os.path.exists(env_path):
+            active = " [yellow]← ACTIVE[/yellow]" if env_name == app_env else ""
+            console.print(f"  [green]✓[/green] {env_path}{active}")
+        else:
+            console.print(f"  [dim]✗ {env_path}[/dim]")
+
+    console.print("\n[dim]💡 Tip: Use '../switch-env.sh <env>' to change environments[/dim]")
 
 
 if __name__ == "__main__":

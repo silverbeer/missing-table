@@ -172,7 +172,8 @@ def process_match_data(self: DatabaseTask, match_data: Dict[str, Any]) -> Dict[s
         DatabaseError: If database operation fails
     """
     try:
-        logger.info(f"Processing match data: {match_data.get('home_team')} vs {match_data.get('away_team')}")
+        mls_id = match_data.get('external_match_id', 'N/A')
+        logger.info(f"Processing match data: {match_data.get('home_team')} vs {match_data.get('away_team')} (MLS ID: {mls_id})")
 
         # Step 1: Validate the match data
         validation_result = validate_match_data(match_data)
@@ -255,26 +256,28 @@ def process_match_data(self: DatabaseTask, match_data: Dict[str, Any]) -> Dict[s
             needs_update = self._check_needs_update(existing_match, match_data)
 
             if needs_update:
-                logger.info(f"Updating existing match {existing_match['id']}: {home_team_name} vs {away_team_name}")
+                logger.info(f"Updating existing match DB ID {existing_match['id']} (MLS ID: {external_match_id}): {home_team_name} vs {away_team_name}")
                 success = self._update_match_scores(existing_match, match_data)
 
                 if success:
                     result = {
-                        'match_id': existing_match['id'],
+                        'db_id': existing_match['id'],
+                        'mls_id': external_match_id,
                         'status': 'updated',
                         'message': f"Updated match scores: {home_team_name} vs {away_team_name}"
                     }
                 else:
                     raise Exception(f"Failed to update match {existing_match['id']}")
             else:
-                logger.info(f"Match already exists with ID {existing_match['id']}. No changes needed.")
+                logger.info(f"Match already exists with DB ID {existing_match['id']} (MLS ID: {external_match_id}). No changes needed.")
                 result = {
-                    'match_id': existing_match['id'],
+                    'db_id': existing_match['id'],
+                    'mls_id': external_match_id,
                     'status': 'skipped',
                     'message': f"Match unchanged: {home_team_name} vs {away_team_name}"
                 }
         else:
-            logger.info(f"Creating new match: {home_team_name} vs {away_team_name}")
+            logger.info(f"Creating new match (MLS ID: {external_match_id}): {home_team_name} vs {away_team_name}")
             match_id = self.dao.create_match(
                 home_team_id=home_team['id'],
                 away_team_id=away_team['id'],
@@ -286,10 +289,13 @@ def process_match_data(self: DatabaseTask, match_data: Dict[str, Any]) -> Dict[s
                 location=match_data.get('location'),
                 source='match-scraper',
                 match_id=external_match_id,
+                age_group=match_data.get('age_group'),
+                division=match_data.get('division'),
             )
             if match_id:
                 result = {
-                    'match_id': match_id,
+                    'db_id': match_id,
+                    'mls_id': external_match_id,
                     'status': 'created',
                     'message': f"Created match: {home_team_name} vs {away_team_name}"
                 }

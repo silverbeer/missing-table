@@ -111,6 +111,34 @@ helm upgrade missing-table ./helm/missing-table -n missing-table-dev \
   --values ./helm/missing-table/values-dev.yaml --wait
 ```
 
+### 2. scripts/deployment-health-check.sh
+Comprehensive deployment health check that verifies:
+- Pod status (no CrashLoopBackOff, all pods ready)
+- Deployment status (all deployments healthy, no unavailable replicas)
+- Helm release status (deployed successfully)
+- Ingress status (has address, accessible)
+- Service endpoints (all services have endpoints)
+- Recent events (warning events from last deployment)
+- HTTP endpoints (site accessibility, API health)
+- Resource usage (CPU/memory metrics)
+
+**Usage**:
+```bash
+# Check dev environment
+./scripts/deployment-health-check.sh dev missing-table-dev
+
+# Check production environment
+./scripts/deployment-health-check.sh prod missing-table-prod
+
+# Default (dev)
+./scripts/deployment-health-check.sh
+```
+
+**Exit codes**:
+- `0`: All checks passed
+- `1`: One or more checks failed
+
+
 ## Timeline of Issues
 
 | Date | Issue | Impact | Resolution |
@@ -207,6 +235,7 @@ Updated example file to match actual GKE requirements:
 
 ### Created
 - `scripts/fix-dev-values.sh` - Configuration fixer script
+- `scripts/deployment-health-check.sh` - Deployment health check utility
 - `docs/07-operations/deployment-stability-fixes.md` - This document
 
 ### Referenced
@@ -217,7 +246,7 @@ Updated example file to match actual GKE requirements:
 
 - [ ] Update GitHub Actions workflow with proper timeout handling
 - [ ] Add pre-deployment validation to CI/CD
-- [ ] Create deployment health checks script
+- [x] Create deployment health checks script ✅ (scripts/deployment-health-check.sh)
 - [ ] Add monitoring/alerting for pod CrashLoopBackOff
 
 ---

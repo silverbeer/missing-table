@@ -82,6 +82,12 @@ COMMENT ON FUNCTION reset_all_sequences() IS
 Run this after restoring data from backups to prevent duplicate key violations.';
 
 -- =====================================================================
--- Note: Function is available but not executed during migration
--- Run manually when needed: SELECT reset_all_sequences();
+-- Run the function immediately to fix any existing sequence issues
 -- =====================================================================
+DO $$
+DECLARE
+    reset_count INTEGER;
+BEGIN
+    SELECT reset_all_sequences() INTO reset_count;
+    RAISE NOTICE 'Migration complete: Reset % sequence(s)', reset_count;
+END $$;
