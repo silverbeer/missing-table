@@ -290,16 +290,80 @@ curl -I https://dev.missingtable.com
 ```
 
 ### Database/Supabase
+
+**📖 For comprehensive migration guide, see [docs/MIGRATION_BEST_PRACTICES.md](docs/MIGRATION_BEST_PRACTICES.md)**
+
+#### Quick Reference
+
 ```bash
-# Supabase CLI installed via Homebrew
-supabase start    # Start local Supabase
-supabase stop     # Stop local Supabase
-supabase status   # Check status and get URLs
+# Supabase CLI (installed via Homebrew)
+cd supabase-local
+npx supabase start    # Start local Supabase
+npx supabase stop     # Stop local Supabase
+npx supabase status   # Check status and get URLs
+```
 
-# IMPORTANT: Database Restoration
-# NEVER use `npx supabase db reset` or seed sample data
-# ALWAYS restore from the latest backup in the backups/ folder using db_tools.sh
+#### Schema Migrations (NEW WORKFLOW - 2025-10-28)
 
+**IMPORTANT**: All schema changes MUST be migrations. No ad-hoc SQL!
+
+```bash
+# Create new migration (preferred method - auto-generates SQL)
+cd supabase-local
+npx supabase db diff -f add_new_feature
+
+# OR manually create migration file
+npx supabase migration new add_new_feature
+
+# Test migration locally
+npx supabase db reset
+cd .. && ./scripts/db_tools.sh restore
+
+# Copy to official migrations directory
+cp supabase-local/migrations/[timestamp]_*.sql supabase/migrations/
+
+# Commit the migration
+git add supabase/migrations/ supabase-local/migrations/
+git commit -m "feat: add new feature migration"
+
+# Deploy to dev
+./switch-env.sh dev
+cd supabase-local && npx supabase db push --linked
+
+# Deploy to prod (after testing in dev)
+./switch-env.sh prod
+./scripts/db_tools.sh backup prod  # ALWAYS backup first!
+cd supabase-local && npx supabase db push --linked
+```
+
+**Migration Files:**
+- `supabase/migrations/` - Official migrations (single source of truth)
+- `supabase-local/migrations/` - Working directory for creating/testing migrations
+- `supabase/migrations/20251028000001_baseline_schema.sql` - Baseline (schema version 1.0.0)
+
+**Schema Version:**
+```sql
+-- Check current schema version in any environment
+SELECT * FROM get_schema_version();
+
+-- View all version history
+SELECT * FROM schema_version ORDER BY applied_at DESC;
+
+-- Add version in new migration (at end of migration file)
+SELECT add_schema_version('1.1.0', 'migration_name', 'Description');
+```
+
+**Best Practices:**
+- ✅ Always test migrations locally before deploying
+- ✅ Make migrations idempotent (safe to run multiple times)
+- ✅ Backup before applying to production
+- ✅ Use descriptive migration names
+- ❌ Never modify existing migrations
+- ❌ Never run ad-hoc SQL on databases
+
+#### Database Backup & Restore
+
+```bash
 # Database backup and restore utility
 ./scripts/db_tools.sh restore        # Restore from latest backup (PREFERRED)
 ./scripts/db_tools.sh restore backup_file.json  # Restore from specific backup
@@ -309,12 +373,11 @@ supabase status   # Check status and get URLs
 
 # CRITICAL: Always use db_tools.sh for database operations
 # This script handles proper data restoration with dependency ordering
+```
 
-# DEPRECATED/AVOID: The following scripts should NOT be used for regular database setup:
-# - backend/populate_teams.py (uses hardcoded CSV paths)
-# - backend/populate_teams_supabase.py (uses hardcoded CSV paths)
+#### Database Inspector (Troubleshooting)
 
-# Database Inspector (Troubleshooting)
+```bash
 cd backend && uv run python inspect_db.py stats                      # Database statistics
 cd backend && uv run python inspect_db.py teams                       # List all teams
 cd backend && uv run python inspect_db.py teams --search IFA          # Search teams by name
@@ -325,7 +388,11 @@ cd backend && uv run python inspect_db.py matches --team IFA          # Filter b
 cd backend && uv run python inspect_db.py matches --age-group U14     # Filter by age group
 cd backend && uv run python inspect_db.py matches --duplicates        # Find duplicate matches
 cd backend && uv run python inspect_db.py match-detail 123            # Detailed match info
+```
 
+#### User Administration
+
+```bash
 # User Administration (after users sign up)
 cd backend && uv run python make_user_admin.py --list              # List all users
 cd backend && uv run python make_user_admin.py --user-id USER_ID   # Make specific user admin
@@ -338,14 +405,20 @@ cd backend && uv run python make_user_admin.py --interactive       # Interactive
 
 # Password Reset (Cloud Environment)
 cd backend && uv run python reset_user_password.py --email "user@example.com" --password "newpassword" --confirm
-
-# Note: tdrake13@gmail.com has been configured as an admin user
-# Cleaned up: Removed redundant make_admin.py script (was hardcoded for tdrake13@gmail.com)
-# Cleaned up: Removed redundant backup_database_supabase.py script (older version, use backup_database.py) 
-# - backend/scripts/setup/populate_reference_data.py (creates sample data)
-# - backend/scripts/sample-data/populate_sample_data.py (creates sample teams)
-# These scripts are kept for reference but use db_tools.sh restore instead
 ```
+
+#### Migration History
+
+**Pre-Consolidation (Before 2025-10-28):**
+- Had 50+ scattered SQL scripts across multiple directories
+- Migrations split between `supabase/`, `supabase-local/`, `supabase-e2e/`
+- Many ad-hoc SQL scripts that were never proper migrations
+
+**Post-Consolidation (2025-10-28):**
+- Single baseline migration consolidates all schema changes
+- Clean migration workflow using Supabase CLI
+- All future changes are incremental migrations
+- Old migrations archived in `.archive/` directories for reference
 
 ## Environment Management
 

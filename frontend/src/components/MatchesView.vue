@@ -1052,6 +1052,9 @@ export default {
         (a, b) => new Date(a.match_date) - new Date(b.match_date)
       );
 
+      // Collect all match results first
+      const allResults = [];
+
       sortedGames.forEach(match => {
         const selectedTeamId = parseInt(selectedTeam.value);
         const isHome = match.home_team_id === selectedTeamId;
@@ -1097,15 +1100,13 @@ export default {
             else stats.springLosses++;
           }
 
-          // Track last 5 matches (will be reversed later to show most recent first)
-          if (stats.lastFive.length < 5) {
-            stats.lastFive.push(result);
-          }
+          // Collect all results
+          allResults.push(result);
         }
       });
 
-      // Reverse lastFive to show most recent matches first
-      stats.lastFive = stats.lastFive.reverse();
+      // Take the last 5 matches and reverse to show most recent first
+      stats.lastFive = allResults.slice(-5).reverse();
 
       // Calculate final stats
       stats.goalDifference = stats.goalsFor - stats.goalsAgainst;
