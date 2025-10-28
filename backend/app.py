@@ -929,11 +929,13 @@ async def get_age_groups(
 ):
     """Get all age groups."""
     try:
+        logger.info(f"age-groups endpoint - current_user: {current_user}")
         if security_monitor:
             client_ip = security_monitor.get_client_ip(request)
             age_groups = sports_dao.get_all_age_groups(client_ip=client_ip)
         else:
             age_groups = sports_dao.get_all_age_groups()
+        logger.info(f"age-groups endpoint - returning {len(age_groups)} groups")
         return age_groups
     except Exception as e:
         logger.error(f"Error retrieving age groups: {e!s}")
