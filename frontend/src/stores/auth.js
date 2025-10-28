@@ -183,10 +183,22 @@ export const useAuthStore = () => {
     try {
       setLoading(true);
 
-      // Call backend logout endpoint
-      await apiCall(`${API_URL}/api/auth/logout`, {
-        method: 'POST',
-      });
+      // Call backend logout endpoint using plain fetch (not apiCall to avoid infinite loop)
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        try {
+          await fetch(`${API_URL}/api/auth/logout`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (e) {
+          // Ignore logout endpoint errors - we'll clear local state anyway
+          console.warn('Logout endpoint error (ignored):', e);
+        }
+      }
 
       // Clear local state regardless of API response
       setUser(null);
