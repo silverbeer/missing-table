@@ -573,8 +573,30 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Create annotated tag
-          git tag -a "${TAG_NAME}" -m "Release ${FULL_VERSION}
+          # Fetch existing tags
+          git fetch --tags
+
+          # Check if tag already exists
+          if git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "⚠️  Tag ${TAG_NAME} already exists"
+            echo "Checking if it points to the same commit..."
+
+            EXISTING_COMMIT=$(git rev-list -n 1 "${TAG_NAME}")
+            CURRENT_COMMIT="${{ inputs.commit_sha }}"
+
+            if [ "${EXISTING_COMMIT}" == "${CURRENT_COMMIT}" ]; then
+              echo "✅ Tag ${TAG_NAME} already points to commit ${CURRENT_COMMIT}"
+              echo "Skipping tag creation"
+            else
+              echo "❌ Tag ${TAG_NAME} points to different commit: ${EXISTING_COMMIT}"
+              echo "⚠️  To create a new release, bump the VERSION file"
+              echo "Current commit: ${CURRENT_COMMIT}"
+              echo "Skipping tag creation to avoid conflicts"
+            fi
+          else
+            # Create annotated tag
+            echo "Creating new tag: ${TAG_NAME}"
+            git tag -a "${TAG_NAME}" -m "Release ${FULL_VERSION}
 
           Deployed to ${{ inputs.environment }} at $(date -u)
           Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -582,10 +604,11 @@ jobs:
           Build ID: ${{ github.run_id }}
           Commit: ${{ inputs.commit_sha }}"
 
-          # Push tag
-          git push origin "${TAG_NAME}"
+            # Push tag
+            git push origin "${TAG_NAME}"
 
-          echo "✅ Git tag created: ${TAG_NAME}"
+            echo "✅ Git tag created: ${TAG_NAME}"
+          fi
 
       - name: Deployment summary
         if: success()
