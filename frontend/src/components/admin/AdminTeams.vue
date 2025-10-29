@@ -475,11 +475,13 @@ export default {
     const fetchTeams = async () => {
       try {
         loading.value = true;
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch teams');
-        teams.value = await response.json();
+        teams.value = response;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -489,11 +491,13 @@ export default {
 
     const fetchAgeGroups = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch age groups');
-        ageGroups.value = await response.json();
+        ageGroups.value = response;
       } catch (err) {
         console.error('Error fetching age groups:', err);
       }
@@ -501,11 +505,13 @@ export default {
 
     const fetchDivisions = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch divisions');
-        divisions.value = await response.json();
+        divisions.value = response;
       } catch (err) {
         console.error('Error fetching divisions:', err);
       }
@@ -513,11 +519,13 @@ export default {
 
     const fetchGameTypes = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch match types');
-        gameTypes.value = await response.json();
+        gameTypes.value = response;
       } catch (err) {
         console.error('Error fetching game types:', err);
       }
@@ -525,11 +533,13 @@ export default {
 
     const fetchGames = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch matches');
-        games.value = await response.json();
+        games.value = response;
       } catch (err) {
         console.error('Error fetching games:', err);
       }

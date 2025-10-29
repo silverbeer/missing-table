@@ -219,11 +219,13 @@ export default {
     const fetchSeasons = async () => {
       try {
         loading.value = true;
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch seasons');
-        seasons.value = await response.json();
+        seasons.value = response;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -233,11 +235,13 @@ export default {
 
     const fetchGames = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch matches');
-        games.value = await response.json();
+        games.value = response;
       } catch (err) {
         console.error('Error fetching games:', err);
       }

@@ -177,11 +177,13 @@ export default {
     const fetchAgeGroups = async () => {
       try {
         loading.value = true;
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch age groups');
-        ageGroups.value = await response.json();
+        ageGroups.value = response;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -191,11 +193,13 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch teams');
-        teams.value = await response.json();
+        teams.value = response;
       } catch (err) {
         console.error('Error fetching teams:', err);
       }

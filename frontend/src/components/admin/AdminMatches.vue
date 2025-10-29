@@ -438,9 +438,10 @@ export default {
           url += `?${params.toString()}`;
         }
 
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch matches');
-        matches.value = await response.json();
+        const response = await authStore.apiRequest(url, {
+          method: 'GET',
+        });
+        matches.value = response;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -450,27 +451,31 @@ export default {
 
     const fetchReferenceData = async () => {
       try {
-        const [teamsRes, seasonsRes, matchTypesRes, ageGroupsRes] =
+        const [teamsData, seasonsData, matchTypesData, ageGroupsData] =
           await Promise.all([
-            fetch(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+            authStore.apiRequest(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+              { method: 'GET' }
             ),
-            fetch(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+            authStore.apiRequest(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`,
+              { method: 'GET' }
             ),
-            fetch(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
+            authStore.apiRequest(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`,
+              { method: 'GET' }
             ),
-            fetch(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+            authStore.apiRequest(
+              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
+              { method: 'GET' }
             ),
           ]);
 
-        if (teamsRes.ok) teams.value = await teamsRes.json();
-        if (seasonsRes.ok) seasons.value = await seasonsRes.json();
-        if (matchTypesRes.ok) matchTypes.value = await matchTypesRes.json();
-        if (ageGroupsRes.ok) {
-          ageGroups.value = await ageGroupsRes.json();
+        teams.value = teamsData;
+        seasons.value = seasonsData;
+        matchTypes.value = matchTypesData;
+        if (ageGroupsData) {
+          ageGroups.value = ageGroupsData;
           // Set U14 as default filter
           const u14AgeGroup = ageGroups.value.find(ag => ag.name === 'U14');
           if (u14AgeGroup) {
