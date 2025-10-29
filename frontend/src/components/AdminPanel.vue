@@ -52,6 +52,11 @@
           <AdminSeasons />
         </div>
 
+        <!-- Leagues Management -->
+        <div v-if="currentSection === 'leagues'" class="p-6">
+          <AdminLeagues />
+        </div>
+
         <!-- Divisions Management -->
         <div v-if="currentSection === 'divisions'" class="p-6">
           <AdminDivisions />
@@ -81,6 +86,7 @@ import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import AdminAgeGroups from './admin/AdminAgeGroups.vue';
 import AdminSeasons from './admin/AdminSeasons.vue';
+import AdminLeagues from './admin/AdminLeagues.vue';
 import AdminDivisions from './admin/AdminDivisions.vue';
 import AdminTeams from './admin/AdminTeams.vue';
 import AdminMatches from './admin/AdminMatches.vue';
@@ -91,6 +97,7 @@ export default {
   components: {
     AdminAgeGroups,
     AdminSeasons,
+    AdminLeagues,
     AdminDivisions,
     AdminTeams,
     AdminMatches,
@@ -103,6 +110,7 @@ export default {
     const adminSections = [
       { id: 'age-groups', name: 'Age Groups' },
       { id: 'seasons', name: 'Seasons' },
+      { id: 'leagues', name: 'Leagues' },
       { id: 'divisions', name: 'Divisions' },
       { id: 'teams', name: 'Teams' },
       { id: 'matches', name: 'Matches' },

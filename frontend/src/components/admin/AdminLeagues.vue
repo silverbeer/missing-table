@@ -1,12 +1,12 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Divisions Management</h3>
+      <h3 class="text-lg font-semibold text-gray-900">Leagues Management</h3>
       <button
         @click="showAddModal = true"
         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
-        Add Division
+        Add League
       </button>
     </div>
 
@@ -25,7 +25,7 @@
       <div class="text-red-800">{{ error }}</div>
     </div>
 
-    <!-- Divisions Table -->
+    <!-- Leagues Table -->
     <div
       v-else
       class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
@@ -41,17 +41,17 @@
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              League
-            </th>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
               Description
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              Teams Count
+              Divisions Count
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Active
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -66,41 +66,55 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="division in divisions" :key="division.id">
+          <tr v-for="league in leagues" :key="league.id">
             <td
               class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
-              {{ division.name }}
+              {{ league.name }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ division.leagues?.name || getLeagueName(division.league_id) }}
+              {{ league.description || 'N/A' }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ division.description }}
+              {{ getDivisionCount(league.id) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ getTeamCount(division.id) }}
+              <span
+                :class="[
+                  'inline-flex px-2 py-1 text-xs font-semibold rounded-full',
+                  league.is_active
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-800',
+                ]"
+              >
+                {{ league.is_active ? 'Active' : 'Inactive' }}
+              </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ formatDate(division.created_at) }}
+              {{ formatDate(league.created_at) }}
             </td>
             <td
               class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
             >
               <button
-                @click="editDivision(division)"
+                @click="editLeague(league)"
                 class="text-blue-600 hover:text-blue-900 mr-3"
               >
                 Edit
               </button>
               <button
-                @click="deleteDivision(division)"
+                @click="deleteLeague(league)"
                 class="text-red-600 hover:text-red-900"
-                :disabled="getTeamCount(division.id) > 0"
+                :disabled="getDivisionCount(league.id) > 0"
                 :class="{
                   'opacity-50 cursor-not-allowed':
-                    getTeamCount(division.id) > 0,
+                    getDivisionCount(league.id) > 0,
                 }"
+                :title="
+                  getDivisionCount(league.id) > 0
+                    ? 'Cannot delete league with divisions'
+                    : 'Delete league'
+                "
               >
                 Delete
               </button>
@@ -119,45 +133,23 @@
       <div class="modal-content" @click.stop>
         <div class="p-6">
           <h3 class="text-lg font-medium text-gray-900 mb-4">
-            {{ showEditModal ? 'Edit Division' : 'Add New Division' }}
+            {{ showEditModal ? 'Edit League' : 'Add New League' }}
           </h3>
 
           <form
-            @submit.prevent="
-              showEditModal ? updateDivision() : createDivision()
-            "
+            @submit.prevent="showEditModal ? updateLeague() : createLeague()"
           >
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Division Name</label
+                >League Name</label
               >
               <input
                 v-model="formData.name"
                 type="text"
                 required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Northeast, Southeast, Central..."
+                placeholder="e.g., Homegrown, ECNL, MLS Next..."
               />
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >League</label
-              >
-              <select
-                v-model="formData.league_id"
-                required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option :value="null" disabled>Select a league...</option>
-                <option
-                  v-for="league in leagues"
-                  :key="league.id"
-                  :value="league.id"
-                >
-                  {{ league.name }}
-                </option>
-              </select>
             </div>
 
             <div class="mb-4">
@@ -168,8 +160,22 @@
                 v-model="formData.description"
                 rows="3"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Description of the division..."
+                placeholder="Description of the league..."
               ></textarea>
+            </div>
+
+            <div class="mb-4">
+              <label class="flex items-center">
+                <input
+                  v-model="formData.is_active"
+                  type="checkbox"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span class="ml-2 text-sm text-gray-700">Active League</span>
+              </label>
+              <p class="mt-1 text-xs text-gray-500">
+                Inactive leagues won't be available for selection
+              </p>
             </div>
 
             <div class="flex justify-end space-x-3">
@@ -206,58 +212,27 @@ import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 export default {
-  name: 'AdminDivisions',
+  name: 'AdminLeagues',
   setup() {
     const authStore = useAuthStore();
-    const divisions = ref([]);
-    const teams = ref([]);
     const leagues = ref([]);
+    const divisions = ref([]);
     const loading = ref(true);
     const formLoading = ref(false);
     const error = ref(null);
     const showAddModal = ref(false);
     const showEditModal = ref(false);
-    const editingDivision = ref(null);
+    const editingLeague = ref(null);
 
     const formData = ref({
       name: '',
       description: '',
-      league_id: null,
+      is_active: true,
     });
-
-    const fetchDivisions = async () => {
-      try {
-        loading.value = true;
-        const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
-          {
-            method: 'GET',
-          }
-        );
-        divisions.value = response;
-      } catch (err) {
-        error.value = err.message;
-      } finally {
-        loading.value = false;
-      }
-    };
-
-    const fetchTeams = async () => {
-      try {
-        const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
-          {
-            method: 'GET',
-          }
-        );
-        teams.value = response;
-      } catch (err) {
-        console.error('Error fetching teams:', err);
-      }
-    };
 
     const fetchLeagues = async () => {
       try {
+        loading.value = true;
         const response = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues`,
           {
@@ -266,75 +241,81 @@ export default {
         );
         leagues.value = response;
       } catch (err) {
-        console.error('Error fetching leagues:', err);
+        error.value = err.message;
+      } finally {
+        loading.value = false;
       }
     };
 
-    const getLeagueName = leagueId => {
-      const league = leagues.value.find(l => l.id === leagueId);
-      return league ? league.name : 'N/A';
+    const fetchDivisions = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
+          {
+            method: 'GET',
+          }
+        );
+        divisions.value = response;
+      } catch (err) {
+        console.error('Error fetching divisions:', err);
+      }
     };
 
-    const getTeamCount = divisionId => {
-      return teams.value.filter(team =>
-        team.team_mappings?.some(
-          mapping => mapping.divisions?.id === divisionId
-        )
-      ).length;
+    const getDivisionCount = leagueId => {
+      return divisions.value.filter(division => division.league_id === leagueId)
+        .length;
     };
 
     const formatDate = dateString => {
       return new Date(dateString).toLocaleDateString();
     };
 
-    const createDivision = async () => {
+    const createLeague = async () => {
       try {
         formLoading.value = true;
-        error.value = null; // Clear previous errors
+        error.value = null;
 
-        console.log('Creating division with data:', formData.value);
-        console.log('Auth headers:', authStore.getAuthHeaders());
-        console.log('User role:', authStore.userRole.value);
+        console.log('Creating league with data:', formData.value);
 
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues`,
           {
             method: 'POST',
             body: JSON.stringify(formData.value),
           }
         );
 
-        console.log('Division created successfully:', response);
+        console.log('League created successfully:', response);
 
-        await fetchDivisions();
+        await fetchLeagues();
         closeModals();
         resetForm();
       } catch (err) {
-        console.error('Error creating division:', err);
-        error.value = err.message || 'Failed to create division';
+        console.error('Error creating league:', err);
+        error.value = err.message || 'Failed to create league';
       } finally {
         formLoading.value = false;
       }
     };
 
-    const editDivision = division => {
-      editingDivision.value = division;
-      formData.value = { ...division };
+    const editLeague = league => {
+      editingLeague.value = league;
+      formData.value = { ...league };
       showEditModal.value = true;
     };
 
-    const updateDivision = async () => {
+    const updateLeague = async () => {
       try {
         formLoading.value = true;
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions/${editingDivision.value.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues/${editingLeague.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(formData.value),
           }
         );
 
-        await fetchDivisions();
+        await fetchLeagues();
         closeModals();
         resetForm();
       } catch (err) {
@@ -344,24 +325,24 @@ export default {
       }
     };
 
-    const deleteDivision = async division => {
-      if (getTeamCount(division.id) > 0) {
-        error.value = 'Cannot delete division with associated teams';
+    const deleteLeague = async league => {
+      if (getDivisionCount(league.id) > 0) {
+        error.value =
+          'Cannot delete league with existing divisions. Delete divisions first.';
         return;
       }
 
-      if (!confirm(`Are you sure you want to delete "${division.name}"?`))
-        return;
+      if (!confirm(`Are you sure you want to delete "${league.name}"?`)) return;
 
       try {
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions/${division.id}`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues/${league.id}`,
           {
             method: 'DELETE',
           }
         );
 
-        await fetchDivisions();
+        await fetchLeagues();
       } catch (err) {
         error.value = err.message;
       }
@@ -370,7 +351,7 @@ export default {
     const closeModals = () => {
       showAddModal.value = false;
       showEditModal.value = false;
-      editingDivision.value = null;
+      editingLeague.value = null;
       resetForm();
     };
 
@@ -378,16 +359,15 @@ export default {
       formData.value = {
         name: '',
         description: '',
-        league_id: null,
+        is_active: true,
       };
     };
 
     onMounted(async () => {
-      await Promise.all([fetchDivisions(), fetchTeams(), fetchLeagues()]);
+      await Promise.all([fetchLeagues(), fetchDivisions()]);
     });
 
     return {
-      divisions,
       leagues,
       loading,
       formLoading,
@@ -395,13 +375,12 @@ export default {
       showAddModal,
       showEditModal,
       formData,
-      getTeamCount,
-      getLeagueName,
+      getDivisionCount,
       formatDate,
-      createDivision,
-      editDivision,
-      updateDivision,
-      deleteDivision,
+      createLeague,
+      editLeague,
+      updateLeague,
+      deleteLeague,
       closeModals,
     };
   },
