@@ -198,11 +198,13 @@ export default {
     const fetchDivisions = async () => {
       try {
         loading.value = true;
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch divisions');
-        divisions.value = await response.json();
+        divisions.value = response;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -212,11 +214,13 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+          {
+            method: 'GET',
+          }
         );
-        if (!response.ok) throw new Error('Failed to fetch teams');
-        teams.value = await response.json();
+        teams.value = response;
       } catch (err) {
         console.error('Error fetching teams:', err);
       }
