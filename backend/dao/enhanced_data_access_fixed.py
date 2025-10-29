@@ -265,7 +265,12 @@ class EnhancedSportsDAO:
                     ),
                     divisions (
                         id,
-                        name
+                        name,
+                        league_id,
+                        leagues!divisions_league_id_fkey (
+                            id,
+                            name
+                        )
                     )
                 )
             """)
@@ -284,7 +289,11 @@ class EnhancedSportsDAO:
                             age_group = tag["age_groups"]
                             age_groups.append(age_group)
                             if tag.get("divisions"):
-                                divisions_by_age_group[age_group["id"]] = tag["divisions"]
+                                division = tag["divisions"]
+                                # Add league_name to division for easy access in frontend
+                                if division.get("leagues"):
+                                    division["league_name"] = division["leagues"]["name"]
+                                divisions_by_age_group[age_group["id"]] = division
                 team["age_groups"] = age_groups
                 team["divisions_by_age_group"] = divisions_by_age_group
                 teams.append(team)

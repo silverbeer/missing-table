@@ -22,6 +22,33 @@
         </div>
       </div>
 
+      <!-- League Selector -->
+      <div>
+        <h3 class="text-sm font-medium text-gray-700 mb-3">League</h3>
+        <div v-if="authStore.isAdmin.value" class="flex flex-wrap gap-2">
+          <button
+            v-for="league in leagues"
+            :key="league.id"
+            @click="selectedLeagueId = league.id"
+            :class="[
+              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              selectedLeagueId === league.id
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]"
+          >
+            {{ league.name }}
+          </button>
+        </div>
+        <div v-else class="flex flex-wrap gap-2">
+          <div
+            class="px-4 py-2 text-sm rounded-md font-medium bg-gray-50 text-gray-700 border border-gray-300"
+          >
+            {{ selectedLeagueName || 'No league assigned' }}
+          </div>
+        </div>
+      </div>
+
       <!-- Season and Division Row -->
       <div
         class="flex flex-col sm:flex-row sm:space-x-6 space-y-4 sm:space-y-0"
@@ -55,6 +82,7 @@
               :key="division.id"
               :value="division.id"
             >
+              {{ division.leagues?.name || 'Unknown League' }} -
               {{ division.name }}
             </option>
           </select>
@@ -185,7 +213,7 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 
 export default {
@@ -194,13 +222,22 @@ export default {
     const authStore = useAuthStore();
     const tableData = ref([]);
     const ageGroups = ref([]);
+    const leagues = ref([]);
     const divisions = ref([]);
+    const allDivisions = ref([]); // Store all divisions for filtering
     const seasons = ref([]);
     const selectedAgeGroupId = ref(2); // Default to U14
+    const selectedLeagueId = ref(null); // Default to first league
     const selectedDivisionId = ref(1); // Default to Northeast
     const selectedSeasonId = ref(2); // Default to 2024-2025
     const error = ref(null);
     const loading = ref(true);
+
+    // Computed property for selected league name
+    const selectedLeagueName = computed(() => {
+      const league = leagues.value.find(l => l.id === selectedLeagueId.value);
+      return league ? league.name : '';
+    });
 
     const fetchAgeGroups = async () => {
       try {
@@ -219,17 +256,57 @@ export default {
       }
     };
 
+    const fetchLeagues = async () => {
+      try {
+        const data = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues`
+        );
+        leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Set Homegrown as default if available
+        const homegrown = data.find(l => l.name === 'Homegrown');
+        if (homegrown) {
+          selectedLeagueId.value = homegrown.id;
+        } else if (data.length > 0) {
+          selectedLeagueId.value = data[0].id;
+        }
+      } catch (err) {
+        console.error('Error fetching leagues:', err);
+      }
+    };
+
+    const filterDivisionsByLeague = () => {
+      if (selectedLeagueId.value) {
+        divisions.value = allDivisions.value.filter(
+          d => d.league_id === selectedLeagueId.value
+        );
+        // Reset division selection if current division is not in filtered list
+        if (!divisions.value.find(d => d.id === selectedDivisionId.value)) {
+          if (divisions.value.length > 0) {
+            selectedDivisionId.value = divisions.value[0].id;
+          }
+        }
+      } else {
+        divisions.value = allDivisions.value;
+      }
+    };
+
     const fetchDivisions = async () => {
       try {
         const data = await authStore.apiRequest(
           `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
         );
-        divisions.value = data.sort((a, b) => a.name.localeCompare(b.name));
+        allDivisions.value = data.sort((a, b) => a.name.localeCompare(b.name));
 
-        // Set Northeast as default if available
-        const northeast = data.find(d => d.name === 'Northeast');
+        // Filter divisions by selected league
+        filterDivisionsByLeague();
+
+        // Set Northeast as default if available in filtered divisions
+        const northeast = divisions.value.find(d => d.name === 'Northeast');
         if (northeast) {
           selectedDivisionId.value = northeast.id;
+        } else if (divisions.value.length > 0) {
+          selectedDivisionId.value = divisions.value[0].id;
         }
       } catch (err) {
         console.error('Error fetching divisions:', err);
@@ -284,6 +361,11 @@ export default {
       }
     };
 
+    // Watch for league changes to filter divisions
+    watch(selectedLeagueId, () => {
+      filterDivisionsByLeague();
+    });
+
     // Watch for changes in filters and refetch data
     watch([selectedSeasonId, selectedAgeGroupId, selectedDivisionId], () => {
       fetchTableData();
@@ -291,21 +373,54 @@ export default {
 
     onMounted(async () => {
       console.log('LeagueTable component mounted');
-      await Promise.all([fetchAgeGroups(), fetchDivisions(), fetchSeasons()]);
+      await Promise.all([fetchAgeGroups(), fetchLeagues(), fetchSeasons()]);
+      // Fetch divisions after leagues are loaded so we can filter by default league
+      await fetchDivisions();
+
+      // For non-admins, auto-select based on their team's league and division
+      if (!authStore.isAdmin.value && authStore.userTeamId.value) {
+        try {
+          // Fetch the user's team to get its league and division
+          const teams = await authStore.apiRequest(
+            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+          );
+          const userTeam = teams.find(t => t.id === authStore.userTeamId.value);
+
+          if (userTeam) {
+            // Get division for selected age group
+            const division =
+              userTeam.divisions_by_age_group[selectedAgeGroupId.value];
+            if (division) {
+              selectedLeagueId.value = division.league_id;
+              selectedDivisionId.value = division.id;
+
+              // Re-filter divisions by league
+              filterDivisionsByLeague();
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching user team info:', err);
+        }
+      }
+
       fetchTableData();
     });
 
     return {
       tableData,
       ageGroups,
+      leagues,
       divisions,
       seasons,
       selectedAgeGroupId,
+      selectedLeagueId,
+      selectedLeagueName,
       selectedDivisionId,
       selectedSeasonId,
       formatSeasonDates,
       error,
       loading,
+      authStore,
     };
   },
 };
