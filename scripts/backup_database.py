@@ -76,7 +76,8 @@ def create_backup():
     tables_to_backup = [
         # Reference data (no dependencies)
         'age_groups',
-        'divisions',
+        'leagues',  # Added for league layer support - must come before divisions
+        'divisions',  # Now depends on leagues
         'match_types',  # Updated from game_types
         'seasons',
 

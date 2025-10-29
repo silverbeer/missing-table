@@ -27,6 +27,8 @@ age_group_response = supabase.table("age_groups").select("id").eq("name", "U13")
 u13_age_group_id = age_group_response.data[0]["id"]
 
 # Get Northeast division ID
+# IMPORTANT: After league layer implementation, "Northeast" may exist in multiple leagues.
+# This assumes Homegrown league. For production use, filter by league_id.
 division_response = supabase.table("divisions").select("id").eq("name", "Northeast").execute()
 northeast_division_id = division_response.data[0]["id"]
 

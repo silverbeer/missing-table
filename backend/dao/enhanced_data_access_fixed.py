@@ -161,13 +161,92 @@ class EnhancedSportsDAO:
             print(f"Error querying match type: {e}")
             return None
 
-    def get_all_divisions(self) -> list[dict]:
-        """Get all divisions."""
+    # === League Methods ===
+
+    def get_all_leagues(self) -> list[dict]:
+        """Get all leagues ordered by name."""
         try:
-            response = self.client.table("divisions").select("*").order("name").execute()
+            response = self.client.table("leagues").select("*").order("name").execute()
+            return response.data
+        except Exception as e:
+            print(f"Error querying leagues: {e}")
+            return []
+
+    def get_league_by_id(self, league_id: int) -> dict | None:
+        """Get league by ID."""
+        try:
+            response = (
+                self.client.table("leagues")
+                .select("*")
+                .eq("id", league_id)
+                .execute()
+            )
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error querying league {league_id}: {e}")
+            return None
+
+    def create_league(self, league_data: dict) -> dict:
+        """Create new league."""
+        try:
+            response = self.client.table("leagues").insert(league_data).execute()
+            return response.data[0]
+        except Exception as e:
+            print(f"Error creating league: {e}")
+            raise
+
+    def update_league(self, league_id: int, league_data: dict) -> dict:
+        """Update league."""
+        try:
+            response = (
+                self.client.table("leagues")
+                .update(league_data)
+                .eq("id", league_id)
+                .execute()
+            )
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error updating league {league_id}: {e}")
+            raise
+
+    def delete_league(self, league_id: int) -> bool:
+        """Delete league (will fail if divisions exist due to FK constraint)."""
+        try:
+            self.client.table("leagues").delete().eq("id", league_id).execute()
+            return True
+        except Exception as e:
+            print(f"Error deleting league {league_id}: {e}")
+            raise
+
+    # === Division Methods ===
+
+    def get_all_divisions(self) -> list[dict]:
+        """Get all divisions with league info."""
+        try:
+            response = (
+                self.client.table("divisions")
+                .select("*, leagues!divisions_league_id_fkey(id, name, description, is_active)")
+                .order("name")
+                .execute()
+            )
             return response.data
         except Exception as e:
             print(f"Error querying divisions: {e}")
+            return []
+
+    def get_divisions_by_league(self, league_id: int) -> list[dict]:
+        """Get divisions filtered by league."""
+        try:
+            response = (
+                self.client.table("divisions")
+                .select("*, leagues!divisions_league_id_fkey(id, name, description)")
+                .eq("league_id", league_id)
+                .order("name")
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error querying divisions for league {league_id}: {e}")
             return []
 
     # === Team Methods ===
@@ -1283,30 +1362,30 @@ class EnhancedSportsDAO:
             print(f"Error deleting season: {e}")
             raise e
 
-    def create_division(self, name: str, description: str | None = None) -> dict:
-        """Create a new division."""
+    def create_division(self, division_data: dict) -> dict:
+        """Create a new division.
+
+        Args:
+            division_data: Dict with keys: name, description (optional), league_id (required)
+        """
         try:
-            data = {
-                "name": name,
-                "description": description or "",  # Always include description, even if empty
-            }
-            print(f"Creating division with data: {data}")
-            result = self.client.table("divisions").insert(data).execute()
+            print(f"Creating division with data: {division_data}")
+            result = self.client.table("divisions").insert(division_data).execute()
             print(f"Division created successfully: {result.data[0]}")
             return result.data[0]
         except Exception as e:
             print(f"Error creating division: {e}")
             raise e
 
-    def update_division(
-        self, division_id: int, name: str, description: str | None = None
-    ) -> dict | None:
-        """Update a division."""
+    def update_division(self, division_id: int, division_data: dict) -> dict | None:
+        """Update a division.
+
+        Args:
+            division_id: Division ID to update
+            division_data: Dict with any of: name, description, league_id
+        """
         try:
-            data = {"name": name}
-            if description is not None:
-                data["description"] = description
-            result = self.client.table("divisions").update(data).eq("id", division_id).execute()
+            result = self.client.table("divisions").update(division_data).eq("id", division_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             print(f"Error updating division: {e}")

@@ -997,10 +997,16 @@ async def get_match_types(current_user: dict[str, Any] = Depends(get_current_use
 
 
 @app.get("/api/divisions")
-async def get_divisions(current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """Get all divisions."""
+async def get_divisions(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+    league_id: int | None = None
+):
+    """Get all divisions, optionally filtered by league."""
     try:
-        divisions = sports_dao.get_all_divisions()
+        if league_id:
+            divisions = sports_dao.get_divisions_by_league(league_id)
+        else:
+            divisions = sports_dao.get_all_divisions()
         return divisions
     except Exception as e:
         logger.error(f"Error retrieving divisions: {e!s}")
@@ -1559,15 +1565,118 @@ async def delete_season(season_id: int, current_user: dict[str, Any] = Depends(r
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Leagues CRUD
+class League(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    is_active: bool = True
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class LeagueCreate(BaseModel):
+    name: str
+    description: str | None = None
+    is_active: bool = True
+
+
+class LeagueUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
+@app.get("/api/leagues")
+async def get_leagues():
+    """Get all leagues (public access)."""
+    try:
+        leagues = sports_dao.get_all_leagues()
+        return leagues
+    except Exception as e:
+        logger.error(f"Error fetching leagues: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/leagues/{league_id}")
+async def get_league(league_id: int):
+    """Get league by ID (public access)."""
+    try:
+        league = sports_dao.get_league_by_id(league_id)
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+        return league
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching league {league_id}: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/leagues")
+async def create_league(
+    league: LeagueCreate, current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Create a new league (admin only)."""
+    try:
+        league_data = league.model_dump()
+        result = sports_dao.create_league(league_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating league: {e!s}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/leagues/{league_id}")
+async def update_league(
+    league_id: int,
+    league: LeagueUpdate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Update a league (admin only)."""
+    try:
+        # Only include fields that were actually provided
+        league_data = league.model_dump(exclude_unset=True)
+        result = sports_dao.update_league(league_id, league_data)
+        if not result:
+            raise HTTPException(status_code=404, detail="League not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating league: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/leagues/{league_id}")
+async def delete_league(
+    league_id: int, current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Delete a league (admin only). Will fail if divisions exist."""
+    try:
+        sports_dao.delete_league(league_id)
+        return {"message": "League deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting league: {e!s}")
+        if "foreign key" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete league with existing divisions. Delete divisions first.",
+            )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Divisions CRUD
 class DivisionCreate(BaseModel):
     name: str
     description: str | None = None
+    league_id: int  # Required: divisions must belong to a league
 
 
 class DivisionUpdate(BaseModel):
-    name: str
+    name: str | None = None
     description: str | None = None
+    league_id: int | None = None  # Optional for updates
 
 
 @app.post("/api/divisions")
@@ -1576,11 +1685,12 @@ async def create_division(
 ):
     """Create a new division (admin only)."""
     try:
-        result = sports_dao.create_division(division.name, division.description)
+        division_data = division.model_dump()
+        result = sports_dao.create_division(division_data)
         return result
     except Exception as e:
         logger.error(f"Error creating division: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.put("/api/divisions/{division_id}")
@@ -1591,7 +1701,8 @@ async def update_division(
 ):
     """Update a division (admin only)."""
     try:
-        result = sports_dao.update_division(division_id, division.name, division.description)
+        division_data = division.model_dump(exclude_unset=True)
+        result = sports_dao.update_division(division_id, division_data)
         if not result:
             raise HTTPException(status_code=404, detail="Division not found")
         return result

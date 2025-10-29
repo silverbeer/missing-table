@@ -143,6 +143,150 @@ export APP_ENV=local
 
 ---
 
+## Phase 1.5: Internal Tools Audit & Updates
+
+### Overview
+After database schema is migrated, update internal tools that interact with divisions. See [LEAGUE_LAYER_INTERNAL_TOOLS_CHECKLIST.md](./LEAGUE_LAYER_INTERNAL_TOOLS_CHECKLIST.md) for detailed checklists.
+
+### Step 1.5.1: Update API Client Models (CRITICAL - Match-Scraper Dependency)
+
+**File**: `backend/api_client/models.py`
+
+**Impact**: 🔴 CRITICAL - This API client is used by match-scraper. If these models don't include `league_id`, match-scraper won't be able to create divisions after the schema change.
+
+**Changes Required**:
+```python
+class DivisionCreate(BaseModel):
+    name: str = Field(..., title='Name')
+    description: Optional[str] = Field(None, title='Description')
+    league_id: int = Field(..., title='League Id')  # NEW REQUIRED FIELD
+
+class DivisionUpdate(BaseModel):
+    name: Optional[str] = Field(None, title='Name')
+    description: Optional[str] = Field(None, title='Description')
+    league_id: Optional[int] = Field(None, title='League Id')  # NEW OPTIONAL FIELD
+```
+
+**Checklist**:
+- [ ] Update `DivisionCreate` to require `league_id`
+- [ ] Update `DivisionUpdate` to include optional `league_id`
+- [ ] Regenerate models if using codegen: `uv run python scripts/generate_api_models.py`
+- [ ] Test API client in local environment
+- [ ] Document change in match-scraper integration guide
+
+---
+
+### Step 1.5.2: Update Database Inspector Tool
+
+**File**: `backend/inspect_db.py`
+
+**Impact**: 🟡 MEDIUM - Developer troubleshooting tool
+
+**Changes Required**:
+- Update `divisions` command to show league info
+- Add `--league` filter option
+- Add new `leagues` command
+
+**Checklist**:
+- [ ] Update divisions display to include league column
+- [ ] Add league filter functionality
+- [ ] Add new leagues command
+- [ ] Test all commands
+
+---
+
+### Step 1.5.3: Update Team Population Scripts
+
+**Files**:
+- `backend/populate_teams_supabase.py`
+- `backend/populate_teams.py`
+
+**Impact**: 🟡 MEDIUM - Data seeding scripts
+
+**Issue**: Scripts hardcode `division_id = 1` without checking league context.
+
+**Changes Required**: Look up Homegrown league and get/create appropriate division.
+
+**Checklist**:
+- [ ] Update `populate_teams_supabase.py` to look up Homegrown league
+- [ ] Update `populate_teams.py` (if still used)
+- [ ] Test team population after schema migration
+- [ ] Verify team_mappings have correct division_id with league context
+
+---
+
+### Step 1.5.4: Review Migration Scripts
+
+**Files to check**:
+- `backend/migrate_mlsnext_data.py`
+- `backend/import_u13_games_update.py`
+
+**Impact**: 🟡 MEDIUM - Data migration tools
+
+**Checklist**:
+- [ ] Audit `migrate_mlsnext_data.py` for division references
+- [ ] Audit `import_u13_games_update.py` for division references
+- [ ] Update any division creation/updates to include `league_id`
+- [ ] Add comments indicating these scripts assume Homegrown league
+
+---
+
+### Step 1.5.5: Test E2E Seeding
+
+**File**: `scripts/e2e-seed-fixed.py`
+
+**Impact**: 🟢 LOW - Testing infrastructure
+
+**Analysis**: Script doesn't create divisions, only teams and games. Should work without changes, but test to verify.
+
+**Checklist**:
+- [ ] Run E2E seed script after migration
+- [ ] Verify test teams created successfully
+- [ ] Verify test games created successfully
+- [ ] If failures occur, update to handle league_id in division lookups
+
+---
+
+### Step 1.5.6: Verify Backup and Cleanup Tools
+
+**Files**:
+- `backend/cleanup_duplicate_matches.py`
+- `scripts/backup_database.py`
+- `scripts/restore_database.py`
+- `scripts/db_tools.sh`
+
+**Impact**: 🟢 LOW - Should work automatically
+
+**Checklist**:
+- [ ] Test backup after migration: `./scripts/db_tools.sh backup`
+- [ ] Verify backup includes leagues table
+- [ ] Test restore: `./scripts/db_tools.sh restore`
+- [ ] Verify restored data includes leagues and divisions with league_id
+- [ ] Test duplicate match cleanup: `cd backend && uv run python cleanup_duplicate_matches.py scan`
+
+---
+
+### Internal Tools Impact Summary
+
+| Tool | Impact | Priority | Action Required |
+|------|--------|----------|-----------------|
+| **api_client/models.py** | 🔴 CRITICAL | P0 | Add league_id to Division models |
+| **api_client/client.py** | 🟡 MEDIUM | P1 | Update division CRUD methods |
+| **inspect_db.py** | 🟡 MEDIUM | P1 | Add league display and filtering |
+| **populate_teams_supabase.py** | 🟡 MEDIUM | P2 | Look up Homegrown league for divisions |
+| **cli.py** | 🟢 LOW | P3 | Optional: Add league commands |
+| **e2e-seed-fixed.py** | 🟢 LOW | P4 | Test only (likely no changes needed) |
+| **backup/restore scripts** | 🟢 LOW | P4 | Test only (should work automatically) |
+
+**Priority Legend**:
+- **P0 (Critical)**: Must complete before deploying to any environment
+- **P1 (High)**: Complete before frontend work begins
+- **P2 (Medium)**: Complete before dev deployment
+- **P3 (Low)**: Nice to have, can be done later
+- **P4 (Test)**: Only testing required
+
+---
+
 ## Phase 2: Backend API Implementation
 
 ### Step 2.1: Update Pydantic Models
@@ -1255,12 +1399,13 @@ git push origin main
 | Phase | Time Estimate | Status |
 |-------|--------------|--------|
 | Phase 1: Database | 2-3 hours | ⬜ Not Started |
+| Phase 1.5: Internal Tools | 3-4 hours | ⬜ Not Started |
 | Phase 2: Backend API | 4-6 hours | ⬜ Not Started |
 | Phase 3: Admin Panel | 4-6 hours | ⬜ Not Started |
 | Phase 4: Public UI | 4-6 hours | ⬜ Not Started |
 | Phase 5: Testing | 2-3 hours | ⬜ Not Started |
 | Phase 6: Docs & Deploy | 2-3 hours | ⬜ Not Started |
-| **Total** | **18-27 hours** | **0% Complete** |
+| **Total** | **21-31 hours** | **0% Complete** |
 
 ---
 
@@ -1273,10 +1418,16 @@ git push origin main
 - ✅ Confirmed UI filter order: Age Group → Season → League → Division
 - ✅ Created feature branch: `feature/add-league-layer`
 - ✅ Created implementation document
+- ✅ Completed internal tools audit
+- ✅ Confirmed match-scraper will hardcode Homegrown league initially
+- ✅ Confirmed no external APIs besides match-scraper
+- ✅ Confirmed no need for multi-league team support at this time
+- ✅ Added Phase 1.5 for internal tools updates
+- ✅ Created detailed internal tools checklist document
 
 ---
 
 **Last Updated**: 2025-10-29
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Author**: Claude Code
 **Status**: Ready for Implementation
