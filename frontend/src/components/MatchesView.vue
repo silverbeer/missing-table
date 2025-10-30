@@ -104,7 +104,7 @@
             <!-- Team Selector -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Select Team</label
+                >Select Club</label
               >
               <select
                 v-model="selectedTeam"
@@ -117,8 +117,8 @@
                 <option value="">
                   {{
                     authStore.isAdmin.value
-                      ? '-- Select a team --'
-                      : 'No team assigned'
+                      ? '-- Select a club --'
+                      : 'No club assigned'
                   }}
                 </option>
                 <option
@@ -890,7 +890,7 @@ export default {
 
     const getSelectedTeamName = () => {
       const team = teams.value.find(t => t.id === parseInt(selectedTeam.value));
-      return team ? team.name : 'Selected Team';
+      return team ? team.name : 'Selected Club';
     };
 
     const getScoreDisplay = match => {
