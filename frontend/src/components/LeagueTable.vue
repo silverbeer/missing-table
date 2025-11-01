@@ -22,6 +22,37 @@
         </div>
       </div>
 
+      <!-- Club Filter -->
+      <div>
+        <h3 class="text-sm font-medium text-gray-700 mb-3">Parent Club</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            @click="selectedClubId = null"
+            :class="[
+              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              selectedClubId === null
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]"
+          >
+            All Clubs
+          </button>
+          <button
+            v-for="club in clubs"
+            :key="club.id"
+            @click="selectedClubId = club.id"
+            :class="[
+              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              selectedClubId === club.id
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]"
+          >
+            {{ club.name }}
+          </button>
+        </div>
+      </div>
+
       <!-- League Selector -->
       <div>
         <h3 class="text-sm font-medium text-gray-700 mb-3">League</h3>
@@ -163,7 +194,7 @@
             <td
               class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
-              {{ team.team }}
+              {{ getTeamDisplayName(team.team) }}
             </td>
             <td
               class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
@@ -221,12 +252,16 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const tableData = ref([]);
+    const teams = ref([]); // Store all teams for name→id mapping
+    const teamAliases = ref({}); // team_id → external_name mapping
     const ageGroups = ref([]);
+    const clubs = ref([]);
     const leagues = ref([]);
     const divisions = ref([]);
     const allDivisions = ref([]); // Store all divisions for filtering
     const seasons = ref([]);
     const selectedAgeGroupId = ref(2); // Default to U14
+    const selectedClubId = ref(null); // Default to all clubs
     const selectedLeagueId = ref(null); // Default to first league
     const selectedDivisionId = ref(1); // Default to Northeast
     const selectedSeasonId = ref(2); // Default to 2024-2025
@@ -256,6 +291,29 @@ export default {
       }
     };
 
+    const fetchClubs = async () => {
+      try {
+        const data = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs`
+        );
+        clubs.value = data.sort((a, b) => a.name.localeCompare(b.name));
+      } catch (err) {
+        console.error('Error fetching clubs:', err);
+        // Not a fatal error - clubs filter is optional
+      }
+    };
+
+    const fetchTeams = async () => {
+      try {
+        const data = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+        );
+        teams.value = data;
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+      }
+    };
+
     const fetchLeagues = async () => {
       try {
         const data = await authStore.apiRequest(
@@ -272,6 +330,24 @@ export default {
         }
       } catch (err) {
         console.error('Error fetching leagues:', err);
+      }
+    };
+
+    const fetchTeamAliases = async leagueId => {
+      if (!leagueId) {
+        teamAliases.value = {};
+        return;
+      }
+
+      try {
+        const data = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues/${leagueId}/team-aliases`
+        );
+        teamAliases.value = data;
+        console.log('Team aliases loaded for league:', leagueId, data);
+      } catch (err) {
+        console.error('Error fetching team aliases:', err);
+        teamAliases.value = {}; // Clear on error
       }
     };
 
@@ -339,15 +415,39 @@ export default {
       return `${startYear}-${endYear}`;
     };
 
+    // Get team display name with alias support
+    const getTeamDisplayName = teamName => {
+      // Find the team by name to get its ID
+      const team = teams.value.find(t => t.name === teamName);
+      if (!team) {
+        return teamName; // Fallback to original name if team not found
+      }
+
+      // If we have an alias for this team in the selected league, use it
+      if (selectedLeagueId.value && teamAliases.value[team.id]) {
+        return teamAliases.value[team.id];
+      }
+
+      // Otherwise, fall back to the team's actual name
+      return teamName;
+    };
+
     const fetchTableData = async () => {
       loading.value = true;
       console.log('Fetching table data...', {
         seasonId: selectedSeasonId.value,
         ageGroupId: selectedAgeGroupId.value,
         divisionId: selectedDivisionId.value,
+        clubId: selectedClubId.value,
       });
       try {
-        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
+        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
+
+        // Add club_id parameter if a club is selected
+        if (selectedClubId.value !== null) {
+          url += `&club_id=${selectedClubId.value}`;
+        }
+
         const data = await authStore.apiRequest(url);
         console.log('Table data received:', data);
 
@@ -361,21 +461,45 @@ export default {
       }
     };
 
-    // Watch for league changes to filter divisions
-    watch(selectedLeagueId, () => {
+    // Watch for league changes to filter divisions and fetch team aliases
+    watch(selectedLeagueId, newLeagueId => {
       filterDivisionsByLeague();
+      if (newLeagueId) {
+        fetchTeamAliases(newLeagueId);
+      } else {
+        teamAliases.value = {};
+      }
     });
 
     // Watch for changes in filters and refetch data
-    watch([selectedSeasonId, selectedAgeGroupId, selectedDivisionId], () => {
-      fetchTableData();
-    });
+    watch(
+      [
+        selectedSeasonId,
+        selectedAgeGroupId,
+        selectedDivisionId,
+        selectedClubId,
+      ],
+      () => {
+        fetchTableData();
+      }
+    );
 
     onMounted(async () => {
       console.log('LeagueTable component mounted');
-      await Promise.all([fetchAgeGroups(), fetchLeagues(), fetchSeasons()]);
+      await Promise.all([
+        fetchAgeGroups(),
+        fetchClubs(),
+        fetchLeagues(),
+        fetchSeasons(),
+        fetchTeams(),
+      ]);
       // Fetch divisions after leagues are loaded so we can filter by default league
       await fetchDivisions();
+
+      // Fetch team aliases for the initially selected league
+      if (selectedLeagueId.value) {
+        await fetchTeamAliases(selectedLeagueId.value);
+      }
 
       // For non-admins, auto-select based on their team's league and division
       if (!authStore.isAdmin.value && authStore.userTeamId.value) {
@@ -409,15 +533,18 @@ export default {
     return {
       tableData,
       ageGroups,
+      clubs,
       leagues,
       divisions,
       seasons,
       selectedAgeGroupId,
+      selectedClubId,
       selectedLeagueId,
       selectedLeagueName,
       selectedDivisionId,
       selectedSeasonId,
       formatSeasonDates,
+      getTeamDisplayName,
       error,
       loading,
       authStore,

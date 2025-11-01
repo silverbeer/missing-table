@@ -1410,13 +1410,18 @@ class EnhancedSportsDAO:
             raise e
 
     def update_team(
-        self, team_id: int, name: str, city: str, academy_team: bool = False
+        self, team_id: int, name: str, city: str, academy_team: bool = False, parent_club_id: int | None = None
     ) -> dict | None:
         """Update a team."""
         try:
             result = (
                 self.client.table("teams")
-                .update({"name": name, "city": city, "academy_team": academy_team})
+                .update({
+                    "name": name,
+                    "city": city,
+                    "academy_team": academy_team,
+                    "parent_club_id": parent_club_id
+                })
                 .eq("id", team_id)
                 .execute()
             )
@@ -1463,4 +1468,298 @@ class EnhancedSportsDAO:
             return len(result.data) > 0
         except Exception as e:
             print(f"Error deleting team mapping: {e}")
+            raise e
+
+    # === Club/Parent Club Methods ===
+
+    def get_all_parent_club_entities(self) -> list[dict]:
+        """Get all parent club entities (teams with no parent_club_id).
+
+        This includes clubs that don't have children yet.
+        Used for dropdowns where users need to select a parent club.
+        """
+        try:
+            # Get all teams that could be parent clubs (no parent_club_id)
+            response = self.client.table("teams").select("*").is_("parent_club_id", "null").execute()
+            return response.data
+        except Exception as e:
+            print(f"Error querying parent club entities: {e}")
+            return []
+
+    def get_all_parent_clubs(self) -> list[dict]:
+        """Get all teams that are parent clubs (teams that have at least one child team).
+
+        This excludes empty parent club entities.
+        Used for displaying clubs that have teams.
+        """
+        try:
+            # Optimize: Get all teams in one query
+            all_teams = self.client.table("teams").select("*").execute().data
+
+            # Build set of team IDs that have children
+            parent_club_ids = set()
+            for team in all_teams:
+                if team.get('parent_club_id'):
+                    parent_club_ids.add(team['parent_club_id'])
+
+            # Filter to only teams that are parent clubs (have at least one child)
+            parent_clubs = [t for t in all_teams if t['id'] in parent_club_ids]
+            return parent_clubs
+        except Exception as e:
+            print(f"Error querying parent clubs: {e}")
+            return []
+
+    def get_club_teams(self, club_id: int) -> list[dict]:
+        """Get all teams for a parent club (including the parent itself)."""
+        try:
+            # Use the database function get_club_teams
+            response = self.client.rpc('get_club_teams', {'club_id': club_id}).execute()
+            return response.data
+        except Exception as e:
+            print(f"Error querying club teams: {e}")
+            # Fallback to manual query
+            try:
+                # Get the parent club
+                parent_response = self.client.table("teams").select("*").eq("id", club_id).execute()
+                # Get child teams
+                children_response = self.client.table("teams").select("*").eq("parent_club_id", club_id).execute()
+
+                print(f"DEBUG: Club {club_id} - Parent: {len(parent_response.data)}, Children: {len(children_response.data)}")
+                result = parent_response.data + children_response.data
+                return result
+            except Exception as fallback_error:
+                print(f"Error in fallback query: {fallback_error}")
+                return []
+
+    def is_parent_club(self, team_id: int) -> bool:
+        """Check if a team is a parent club."""
+        try:
+            # Use the database function is_parent_club
+            response = self.client.rpc('is_parent_club', {'club_id': team_id}).execute()
+            return response.data
+        except Exception as e:
+            print(f"Error checking if team is parent club: {e}")
+            # Fallback to manual check
+            try:
+                children_response = self.client.table("teams").select("id").eq("parent_club_id", team_id).execute()
+                return len(children_response.data) > 0
+            except Exception:
+                return False
+
+    def get_parent_club(self, team_id: int) -> dict | None:
+        """Get the parent club for a team."""
+        try:
+            # Use the database function get_parent_club
+            response = self.client.rpc('get_parent_club', {'team_id': team_id}).execute()
+            return response.data[0] if response.data and len(response.data) > 0 else None
+        except Exception as e:
+            print(f"Error querying parent club: {e}")
+            # Fallback to manual query
+            try:
+                # First get the team to find its parent_club_id
+                team_response = self.client.table("teams").select("parent_club_id").eq("id", team_id).execute()
+                if not team_response.data or len(team_response.data) == 0:
+                    return None
+
+                parent_club_id = team_response.data[0].get('parent_club_id')
+                if not parent_club_id:
+                    return None
+
+                # Get the parent club details
+                parent_response = self.client.table("teams").select("*").eq("id", parent_club_id).execute()
+                return parent_response.data[0] if parent_response.data and len(parent_response.data) > 0 else None
+            except Exception as fallback_error:
+                print(f"Error in fallback query: {fallback_error}")
+                return None
+
+    def create_parent_club(self, name: str, city: str) -> dict:
+        """Create a new parent club (team with no parent_club_id)."""
+        try:
+            result = (
+                self.client.table("teams")
+                .insert({"name": name, "city": city, "academy_team": False})
+                .execute()
+            )
+            if not result.data or len(result.data) == 0:
+                raise ValueError("Failed to create parent club")
+            return result.data[0]
+        except Exception as e:
+            print(f"Error creating parent club: {e}")
+            raise e
+
+    def update_team_parent_club(self, team_id: int, parent_club_id: int | None) -> dict:
+        """Update the parent club for a team."""
+        try:
+            result = (
+                self.client.table("teams")
+                .update({"parent_club_id": parent_club_id})
+                .eq("id", team_id)
+                .execute()
+            )
+            if not result.data or len(result.data) == 0:
+                raise ValueError(f"Failed to update parent club for team {team_id}")
+            return result.data[0]
+        except Exception as e:
+            print(f"Error updating team parent club: {e}")
+            raise e
+
+    # === Team Aliases Methods ===
+
+    def get_all_team_aliases(self) -> list[dict]:
+        """Get all team aliases with team and league information."""
+        try:
+            response = (
+                self.client.table("team_aliases")
+                .select("*, teams(id, name, city), leagues(id, name)")
+                .order("external_name")
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error getting team aliases: {e}")
+            return []
+
+    def get_team_aliases_by_team(self, team_id: int) -> list[dict]:
+        """Get all aliases for a specific team."""
+        try:
+            response = (
+                self.client.table("team_aliases")
+                .select("*, leagues(id, name)")
+                .eq("team_id", team_id)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error getting team aliases for team {team_id}: {e}")
+            return []
+
+    def get_team_id_from_alias(
+        self, external_name: str, league_id: int, source: str = 'mlssoccer.com'
+    ) -> int | None:
+        """Look up internal team_id using external name, league, and source.
+
+        This is the primary method for match-scraper to resolve team names.
+        """
+        try:
+            response = (
+                self.client.table("team_aliases")
+                .select("team_id")
+                .eq("external_name", external_name)
+                .eq("league_id", league_id)
+                .eq("source", source)
+                .execute()
+            )
+            return response.data[0]['team_id'] if response.data else None
+        except Exception as e:
+            print(f"Error looking up team alias '{external_name}' for league {league_id}: {e}")
+            return None
+
+    def get_team_aliases_by_league(self, league_id: int, source: str = 'mlssoccer.com') -> dict[int, str]:
+        """Get team aliases for a specific league, grouped by team_id.
+
+        Returns a dictionary mapping team_id → external_name for UI display.
+        This allows the UI to show clean team names (aliases) when a league is selected.
+
+        Example: {123: "IFA", 456: "Bolts"} for team IDs 123 and 456
+        """
+        try:
+            response = (
+                self.client.table("team_aliases")
+                .select("team_id, external_name")
+                .eq("league_id", league_id)
+                .eq("source", source)
+                .execute()
+            )
+            # Convert to dictionary for fast lookup: team_id → external_name
+            return {alias['team_id']: alias['external_name'] for alias in response.data}
+        except Exception as e:
+            print(f"Error getting team aliases for league {league_id}: {e}")
+            return {}
+
+    def get_team_game_counts(self) -> dict[int, int]:
+        """Get game counts for all teams in a single optimized query.
+
+        Returns a dictionary mapping team_id → game_count.
+        Uses SQL aggregation for performance - counts 100k+ games in milliseconds.
+        """
+        try:
+            # Use PostgREST's aggregation to count games per team
+            # This query is equivalent to:
+            # SELECT home_team_id as team_id, COUNT(*) as count FROM matches GROUP BY home_team_id
+            # UNION ALL
+            # SELECT away_team_id as team_id, COUNT(*) as count FROM matches GROUP BY away_team_id
+
+            response = self.client.rpc('get_team_game_counts').execute()
+
+            # If RPC function doesn't exist, fall back to Python aggregation
+            # This is slower but still better than client-side filtering
+            if not response.data:
+                # Get all matches with just team IDs
+                matches = self.client.table("matches").select("home_team_id,away_team_id").execute()
+
+                # Count games per team
+                counts = {}
+                for match in matches.data:
+                    home_id = match['home_team_id']
+                    away_id = match['away_team_id']
+                    counts[home_id] = counts.get(home_id, 0) + 1
+                    counts[away_id] = counts.get(away_id, 0) + 1
+
+                return counts
+
+            # Convert RPC result to dictionary
+            return {row['team_id']: row['game_count'] for row in response.data}
+        except Exception as e:
+            print(f"Error getting team game counts: {e}")
+            # Return empty dict on error - teams will show 0 games
+            return {}
+
+    def create_team_alias(
+        self, team_id: int, league_id: int, external_name: str, source: str = 'mlssoccer.com'
+    ) -> dict:
+        """Create a new team alias."""
+        try:
+            response = (
+                self.client.table("team_aliases")
+                .insert({
+                    "team_id": team_id,
+                    "league_id": league_id,
+                    "external_name": external_name,
+                    "source": source
+                })
+                .execute()
+            )
+            return response.data[0]
+        except Exception as e:
+            print(f"Error creating team alias: {e}")
+            raise e
+
+    def update_team_alias(
+        self, alias_id: int, team_id: int, league_id: int, external_name: str, source: str
+    ) -> dict:
+        """Update an existing team alias."""
+        try:
+            response = (
+                self.client.table("team_aliases")
+                .update({
+                    "team_id": team_id,
+                    "league_id": league_id,
+                    "external_name": external_name,
+                    "source": source
+                })
+                .eq("id", alias_id)
+                .execute()
+            )
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error updating team alias: {e}")
+            raise e
+
+    def delete_team_alias(self, alias_id: int) -> bool:
+        """Delete a team alias."""
+        try:
+            result = self.client.table("team_aliases").delete().eq("id", alias_id).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            print(f"Error deleting team alias: {e}")
             raise e

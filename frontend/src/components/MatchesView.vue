@@ -126,7 +126,7 @@
                   :key="team.id"
                   :value="team.id"
                 >
-                  {{ team.name }}
+                  {{ getTeamDisplayName(team) }}
                 </option>
               </select>
             </div>
@@ -670,6 +670,7 @@ export default {
     const seasons = ref([]);
     const matchTypes = ref([]);
     const leagues = ref([]);
+    const teamAliases = ref({}); // team_id → external_name mapping for selected league
     const selectedViewTab = ref('all'); // Default to "All Matches" tab
     const selectedTeam = ref('');
     const selectedLeagueId = ref(null); // Selected league for My Club tab
@@ -732,6 +733,24 @@ export default {
         leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error('Error fetching leagues:', err);
+      }
+    };
+
+    const fetchTeamAliases = async leagueId => {
+      if (!leagueId) {
+        teamAliases.value = {};
+        return;
+      }
+
+      try {
+        const data = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues/${leagueId}/team-aliases`
+        );
+        teamAliases.value = data;
+        console.log('Team aliases loaded for league:', leagueId, data);
+      } catch (err) {
+        console.error('Error fetching team aliases:', err);
+        teamAliases.value = {}; // Clear on error
       }
     };
 
@@ -891,6 +910,15 @@ export default {
     const getSelectedTeamName = () => {
       const team = teams.value.find(t => t.id === parseInt(selectedTeam.value));
       return team ? team.name : 'Selected Club';
+    };
+
+    const getTeamDisplayName = team => {
+      // If we have an alias for this team in the selected league, use it
+      if (selectedLeagueId.value && teamAliases.value[team.id]) {
+        return teamAliases.value[team.id];
+      }
+      // Otherwise, fall back to the team's actual name
+      return team.name;
     };
 
     const getScoreDisplay = match => {
@@ -1291,6 +1319,15 @@ export default {
       }
     );
 
+    // Watch for league changes to fetch team aliases
+    watch(selectedLeagueId, newLeagueId => {
+      if (newLeagueId) {
+        fetchTeamAliases(newLeagueId);
+      } else {
+        teamAliases.value = {};
+      }
+    });
+
     // Permission checks
     const canEditGames = computed(() => {
       return authStore.isAdmin.value || authStore.isTeamManager.value;
@@ -1427,6 +1464,7 @@ export default {
       seasonStats,
       getTeamDisplay,
       getSelectedTeamName,
+      getTeamDisplayName,
       formatSeasonDates,
       getSegmentGridClass,
       canEditGames,
