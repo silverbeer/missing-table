@@ -82,26 +82,6 @@ COMMENT ON FUNCTION reset_all_sequences() IS
 Run this after restoring data from backups to prevent duplicate key violations.';
 
 -- =====================================================================
--- Run the function immediately to fix any existing sequence issues
--- Only run if tables exist (skip on fresh install)
+-- Note: Function is available but not executed during migration
+-- Run manually when needed: SELECT reset_all_sequences();
 -- =====================================================================
-DO $$
-DECLARE
-    reset_count INTEGER;
-    tables_exist BOOLEAN;
-BEGIN
-    -- Check if any tables exist in public schema
-    SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_schema = 'public'
-        AND table_type = 'BASE TABLE'
-        LIMIT 1
-    ) INTO tables_exist;
-
-    IF tables_exist THEN
-        SELECT reset_all_sequences() INTO reset_count;
-        RAISE NOTICE 'Migration complete: Reset % sequence(s)', reset_count;
-    ELSE
-        RAISE NOTICE 'Skipping sequence reset: No tables exist yet';
-    END IF;
-END $$;

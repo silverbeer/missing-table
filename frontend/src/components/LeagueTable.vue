@@ -253,7 +253,6 @@ export default {
     const authStore = useAuthStore();
     const tableData = ref([]);
     const teams = ref([]); // Store all teams for name→id mapping
-    const teamAliases = ref({}); // team_id → external_name mapping
     const ageGroups = ref([]);
     const clubs = ref([]);
     const leagues = ref([]);
@@ -333,24 +332,6 @@ export default {
       }
     };
 
-    const fetchTeamAliases = async leagueId => {
-      if (!leagueId) {
-        teamAliases.value = {};
-        return;
-      }
-
-      try {
-        const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues/${leagueId}/team-aliases`
-        );
-        teamAliases.value = data;
-        console.log('Team aliases loaded for league:', leagueId, data);
-      } catch (err) {
-        console.error('Error fetching team aliases:', err);
-        teamAliases.value = {}; // Clear on error
-      }
-    };
-
     const filterDivisionsByLeague = () => {
       if (selectedLeagueId.value) {
         divisions.value = allDivisions.value.filter(
@@ -415,20 +396,9 @@ export default {
       return `${startYear}-${endYear}`;
     };
 
-    // Get team display name with alias support
+    // Get team display name - now just returns the team name directly
+    // Teams are scoped by league in the new clubs architecture
     const getTeamDisplayName = teamName => {
-      // Find the team by name to get its ID
-      const team = teams.value.find(t => t.name === teamName);
-      if (!team) {
-        return teamName; // Fallback to original name if team not found
-      }
-
-      // If we have an alias for this team in the selected league, use it
-      if (selectedLeagueId.value && teamAliases.value[team.id]) {
-        return teamAliases.value[team.id];
-      }
-
-      // Otherwise, fall back to the team's actual name
       return teamName;
     };
 
@@ -462,13 +432,8 @@ export default {
     };
 
     // Watch for league changes to filter divisions and fetch team aliases
-    watch(selectedLeagueId, newLeagueId => {
+    watch(selectedLeagueId, () => {
       filterDivisionsByLeague();
-      if (newLeagueId) {
-        fetchTeamAliases(newLeagueId);
-      } else {
-        teamAliases.value = {};
-      }
     });
 
     // Watch for changes in filters and refetch data
@@ -495,11 +460,6 @@ export default {
       ]);
       // Fetch divisions after leagues are loaded so we can filter by default league
       await fetchDivisions();
-
-      // Fetch team aliases for the initially selected league
-      if (selectedLeagueId.value) {
-        await fetchTeamAliases(selectedLeagueId.value);
-      }
 
       // For non-admins, auto-select based on their team's league and division
       if (!authStore.isAdmin.value && authStore.userTeamId.value) {

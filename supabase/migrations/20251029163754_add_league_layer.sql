@@ -62,16 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_leagues_name ON leagues(name);
 -- ADD UPDATED_AT TRIGGER FOR LEAGUES
 -- ============================================================================
 
--- Create update_updated_at_column function if it doesn't exist
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Add trigger to leagues table
+-- Reuse existing update_updated_at_column function
 CREATE TRIGGER update_leagues_updated_at
     BEFORE UPDATE ON leagues
     FOR EACH ROW

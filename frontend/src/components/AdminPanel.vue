@@ -62,6 +62,11 @@
           <AdminDivisions />
         </div>
 
+        <!-- Clubs Management -->
+        <div v-if="currentSection === 'clubs'" class="p-6">
+          <AdminClubs />
+        </div>
+
         <!-- Teams Management -->
         <div v-if="currentSection === 'teams'" class="p-6">
           <AdminTeams />
@@ -88,6 +93,7 @@ import AdminAgeGroups from './admin/AdminAgeGroups.vue';
 import AdminSeasons from './admin/AdminSeasons.vue';
 import AdminLeagues from './admin/AdminLeagues.vue';
 import AdminDivisions from './admin/AdminDivisions.vue';
+import AdminClubs from './admin/AdminClubs.vue';
 import AdminTeams from './admin/AdminTeams.vue';
 import AdminMatches from './admin/AdminMatches.vue';
 import AdminInvites from './admin/AdminInvites.vue';
@@ -99,6 +105,7 @@ export default {
     AdminSeasons,
     AdminLeagues,
     AdminDivisions,
+    AdminClubs,
     AdminTeams,
     AdminMatches,
     AdminInvites,
@@ -112,6 +119,7 @@ export default {
       { id: 'seasons', name: 'Seasons' },
       { id: 'leagues', name: 'Leagues' },
       { id: 'divisions', name: 'Divisions' },
+      { id: 'clubs', name: 'Clubs' },
       { id: 'teams', name: 'Teams' },
       { id: 'matches', name: 'Matches' },
       { id: 'invites', name: 'Invites' },

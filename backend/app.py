@@ -230,9 +230,11 @@ class Team(BaseModel):
 
 # Club-related models
 class Club(BaseModel):
-    """Model for creating a new parent club."""
+    """Model for creating a new club."""
     name: str
     city: str
+    website: str | None = None
+    description: str | None = None
 
 
 class ClubWithTeams(BaseModel):
@@ -240,10 +242,11 @@ class ClubWithTeams(BaseModel):
     id: int
     name: str
     city: str
-    academy_team: bool
-    parent_club_id: int | None
-    teams: list[dict] = []  # Child teams
-    team_count: int = 0  # Number of child teams
+    website: str | None = None
+    description: str | None = None
+    is_active: bool = True
+    teams: list[dict] = []  # Teams belonging to this club
+    team_count: int = 0  # Number of teams in this club
 
 
 # Auth-related models
@@ -1889,49 +1892,41 @@ async def remove_team_match_type_participation(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# === Club/Parent Club Endpoints ===
+# === Club Endpoints ===
 
 @app.get("/api/clubs")
 async def get_clubs(
-    include_empty: bool = False,
+    include_teams: bool = True,
     current_user: dict[str, Any] = Depends(get_current_user_required)
 ):
-    """Get parent clubs.
+    """Get all clubs.
 
-    By default, returns only clubs that have child teams.
-    Set include_empty=true to get all parent club entities (for dropdowns).
+    Args:
+        include_teams: If true, enriches clubs with their teams list (default: true)
+
+    Returns:
+        List of clubs with optional team details
     """
     try:
-        if include_empty:
-            # For dropdowns: Get all parent club entities (teams with no parent_club_id)
-            # This includes clubs that don't have children yet
-            # No enrichment needed for dropdowns - just return the basic club info
-            clubs = sports_dao.get_all_parent_club_entities()
-            print(f"DEBUG /api/clubs (include_empty=true): Returning {len(clubs)} entities without enrichment")
+        # Get all clubs from clubs table (already includes team_count)
+        clubs = sports_dao.get_all_clubs()
+        logger.info(f"/api/clubs: Fetched {len(clubs)} clubs")
+
+        if not include_teams:
+            # Return clubs without team details (faster for dropdowns)
             return clubs
-        else:
-            # For display: Get only clubs that have children
-            clubs = sports_dao.get_all_parent_clubs()
-            print(f"DEBUG /api/clubs: get_all_parent_clubs() returned {len(clubs)} clubs")
 
-        if clubs:
-            print(f"DEBUG /api/clubs: First few clubs: {[c.get('name') for c in clubs[:5]]}")
-
-        # Enrich each club with team count and child teams (only for display, not dropdowns)
+        # Enrich with team details if requested
         enriched_clubs = []
         for club in clubs:
             club_teams = sports_dao.get_club_teams(club['id'])
-            # Filter to only child teams (exclude the parent itself)
-            child_teams = [t for t in club_teams if t['id'] != club['id']]
-
-            print(f"DEBUG /api/clubs: Club '{club.get('name')}' has {len(child_teams)} children")
-
             enriched_club = {
                 **club,
-                'teams': child_teams,
-                'team_count': len(child_teams)
+                'teams': club_teams,
+                'team_count': len(club_teams)  # Overwrite with actual count
             }
             enriched_clubs.append(enriched_club)
+            logger.debug(f"Club '{club.get('name')}' has {len(club_teams)} teams")
 
         return enriched_clubs
     except Exception as e:
@@ -1943,21 +1938,13 @@ async def get_clubs(
 async def get_club_teams(
     club_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)
 ):
-    """Get all teams for a specific club (including the parent club itself)."""
+    """Get all teams for a specific club."""
     try:
         teams = sports_dao.get_club_teams(club_id)
         if not teams:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
 
-        # Add parent club info to each team
-        enriched_teams = []
-        for team in teams:
-            team_data = {**team}
-            # Add a flag to indicate if this is the parent club
-            team_data['is_parent_club'] = team['id'] == club_id
-            enriched_teams.append(team_data)
-
-        return enriched_teams
+        return teams
     except HTTPException:
         raise
     except Exception as e:
@@ -1969,9 +1956,15 @@ async def get_club_teams(
 async def create_club(
     club: Club, current_user: dict[str, Any] = Depends(require_admin)
 ):
-    """Create a new parent club (admin only)."""
+    """Create a new club (admin only)."""
     try:
-        new_club = sports_dao.create_parent_club(club.name, club.city)
+        new_club = sports_dao.create_club(
+            name=club.name,
+            city=club.city,
+            website=club.website,
+            description=club.description
+        )
+        logger.info(f"Created new club: {new_club['name']}")
         return new_club
     except Exception as e:
         error_str = str(e)
@@ -1979,10 +1972,10 @@ async def create_club(
 
         # Check for duplicate key constraint violation
         if 'duplicate key value violates unique constraint' in error_str.lower():
-            if 'teams_name_key' in error_str.lower():
+            if 'clubs_name_unique' in error_str.lower() or 'clubs_name_key' in error_str.lower():
                 raise HTTPException(
                     status_code=409,
-                    detail=f"A club or team with the name '{club.name}' already exists. Please use a different name."
+                    detail=f"A club with the name '{club.name}' already exists. Please use a different name."
                 )
             else:
                 raise HTTPException(
@@ -1994,143 +1987,35 @@ async def create_club(
         raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the club.")
 
 
-# === Team Aliases CRUD ===
-
-class TeamAlias(BaseModel):
-    team_id: int
-    league_id: int
-    external_name: str
-    source: str = 'mlssoccer.com'
-
-
-@app.get("/api/team-aliases")
-async def get_team_aliases(current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """Get all team aliases."""
-    try:
-        aliases = sports_dao.get_all_team_aliases()
-        return aliases
-    except Exception as e:
-        logger.error(f"Error fetching team aliases: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/teams/{team_id}/aliases")
-async def get_team_aliases_by_team(
-    team_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)
+@app.delete("/api/clubs/{club_id}")
+async def delete_club(
+    club_id: int, current_user: dict[str, Any] = Depends(require_admin)
 ):
-    """Get all aliases for a specific team."""
-    try:
-        aliases = sports_dao.get_team_aliases_by_team(team_id)
-        return aliases
-    except Exception as e:
-        logger.error(f"Error fetching aliases for team {team_id}: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Delete a club (admin only).
 
-
-@app.get("/api/team-aliases/lookup")
-async def lookup_team_by_alias(
-    external_name: str,
-    league_id: int,
-    source: str = 'mlssoccer.com',
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
-    """Look up internal team_id from external name and league.
-
-    This is the primary endpoint for match-scraper to resolve team names.
+    Note: This will fail if there are teams still associated with this club.
     """
     try:
-        team_id = sports_dao.get_team_id_from_alias(external_name, league_id, source)
-        if team_id is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No team found for external name '{external_name}' in league {league_id}"
-            )
-        return {"team_id": team_id, "external_name": external_name, "league_id": league_id}
+        success = sports_dao.delete_club(club_id)
+        if success:
+            logger.info(f"Deleted club with id {club_id}")
+            return {"message": "Club deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Error looking up team alias: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/leagues/{league_id}/team-aliases")
-async def get_team_aliases_by_league(
-    league_id: int,
-    source: str = 'mlssoccer.com',
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
-    """Get team aliases for a specific league.
-
-    Returns a dictionary mapping team_id → external_name for UI display.
-    This allows the UI to show clean team names (e.g., "IFA" instead of "IFA HG")
-    when a league is selected.
-    """
-    try:
-        aliases = sports_dao.get_team_aliases_by_league(league_id, source)
-        return aliases
-    except Exception as e:
-        logger.error(f"Error fetching team aliases for league {league_id}: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/team-aliases")
-async def create_team_alias(
-    alias: TeamAlias, current_user: dict[str, Any] = Depends(require_admin)
-):
-    """Create a new team alias (admin only)."""
-    try:
-        new_alias = sports_dao.create_team_alias(
-            alias.team_id, alias.league_id, alias.external_name, alias.source
-        )
-        return new_alias
     except Exception as e:
         error_str = str(e)
-        logger.error(f"Error creating team alias: {error_str}")
+        logger.error(f"Error deleting club: {error_str}")
 
-        # Check for duplicate constraint violation
-        if 'unique_alias_per_league_source' in error_str.lower():
+        # Check if it's a foreign key constraint violation
+        if 'foreign key constraint' in error_str.lower() or 'violates' in error_str.lower():
             raise HTTPException(
                 status_code=409,
-                detail=f"An alias '{alias.external_name}' already exists for league {alias.league_id} and source {alias.source}"
+                detail="Cannot delete club because it has teams associated with it. Remove team associations first."
             )
 
-        raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the team alias.")
-
-
-@app.put("/api/team-aliases/{alias_id}")
-async def update_team_alias(
-    alias_id: int, alias: TeamAlias, current_user: dict[str, Any] = Depends(require_admin)
-):
-    """Update a team alias (admin only)."""
-    try:
-        updated_alias = sports_dao.update_team_alias(
-            alias_id, alias.team_id, alias.league_id, alias.external_name, alias.source
-        )
-        if not updated_alias:
-            raise HTTPException(status_code=404, detail="Team alias not found")
-        return updated_alias
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating team alias: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.delete("/api/team-aliases/{alias_id}")
-async def delete_team_alias(
-    alias_id: int, current_user: dict[str, Any] = Depends(require_admin)
-):
-    """Delete a team alias (admin only)."""
-    try:
-        result = sports_dao.delete_team_alias(alias_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="Team alias not found")
-        return {"message": "Team alias deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting team alias: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while deleting the club.")
 
 
 # Team Mappings CRUD

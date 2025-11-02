@@ -670,7 +670,6 @@ export default {
     const seasons = ref([]);
     const matchTypes = ref([]);
     const leagues = ref([]);
-    const teamAliases = ref({}); // team_id → external_name mapping for selected league
     const selectedViewTab = ref('all'); // Default to "All Matches" tab
     const selectedTeam = ref('');
     const selectedLeagueId = ref(null); // Selected league for My Club tab
@@ -733,24 +732,6 @@ export default {
         leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error('Error fetching leagues:', err);
-      }
-    };
-
-    const fetchTeamAliases = async leagueId => {
-      if (!leagueId) {
-        teamAliases.value = {};
-        return;
-      }
-
-      try {
-        const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues/${leagueId}/team-aliases`
-        );
-        teamAliases.value = data;
-        console.log('Team aliases loaded for league:', leagueId, data);
-      } catch (err) {
-        console.error('Error fetching team aliases:', err);
-        teamAliases.value = {}; // Clear on error
       }
     };
 
@@ -912,12 +893,9 @@ export default {
       return team ? team.name : 'Selected Club';
     };
 
+    // Get team display name - now just returns the team name directly
+    // Teams are scoped by league in the new clubs architecture
     const getTeamDisplayName = team => {
-      // If we have an alias for this team in the selected league, use it
-      if (selectedLeagueId.value && teamAliases.value[team.id]) {
-        return teamAliases.value[team.id];
-      }
-      // Otherwise, fall back to the team's actual name
       return team.name;
     };
 
@@ -1318,15 +1296,6 @@ export default {
         }
       }
     );
-
-    // Watch for league changes to fetch team aliases
-    watch(selectedLeagueId, newLeagueId => {
-      if (newLeagueId) {
-        fetchTeamAliases(newLeagueId);
-      } else {
-        teamAliases.value = {};
-      }
-    });
 
     // Permission checks
     const canEditGames = computed(() => {

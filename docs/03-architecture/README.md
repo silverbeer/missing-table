@@ -16,6 +16,7 @@ This section documents the system architecture, design decisions, and technical 
 | **[Frontend Structure](frontend-structure.md)** | Vue.js, components, state management | 🟡 Intermediate |
 | **[Authentication](authentication.md)** | Auth flow, JWT, role-based access | 🔴 Advanced |
 | **[Database Schema](database-schema.md)** | Tables, relationships, constraints | 🟡 Intermediate |
+| **[Clubs Architecture](../CLUBS_ARCHITECTURE.md)** | Clubs, teams, leagues separation | 🟡 Intermediate |
 | **[AI Agents](ai-agents.md)** | Autonomous agent architecture | 🔴 Advanced |
 
 ---
@@ -211,7 +212,9 @@ user_profiles ──── auth.users (Supabase)
 
 ### Key Relationships
 
-- **Teams** have matches as home or away
+- **Clubs** are organizations that field teams (e.g., "IFA")
+- **Teams** belong to a club and a league, have matches as home or away
+- **Leagues** are competition categories (e.g., "Homegrown", "Academy", "Elite")
 - **Matches** belong to season, age group, division, match type
 - **Match Types** define competition categories (league, friendly, tournament, etc.)
 - **Team Match Types** assign specific match types to teams
