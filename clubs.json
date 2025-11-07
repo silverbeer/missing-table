@@ -1,0 +1,188 @@
+[
+    {
+        "club_name": "Bayside FC",
+        "location": "East Providence, RI",
+        "website": "https://www.baysidefc.com",
+        "teams": [
+            {
+                "team_name": "Bayside FC",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]
+            },
+            {
+                "team_name": "Bayside FC",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]
+            }
+        ]
+    },
+    {
+        "club_name": "Oakwood Soccer Club",
+        "location": "Glastonbury, CT",
+        "website": "https://oakwoodsoccer.com",
+        "teams": [
+            {
+                "team_name": "Oakwood Soccer Club",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            },
+            {
+                "team_name": "Oakwood Soccer Club",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            }
+        ]
+    },
+    {
+        "club_name": "NEFC",
+        "location": "Mendon, MA",
+        "website": "https://nefc.us",
+        "teams": [
+            {
+                "team_name": "NEFC",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            },
+            {
+                "team_name": "NEFC",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            },
+            {
+                "team_name": "NEFC South",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            }
+        ]
+    },
+    {
+        "club_name": "IFA",
+        "location": "Boston, MA",
+        "website": "https://www.ifanewengland.com",
+        "teams": [
+            {
+                "team_name": "IFA",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            },
+            {
+                "team_name": "IFA",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            },
+            {
+                "team_name": "IFA West",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            }
+        ]
+    },
+    {
+        "club_name": "FC Greater Boston Bolts",
+        "location": "Waltham, MA",
+        "website": "https://bostonbolts.com",
+        "teams": [
+            {
+                "team_name": "FC Greater Boston Bolts",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            },
+            {
+                "team_name": "FC Greater Boston Bolts",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            }
+        ]
+    },
+    {
+        "club_name": "Seacoast United",
+        "location": "Portsmouth, NH",
+        "website": "https://www.seacoastunited.com",
+        "teams": [
+            {
+                "team_name": "Seacoast United",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            },
+            {
+                "team_name": "Seacoast United Bedford",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            },
+            {
+                "team_name": "Seacoast United Mass",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            }            
+        ]
+    },
+    {
+        "club_name": "Valeo Futbol Club",
+        "location": "Westford, MA",
+        "website": "https://valeofc.com",
+        "teams": [
+            {
+                "team_name": "Valeo Futbol Club",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            },
+            {
+                "team_name": "Valeo Futbol Club",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            }
+        ]
+    },
+    {
+        "club_name": "Rochester NY FC",
+        "location": "Rochester, NY",
+        "website": "https://www.rochesternyfc.com",
+        "teams": [
+            {
+                "team_name": "Rochester NY FC",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            },
+            {
+                "team_name": "Rochester NY FC",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]                
+            }
+        ]
+    },
+    {
+        "club_name": "New York Red Bulls",
+        "location": "Harrison, NJ",
+        "website": "https://www.newyorkredbulls.com",
+        "is_pro_academy": true,
+        "teams": [
+            {
+                "team_name": "New York Red Bulls",
+                "league": "Homegrown",
+                "division": "Northeast",
+                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            }
+        ]
+    }    
+]
+
+

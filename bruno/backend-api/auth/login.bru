@@ -1,0 +1,40 @@
+meta {
+  name: Login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{api_url}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{admin_user}}",
+    "password": "{{admin_pass}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.access_token: isDefined
+}
+
+script:post-response {
+  // Save the access token to environment variable
+  if (res.body.access_token) {
+    bru.setEnvVar("access_token", res.body.access_token);
+  }
+}
+
+tests {
+  test("should return access token", function() {
+    expect(res.body.access_token).to.be.a('string');
+  });
+  
+  test("access token should not be empty", function() {
+    expect(res.body.access_token.length).to.be.greaterThan(0);
+  });
+}

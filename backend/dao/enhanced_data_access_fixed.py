@@ -161,13 +161,92 @@ class EnhancedSportsDAO:
             print(f"Error querying match type: {e}")
             return None
 
-    def get_all_divisions(self) -> list[dict]:
-        """Get all divisions."""
+    # === League Methods ===
+
+    def get_all_leagues(self) -> list[dict]:
+        """Get all leagues ordered by name."""
         try:
-            response = self.client.table("divisions").select("*").order("name").execute()
+            response = self.client.table("leagues").select("*").order("name").execute()
+            return response.data
+        except Exception as e:
+            print(f"Error querying leagues: {e}")
+            return []
+
+    def get_league_by_id(self, league_id: int) -> dict | None:
+        """Get league by ID."""
+        try:
+            response = (
+                self.client.table("leagues")
+                .select("*")
+                .eq("id", league_id)
+                .execute()
+            )
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error querying league {league_id}: {e}")
+            return None
+
+    def create_league(self, league_data: dict) -> dict:
+        """Create new league."""
+        try:
+            response = self.client.table("leagues").insert(league_data).execute()
+            return response.data[0]
+        except Exception as e:
+            print(f"Error creating league: {e}")
+            raise
+
+    def update_league(self, league_id: int, league_data: dict) -> dict:
+        """Update league."""
+        try:
+            response = (
+                self.client.table("leagues")
+                .update(league_data)
+                .eq("id", league_id)
+                .execute()
+            )
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error updating league {league_id}: {e}")
+            raise
+
+    def delete_league(self, league_id: int) -> bool:
+        """Delete league (will fail if divisions exist due to FK constraint)."""
+        try:
+            self.client.table("leagues").delete().eq("id", league_id).execute()
+            return True
+        except Exception as e:
+            print(f"Error deleting league {league_id}: {e}")
+            raise
+
+    # === Division Methods ===
+
+    def get_all_divisions(self) -> list[dict]:
+        """Get all divisions with league info."""
+        try:
+            response = (
+                self.client.table("divisions")
+                .select("*, leagues!divisions_league_id_fkey(id, name, description, is_active)")
+                .order("name")
+                .execute()
+            )
             return response.data
         except Exception as e:
             print(f"Error querying divisions: {e}")
+            return []
+
+    def get_divisions_by_league(self, league_id: int) -> list[dict]:
+        """Get divisions filtered by league."""
+        try:
+            response = (
+                self.client.table("divisions")
+                .select("*, leagues!divisions_league_id_fkey(id, name, description)")
+                .eq("league_id", league_id)
+                .order("name")
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error querying divisions for league {league_id}: {e}")
             return []
 
     # === Team Methods ===
@@ -186,7 +265,12 @@ class EnhancedSportsDAO:
                     ),
                     divisions (
                         id,
-                        name
+                        name,
+                        league_id,
+                        leagues!divisions_league_id_fkey (
+                            id,
+                            name
+                        )
                     )
                 )
             """)
@@ -205,7 +289,11 @@ class EnhancedSportsDAO:
                             age_group = tag["age_groups"]
                             age_groups.append(age_group)
                             if tag.get("divisions"):
-                                divisions_by_age_group[age_group["id"]] = tag["divisions"]
+                                division = tag["divisions"]
+                                # Add league_name to division for easy access in frontend
+                                if division.get("leagues"):
+                                    division["league_name"] = division["leagues"]["name"]
+                                divisions_by_age_group[age_group["id"]] = division
                 team["age_groups"] = age_groups
                 team["divisions_by_age_group"] = divisions_by_age_group
                 teams.append(team)
@@ -304,15 +392,51 @@ class EnhancedSportsDAO:
         name: str,
         city: str,
         age_group_ids: list[int],
-        division_ids: list[int] | None = None,
+        division_id: int,
+        club_id: int | None = None,
         academy_team: bool = False,
     ) -> bool:
-        """Add a new team with age groups and optionally divisions."""
+        """Add a new team with age groups, division, and optional club.
+
+        Division represents location (e.g., Northeast Division for Homegrown,
+        New England Conference for Academy). All age groups share the same division.
+
+        Args:
+            name: Team name
+            city: Team city
+            age_group_ids: List of age group IDs (required, at least one)
+            division_id: Division ID (required, applies to all age groups)
+            club_id: Optional club ID
+            academy_team: Whether this is an academy team
+        """
         try:
-            # Insert team
+            # Validate required fields
+            if not age_group_ids or len(age_group_ids) == 0:
+                raise ValueError("Team must have at least one age group")
+
+            # Get league_id from division
+            division_response = (
+                self.client.table("divisions")
+                .select("league_id")
+                .eq("id", division_id)
+                .execute()
+            )
+            if not division_response.data:
+                raise ValueError(f"Division {division_id} not found")
+            league_id = division_response.data[0]["league_id"]
+
+            # Insert team with club, league, and division
+            team_data = {
+                "name": name,
+                "city": city,
+                "academy_team": academy_team,
+                "club_id": club_id,
+                "league_id": league_id,
+                "division_id": division_id
+            }
             team_response = (
                 self.client.table("teams")
-                .insert({"name": name, "city": city, "academy_team": academy_team})
+                .insert(team_data)
                 .execute()
             )
 
@@ -321,19 +445,25 @@ class EnhancedSportsDAO:
 
             team_id = team_response.data[0]["id"]
 
-            # Add age group associations with divisions
-            for i, age_group_id in enumerate(age_group_ids):
-                data = {"team_id": team_id, "age_group_id": age_group_id}
-                # Add division if provided
-                if division_ids and i < len(division_ids) and division_ids[i]:
-                    data["division_id"] = division_ids[i]
-
+            # Add age group associations with the same division for all
+            for age_group_id in age_group_ids:
+                data = {
+                    "team_id": team_id,
+                    "age_group_id": age_group_id,
+                    "division_id": division_id  # Same division for all age groups
+                }
                 self.client.table("team_mappings").insert(data).execute()
 
             return True
 
         except Exception as e:
+            error_str = str(e)
             print(f"Error adding team: {e}")
+
+            # Re-raise duplicate key errors so API can handle them properly
+            if "teams_name_division_unique" in error_str or "teams_name_academy_unique" in error_str or "duplicate key value" in error_str.lower():
+                raise
+
             return False
 
     def update_team_division(self, team_id: int, age_group_id: int, division_id: int) -> bool:
@@ -1283,30 +1413,30 @@ class EnhancedSportsDAO:
             print(f"Error deleting season: {e}")
             raise e
 
-    def create_division(self, name: str, description: str | None = None) -> dict:
-        """Create a new division."""
+    def create_division(self, division_data: dict) -> dict:
+        """Create a new division.
+
+        Args:
+            division_data: Dict with keys: name, description (optional), league_id (required)
+        """
         try:
-            data = {
-                "name": name,
-                "description": description or "",  # Always include description, even if empty
-            }
-            print(f"Creating division with data: {data}")
-            result = self.client.table("divisions").insert(data).execute()
+            print(f"Creating division with data: {division_data}")
+            result = self.client.table("divisions").insert(division_data).execute()
             print(f"Division created successfully: {result.data[0]}")
             return result.data[0]
         except Exception as e:
             print(f"Error creating division: {e}")
             raise e
 
-    def update_division(
-        self, division_id: int, name: str, description: str | None = None
-    ) -> dict | None:
-        """Update a division."""
+    def update_division(self, division_id: int, division_data: dict) -> dict | None:
+        """Update a division.
+
+        Args:
+            division_id: Division ID to update
+            division_data: Dict with any of: name, description, league_id
+        """
         try:
-            data = {"name": name}
-            if description is not None:
-                data["description"] = description
-            result = self.client.table("divisions").update(data).eq("id", division_id).execute()
+            result = self.client.table("divisions").update(division_data).eq("id", division_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             print(f"Error updating division: {e}")
@@ -1322,16 +1452,26 @@ class EnhancedSportsDAO:
             raise e
 
     def update_team(
-        self, team_id: int, name: str, city: str, academy_team: bool = False
+        self, team_id: int, name: str, city: str, academy_team: bool = False, club_id: int | None = None
     ) -> dict | None:
         """Update a team."""
         try:
+            update_data = {
+                "name": name,
+                "city": city,
+                "academy_team": academy_team,
+                "club_id": club_id
+            }
+            print(f"DEBUG DAO update_team: team_id={team_id}, update_data={update_data}")
+
             result = (
                 self.client.table("teams")
-                .update({"name": name, "city": city, "academy_team": academy_team})
+                .update(update_data)
                 .eq("id", team_id)
                 .execute()
             )
+
+            print(f"DEBUG DAO update result: {result.data}")
             return result.data[0] if result.data else None
         except Exception as e:
             print(f"Error updating team: {e}")
@@ -1376,3 +1516,206 @@ class EnhancedSportsDAO:
         except Exception as e:
             print(f"Error deleting team mapping: {e}")
             raise e
+
+    # === Club/Parent Club Methods ===
+
+    def get_all_parent_club_entities(self) -> list[dict]:
+        """Get all parent club entities (teams with no club_id).
+
+        This includes clubs that don't have children yet.
+        Used for dropdowns where users need to select a parent club.
+        """
+        try:
+            # Get all teams that could be parent clubs (no club_id)
+            response = self.client.table("teams").select("*").is_("club_id", "null").execute()
+            return response.data
+        except Exception as e:
+            print(f"Error querying parent club entities: {e}")
+            return []
+
+    def get_all_clubs(self) -> list[dict]:
+        """Get all clubs with their associated teams count.
+
+        Returns list of clubs from the clubs table.
+        Use get_club_teams(club_id) to get teams for a specific club.
+        """
+        try:
+            # Query clubs table directly
+            response = self.client.table("clubs").select("*").order("name").execute()
+            clubs = response.data
+
+            # Enrich with team counts
+            for club in clubs:
+                team_count_response = (
+                    self.client.table("teams")
+                    .select("id", count="exact")
+                    .eq("club_id", club["id"])
+                    .execute()
+                )
+                club["team_count"] = team_count_response.count or 0
+
+            return clubs
+        except Exception as e:
+            print(f"Error querying clubs: {e}")
+            return []
+
+    def get_club_teams(self, club_id: int) -> list[dict]:
+        """Get all teams for a club across all leagues.
+
+        Args:
+            club_id: The club ID from the clubs table
+
+        Returns:
+            List of teams belonging to this club
+        """
+        try:
+            # Use the database function get_club_teams (updated in migration)
+            response = self.client.rpc('get_club_teams', {'p_club_id': club_id}).execute()
+            return response.data
+        except Exception as e:
+            print(f"Error querying club teams: {e}")
+            # Fallback to manual query
+            try:
+                teams_response = self.client.table("teams").select("*").eq("club_id", club_id).execute()
+                return teams_response.data
+            except Exception as fallback_error:
+                print(f"Error in fallback query: {fallback_error}")
+                return []
+
+    def get_club_for_team(self, team_id: int) -> dict | None:
+        """Get the club for a team.
+
+        Args:
+            team_id: The team ID
+
+        Returns:
+            Club dict if team belongs to a club, None otherwise
+        """
+        try:
+            # Get the team to find its club_id
+            team_response = self.client.table("teams").select("club_id").eq("id", team_id).execute()
+            if not team_response.data or len(team_response.data) == 0:
+                return None
+
+            club_id = team_response.data[0].get('club_id')
+            if not club_id:
+                return None
+
+            # Get the club details
+            club_response = self.client.table("clubs").select("*").eq("id", club_id).execute()
+            return club_response.data[0] if club_response.data and len(club_response.data) > 0 else None
+        except Exception as e:
+            print(f"Error querying club for team: {e}")
+            return None
+
+    def create_club(self, name: str, city: str, website: str = None, description: str = None) -> dict:
+        """Create a new club.
+
+        Args:
+            name: Club name
+            city: Club city/location
+            website: Optional website URL
+            description: Optional description
+
+        Returns:
+            Created club dict
+        """
+        try:
+            club_data = {"name": name, "city": city}
+            if website:
+                club_data["website"] = website
+            if description:
+                club_data["description"] = description
+
+            result = self.client.table("clubs").insert(club_data).execute()
+
+            if not result.data or len(result.data) == 0:
+                raise ValueError("Failed to create club")
+            return result.data[0]
+        except Exception as e:
+            print(f"Error creating club: {e}")
+            raise e
+
+    def update_team_club(self, team_id: int, club_id: int | None) -> dict:
+        """Update the club for a team.
+
+        Args:
+            team_id: The team ID to update
+            club_id: The club ID to assign (or None to remove club association)
+
+        Returns:
+            Updated team dict
+        """
+        try:
+            result = (
+                self.client.table("teams")
+                .update({"club_id": club_id})
+                .eq("id", team_id)
+                .execute()
+            )
+            if not result.data or len(result.data) == 0:
+                raise ValueError(f"Failed to update club for team {team_id}")
+            return result.data[0]
+        except Exception as e:
+            print(f"Error updating team club: {e}")
+            raise e
+
+    def delete_club(self, club_id: int) -> bool:
+        """Delete a club.
+
+        Args:
+            club_id: The club ID to delete
+
+        Returns:
+            True if deleted successfully
+
+        Note:
+            This will fail if there are teams still associated with this club
+            due to ON DELETE RESTRICT constraint.
+        """
+        try:
+            self.client.table("clubs").delete().eq("id", club_id).execute()
+            return True
+        except Exception as e:
+            print(f"Error deleting club: {e}")
+            raise e
+
+    # === Team Statistics Methods ===
+
+    def get_team_game_counts(self) -> dict[int, int]:
+        """Get game counts for all teams in a single optimized query.
+
+        Returns a dictionary mapping team_id → game_count.
+        Uses SQL aggregation for performance - counts 100k+ games in milliseconds.
+        """
+        try:
+            # Use PostgREST's aggregation to count games per team
+            # This query is equivalent to:
+            # SELECT home_team_id as team_id, COUNT(*) as count FROM matches GROUP BY home_team_id
+            # UNION ALL
+            # SELECT away_team_id as team_id, COUNT(*) as count FROM matches GROUP BY away_team_id
+
+            response = self.client.rpc('get_team_game_counts').execute()
+
+            # If RPC function doesn't exist, fall back to Python aggregation
+            # This is slower but still better than client-side filtering
+            if not response.data:
+                # Get all matches with just team IDs
+                matches = self.client.table("matches").select("home_team_id,away_team_id").execute()
+
+                # Count games per team
+                counts = {}
+                for match in matches.data:
+                    home_id = match['home_team_id']
+                    away_id = match['away_team_id']
+                    counts[home_id] = counts.get(home_id, 0) + 1
+                    counts[away_id] = counts.get(away_id, 0) + 1
+
+                return counts
+
+            # Convert RPC result to dictionary
+            return {row['team_id']: row['game_count'] for row in response.data}
+        except Exception as e:
+            print(f"Error getting team game counts: {e}")
+            # Return empty dict on error - teams will show 0 games
+            return {}

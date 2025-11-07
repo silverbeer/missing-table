@@ -1,0 +1,20 @@
+meta {
+  name: docs
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{api_url}}/docs
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -41,6 +41,11 @@
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
+              League
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
               Description
             </th>
             <th
@@ -66,6 +71,9 @@
               class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
               {{ division.name }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ division.leagues?.name || getLeagueName(division.league_id) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ division.description }}
@@ -134,6 +142,26 @@
 
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2"
+                >League</label
+              >
+              <select
+                v-model="formData.league_id"
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option :value="null" disabled>Select a league...</option>
+                <option
+                  v-for="league in leagues"
+                  :key="league.id"
+                  :value="league.id"
+                >
+                  {{ league.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Description</label
               >
               <textarea
@@ -183,6 +211,7 @@ export default {
     const authStore = useAuthStore();
     const divisions = ref([]);
     const teams = ref([]);
+    const leagues = ref([]);
     const loading = ref(true);
     const formLoading = ref(false);
     const error = ref(null);
@@ -193,6 +222,7 @@ export default {
     const formData = ref({
       name: '',
       description: '',
+      league_id: null,
     });
 
     const fetchDivisions = async () => {
@@ -224,6 +254,25 @@ export default {
       } catch (err) {
         console.error('Error fetching teams:', err);
       }
+    };
+
+    const fetchLeagues = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues`,
+          {
+            method: 'GET',
+          }
+        );
+        leagues.value = response;
+      } catch (err) {
+        console.error('Error fetching leagues:', err);
+      }
+    };
+
+    const getLeagueName = leagueId => {
+      const league = leagues.value.find(l => l.id === leagueId);
+      return league ? league.name : 'N/A';
     };
 
     const getTeamCount = divisionId => {
@@ -329,15 +378,17 @@ export default {
       formData.value = {
         name: '',
         description: '',
+        league_id: null,
       };
     };
 
     onMounted(async () => {
-      await Promise.all([fetchDivisions(), fetchTeams()]);
+      await Promise.all([fetchDivisions(), fetchTeams(), fetchLeagues()]);
     });
 
     return {
       divisions,
+      leagues,
       loading,
       formLoading,
       error,
@@ -345,6 +396,7 @@ export default {
       showEditModal,
       formData,
       getTeamCount,
+      getLeagueName,
       formatDate,
       createDivision,
       editDivision,

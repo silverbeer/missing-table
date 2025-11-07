@@ -52,9 +52,19 @@
           <AdminSeasons />
         </div>
 
+        <!-- Leagues Management -->
+        <div v-if="currentSection === 'leagues'" class="p-6">
+          <AdminLeagues />
+        </div>
+
         <!-- Divisions Management -->
         <div v-if="currentSection === 'divisions'" class="p-6">
           <AdminDivisions />
+        </div>
+
+        <!-- Clubs Management -->
+        <div v-if="currentSection === 'clubs'" class="p-6">
+          <AdminClubs />
         </div>
 
         <!-- Teams Management -->
@@ -81,7 +91,9 @@ import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import AdminAgeGroups from './admin/AdminAgeGroups.vue';
 import AdminSeasons from './admin/AdminSeasons.vue';
+import AdminLeagues from './admin/AdminLeagues.vue';
 import AdminDivisions from './admin/AdminDivisions.vue';
+import AdminClubs from './admin/AdminClubs.vue';
 import AdminTeams from './admin/AdminTeams.vue';
 import AdminMatches from './admin/AdminMatches.vue';
 import AdminInvites from './admin/AdminInvites.vue';
@@ -91,7 +103,9 @@ export default {
   components: {
     AdminAgeGroups,
     AdminSeasons,
+    AdminLeagues,
     AdminDivisions,
+    AdminClubs,
     AdminTeams,
     AdminMatches,
     AdminInvites,
@@ -103,7 +117,9 @@ export default {
     const adminSections = [
       { id: 'age-groups', name: 'Age Groups' },
       { id: 'seasons', name: 'Seasons' },
+      { id: 'leagues', name: 'Leagues' },
       { id: 'divisions', name: 'Divisions' },
+      { id: 'clubs', name: 'Clubs' },
       { id: 'teams', name: 'Teams' },
       { id: 'matches', name: 'Matches' },
       { id: 'invites', name: 'Invites' },

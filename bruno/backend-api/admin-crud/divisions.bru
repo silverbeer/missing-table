@@ -1,0 +1,61 @@
+meta {
+  name: divisions
+  type: http
+  seq: 23
+}
+
+get {
+  url: {{api_url}}/api/divisions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+
+tests {
+  test("should return array of seasons", function() {
+    expect(res.body).to.be.an('array');
+  });
+  
+  test("each season should have required fields", function() {
+    if (res.body.length > 0) {
+      const season = res.body[0];
+      expect(season).to.have.property('id');
+      expect(season).to.have.property('name');
+      expect(season).to.have.property('start_date');
+      expect(season).to.have.property('end_date');
+    }
+  });
+  
+  test("season names should not be empty", function() {
+    res.body.forEach(season => {
+      expect(season.name).to.be.a('string');
+      expect(season.name.length).to.be.greaterThan(0);
+    });
+  });
+}
+
+docs {
+  # Get Seasons
+  
+  Retrieves all seasons from the database.
+  
+  ## Authentication
+  Requires a valid JWT token. Run the "Login" test first to obtain a token.
+  
+  ## Response
+  Returns an array of season objects with the following properties:
+  - `id`: Season ID
+  - `name`: Season name (e.g., "2024-2025")
+  - `start_date`: Season start date
+  - `end_date`: Season end date
+  - `created_at`: Creation timestamp
+  - `updated_at`: Last update timestamp
+}

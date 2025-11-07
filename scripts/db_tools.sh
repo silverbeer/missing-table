@@ -125,6 +125,16 @@ restore_database() {
 
     if [ $? -eq 0 ]; then
         print_success "Restore completed successfully"
+
+        # Seed test users after successful restore
+        print_warning "Seeding test users..."
+        "$PROJECT_ROOT/scripts/seed_test_users.sh" "$current_env"
+
+        if [ $? -eq 0 ]; then
+            print_success "Test users seeded successfully"
+        else
+            print_warning "Test user seeding had some issues (check output above)"
+        fi
     else
         print_error "Restore failed"
         exit 1

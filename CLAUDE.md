@@ -44,6 +44,19 @@ Follow the standards in [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
 
 ---
 
+## ⚙️ Workflow Requirements
+
+**CRITICAL**: Before every git commit, update this CLAUDE.md file to reflect:
+- New commands or workflows added
+- Changed architecture or patterns
+- New dependencies or tools
+- Modified deployment processes
+- Any significant changes that future Claude sessions should know about
+
+This ensures continuity across sessions and keeps the AI assistant context current.
+
+---
+
 ## 🚨 CRITICAL: Git Workflow - Protected Main Branch
 
 **⚠️ NEVER COMMIT DIRECTLY TO MAIN ⚠️**
@@ -91,6 +104,53 @@ git branch -d feature/your-feature-name
 - **Audit Trail**: Clear history of what changed and why
 
 **Always create a feature branch first!**
+
+---
+
+## 🎯 Code Quality & Linting
+
+**CRITICAL**: Always run linters after making code changes to maintain code quality and consistency.
+
+### Frontend Linting (Vue/JavaScript)
+
+```bash
+# Run linter (will auto-fix most issues)
+cd frontend && npm run lint
+
+# When to lint:
+# - After creating new Vue components
+# - After modifying existing components
+# - Before committing changes
+# - Before creating Pull Requests
+```
+
+### Backend Linting (Python)
+
+```bash
+# Format code with black (if configured)
+cd backend && uv run black .
+
+# Run flake8 or ruff (if configured)
+cd backend && uv run ruff check .
+
+# When to lint:
+# - After creating new Python modules
+# - After modifying existing code
+# - Before committing changes
+```
+
+### Best Practices
+
+- ✅ **Always run `npm run lint` after UI changes** - Most issues are auto-fixed
+- ✅ **Fix linting errors before committing** - Don't commit broken linter output
+- ✅ **Linting is not optional** - It catches bugs and maintains consistency
+- ✅ **Pre-commit hooks** - Linters run automatically before commits (if configured)
+
+**Why this matters:**
+- Catches common bugs and errors early
+- Maintains consistent code style across the project
+- Makes code reviews easier and faster
+- Prevents CI/CD pipeline failures
 
 ---
 
@@ -846,5 +906,5 @@ This file contains **quick reference commands only**. For comprehensive informat
 
 ---
 
-**Last Updated**: 2025-10-22
+**Last Updated**: 2025-11-01
 **Documentation Standards**: [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)

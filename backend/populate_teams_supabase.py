@@ -69,6 +69,36 @@ def populate_teams():
         print(f"Error inserting teams: {e}")
         return
 
+    # Get Homegrown league and default division
+    print("\n🔍 Looking up Homegrown league...")
+    try:
+        homegrown_league = supabase.table("leagues").select("id").eq("name", "Homegrown").execute()
+        if not homegrown_league.data:
+            print("❌ Error: Homegrown league not found")
+            return
+
+        league_id = homegrown_league.data[0]["id"]
+        print(f"✅ Found Homegrown league (ID: {league_id})")
+
+        # Get or create default division for Homegrown league
+        divisions = supabase.table("divisions").select("id").eq("name", "Default").eq("league_id", league_id).execute()
+        if divisions.data:
+            division_id = divisions.data[0]["id"]
+            print(f"✅ Using existing Default division (ID: {division_id})")
+        else:
+            # Create default division if it doesn't exist
+            print("Creating Default division for Homegrown league...")
+            new_div = supabase.table("divisions").insert({
+                "name": "Default",
+                "description": "Default division for Homegrown league",
+                "league_id": league_id
+            }).execute()
+            division_id = new_div.data[0]["id"]
+            print(f"✅ Created Default division (ID: {division_id})")
+    except Exception as e:
+        print(f"❌ Error setting up division: {e}")
+        return
+
     # Add team mappings and game type participations
     team_mappings = []
     team_game_types = []
@@ -76,12 +106,12 @@ def populate_teams():
     for team in inserted_teams:
         team_id = team["id"]
 
-        # Add team mapping for U14 age group (id=2) with default division (id=1)
+        # Add team mapping for U14 age group with league-aware division
         team_mappings.append(
             {
                 "team_id": team_id,
                 "age_group_id": 2,  # U14
-                "division_id": 1,  # Default division
+                "division_id": division_id,  # League-aware division
             }
         )
 

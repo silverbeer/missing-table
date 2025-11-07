@@ -127,32 +127,103 @@ def age_groups(
 
 @app.command()
 def divisions(
+    league: Optional[str] = typer.Option(None, "--league", "-l", help="Filter by league name"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information")
 ):
     """List all divisions"""
     load_environment()
     supabase = get_supabase_client()
 
-    response = supabase.table("divisions").select("*").order("name").execute()
+    # Updated query to include league info
+    response = supabase.table("divisions").select(
+        "*, leagues!divisions_league_id_fkey(id, name)"
+    ).order("name").execute()
 
-    table = Table(title="Divisions", show_header=True, header_style="bold magenta")
-    table.add_column("ID", style="cyan")
-    table.add_column("Name", style="green")
+    divisions_data = response.data
+
+    # Filter by league if specified
+    if league:
+        divisions_data = [
+            d for d in divisions_data
+            if d.get("leagues") and league.lower() in d["leagues"]["name"].lower()
+        ]
+
+    table = Table(
+        title=f"Divisions ({len(divisions_data)})",
+        show_header=True,
+        header_style="bold magenta"
+    )
+    table.add_column("ID", style="cyan", width=5)
+    table.add_column("Name", style="green", width=25)
+    table.add_column("League", style="yellow", width=20)
     if verbose:
-        table.add_column("Created", style="dim")
+        table.add_column("Created", style="dim", width=10)
 
-    for div in response.data:
-        row = [str(div["id"]), div["name"]]
+    for div in divisions_data:
+        league_name = "Unknown"
+        if div.get("leagues"):
+            league_name = div["leagues"].get("name", "Unknown")
+
+        row = [str(div["id"]), div["name"], league_name]
         if verbose and div.get("created_at"):
-            row.append(div["created_at"])
+            row.append(div["created_at"][:10])
         table.add_row(*row)
 
     console.print(table)
-    console.print(f"\n[green]Total:[/green] {len(response.data)} divisions")
+    console.print(f"\n[green]Total:[/green] {len(divisions_data)} divisions")
+
+    # Show filter info if applied
+    if league:
+        console.print(f"[dim]Filtered by league: {league}[/dim]")
 
     # Show SQL query reference
     console.print(f"\n[dim]PostgREST Query:[/dim]")
-    console.print(f"[dim italic]GET /divisions?select=*&order=name.asc[/dim italic]")
+    console.print(f"[dim italic]GET /divisions?select=*,leagues(id,name)&order=name.asc[/dim italic]")
+
+
+@app.command()
+def leagues(
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information"),
+    show_sql: bool = typer.Option(False, "--show-sql", help="Show SQL query for Supabase SQL Editor")
+):
+    """List all leagues"""
+    load_environment()
+    supabase = get_supabase_client()
+
+    response = supabase.table("leagues").select("*").order("name").execute()
+
+    table = Table(title="Leagues", show_header=True, header_style="bold magenta")
+    table.add_column("ID", style="cyan", width=5)
+    table.add_column("Name", style="green", width=20)
+    table.add_column("Active", style="yellow", width=8)
+    if verbose:
+        table.add_column("Description", style="dim", width=30)
+        table.add_column("Created", style="dim", width=10)
+
+    for league in response.data:
+        row = [
+            str(league["id"]),
+            league["name"],
+            "✓" if league.get("is_active") else "✗"
+        ]
+        if verbose:
+            row.append(league.get("description", "N/A") or "N/A")
+            if league.get("created_at"):
+                row.append(league["created_at"][:10])
+        table.add_row(*row)
+
+    console.print(table)
+    console.print(f"\n[green]Total:[/green] {len(response.data)} leagues")
+
+    # Show SQL query reference
+    if show_sql:
+        sql_query = "SELECT * FROM leagues ORDER BY name ASC;"
+        console.print(f"\n[cyan]SQL Query (copy to Supabase SQL Editor):[/cyan]")
+        console.print(f"[white]{sql_query}[/white]")
+    else:
+        console.print(f"\n[dim]PostgREST Query:[/dim]")
+        console.print(f"[dim italic]GET /leagues?select=*&order=name.asc[/dim italic]")
+        console.print(f"[dim]Tip: Use --show-sql to see SQL for Supabase SQL Editor[/dim]")
 
 
 @app.command()

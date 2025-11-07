@@ -56,11 +56,15 @@ def migrate_data():
     print(f"✅ League game type ID: {league_id}")
 
     # Get Northeast division ID
+    # IMPORTANT: After league layer implementation, "Northeast" may exist in multiple leagues.
+    # This assumes Homegrown league. For production use, filter by league_id:
+    # .eq("league_id", homegrown_league_id)
     division_response = (
         supabase.table("divisions").select("*").eq("name", "Northeast").single().execute()
     )
     division_id = division_response.data["id"]
     print(f"✅ Northeast division ID: {division_id}")
+    print(f"⚠️  Note: Assuming Homegrown league (first match)")
 
     # Migrate Teams
     print("\n👥 Migrating teams...")

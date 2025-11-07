@@ -41,7 +41,12 @@
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              City
+              Parent Club
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Leagues
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -52,11 +57,6 @@
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Type
-            </th>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Games Count
             </th>
             <th
               class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -73,7 +73,38 @@
               {{ team.name }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ team.city }}
+              <span
+                v-if="team.parent_club"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+              >
+                {{ team.parent_club.name }}
+              </span>
+              <span v-else class="text-gray-400 italic">Independent</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <div class="flex flex-wrap gap-1">
+                <!-- Show league badge based on academy_team flag -->
+                <span
+                  v-if="team.academy_team"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+                >
+                  Academy
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
+                >
+                  Homegrown
+                </span>
+                <!-- Show additional divisions/leagues if team has mappings -->
+                <span
+                  v-for="mapping in team.team_mappings || []"
+                  :key="`${mapping.age_group_id}-${mapping.division_id}`"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {{ mapping.divisions?.leagues?.name || 'Unknown' }}
+                </span>
+              </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               <div class="flex flex-wrap gap-1">
@@ -100,9 +131,6 @@
                 Regular
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ getGamesCount(team.id) }}
-            </td>
             <td
               class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
             >
@@ -121,10 +149,6 @@
               <button
                 @click="deleteTeam(team)"
                 class="text-red-600 hover:text-red-900"
-                :disabled="getGamesCount(team.id) > 0"
-                :class="{
-                  'opacity-50 cursor-not-allowed': getGamesCount(team.id) > 0,
-                }"
               >
                 Delete
               </button>
@@ -167,10 +191,27 @@
               <input
                 v-model="formData.city"
                 type="text"
-                required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., New York, Boston..."
               />
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Parent Club</label
+              >
+              <select
+                v-model="formData.parentClubId"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option :value="null">Independent Team (No Parent Club)</option>
+                <option v-for="club in clubs" :key="club.id" :value="club.id">
+                  {{ club.name }} - {{ club.city }}
+                </option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">
+                Link this team to a parent club organization
+              </p>
             </div>
 
             <div class="mb-4">
@@ -282,10 +323,10 @@
                   v-model="formData.academyTeam"
                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />
-                Academy Team
+                Pro Academy Team
               </label>
               <p class="text-xs text-gray-500 mt-1">
-                Check this if this is an academy team
+                Check this if this is a pro academy team
               </p>
             </div>
 
@@ -444,10 +485,10 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const teams = ref([]);
+    const clubs = ref([]);
     const ageGroups = ref([]);
     const divisions = ref([]);
     const gameTypes = ref([]);
-    const games = ref([]);
     const loading = ref(true);
     const formLoading = ref(false);
     const mappingLoading = ref(false);
@@ -461,6 +502,7 @@ export default {
     const formData = ref({
       name: '',
       city: '',
+      parentClubId: null,
       teamType: '',
       ageGroupIds: [],
       gameTypeIds: [],
@@ -476,7 +518,7 @@ export default {
       try {
         loading.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams?include_parent=true`,
           {
             method: 'GET',
           }
@@ -500,6 +542,21 @@ export default {
         ageGroups.value = response;
       } catch (err) {
         console.error('Error fetching age groups:', err);
+      }
+    };
+
+    const fetchClubs = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs?include_empty=true`,
+          {
+            method: 'GET',
+          }
+        );
+        clubs.value = response.sort((a, b) => a.name.localeCompare(b.name));
+      } catch (err) {
+        console.error('Error fetching clubs:', err);
+        // Not fatal - parent club is optional
       }
     };
 
@@ -529,26 +586,6 @@ export default {
       } catch (err) {
         console.error('Error fetching game types:', err);
       }
-    };
-
-    const fetchGames = async () => {
-      try {
-        const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`,
-          {
-            method: 'GET',
-          }
-        );
-        games.value = response;
-      } catch (err) {
-        console.error('Error fetching games:', err);
-      }
-    };
-
-    const getGamesCount = teamId => {
-      return games.value.filter(
-        game => game.home_team_id === teamId || game.away_team_id === teamId
-      ).length;
     };
 
     const onTeamTypeChange = () => {
@@ -602,6 +639,7 @@ export default {
         const teamData = {
           name: formData.value.name,
           city: formData.value.city,
+          parent_club_id: formData.value.parentClubId,
           age_group_ids: formData.value.ageGroupIds.map(id => parseInt(id)),
           division_ids: [],
           academy_team: formData.value.academyTeam,
@@ -653,6 +691,7 @@ export default {
       formData.value = {
         name: team.name,
         city: team.city,
+        parentClubId: team.parent_club_id || null,
         teamType: teamType,
         ageGroupIds: (team.age_groups || []).map(ag => ag.id),
         gameTypeIds: gameTypeIds,
@@ -667,6 +706,7 @@ export default {
         const updateData = {
           name: formData.value.name,
           city: formData.value.city,
+          parent_club_id: formData.value.parentClubId,
           academy_team: formData.value.academyTeam,
         };
         await authStore.apiRequest(
@@ -743,11 +783,6 @@ export default {
     };
 
     const deleteTeam = async team => {
-      if (getGamesCount(team.id) > 0) {
-        error.value = 'Cannot delete team with associated games';
-        return;
-      }
-
       if (!confirm(`Are you sure you want to delete "${team.name}"?`)) return;
 
       try {
@@ -834,6 +869,7 @@ export default {
       formData.value = {
         name: '',
         city: '',
+        parentClubId: null,
         teamType: '',
         ageGroupIds: [],
         gameTypeIds: [],
@@ -842,17 +878,20 @@ export default {
     };
 
     onMounted(async () => {
+      // Fetch teams with game counts (optimized backend aggregation)
+      // Other reference data (clubs, age groups, etc.) loaded in parallel
       await Promise.all([
-        fetchTeams(),
+        fetchTeams(), // Now includes game_count for each team
+        fetchClubs(),
         fetchAgeGroups(),
         fetchDivisions(),
         fetchGameTypes(),
-        fetchGames(),
       ]);
     });
 
     return {
       teams,
+      clubs,
       ageGroups,
       divisions,
       gameTypes,
@@ -864,9 +903,9 @@ export default {
       showEditModal,
       showMappingsModal,
       selectedTeam,
+      editingTeam,
       formData,
       mappingForm,
-      getGamesCount,
       onTeamTypeChange,
       createTeam,
       editTeam,

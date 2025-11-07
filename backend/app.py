@@ -1,17 +1,22 @@
-import logging
 import os
+from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, field_validator
-from datetime import datetime
-from typing import Optional, List, Dict, Any
-from auth import AuthManager, get_current_user_optional, get_current_user_required, require_admin, require_team_manager_or_admin, require_admin_or_service_account, require_match_management_permission
-from rate_limiter import create_rate_limit_middleware, rate_limit
-from csrf_protection import csrf_middleware, get_csrf_token, provide_csrf_token
+from pydantic import BaseModel, field_validator, model_validator
+
 from api.invites import router as invites_router
+from auth import (
+    AuthManager,
+    get_current_user_required,
+    require_admin,
+    require_admin_or_service_account,
+    require_match_management_permission,
+    require_team_manager_or_admin,
+)
+from csrf_protection import provide_csrf_token
 from services import InviteService
 
 # Security monitoring imports (conditional)
@@ -21,10 +26,16 @@ if not DISABLE_SECURITY:
     import logfire
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.instrumentation.requests import RequestsInstrumentor
-    from security_middleware import SecurityMiddleware
-    from security_monitoring import get_security_monitor, SecurityEventType, SecuritySeverity, SecurityEvent
+
     from auth_security import get_auth_security_monitor
     from dao_security_wrapper import create_secure_dao
+    from security_middleware import SecurityMiddleware
+    from security_monitoring import (
+        SecurityEvent,
+        SecurityEventType,
+        SecuritySeverity,
+        get_security_monitor,
+    )
 else:
     # Mock logfire when security is disabled
     class MockLogfireSpan:
@@ -34,7 +45,7 @@ else:
             pass
         def set_attribute(self, key, value):
             pass
-    
+
     class MockLogfire:
         def span(self, name):
             return MockLogfireSpan()
@@ -72,6 +83,7 @@ else:
 from dao.enhanced_data_access_fixed import EnhancedSportsDAO
 from dao.enhanced_data_access_fixed import SupabaseConnection as DbConnectionHolder
 
+
 # Load environment variables with environment-specific support
 def load_environment():
     """Load environment variables based on APP_ENV or default to local."""
@@ -96,7 +108,8 @@ def load_environment():
 load_environment()
 
 # Configure structured logging with JSON output for Loki
-from logging_config import setup_logging, get_logger
+from logging_config import get_logger, setup_logging
+
 setup_logging(service_name="backend")
 logger = get_logger(__name__)
 
@@ -223,9 +236,38 @@ class EnhancedMatch(BaseModel):
 class Team(BaseModel):
     name: str
     city: str
-    age_group_ids: list[int]
-    division_ids: list[int] | None = None
+    age_group_ids: list[int]  # Required: at least one age group
+    division_id: int  # Required: single division for all age groups (based on location)
+    club_id: int | None = None  # FK to clubs table
     academy_team: bool | None = False
+
+    @model_validator(mode='after')
+    def validate_team(self):
+        """Validate team has at least one age group."""
+        if not self.age_group_ids or len(self.age_group_ids) == 0:
+            raise ValueError("Team must have at least one age group")
+        return self
+
+
+# Club-related models
+class Club(BaseModel):
+    """Model for creating a new club."""
+    name: str
+    city: str
+    website: str | None = None
+    description: str | None = None
+
+
+class ClubWithTeams(BaseModel):
+    """Model for returning a club with its teams."""
+    id: int
+    name: str
+    city: str
+    website: str | None = None
+    description: str | None = None
+    is_active: bool = True
+    teams: list[dict] = []  # Teams belonging to this club
+    team_count: int = 0  # Number of teams in this club
 
 
 # Auth-related models
@@ -300,6 +342,7 @@ app.include_router(invites_router)
 
 # Version endpoint
 from endpoints.version import router as version_router
+
 app.include_router(version_router)
 
 # === Authentication Endpoints ===
@@ -309,7 +352,7 @@ app.include_router(version_router)
 # @rate_limit("3 per hour")
 async def signup(request: Request, user_data: UserSignup):
     """User signup endpoint with username authentication."""
-    from auth import username_to_internal_email, check_username_available
+    from auth import check_username_available, username_to_internal_email
 
     with logfire.span("auth_signup") as span:
         span.set_attribute("auth.username", user_data.username)
@@ -528,7 +571,7 @@ async def login(request: Request, user_data: UserLogin):
                 span.set_attribute("auth.risk_score", auth_attempt.risk_score if auth_attempt else 0)
 
                 raise HTTPException(status_code=401, detail="Invalid username or password")
-                
+
         except HTTPException:
             raise
         except Exception as e:
@@ -550,7 +593,7 @@ async def login(request: Request, user_data: UserLogin):
                 client_ip=client_ip,
                 risk_score=auth_attempt.risk_score if auth_attempt else 0
             )
-            
+
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
@@ -564,6 +607,7 @@ async def check_username_availability(username: str):
     - suggestions: list of alternative usernames if taken
     """
     import re
+
     from auth import check_username_available
 
     try:
@@ -716,7 +760,7 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
     with logfire.span("auth_refresh") as span:
         try:
             response = db_conn_holder_obj.client.auth.refresh_session(refresh_data.refresh_token)
-            
+
             if response.session:
                 span.set_attribute("auth.success", True)
                 return {
@@ -731,7 +775,7 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
             else:
                 span.set_attribute("auth.success", False)
                 raise HTTPException(status_code=401, detail="Failed to refresh token")
-                
+
         except Exception as e:
             logger.error(f"Token refresh error: {e}")
             span.set_attribute("auth.success", False)
@@ -747,9 +791,9 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
             *,
             team:teams(id, name, city)
         ''').eq('id', current_user['user_id']).execute()
-        
+
         profile = profile_response.data[0] if profile_response.data else {}
-        
+
         return {
             "success": True,
             "user": {
@@ -766,7 +810,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                 }
             }
         }
-        
+
     except Exception as e:
         logger.error(f"Get user info error: {e}")
         raise HTTPException(status_code=500, detail="Failed to get user info")
@@ -907,7 +951,7 @@ async def update_user_profile(
         raise
     except Exception as e:
         logger.error(f"Update user profile error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to update user profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update user profile: {e!s}")
 
 
 # === CSRF Token Endpoint ===
@@ -997,10 +1041,16 @@ async def get_match_types(current_user: dict[str, Any] = Depends(get_current_use
 
 
 @app.get("/api/divisions")
-async def get_divisions(current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """Get all divisions."""
+async def get_divisions(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+    league_id: int | None = None
+):
+    """Get all divisions, optionally filtered by league."""
     try:
-        divisions = sports_dao.get_all_divisions()
+        if league_id:
+            divisions = sports_dao.get_divisions_by_league(league_id)
+        else:
+            divisions = sports_dao.get_all_divisions()
         return divisions
     except Exception as e:
         logger.error(f"Error retrieving divisions: {e!s}")
@@ -1014,14 +1064,69 @@ async def get_divisions(current_user: dict[str, Any] = Depends(get_current_user_
 async def get_teams(
     current_user: dict[str, Any] = Depends(get_current_user_required),
     match_type_id: int | None = None,
-    age_group_id: int | None = None
+    age_group_id: int | None = None,
+    include_parent: bool = False,
+    include_game_count: bool = False,
+    club_id: int | None = None
 ):
-    """Get teams, optionally filtered by match type and age group."""
+    """
+    Get teams, optionally filtered by match type, age group, or club.
+
+    Args:
+        match_type_id: Filter by match type
+        age_group_id: Filter by age group (requires match_type_id)
+        include_parent: If true, include parent club information
+        include_game_count: If true, include count of games for each team (performance optimized)
+        club_id: Filter to only teams belonging to this parent club
+    """
     try:
+        # Get teams based on filters
         if match_type_id and age_group_id:
             teams = sports_dao.get_teams_by_match_type_and_age_group(match_type_id, age_group_id)
+        elif club_id:
+            teams = sports_dao.get_club_teams(club_id)
         else:
             teams = sports_dao.get_all_teams()
+
+        # Enrich teams with additional data if requested
+        if include_parent or include_game_count:
+            enriched_teams = []
+
+            # Get game counts for all teams in one query (performance optimization)
+            game_counts = {}
+            if include_game_count:
+                game_counts = sports_dao.get_team_game_counts()
+
+            for team in teams:
+                team_data = {**team}
+
+                # Add parent club info if requested
+                if include_parent:
+                    if team.get('club_id'):
+                        # Fetch the club directly using the club_id
+                        try:
+                            clubs = sports_dao.get_all_clubs()
+                            parent_club = next((c for c in clubs if c['id'] == team['club_id']), None)
+                            team_data['parent_club'] = parent_club
+                        except Exception:
+                            team_data['parent_club'] = None
+                    else:
+                        team_data['parent_club'] = None
+
+                    # Check if this team is itself a parent club
+                    if hasattr(sports_dao, 'is_parent_club'):
+                        team_data['is_parent_club'] = sports_dao.is_parent_club(team['id'])
+                    else:
+                        team_data['is_parent_club'] = False
+
+                # Add game count if requested
+                if include_game_count:
+                    team_data['game_count'] = game_counts.get(team['id'], 0)
+
+                enriched_teams.append(team_data)
+
+            return enriched_teams
+
         return teams
     except Exception as e:
         logger.error(f"Error retrieving teams: {e!s}")
@@ -1031,19 +1136,45 @@ async def get_teams(
 
 
 @app.post("/api/teams")
-async def add_team(team: Team):
-    """Add a new team with age groups and optionally divisions."""
+async def add_team(
+    request: Request,
+    team: Team,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Add a new team with age groups, division, and optional parent club.
+
+    Division represents location (e.g., Northeast Division for Homegrown, New England Conference for Academy).
+    All age groups for a team share the same division.
+    """
     try:
+        # Get client IP for security monitoring
+        client_ip = "unknown"
+        if security_monitor:
+            client_ip = security_monitor.get_client_ip(request)
+
+        # Call add_team with keyword arguments for SecureDAO compatibility
         success = sports_dao.add_team(
-            team.name, team.city, team.age_group_ids, team.division_ids, team.academy_team
+            client_ip=client_ip,
+            name=team.name,
+            city=team.city,
+            age_group_ids=team.age_group_ids,
+            division_id=team.division_id,
+            club_id=team.club_id,
+            academy_team=team.academy_team
         )
         if success:
             return {"message": "Team added successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to add team")
     except Exception as e:
-        logger.error(f"Error adding team: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_str = str(e)
+        logger.error(f"Error adding team: {error_str}")
+
+        # Check for duplicate team constraint violation
+        if "teams_name_division_unique" in error_str or "teams_name_academy_unique" in error_str or "duplicate key value" in error_str.lower():
+            raise HTTPException(status_code=409, detail="Team with this name already exists in this division")
+
+        raise HTTPException(status_code=500, detail=error_str)
 
 
 # === Enhanced Match Endpoints ===
@@ -1053,13 +1184,13 @@ async def add_team(team: Team):
 async def get_matches(
     request: Request,
     current_user: dict[str, Any] = Depends(get_current_user_required),
-    season_id: Optional[int] = Query(None, description="Filter by season ID"),
-    age_group_id: Optional[int] = Query(None, description="Filter by age group ID"),
-    division_id: Optional[int] = Query(None, description="Filter by division ID"),
-    team_id: Optional[int] = Query(None, description="Filter by team ID (home or away)"),
-    match_type: Optional[str] = Query(None, description="Filter by match type name"),
-    start_date: Optional[str] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="Filter by end date (YYYY-MM-DD)")
+    season_id: int | None = Query(None, description="Filter by season ID"),
+    age_group_id: int | None = Query(None, description="Filter by age group ID"),
+    division_id: int | None = Query(None, description="Filter by division ID"),
+    team_id: int | None = Query(None, description="Filter by team ID (home or away)"),
+    match_type: str | None = Query(None, description="Filter by match type name"),
+    start_date: str | None = Query(None, description="Filter by start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="Filter by end date (YYYY-MM-DD)")
 ):
     """Get all matches with optional filters (requires authentication)."""
     try:
@@ -1559,39 +1690,157 @@ async def delete_season(season_id: int, current_user: dict[str, Any] = Depends(r
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Leagues CRUD
+class League(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    is_active: bool = True
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class LeagueCreate(BaseModel):
+    name: str
+    description: str | None = None
+    is_active: bool = True
+
+
+class LeagueUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
+@app.get("/api/leagues")
+async def get_leagues():
+    """Get all leagues (public access)."""
+    try:
+        leagues = sports_dao.get_all_leagues()
+        return leagues
+    except Exception as e:
+        logger.error(f"Error fetching leagues: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/leagues/{league_id}")
+async def get_league(league_id: int):
+    """Get league by ID (public access)."""
+    try:
+        league = sports_dao.get_league_by_id(league_id)
+        if not league:
+            raise HTTPException(status_code=404, detail="League not found")
+        return league
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching league {league_id}: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/leagues")
+async def create_league(
+    league: LeagueCreate, current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Create a new league (admin only)."""
+    try:
+        league_data = league.model_dump()
+        result = sports_dao.create_league(league_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating league: {e!s}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/leagues/{league_id}")
+async def update_league(
+    league_id: int,
+    league: LeagueUpdate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Update a league (admin only)."""
+    try:
+        # Only include fields that were actually provided
+        league_data = league.model_dump(exclude_unset=True)
+        result = sports_dao.update_league(league_id, league_data)
+        if not result:
+            raise HTTPException(status_code=404, detail="League not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating league: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/leagues/{league_id}")
+async def delete_league(
+    league_id: int, current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Delete a league (admin only). Will fail if divisions exist."""
+    try:
+        sports_dao.delete_league(league_id)
+        return {"message": "League deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting league: {e!s}")
+        if "foreign key" in str(e).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete league with existing divisions. Delete divisions first.",
+            )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Divisions CRUD
 class DivisionCreate(BaseModel):
     name: str
     description: str | None = None
+    league_id: int  # Required: divisions must belong to a league
 
 
 class DivisionUpdate(BaseModel):
-    name: str
+    name: str | None = None
     description: str | None = None
+    league_id: int | None = None  # Optional for updates
 
 
 @app.post("/api/divisions")
 async def create_division(
-    division: DivisionCreate, current_user: dict[str, Any] = Depends(require_admin)
+    request: Request,
+    division: DivisionCreate,
+    current_user: dict[str, Any] = Depends(require_admin)
 ):
     """Create a new division (admin only)."""
     try:
-        result = sports_dao.create_division(division.name, division.description)
+        # Get client IP for security monitoring
+        client_ip = "unknown"
+        if security_monitor:
+            client_ip = security_monitor.get_client_ip(request)
+
+        division_data = division.model_dump()
+        result = sports_dao.create_division(division_data, client_ip=client_ip)
         return result
     except Exception as e:
         logger.error(f"Error creating division: {e!s}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.put("/api/divisions/{division_id}")
 async def update_division(
+    request: Request,
     division_id: int,
     division: DivisionUpdate,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Update a division (admin only)."""
     try:
-        result = sports_dao.update_division(division_id, division.name, division.description)
+        # Get client IP for security monitoring
+        client_ip = "unknown"
+        if security_monitor:
+            client_ip = security_monitor.get_client_ip(request)
+
+        division_data = division.model_dump(exclude_unset=True)
+        result = sports_dao.update_division(division_id, division_data, client_ip=client_ip)
         if not result:
             raise HTTPException(status_code=404, detail="Division not found")
         return result
@@ -1622,6 +1871,7 @@ class TeamUpdate(BaseModel):
     name: str
     city: str
     academy_team: bool | None = False
+    club_id: int | None = None
 
 
 class TeamMatchTypeMapping(BaseModel):
@@ -1631,11 +1881,22 @@ class TeamMatchTypeMapping(BaseModel):
 
 @app.put("/api/teams/{team_id}")
 async def update_team(
-    team_id: int, team: TeamUpdate, current_user: dict[str, Any] = Depends(require_admin)
+    request: Request,
+    team_id: int,
+    team: TeamUpdate,
+    current_user: dict[str, Any] = Depends(require_admin)
 ):
     """Update a team (admin only)."""
     try:
-        result = sports_dao.update_team(team_id, team.name, team.city, team.academy_team)
+        # Get client IP for security monitoring
+        client_ip = "unknown"
+        if security_monitor:
+            client_ip = security_monitor.get_client_ip(request)
+
+        logger.info(f"Updating team {team_id}: name={team.name}, club_id={team.club_id}")
+        result = sports_dao.update_team(
+            team_id, team.name, team.city, team.academy_team, team.club_id, client_ip=client_ip
+        )
         if not result:
             raise HTTPException(status_code=404, detail="Team not found")
         return result
@@ -1708,6 +1969,132 @@ async def remove_team_match_type_participation(
     except Exception as e:
         logger.error(f"Error removing team match type participation: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# === Club Endpoints ===
+
+@app.get("/api/clubs")
+async def get_clubs(
+    include_teams: bool = True,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Get all clubs.
+
+    Args:
+        include_teams: If true, enriches clubs with their teams list (default: true)
+
+    Returns:
+        List of clubs with optional team details
+    """
+    try:
+        # Get all clubs from clubs table (already includes team_count)
+        clubs = sports_dao.get_all_clubs()
+        logger.info(f"/api/clubs: Fetched {len(clubs)} clubs")
+
+        if not include_teams:
+            # Return clubs without team details (faster for dropdowns)
+            return clubs
+
+        # Enrich with team details if requested
+        enriched_clubs = []
+        for club in clubs:
+            club_teams = sports_dao.get_club_teams(club['id'])
+            enriched_club = {
+                **club,
+                'teams': club_teams,
+                'team_count': len(club_teams)  # Overwrite with actual count
+            }
+            enriched_clubs.append(enriched_club)
+            logger.debug(f"Club '{club.get('name')}' has {len(club_teams)} teams")
+
+        return enriched_clubs
+    except Exception as e:
+        logger.error(f"Error fetching clubs: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/clubs/{club_id}/teams")
+async def get_club_teams(
+    club_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Get all teams for a specific club."""
+    try:
+        teams = sports_dao.get_club_teams(club_id)
+        if not teams:
+            raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
+
+        return teams
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching club teams: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/clubs")
+async def create_club(
+    club: Club, current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Create a new club (admin only)."""
+    try:
+        new_club = sports_dao.create_club(
+            name=club.name,
+            city=club.city,
+            website=club.website,
+            description=club.description
+        )
+        logger.info(f"Created new club: {new_club['name']}")
+        return new_club
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"Error creating club: {error_str}")
+
+        # Check for duplicate key constraint violation
+        if 'duplicate key value violates unique constraint' in error_str.lower():
+            if 'clubs_name_unique' in error_str.lower() or 'clubs_name_key' in error_str.lower():
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"A club with the name '{club.name}' already exists. Please use a different name."
+                )
+            else:
+                raise HTTPException(
+                    status_code=409,
+                    detail="A club with this information already exists."
+                )
+
+        # For any other unexpected errors, return 500
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the club.")
+
+
+@app.delete("/api/clubs/{club_id}")
+async def delete_club(
+    club_id: int, current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Delete a club (admin only).
+
+    Note: This will fail if there are teams still associated with this club.
+    """
+    try:
+        success = sports_dao.delete_club(club_id)
+        if success:
+            logger.info(f"Deleted club with id {club_id}")
+            return {"message": "Club deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"Error deleting club: {error_str}")
+
+        # Check if it's a foreign key constraint violation
+        if 'foreign key constraint' in error_str.lower() or 'violates' in error_str.lower():
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot delete club because it has teams associated with it. Remove team associations first."
+            )
+
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while deleting the club.")
 
 
 # Team Mappings CRUD
@@ -1823,7 +2210,7 @@ async def submit_match_async(
 
     except Exception as e:
         logger.error(f"Error submitting match for async processing: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to queue match: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to queue match: {e!s}")
 
 
 @app.get("/api/matches/task/{task_id}")
@@ -1864,7 +2251,7 @@ async def get_task_status(
 
     except Exception as e:
         logger.error(f"Error retrieving task status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get task status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get task status: {e!s}")
 
 
 @app.post("/api/match-scraper/matches")
@@ -2031,19 +2418,19 @@ async def check_match(
 @app.get("/api/security/analytics")
 async def get_security_analytics(
     hours: int = Query(24, description="Time period in hours"),
-    current_user: Dict[str, Any] = Depends(require_admin)
+    current_user: dict[str, Any] = Depends(require_admin)
 ):
     """Get security analytics (admin only)."""
     try:
         analytics = security_monitor.get_security_analytics(hours) if security_monitor else {}
-        
+
         logfire.info(
             "Security analytics requested",
             user_id=current_user.get('user_id'),
             hours=hours,
             total_events=analytics.get('total_events', 0)
         )
-        
+
         return analytics
     except Exception as e:
         logger.error(f"Error retrieving security analytics: {e}")
@@ -2052,19 +2439,19 @@ async def get_security_analytics(
 @app.get("/api/security/user/{user_id}/summary")
 async def get_user_security_summary(
     user_id: str,
-    current_user: Dict[str, Any] = Depends(require_admin)
+    current_user: dict[str, Any] = Depends(require_admin)
 ):
     """Get security summary for a specific user (admin only)."""
     try:
         summary = auth_security_monitor.get_user_security_summary(user_id) if auth_security_monitor else {}
-        
+
         logfire.info(
             "User security summary requested",
             admin_user_id=current_user.get('user_id'),
             target_user_id=user_id,
             active_sessions=summary.get('session_count', 0)
         )
-        
+
         return summary
     except Exception as e:
         logger.error(f"Error retrieving user security summary: {e}")
@@ -2072,44 +2459,44 @@ async def get_user_security_summary(
 
 @app.post("/api/security/cleanup-sessions")
 async def cleanup_expired_sessions(
-    current_user: Dict[str, Any] = Depends(require_admin)
+    current_user: dict[str, Any] = Depends(require_admin)
 ):
     """Cleanup expired sessions (admin only)."""
     try:
         auth_security_monitor.cleanup_expired_sessions() if auth_security_monitor else None
-        
+
         logfire.info(
             "Session cleanup initiated",
             admin_user_id=current_user.get('user_id')
         )
-        
+
         return {"message": "Expired sessions cleaned up successfully"}
     except Exception as e:
         logger.error(f"Error during session cleanup: {e}")
         raise HTTPException(status_code=500, detail="Failed to cleanup sessions")
 
 @app.post("/api/security/client-events")
-async def receive_client_security_events(request: Request, event_data: Dict[str, Any]):
+async def receive_client_security_events(request: Request, event_data: dict[str, Any]):
     """Receive security events from client-side monitoring."""
     try:
         client_ip = security_monitor.get_client_ip(request) if security_monitor else "unknown"
         events = event_data.get('events', [])
         session_id = event_data.get('sessionId', 'unknown')
         user_behavior = event_data.get('userBehaviorSummary', {})
-        
+
         logfire.info(
             "Client security events received",
             event_count=len(events),
             session_id=session_id,
             client_ip=client_ip
         )
-        
+
         # Process each client-side security event
         for event in events:
             event_type = event.get('type', 'unknown_client_event')
             severity = event.get('severity', 'low')
             details = event.get('details', {})
-            
+
             # Map client-side event types to server-side types
             if event_type in ['xss_attempt', 'sql_injection_attempt']:
                 server_event_type = SecurityEventType.XSS_ATTEMPT if 'xss' in event_type else SecurityEventType.SQL_INJECTION_ATTEMPT
@@ -2123,7 +2510,7 @@ async def receive_client_security_events(request: Request, event_data: Dict[str,
             else:
                 server_event_type = SecurityEventType.SUSPICIOUS_REQUEST
                 server_severity = SecuritySeverity.LOW
-            
+
             # Create server-side security event
             security_event = SecurityEvent(
                 event_type=server_event_type,
@@ -2142,12 +2529,12 @@ async def receive_client_security_events(request: Request, event_data: Dict[str,
                 }
             )
             security_event.risk_score = security_monitor.calculate_risk_score(security_event) if security_monitor else 0
-            
+
             # Log the security event
             security_monitor.log_security_event(security_event) if security_monitor else None
-        
+
         return {"message": "Security events processed successfully", "processed_count": len(events)}
-        
+
     except Exception as e:
         logger.error(f"Error processing client security events: {e}")
         raise HTTPException(status_code=500, detail="Failed to process security events")
@@ -2169,15 +2556,15 @@ async def full_health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "checks": {}
     }
-    
+
     overall_healthy = True
-    
+
     # Check basic API
     health_status["checks"]["api"] = {
         "status": "healthy",
         "message": "API is responding"
     }
-    
+
     # Check database connectivity
     try:
         # Simple database connectivity test
@@ -2190,14 +2577,14 @@ async def full_health_check():
             }
         else:
             raise Exception("Unexpected response from database")
-            
+
     except Exception as e:
         overall_healthy = False
         health_status["checks"]["database"] = {
             "status": "unhealthy",
-            "message": f"Database connection failed: {str(e)}"
+            "message": f"Database connection failed: {e!s}"
         }
-    
+
     # Check reference data availability
     try:
         seasons = sports_dao.get_all_seasons()
@@ -2214,13 +2601,13 @@ async def full_health_check():
         if not seasons or not match_types:
             health_status["checks"]["reference_data"]["status"] = "warning"
             health_status["checks"]["reference_data"]["message"] = "Some reference data missing"
-            
+
     except Exception as e:
         health_status["checks"]["reference_data"] = {
             "status": "unhealthy",
-            "message": f"Reference data check failed: {str(e)}"
+            "message": f"Reference data check failed: {e!s}"
         }
-    
+
     # Check authentication system (if not disabled)
     if not DISABLE_SECURITY:
         try:
@@ -2232,20 +2619,20 @@ async def full_health_check():
                 }
             else:
                 health_status["checks"]["auth"] = {
-                    "status": "warning", 
+                    "status": "warning",
                     "message": "Authentication manager not properly initialized"
                 }
         except Exception as e:
             health_status["checks"]["auth"] = {
                 "status": "unhealthy",
-                "message": f"Authentication system error: {str(e)}"
+                "message": f"Authentication system error: {e!s}"
             }
     else:
         health_status["checks"]["auth"] = {
             "status": "disabled",
             "message": "Security features disabled"
         }
-    
+
     # Check security monitoring (if enabled)
     if not DISABLE_SECURITY and security_monitor:
         try:
@@ -2256,23 +2643,23 @@ async def full_health_check():
         except Exception as e:
             health_status["checks"]["security"] = {
                 "status": "warning",
-                "message": f"Security monitoring issue: {str(e)}"
+                "message": f"Security monitoring issue: {e!s}"
             }
     else:
         health_status["checks"]["security"] = {
             "status": "disabled",
             "message": "Security monitoring disabled"
         }
-    
+
     # Set overall status
     check_statuses = [check.get("status", "unknown") for check in health_status["checks"].values()]
-    
+
     if "unhealthy" in check_statuses:
         health_status["status"] = "unhealthy"
         overall_healthy = False
     elif "warning" in check_statuses:
         health_status["status"] = "degraded"
-    
+
     # Log health check if monitoring is enabled
     if not DISABLE_SECURITY:
         logfire.info(
@@ -2281,7 +2668,7 @@ async def full_health_check():
             database_healthy="database" in health_status["checks"] and health_status["checks"]["database"]["status"] == "healthy",
             auth_healthy="auth" in health_status["checks"] and health_status["checks"]["auth"]["status"] == "healthy"
         )
-    
+
     # Return appropriate HTTP status code
     if overall_healthy:
         return health_status
