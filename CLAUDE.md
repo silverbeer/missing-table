@@ -44,6 +44,23 @@ Follow the standards in [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
 
 ---
 
+## 📖 Terminology
+
+**Project Shorthand** - Use these abbreviations consistently:
+
+- **MT** = missingtable.com (project shorthand)
+- **MT backend** = FastAPI backend (Python 3.13+, located in `backend/`)
+- **MT frontend** = Vue.js application (located in `frontend/`)
+- **MT scraper** = match-scraper repository (separate repo: https://github.com/silverbeer/match-scraper)
+- **MT db** = Supabase databases (local/dev/prod environments)
+
+**Examples**:
+- "The MT backend uses FastAPI" = The backend application uses FastAPI
+- "MT scraper integration" = Integration with the match-scraper service
+- "MT db migration" = Database migration for Supabase
+
+---
+
 ## ⚙️ Workflow Requirements
 
 **CRITICAL**: Before every git commit, update this CLAUDE.md file to reflect:
