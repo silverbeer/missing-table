@@ -41,12 +41,12 @@
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              City
+              Parent Club
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              Parent Club
+              Leagues
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -73,9 +73,6 @@
               {{ team.name }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ team.city }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               <span
                 v-if="team.parent_club"
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
@@ -83,6 +80,31 @@
                 {{ team.parent_club.name }}
               </span>
               <span v-else class="text-gray-400 italic">Independent</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <div class="flex flex-wrap gap-1">
+                <!-- Show league badge based on academy_team flag -->
+                <span
+                  v-if="team.academy_team"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+                >
+                  Academy
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
+                >
+                  Homegrown
+                </span>
+                <!-- Show additional divisions/leagues if team has mappings -->
+                <span
+                  v-for="mapping in team.team_mappings || []"
+                  :key="`${mapping.age_group_id}-${mapping.division_id}`"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {{ mapping.divisions?.leagues?.name || 'Unknown' }}
+                </span>
+              </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               <div class="flex flex-wrap gap-1">
@@ -169,7 +191,6 @@
               <input
                 v-model="formData.city"
                 type="text"
-                required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., New York, Boston..."
               />
@@ -302,10 +323,10 @@
                   v-model="formData.academyTeam"
                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />
-                Academy Team
+                Pro Academy Team
               </label>
               <p class="text-xs text-gray-500 mt-1">
-                Check this if this is an academy team
+                Check this if this is a pro academy team
               </p>
             </div>
 

@@ -63,8 +63,8 @@ packages = ["."]
 [project.scripts]
 mt-cli = "cli:app"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3.3",
     "pytest-cov>=6.0.0",
     "pytest-asyncio>=0.21.0",

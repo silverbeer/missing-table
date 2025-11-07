@@ -392,15 +392,51 @@ class EnhancedSportsDAO:
         name: str,
         city: str,
         age_group_ids: list[int],
-        division_ids: list[int] | None = None,
+        division_id: int,
+        club_id: int | None = None,
         academy_team: bool = False,
     ) -> bool:
-        """Add a new team with age groups and optionally divisions."""
+        """Add a new team with age groups, division, and optional club.
+
+        Division represents location (e.g., Northeast Division for Homegrown,
+        New England Conference for Academy). All age groups share the same division.
+
+        Args:
+            name: Team name
+            city: Team city
+            age_group_ids: List of age group IDs (required, at least one)
+            division_id: Division ID (required, applies to all age groups)
+            club_id: Optional club ID
+            academy_team: Whether this is an academy team
+        """
         try:
-            # Insert team
+            # Validate required fields
+            if not age_group_ids or len(age_group_ids) == 0:
+                raise ValueError("Team must have at least one age group")
+
+            # Get league_id from division
+            division_response = (
+                self.client.table("divisions")
+                .select("league_id")
+                .eq("id", division_id)
+                .execute()
+            )
+            if not division_response.data:
+                raise ValueError(f"Division {division_id} not found")
+            league_id = division_response.data[0]["league_id"]
+
+            # Insert team with club, league, and division
+            team_data = {
+                "name": name,
+                "city": city,
+                "academy_team": academy_team,
+                "club_id": club_id,
+                "league_id": league_id,
+                "division_id": division_id
+            }
             team_response = (
                 self.client.table("teams")
-                .insert({"name": name, "city": city, "academy_team": academy_team})
+                .insert(team_data)
                 .execute()
             )
 
@@ -409,19 +445,25 @@ class EnhancedSportsDAO:
 
             team_id = team_response.data[0]["id"]
 
-            # Add age group associations with divisions
-            for i, age_group_id in enumerate(age_group_ids):
-                data = {"team_id": team_id, "age_group_id": age_group_id}
-                # Add division if provided
-                if division_ids and i < len(division_ids) and division_ids[i]:
-                    data["division_id"] = division_ids[i]
-
+            # Add age group associations with the same division for all
+            for age_group_id in age_group_ids:
+                data = {
+                    "team_id": team_id,
+                    "age_group_id": age_group_id,
+                    "division_id": division_id  # Same division for all age groups
+                }
                 self.client.table("team_mappings").insert(data).execute()
 
             return True
 
         except Exception as e:
+            error_str = str(e)
             print(f"Error adding team: {e}")
+
+            # Re-raise duplicate key errors so API can handle them properly
+            if "teams_name_division_unique" in error_str or "teams_name_academy_unique" in error_str or "duplicate key value" in error_str.lower():
+                raise
+
             return False
 
     def update_team_division(self, team_id: int, age_group_id: int, division_id: int) -> bool:
@@ -1410,21 +1452,26 @@ class EnhancedSportsDAO:
             raise e
 
     def update_team(
-        self, team_id: int, name: str, city: str, academy_team: bool = False, parent_club_id: int | None = None
+        self, team_id: int, name: str, city: str, academy_team: bool = False, club_id: int | None = None
     ) -> dict | None:
         """Update a team."""
         try:
+            update_data = {
+                "name": name,
+                "city": city,
+                "academy_team": academy_team,
+                "club_id": club_id
+            }
+            print(f"DEBUG DAO update_team: team_id={team_id}, update_data={update_data}")
+
             result = (
                 self.client.table("teams")
-                .update({
-                    "name": name,
-                    "city": city,
-                    "academy_team": academy_team,
-                    "parent_club_id": parent_club_id
-                })
+                .update(update_data)
                 .eq("id", team_id)
                 .execute()
             )
+
+            print(f"DEBUG DAO update result: {result.data}")
             return result.data[0] if result.data else None
         except Exception as e:
             print(f"Error updating team: {e}")
@@ -1473,14 +1520,14 @@ class EnhancedSportsDAO:
     # === Club/Parent Club Methods ===
 
     def get_all_parent_club_entities(self) -> list[dict]:
-        """Get all parent club entities (teams with no parent_club_id).
+        """Get all parent club entities (teams with no club_id).
 
         This includes clubs that don't have children yet.
         Used for dropdowns where users need to select a parent club.
         """
         try:
-            # Get all teams that could be parent clubs (no parent_club_id)
-            response = self.client.table("teams").select("*").is_("parent_club_id", "null").execute()
+            # Get all teams that could be parent clubs (no club_id)
+            response = self.client.table("teams").select("*").is_("club_id", "null").execute()
             return response.data
         except Exception as e:
             print(f"Error querying parent club entities: {e}")

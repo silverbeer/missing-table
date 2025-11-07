@@ -1,0 +1,78 @@
+meta {
+  name: Get Clubs
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{api_url}}/api/clubs
+  body: none
+  auth: bearer
+}
+
+params:query {
+  include_teams: true
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+
+tests {
+  test("should return array of clubs", function() {
+    expect(res.body).to.be.an('array');
+  });
+
+  test("each club should have required fields", function() {
+    if (res.body.length > 0) {
+      const club = res.body[0];
+      expect(club).to.have.property('id');
+      expect(club).to.have.property('name');
+      expect(club).to.have.property('website');
+      expect(club).to.have.property('teams');
+    }
+  });
+
+  test("club names should not be empty", function() {
+    res.body.forEach(club => {
+      expect(club.name).to.be.a('string');
+      expect(club.name.length).to.be.greaterThan(0);
+    });
+  });
+
+  test("teams should be an array when include_teams=true", function() {
+    res.body.forEach(club => {
+      expect(club.teams).to.be.an('array');
+    });
+  });
+}
+
+docs {
+  # Get Clubs
+
+  Retrieves all clubs with their associated teams.
+
+  ## Authentication
+  Requires a valid JWT token. Run the "Login" test first to obtain a token.
+
+  ## Query Parameters
+  - `include_teams` (boolean, default: true): Include team details for each club
+
+  ## Response
+  Returns an array of club objects with the following properties:
+  - `id`: Club ID
+  - `name`: Club name (e.g., "Bayside FC")
+  - `city`: Club location
+  - `website`: Club website URL
+  - `description`: Club description
+  - `is_active`: Active status
+  - `teams`: Array of teams belonging to this club (when include_teams=true)
+  - `team_count`: Number of teams in the club
+  - `created_at`: Creation timestamp
+  - `updated_at`: Last update timestamp
+}

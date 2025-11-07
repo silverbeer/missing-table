@@ -2,6 +2,9 @@
 Pydantic models for data validation and serialization.
 """
 
-from .match_data import MatchData
+from .clubs import ClubData, TeamData, load_clubs_from_json
 
-__all__ = ["MatchData"]
+# Note: MatchData has Pydantic compatibility issues, import directly if needed
+# from .match_data import MatchData
+
+__all__ = ["ClubData", "TeamData", "load_clubs_from_json"]
