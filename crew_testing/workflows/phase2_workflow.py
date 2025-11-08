@@ -107,25 +107,49 @@ Query the schema to understand what fields are required and what foreign keys ex
     # FORGE: Generate test code (depends on ARCHITECT and MOCKER)
     task_forge = Task(
         description="""
-Generate pytest test files based on test scenarios and fixtures from previous agents.
+Generate a COMPLETE pytest test file with BOTH fixtures AND test functions.
 
-Your task:
-1. Review test scenarios from ARCHITECT (in context)
-2. Review fixtures from MOCKER (in context)
-3. Generate a complete pytest test file with:
-   - Proper imports
-   - Fixture definitions
-   - Test functions for each scenario
-   - Clear docstrings
-   - Proper assertions
-4. Write the test file to `backend/tests/test_{endpoint}.py` where {endpoint} is from the endpoint path
+⚠️  CRITICAL: Do NOT stop after generating fixtures! You MUST generate test functions!
 
-Output the generated test file path and summary.
-Generate REAL, working Python code. Follow pytest best practices.
+Step-by-step instructions:
+1. Review scenarios from ARCHITECT (in context)
+2. Create file header with imports:
+   ```python
+   \"\"\"Test suite for {{endpoint}} endpoint\"\"\"
+   import pytest
+   from fastapi.testclient import TestClient
+   from backend.app import app
 
-For example, if endpoint is "/api/version", write to "backend/tests/test_version.py"
+   client = TestClient(app)
+   ```
+
+3. Generate simple test functions (NOT fixtures unless absolutely needed):
+   ```python
+   def test_get_version_success():
+       \"\"\"Test successful GET request\"\"\"
+       response = client.get("/api/version")
+       assert response.status_code == 200
+       assert "version" in response.json()
+
+   def test_invalid_method():
+       \"\"\"Test POST to GET-only endpoint\"\"\"
+       response = client.post("/api/version")
+       assert response.status_code == 405
+   ```
+
+4. Write ONE test function per scenario from ARCHITECT
+5. Keep tests simple: request → assert status → assert response data
+6. Use write_file tool to save to `backend/tests/test_<name>.py`
+
+REQUIREMENTS:
+- Minimum 3 test functions
+- Each test: docstring, client request, 2+ assertions
+- Use client.get(), client.post(), client.put(), client.delete()
+- NO complex setup - keep it simple!
+
+Output JSON: {{"file_path": "backend/tests/test_version.py", "total_tests": 6}}
 """,
-        expected_output="Test file path and generation summary",
+        expected_output="Test file path with confirmation that test functions were generated",
         agent=forge,
         context=[task_architect, task_mocker],  # Gets both outputs automatically
     )
