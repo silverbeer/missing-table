@@ -76,7 +76,7 @@ def create_forge_agent() -> Agent:
         verbose=CrewConfig.VERBOSE,
         llm=llm,
         tools=tools,
-        max_iter=15,  # Allow more iterations for complex code generation
+        max_iter=25,  # Increased for complete test file generation
         allow_delegation=False,
     )
 

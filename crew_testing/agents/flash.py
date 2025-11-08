@@ -77,7 +77,7 @@ def create_flash_agent() -> Agent:
         verbose=CrewConfig.VERBOSE,
         llm=llm,
         tools=tools,
-        max_iter=5,  # Test execution is straightforward
+        max_iter=10,  # Increased for test execution and reporting
         allow_delegation=False,
     )
 
