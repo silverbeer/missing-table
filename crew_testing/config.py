@@ -16,9 +16,11 @@ from typing import Optional, Dict, Any, Literal
 from enum import Enum
 
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env.local (falls back to .env)
+env_path = Path(__file__).parent.parent / "backend" / ".env.local"
+load_dotenv(dotenv_path=env_path if env_path.exists() else None)
 
 
 class LLMProvider(str, Enum):

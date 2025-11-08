@@ -22,21 +22,25 @@ class ReadOpenAPISpecTool(BaseTool):
         "Reads the OpenAPI specification from the MT backend's /openapi.json endpoint. "
         "Returns a structured view of all available endpoints including methods, paths, "
         "parameters, request/response schemas, and descriptions. "
-        "Use this to understand what endpoints exist in the API."
+        "IMPORTANT: Pass only the base URL (e.g., 'http://localhost:8000'), NOT the full path. "
+        "The tool will automatically append '/openapi.json' to fetch the spec."
     )
 
-    def _run(self, backend_url: str = "http://localhost:8000") -> str:
+    def _run(self, base_url: str = "http://localhost:8000") -> str:
         """
         Fetch and parse OpenAPI specification
 
         Args:
-            backend_url: Base URL of the MT backend (default: http://localhost:8000)
+            base_url: Base URL of the MT backend WITHOUT /openapi.json path
+                     (e.g., 'http://localhost:8000' not 'http://localhost:8000/openapi.json')
 
         Returns:
             Formatted string with endpoint information
         """
         try:
-            openapi_url = f"{backend_url}/openapi.json"
+            # Strip /openapi.json if accidentally included
+            base_url = base_url.rstrip('/').replace('/openapi.json', '')
+            openapi_url = f"{base_url}/openapi.json"
             response = httpx.get(openapi_url, timeout=10.0)
             response.raise_for_status()
 
