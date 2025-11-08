@@ -118,10 +118,12 @@ Your task:
    - Test functions for each scenario
    - Clear docstrings
    - Proper assertions
-4. Write the test file to `backend/tests/test_{{endpoint_name}}.py`
+4. Write the test file to `backend/tests/test_{endpoint}.py` where {endpoint} is from the endpoint path
 
 Output the generated test file path and summary.
 Generate REAL, working Python code. Follow pytest best practices.
+
+For example, if endpoint is "/api/version", write to "backend/tests/test_version.py"
 """,
         expected_output="Test file path and generation summary",
         agent=forge,
