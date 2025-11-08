@@ -164,11 +164,11 @@ def agents():
     agents_text = """
 📚 Swagger - API Documentation Expert
    Status: ✅ Implemented (Phase 1)
-   LLM: Anthropic Claude 3 Haiku ($0.05/run)
+   LLM: OpenAI GPT-4o-mini ($0.03/run)
    Role: Scans API, detects gaps, catalogs endpoints
 
 🎯 Architect - Test Scenario Designer
-   Status: ⏳ Coming in Phase 2
+   Status: ✅ Implemented (Phase 2)
    LLM: OpenAI GPT-4o ($0.20/run)
    Role: Designs comprehensive test scenarios
 
@@ -203,6 +203,139 @@ def agents():
    Role: Investigates failures and proposes fixes
 """
     console.print(Panel(agents_text.strip(), title="MT Testing Crew Roster", border_style="blue"))
+
+
+@app.command()
+def generate(
+    endpoint: str = typer.Argument(..., help="Endpoint to generate tests for (e.g., /api/matches)"),
+    backend_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="MT backend URL"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed agent conversations"),
+):
+    """
+    🎯 Generate test scenarios for an endpoint (Phase 2 - Architect only)
+
+    This command runs the ARCHITECT agent to design comprehensive test scenarios.
+    Full test generation (Mocker, Forge, Flash) coming soon!
+    """
+    # Update configuration
+    CrewConfig.VERBOSE = verbose
+
+    # Display banner
+    banner = Text()
+    banner.append("🤖 MT Testing Crew - Phase 2\n", style="bold blue")
+    banner.append("🎯 Architect - Test Scenario Designer\n", style="bold green")
+    banner.append(f"\nEndpoint: {endpoint}\n", style="cyan")
+    banner.append("Status: Designing test scenarios...", style="yellow")
+
+    console.print(Panel(banner, title="Test Generation", border_style="blue"))
+    console.print()
+
+    try:
+        # Validate configuration
+        CrewConfig.validate()
+
+        # Import architect agent
+        from crew_testing.agents.architect import create_architect_agent, get_architect_task_description
+        from crewai import Task, Crew, Process
+
+        # Create architect agent
+        architect = create_architect_agent()
+
+        # Create task
+        task_description = get_architect_task_description()
+        task = Task(
+            description=task_description,
+            expected_output="Detailed JSON test plan with comprehensive scenarios",
+            agent=architect,
+        )
+
+        # Create crew with just architect
+        crew = Crew(
+            agents=[architect],
+            tasks=[task],
+            process=Process.sequential,
+            verbose=verbose
+        )
+
+        # Run with endpoint input
+        with console.status("[bold green]Architect designing test scenarios..."):
+            result = crew.kickoff(inputs={"endpoint": endpoint})
+
+        # Display results
+        console.print(Panel(str(result), title="Test Scenarios Designed", border_style="green"))
+
+        console.print("\n[yellow]ℹ️  Note: Full test generation (Mocker, Forge, Flash) coming in Phase 2 completion[/yellow]")
+
+    except ValueError as e:
+        console.print(f"[bold red]❌ Configuration Error:[/bold red] {e}")
+        console.print("\n[yellow]💡 Tip:[/yellow] Set OPENAI_API_KEY in your .env.local file")
+        raise typer.Exit(code=1)
+
+    except Exception as e:
+        console.print(f"[bold red]❌ Error:[/bold red] {e}")
+        if verbose:
+            console.print_exception()
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def test(
+    endpoint: str = typer.Argument(..., help="Endpoint to test (e.g., /api/matches)"),
+    backend_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="MT backend URL"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed agent conversations"),
+):
+    """
+    🚀 Full end-to-end test generation and execution (Phase 2 Complete)
+
+    This command runs ALL Phase 2 agents in sequence:
+    1. 📚 ARCHITECT - Design comprehensive test scenarios
+    2. 🎨 MOCKER - Generate realistic test data
+    3. 🔧 FORGE - Generate pytest test files
+    4. ⚡ FLASH - Execute tests and report results
+
+    Example:
+        python crew_testing/main.py test /api/matches --verbose
+    """
+    # Update configuration
+    CrewConfig.VERBOSE = verbose
+
+    # Display banner
+    banner = Text()
+    banner.append("🤖 MT Testing Crew - Phase 2 COMPLETE\n", style="bold blue")
+    banner.append("🚀 Full Test Generation Pipeline\n", style="bold green")
+    banner.append(f"\nEndpoint: {endpoint}\n", style="cyan")
+    banner.append("Workflow: 📚 ARCHITECT → 🎨 MOCKER → 🔧 FORGE → ⚡ FLASH", style="yellow")
+
+    console.print(Panel(banner, title="Phase 2 Workflow", border_style="blue"))
+    console.print()
+
+    try:
+        # Validate configuration
+        CrewConfig.validate()
+
+        # Import workflow
+        from crew_testing.workflows import run_phase2_workflow
+
+        # Run Phase 2 workflow
+        result = run_phase2_workflow(
+            endpoint=endpoint,
+            backend_url=backend_url,
+            verbose=verbose
+        )
+
+        # Display final results
+        console.print(Panel(result, title="🎉 Test Generation Complete", border_style="green"))
+
+    except ValueError as e:
+        console.print(f"[bold red]❌ Configuration Error:[/bold red] {e}")
+        console.print("\n[yellow]💡 Tip:[/yellow] Set OPENAI_API_KEY in your .env.local file")
+        raise typer.Exit(code=1)
+
+    except Exception as e:
+        console.print(f"[bold red]❌ Error:[/bold red] {e}")
+        if verbose:
+            console.print_exception()
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

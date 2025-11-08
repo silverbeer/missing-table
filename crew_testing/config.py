@@ -76,21 +76,21 @@ class CrewConfig:
         },
 
         # 🎨 Mocker - Test Data Craftsman
-        # Structured data generation, Haiku is fine
+        # Structured data generation, GPT-4o-mini is fine
         "mocker": {
-            "provider": "anthropic",
-            "model": "claude-3-haiku-20240307",
-            "reasoning": "Data generation is straightforward",
-            "cost_per_run": 0.05,
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "reasoning": "Data generation is straightforward, GPT-4o-mini works well",
+            "cost_per_run": 0.03,
         },
 
         # ⚡ Flash - Test Executor
         # Simple execution orchestration
         "flash": {
-            "provider": "anthropic",
-            "model": "claude-3-haiku-20240307",
-            "reasoning": "Test execution is procedural",
-            "cost_per_run": 0.05,
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "reasoning": "Test execution is procedural, GPT-4o-mini is sufficient",
+            "cost_per_run": 0.03,
         },
 
         # 🔧 Forge - Test Infrastructure Engineer
