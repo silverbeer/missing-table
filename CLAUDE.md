@@ -44,6 +44,23 @@ Follow the standards in [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
 
 ---
 
+## 📖 Terminology
+
+**Project Shorthand** - Use these abbreviations consistently:
+
+- **MT** = missingtable.com (project shorthand)
+- **MT backend** = FastAPI backend (Python 3.13+, located in `backend/`)
+- **MT frontend** = Vue.js application (located in `frontend/`)
+- **MT scraper** = match-scraper repository (separate repo: https://github.com/silverbeer/match-scraper)
+- **MT db** = Supabase databases (local/dev/prod environments)
+
+**Examples**:
+- "The MT backend uses FastAPI" = The backend application uses FastAPI
+- "MT scraper integration" = Integration with the match-scraper service
+- "MT db migration" = Database migration for Supabase
+
+---
+
 ## ⚙️ Workflow Requirements
 
 **CRITICAL**: Before every git commit, update this CLAUDE.md file to reflect:
@@ -878,6 +895,52 @@ Frontend → Backend API → Supabase
 - ✅ Simplified Helm configuration (no frontend Supabase env vars needed)
 - ✅ Better security (Supabase credentials only in backend)
 - ✅ Consistent API-first architecture
+
+### CrewAI Autonomous Testing System
+
+**✅ PHASE 1 COMPLETE:** An 8-agent autonomous testing system using CrewAI and Claude 3 Haiku for MT backend API quality assurance.
+
+**Current Status:** Phase 1 - Swagger agent operational (1/8 agents)
+
+**Quick Commands:**
+```bash
+# Show agent roster and version
+./crew_testing/run.sh agents
+./crew_testing/run.sh version
+
+# Check system status
+./crew_testing/status.sh
+
+# Scan MT backend API (requires ANTHROPIC_API_KEY)
+./crew_testing/run.sh scan
+./crew_testing/run.sh scan --verbose
+```
+
+**The MT Testing Crew:**
+- 📚 **Swagger** - API Documentation Expert (✅ Phase 1)
+- 🎯 **Architect** - Test Scenario Designer (⏳ Phase 2)
+- 🎨 **Mocker** - Test Data Craftsman (⏳ Phase 2)
+- ⚡ **Flash** - Test Executor (⏳ Phase 2)
+- 🔧 **Forge** - Test Infrastructure Engineer (⏳ Phase 2)
+- 🔬 **Inspector** - Quality Analyst (⏳ Phase 3)
+- 📊 **Herald** - Test Reporter (⏳ Phase 3)
+- 🐛 **Sherlock** - Test Debugger (⏳ Phase 3)
+
+**Configuration:**
+```bash
+# Add to .env.local (get from https://console.anthropic.com/)
+ANTHROPIC_API_KEY=sk-ant-api03-...
+CREW_VERBOSE=false
+```
+
+**Documentation:**
+- **Implementation Plan**: [docs/CREWAI_TESTING_PLAN.md](docs/CREWAI_TESTING_PLAN.md)
+- **Usage Guide**: [crew_testing/README.md](crew_testing/README.md)
+- **Phase 1 Report**: [crew_testing/PHASE1_COMPLETE.md](crew_testing/PHASE1_COMPLETE.md)
+
+**Cost:** ~$0.05 per scan (Claude 3 Haiku), ~$5/month in production
+
+**Purpose:** Lead SDET interview demonstration
 
 ---
 
