@@ -58,10 +58,10 @@ class CrewConfig:
         # 📚 Swagger - API Documentation Expert
         # Simple cataloging task, use cheapest option
         "swagger": {
-            "provider": "anthropic",
-            "model": "claude-3-haiku-20240307",
-            "reasoning": "Simple API parsing, Haiku is perfect",
-            "cost_per_run": 0.05,
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "reasoning": "Simple API parsing, GPT-4o-mini is fast and cheap",
+            "cost_per_run": 0.03,
         },
 
         # 🎯 Architect - Test Scenario Designer
