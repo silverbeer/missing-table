@@ -123,15 +123,17 @@ def apply(
         """)
         has_schema_version = cursor.fetchone()[0]
 
+        # Get currently applied migrations
+        applied_migrations = set()
         if has_schema_version:
             console.print("[green]✓ schema_version table exists[/green]")
 
-            # Get currently applied migrations
-            cursor.execute("SELECT version, migration_name FROM schema_version ORDER BY applied_at")
-            applied = cursor.fetchall()
+            cursor.execute("SELECT migration_name FROM schema_version")
+            applied_migrations = {row[0] for row in cursor.fetchall()}
 
-            console.print(f"\nCurrently applied migrations: {len(applied)}")
-            for version, name in applied:
+            console.print(f"\nCurrently applied migrations: {len(applied_migrations)}")
+            cursor.execute("SELECT version, migration_name FROM schema_version ORDER BY id")
+            for version, name in cursor.fetchall():
                 console.print(f"  • {version} - {name}")
         else:
             console.print("[yellow]- schema_version table does not exist (will be created)[/yellow]")
@@ -139,6 +141,13 @@ def apply(
         console.print("\n[bold]Applying migrations...[/bold]")
 
         for migration_file in migration_files:
+            migration_name = migration_file.stem  # filename without .sql
+
+            # Check if already applied
+            if migration_name in applied_migrations:
+                console.print(f"\n[dim]Skipping: {migration_file.name} (already applied)[/dim]")
+                continue
+
             console.print(f"\n[cyan]Applying: {migration_file.name}[/cyan]")
 
             # Read migration SQL
