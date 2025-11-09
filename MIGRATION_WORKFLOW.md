@@ -18,10 +18,24 @@ Never apply out of order.
 ## ✅ Current State (As of 2025-11-09)
 
 ### Databases Are In Sync
-- ✅ **Local**: 7 migrations applied
-- ✅ **Dev**: 7 migrations applied
+- ✅ **Local**: 8 migrations applied (latest: 1.5.0 - updated_at trigger)
+- ✅ **Dev**: 8 migrations applied (latest: 1.5.0 - updated_at trigger)
 - ✅ **Structural differences resolved**
-- ⚠️  Minor type differences in `matches` table (functionally compatible)
+- ✅ **Core tables (teams, clubs, leagues) identical**
+
+### Known Acceptable Differences (Legacy)
+These differences are from different baseline migrations and are functionally compatible:
+
+**Column Types:**
+- `matches.match_id`: local=VARCHAR, dev=TEXT (both work fine)
+- `matches.match_status`: local=ENUM, dev=VARCHAR (both work fine)
+- `matches.mls_match_id`: local=VARCHAR, dev=BIGINT (both work fine)
+
+**Triggers:**
+- `update_invitations_updated_at`: exists in dev only (not critical)
+- `user_profiles_updated_at_trigger`: exists in dev only (not critical)
+
+**Impact:** None. Going forward, all new migrations will be identical.
 
 ### Data Preserved
 - ✅ **Dev data**: 28 teams, 401 matches - ALL PRESERVED
