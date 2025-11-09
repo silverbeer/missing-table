@@ -189,18 +189,32 @@ Output JSON: {{"file_path": "backend/tests/test_matches.py", "total_tests": 8, "
         description="""
 Execute the generated pytest tests and report results.
 
-Your task:
-1. Run pytest on the generated test file (from FORGE in context)
-2. Parse the test results
-3. Report on passes, failures, errors
-4. Track coverage metrics
-5. Provide actionable feedback on failures
+SIMPLE 3-STEP PROCESS:
 
-Output a comprehensive test report.
-If all tests pass, celebrate! 🎉
-If tests fail, provide ACTIONABLE feedback - not just "test failed" but WHY and HOW TO FIX.
+1. **Use the run_pytest tool ONCE** on the test file from FORGE
+   - Just call: run_pytest(test_path="backend/tests/test_<name>.py", coverage=true)
+   - The tool will handle everything and return results
+
+2. **Read the results** from the tool output
+   - Look for: passed/failed/errors counts
+   - Check coverage percentage
+   - Note any failure messages
+
+3. **Report the summary** in plain text:
+   - "✅ X tests passed, Y failed, Z errors"
+   - "📊 Coverage: N%"
+   - If failures: "⚠️ Failed tests: [list test names]"
+
+DO NOT:
+- ❌ Run pytest multiple times
+- ❌ Parse output manually - the tool does it
+- ❌ Overthink it - just run the tool and report
+
+JUST: Call tool → Read results → Report summary
+
+That's it! Keep it simple. 🚀
 """,
-        expected_output="Comprehensive test execution report with coverage metrics",
+        expected_output="Simple test execution summary with pass/fail counts and coverage",
         agent=flash,
         context=[task_forge],  # Gets FORGE output automatically
     )
