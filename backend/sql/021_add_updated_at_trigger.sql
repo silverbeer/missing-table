@@ -7,23 +7,31 @@
 -- This extension provides the automatic timestamp update functionality
 CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA extensions;
 
--- Step 2: Fix match_status constraint to include all statuses used by the application
--- The application uses 'tbd' and 'completed' but they weren't in the constraint
-ALTER TABLE matches
-DROP CONSTRAINT IF EXISTS matches_match_status_check;
-
-ALTER TABLE matches
-ADD CONSTRAINT matches_match_status_check
-CHECK (match_status IN ('scheduled', 'tbd', 'live', 'completed', 'played', 'postponed', 'cancelled'));
+-- Step 2: Add 'played' to match_status ENUM if it doesn't exist
+-- Note: match_status is an ENUM type, not a VARCHAR with CHECK constraint
+-- Check if 'played' value exists, if not add it
+DO $$
+BEGIN
+    -- Check if 'played' is already in the ENUM
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum
+        WHERE enumlabel = 'played'
+        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'match_status')
+    ) THEN
+        -- Add 'played' to the ENUM
+        ALTER TYPE match_status ADD VALUE IF NOT EXISTS 'played';
+    END IF;
+END$$;
 
 -- Step 3: Create trigger to automatically update updated_at timestamp
 -- This trigger fires BEFORE any UPDATE operation on the matches table
 -- The moddatetime function updates the specified column (updated_at) to the current timestamp
+DROP TRIGGER IF EXISTS handle_updated_at ON matches;
 CREATE TRIGGER handle_updated_at
   BEFORE UPDATE ON matches
   FOR EACH ROW
   EXECUTE PROCEDURE moddatetime(updated_at);
 
 -- Update column comments for clarity
-COMMENT ON COLUMN matches.match_status IS 'Match status: scheduled (default), tbd (time to be determined), live (in progress), completed (finished with scores), played (legacy status), postponed, or cancelled';
+COMMENT ON COLUMN matches.match_status IS 'Match status ENUM: scheduled (default), tbd (time to be determined), live (in progress), completed (finished with scores), played (legacy status), postponed, or cancelled';
 COMMENT ON COLUMN matches.updated_at IS 'Automatically updated timestamp - managed by database trigger';
