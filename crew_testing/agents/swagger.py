@@ -20,8 +20,8 @@ from crew_testing.tools import (
     ReadOpenAPISpecTool,
     DetectGapsTool,
     ScanAPIClientTool,
-    ScanTestsTool,
-    CalculateCoverageTool,
+    # ScanTestsTool,  # TODO: Implement
+    # CalculateCoverageTool,  # TODO: Implement
 )
 
 
@@ -42,8 +42,8 @@ def create_swagger_agent() -> Agent:
         ReadOpenAPISpecTool(),
         DetectGapsTool(),
         ScanAPIClientTool(),
-        ScanTestsTool(),
-        CalculateCoverageTool(),
+        # ScanTestsTool(),  # TODO: Implement
+        # CalculateCoverageTool(),  # TODO: Implement
     ]
 
     # Create agent

@@ -112,8 +112,15 @@ Generate a COMPLETE pytest test file with BOTH fixtures AND test functions.
 ⚠️  CRITICAL: Do NOT stop after generating fixtures! You MUST generate test functions!
 
 Step-by-step instructions:
-1. Review scenarios from ARCHITECT (in context)
-2. Create file header with imports:
+
+1. **CHECK AUTHENTICATION REQUIREMENTS FIRST**
+   Use the openapi_auth_detector tool to check if {{endpoint}} requires authentication:
+   - If auth required: Add auth_headers fixture to the file
+   - If no auth: Skip auth fixtures
+
+2. Review scenarios from ARCHITECT (in context)
+
+3. Create file header with imports:
    ```python
    \"\"\"Test suite for {{endpoint}} endpoint\"\"\"
    import pytest
@@ -123,31 +130,54 @@ Step-by-step instructions:
    client = TestClient(app)
    ```
 
-3. Generate simple test functions (NOT fixtures unless absolutely needed):
+4. If authentication is required, add this fixture:
+   ```python
+   @pytest.fixture
+   def auth_headers():
+       \"\"\"Mock authentication headers for testing.\"\"\"
+       return {{"Authorization": "Bearer mock_token_for_testing"}}
+   ```
+
+5. Generate test functions with proper authentication:
+
+   **For endpoints WITHOUT auth:**
    ```python
    def test_get_version_success():
        \"\"\"Test successful GET request\"\"\"
        response = client.get("/api/version")
        assert response.status_code == 200
        assert "version" in response.json()
-
-   def test_invalid_method():
-       \"\"\"Test POST to GET-only endpoint\"\"\"
-       response = client.post("/api/version")
-       assert response.status_code == 405
    ```
 
-4. Write ONE test function per scenario from ARCHITECT
-5. Keep tests simple: request → assert status → assert response data
-6. Use write_file tool to save to `backend/tests/test_<name>.py`
+   **For endpoints WITH auth:**
+   ```python
+   def test_get_matches_success(auth_headers):
+       \"\"\"Test successful GET request with authentication\"\"\"
+       response = client.get("/api/matches", headers=auth_headers)
+       assert response.status_code == 200
+       assert isinstance(response.json(), list)
+
+   def test_get_matches_unauthorized():
+       \"\"\"Test GET request without authentication fails\"\"\"
+       response = client.get("/api/matches")
+       assert response.status_code == 403  # Forbidden without auth
+   ```
+
+6. Write ONE test function per scenario from ARCHITECT
+7. Keep tests simple: request → assert status → assert response data
+8. Use write_file tool to save to `backend/tests/test_<name>.py`
 
 REQUIREMENTS:
-- Minimum 3 test functions
-- Each test: docstring, client request, 2+ assertions
-- Use client.get(), client.post(), client.put(), client.delete()
-- NO complex setup - keep it simple!
+- ✅ Use openapi_auth_detector tool to check auth requirements
+- ✅ Add auth_headers fixture if endpoint requires authentication
+- ✅ Pass headers=auth_headers to authenticated requests
+- ✅ Include a test that verifies auth is required (403 without headers)
+- ✅ Minimum 3 test functions
+- ✅ Each test: docstring, client request, 2+ assertions
+- ✅ Use client.get(), client.post(), client.put(), client.delete()
+- ✅ NO complex setup - keep it simple!
 
-Output JSON: {{"file_path": "backend/tests/test_version.py", "total_tests": 6}}
+Output JSON: {{"file_path": "backend/tests/test_matches.py", "total_tests": 8, "requires_auth": true}}
 """,
         expected_output="Test file path with confirmation that test functions were generated",
         agent=forge,

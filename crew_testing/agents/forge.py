@@ -18,7 +18,7 @@ Uses CodeGeneratorTool and FileWriterTool to create test files.
 from crewai import Agent
 
 from crew_testing.config import CrewConfig
-from crew_testing.tools import CodeGeneratorTool, FileWriterTool
+from crew_testing.tools import CodeGeneratorTool, FileWriterTool, OpenAPIAuthDetectorTool
 
 
 def create_forge_agent() -> Agent:
@@ -35,6 +35,7 @@ def create_forge_agent() -> Agent:
 
     # Initialize tools
     tools = [
+        OpenAPIAuthDetectorTool(),  # NEW: Detect auth requirements
         CodeGeneratorTool(),
         FileWriterTool(),
     ]
