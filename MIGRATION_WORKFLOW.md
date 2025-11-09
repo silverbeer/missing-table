@@ -233,11 +233,24 @@ uv run python scripts/apply_migrations_to_env.py --env dev
 uv run python scripts/apply_migrations_to_env.py --env prod
 ```
 
-Features:
-- Tracks what's applied in `schema_version` table
-- Skips already-applied migrations
-- Applies in order
-- Shows progress
+**⚠️ IMPORTANT:** This script tries to apply ALL migrations, even already-applied ones.
+It relies on "already exists" errors to skip them. This causes error messages like:
+
+```
+✗ Error: cannot change return type of existing function
+```
+
+**This is NORMAL and EXPECTED** if your databases are already in sync!
+
+**When to use it:**
+- ONLY when you create a NEW migration file
+- NOT for checking status (use check_schema_consistency.py instead)
+
+**Why it errors:**
+- The script doesn't check schema_version before applying
+- It tries to reapply everything
+- Some migrations can't be reapplied (like function changes)
+- If all your migrations are already applied, it will error - this is fine!
 
 ### apply_021_migration.py (Template)
 **Purpose:** Example of applying a single migration
