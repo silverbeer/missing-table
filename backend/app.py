@@ -518,18 +518,32 @@ async def login(request: Request, user_data: UserLogin):
             })
 
             if response.user and response.session:
-                # Get user profile with username
-                profile_response = db_conn_holder_obj.client.table('user_profiles')\
-                    .select('*')\
-                    .eq('id', response.user.id)\
-                    .execute()
+                # Get user profile with username using the user's session token
+                # This allows RLS policies to work correctly
+                try:
+                    # Create a client with the user's session token to bypass RLS restrictions
+                    from supabase import create_client
+                    import os
+                    user_client = create_client(
+                        os.getenv('SUPABASE_URL'),
+                        os.getenv('SUPABASE_ANON_KEY')
+                    )
+                    user_client.auth.set_session(response.session.access_token, response.session.refresh_token)
 
-                # Handle multiple or no profiles
-                if profile_response.data and len(profile_response.data) > 0:
-                    profile = profile_response.data[0]
-                    if len(profile_response.data) > 1:
-                        logger.warning(f"Multiple profiles found for user {response.user.id}, using first one")
-                else:
+                    profile_response = user_client.table('user_profiles')\
+                        .select('*')\
+                        .eq('id', response.user.id)\
+                        .execute()
+
+                    # Handle multiple or no profiles
+                    if profile_response.data and len(profile_response.data) > 0:
+                        profile = profile_response.data[0]
+                        if len(profile_response.data) > 1:
+                            logger.warning(f"Multiple profiles found for user {response.user.id}, using first one")
+                    else:
+                        profile = {'username': user_data.username}  # Fallback
+                except Exception as e:
+                    logger.warning(f"Could not fetch profile: {e}, using fallback")
                     profile = {'username': user_data.username}  # Fallback
 
                 # Analyze successful login with security monitoring
