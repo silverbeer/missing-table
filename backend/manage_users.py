@@ -18,6 +18,13 @@ from rich.table import Table
 from rich import box
 from supabase import create_client
 
+try:
+    import psycopg2
+    from psycopg2 import sql
+    HAS_PSYCOPG2 = True
+except ImportError:
+    HAS_PSYCOPG2 = False
+
 app = typer.Typer()
 console = Console()
 
@@ -35,8 +42,64 @@ def load_environment():
 def find_user_by_identifier(supabase, identifier):
     """
     Find a user by email or username.
+    Uses direct PostgreSQL connection to bypass RLS when available.
     Returns (user_id, identifier_used, identifier_type) or (None, None, None) if not found.
     """
+    # Try PostgreSQL connection first (bypasses RLS)
+    pg_conn = get_postgres_connection()
+
+    if pg_conn:
+        try:
+            cursor = pg_conn.cursor()
+
+            # Check if identifier looks like email or username
+            if '@' in identifier and not identifier.endswith('@missingtable.local'):
+                # Real email - search in auth.users
+                cursor.execute(
+                    "SELECT id, email FROM auth.users WHERE email = %s",
+                    (identifier,)
+                )
+                result = cursor.fetchone()
+                cursor.close()
+                pg_conn.close()
+
+                if result:
+                    return (str(result[0]), result[1], 'email')
+                return (None, None, None)
+            else:
+                # Username or internal email - search in user_profiles first
+                cursor.execute(
+                    "SELECT id, username FROM user_profiles WHERE username = %s",
+                    (identifier,)
+                )
+                result = cursor.fetchone()
+
+                if result:
+                    cursor.close()
+                    pg_conn.close()
+                    return (str(result[0]), result[1], 'username')
+
+                # If not found by username, try as internal email in auth.users
+                internal_email = identifier if '@missingtable.local' in identifier else f"{identifier}@missingtable.local"
+                cursor.execute(
+                    "SELECT id, email FROM auth.users WHERE email = %s",
+                    (internal_email,)
+                )
+                result = cursor.fetchone()
+                cursor.close()
+                pg_conn.close()
+
+                if result:
+                    return (str(result[0]), result[1], 'internal_email')
+                return (None, None, None)
+
+        except Exception as e:
+            console.print(f"[yellow]⚠️  PostgreSQL lookup failed: {e}[/yellow]")
+            if pg_conn:
+                pg_conn.close()
+            # Fall through to Supabase client
+
+    # Fallback to Supabase client (may hit RLS issues)
     # Check if identifier looks like email or username
     if '@' in identifier and not identifier.endswith('@missingtable.local'):
         # Real email - search in auth.users
@@ -88,6 +151,24 @@ def get_supabase_client():
 
     return create_client(supabase_url, service_key)
 
+def get_postgres_connection():
+    """Get direct PostgreSQL connection (bypasses RLS)."""
+    if not HAS_PSYCOPG2:
+        console.print("[yellow]⚠️  psycopg2 not available, falling back to Supabase client[/yellow]")
+        return None
+
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        console.print("[yellow]⚠️  DATABASE_URL not set, falling back to Supabase client[/yellow]")
+        return None
+
+    try:
+        conn = psycopg2.connect(database_url)
+        return conn
+    except Exception as e:
+        console.print(f"[yellow]⚠️  Could not connect to PostgreSQL: {e}[/yellow]")
+        return None
+
 def list_users(supabase):
     """List all users in the system."""
     try:
@@ -125,39 +206,75 @@ def list_users(supabase):
             created_at = user.created_at if hasattr(user, 'created_at') else user.get('created_at')
 
             # Get profile info with team details
+            # Try PostgreSQL first to bypass RLS
+            pg_conn = get_postgres_connection()
             try:
-                # Try to select email column, but it might not exist in all schemas
-                profile_result = supabase.table('user_profiles').select('username, role, display_name, team_id, teams(id, name)').eq('id', user_id).execute()
-                if profile_result.data:
-                    profile = profile_result.data[0]
-                    username = profile.get('username', 'N/A')
-                    role = profile.get('role', 'No role')
-                    display_name = profile.get('display_name', 'No display name')
-                    team_id = profile.get('team_id')
+                if pg_conn:
+                    cursor = pg_conn.cursor()
+                    cursor.execute("""
+                        SELECT p.username, p.role, p.display_name, p.team_id, t.name as team_name
+                        FROM user_profiles p
+                        LEFT JOIN teams t ON p.team_id = t.id
+                        WHERE p.id = %s
+                    """, (user_id,))
+                    result = cursor.fetchone()
+                    cursor.close()
+                    pg_conn.close()
 
-                    # Determine identifier to show (username > email > auth_email)
-                    # Username authentication users will have username field
-                    # Legacy email users will have email in auth but not username
-                    if username and username != 'N/A':
-                        identifier = username
-                    elif profile.get('email'):
-                        identifier = profile.get('email')
-                    else:
-                        # Fallback to auth email (might be internal format like user@missingtable.local)
-                        identifier = auth_email if auth_email and not auth_email.endswith('@missingtable.local') else "N/A"
+                    if result:
+                        username, role, display_name, team_id, team_name = result
+                        username = username or 'N/A'
+                        role = role or 'No role'
+                        display_name = display_name or 'No display name'
 
-                    # Format team display (ID + Name for team-manager/team-player/team-fan)
-                    if team_id and profile.get('teams'):
-                        team_name = profile['teams'].get('name', 'Unknown')
-                        team_display = f"[{team_id}] {team_name}"
-                    elif team_id:
-                        team_display = f"[{team_id}] (name unknown)"
+                        # Determine identifier to show (username > email > auth_email)
+                        if username and username != 'N/A':
+                            identifier = username
+                        else:
+                            identifier = auth_email if auth_email and not auth_email.endswith('@missingtable.local') else "N/A"
+
+                        # Format team display
+                        if team_id and team_name:
+                            team_display = f"[{team_id}] {team_name}"
+                        elif team_id:
+                            team_display = f"[{team_id}] (name unknown)"
+                        else:
+                            team_display = "No team"
                     else:
-                        team_display = "No team"
+                        identifier = auth_email if auth_email else "N/A"
+                        role = display_name = team_display = "No profile"
                 else:
-                    identifier = auth_email if auth_email else "N/A"
-                    role = display_name = team_display = "No profile"
+                    # Fallback to Supabase client (may hit RLS)
+                    profile_result = supabase.table('user_profiles').select('username, role, display_name, team_id, teams(id, name)').eq('id', user_id).execute()
+                    if profile_result.data:
+                        profile = profile_result.data[0]
+                        username = profile.get('username', 'N/A')
+                        role = profile.get('role', 'No role')
+                        display_name = profile.get('display_name', 'No display name')
+                        team_id = profile.get('team_id')
+
+                        # Determine identifier to show (username > email > auth_email)
+                        if username and username != 'N/A':
+                            identifier = username
+                        elif profile.get('email'):
+                            identifier = profile.get('email')
+                        else:
+                            identifier = auth_email if auth_email and not auth_email.endswith('@missingtable.local') else "N/A"
+
+                        # Format team display
+                        if team_id and profile.get('teams'):
+                            team_name = profile['teams'].get('name', 'Unknown')
+                            team_display = f"[{team_id}] {team_name}"
+                        elif team_id:
+                            team_display = f"[{team_id}] (name unknown)"
+                        else:
+                            team_display = "No team"
+                    else:
+                        identifier = auth_email if auth_email else "N/A"
+                        role = display_name = team_display = "No profile"
             except Exception as e:
+                if pg_conn:
+                    pg_conn.close()
                 identifier = auth_email if auth_email else "N/A"
                 role = display_name = team_display = f"Error: {str(e)[:30]}"
 
@@ -272,19 +389,46 @@ def create_user(supabase, email, password=None, role='user', display_name=None, 
             user_id = create_response.user.id
             print(f"✅ User created successfully: {user_id}")
 
-            # Create user profile
-            profile_data = {
-                "id": user_id,
-                "role": role,
-                "display_name": display_name
-            }
+            # Create user profile using PostgreSQL to bypass RLS
+            pg_conn = get_postgres_connection()
+            if pg_conn:
+                try:
+                    cursor = pg_conn.cursor()
 
-            profile_response = supabase.table('user_profiles').insert(profile_data).execute()
+                    # Extract username from email
+                    if '@missingtable.local' in email:
+                        username = email.replace('@missingtable.local', '')
+                    else:
+                        username = email  # Use full email for external addresses
 
-            if profile_response.data:
-                print(f"✅ User profile created with role: {role}")
+                    cursor.execute(
+                        """
+                        INSERT INTO user_profiles (id, role, username, display_name, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, NOW(), NOW())
+                        """,
+                        (user_id, role, username, display_name)
+                    )
+                    pg_conn.commit()
+                    cursor.close()
+                    pg_conn.close()
+                    print(f"✅ User profile created with role: {role}")
+                except Exception as e:
+                    if pg_conn:
+                        pg_conn.close()
+                    print(f"⚠️ User created but profile creation failed: {e}")
             else:
-                print(f"⚠️ User created but profile creation failed")
+                # Fallback to Supabase client (may hit RLS issues)
+                profile_data = {
+                    "id": user_id,
+                    "role": role,
+                    "display_name": display_name
+                }
+                profile_response = supabase.table('user_profiles').insert(profile_data).execute()
+
+                if profile_response.data:
+                    print(f"✅ User profile created with role: {role}")
+                else:
+                    print(f"⚠️ User created but profile creation failed")
 
             if generate:
                 print(f"🔑 Password: {password}")
@@ -303,7 +447,7 @@ def create_user(supabase, email, password=None, role='user', display_name=None, 
         return False
 
 def update_user_role(supabase, identifier, new_role):
-    """Update a user's role (accepts username or email)."""
+    """Update a user's role (accepts username or email). Uses direct PostgreSQL to bypass RLS."""
     try:
         console.print(f"[cyan]🔍 Looking up user: {identifier}[/cyan]")
 
@@ -316,6 +460,77 @@ def update_user_role(supabase, identifier, new_role):
             return False
 
         console.print(f"[green]✓ Found user: {found_identifier} (via {id_type})[/green]")
+
+        # Try to use direct PostgreSQL connection to bypass RLS
+        pg_conn = get_postgres_connection()
+
+        if pg_conn:
+            # Use direct PostgreSQL (bypasses RLS)
+            cursor = pg_conn.cursor()
+
+            try:
+                # Check if profile exists
+                cursor.execute("SELECT id, username FROM user_profiles WHERE id = %s", (user_id,))
+                profile = cursor.fetchone()
+
+                if not profile:
+                    # Profile doesn't exist, create it
+                    console.print("[yellow]⚠️  No profile found, creating one...[/yellow]")
+
+                    # Extract username from identifier
+                    if id_type == 'username':
+                        username = found_identifier
+                    elif '@missingtable.local' in found_identifier:
+                        # Internal email: use part before @missingtable.local
+                        username = found_identifier.replace('@missingtable.local', '')
+                    else:
+                        # External email: use full email as username to avoid conflicts
+                        username = found_identifier
+
+                    # Use email as display name for external emails
+                    if '@' in username and '@missingtable.local' not in username:
+                        display_name = username.split('@')[0].title()
+                    else:
+                        display_name = username.title()
+
+                    cursor.execute(
+                        """
+                        INSERT INTO user_profiles (id, role, username, display_name, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, NOW(), NOW())
+                        """,
+                        (user_id, new_role, username, display_name)
+                    )
+                    pg_conn.commit()
+
+                    console.print(f"\n[bold green]✅ Profile created and role set successfully![/bold green]")
+                    console.print(f"  User: [cyan]{username}[/cyan]")
+                    console.print(f"  Role: [yellow]{new_role}[/yellow]")
+                    cursor.close()
+                    pg_conn.close()
+                    return True
+
+                # Update role
+                cursor.execute(
+                    "UPDATE user_profiles SET role = %s, updated_at = NOW() WHERE id = %s",
+                    (new_role, user_id)
+                )
+                pg_conn.commit()
+
+                console.print(f"\n[bold green]✅ Role updated successfully![/bold green]")
+                console.print(f"  User: [cyan]{found_identifier}[/cyan]")
+                console.print(f"  New role: [yellow]{new_role}[/yellow]")
+                cursor.close()
+                pg_conn.close()
+                return True
+
+            except Exception as e:
+                pg_conn.rollback()
+                cursor.close()
+                pg_conn.close()
+                raise e
+
+        # Fallback to Supabase client (may hit RLS issues)
+        console.print("[yellow]⚠️  Using Supabase client (may have permission issues)[/yellow]")
 
         # Check if profile exists
         profile_check = supabase.table('user_profiles').select('*').eq('id', user_id).execute()
