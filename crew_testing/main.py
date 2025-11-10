@@ -283,40 +283,145 @@ def test(
     endpoint: str = typer.Argument(..., help="Endpoint to test (e.g., /api/matches)"),
     backend_url: str = typer.Option("http://localhost:8000", "--url", "-u", help="MT backend URL"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed agent conversations"),
+    regenerate: bool = typer.Option(False, "--regenerate", "-r", help="Force regenerate tests even if they exist"),
 ):
     """
     🚀 Full end-to-end test generation and execution (Phase 2 Complete)
 
-    This command runs ALL Phase 2 agents in sequence:
+    Smart Test Management:
+    - If tests exist and spec unchanged → Run existing tests (1-2s, $0)
+    - If tests exist and spec changed → Regenerate tests (90s, $0.50)
+    - If tests don't exist → Generate tests (first time)
+    - Use --regenerate to force regeneration
+
+    This command runs ALL Phase 2 agents when needed:
     1. 📚 ARCHITECT - Design comprehensive test scenarios
     2. 🎨 MOCKER - Generate realistic test data
     3. 🔧 FORGE - Generate pytest test files
     4. ⚡ FLASH - Execute tests and report results
 
     Example:
-        python crew_testing/main.py test /api/matches --verbose
+        python crew_testing/main.py test /api/matches           # Smart detection
+        python crew_testing/main.py test /api/matches -r        # Force regenerate
+        python crew_testing/main.py test /api/matches --verbose # Show agent conversations
     """
     # Update configuration
     CrewConfig.VERBOSE = verbose
-
-    # Display banner
-    banner = Text()
-    banner.append("🤖 MT Testing Crew - Phase 2 COMPLETE\n", style="bold blue")
-    banner.append("🚀 Full Test Generation Pipeline\n", style="bold green")
-    banner.append(f"\nEndpoint: {endpoint}\n", style="cyan")
-    banner.append("Workflow: 📚 ARCHITECT → 🎨 MOCKER → 🔧 FORGE → ⚡ FLASH", style="yellow")
-
-    console.print(Panel(banner, title="Phase 2 Workflow", border_style="blue"))
-    console.print()
 
     try:
         # Validate configuration
         CrewConfig.validate()
 
-        # Import workflow
+        # Import state manager
+        from crew_testing.lib import TestStateManager
+        from pathlib import Path
+        import subprocess
+        import time
+        import json
+
+        state = TestStateManager()
+
+        # Check if test exists
+        if state.test_exists(endpoint):
+            test_file = state.get_test_file(endpoint)
+
+            # Display existing test info
+            banner = Text()
+            banner.append("🤖 MT Testing Crew - Smart Test Detection\n", style="bold blue")
+            banner.append(f"📁 Found existing test: {test_file}\n", style="bold green")
+
+            if not regenerate:
+                # Check if spec changed
+                change_report = state.check_spec_changes(endpoint)
+
+                if not change_report.changed:
+                    # Spec unchanged - just run existing tests
+                    banner.append(f"\n✅ OpenAPI spec unchanged\n", style="green")
+                    banner.append("⚡ Running existing tests (fast path)", style="yellow")
+
+                    console.print(Panel(banner, title="Test Execution", border_style="green"))
+                    console.print()
+
+                    # Run pytest directly (find project root first)
+                    current_dir = Path.cwd()
+                    project_root = current_dir
+                    while project_root != project_root.parent:
+                        if (project_root / "crew_testing" / "main.py").exists():
+                            break
+                        project_root = project_root.parent
+
+                    console.print(f"[cyan]Running: pytest {test_file} -v[/cyan]\n")
+
+                    start_time = time.time()
+                    result = subprocess.run(
+                        ["pytest", test_file, "-v", "--tb=short"],
+                        capture_output=True,
+                        text=True,
+                        cwd=project_root
+                    )
+                    duration = time.time() - start_time
+
+                    # Display results
+                    console.print(result.stdout)
+                    if result.stderr:
+                        console.print(f"[yellow]{result.stderr}[/yellow]")
+
+                    # Parse results for cache update (pytest format: "6 passed, 2 failed")
+                    import re
+                    output = result.stdout
+
+                    passed_match = re.search(r'(\d+)\s+passed', output)
+                    failed_match = re.search(r'(\d+)\s+failed', output)
+
+                    passed = int(passed_match.group(1)) if passed_match else 0
+                    failed = int(failed_match.group(1)) if failed_match else 0
+                    total = passed + failed
+
+                    # Update cache
+                    state.update_test_results(endpoint, {
+                        "total": total,
+                        "passed": passed,
+                        "failed": failed,
+                        "duration_ms": int(duration * 1000)
+                    })
+
+                    # Display summary
+                    summary = Text()
+                    summary.append(f"✅ Duration: {duration:.2f}s\n", style="green")
+                    summary.append(f"📊 Tests: {total} total, {passed} passed, {failed} failed\n", style="cyan")
+                    summary.append(f"💰 Cost: $0.00 (no AI generation needed)", style="green")
+
+                    console.print(Panel(summary, title="Test Results", border_style="green"))
+                    return
+
+                else:
+                    # Spec changed - need to regenerate
+                    banner.append(f"\n⚠️  OpenAPI spec changed: {change_report.reason}\n", style="yellow")
+                    banner.append("🔄 Regenerating tests...", style="yellow")
+                    console.print(Panel(banner, title="Test Regeneration", border_style="yellow"))
+                    console.print()
+
+            else:
+                # User forced regeneration
+                banner.append(f"\n🔄 Force regeneration requested\n", style="yellow")
+                banner.append("Workflow: 📚 ARCHITECT → 🎨 MOCKER → 🔧 FORGE → ⚡ FLASH", style="yellow")
+                console.print(Panel(banner, title="Test Regeneration", border_style="yellow"))
+                console.print()
+
+        else:
+            # No test exists - generate for first time
+            banner = Text()
+            banner.append("🤖 MT Testing Crew - Phase 2 COMPLETE\n", style="bold blue")
+            banner.append("🚀 First-time Test Generation\n", style="bold green")
+            banner.append(f"\nEndpoint: {endpoint}\n", style="cyan")
+            banner.append("Workflow: 📚 ARCHITECT → 🎨 MOCKER → 🔧 FORGE → ⚡ FLASH", style="yellow")
+
+            console.print(Panel(banner, title="Test Generation", border_style="blue"))
+            console.print()
+
+        # Run full workflow (for new tests, spec changes, or forced regeneration)
         from crew_testing.workflows import run_phase2_workflow
 
-        # Run Phase 2 workflow
         result = run_phase2_workflow(
             endpoint=endpoint,
             backend_url=backend_url,
@@ -336,6 +441,88 @@ def test(
         if verbose:
             console.print_exception()
         raise typer.Exit(code=1)
+
+
+@app.command()
+def logs(
+    tail: bool = typer.Option(False, "--tail", "-f", help="Tail logs in real-time"),
+    agent: str = typer.Option(None, "--agent", "-a", help="Show logs for specific agent (architect, mocker, forge, flash)"),
+    workflow: str = typer.Option("workflow", "--workflow", "-w", help="Workflow type to view"),
+):
+    """
+    📜 View CrewAI testing logs
+
+    View or tail logs from workflow executions and individual agents.
+
+    Examples:
+        python crew_testing/main.py logs                    # View latest workflow log
+        python crew_testing/main.py logs --tail             # Tail latest workflow log
+        python crew_testing/main.py logs --agent architect  # View ARCHITECT agent log
+        python crew_testing/main.py logs --agent forge -f   # Tail FORGE agent log
+    """
+    from pathlib import Path
+    import subprocess
+
+    logs_dir = Path("crew_testing/logs")
+    latest_dir = logs_dir / "latest"
+
+    if not latest_dir.exists():
+        console.print("[yellow]⚠️  No logs found. Run a workflow first.[/yellow]")
+        console.print("\n[cyan]Try: ./crew_testing/run.sh test /api/matches[/cyan]")
+        return
+
+    # Determine which log to view
+    if agent:
+        log_file = latest_dir / f"{agent}.log"
+        log_name = f"{agent.upper()} Agent"
+    else:
+        # Find latest workflow log
+        workflow_logs = list((logs_dir / "workflows").glob("*.log"))
+        if not workflow_logs:
+            console.print("[yellow]⚠️  No workflow logs found[/yellow]")
+            return
+
+        log_file = max(workflow_logs, key=lambda p: p.stat().st_mtime)
+        log_name = "Workflow"
+
+    if not log_file.exists():
+        console.print(f"[red]❌ Log file not found: {log_file}[/red]")
+        return
+
+    # Display header
+    console.print(Panel(
+        f"[bold cyan]{log_name} Log[/bold cyan]\n"
+        f"[dim]{log_file}[/dim]",
+        border_style="blue"
+    ))
+    console.print()
+
+    # View or tail the log
+    try:
+        if tail:
+            console.print("[cyan]Tailing log (Ctrl+C to stop)...[/cyan]\n")
+            # Use Python to tail and render Rich markup
+            import time
+            with open(log_file, "r") as f:
+                # Go to end of file
+                f.seek(0, 2)
+                while True:
+                    line = f.readline()
+                    if line:
+                        # Render line with Rich markup
+                        console.print(line.rstrip())
+                    else:
+                        time.sleep(0.1)
+        else:
+            # Read and render log file with Rich markup
+            with open(log_file, "r") as f:
+                for line in f:
+                    console.print(line.rstrip())
+
+    except KeyboardInterrupt:
+        console.print("\n[cyan]Stopped tailing log[/cyan]")
+    except Exception as e:
+        console.print(f"[red]❌ Error viewing log: {e}[/red]")
 
 
 if __name__ == "__main__":
