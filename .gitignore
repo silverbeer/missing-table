@@ -105,3 +105,24 @@ frontend/.env.build
 k3s/worker/configmap-*.yaml
 k3s/worker/secret-*.yaml
 !k3s/worker/*.template
+
+# CrewAI Testing - Runtime cache and artifacts (local only)
+crew_testing/.test_cache.json
+crew_testing/logs/
+crew_testing/state/
+crew_testing/**/test_*.py
+crew_testing/demo_*.py
+crew_testing/**/*_isolation.py
+crew_testing/*.md
+!crew_testing/README.md
+
+# Test artifacts
+.coverage
+.hypothesis/
+**/tests/.hypothesis/
+backend/tests/test_*.backup_*.py
+backend/tests/test_matches.py
+
+# Accidentally created nested directories
+backend/crew_testing/
+tests/

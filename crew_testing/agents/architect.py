@@ -17,7 +17,7 @@ Responsibilities:
 from crewai import Agent
 
 from crew_testing.config import CrewConfig
-from crew_testing.tools import ReadOpenAPISpecTool, DetectGapsTool
+from crew_testing.tools import ReadOpenAPISpecTool
 
 
 def create_architect_agent() -> Agent:
@@ -32,10 +32,10 @@ def create_architect_agent() -> Agent:
     # Get LLM for this agent from config
     llm = CrewConfig.get_llm_for_agent("architect")
 
-    # Initialize tools
+    # Initialize tools - Phase 2 only needs OpenAPI spec
     tools = [
         ReadOpenAPISpecTool(),
-        DetectGapsTool(),
+        # DetectGapsTool() removed - Phase 1 tool not needed for Phase 2 workflow
     ]
 
     # Create agent

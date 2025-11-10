@@ -128,6 +128,15 @@ class CrewConfig:
             "reasoning": "Debugging requires deep reasoning",
             "cost_per_run": 0.20,
         },
+
+        # 🔨 Mechanic - Test Fixer
+        # Complex debugging and code editing, use smart model
+        "mechanic": {
+            "provider": "openai",
+            "model": "gpt-4o",
+            "reasoning": "Test fixing requires understanding failures and surgical code edits, GPT-4o is excellent at debugging",
+            "cost_per_run": 0.20,
+        },
     }
 
     # ============================================================================

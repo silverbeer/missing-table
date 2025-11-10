@@ -14,7 +14,7 @@ Available tools:
 # Phase 1 tools
 from crew_testing.tools.openapi_tool import ReadOpenAPISpecTool, DetectGapsTool
 from crew_testing.tools.api_client_tool import ScanAPIClientTool, GenerateClientMethodTool
-from crew_testing.tools.test_scanner_tool import ScanTestsTool, CalculateCoverageTool
+# from crew_testing.tools.test_scanner_tool import ScanTestsTool, CalculateCoverageTool  # Not needed for Phase 2
 
 # Phase 2 tools
 from crew_testing.tools.query_schema_tool import QuerySchemaTool
@@ -28,8 +28,8 @@ __all__ = [
     "DetectGapsTool",
     "ScanAPIClientTool",
     "GenerateClientMethodTool",
-    "ScanTestsTool",
-    "CalculateCoverageTool",
+    # "ScanTestsTool",  # Not needed for Phase 2
+    # "CalculateCoverageTool",  # Not needed for Phase 2
     # Phase 2
     "QuerySchemaTool",
     "CodeGeneratorTool",
