@@ -96,13 +96,8 @@ Generate pytest test files based on test scenarios and fixtures.
 Your task:
 1. Review test scenarios from ARCHITECT
 2. Review fixtures from MOCKER
-3. Generate a complete pytest test file with:
-   - Proper imports
-   - Fixture definitions
-   - Test functions for each scenario
-   - Clear docstrings
-   - Proper assertions
-4. Write the test file to `backend/tests/test_{endpoint_name}.py`
+3. Use the write_file tool DIRECTLY to create the test file
+4. DO NOT use generate_code tool - just write the file directly
 
 Input from ARCHITECT:
 {architect_output}
@@ -110,57 +105,42 @@ Input from ARCHITECT:
 Input from MOCKER:
 {mocker_output}
 
-Output the generated test file path and summary:
-{{
-    "test_file": "backend/tests/test_matches.py",
-    "summary": {{
-        "total_tests": 15,
-        "total_fixtures": 8,
-        "lines_of_code": 245,
-        "coverage_areas": ["happy_path", "error", "edge_case", "security", "performance"]
-    }},
-    "file_written": true
+IMPORTANT - Tool Usage:
+ALWAYS use write_file tool with ABSOLUTE path "backend/tests/test_<endpoint>.py"
+
+For endpoint /api/version → file_path: "backend/tests/test_version.py"
+For endpoint /api/matches → file_path: "backend/tests/test_matches.py"
+
+NEVER use relative paths like "tests/test_version.py" - ALWAYS include "backend/" prefix!
+
+Example tool call:
+Action: write_file
+Action Input: {{
+    "file_path": "backend/tests/test_version.py",
+    "content": "\"\"\"\\nTest suite for /api/version endpoint\\n\"\"\"\\nimport pytest\\nfrom fastapi.testclient import TestClient\\nfrom backend.app import app\\n\\nclient = TestClient(app)\\n\\n\\ndef test_get_version_success():\\n    \"\"\"Test successful GET request\"\"\"\\n    response = client.get(\"/api/version\")\\n    assert response.status_code == 200\\n    assert \\\"version\\\" in response.json()\\n",
+    "backup": true,
+    "validate": true
 }}
 
-Generate REAL, working Python code. Follow pytest best practices:
-- Use `@pytest.fixture` decorator
-- Use `@pytest.mark.parametrize` for similar tests with different data
-- Clear test function names like `test_create_match_success`
-- Arrange-Act-Assert pattern
-- Use api_client methods (or create them if missing)
-- Proper error assertions with `pytest.raises`
-
-Example test structure:
+Test file structure:
 ```python
-\"\"\"Test suite for /api/matches endpoint\"\"\"
+\"\"\"Test suite for {endpoint} endpoint\"\"\"
 import pytest
-from backend.api_client import MatchesClient
+from fastapi.testclient import TestClient
+from backend.app import app
 
-@pytest.fixture
-def valid_match_data():
-    \"\"\"Valid match data for creation tests\"\"\"
-    return {{
-        "home_team_id": 1,
-        "away_team_id": 2,
-        "match_date": "2025-06-15",
-        "season_id": 1
-    }}
+client = TestClient(app)
 
-def test_create_match_success(valid_match_data):
-    \"\"\"Test successful match creation with valid data\"\"\"
-    # Arrange
-    client = MatchesClient()
-
-    # Act
-    response = client.create_match(valid_match_data)
-
-    # Assert
-    assert response.status_code == 201
-    assert "id" in response.json()
-    assert response.json()["home_team_id"] == valid_match_data["home_team_id"]
+def test_example():
+    \"\"\"Test description\"\"\"
+    response = client.get("/api/endpoint")
+    assert response.status_code == 200
 ```
 
-Generate the FULL test file and write it using the write_file tool.
+After writing, return:
+File written successfully: backend/tests/test_version.py
+Tests: 7 scenarios
+Lines: 56
 """
 
 

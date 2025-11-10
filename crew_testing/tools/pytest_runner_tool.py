@@ -41,19 +41,28 @@ class PytestRunnerTool(BaseTool):
             Formatted string with test results
         """
         try:
-            # Build pytest command
-            cmd = ["pytest", test_path, "-v"]
+            # pytest must run from backend directory (where pyproject.toml is)
+            project_root = Path(__file__).parent.parent.parent
+            backend_dir = project_root / "backend"
+
+            # Adjust test path to be relative to backend directory
+            # If path starts with "backend/", remove it
+            if test_path.startswith("backend/"):
+                test_path_relative = test_path[8:]  # Remove "backend/" prefix
+            else:
+                test_path_relative = test_path
+
+            # Build pytest command using uv to ensure correct venv
+            cmd = ["uv", "run", "pytest", test_path_relative, "-v"]
 
             if coverage:
-                cmd.extend(["--cov=backend", "--cov-report=term-missing"])
+                # Coverage path is now relative to backend
+                cmd.extend(["--cov=.", "--cov-report=term-missing"])
 
-            # Change to project root
-            project_root = Path(__file__).parent.parent.parent
-
-            # Run pytest
+            # Run pytest from backend directory
             result = subprocess.run(
                 cmd,
-                cwd=str(project_root),
+                cwd=str(backend_dir),
                 capture_output=True,
                 text=True,
                 timeout=60
@@ -119,14 +128,54 @@ class PytestRunnerTool(BaseTool):
             output.append(f"📊 Coverage: {coverage_pct}%")
             output.append("")
 
-        # Extract failed tests
+        # Extract failed tests with detailed error information
         if failed > 0:
             output.append("❌ Failed Tests:")
-            failed_tests = re.findall(r'FAILED\s+(.+?)\s+-', stdout)
-            for test in failed_tests[:10]:  # Limit to first 10
-                output.append(f"  • {test}")
-            if len(failed_tests) > 10:
-                output.append(f"  ... and {len(failed_tests) - 10} more")
+
+            # Parse FAILURES section for detailed error info
+            failures_section = re.search(r'=+\s*FAILURES\s*=+(.*?)(?:=+\s*|$)', stdout, re.DOTALL)
+            if failures_section:
+                failures_text = failures_section.group(1)
+
+                # Split by test failure headers
+                test_failures = re.split(r'_+\s+(\w+)\s+_+', failures_text)
+
+                for i in range(1, len(test_failures), 2):
+                    if i + 1 < len(test_failures):
+                        test_name = test_failures[i]
+                        failure_detail = test_failures[i + 1]
+
+                        output.append(f"\n  Test: {test_name}")
+
+                        # Extract assertion error
+                        assert_match = re.search(r'(assert\s+.+?)(?:\n|$)', failure_detail, re.DOTALL)
+                        if assert_match:
+                            output.append(f"  Error: {assert_match.group(1).strip()}")
+
+                        # Extract status code if 403/401
+                        status_match = re.search(r'assert (\d+) == (\d+)', failure_detail)
+                        if status_match:
+                            actual = status_match.group(1)
+                            expected = status_match.group(2)
+                            output.append(f"  Expected status: {expected}, Got: {actual}")
+
+                            if actual == "403":
+                                output.append(f"  💡 Fix: Add authentication headers (403 Forbidden = missing auth)")
+                            elif actual == "401":
+                                output.append(f"  💡 Fix: Update or refresh authentication token (401 Unauthorized)")
+
+                        # Limit output per test
+                        if len(output) > 100:
+                            output.append("\n  ... (truncated for brevity)")
+                            break
+            else:
+                # Fallback to simple list
+                failed_tests = re.findall(r'FAILED\s+(.+?)\s+-', stdout)
+                for test in failed_tests[:10]:
+                    output.append(f"  • {test}")
+                if len(failed_tests) > 10:
+                    output.append(f"  ... and {len(failed_tests) - 10} more")
+
             output.append("")
 
         # Extract execution time
