@@ -35,6 +35,7 @@ server.log
 .coverage.*
 htmlcov/
 coverage.xml
+coverage.json
 .pytest_cache/
 .tox/
 
