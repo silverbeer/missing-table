@@ -34,8 +34,11 @@ def create_forge_agent() -> Agent:
     llm = CrewConfig.get_llm_for_agent("forge")
 
     # Initialize tools
+    # IMPORTANT: Only FileWriterTool - removed CodeGeneratorTool because:
+    # - CodeGeneratorTool generates code in memory (Flash can't execute it)
+    # - FileWriterTool saves to disk (what Flash needs)
+    # - Having both tools caused agent to choose the easier one
     tools = [
-        CodeGeneratorTool(),
         FileWriterTool(),
     ]
 
@@ -91,13 +94,18 @@ def get_forge_task_description() -> str:
         Task description string
     """
     return """
-Generate pytest test files based on test scenarios and fixtures.
+🚨 CRITICAL - TOOL USAGE 🚨
 
-Your task:
+YOU MUST USE THE write_file TOOL.
+DO NOT USE generate_code TOOL.
+
+The generate_code tool only creates code in memory - Flash won't be able to execute it!
+The write_file tool saves code to disk - this is what Flash needs!
+
+Your ONLY task:
 1. Review test scenarios from ARCHITECT
-2. Review fixtures from MOCKER
-3. Use the write_file tool DIRECTLY to create the test file
-4. DO NOT use generate_code tool - just write the file directly
+2. Call write_file tool with the test code
+3. That's it!
 
 Input from ARCHITECT:
 {architect_output}
@@ -105,8 +113,20 @@ Input from ARCHITECT:
 Input from MOCKER:
 {mocker_output}
 
-IMPORTANT - Tool Usage:
-ALWAYS use write_file tool with ABSOLUTE path "backend/tests/test_<endpoint>.py"
+🔧 MANDATORY TOOL CALL 🔧
+
+Action: write_file
+Action Input: {{
+    "file_path": "backend/tests/test_<endpoint>.py",
+    "content": "<your generated test code here>",
+    "backup": true,
+    "validate": true
+}}
+
+CRITICAL RULES:
+- ALWAYS use write_file tool with ABSOLUTE path "backend/tests/test_<endpoint>.py"
+- NEVER use generate_code (it won't save the file!)
+- File path MUST start with "backend/tests/"
 
 For endpoint /api/version → file_path: "backend/tests/test_version.py"
 For endpoint /api/matches → file_path: "backend/tests/test_matches.py"
@@ -122,7 +142,33 @@ Action Input: {{
     "validate": true
 }}
 
-Test file structure:
+🚨 CRITICAL API CLIENT REQUIREMENTS 🚨
+
+1. ALWAYS use TestClient from fastapi.testclient
+2. NEVER use requests library (causes 403 errors)
+3. TestClient works in-process (no authentication needed for most endpoints)
+
+API STRUCTURE REFERENCE:
+- GET /api/teams returns LIST of team objects
+- Each team has: id, name, divisions_by_age_group
+- divisions_by_age_group is DICT with STRING keys (age_group_id) and DICT values (division info)
+- Division info contains: league_id (int), league_name (str), division_id (int)
+
+Example response:
+[
+  {
+    "id": 1,
+    "name": "IFA",
+    "divisions_by_age_group": {
+      "1": {"league_id": 1, "league_name": "Homegrown"},
+      "2": {"league_id": 2, "league_name": "Regional"}
+    }
+  }
+]
+
+Test file structure with COMPLETE assertions:
+
+BASIC TEMPLATE (no auth required):
 ```python
 \"\"\"Test suite for {endpoint} endpoint\"\"\"
 import pytest
@@ -131,11 +177,79 @@ from backend.app import app
 
 client = TestClient(app)
 
-def test_example():
-    \"\"\"Test description\"\"\"
+def test_example_happy_path():
+    \"\"\"Test successful request with data validation\"\"\"
     response = client.get("/api/endpoint")
     assert response.status_code == 200
+
+    # ALWAYS include data structure validation
+    data = response.json()
+    assert isinstance(data, list), "Response should be a list"
+    assert len(data) > 0, "Should return at least one item"
+
+    # Validate first item structure
+    assert 'id' in data[0], "Items should have id field"
+    assert 'name' in data[0], "Items should have name field"
+
+    # Type validation
+    assert isinstance(data[0]['id'], int), "ID should be integer"
+    assert isinstance(data[0]['name'], str), "Name should be string"
+
+def test_example_type_coercion():
+    \"\"\"Test type handling (string vs number)\"\"\"
+    response = client.get("/api/teams")
+    assert response.status_code == 200
+
+    # IMPORTANT: /api/teams returns a LIST of teams
+    teams = response.json()
+    assert isinstance(teams, list), "Response should be a list"
+
+    # Test EACH team in the list
+    for team in teams:
+        # Check divisions_by_age_group structure
+        assert 'divisions_by_age_group' in team
+        divisions = team['divisions_by_age_group']
+
+        # JSON serialization makes keys strings
+        for age_group_id, division in divisions.items():
+            assert isinstance(age_group_id, str), "Keys should be strings after JSON"
+            assert 'league_id' in division
+            assert isinstance(division['league_id'], int), "league_id should be integer"
 ```
+
+AUTHENTICATION TEMPLATE (for protected endpoints):
+```python
+\"\"\"Test suite for protected endpoint\"\"\"
+import pytest
+from fastapi.testclient import TestClient
+from backend.app import app
+
+@pytest.fixture
+def client():
+    \"\"\"Create test client\"\"\"
+    return TestClient(app)
+
+@pytest.fixture
+def auth_headers():
+    \"\"\"Get authentication headers for protected endpoints\"\"\"
+    # Note: Most endpoints in this API don't require auth with TestClient
+    # Only use this if tests fail with 403/401
+    return {"Authorization": "Bearer test_token"}
+
+def test_protected_endpoint(client, auth_headers):
+    \"\"\"Test endpoint that requires authentication\"\"\"
+    response = client.get("/api/protected", headers=auth_headers)
+    assert response.status_code == 200
+```
+
+CRITICAL RULES FOR ASSERTIONS:
+1. NEVER leave comments like "# Check XYZ" - ALWAYS write real assert statements
+2. ALWAYS validate response status code first
+3. ALWAYS validate data structure (isinstance, 'key' in dict)
+4. ALWAYS check types explicitly (isinstance checks)
+5. Use descriptive assertion messages: assert condition, "Helpful message"
+6. For bugs related to type coercion, ALWAYS test string vs number handling
+7. NO placeholder comments - every validation must be a real assert statement
 
 After writing, return:
 File written successfully: backend/tests/test_version.py
