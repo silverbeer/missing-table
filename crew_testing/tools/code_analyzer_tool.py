@@ -146,6 +146,11 @@ class CodeASTAnalyzer(ast.NodeVisitor):
             'is_method': self.current_class is not None,
             'class_name': self.current_class['name'] if self.current_class else None,
             'complexity': self._estimate_complexity(node),
+            # NEW: Implementation details
+            'exception_handlers': self._extract_exception_handlers(node),
+            'return_pattern': self._analyze_return_pattern(node),
+            'external_calls': self._extract_external_calls(node),
+            'implementation_snippet': self._get_implementation_snippet(node),
         }
 
         if self.current_class:
@@ -221,6 +226,126 @@ class CodeASTAnalyzer(ast.NodeVisitor):
         else:
             return ast.unparse(node)
 
+    def _extract_exception_handlers(self, node):
+        """Extract try/except blocks and their exception types"""
+        handlers = []
+
+        for child in ast.walk(node):
+            if isinstance(child, ast.Try):
+                for handler in child.handlers:
+                    exc_type = self._get_name(handler.type) if handler.type else "Exception"
+
+                    # Analyze what happens in the handler
+                    handler_action = "unknown"
+                    for stmt in handler.body:
+                        if isinstance(stmt, ast.Return):
+                            handler_action = f"returns {self._get_name(stmt.value)}"
+                            break
+                        elif isinstance(stmt, ast.Raise):
+                            if stmt.exc:
+                                handler_action = f"raises {self._get_name(stmt.exc)}"
+                            else:
+                                handler_action = "re-raises"
+                            break
+                        elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+                            call_name = self._get_name(stmt.value.func)
+                            if 'log' in call_name.lower():
+                                handler_action = "logs and continues"
+
+                    handlers.append({
+                        'exception_type': exc_type,
+                        'action': handler_action,
+                        'lineno': handler.lineno if hasattr(handler, 'lineno') else None,
+                    })
+
+        return handlers
+
+    def _analyze_return_pattern(self, node):
+        """Analyze return statements to understand return behavior"""
+        returns = []
+
+        for child in ast.walk(node):
+            if isinstance(child, ast.Return):
+                return_value = self._get_name(child.value) if child.value else "None"
+                returns.append(return_value)
+
+        if not returns:
+            return "No explicit returns (returns None)"
+
+        # Categorize return pattern
+        unique_returns = set(returns)
+        if len(unique_returns) == 1:
+            return f"Always returns: {returns[0]}"
+        elif 'None' in unique_returns:
+            return f"Returns {', '.join(r for r in unique_returns if r != 'None')} or None"
+        else:
+            return f"Returns: {', '.join(unique_returns)}"
+
+    def _extract_external_calls(self, node):
+        """Extract calls to external dependencies (database, APIs, etc.)"""
+        external_calls = []
+
+        for child in ast.walk(node):
+            if isinstance(child, ast.Call):
+                call_name = self._get_name(child.func)
+
+                # Detect common external dependencies
+                if any(keyword in call_name.lower() for keyword in ['supabase', 'table', 'select', 'insert', 'update', 'delete', 'execute']):
+                    external_calls.append({
+                        'type': 'database',
+                        'call': call_name,
+                    })
+                elif any(keyword in call_name.lower() for keyword in ['request', 'get', 'post', 'put', 'delete', 'fetch']):
+                    external_calls.append({
+                        'type': 'http',
+                        'call': call_name,
+                    })
+                elif any(keyword in call_name.lower() for keyword in ['open', 'read', 'write', 'file']):
+                    external_calls.append({
+                        'type': 'file_io',
+                        'call': call_name,
+                    })
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_calls = []
+        for call in external_calls:
+            call_key = (call['type'], call['call'])
+            if call_key not in seen:
+                seen.add(call_key)
+                unique_calls.append(call)
+
+        return unique_calls
+
+    def _get_implementation_snippet(self, node):
+        """Get a relevant snippet of the implementation (first 10 lines of body)"""
+        try:
+            # Get first 10 lines of function body (excluding docstring)
+            body_start = node.lineno
+
+            # Skip docstring if present
+            if (node.body and
+                isinstance(node.body[0], ast.Expr) and
+                isinstance(node.body[0].value, (ast.Str, ast.Constant))):
+                body_start = node.body[1].lineno if len(node.body) > 1 else node.lineno
+            else:
+                body_start = node.body[0].lineno if node.body else node.lineno
+
+            # Get up to 10 lines from body start
+            snippet_end = min(body_start + 10, node.end_lineno or node.lineno)
+
+            # Extract lines from source
+            snippet_lines = self.source_lines[body_start-1:snippet_end]
+            snippet = '\n'.join(snippet_lines)
+
+            # Truncate if too long
+            if len(snippet) > 500:
+                snippet = snippet[:500] + "..."
+
+            return snippet
+        except Exception:
+            return "Unable to extract snippet"
+
     def generate_report(self, file_path: str) -> str:
         """Generate markdown analysis report"""
         file_name = os.path.basename(file_path)
@@ -274,10 +399,39 @@ class CodeASTAnalyzer(ast.NodeVisitor):
 
                 # List methods
                 if cls['methods']:
-                    report += f"\n**Methods:**\n"
+                    report += f"\n**Methods:**\n\n"
                     for method in cls['methods']:
                         args = ', '.join([arg['name'] for arg in method['arguments']])
-                        report += f"- `{method['name']}({args})` - {method['line_count']} lines, complexity: {method['complexity']}\n"
+                        report += f"#### `{method['name']}({args})`\n\n"
+                        report += f"- **Lines:** {method['lineno']}-{method['end_lineno']} ({method['line_count']} lines)\n"
+                        report += f"- **Complexity:** {method['complexity']}\n"
+
+                        # Implementation details
+                        if method.get('return_pattern'):
+                            report += f"- **Return Pattern:** {method['return_pattern']}\n"
+
+                        if method.get('exception_handlers'):
+                            report += f"- **Exception Handling:** {len(method['exception_handlers'])} handlers\n"
+                            for handler in method['exception_handlers'][:2]:
+                                report += f"  - `{handler['exception_type']}` → {handler['action']}\n"
+                            if len(method['exception_handlers']) > 2:
+                                report += f"  - ... and {len(method['exception_handlers']) - 2} more\n"
+
+                        if method.get('external_calls'):
+                            report += f"- **External Dependencies:** {len(method['external_calls'])} calls\n"
+                            for call in method['external_calls'][:2]:
+                                report += f"  - {call['type']}: `{call['call']}`\n"
+                            if len(method['external_calls']) > 2:
+                                report += f"  - ... and {len(method['external_calls']) - 2} more\n"
+
+                        if method.get('implementation_snippet') and method['implementation_snippet'] != "Unable to extract snippet":
+                            snippet = method['implementation_snippet']
+                            # Truncate snippet for methods to save space
+                            if len(snippet) > 300:
+                                snippet = snippet[:300] + "..."
+                            report += f"\n**Implementation Snippet:**\n```python\n{snippet}\n```\n"
+
+                        report += "\n"
 
                 report += "\n"
 
@@ -297,6 +451,28 @@ class CodeASTAnalyzer(ast.NodeVisitor):
                     report += f"- **Decorators:** {', '.join([f'`@{d}`' for d in func['decorators']])}\n"
                 if func['docstring']:
                     report += f"- **Docstring:** {func['docstring'][:100]}...\n"
+
+                # NEW: Implementation details
+                if func.get('return_pattern'):
+                    report += f"- **Return Pattern:** {func['return_pattern']}\n"
+
+                if func.get('exception_handlers'):
+                    report += f"- **Exception Handling:** {len(func['exception_handlers'])} handlers\n"
+                    for handler in func['exception_handlers'][:3]:  # Show first 3
+                        report += f"  - `{handler['exception_type']}` → {handler['action']}\n"
+                    if len(func['exception_handlers']) > 3:
+                        report += f"  - ... and {len(func['exception_handlers']) - 3} more\n"
+
+                if func.get('external_calls'):
+                    report += f"- **External Dependencies:** {len(func['external_calls'])} calls\n"
+                    for call in func['external_calls'][:3]:  # Show first 3
+                        report += f"  - {call['type']}: `{call['call']}`\n"
+                    if len(func['external_calls']) > 3:
+                        report += f"  - ... and {len(func['external_calls']) - 3} more\n"
+
+                if func.get('implementation_snippet') and func['implementation_snippet'] != "Unable to extract snippet":
+                    report += f"\n**Implementation Snippet:**\n```python\n{func['implementation_snippet']}\n```\n"
+
                 report += "\n"
 
         # Summary
