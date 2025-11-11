@@ -1,5 +1,19 @@
 """
 Pytest configuration and fixtures for the sports league backend tests.
+
+This file provides shared fixtures and configuration for all test layers:
+- Unit tests (tests/unit/): Fast, isolated component tests
+- Integration tests (tests/integration/): Component interaction tests
+- Contract tests (tests/contract/): API contract validation
+- E2E tests (tests/e2e/): End-to-end user journey tests
+- Smoke tests (tests/smoke/): Quick sanity checks for deployments
+
+All tests use markers to enable selective test execution:
+    pytest -m unit           # Run only unit tests
+    pytest -m integration    # Run only integration tests
+    pytest -m contract       # Run only contract tests
+    pytest -m e2e            # Run only e2e tests
+    pytest -m smoke          # Run only smoke tests
 """
 
 import asyncio
@@ -10,10 +24,13 @@ import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from unittest.mock import patch
+from faker import Faker
 
 # Load environment variables - prioritize test environment
-load_dotenv()  # Load .env first
-load_dotenv("../.env.e2e", override=True)  # Override with e2e config when running tests
+# Priority: .env.test > .env.e2e > .env
+load_dotenv()  # Load .env first (lowest priority)
+load_dotenv("../.env.test", override=True)  # Override with test config
+load_dotenv("../.env.e2e", override=True)  # Override with e2e config when running e2e tests
 
 
 @pytest.fixture(scope="session")
@@ -23,6 +40,82 @@ def event_loop():
     yield loop
     loop.close()
 
+
+# ============================================================================
+# Base URL Configuration Fixtures
+# ============================================================================
+
+@pytest.fixture(scope="session")
+def base_api_url():
+    """Base URL for API endpoints."""
+    return os.getenv("API_BASE_URL", "http://localhost:8000")
+
+
+@pytest.fixture(scope="session")
+def base_frontend_url():
+    """Base URL for frontend application."""
+    return os.getenv("FRONTEND_BASE_URL", "http://localhost:8080")
+
+
+@pytest.fixture(scope="session")
+def supabase_url():
+    """Supabase instance URL."""
+    return os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+
+
+@pytest.fixture(scope="session")
+def supabase_anon_key():
+    """Supabase anonymous key."""
+    return os.getenv("SUPABASE_ANON_KEY", "")
+
+
+@pytest.fixture(scope="session")
+def supabase_service_key():
+    """Supabase service role key."""
+    return os.getenv("SUPABASE_SERVICE_KEY", "")
+
+
+# ============================================================================
+# Test Data Generation Fixtures (Faker)
+# ============================================================================
+
+@pytest.fixture(scope="session")
+def faker_instance():
+    """Shared Faker instance for generating realistic test data.
+
+    Usage:
+        def test_something(faker_instance):
+            email = faker_instance.email()
+            name = faker_instance.name()
+            city = faker_instance.city()
+    """
+    fake = Faker()
+    Faker.seed(42)  # Seed for reproducible test data
+    return fake
+
+
+@pytest.fixture(scope="function")
+def faker_factory():
+    """Factory for creating fresh Faker instances with random seeds.
+
+    Use this when you need different data on each test run.
+
+    Usage:
+        def test_something(faker_factory):
+            fake = faker_factory()
+            random_email = fake.email()
+    """
+    def _create_faker(seed=None):
+        fake = Faker()
+        if seed is not None:
+            Faker.seed(seed)
+        return fake
+    return _create_faker
+
+
+# ============================================================================
+# FastAPI Test Client Fixtures
+# ============================================================================
 
 @pytest.fixture(scope="session")
 def test_client():
@@ -44,6 +137,10 @@ def test_client():
     with TestClient(app) as client:
         yield client
 
+
+# ============================================================================
+# Database Client Fixtures
+# ============================================================================
 
 @pytest.fixture(scope="session")
 def supabase_client():
@@ -74,6 +171,10 @@ def enhanced_dao():
     dao = EnhancedSportsDAO(conn)
     return dao
 
+
+# ============================================================================
+# Sample Test Data Fixtures
+# ============================================================================
 
 @pytest.fixture(scope="function")
 def sample_team_data():
@@ -144,6 +245,10 @@ def test_database_populated(supabase_client):
         return False
 
 
+# ============================================================================
+# Authentication & Authorization Fixtures
+# ============================================================================
+
 @pytest.fixture(scope="function")
 def auth_headers():
     """Mock authentication headers for testing."""
@@ -167,6 +272,10 @@ def clean_test_data():
     yield
     # Cleanup would go here if needed
 
+
+# ============================================================================
+# Pytest Hooks & Configuration
+# ============================================================================
 
 def pytest_runtest_setup(item):
     """Check if Supabase is required and available before running specific tests."""
@@ -261,6 +370,10 @@ def mock_auth_headers():
         "user": {"Authorization": "Bearer mock_user_token"}
     }
 
+
+# ============================================================================
+# Test Cleanup & Database Utilities
+# ============================================================================
 
 @pytest.fixture(scope="function")
 def database_cleanup():

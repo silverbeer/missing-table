@@ -1,70 +1,133 @@
+# ============================================================================
+# Coverage Configuration for Missing Table Backend
+# ============================================================================
+
 [run]
-# Source code directory
+# Source code to measure coverage for
 source = .
 
 # Files to omit from coverage
-omit = 
+omit =
+    # Test files
     tests/*
-    __pycache__/*
+    test_*.py
+    *_test.py
+    # Migrations
+    ../supabase/migrations/*
+    ../supabase-local/migrations/*
+    # Legacy/archive
+    .archive/*
+    legacy_*
+    # Virtual environment
     .venv/*
     venv/*
-    .pytest_cache/*
-    htmlcov/*
-    scripts/*
-    *.egg-info/*
-    setup.py
+    # Configuration files
     conftest.py
-    legacy_e2e_supabase_script.py
+    # Setup files
+    setup.py
+    # Crew testing system (separate coverage)
+    crew_testing/*
 
-# Include branch coverage
+# Enable branch coverage (measures if/else branches)
 branch = True
 
-# Coverage data file
+# Support parallel execution
+parallel = True
+
+# Data file location
 data_file = .coverage
 
 [report]
-# Exclude lines from coverage
-exclude_lines =
-    pragma: no cover
-    def __repr__
-    if self.debug:
-    if settings.DEBUG
-    raise AssertionError
-    raise NotImplementedError
-    if 0:
-    if __name__ == .__main__.:
-    class .*\bProtocol\):
-    @(abc\.)?abstractmethod
-    # Type checking imports
-    if TYPE_CHECKING:
-    # Development/debugging code
-    if DEBUG
-
-# Show missing lines in report
-show_missing = True
-
-# Precision for percentages
+# Precision for coverage percentages
 precision = 2
 
-# Skip files with no code
-skip_empty = True
+# Show missing line numbers in report
+show_missing = True
 
-# Skip files that can't be traced
+# Skip covered files in terminal output
 skip_covered = False
 
+# Skip empty files
+skip_empty = True
+
+# Fail if total coverage is below this threshold
+fail_under = 75
+
+# Sort report by coverage percentage
+sort = Cover
+
+# Exclude lines from coverage (e.g., debug code, type checking)
+exclude_lines =
+    # Standard pragma
+    pragma: no cover
+    # Debug code
+    def __repr__
+    if self\.debug
+    # Type checking
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
+    # Abstract methods
+    raise NotImplementedError
+    @abstractmethod
+    # Defensive programming
+    raise AssertionError
+    raise NotImplementedError
+    # Non-runnable code
+    if __name__ == .__main__.:
+    if 0:
+    if False:
+    # Pass statements
+    pass
+
 [html]
-# HTML output directory
+# HTML report output directory
 directory = htmlcov
 
 # Title for HTML report
-title = Backend Test Coverage Report
+title = Missing Table Backend Coverage Report
 
 [xml]
-# XML output file
+# XML report output file
 output = coverage.xml
 
-[paths]
-# Map paths for coverage combination
-source = 
-    .
-    */backend/
+[json]
+# JSON report output file
+output = coverage.json
+# Pretty print JSON
+pretty_print = True
+# Show execution contexts
+show_contexts = True
+
+# ============================================================================
+# Per-Layer Coverage Targets (for reference - not enforced by coverage.py)
+# ============================================================================
+# Use pytest-cov with --cov-fail-under in CI/CD to enforce per-layer targets
+#
+# Unit Tests (tests/unit/):
+#   Minimum: 80%
+#   Target: 90%
+#
+# Integration Tests (tests/integration/):
+#   Minimum: 70%
+#   Target: 80%
+#
+# Contract Tests (tests/contract/):
+#   Minimum: 90%
+#   Target: 95%
+#
+# E2E Tests (tests/e2e/):
+#   Minimum: 50%
+#   Target: 60%
+#
+# Smoke Tests (tests/smoke/):
+#   Minimum: 100%
+#   Target: 100%
+#
+# Overall Project:
+#   Minimum: 75%
+#   Target: 85%
+#
+# To run coverage for specific test layers:
+#   pytest tests/unit/ --cov=. --cov-fail-under=80
+#   pytest tests/integration/ --cov=. --cov-fail-under=70
+#   pytest tests/contract/ --cov=. --cov-fail-under=90
