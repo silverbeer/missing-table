@@ -6,7 +6,10 @@ Phase 2 Agents (Test Generation):
 - 🎨 Mocker: Test Data Craftsman
 - 🔧 Forge: Test Code Generator
 - ⚡ Flash: Test Executor
-- 🔨 Mechanic: Test Fixer (NEW)
+- 🔨 Mechanic: Test Fixer
+
+Phase 3 Agents (Unit Test Generation):
+- 🔬 Inspector: Coverage Gap Analyzer
 """
 
 from crew_testing.agents.swagger import create_swagger_agent, create_swagger_scan_task
@@ -15,6 +18,7 @@ from crew_testing.agents.mocker import create_mocker_agent, get_mocker_task_desc
 from crew_testing.agents.forge import create_forge_agent, get_forge_task_description
 from crew_testing.agents.flash import create_flash_agent, get_flash_task_description
 from crew_testing.agents.mechanic import create_mechanic_agent, get_mechanic_task_description
+from crew_testing.agents.inspector import create_inspector_agent
 
 __all__ = [
     # Phase 1
@@ -31,4 +35,6 @@ __all__ = [
     "get_flash_task_description",
     "create_mechanic_agent",
     "get_mechanic_task_description",
+    # Phase 3
+    "create_inspector_agent",
 ]
