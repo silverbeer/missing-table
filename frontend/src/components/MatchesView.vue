@@ -783,7 +783,9 @@ export default {
             );
             if (teamAgeGroup) {
               const division =
-                playerTeam.divisions_by_age_group[selectedAgeGroupId.value];
+                playerTeam.divisions_by_age_group[
+                  String(selectedAgeGroupId.value)
+                ];
               if (division && division.league_id) {
                 selectedLeagueId.value = division.league_id;
               }
@@ -1032,9 +1034,16 @@ export default {
       // For admins, filter by selected league
       if (authStore.isAdmin.value && selectedLeagueId.value) {
         filtered = filtered.filter(team => {
+          // Ensure type-safe lookup: divisions_by_age_group uses string keys
           const division =
-            team.divisions_by_age_group[selectedAgeGroupId.value];
-          return division && division.league_id === selectedLeagueId.value;
+            team.divisions_by_age_group[String(selectedAgeGroupId.value)];
+
+          // Ensure type-safe comparison: convert both to numbers for comparison
+          // This handles cases where v-model returns strings from form inputs
+          return (
+            division &&
+            Number(division.league_id) === Number(selectedLeagueId.value)
+          );
         });
       }
       // For non-admins, only show their team
@@ -1057,7 +1066,7 @@ export default {
       if (!userTeam) return null;
 
       const division =
-        userTeam.divisions_by_age_group[selectedAgeGroupId.value];
+        userTeam.divisions_by_age_group[String(selectedAgeGroupId.value)];
       if (!division) return null;
 
       return {
@@ -1076,7 +1085,8 @@ export default {
       const ageGroup = team.age_groups.find(
         ag => ag.id === selectedAgeGroupId.value
       );
-      const division = team.divisions_by_age_group[selectedAgeGroupId.value];
+      const division =
+        team.divisions_by_age_group[String(selectedAgeGroupId.value)];
 
       if (ageGroup && division) {
         return {
