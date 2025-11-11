@@ -90,10 +90,40 @@ def get_architect_task_description() -> str:
     return """
 Analyze the {endpoint} endpoint and design comprehensive test scenarios.
 
+📊 API STRUCTURE KNOWLEDGE 📊
+
+The MT (missingtable.com) backend API returns data in specific formats:
+
+GET /api/teams:
+- Returns: LIST of team objects (not a single object!)
+- Each team contains: id, name, divisions_by_age_group
+- divisions_by_age_group is a DICT where:
+  * Keys are STRING age_group_ids (e.g., "1", "2")
+  * Values are division objects with league_id (int), league_name (str)
+
+Example:
+[
+  {{
+    "id": 1,
+    "name": "IFA",
+    "divisions_by_age_group": {{
+      "1": {{"league_id": 1, "league_name": "Homegrown"}},
+      "2": {{"league_id": 2, "league_name": "Regional"}}
+    }}
+  }}
+]
+
+CRITICAL: When testing /api/teams, remember:
+- Response is a LIST, not a single team
+- Each team is an element in the list
+- divisions_by_age_group is NESTED inside each team
+- Keys in divisions_by_age_group are STRINGS after JSON serialization
+
 Your task:
 1. Read the OpenAPI spec for {endpoint}
 2. Understand the endpoint's purpose, parameters, and expected behavior
-3. Design test scenarios covering:
+3. Consider the API structure above when designing tests
+4. Design test scenarios covering:
    - Happy path (valid requests)
    - Error cases (missing/invalid data)
    - Edge cases (boundaries, empty values)

@@ -161,7 +161,7 @@ class CrewConfig:
     # ============================================================================
 
     VERBOSE: bool = os.getenv("CREW_VERBOSE", "false").lower() == "true"
-    MAX_ITERATIONS: int = int(os.getenv("CREW_MAX_ITERATIONS", "5"))
+    MAX_ITERATIONS: int = int(os.getenv("CREW_MAX_ITERATIONS", "50"))  # Increased from 5 to allow agents to complete
 
     # ============================================================================
     # Logging
