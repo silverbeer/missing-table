@@ -1,0 +1,18 @@
+# CodeRabbit Configuration
+# Disable CodeRabbit reviews until ready to use
+
+# Disable automatic reviews
+reviews:
+  enabled: false
+
+# Disable all review features
+auto_review:
+  enabled: false
+
+# Disable PR summaries
+summaries:
+  enabled: false
+
+# Disable inline comments
+inline_comments:
+  enabled: false
