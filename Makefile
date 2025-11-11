@@ -67,14 +67,55 @@ test: ## Run all tests
 	$(MAKE) test-backend
 	$(MAKE) test-frontend
 
-test-backend: ## Run backend tests with coverage
-	@echo "🐍 Running Python tests..."
-	cd backend && uv run pytest --cov=. --cov-report=html --cov-report=term-missing
+test-backend: ## Run all backend tests with coverage
+	@echo "🐍 Running all Python tests..."
+	cd backend && uv run python run_tests.py --category all --html-coverage --xml-coverage
 	@echo "✅ Backend tests completed!"
+
+test-unit: ## Run unit tests (fast, isolated, 80% coverage threshold)
+	@echo "⚡ Running unit tests..."
+	cd backend && uv run python run_tests.py --category unit --html-coverage --xml-coverage
+	@echo "✅ Unit tests completed!"
+
+test-integration: ## Run integration tests (component interaction, 70% coverage threshold)
+	@echo "🔗 Running integration tests..."
+	cd backend && uv run python run_tests.py --category integration --html-coverage --xml-coverage
+	@echo "✅ Integration tests completed!"
+
+test-contract: ## Run contract tests (API schema validation, 90% coverage threshold)
+	@echo "📜 Running contract tests..."
+	cd backend && uv run python run_tests.py --category contract --html-coverage --xml-coverage
+	@echo "✅ Contract tests completed!"
+
+test-e2e: ## Run end-to-end tests (full user journeys, 50% coverage threshold)
+	@echo "🎯 Running end-to-end tests..."
+	cd backend && uv run python run_tests.py --category e2e --html-coverage --xml-coverage
+	@echo "✅ E2E tests completed!"
+
+test-smoke: ## Run smoke tests (critical path sanity checks, 100% coverage threshold)
+	@echo "💨 Running smoke tests..."
+	cd backend && uv run python run_tests.py --category smoke --html-coverage --xml-coverage
+	@echo "✅ Smoke tests completed!"
+
+test-quick: ## Run unit tests + smoke tests (fast feedback)
+	@echo "⚡ Running quick tests (unit + smoke)..."
+	$(MAKE) test-unit
+	$(MAKE) test-smoke
+	@echo "✅ Quick tests completed!"
+
+test-slow: ## Run slow tests only
+	@echo "🐌 Running slow tests..."
+	cd backend && uv run pytest -m slow --html-coverage --xml-coverage
+	@echo "✅ Slow tests completed!"
 
 test-frontend: ## Run frontend tests
 	@echo "🌐 Running frontend tests..."
 	cd frontend && npm test || echo "⚠️  Frontend tests not configured yet"
+
+test-catalog: ## Generate test catalog (JSON manifest for CrewAI)
+	@echo "📚 Generating test catalog..."
+	python3 scripts/test_catalog.py --output table --save backend/tests/test-catalog.json
+	@echo "✅ Test catalog generated!"
 
 # Development Commands
 dev: ## Start development servers (backend + frontend)

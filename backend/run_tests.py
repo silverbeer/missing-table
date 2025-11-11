@@ -69,34 +69,50 @@ def check_environment():
 
 def main():
     parser = argparse.ArgumentParser(description="Run backend tests with various options")
-    parser.add_argument("--category", choices=["unit", "integration", "e2e", "slow", "all"], 
+    parser.add_argument("--category", choices=["unit", "integration", "contract", "e2e", "smoke", "slow", "all"],
                        default="all", help="Test category to run")
     parser.add_argument("--coverage", action="store_true", help="Run with coverage")
     parser.add_argument("--html-coverage", action="store_true", help="Generate HTML coverage report")
     parser.add_argument("--xml-coverage", action="store_true", help="Generate XML coverage report")
+    parser.add_argument("--json-coverage", action="store_true", help="Generate JSON coverage report")
+    parser.add_argument("--fail-under", type=int, help="Fail if coverage is below this percentage")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--fail-fast", "-x", action="store_true", help="Stop on first failure")
     parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
     parser.add_argument("--file", help="Run specific test file")
     parser.add_argument("--function", help="Run specific test function")
     parser.add_argument("--dry-run", action="store_true", help="Show commands without running")
-    
+
     args = parser.parse_args()
-    
+
     # Check environment
     if not check_environment():
         sys.exit(1)
-    
+
     # Build pytest command
     cmd = ["uv", "run", "pytest"]
-    
+
+    # Per-category coverage thresholds (if not specified by user)
+    coverage_thresholds = {
+        "unit": 80,
+        "integration": 70,
+        "contract": 90,
+        "e2e": 50,
+        "smoke": 100,
+        "all": 75
+    }
+
     # Add test category markers
     if args.category == "unit":
         cmd.extend(["-m", "unit"])
     elif args.category == "integration":
         cmd.extend(["-m", "integration"])
+    elif args.category == "contract":
+        cmd.extend(["-m", "contract"])
     elif args.category == "e2e":
         cmd.extend(["-m", "e2e"])
+    elif args.category == "smoke":
+        cmd.extend(["-m", "smoke"])
     elif args.category == "slow":
         cmd.extend(["-m", "slow"])
     elif args.category == "all":
@@ -104,15 +120,21 @@ def main():
         pass
     
     # Add coverage options
-    if args.coverage or args.html_coverage or args.xml_coverage:
+    if args.coverage or args.html_coverage or args.xml_coverage or args.json_coverage:
         cmd.extend(["--cov=."])
-        
+
         if args.html_coverage:
             cmd.extend(["--cov-report=html"])
         if args.xml_coverage:
             cmd.extend(["--cov-report=xml"])
-        if not args.html_coverage and not args.xml_coverage:
+        if args.json_coverage:
+            cmd.extend(["--cov-report=json"])
+        if not args.html_coverage and not args.xml_coverage and not args.json_coverage:
             cmd.extend(["--cov-report=term-missing"])
+
+        # Add coverage threshold
+        fail_under = args.fail_under if args.fail_under else coverage_thresholds.get(args.category, 75)
+        cmd.extend(["--cov-fail-under", str(fail_under)])
     
     # Add verbose output
     if args.verbose:
@@ -142,23 +164,38 @@ def main():
     
     # Run the tests
     description = f"pytest tests ({args.category} category)"
-    if args.coverage:
-        description += " with coverage"
-    
+    if args.coverage or args.html_coverage or args.xml_coverage or args.json_coverage:
+        fail_under = args.fail_under if args.fail_under else coverage_thresholds.get(args.category, 75)
+        description += f" with coverage (threshold: {fail_under}%)"
+
     success = run_command(cmd, description)
-    
+
     # Generate additional reports
-    if success and args.html_coverage:
+    if args.html_coverage:
         print(f"\n{'='*60}")
-        print("HTML coverage report generated in htmlcov/")
+        if success:
+            print("✅ HTML coverage report generated in htmlcov/")
+        else:
+            print("⚠️  HTML coverage report generated in htmlcov/ (tests failed or coverage threshold not met)")
         print("Open htmlcov/index.html in your browser to view the report")
         print(f"{'='*60}")
-    
-    if success and args.xml_coverage:
+
+    if args.xml_coverage:
         print(f"\n{'='*60}")
-        print("XML coverage report generated as coverage.xml")
+        if success:
+            print("✅ XML coverage report generated as coverage.xml")
+        else:
+            print("⚠️  XML coverage report generated as coverage.xml (tests failed or coverage threshold not met)")
         print(f"{'='*60}")
-    
+
+    if args.json_coverage:
+        print(f"\n{'='*60}")
+        if success:
+            print("✅ JSON coverage report generated as coverage.json")
+        else:
+            print("⚠️  JSON coverage report generated as coverage.json (tests failed or coverage threshold not met)")
+        print(f"{'='*60}")
+
     # Exit with appropriate code
     sys.exit(0 if success else 1)
 
