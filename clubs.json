@@ -11,7 +11,7 @@
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]
             },
             {
-                "team_name": "Bayside FC",
+                "team_name": "Bayside FC Academy",
                 "league": "Academy",
                 "conference": "New England",
                 "age_groups": ["U13", "U14"]
@@ -30,7 +30,7 @@
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
             },
             {
-                "team_name": "Oakwood Soccer Club",
+                "team_name": "Oakwood Soccer Club Academy",
                 "league": "Academy",
                 "conference": "New England",
                 "age_groups": ["U13", "U14"]                
@@ -49,7 +49,7 @@
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
             },
             {
-                "team_name": "NEFC",
+                "team_name": "NEFC Academy",
                 "league": "Academy",
                 "conference": "New England",
                 "age_groups": ["U13", "U14"]                
@@ -74,7 +74,7 @@
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
             },
             {
-                "team_name": "IFA",
+                "team_name": "IFA Academy",
                 "league": "Academy",
                 "conference": "New England",
                 "age_groups": ["U13", "U14"]                
@@ -99,7 +99,7 @@
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
             },
             {
-                "team_name": "FC Greater Boston Bolts",
+                "team_name": "FC Greater Boston Bolts Academy",
                 "league": "Academy",
                 "conference": "New England",
                 "age_groups": ["U13", "U14"]                
@@ -143,7 +143,7 @@
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
             },
             {
-                "team_name": "Valeo Futbol Club",
+                "team_name": "Valeo Futbol Club Academy",
                 "league": "Academy",
                 "conference": "New England",
                 "age_groups": ["U13", "U14"]                
@@ -162,7 +162,7 @@
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
             },
             {
-                "team_name": "Rochester NY FC",
+                "team_name": "Rochester NY FC Academy",
                 "league": "Academy",
                 "conference": "New England",
                 "age_groups": ["U13", "U14"]                
@@ -180,6 +180,84 @@
                 "league": "Homegrown",
                 "division": "Northeast",
                 "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+            }
+        ]
+    },
+    {
+        "club_name": "New England Surf SC",
+        "location": "Rhode Island",
+        "website": "",
+        "teams": [
+            {
+                "team_name": "New England Surf SC",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]
+            }
+        ]
+    },
+    {
+        "club_name": "Syracuse Development Academy",
+        "location": "Syracuse, NY",
+        "website": "",
+        "teams": [
+            {
+                "team_name": "Syracuse Development Academy",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]
+            }
+        ]
+    },
+    {
+        "club_name": "Connecticut Rush",
+        "location": "Connecticut",
+        "website": "",
+        "teams": [
+            {
+                "team_name": "Connecticut Rush",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]
+            }
+        ]
+    },
+    {
+        "club_name": "New York Elite Alleycats FC",
+        "location": "New York",
+        "website": "",
+        "teams": [
+            {
+                "team_name": "New York Elite Alleycats FC",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]
+            }
+        ]
+    },
+    {
+        "club_name": "Ginga FC",
+        "location": "",
+        "website": "",
+        "teams": [
+            {
+                "team_name": "Ginga FC",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]
+            }
+        ]
+    },
+    {
+        "club_name": "New York Rush",
+        "location": "New York",
+        "website": "",
+        "teams": [
+            {
+                "team_name": "New York Rush",
+                "league": "Academy",
+                "conference": "New England",
+                "age_groups": ["U13", "U14"]
             }
         ]
     }    

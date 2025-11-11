@@ -2066,6 +2066,30 @@ async def create_club(
         raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the club.")
 
 
+@app.put("/api/clubs/{club_id}")
+async def update_club(
+    club_id: int, club: Club, current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Update a club (admin only)."""
+    try:
+        updated_club = sports_dao.update_club(
+            club_id=club_id,
+            name=club.name,
+            city=club.city,
+            website=club.website,
+            description=club.description
+        )
+        if not updated_club:
+            raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
+        logger.info(f"Updated club: {updated_club['name']}")
+        return updated_club
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating club: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.delete("/api/clubs/{club_id}")
 async def delete_club(
     club_id: int, current_user: dict[str, Any] = Depends(require_admin)

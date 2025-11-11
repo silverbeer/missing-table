@@ -39,7 +39,7 @@ class ClubData(BaseModel):
 
     club_name: str
     location: str
-    website: str
+    website: str = ""
     teams: list[TeamData]
     is_pro_academy: bool = Field(
         default=False,
@@ -49,9 +49,9 @@ class ClubData(BaseModel):
     @field_validator("website")
     @classmethod
     def validate_website(cls, v: str) -> str:
-        """Validate website is a URL."""
-        if not v.startswith(("http://", "https://")):
-            raise ValueError(f"Website must be a valid URL, got {v}")
+        """Validate website is a URL or empty."""
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError(f"Website must be a valid URL or empty, got {v}")
         return v
 
 

@@ -395,6 +395,7 @@ class EnhancedSportsDAO:
         division_id: int,
         club_id: int | None = None,
         academy_team: bool = False,
+        client_ip: str | None = None,
     ) -> bool:
         """Add a new team with age groups, division, and optional club.
 
@@ -408,6 +409,7 @@ class EnhancedSportsDAO:
             division_id: Division ID (required, applies to all age groups)
             club_id: Optional club ID
             academy_team: Whether this is an academy team
+            client_ip: Client IP address for security monitoring (optional)
         """
         try:
             # Validate required fields
@@ -1452,7 +1454,7 @@ class EnhancedSportsDAO:
             raise e
 
     def update_team(
-        self, team_id: int, name: str, city: str, academy_team: bool = False, club_id: int | None = None
+        self, team_id: int, name: str, city: str, academy_team: bool = False, club_id: int | None = None, client_ip: str | None = None
     ) -> dict | None:
         """Update a team."""
         try:
@@ -1544,15 +1546,22 @@ class EnhancedSportsDAO:
             response = self.client.table("clubs").select("*").order("name").execute()
             clubs = response.data
 
-            # Enrich with team counts
+            # Enrich with team counts (optimized - single query instead of N+1)
+            # Get all teams with club_id in one query
+            teams_response = (
+                self.client.table("teams")
+                .select("club_id")
+                .not_.is_("club_id", "null")
+                .execute()
+            )
+
+            # Count teams per club
+            from collections import Counter
+            team_counts = Counter(team["club_id"] for team in teams_response.data if team.get("club_id"))
+
+            # Enrich clubs with counts
             for club in clubs:
-                team_count_response = (
-                    self.client.table("teams")
-                    .select("id", count="exact")
-                    .eq("club_id", club["id"])
-                    .execute()
-                )
-                club["team_count"] = team_count_response.count or 0
+                club["team_count"] = team_counts.get(club["id"], 0)
 
             return clubs
         except Exception as e:
@@ -1634,6 +1643,43 @@ class EnhancedSportsDAO:
             return result.data[0]
         except Exception as e:
             print(f"Error creating club: {e}")
+            raise e
+
+    def update_club(self, club_id: int, name: str = None, city: str = None, website: str = None, description: str = None) -> dict | None:
+        """Update an existing club.
+
+        Args:
+            club_id: ID of club to update
+            name: Optional new name
+            city: Optional new city/location
+            website: Optional new website URL
+            description: Optional new description
+
+        Returns:
+            Updated club dict or None if not found
+        """
+        try:
+            update_data = {}
+            if name is not None:
+                update_data["name"] = name
+            if city is not None:
+                update_data["city"] = city
+            if website is not None:
+                update_data["website"] = website
+            if description is not None:
+                update_data["description"] = description
+
+            if not update_data:
+                # Nothing to update
+                return None
+
+            result = self.client.table("clubs").update(update_data).eq("id", club_id).execute()
+
+            if not result.data or len(result.data) == 0:
+                return None
+            return result.data[0]
+        except Exception as e:
+            print(f"Error updating club: {e}")
             raise e
 
     def update_team_club(self, team_id: int, club_id: int | None) -> dict:

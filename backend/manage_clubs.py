@@ -445,6 +445,27 @@ def sync(
         token = get_auth_token()
     console.print("✅ Authenticated as admin\n")
 
+    # Fetch all clubs, teams, leagues, divisions, and age groups ONCE (optimization to prevent N+1 API calls)
+    with console.status("[bold yellow]📡 Fetching existing data from API...", spinner="dots"):
+        all_clubs = get_all_clubs(token)
+        all_teams = get_all_teams(token)
+
+        # Fetch leagues and create lookup dict
+        leagues_response = api_request("GET", "/api/leagues", token)
+        all_leagues = leagues_response.json() if leagues_response.status_code == 200 else []
+        league_lookup = {league["name"].lower(): league["id"] for league in all_leagues}
+
+        # Fetch all divisions (we'll filter by league as needed)
+        divisions_response = api_request("GET", "/api/divisions", token)
+        all_divisions = divisions_response.json() if divisions_response.status_code == 200 else []
+
+        # Fetch age groups and create lookup dict
+        age_groups_response = api_request("GET", "/api/age-groups", token)
+        all_age_groups = age_groups_response.json() if age_groups_response.status_code == 200 else []
+        age_group_lookup = {ag["name"].lower(): ag["id"] for ag in all_age_groups}
+
+    console.print(f"✅ Found {len(all_clubs)} clubs, {len(all_teams)} teams, {len(all_leagues)} leagues, {len(all_divisions)} divisions\n")
+
     # Statistics
     stats = {
         "clubs_created": 0,
@@ -468,8 +489,11 @@ def sync(
         for club in clubs_data:
             progress.update(task, description=f"[cyan]Processing {club.club_name}...")
 
-            # Check if club exists
-            existing_club = find_club_by_name(token, club.club_name)
+            # Check if club exists (search in-memory cache)
+            existing_club = next(
+                (c for c in all_clubs if c["name"].lower() == club.club_name.lower()),
+                None
+            )
 
             if existing_club:
                 # Club exists - check if update needed
@@ -501,8 +525,11 @@ def sync(
                             # Club already exists (caught the duplicate error)
                             console.print(f"  [dim]✓ Club already exists: {club.club_name}[/dim]")
                             stats["clubs_unchanged"] += 1
-                            # Find the club to get its ID for team processing
-                            found_club = find_club_by_name(token, club.club_name)
+                            # Find the club to get its ID for team processing (search in-memory cache)
+                            found_club = next(
+                                (c for c in all_clubs if c["name"].lower() == club.club_name.lower()),
+                                None
+                            )
                             club_id = found_club["id"] if found_club else None
                         else:
                             console.print(f"  [green]✨ Created club: {club.club_name}[/green]")
@@ -525,8 +552,8 @@ def sync(
                     stats["teams_created"] += 1
                     continue
 
-                # Look up division_id for this team (needed to find/create team)
-                league_id = get_league_id_by_name(token, team.league)
+                # Look up division_id for this team (use cached data)
+                league_id = league_lookup.get(team.league.lower())
                 if not league_id:
                     console.print(f"[yellow]⚠️  League not found: {team.league}. Skipping team: {team.team_name}[/yellow]")
                     stats["errors"] += 1
@@ -538,16 +565,31 @@ def sync(
                     stats["errors"] += 1
                     continue
 
-                division_id = get_division_id_by_name_and_league(token, division_name, league_id)
+                # Find division in cached data
+                division_id = None
+                for div in all_divisions:
+                    if div["name"].lower() == division_name.lower() and div.get("league_id") == league_id:
+                        division_id = div["id"]
+                        break
+
                 if not division_id:
                     console.print(f"[yellow]⚠️  Division '{division_name}' not found in league '{team.league}'. Skipping team: {team.team_name}[/yellow]")
                     stats["errors"] += 1
                     continue
 
-                # Check if team exists (using division_id)
-                existing_team = find_team_by_name_and_division(
-                    token, team.team_name, division_id, club_id
-                )
+                # Check if team exists (search in-memory cache using division_id)
+                existing_team = None
+                for t in all_teams:
+                    if (t["name"].lower() == team.team_name.lower() and
+                        t.get("division_id") == division_id):
+                        # If club_id specified, also match on that
+                        if club_id is not None:
+                            if t.get("club_id") == club_id:
+                                existing_team = t
+                                break
+                        else:
+                            existing_team = t
+                            break
 
                 if existing_team:
                     # Team exists - check if update needed
@@ -569,17 +611,58 @@ def sync(
                         console.print(f"    [dim]✓ Team unchanged: {team.team_name} ({team.league})[/dim]")
                         stats["teams_unchanged"] += 1
                 else:
-                    # Create new team
+                    # Create new team (use cached data to avoid N+1 API calls)
                     if not dry_run:
-                        new_team = create_team(token, team, club_id, club.is_pro_academy)
+                        # Look up age group IDs from cached data
+                        if not team.age_groups:
+                            console.print(f"[yellow]⚠️  No age groups specified for team: {team.team_name}. Skipping team creation.[/yellow]")
+                            stats["errors"] += 1
+                            continue
+
+                        age_group_ids = []
+                        for ag_name in team.age_groups:
+                            ag_id = age_group_lookup.get(ag_name.lower())
+                            if ag_id:
+                                age_group_ids.append(ag_id)
+                            else:
+                                console.print(f"[yellow]⚠️  Age group not found: {ag_name}[/yellow]")
+
+                        if not age_group_ids:
+                            console.print(f"[yellow]⚠️  No valid age groups found for team: {team.team_name}. Skipping team creation.[/yellow]")
+                            stats["errors"] += 1
+                            continue
+
+                        # Build payload and create team directly
+                        payload = {
+                            "name": team.team_name,
+                            "city": "",
+                            "age_group_ids": age_group_ids,
+                            "division_id": division_id,
+                            "club_id": club_id,
+                            "academy_team": club.is_pro_academy
+                        }
+
+                        response = api_request("POST", "/api/teams", token, data=payload)
+                        new_team = response.json() if response.status_code == 200 else None
+
+                        if response.status_code == 200 or response.status_code == 409 or "already exists" in response.text.lower():
+                            if response.status_code == 409 or "already exists" in response.text.lower():
+                                new_team = {"exists": True}
+
                         if new_team:
                             if new_team.get("exists"):
                                 # Team already exists (caught the duplicate error)
                                 # Need to update it to set club_id
                                 console.print(f"    [dim]✓ Team already exists: {team.team_name} ({team.league})[/dim]")
 
-                                # Find the existing team and update club_id if needed
-                                existing = find_team_by_name_and_division(token, team.team_name, division_id)
+                                # Find the existing team and update club_id if needed (search in-memory cache)
+                                existing = None
+                                for t in all_teams:
+                                    if (t["name"].lower() == team.team_name.lower() and
+                                        t.get("division_id") == division_id):
+                                        existing = t
+                                        break
+
                                 if existing and existing.get("club_id") != club_id:
                                     if update_team(token, existing["id"], team.team_name, team.league, club_id, club.is_pro_academy):
                                         console.print("    [blue]  └─ Updated parent club link[/blue]")
