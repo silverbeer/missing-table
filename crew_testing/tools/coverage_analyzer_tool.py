@@ -79,12 +79,16 @@ class CoverageAnalyzerTool(BaseTool):
                         return self._no_coverage_for_module(module_path)
 
                 # Extract coverage data
-                # analysis = (filename, executed_lines, excluded_lines, missing_lines)
-                filename, executed, excluded, missing = analysis
+                # analysis = (filename, executed_lines, excluded_lines, missing_lines, missing_formatted)
+                # Note: coverage.py returns 5 values (the 5th is a formatted string representation)
+                filename, executed, excluded, missing, missing_formatted = analysis
 
                 # Calculate statistics
-                total_statements = len(executed) + len(missing)
-                covered_statements = len(executed)
+                # Note: 'executed' contains ALL executable lines (both covered and uncovered)
+                # 'missing' is a subset showing lines that weren't executed
+                total_statements = len(executed)
+                missed_statements = len(missing)
+                covered_statements = total_statements - missed_statements
                 coverage_pct = (covered_statements / total_statements * 100) if total_statements > 0 else 0
 
                 return self._generate_coverage_report(
