@@ -124,6 +124,96 @@ git branch -d feature/your-feature-name
 
 ---
 
+## 🚫 CRITICAL: What NOT to Commit
+
+**⚠️ NEVER COMMIT DEBUG, TEST, OR TEMPORARY SCRIPTS ⚠️**
+
+Before committing, ALWAYS verify you're not adding one-time diagnostic or debugging files.
+
+### Files to NEVER Commit
+
+**Debug/Diagnostic Scripts:**
+- ❌ `backend/check_*.py` - One-time diagnostic scripts
+- ❌ `backend/test_*.py` - Ad-hoc test scripts (⚠️ NOT pytest tests in `tests/` directory!)
+- ❌ `backend/debug_*.py` - Debugging utilities
+- ❌ `backend/inspect_*.py` - Database inspection scripts
+- ❌ `backend/audit_*.py` - One-time audit scripts
+- ❌ `backend/apply_*.py` - One-time data fix scripts
+- ❌ `backend/fix_*.py` - One-time data correction scripts
+- ❌ `backend/compare_*.py` - Temporary comparison scripts
+- ❌ `backend/verify_*.py` - One-time verification scripts
+- ❌ `backend/*_temp.py`, `backend/*_tmp.py` - Temporary files
+- ✅ `backend/tests/test_*.py` - Valid pytest tests (SHOULD be committed)
+- ✅ `backend/__tests__/test_*.py` - Valid pytest tests (SHOULD be committed)
+
+**Ad-hoc SQL Scripts:**
+- ❌ `fix_*.sql` - One-time fix queries
+- ❌ `temp_*.sql` - Temporary queries
+- ❌ `debug_*.sql` - Debug queries
+
+**Other Temporary Files:**
+- ❌ `scratch.*` - Scratch files
+- ❌ `notes.*` - Personal notes
+- ❌ `TODO.*` - Personal TODO lists
+- ❌ Log files, backup files, etc.
+
+### Pre-Commit Checklist
+
+Before every `git commit`, verify:
+
+```bash
+# 1. Check what you're committing
+git status
+
+# 2. Review each file being added
+git diff --staged
+
+# 3. Verify no debug scripts are staged
+git diff --staged --name-only | grep -E "(check_|test_|debug_|fix_|audit_|apply_)"
+
+# 4. If debug scripts found, unstage them
+git reset HEAD backend/check_*.py backend/fix_*.py
+```
+
+### What TO Commit
+
+**✅ Production Code:**
+- Source code in `backend/` (excluding debug scripts)
+- Frontend code in `frontend/src/`
+- **Unit tests:** `backend/tests/test_*.py`, `frontend/__tests__/**`
+- Configuration files (not secrets!)
+- Documentation (`.md` files)
+- Database migrations in `supabase/migrations/`
+
+**✅ Documentation:**
+- Changes to `CLAUDE.md`, `README.md`
+- Documentation in `docs/`
+- Data fix documentation (e.g., `DATA_FIXES_YYYY-MM-DD.md`)
+
+### If You Committed Debug Scripts by Mistake
+
+If debug scripts were committed, clean them up immediately:
+
+```bash
+# Remove from staging
+git reset HEAD backend/check_*.py backend/fix_*.py
+
+# Or if already committed, remove in new commit
+git rm backend/check_*.py backend/fix_*.py
+git commit -m "chore: Remove debug scripts"
+```
+
+### Why This Matters
+- **Code Quality**: Keep repository clean and maintainable
+- **Security**: Prevent accidental exposure of sensitive data or credentials
+- **Review Speed**: Easier PR reviews without noise from debug files
+- **History**: Clean git history focused on real changes
+- **CI/CD**: Faster builds without unnecessary files
+
+**Remember**: Debug scripts are useful locally but don't belong in version control!
+
+---
+
 ## 🎯 Code Quality & Linting
 
 **CRITICAL**: Always run linters after making code changes to maintain code quality and consistency.
