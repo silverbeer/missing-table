@@ -120,8 +120,12 @@ class CoverageAnalyzerTool(BaseTool):
         """Generate markdown coverage report"""
 
         # Unpack analysis results
-        # analysis is a tuple: (filename, executed_lines, excluded_lines, missing_lines)
-        filename, executed_lines, excluded_lines, missing_lines = analysis
+        # analysis is a tuple: (filename, executed_lines, excluded_lines, missing_lines, ...)
+        # Newer versions of coverage may return additional values, so we use indexing
+        filename = analysis[0]
+        executed_lines = analysis[1]
+        excluded_lines = analysis[2] if len(analysis) > 2 else []
+        missing_lines = analysis[3] if len(analysis) > 3 else []
 
         # Read source code for context
         try:

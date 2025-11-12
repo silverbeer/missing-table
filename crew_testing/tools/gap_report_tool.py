@@ -109,7 +109,12 @@ class GapReportTool(BaseTool):
 
             # Get analysis
             try:
-                filename, executed_lines, excluded_lines, missing_lines = cov.analysis2(str(module_path))
+                analysis = cov.analysis2(str(module_path))
+                # Unpack analysis results - use indexing for compatibility with different coverage versions
+                filename = analysis[0]
+                executed_lines = analysis[1]
+                excluded_lines = analysis[2] if len(analysis) > 2 else []
+                missing_lines = analysis[3] if len(analysis) > 3 else []
                 executable_lines = len(executed_lines) + len(missing_lines)
                 coverage_pct = (len(executed_lines) / executable_lines * 100) if executable_lines > 0 else 0
 

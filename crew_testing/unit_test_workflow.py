@@ -48,29 +48,21 @@ def create_unit_test_crew(module_path: str, coverage_target: int = 80) -> Crew:
     # Task 1: Inspector analyzes code and coverage
     inspector_task = Task(
         description=f"""
-        Analyze the Python module and identify testing gaps.
+        Generate a prioritized testing gap report for: {module_path}
 
-        Module: {module_path}
-
-        Steps:
-        1. Use analyze_code tool to extract functions, methods, complexity
-        2. Use analyze_coverage tool to find uncovered lines
-        3. Use generate_gap_report tool to prioritize testing gaps
-
-        IMPORTANT: Your final output should ONLY be the gap report from step 3.
-        Do NOT include the full code analysis or coverage analysis in your output.
+        Use the generate_gap_report tool which will analyze the code and coverage data internally.
 
         The gap report should show:
         - Critical priority functions (complex, large, untested)
         - High priority functions
         - Medium/Low priority functions
         - Recommended test count to reach {coverage_target}% coverage
-        - For top 5 CRITICAL functions: include exception handling patterns and return behavior
+        - For top priority functions: include exception handling patterns and return behavior
 
+        Your output should be the complete gap report from the tool.
         Focus on functions that need the most testing attention.
-        Keep the report concise - Architect only needs the prioritized gaps.
         """,
-        expected_output="Concise prioritized gap report (not full code analysis)",
+        expected_output="Prioritized gap report showing critical testing gaps",
         agent=inspector,
     )
 
