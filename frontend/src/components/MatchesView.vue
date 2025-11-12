@@ -1717,6 +1717,11 @@ export default {
 
     // Get filtered games based on match type
     const getFilteredGames = () => {
+      // Safety check: ensure matches.value is an array
+      if (!matches.value || !Array.isArray(matches.value)) {
+        return [];
+      }
+
       let filteredGames = [...matches.value].filter(
         match => match && match.match_date
       );
