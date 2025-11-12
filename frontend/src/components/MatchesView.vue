@@ -1741,6 +1741,9 @@ export default {
       if (selectedViewTab.value !== 'all') return [];
       const filtered = getFilteredGames().filter(match => {
         const leagueName = match.division?.leagues?.name;
+
+        // Only include if match division is Homegrown
+        // This filters out cross-division matches (Homegrown team vs Academy team)
         return leagueName === 'Homegrown';
       });
       return filtered.sort(sortByDateAndStatus);
@@ -1750,6 +1753,9 @@ export default {
       if (selectedViewTab.value !== 'all') return [];
       const filtered = getFilteredGames().filter(match => {
         const leagueName = match.division?.leagues?.name;
+
+        // Only include if match division is Academy
+        // This filters out cross-division matches (Academy team vs Homegrown team)
         return leagueName === 'Academy';
       });
       return filtered.sort(sortByDateAndStatus);
