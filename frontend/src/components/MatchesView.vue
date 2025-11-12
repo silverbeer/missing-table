@@ -427,7 +427,267 @@
             </tr>
           </thead>
           <tbody>
+            <!-- All Matches view: Group by league with section headers -->
+            <template v-if="selectedViewTab === 'all'">
+              <!-- Homegrown Section -->
+              <tr v-if="homegrownMatches.length > 0">
+                <td
+                  :colspan="canEditGames ? 9 : 8"
+                  class="bg-blue-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-blue-700"
+                >
+                  HOMEGROWN LEAGUE
+                </td>
+              </tr>
+              <tr
+                v-for="(match, index) in homegrownMatches"
+                :key="`homegrown-${match.id}`"
+                :class="{ 'bg-gray-100': index % 2 === 0 }"
+              >
+                <td class="border-b text-center">{{ match.match_date }}</td>
+                <td
+                  class="border-b text-left px-2"
+                  v-html="getTeamDisplay(match)"
+                ></td>
+                <td class="border-b text-center">
+                  {{ getScoreDisplay(match) }}
+                </td>
+                <td class="border-b text-center">
+                  {{ match.match_type_name || 'League' }}
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-green-100 text-green-800':
+                        match.match_status === 'completed',
+                      'bg-blue-100 text-blue-800':
+                        match.match_status === 'scheduled',
+                      'bg-yellow-100 text-yellow-800':
+                        match.match_status === 'postponed',
+                      'bg-red-100 text-red-800':
+                        match.match_status === 'cancelled',
+                      'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
+                        match.match_status === 'live',
+                      'bg-gray-100 text-gray-800': !match.match_status,
+                    }"
+                  >
+                    {{
+                      match.match_status === 'live'
+                        ? '🔴 LIVE'
+                        : match.match_status || 'scheduled'
+                    }}
+                  </span>
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    v-if="match.match_id"
+                    class="text-xs font-mono text-gray-700"
+                    :title="`External Match ID: ${match.match_id}`"
+                  >
+                    {{ match.match_id }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">-</span>
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    :title="getSourceTooltip(match)"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-purple-100 text-purple-800':
+                        match.source === 'match-scraper',
+                      'bg-gray-100 text-gray-700': match.source === 'manual',
+                      'bg-yellow-100 text-yellow-700':
+                        match.source === 'import',
+                    }"
+                  >
+                    {{ getSourceDisplay(match.source) }}
+                  </span>
+                </td>
+                <td v-if="canEditGames" class="border-b text-center">
+                  <button
+                    v-if="canEditGame(match)"
+                    @click="editMatch(match)"
+                    class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Academy Section -->
+              <tr v-if="academyMatches.length > 0">
+                <td
+                  :colspan="canEditGames ? 9 : 8"
+                  class="bg-green-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-green-700"
+                >
+                  ACADEMY LEAGUE
+                </td>
+              </tr>
+              <tr
+                v-for="(match, index) in academyMatches"
+                :key="`academy-${match.id}`"
+                :class="{ 'bg-gray-100': index % 2 === 0 }"
+              >
+                <td class="border-b text-center">{{ match.match_date }}</td>
+                <td
+                  class="border-b text-left px-2"
+                  v-html="getTeamDisplay(match)"
+                ></td>
+                <td class="border-b text-center">
+                  {{ getScoreDisplay(match) }}
+                </td>
+                <td class="border-b text-center">
+                  {{ match.match_type_name || 'League' }}
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-green-100 text-green-800':
+                        match.match_status === 'completed',
+                      'bg-blue-100 text-blue-800':
+                        match.match_status === 'scheduled',
+                      'bg-yellow-100 text-yellow-800':
+                        match.match_status === 'postponed',
+                      'bg-red-100 text-red-800':
+                        match.match_status === 'cancelled',
+                      'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
+                        match.match_status === 'live',
+                      'bg-gray-100 text-gray-800': !match.match_status,
+                    }"
+                  >
+                    {{
+                      match.match_status === 'live'
+                        ? '🔴 LIVE'
+                        : match.match_status || 'scheduled'
+                    }}
+                  </span>
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    v-if="match.match_id"
+                    class="text-xs font-mono text-gray-700"
+                    :title="`External Match ID: ${match.match_id}`"
+                  >
+                    {{ match.match_id }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">-</span>
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    :title="getSourceTooltip(match)"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-purple-100 text-purple-800':
+                        match.source === 'match-scraper',
+                      'bg-gray-100 text-gray-700': match.source === 'manual',
+                      'bg-yellow-100 text-yellow-700':
+                        match.source === 'import',
+                    }"
+                  >
+                    {{ getSourceDisplay(match.source) }}
+                  </span>
+                </td>
+                <td v-if="canEditGames" class="border-b text-center">
+                  <button
+                    v-if="canEditGame(match)"
+                    @click="editMatch(match)"
+                    class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Other matches (without league info) -->
+              <tr v-if="otherMatches.length > 0">
+                <td
+                  :colspan="canEditGames ? 9 : 8"
+                  class="bg-gray-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-gray-700"
+                >
+                  OTHER MATCHES
+                </td>
+              </tr>
+              <tr
+                v-for="(match, index) in otherMatches"
+                :key="`other-${match.id}`"
+                :class="{ 'bg-gray-100': index % 2 === 0 }"
+              >
+                <td class="border-b text-center">{{ match.match_date }}</td>
+                <td
+                  class="border-b text-left px-2"
+                  v-html="getTeamDisplay(match)"
+                ></td>
+                <td class="border-b text-center">
+                  {{ getScoreDisplay(match) }}
+                </td>
+                <td class="border-b text-center">
+                  {{ match.match_type_name || 'League' }}
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-green-100 text-green-800':
+                        match.match_status === 'completed',
+                      'bg-blue-100 text-blue-800':
+                        match.match_status === 'scheduled',
+                      'bg-yellow-100 text-yellow-800':
+                        match.match_status === 'postponed',
+                      'bg-red-100 text-red-800':
+                        match.match_status === 'cancelled',
+                      'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
+                        match.match_status === 'live',
+                      'bg-gray-100 text-gray-800': !match.match_status,
+                    }"
+                  >
+                    {{
+                      match.match_status === 'live'
+                        ? '🔴 LIVE'
+                        : match.match_status || 'scheduled'
+                    }}
+                  </span>
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    v-if="match.match_id"
+                    class="text-xs font-mono text-gray-700"
+                    :title="`External Match ID: ${match.match_id}`"
+                  >
+                    {{ match.match_id }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">-</span>
+                </td>
+                <td class="border-b text-center">
+                  <span
+                    :title="getSourceTooltip(match)"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-purple-100 text-purple-800':
+                        match.source === 'match-scraper',
+                      'bg-gray-100 text-gray-700': match.source === 'manual',
+                      'bg-yellow-100 text-yellow-700':
+                        match.source === 'import',
+                    }"
+                  >
+                    {{ getSourceDisplay(match.source) }}
+                  </span>
+                </td>
+                <td v-if="canEditGames" class="border-b text-center">
+                  <button
+                    v-if="canEditGame(match)"
+                    @click="editMatch(match)"
+                    class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            </template>
+
+            <!-- My Club view: Regular rendering -->
             <tr
+              v-else
               v-for="(match, index) in sortedGames"
               :key="match.id"
               :class="{ 'bg-gray-100': index % 2 === 0 }"
@@ -532,7 +792,336 @@
 
         <!-- Mobile: Card View -->
         <div class="lg:hidden space-y-3">
+          <!-- All Matches view: Group by league with section headers -->
+          <template v-if="selectedViewTab === 'all'">
+            <!-- Homegrown Section -->
+            <div
+              v-if="homegrownMatches.length > 0"
+              class="bg-blue-600 text-white font-bold text-sm py-2 px-4 rounded-lg"
+            >
+              HOMEGROWN LEAGUE
+            </div>
+            <div
+              v-for="(match, index) in homegrownMatches"
+              :key="`homegrown-${match.id}`"
+              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+            >
+              <!-- Match Number and Date -->
+              <div
+                class="flex items-center justify-between mb-3 pb-3 border-b border-gray-100"
+              >
+                <span class="text-xs font-medium text-gray-500"
+                  >Game #{{ index + 1 }}</span
+                >
+                <span class="text-sm font-medium text-gray-700">{{
+                  match.match_date
+                }}</span>
+              </div>
+
+              <!-- Teams and Score -->
+              <div class="mb-3">
+                <div
+                  class="text-base font-medium text-gray-900 mb-2"
+                  v-html="getTeamDisplay(match)"
+                ></div>
+                <div class="flex items-center space-x-3">
+                  <span class="text-2xl font-bold text-gray-900">
+                    {{ getScoreDisplay(match) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Match Details -->
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span class="text-gray-500">Type:</span>
+                  <span class="ml-1 font-medium">{{
+                    match.match_type_name || 'League'
+                  }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Status:</span>
+                  <span
+                    class="ml-1"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-green-100 text-green-800':
+                        match.match_status === 'completed',
+                      'bg-blue-100 text-blue-800':
+                        match.match_status === 'scheduled',
+                      'bg-yellow-100 text-yellow-800':
+                        match.match_status === 'postponed',
+                      'bg-red-100 text-red-800':
+                        match.match_status === 'cancelled',
+                      'bg-red-600 text-white font-extrabold':
+                        match.match_status === 'live',
+                    }"
+                  >
+                    {{
+                      match.match_status === 'live'
+                        ? '🔴 LIVE'
+                        : match.match_status || 'scheduled'
+                    }}
+                  </span>
+                </div>
+                <div v-if="match.match_id">
+                  <span class="text-gray-500">Match ID:</span>
+                  <span class="ml-1 font-mono text-xs">{{
+                    match.match_id
+                  }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Source:</span>
+                  <span
+                    class="ml-1"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-purple-100 text-purple-800':
+                        match.source === 'match-scraper',
+                      'bg-gray-100 text-gray-700': match.source === 'manual',
+                      'bg-yellow-100 text-yellow-700':
+                        match.source === 'import',
+                    }"
+                  >
+                    {{ getSourceDisplay(match.source) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div
+                v-if="canEditGames && canEditGame(match)"
+                class="mt-3 pt-3 border-t border-gray-100"
+              >
+                <button
+                  @click="editMatch(match)"
+                  class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                >
+                  Edit Match
+                </button>
+              </div>
+            </div>
+
+            <!-- Academy Section -->
+            <div
+              v-if="academyMatches.length > 0"
+              class="bg-green-600 text-white font-bold text-sm py-2 px-4 rounded-lg"
+            >
+              ACADEMY LEAGUE
+            </div>
+            <div
+              v-for="(match, index) in academyMatches"
+              :key="`academy-${match.id}`"
+              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+            >
+              <!-- Match Number and Date -->
+              <div
+                class="flex items-center justify-between mb-3 pb-3 border-b border-gray-100"
+              >
+                <span class="text-xs font-medium text-gray-500"
+                  >Game #{{ index + 1 }}</span
+                >
+                <span class="text-sm font-medium text-gray-700">{{
+                  match.match_date
+                }}</span>
+              </div>
+
+              <!-- Teams and Score -->
+              <div class="mb-3">
+                <div
+                  class="text-base font-medium text-gray-900 mb-2"
+                  v-html="getTeamDisplay(match)"
+                ></div>
+                <div class="flex items-center space-x-3">
+                  <span class="text-2xl font-bold text-gray-900">
+                    {{ getScoreDisplay(match) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Match Details -->
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span class="text-gray-500">Type:</span>
+                  <span class="ml-1 font-medium">{{
+                    match.match_type_name || 'League'
+                  }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Status:</span>
+                  <span
+                    class="ml-1"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-green-100 text-green-800':
+                        match.match_status === 'completed',
+                      'bg-blue-100 text-blue-800':
+                        match.match_status === 'scheduled',
+                      'bg-yellow-100 text-yellow-800':
+                        match.match_status === 'postponed',
+                      'bg-red-100 text-red-800':
+                        match.match_status === 'cancelled',
+                      'bg-red-600 text-white font-extrabold':
+                        match.match_status === 'live',
+                    }"
+                  >
+                    {{
+                      match.match_status === 'live'
+                        ? '🔴 LIVE'
+                        : match.match_status || 'scheduled'
+                    }}
+                  </span>
+                </div>
+                <div v-if="match.match_id">
+                  <span class="text-gray-500">Match ID:</span>
+                  <span class="ml-1 font-mono text-xs">{{
+                    match.match_id
+                  }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Source:</span>
+                  <span
+                    class="ml-1"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-purple-100 text-purple-800':
+                        match.source === 'match-scraper',
+                      'bg-gray-100 text-gray-700': match.source === 'manual',
+                      'bg-yellow-100 text-yellow-700':
+                        match.source === 'import',
+                    }"
+                  >
+                    {{ getSourceDisplay(match.source) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div
+                v-if="canEditGames && canEditGame(match)"
+                class="mt-3 pt-3 border-t border-gray-100"
+              >
+                <button
+                  @click="editMatch(match)"
+                  class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                >
+                  Edit Match
+                </button>
+              </div>
+            </div>
+
+            <!-- Other Matches Section -->
+            <div
+              v-if="otherMatches.length > 0"
+              class="bg-gray-600 text-white font-bold text-sm py-2 px-4 rounded-lg"
+            >
+              OTHER MATCHES
+            </div>
+            <div
+              v-for="(match, index) in otherMatches"
+              :key="`other-${match.id}`"
+              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+            >
+              <!-- Match Number and Date -->
+              <div
+                class="flex items-center justify-between mb-3 pb-3 border-b border-gray-100"
+              >
+                <span class="text-xs font-medium text-gray-500"
+                  >Game #{{ index + 1 }}</span
+                >
+                <span class="text-sm font-medium text-gray-700">{{
+                  match.match_date
+                }}</span>
+              </div>
+
+              <!-- Teams and Score -->
+              <div class="mb-3">
+                <div
+                  class="text-base font-medium text-gray-900 mb-2"
+                  v-html="getTeamDisplay(match)"
+                ></div>
+                <div class="flex items-center space-x-3">
+                  <span class="text-2xl font-bold text-gray-900">
+                    {{ getScoreDisplay(match) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Match Details -->
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span class="text-gray-500">Type:</span>
+                  <span class="ml-1 font-medium">{{
+                    match.match_type_name || 'League'
+                  }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Status:</span>
+                  <span
+                    class="ml-1"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-green-100 text-green-800':
+                        match.match_status === 'completed',
+                      'bg-blue-100 text-blue-800':
+                        match.match_status === 'scheduled',
+                      'bg-yellow-100 text-yellow-800':
+                        match.match_status === 'postponed',
+                      'bg-red-100 text-red-800':
+                        match.match_status === 'cancelled',
+                      'bg-red-600 text-white font-extrabold':
+                        match.match_status === 'live',
+                    }"
+                  >
+                    {{
+                      match.match_status === 'live'
+                        ? '🔴 LIVE'
+                        : match.match_status || 'scheduled'
+                    }}
+                  </span>
+                </div>
+                <div v-if="match.match_id">
+                  <span class="text-gray-500">Match ID:</span>
+                  <span class="ml-1 font-mono text-xs">{{
+                    match.match_id
+                  }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Source:</span>
+                  <span
+                    class="ml-1"
+                    :class="{
+                      'px-2 py-1 rounded text-xs font-medium': true,
+                      'bg-purple-100 text-purple-800':
+                        match.source === 'match-scraper',
+                      'bg-gray-100 text-gray-700': match.source === 'manual',
+                      'bg-yellow-100 text-yellow-700':
+                        match.source === 'import',
+                    }"
+                  >
+                    {{ getSourceDisplay(match.source) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div
+                v-if="canEditGames && canEditGame(match)"
+                class="mt-3 pt-3 border-t border-gray-100"
+              >
+                <button
+                  @click="editMatch(match)"
+                  class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                >
+                  Edit Match
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- My Club view: Regular rendering -->
           <div
+            v-else
             v-for="(match, index) in sortedGames"
             :key="match.id"
             class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
@@ -1116,51 +1705,73 @@ export default {
     });
 
     // Sort matches: LIVE matches first, then by date ascending
-    const sortedGames = computed(() => {
-      // Filter out any undefined/null items and ensure match_date exists
+    // Sort helper function: LIVE matches first, then by date ascending
+    const sortByDateAndStatus = (a, b) => {
+      // LIVE matches always come first
+      if (a.match_status === 'live' && b.match_status !== 'live') return -1;
+      if (a.match_status !== 'live' && b.match_status === 'live') return 1;
+
+      // For non-LIVE matches (or both LIVE), sort by date
+      return new Date(a.match_date) - new Date(b.match_date);
+    };
+
+    // Get filtered games based on match type
+    const getFilteredGames = () => {
       let filteredGames = [...matches.value].filter(
         match => match && match.match_date
       );
 
-      // Filter by match type if a specific type is selected (not "All Matches")
+      // Filter by match type if a specific type is selected
       if (selectedMatchTypeId.value !== null) {
         filteredGames = filteredGames.filter(
           match => match.match_type_id === selectedMatchTypeId.value
         );
       }
 
-      // Sort helper function: LIVE matches first, then by date ascending
-      const sortByDateAndStatus = (a, b) => {
-        // LIVE matches always come first
-        if (a.match_status === 'live' && b.match_status !== 'live') return -1;
-        if (a.match_status !== 'live' && b.match_status === 'live') return 1;
+      return filteredGames;
+    };
 
-        // For non-LIVE matches (or both LIVE), sort by date
-        return new Date(a.match_date) - new Date(b.match_date);
-      };
+    // League-grouped matches for "All Matches" view
+    const homegrownMatches = computed(() => {
+      if (selectedViewTab.value !== 'all') return [];
+      const filtered = getFilteredGames().filter(match => {
+        const leagueName = match.division?.leagues?.name;
+        return leagueName === 'Homegrown';
+      });
+      return filtered.sort(sortByDateAndStatus);
+    });
 
-      // For "All Matches" view, group by league (Homegrown first, then Academy)
+    const academyMatches = computed(() => {
+      if (selectedViewTab.value !== 'all') return [];
+      const filtered = getFilteredGames().filter(match => {
+        const leagueName = match.division?.leagues?.name;
+        return leagueName === 'Academy';
+      });
+      return filtered.sort(sortByDateAndStatus);
+    });
+
+    const otherMatches = computed(() => {
+      if (selectedViewTab.value !== 'all') return [];
+      const filtered = getFilteredGames().filter(match => {
+        const leagueName = match.division?.leagues?.name;
+        return leagueName !== 'Homegrown' && leagueName !== 'Academy';
+      });
+      return filtered.sort(sortByDateAndStatus);
+    });
+
+    // Combined sorted games (used for My Club view and as fallback)
+    const sortedGames = computed(() => {
+      // For "All Matches" view, return empty (we use league-specific computed props)
       if (selectedViewTab.value === 'all') {
-        // Separate matches by league
-        const homegrownMatches = filteredGames.filter(match => {
-          const leagueName = match.division?.leagues?.name;
-          return leagueName === 'Homegrown';
-        });
-
-        const academyMatches = filteredGames.filter(match => {
-          const leagueName = match.division?.leagues?.name;
-          return leagueName === 'Academy';
-        });
-
-        // Sort each group independently
-        homegrownMatches.sort(sortByDateAndStatus);
-        academyMatches.sort(sortByDateAndStatus);
-
-        // Combine: Homegrown first, then Academy
-        return [...homegrownMatches, ...academyMatches];
+        return [
+          ...homegrownMatches.value,
+          ...academyMatches.value,
+          ...otherMatches.value,
+        ];
       }
 
       // For "My Club" view, use regular sorting
+      const filteredGames = getFilteredGames();
       return filteredGames.sort(sortByDateAndStatus);
     });
 
