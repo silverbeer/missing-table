@@ -87,6 +87,52 @@ uv run python crew_testing/main.py agents
 uv run python crew_testing/main.py --help
 ```
 
+### Testing Phase 3 Tools
+
+Phase 3 tools (CodeAnalyzerTool, CoverageAnalyzerTool, GapReportTool) have a dedicated testing suite:
+
+```bash
+# Interactive mode (recommended)
+./crew_testing/test-tools.sh
+
+# Or equivalently:
+PYTHONPATH=. backend/.venv/bin/python3 crew_testing/test_phase3_tools.py interactive
+
+# Test specific tool
+./crew_testing/test-tools.sh gap                    # GapReportTool on backend/auth.py
+./crew_testing/test-tools.sh code                   # CodeAnalyzerTool on backend/auth.py
+./crew_testing/test-tools.sh coverage               # CoverageAnalyzerTool on backend/auth.py
+
+# Test all tools in sequence
+./crew_testing/test-tools.sh all                    # Test all on backend/auth.py
+./crew_testing/test-tools.sh all --save             # Save results to crew_testing/reports/
+
+# Test on different module
+PYTHONPATH=. backend/.venv/bin/python3 crew_testing/test_phase3_tools.py all backend/app.py
+
+# List available modules
+./crew_testing/test-tools.sh list
+```
+
+**Interactive Menu:**
+```
+Available Commands:
+
+ Command    Description
+────────────────────────────────────────
+ 1          Test CodeAnalyzerTool
+ 2          Test CoverageAnalyzerTool
+ 3          Test GapReportTool
+ 4          Test All Tools
+ 5          Change module
+ 6          List available modules
+ q          Quit
+
+Current module: backend/auth.py
+
+What would you like to do? >
+```
+
 ## 📊 Example Output
 
 ```

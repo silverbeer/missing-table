@@ -147,4 +147,3 @@ backend/tests/test_matches.py
 
 # Accidentally created nested directories
 backend/crew_testing/
-tests/
