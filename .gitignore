@@ -67,18 +67,22 @@ match-scraper-token.txt
 
 # Temporary scripts (keep permanent utility scripts)
 # One-time debug/diagnostic scripts should NOT be committed
-check_*.py
-test_*.py
-debug_*.py
-inspect_*.py
-audit_*.py
-apply_*.py
-fix_*.py
-compare_*.py
-verify_*.py
-*_temp.py
-*_tmp.py
-scratch_*.py
+# NOTE: test_*.py in tests/ directories are valid and should be committed
+backend/check_*.py
+backend/debug_*.py
+backend/inspect_*.py
+backend/audit_*.py
+backend/apply_*.py
+backend/fix_*.py
+backend/compare_*.py
+backend/verify_*.py
+backend/*_temp.py
+backend/*_tmp.py
+backend/scratch_*.py
+# Ad-hoc test files outside of tests/ directories
+backend/test_*.py
+!backend/tests/test_*.py
+!backend/__tests__/test_*.py
 # Legacy temporary scripts
 populate_teams_dev.py
 populate_teams_simple.py

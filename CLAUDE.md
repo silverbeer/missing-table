@@ -133,16 +133,18 @@ Before committing, ALWAYS verify you're not adding one-time diagnostic or debugg
 ### Files to NEVER Commit
 
 **Debug/Diagnostic Scripts:**
-- ❌ `check_*.py` - One-time diagnostic scripts
-- ❌ `test_*.py` - Ad-hoc test scripts (not unit tests in `tests/` directory)
-- ❌ `debug_*.py` - Debugging utilities
-- ❌ `inspect_*.py` - Database inspection scripts
-- ❌ `audit_*.py` - One-time audit scripts
-- ❌ `apply_*.py` - One-time data fix scripts
-- ❌ `fix_*.py` - One-time data correction scripts
-- ❌ `compare_*.py` - Temporary comparison scripts
-- ❌ `verify_*.py` - One-time verification scripts
-- ❌ `*_temp.py`, `*_tmp.py` - Temporary files
+- ❌ `backend/check_*.py` - One-time diagnostic scripts
+- ❌ `backend/test_*.py` - Ad-hoc test scripts (⚠️ NOT pytest tests in `tests/` directory!)
+- ❌ `backend/debug_*.py` - Debugging utilities
+- ❌ `backend/inspect_*.py` - Database inspection scripts
+- ❌ `backend/audit_*.py` - One-time audit scripts
+- ❌ `backend/apply_*.py` - One-time data fix scripts
+- ❌ `backend/fix_*.py` - One-time data correction scripts
+- ❌ `backend/compare_*.py` - Temporary comparison scripts
+- ❌ `backend/verify_*.py` - One-time verification scripts
+- ❌ `backend/*_temp.py`, `backend/*_tmp.py` - Temporary files
+- ✅ `backend/tests/test_*.py` - Valid pytest tests (SHOULD be committed)
+- ✅ `backend/__tests__/test_*.py` - Valid pytest tests (SHOULD be committed)
 
 **Ad-hoc SQL Scripts:**
 - ❌ `fix_*.sql` - One-time fix queries
@@ -178,7 +180,7 @@ git reset HEAD backend/check_*.py backend/fix_*.py
 **✅ Production Code:**
 - Source code in `backend/` (excluding debug scripts)
 - Frontend code in `frontend/src/`
-- Tests in `tests/` or `__tests__/` directories
+- **Unit tests:** `backend/tests/test_*.py`, `frontend/__tests__/**`
 - Configuration files (not secrets!)
 - Documentation (`.md` files)
 - Database migrations in `supabase/migrations/`
