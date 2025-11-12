@@ -1129,15 +1129,39 @@ export default {
         );
       }
 
-      // Sort: LIVE matches first, then by date ascending
-      return filteredGames.sort((a, b) => {
+      // Sort helper function: LIVE matches first, then by date ascending
+      const sortByDateAndStatus = (a, b) => {
         // LIVE matches always come first
         if (a.match_status === 'live' && b.match_status !== 'live') return -1;
         if (a.match_status !== 'live' && b.match_status === 'live') return 1;
 
         // For non-LIVE matches (or both LIVE), sort by date
         return new Date(a.match_date) - new Date(b.match_date);
-      });
+      };
+
+      // For "All Matches" view, group by league (Homegrown first, then Academy)
+      if (selectedViewTab.value === 'all') {
+        // Separate matches by league
+        const homegrownMatches = filteredGames.filter(match => {
+          const leagueName = match.division?.leagues?.name;
+          return leagueName === 'Homegrown';
+        });
+
+        const academyMatches = filteredGames.filter(match => {
+          const leagueName = match.division?.leagues?.name;
+          return leagueName === 'Academy';
+        });
+
+        // Sort each group independently
+        homegrownMatches.sort(sortByDateAndStatus);
+        academyMatches.sort(sortByDateAndStatus);
+
+        // Combine: Homegrown first, then Academy
+        return [...homegrownMatches, ...academyMatches];
+      }
+
+      // For "My Club" view, use regular sorting
+      return filteredGames.sort(sortByDateAndStatus);
     });
 
     // Check if there are any live matches

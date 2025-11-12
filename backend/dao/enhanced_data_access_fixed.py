@@ -857,7 +857,7 @@ class EnhancedSportsDAO:
                 season:seasons(id, name),
                 age_group:age_groups(id, name),
                 match_type:match_types(id, name),
-                division:divisions(id, name)
+                division:divisions(id, name, league_id, leagues(id, name))
             """)
 
             # Apply filters
@@ -1239,11 +1239,11 @@ class EnhancedSportsDAO:
     ) -> list[dict]:
         """Generate league table with optional filters."""
         try:
-            # Build query
+            # Build query - include team division_id to filter cross-division matches
             query = self.client.table("matches").select("""
                 *,
-                home_team:teams!matches_home_team_id_fkey(id, name),
-                away_team:teams!matches_away_team_id_fkey(id, name),
+                home_team:teams!matches_home_team_id_fkey(id, name, division_id),
+                away_team:teams!matches_away_team_id_fkey(id, name, division_id),
                 match_type:match_types(id, name)
             """)
 
@@ -1260,6 +1260,20 @@ class EnhancedSportsDAO:
 
             # Filter by match type name and status
             matches = [m for m in response.data if m.get("match_type", {}).get("name") == match_type]
+
+            # Filter out cross-division matches for league standings
+            # Only include matches where BOTH teams belong to the requested division
+            if division_id:
+                same_division_matches = []
+                for match in matches:
+                    home_div_id = match.get("home_team", {}).get("division_id")
+                    away_div_id = match.get("away_team", {}).get("division_id")
+
+                    # Only include if both teams are in the requested division
+                    if home_div_id == division_id and away_div_id == division_id:
+                        same_division_matches.append(match)
+
+                matches = same_division_matches
 
             # Filter to only include completed matches (exclude scheduled/postponed/cancelled)
             # Use match_status field if available, otherwise fallback to date-based logic for backwards compatibility
