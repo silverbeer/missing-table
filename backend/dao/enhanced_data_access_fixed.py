@@ -857,7 +857,7 @@ class EnhancedSportsDAO:
                 season:seasons(id, name),
                 age_group:age_groups(id, name),
                 match_type:match_types(id, name),
-                division:divisions(id, name, league_id, leagues(id, name))
+                division:divisions(id, name, league_id, leagues!divisions_league_id_fkey(id, name))
             """)
 
             # Apply filters
