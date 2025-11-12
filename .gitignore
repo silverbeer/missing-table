@@ -66,12 +66,30 @@ backend/add_user_profiles_columns.sql
 match-scraper-token.txt
 
 # Temporary scripts (keep permanent utility scripts)
+# One-time debug/diagnostic scripts should NOT be committed
+check_*.py
+test_*.py
+debug_*.py
+inspect_*.py
+audit_*.py
+apply_*.py
 fix_*.py
+compare_*.py
+verify_*.py
+*_temp.py
+*_tmp.py
+scratch_*.py
+# Legacy temporary scripts
 populate_teams_dev.py
 populate_teams_simple.py
 restore_*.py
 find_max_id.py
 team_name_mappings.json
+
+# One-time SQL fix scripts
+fix_*.sql
+temp_*.sql
+debug_*.sql
 
 # Service management scripts (if temporary)
 # missing-table.sh - now permanent utility
