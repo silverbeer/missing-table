@@ -919,6 +919,7 @@ class EnhancedSportsDAO:
                     "division_name": match["division"]["name"]
                     if match.get("division")
                     else "Unknown",
+                    "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
@@ -990,6 +991,7 @@ class EnhancedSportsDAO:
                     "division_name": match["division"]["name"]
                     if match.get("division")
                     else "Unknown",
+                    "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
@@ -1203,6 +1205,7 @@ class EnhancedSportsDAO:
                     "division_name": match["division"]["name"]
                     if match.get("division")
                     else "Unknown",
+                    "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
