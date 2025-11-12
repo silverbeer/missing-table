@@ -31,9 +31,14 @@ def create_inspector_agent() -> Agent:
     # Get LLM for this agent from config
     llm = CrewConfig.get_llm_for_agent("inspector")
 
-    # Initialize tools
-    # Note: Phase 3 tools not yet implemented, agent will use general knowledge
-    tools = []
+    # Initialize Phase 3 tools
+    from crew_testing.tools import CodeAnalyzerTool, CoverageAnalyzerTool, GapReportTool
+
+    tools = [
+        CodeAnalyzerTool(),
+        CoverageAnalyzerTool(),
+        GapReportTool(),
+    ]
 
     # Create agent
     agent = Agent(

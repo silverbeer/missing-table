@@ -9,6 +9,9 @@ Available tools:
 - Code Generator tools: Generate Python test code (Phase 2)
 - Pytest Runner tools: Execute tests and collect results (Phase 2)
 - File Writer tools: Safely write generated code (Phase 2)
+- Code Analysis tools: AST-based code structure analysis (Phase 3)
+- Coverage Analysis tools: Test coverage measurement (Phase 3)
+- Gap Report tools: Testing gap prioritization (Phase 3)
 """
 
 # Phase 1 tools
@@ -21,6 +24,11 @@ from crew_testing.tools.query_schema_tool import QuerySchemaTool
 from crew_testing.tools.code_generator_tool import CodeGeneratorTool
 from crew_testing.tools.pytest_runner_tool import PytestRunnerTool
 from crew_testing.tools.file_writer_tool import FileWriterTool, FileAppenderTool
+
+# Phase 3 tools
+from crew_testing.tools.code_analyzer_tool import CodeAnalyzerTool
+from crew_testing.tools.coverage_analyzer_tool import CoverageAnalyzerTool
+from crew_testing.tools.gap_report_tool import GapReportTool
 
 __all__ = [
     # Phase 1
@@ -36,4 +44,8 @@ __all__ = [
     "PytestRunnerTool",
     "FileWriterTool",
     "FileAppenderTool",
+    # Phase 3
+    "CodeAnalyzerTool",
+    "CoverageAnalyzerTool",
+    "GapReportTool",
 ]
