@@ -1,7 +1,13 @@
 # Infrastructure as Code Migration Plan
 
+**⚠️ NOTE:** This document references the old infrastructure architecture (separate dev/prod environments, GCE ingress, ManagedCertificate). As of 2025-11-14, infrastructure has been consolidated:
+- ✅ Single `missing-table-dev` namespace serves all domains
+- ✅ nginx ingress replaces GCE ingress
+- ✅ cert-manager/Let's Encrypt replaces ManagedCertificate
+- ✅ Reduced costs from $283/month to $40/month
+
 **Date:** 2025-10-18
-**Status:** Planning
+**Status:** Planning (needs update for consolidated infrastructure)
 **Goal:** Migrate all manually created infrastructure to Terraform-managed IaC
 
 ## Current State: Manual Infrastructure

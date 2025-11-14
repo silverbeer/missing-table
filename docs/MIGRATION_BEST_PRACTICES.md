@@ -307,7 +307,7 @@ npx supabase migration list
 watch -n 30 'curl -s https://missingtable.com/api/health'
 
 # 7. Check application logs
-kubectl logs -l app=missing-table-backend -n missing-table-prod --tail=100
+kubectl logs -l app=missing-table-backend -n missing-table-dev --tail=100
 
 # 8. Announce deployment complete
 ```
@@ -476,7 +476,7 @@ npx supabase db push --linked
 ```bash
 # ❌ BAD: Deploy directly to prod
 git commit -m "add migration" && git push
-kubectl rollout restart deployment/backend -n missing-table-prod
+kubectl rollout restart deployment/backend -n missing-table-dev
 
 # ✅ GOOD: Test locally first
 npx supabase db reset
