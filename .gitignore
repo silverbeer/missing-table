@@ -53,6 +53,9 @@ database_backup_*.json
 database_backup_*.sql
 restore_database_backup*.sql
 
+# Archive directory (contains sensitive backups and deprecated code)
+.archive/
+
 # Auth/user data backups (sensitive - contains emails, UUIDs)
 backend/auth_users_*.json
 backend/auth_backup_*.sql
