@@ -21,9 +21,10 @@ ENV="${1:-dev}"
 # Set environment-specific values
 case "$ENV" in
   prod)
-    NAMESPACE="missing-table-prod"
-    VALUES_FILE="$CHART_DIR/values-prod.yaml"
-    CONTEXT="gke_missing-table_us-central1_missing-table-prod"
+    echo -e "${YELLOW}⚠️  Note: 'prod' now deploys to missing-table-dev (consolidated environment)${NC}"
+    NAMESPACE="missing-table-dev"
+    VALUES_FILE="$CHART_DIR/values-dev.yaml"
+    CONTEXT="gke_missing-table_us-central1_missing-table-dev"
     ;;
   dev)
     NAMESPACE="missing-table-dev"

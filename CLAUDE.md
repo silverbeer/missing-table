@@ -369,29 +369,44 @@ The dev environment is deployed to GKE with HTTPS and custom domain:
 - [GKE HTTPS & Domain Setup Guide](./docs/GKE_HTTPS_DOMAIN_SETUP.md) - Full step-by-step guide
 - [Quick Reference](./docs/HTTPS_QUICK_REFERENCE.md) - Common commands and troubleshooting
 
-### Production Environment
+### Production Environment (Consolidated)
 
-The production environment is deployed to GKE with HTTPS and custom domain:
-- **Production URL:** https://missingtable.com
-- **Dev URL:** https://dev.missingtable.com
-- **GKE Cluster:** `missing-table-prod` (production), `missing-table-dev` (development)
-- **SSL:** Google-managed certificates (auto-renewing)
-- **Database:** Supabase (separate production and dev projects)
+**⚠️ INFRASTRUCTURE CONSOLIDATION (2025-11-14):**
+The separate production environment has been **consolidated into missing-table-dev** to reduce GCP costs from **$283/month to $40/month** (84-87% reduction).
+
+**Current Setup:**
+- **All domains** → `missing-table-dev` namespace (single environment)
+  - https://dev.missingtable.com
+  - https://missingtable.com
+  - https://www.missingtable.com
+- **GKE Cluster:** `missing-table-dev` (single cluster)
+- **Ingress:** nginx ingress controller (migrated from GCE ingress)
+- **SSL:** Let's Encrypt via cert-manager (migrated from Google-managed certificates)
+- **Load Balancer:** Single nginx LB at `34.173.92.110` serving all domains
+- **Database:** Supabase (shared dev/prod project)
+
+**What Changed:**
+- ❌ Deleted `missing-table-prod` namespace (saved ~$46/month)
+- ❌ Deleted GCE ingress + static IPs (saved ~$25/month)
+- ❌ Removed Google-managed certificates
+- ✅ Single nginx ingress controller with cert-manager (saved ~$60/month)
+- ✅ All domains point to same namespace
+- ✅ Same data, same backend, same deployment process
 
 #### Deployment Workflows
 
 **Automated CI/CD:**
-- **Feature branches → Dev:** Commits to feature branches automatically deploy to dev
-- **Main branch → Production:** Merging PR to main automatically deploys to production
-- **Automatic rollback:** Production deployments rollback automatically on failure
+- **All branches → Dev Environment:** All commits automatically deploy to `missing-table-dev`
+- **Main branch:** Can optionally create git tags for releases
+- **Automatic rollback:** Deployments rollback automatically on failure
 - **Versioning:** Semantic versioning with build IDs (e.g., v1.0.0-build.123)
 
 **Key files:**
-- `.github/workflows/deploy-dev.yml` - Auto-deploy to dev on feature branch push
-- `.github/workflows/deploy-prod.yml` - Auto-deploy to prod on main branch push
+- `.github/workflows/deploy.yml` - **Unified deployment workflow** (all branches → missing-table-dev)
+- `.github/workflows/deploy-reusable.yml` - Reusable deployment logic with nginx ingress support
 - `VERSION` - Semantic version file (MAJOR.MINOR.PATCH)
 - `scripts/version-bump.sh` - Bump version (major/minor/patch)
-- `scripts/deploy-prod.sh` - Manual production deployment (emergency only)
+- `scripts/deploy-prod.sh` - ⚠️ DEPRECATED (shows warning, deploys to missing-table-dev)
 - `scripts/health-check.sh` - Health check utility for all environments
 
 #### Version Management
@@ -424,31 +439,50 @@ git push origin main  # Triggers production deployment
 ./scripts/health-check.sh
 ```
 
-#### Production Deployment
+#### Deployment
 
 **Automated (Recommended):**
 ```bash
 # 1. Create PR from feature branch
 # 2. Review and approve PR
-# 3. Merge to main - triggers automatic deployment
+# 3. Merge or push - triggers automatic deployment to missing-table-dev
 # 4. Monitor: https://github.com/silverbeer/missing-table/actions
 ```
 
 **Manual (Emergency Only):**
 ```bash
-# Interactive deployment
+# Deploy directly with Helm
+helm upgrade missing-table ./helm/missing-table \
+  --namespace missing-table-dev \
+  --values ./helm/missing-table/values-dev.yaml \
+  --install --wait
+
+# Rollback if needed
+helm rollback missing-table -n missing-table-dev
+
+# Or use deprecated script (shows warning)
 ./scripts/deploy-prod.sh
+```
 
-# Deploy specific version
-./scripts/deploy-prod.sh --version v1.2.3
+**Monitoring:**
+```bash
+# Check all domains
+curl -I https://dev.missingtable.com/health
+curl -I https://missingtable.com/health
+curl -I https://www.missingtable.com/health
 
-# Rollback production
-helm rollback missing-table -n missing-table-prod
+# View Helm releases
+helm list -n missing-table-dev
+
+# Check ingress
+kubectl get ingress -n missing-table-dev
+kubectl get certificate -n missing-table-dev
 ```
 
 **Documentation:**
 - [Production Runbook](./docs/05-deployment/production-runbook.md) - Complete operations guide
 - [Deployment Guide](./docs/05-deployment/README.md) - Deployment overview
+- [Nginx Ingress Architecture](./docs/05-deployment/nginx-ingress-architecture.md) - Ingress setup details
 
 ### Secret Management (GKE)
 
@@ -1059,5 +1093,5 @@ This file contains **quick reference commands only**. For comprehensive informat
 
 ---
 
-**Last Updated**: 2025-11-01
+**Last Updated**: 2025-11-14
 **Documentation Standards**: [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)

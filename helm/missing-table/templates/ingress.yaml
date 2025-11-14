@@ -8,13 +8,23 @@ metadata:
     app.kubernetes.io/name: {{ include "missing-table.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
   annotations:
-    kubernetes.io/ingress.class: "gce"
-    kubernetes.io/ingress.global-static-ip-name: {{ .Values.ingress.staticIpName }}
-    networking.gke.io/managed-certificates: {{ include "missing-table.fullname" . }}-cert
-    networking.gke.io/v1beta1.FrontendConfig: {{ include "missing-table.fullname" . }}-frontend-config
-    # Allow HTTP traffic (will be redirected to HTTPS by FrontendConfig)
-    kubernetes.io/ingress.allow-http: "true"
+    {{- if .Values.ingress.annotations }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- end }}
 spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+  {{- range .Values.ingress.tls }}
+  - hosts:
+    {{- range .hosts }}
+    - {{ . }}
+    {{- end }}
+    secretName: {{ .secretName }}
+  {{- end }}
+  {{- end }}
   rules:
   {{- range .Values.ingress.hosts }}
   - host: {{ . }}
