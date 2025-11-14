@@ -90,6 +90,11 @@ restore_*.py
 find_max_id.py
 team_name_mappings.json
 
+# Root-level debug/fix scripts (should be in backend/ or scripts/)
+/fix_*.py
+/check_*.py
+/backfill_*.py
+
 # One-time SQL fix scripts
 fix_*.sql
 temp_*.sql
@@ -128,10 +133,16 @@ k3s/worker/configmap-*.yaml
 k3s/worker/secret-*.yaml
 !k3s/worker/*.template
 
+# Obsolete K8s configs (now in Helm charts)
+qualityplaybook-*.yaml
+missing-table-ingress-*.yaml
+letsencrypt-issuer.yaml
+
 # CrewAI Testing - Runtime cache and artifacts (local only)
 crew_testing/.test_cache.json
 crew_testing/logs/
 crew_testing/state/
+crew_testing/reports/
 crew_testing/**/test_*.py
 crew_testing/demo_*.py
 crew_testing/**/*_isolation.py
@@ -140,10 +151,20 @@ crew_testing/*.md
 
 # Test artifacts
 .coverage
+coverage.json
+**/coverage.json
+test-catalog.json
+**/test-catalog.json
 .hypothesis/
 **/tests/.hypothesis/
 backend/tests/test_*.backup_*.py
 backend/tests/test_matches.py
 
+# Root-level test examples (actual tests should be in backend/tests/)
+/tests/
+
 # Accidentally created nested directories
 backend/crew_testing/
+
+# Deprecated scripts with sensitive data
+backend/archive/deprecated-user-scripts/

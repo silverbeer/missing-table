@@ -1,0 +1,26 @@
+Current File,File Size,New Location,Category,Owner,Action,Priority,Status,Notes
+test_dao.py,6.4K,unit/dao/test_data_access.py,Unit,Backend,REFACTOR,P1,Pending,Split into focused test modules for each DAO
+test_clubs.py,5.8K,unit/models/test_clubs.py,Unit,Backend,MOVE,P2,Pending,Verify if truly unit tests or integration
+test_matches.py,3.5K,unit/models/test_matches.py,Unit,Backend,MOVE,P2,Pending,Verify if truly unit tests or integration
+test_api_endpoints.py,13K,integration/api/test_endpoints.py,Integration,API Team,REFACTOR,P1,Pending,Split by endpoint type (health/reference/etc)
+test_auth_endpoints.py,15K,integration/auth/test_auth_flows.py,Integration,Auth Team,REFACTOR,P1,Pending,Extract to unit + integration layers
+test_teams_api_league_filtering.py,8.3K,integration/api/test_teams_filtering.py,Integration,API Team,MOVE,P2,Pending,Rename for clarity
+test_api_version.py,1.6K,integration/api/test_version_endpoint.py,Integration,API Team,MERGE,P3,Pending,Merge with test_version.py
+test_version.py,1.6K,DELETE,N/A,N/A,DELETE,P3,Pending,Duplicate of test_api_version.py
+contract/test_auth_contract.py,N/A,KEEP,Contract,Contract,KEEP,P1,Done,Already well-organized
+contract/test_games_contract.py,N/A,KEEP,Contract,Contract,KEEP,P1,Done,Already well-organized
+contract/test_schemathesis.py,N/A,KEEP,Contract,Contract,KEEP,P1,Done,Already well-organized
+test_enhanced_e2e.py,19K,e2e/test_user_workflows.py,E2E,QA Team,REFACTOR,P1,Pending,Split into focused user journey scenarios
+test_invite_e2e.py,15K,e2e/test_invite_workflow.py,E2E,Auth Team,REFACTOR,P2,Pending,Clean up and add documentation
+test_invite_debug.py,7.8K,DELETE,Debug,N/A,DELETE,P2,Pending,Debug code should not be in production tests
+legacy_e2e_supabase_script.py,5.9K,.archive/tests/,Legacy,N/A,ARCHIVE,P3,Pending,Move to archive or delete entirely
+test_club_filtering_bug_ai.py,1.5K,integration/api/test_clubs_filtering.py,Integration,API Team,MERGE,P2,Pending,Latest AI-generated (KEEP THIS ONE)
+test_club_filtering_bug.py,11K,DELETE,Bug,N/A,DELETE,P2,Pending,Superseded by AI-generated version
+test_crew_generated_club_filtering.py,2.0K,DELETE,Bug,N/A,DELETE,P3,Pending,Early AI experiment - superseded
+conftest.py,8.2K,fixtures/conftest.py + helpers/,Fixtures,All,REFACTOR,P1,Pending,Extract shared fixtures and helpers
+test_version.backup_20251110_140827.py,1.9K,DELETE,Backup,N/A,DELETE,P1,Pending,Backup file - delete immediately
+test_version.backup_20251110_145600.py,1.5K,DELETE,Backup,N/A,DELETE,P1,Pending,Backup file - delete immediately
+test_version.backup_20251110_151139.py,1.4K,DELETE,Backup,N/A,DELETE,P1,Pending,Backup file - delete immediately
+N/A (NEW),N/A,smoke/test_health_checks.py,Smoke,DevOps,CREATE,P1,Pending,Extract from test_api_endpoints.py
+N/A (NEW),N/A,smoke/test_database_connectivity.py,Smoke,DevOps,CREATE,P2,Pending,Create new smoke tests for critical paths
+N/A (NEW),N/A,smoke/test_critical_endpoints.py,Smoke,DevOps,CREATE,P2,Pending,Quick sanity checks for deployments

@@ -1,0 +1,44 @@
+{
+  "teams": [
+    {
+      "id": 1,
+      "name": "Boston United FC",
+      "city": "Boston, MA",
+      "age_group_id": 2,
+      "division_id": 1,
+      "season_id": 1,
+      "coach": "John Smith",
+      "contact_email": "coach@bostonunited.com"
+    },
+    {
+      "id": 2,
+      "name": "Cambridge Strikers",
+      "city": "Cambridge, MA",
+      "age_group_id": 2,
+      "division_id": 1,
+      "season_id": 1,
+      "coach": "Sarah Johnson",
+      "contact_email": "coach@cambridgestrikers.com"
+    },
+    {
+      "id": 3,
+      "name": "Newton Raiders",
+      "city": "Newton, MA",
+      "age_group_id": 2,
+      "division_id": 2,
+      "season_id": 1,
+      "coach": "Mike Wilson",
+      "contact_email": "coach@newtonraiders.com"
+    },
+    {
+      "id": 4,
+      "name": "Brookline Eagles",
+      "city": "Brookline, MA",
+      "age_group_id": 3,
+      "division_id": 1,
+      "season_id": 1,
+      "coach": "Emily Davis",
+      "contact_email": "coach@brooklineeagles.com"
+    }
+  ]
+}
