@@ -1,17 +1,16 @@
-name: Deploy to Production
+name: Deploy to GKE
 
 # Trigger on:
-# 1. Push to main branch (merged PRs)
-# 2. Manual dispatch (for emergency deployments)
+# 1. Push to any branch (all deployments go to dev namespace)
+# 2. Manual dispatch (for on-demand deployments)
 on:
   push:
     branches:
-      - main
+      - '**'
     paths-ignore:
       - 'docs/**'
       - '**.md'
       - '.github/workflows/security-scan.yml'
-      - '.github/workflows/deploy-dev.yml'
   workflow_dispatch:
     inputs:
       skip_tests:
@@ -23,9 +22,9 @@ on:
           - 'true'
           - 'false'
       create_git_tag:
-        description: 'Create git tag for this release'
+        description: 'Create git tag for this release (main branch only)'
         required: false
-        default: 'true'
+        default: 'false'
         type: choice
         options:
           - 'true'
@@ -33,19 +32,20 @@ on:
 
 env:
   GCP_REGION: us-central1
-  GKE_CLUSTER: missing-table-dev  # Use dev cluster for both environments
-  NAMESPACE: missing-table-prod  # But separate namespace for prod
+  GKE_CLUSTER: missing-table-dev
+  NAMESPACE: missing-table-dev  # All deployments go to dev namespace
   REGISTRY: us-central1-docker.pkg.dev/missing-table/missing-table
-  ENVIRONMENT: prod
+  ENVIRONMENT: dev  # Always dev environment now
 
-# Prevent concurrent production deployments
+# Prevent concurrent deployments
 concurrency:
-  group: production-deployment
-  cancel-in-progress: false  # Let current deployment finish, queue the new one
+  group: missing-table-deployment
+  cancel-in-progress: true  # Cancel old deployment, run the new one
 
 permissions:
-  contents: write  # Required to create git tags
+  contents: write  # Required to create git tags (main branch only)
   id-token: write  # Required for Workload Identity Federation
+  pull-requests: write  # Required to comment on PRs
 
 jobs:
   build-and-push:
@@ -80,7 +80,11 @@ jobs:
 
           echo "📦 Version: ${FULL_VERSION}"
           echo "📝 Commit: ${COMMIT_SHA}"
-          echo "🏷️  Tag will be: v${VERSION}"
+
+          # Note if this is main branch (used for tagging)
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "🏷️  Main branch - tag will be: v${VERSION}"
+          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -100,20 +104,19 @@ jobs:
         env:
           BUILD_ID: ${{ github.run_id }}
         run: |
-          echo "🔨 Building backend for production environment..."
+          echo "🔨 Building backend for dev environment..."
 
           # Use build-and-push.sh script with version support
-          # This creates multiple tags: prod, v{VERSION}-build.{ID}, v{VERSION}, latest
-          ./build-and-push.sh backend prod
+          ./build-and-push.sh backend dev
 
       - name: Build and push frontend
         env:
           BUILD_ID: ${{ github.run_id }}
         run: |
-          echo "🔨 Building frontend for production environment..."
+          echo "🔨 Building frontend for dev environment..."
 
           # Use build-and-push.sh script with version support
-          ./build-and-push.sh frontend prod
+          ./build-and-push.sh frontend dev
 
       - name: Set image info for deployment
         id: image-info
@@ -121,9 +124,9 @@ jobs:
           VERSION="${{ steps.version-info.outputs.version }}"
           FULL_VERSION="${{ steps.version-info.outputs.full-version }}"
 
-          # Images are tagged with environment tag (prod) and version tags
-          BACKEND_IMAGE="${{ env.REGISTRY }}/backend:prod"
-          FRONTEND_IMAGE="${{ env.REGISTRY }}/frontend:prod"
+          # Images are tagged with environment tag (dev) and version tag
+          BACKEND_IMAGE="${{ env.REGISTRY }}/backend:dev"
+          FRONTEND_IMAGE="${{ env.REGISTRY }}/frontend:dev"
 
           echo "backend-image=${BACKEND_IMAGE}" >> $GITHUB_OUTPUT
           echo "frontend-image=${FRONTEND_IMAGE}" >> $GITHUB_OUTPUT
@@ -133,50 +136,49 @@ jobs:
 
       - name: Build summary
         run: |
-          echo "### 🐳 Docker Images Built for Production" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Docker Images Built" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ steps.version-info.outputs.full-version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ steps.version-info.outputs.commit-sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** \`production\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Images:**" >> $GITHUB_STEP_SUMMARY
           echo "- Backend: \`${{ steps.image-info.outputs.backend-image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend: \`${{ steps.image-info.outputs.frontend-image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Tags created:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`prod\` (environment tag)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`dev\` (environment tag)" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ steps.version-info.outputs.full-version }}\` (version with build ID)" >> $GITHUB_STEP_SUMMARY
           echo "- \`v${{ steps.version-info.outputs.version }}\` (semantic version)" >> $GITHUB_STEP_SUMMARY
-          echo "- \`latest\` (latest production release)" >> $GITHUB_STEP_SUMMARY
 
   deploy:
-    name: Deploy to GKE Production
+    name: Deploy to GKE
     needs: [build-and-push]
     uses: ./.github/workflows/deploy-reusable.yml
     with:
-      environment: prod
-      namespace: missing-table-prod
-      gke_cluster: missing-table-dev  # Use dev cluster with separate namespace
+      environment: dev
+      namespace: missing-table-dev
+      gke_cluster: missing-table-dev
       gcp_region: us-central1
-      deployment_url: https://missingtable.com
-      replica_count_backend: 1  # Temporary: reduced due to memory constraints
-      replica_count_frontend: 1  # Temporary: reduced due to memory constraints
-      helm_timeout: '15m'  # Longer timeout for production
-      health_check_retries: 10  # More retries for production
-      health_check_delay: 15  # Longer delay between retries
-      enable_backup: true  # Enable backup and automatic rollback
-      enable_git_tag: ${{ github.event.inputs.create_git_tag != 'false' }}  # Create git tags for production
-      enable_pr_comment: false  # Don't comment on PRs for production
+      deployment_url: https://dev.missingtable.com
+      replica_count_backend: 1
+      replica_count_frontend: 1
+      helm_timeout: '10m'
+      health_check_retries: 5
+      health_check_delay: 10
+      enable_backup: ${{ github.ref == 'refs/heads/main' }}  # Only backup for main branch
+      enable_git_tag: ${{ github.ref == 'refs/heads/main' && github.event.inputs.create_git_tag != 'false' }}  # Only tag main branch
+      enable_pr_comment: true  # Comment on PRs
       skip_tests: ${{ github.event.inputs.skip_tests == 'true' }}
-      cors_origins: 'https://missingtable.com,https://www.missingtable.com'
-      backend_resources_requests_cpu: '500m'  # Higher for production
-      backend_resources_requests_memory: '1Gi'
-      backend_resources_limits_cpu: '2000m'
-      backend_resources_limits_memory: '2Gi'
-      frontend_resources_requests_cpu: '500m'  # Higher for production
-      frontend_resources_requests_memory: '512Mi'
-      frontend_resources_limits_cpu: '1000m'
-      frontend_resources_limits_memory: '1Gi'
+      backend_resources_requests_cpu: '250m'
+      backend_resources_requests_memory: '256Mi'
+      backend_resources_limits_cpu: '500m'
+      backend_resources_limits_memory: '512Mi'
+      frontend_resources_requests_cpu: '100m'
+      frontend_resources_requests_memory: '128Mi'
+      frontend_resources_limits_cpu: '250m'
+      frontend_resources_limits_memory: '256Mi'
       commit_sha: ${{ needs.build-and-push.outputs.commit-sha }}
       version: ${{ needs.build-and-push.outputs.version }}
       full_version: ${{ needs.build-and-push.outputs.full-version }}
@@ -184,11 +186,11 @@ jobs:
       frontend_image: ${{ needs.build-and-push.outputs.frontend-image }}
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
-      SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.PROD_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_KEY }}
-      SUPABASE_JWT_SECRET: ${{ secrets.PROD_SUPABASE_JWT_SECRET }}
-      SERVICE_ACCOUNT_SECRET: ${{ secrets.PROD_SERVICE_ACCOUNT_SECRET }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+      SERVICE_ACCOUNT_SECRET: ${{ secrets.SERVICE_ACCOUNT_SECRET }}
       RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
       RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}

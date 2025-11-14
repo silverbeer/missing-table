@@ -1,12 +1,41 @@
 #!/bin/bash
 
-# Manual Production Deployment Script for Missing Table
-# This script provides a safe, interactive way to deploy to production
+# ⚠️ DEPRECATED - This script is no longer needed
+# As of 2025-11-14, the separate prod environment has been consolidated into missing-table-dev
+# All deployments (dev and prod domains) now go to the missing-table-dev namespace
 #
-# Usage:
-#   ./scripts/deploy-prod.sh                    # Interactive deployment
-#   ./scripts/deploy-prod.sh --version v1.2.3   # Deploy specific version
-#   ./scripts/deploy-prod.sh --help             # Show help
+# Use GitHub Actions for deployments:
+#   - Push to any branch → automatic deployment to missing-table-dev
+#   - All domains (dev.missingtable.com, missingtable.com, www.missingtable.com) → missing-table-dev
+#
+# This script is kept for reference only. If you need emergency manual deployment:
+#   ./scripts/deploy-to-dev.sh (if it exists)
+# Or use Helm directly:
+#   helm upgrade missing-table ./helm/missing-table \
+#     --namespace missing-table-dev \
+#     --values ./helm/missing-table/values-dev.yaml \
+#     --install --wait
+
+echo ""
+echo "⚠️  WARNING: This script is DEPRECATED"
+echo ""
+echo "The separate production environment has been consolidated into missing-table-dev"
+echo "to reduce GCP costs from \$283/month to \$40/month."
+echo ""
+echo "All domains now point to missing-table-dev namespace:"
+echo "  - dev.missingtable.com"
+echo "  - missingtable.com"
+echo "  - www.missingtable.com"
+echo ""
+echo "For deployments, use GitHub Actions:"
+echo "  git push origin <branch>  # Automatically deploys to missing-table-dev"
+echo ""
+read -p "Continue anyway with legacy script? (type 'yes' to confirm): " confirm
+if [ "$confirm" != "yes" ]; then
+    echo "Exiting..."
+    exit 0
+fi
+echo ""
 
 set -e
 
@@ -18,10 +47,10 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# Configuration
+# Configuration - UPDATED for consolidated environment
 GCP_REGION="us-central1"
-GKE_CLUSTER="missing-table-prod"
-NAMESPACE="missing-table-prod"
+GKE_CLUSTER="missing-table-dev"  # Changed from missing-table-prod
+NAMESPACE="missing-table-dev"    # Changed from missing-table-prod
 REGISTRY="us-central1-docker.pkg.dev/missing-table/missing-table"
 VERSION_FILE="VERSION"
 
@@ -242,15 +271,15 @@ confirm_deployment() {
 
     print_header "⚠️  PRODUCTION DEPLOYMENT CONFIRMATION"
 
-    echo -e "${BOLD}You are about to deploy to PRODUCTION:${NC}"
+    echo -e "${BOLD}You are about to deploy to PRODUCTION (consolidated dev environment):${NC}"
     echo ""
-    echo "  Environment: production"
+    echo "  Environment: dev (serves all domains)"
     echo "  Cluster: $GKE_CLUSTER"
     echo "  Namespace: $NAMESPACE"
     echo "  Version: $VERSION"
-    echo "  URL: https://missingtable.com"
+    echo "  URLs: https://dev.missingtable.com, https://missingtable.com, https://www.missingtable.com"
     echo ""
-    echo -e "${YELLOW}This will affect live users!${NC}"
+    echo -e "${YELLOW}This will affect all users (dev and prod domains)!${NC}"
     echo ""
 
     read -p "Are you sure you want to continue? (type 'yes' to confirm): " confirmation
@@ -291,19 +320,19 @@ build_images() {
 deploy_with_helm() {
     print_step "Deploying with Helm..."
 
-    # Check if values-prod.yaml exists
-    if [ ! -f "helm/missing-table/values-prod.yaml" ]; then
-        print_error "helm/missing-table/values-prod.yaml not found"
-        print_info "Create it from: helm/missing-table/values-prod.yaml.example"
+    # Check if values-dev.yaml exists (consolidated environment)
+    if [ ! -f "helm/missing-table/values-dev.yaml" ]; then
+        print_error "helm/missing-table/values-dev.yaml not found"
+        print_info "This file should exist for the consolidated dev environment"
         exit 1
     fi
 
     # Deploy with Helm
-    print_info "Running Helm upgrade..."
+    print_info "Running Helm upgrade to consolidated dev environment..."
     helm upgrade missing-table ./helm/missing-table \
         --namespace "$NAMESPACE" \
         --create-namespace \
-        --values ./helm/missing-table/values-prod.yaml \
+        --values ./helm/missing-table/values-dev.yaml \
         --install \
         --wait \
         --timeout 15m \
@@ -352,10 +381,10 @@ run_health_checks() {
     else
         print_warning "scripts/health-check.sh not found, running basic checks..."
 
-        # Basic health check
+        # Basic health check (consolidated environment serves all domains)
         sleep 10
 
-        if curl -f -s https://missingtable.com/health > /dev/null; then
+        if curl -f -s https://dev.missingtable.com/health > /dev/null; then
             print_success "Backend health check passed"
         else
             print_error "Backend health check failed"
@@ -363,7 +392,7 @@ run_health_checks() {
         fi
 
         if curl -f -s https://missingtable.com > /dev/null; then
-            print_success "Frontend check passed"
+            print_success "Frontend check passed (prod domain)"
         else
             print_error "Frontend check failed"
             exit 1
@@ -379,10 +408,13 @@ show_summary() {
 
     echo "✅ Deployment completed successfully!"
     echo ""
-    echo "Environment: production"
+    echo "Environment: dev (consolidated - serves all domains)"
     echo "Version: $VERSION"
     echo "Namespace: $NAMESPACE"
-    echo "URL: https://missingtable.com"
+    echo "URLs:"
+    echo "  - https://dev.missingtable.com"
+    echo "  - https://missingtable.com"
+    echo "  - https://www.missingtable.com"
     echo ""
 
     # Get new revision
@@ -391,7 +423,10 @@ show_summary() {
     echo ""
 
     print_info "Next steps:"
-    echo "  1. Monitor the application: https://missingtable.com"
+    echo "  1. Monitor the application:"
+    echo "     - https://dev.missingtable.com"
+    echo "     - https://missingtable.com"
+    echo "     - https://www.missingtable.com"
     echo "  2. Check logs: kubectl logs -f -l app.kubernetes.io/name=missing-table -n $NAMESPACE"
     echo "  3. Check metrics in GCP Console"
     echo ""

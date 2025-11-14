@@ -353,13 +353,23 @@ jobs:
 
           disableSecurity: false
 
-          # Ingress configuration for cloud environments (dev and prod)
+          # Ingress configuration - nginx with cert-manager
           ingress:
             enabled: true
-            staticIpName: "missing-table-${{ inputs.environment }}-ip"
+            className: nginx
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            tls:
+              - hosts:
+                  - dev.missingtable.com
+                  - missingtable.com
+                  - www.missingtable.com
+                secretName: missing-table-tls
             hosts:
-              - "${{ inputs.environment == 'prod' && 'missingtable.com' || 'dev.missingtable.com' }}"
-              ${{ inputs.environment == 'prod' && '- "www.missingtable.com"' || '' }}
+              - dev.missingtable.com
+              - missingtable.com
+              - www.missingtable.com
           EOF
 
           # Add CORS origins if provided

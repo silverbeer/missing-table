@@ -1,11 +1,21 @@
-# Production environment configuration for GKE
+# ⚠️ DEPRECATED - This file is no longer used
+# As of 2025-11-14, the separate prod environment has been consolidated into missing-table-dev
+# Both prod and dev domains now point to the same environment for cost savings
+#
+# This file is kept for reference only. If you need to recreate a separate prod environment,
+# use this as a template, but note that ingress configuration has changed to nginx + cert-manager.
+#
+# Current setup: All domains (dev.missingtable.com, missingtable.com, www.missingtable.com)
+# → missing-table-dev namespace with nginx ingress
+
+# Production environment configuration for GKE (DEPRECATED)
 # COPY THIS FILE to values-prod.yaml and fill in real credentials
 # values-prod.yaml is gitignored and should never be committed
 
 # SECURITY: This is an EXAMPLE file with placeholders
 # The actual values-prod.yaml contains secrets and is gitignored
 
-# Namespace for production
+# Namespace for production (NOW DEPRECATED - use missing-table-dev)
 namespace: missing-table-prod
 
 # Secrets (stored in Kubernetes Secret)

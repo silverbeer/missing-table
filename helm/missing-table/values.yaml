@@ -185,5 +185,9 @@ serviceAccount:
 # Ingress configuration
 ingress:
   enabled: false  # Disabled by default, enable in environment-specific values
-  staticIpName: ""  # Set in environment-specific values (e.g., "missing-table-prod-ip")
+  className: nginx  # Use nginx ingress controller (not GCE)
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls: []  # TLS configuration for HTTPS
   hosts: []  # List of hostnames (e.g., ["missingtable.com", "www.missingtable.com"])
