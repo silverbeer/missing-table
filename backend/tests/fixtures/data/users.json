@@ -1,0 +1,22 @@
+{
+  "users": [
+    {
+      "id": "test-admin-001",
+      "email": "admin@test.com",
+      "display_name": "Test Admin",
+      "role": "admin"
+    },
+    {
+      "id": "test-manager-001",
+      "email": "manager@test.com",
+      "display_name": "Test Team Manager",
+      "role": "team_manager"
+    },
+    {
+      "id": "test-user-001",
+      "email": "user@test.com",
+      "display_name": "Test User",
+      "role": "user"
+    }
+  ]
+}

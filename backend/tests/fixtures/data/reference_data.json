@@ -1,0 +1,26 @@
+{
+  "age_groups": [
+    {"id": 1, "name": "U13", "description": "Under 13"},
+    {"id": 2, "name": "U14", "description": "Under 14"},
+    {"id": 3, "name": "U15", "description": "Under 15"},
+    {"id": 4, "name": "U16", "description": "Under 16"},
+    {"id": 5, "name": "U17", "description": "Under 17"},
+    {"id": 6, "name": "U19", "description": "Under 19"}
+  ],
+  "divisions": [
+    {"id": 1, "name": "Division 1", "level": 1},
+    {"id": 2, "name": "Division 2", "level": 2},
+    {"id": 3, "name": "Division 3", "level": 3},
+    {"id": 4, "name": "Premier", "level": 0}
+  ],
+  "seasons": [
+    {"id": 1, "name": "2024-2025", "start_date": "2024-08-01", "end_date": "2025-05-31", "is_active": true},
+    {"id": 2, "name": "2023-2024", "start_date": "2023-08-01", "end_date": "2024-05-31", "is_active": false}
+  ],
+  "match_types": [
+    {"id": 1, "name": "League", "description": "Regular league match"},
+    {"id": 2, "name": "Cup", "description": "Cup competition match"},
+    {"id": 3, "name": "Friendly", "description": "Friendly match"},
+    {"id": 4, "name": "Playoff", "description": "Playoff match"}
+  ]
+}
