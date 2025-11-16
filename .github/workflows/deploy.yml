@@ -171,6 +171,7 @@ jobs:
       enable_git_tag: ${{ github.ref == 'refs/heads/main' && github.event.inputs.create_git_tag != 'false' }}  # Only tag main branch
       enable_pr_comment: true  # Comment on PRs
       skip_tests: ${{ github.event.inputs.skip_tests == 'true' }}
+      cors_origins: 'https://dev.missingtable.com,https://missingtable.com,https://www.missingtable.com'
       backend_resources_requests_cpu: '250m'
       backend_resources_requests_memory: '256Mi'
       backend_resources_limits_cpu: '500m'
