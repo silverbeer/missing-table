@@ -306,6 +306,8 @@ jobs:
               logLevel: "info"
               disableLogfire: "true"
               disableSecurity: "true"
+              extra:
+                CORS_ORIGINS: "${{ inputs.cors_origins }}"
             resources:
               requests:
                 memory: "${{ inputs.backend_resources_requests_memory }}"
@@ -371,15 +373,6 @@ jobs:
               - missingtable.com
               - www.missingtable.com
           EOF
-
-          # Add CORS origins if provided
-          if [ -n "${{ inputs.cors_origins }}" ]; then
-            cat >> helm/missing-table/values-${{ inputs.environment }}.yaml << EOF
-
-          cors:
-            origins: "${{ inputs.cors_origins }}"
-          EOF
-          fi
 
           echo "✅ Helm values file created"
 
