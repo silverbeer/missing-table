@@ -11,8 +11,49 @@
       <!-- Basic Profile Info (shared by all) -->
       <div class="profile-info">
         <div class="info-group">
+          <label>Username:</label>
+          <span>{{
+            authStore.state.profile?.username || authStore.state.user?.username
+          }}</span>
+        </div>
+
+        <div class="info-group">
           <label>Email:</label>
-          <span>{{ authStore.state.user?.email }}</span>
+          <input
+            v-model="editForm.email"
+            type="email"
+            :disabled="!isEditing"
+            class="profile-input"
+            :class="{
+              'input-error': emailError && isEditing,
+              'input-valid':
+                !emailError &&
+                editForm.email &&
+                editForm.email.trim() &&
+                isEditing,
+            }"
+            :placeholder="
+              authStore.state.profile?.email || 'Enter email (optional)'
+            "
+            @input="validateEmail"
+            @blur="validateEmail"
+          />
+          <span v-if="emailError && isEditing" class="field-error">{{
+            emailError
+          }}</span>
+          <span
+            v-else-if="
+              isEditing &&
+              editForm.email &&
+              editForm.email.trim() &&
+              !emailError
+            "
+            class="field-success"
+            >✓ Valid email</span
+          >
+          <span v-else-if="isEditing" class="field-hint"
+            >Optional - leave blank if you prefer</span
+          >
         </div>
 
         <div class="info-group">
@@ -22,13 +63,16 @@
             type="text"
             :disabled="!isEditing"
             class="profile-input"
+            :placeholder="
+              authStore.state.profile?.display_name || 'Enter display name'
+            "
           />
         </div>
 
         <div class="info-group">
           <label>Role:</label>
           <span class="role-badge" :class="roleClass">
-            {{ formatRole(authStore.state.profile.role) }}
+            {{ displayRole }}
           </span>
         </div>
 
@@ -47,7 +91,12 @@
         </button>
 
         <div v-else class="edit-actions">
-          <button @click="saveChanges" :disabled="saving" class="save-btn">
+          <button
+            @click="saveChanges"
+            :disabled="saving || !!emailError"
+            class="save-btn"
+            :title="emailError ? 'Fix email errors before saving' : ''"
+          >
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </button>
           <button @click="cancelEditing" class="cancel-btn">Cancel</button>
@@ -70,7 +119,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 export default {
@@ -86,9 +135,11 @@ export default {
     const authStore = useAuthStore();
     const isEditing = ref(false);
     const saving = ref(false);
+    const emailError = ref('');
 
     const editForm = reactive({
       display_name: '',
+      email: '',
       team_id: null,
       player_number: null,
       positions: [],
@@ -114,24 +165,74 @@ export default {
       return roleMap[role] || role;
     };
 
+    const displayRole = computed(() => {
+      const role = authStore.state.profile?.role;
+      const hasClub = !!authStore.state.profile?.club_id;
+      const hasTeam = !!authStore.state.profile?.team_id;
+
+      // If user has club_id, they're managing a club
+      if (role === 'team-manager' && hasClub) {
+        return 'Club Manager';
+      }
+      // If user has team_id, they're managing a single team
+      if (role === 'team-manager' && hasTeam) {
+        return 'Team Manager';
+      }
+      // Otherwise use default role formatting
+      return formatRole(role);
+    });
+
     const formatDate = dateString => {
       if (!dateString) return '';
       return new Date(dateString).toLocaleDateString();
     };
 
-    const startEditing = () => {
+    const validateEmail = () => {
+      emailError.value = '';
+
+      if (!editForm.email || editForm.email.trim() === '') {
+        // Empty email is allowed
+        return true;
+      }
+
+      // Email format validation
+      const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailPattern.test(editForm.email)) {
+        emailError.value =
+          '⚠️ Invalid email format. Please enter a valid email address (e.g., user@example.com)';
+        return false;
+      }
+
+      return true;
+    };
+
+    const initializeEditForm = () => {
       if (authStore.state.profile) {
         editForm.display_name = authStore.state.profile.display_name || '';
+        editForm.email = authStore.state.profile.email || '';
         editForm.team_id = authStore.state.profile.team_id || null;
         editForm.player_number = authStore.state.profile.player_number || null;
         editForm.positions = authStore.state.profile.positions || [];
       }
+    };
+
+    const startEditing = () => {
+      initializeEditForm();
+      emailError.value = '';
+      authStore.clearError();
       isEditing.value = true;
+      // Validate email on start if there's already a value
+      if (editForm.email) {
+        validateEmail();
+      }
     };
 
     const cancelEditing = () => {
       isEditing.value = false;
+      emailError.value = '';
+      authStore.clearError();
       editForm.display_name = '';
+      editForm.email = '';
       editForm.team_id = null;
       editForm.player_number = null;
       editForm.positions = [];
@@ -139,10 +240,18 @@ export default {
 
     const saveChanges = async () => {
       try {
+        // Validate email before submitting
+        if (!validateEmail()) {
+          saving.value = false;
+          return;
+        }
+
         saving.value = true;
+        authStore.clearError();
 
         const updateData = {
           display_name: editForm.display_name,
+          email: editForm.email,
         };
 
         if (editForm.team_id !== null) {
@@ -170,7 +279,9 @@ export default {
         isEditing.value = false;
       } catch (error) {
         console.error('Error updating profile:', error);
-        authStore.setError('Failed to update profile');
+        // Extract specific error message from backend
+        const errorMessage = error?.message || 'Failed to update profile';
+        authStore.setError(errorMessage);
       } finally {
         saving.value = false;
       }
@@ -183,14 +294,31 @@ export default {
       }
     };
 
+    // Initialize edit form when component mounts
+    onMounted(() => {
+      initializeEditForm();
+    });
+
+    // Watch for profile changes and update edit form
+    watch(
+      () => authStore.state.profile,
+      () => {
+        initializeEditForm();
+      },
+      { immediate: true }
+    );
+
     return {
       authStore,
       isEditing,
       saving,
       editForm,
+      emailError,
       roleClass,
+      displayRole,
       formatRole,
       formatDate,
+      validateEmail,
       startEditing,
       cancelEditing,
       saveChanges,
@@ -353,5 +481,49 @@ export default {
   border-radius: 4px;
   border: 1px solid #fecaca;
   margin-top: 10px;
+}
+
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.field-error {
+  display: block;
+  font-size: 13px;
+  color: #dc2626;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.field-success {
+  display: block;
+  font-size: 13px;
+  color: #059669;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.input-error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2;
+}
+
+.input-error:focus {
+  outline: 2px solid #dc2626;
+  outline-offset: 2px;
+}
+
+.input-valid {
+  border-color: #059669 !important;
+  background-color: #f0fdf4;
+}
+
+.input-valid:focus {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
 }
 </style>

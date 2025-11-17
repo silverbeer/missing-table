@@ -46,7 +46,10 @@ export default {
         return 'local';
       } else if (hostname === 'dev.missingtable.com') {
         return 'dev';
-      } else if (hostname === 'missingtable.com' || hostname === 'www.missingtable.com') {
+      } else if (
+        hostname === 'missingtable.com' ||
+        hostname === 'www.missingtable.com'
+      ) {
         return 'production';
       }
       return 'unknown';
