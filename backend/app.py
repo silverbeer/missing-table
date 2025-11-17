@@ -315,6 +315,7 @@ class UserLogin(BaseModel):
 
 class UserProfile(BaseModel):
     display_name: str | None = None
+    email: str | None = None
     role: str | None = None
     team_id: int | None = None
     player_number: int | None = None
@@ -518,9 +519,13 @@ async def login(request: Request, user_data: UserLogin):
             })
 
             if response.user and response.session:
-                # Get user profile with username
+                # Get user profile with username, team, AND club info
                 profile_response = db_conn_holder_obj.client.table('user_profiles')\
-                    .select('*')\
+                    .select('''
+                        *,
+                        team:teams(id, name, city, club_id),
+                        club:clubs(id, name, city)
+                    ''')\
                     .eq('id', response.user.id)\
                     .execute()
 
@@ -558,7 +563,12 @@ async def login(request: Request, user_data: UserLogin):
                         "email": profile.get('email'),  # Real email if provided
                         "display_name": profile.get('display_name'),
                         "role": profile.get('role'),
-                        "team_id": profile.get('team_id')
+                        "team_id": profile.get('team_id'),
+                        "club_id": profile.get('club_id'),
+                        "team": profile.get('team'),
+                        "club": profile.get('club'),
+                        "created_at": profile.get('created_at'),
+                        "updated_at": profile.get('updated_at')
                     }
                 }
             else:
@@ -672,7 +682,8 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             db_conn_holder_obj.client.table("user_profiles")
             .select("""
             *,
-            team:teams(id, name, city)
+            team:teams(id, name, city, club_id),
+            club:clubs(id, name, city)
         """)
             .eq("id", current_user["user_id"])
             .execute()
@@ -682,13 +693,18 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             profile = profile_response.data[0]
             return {
                 "id": profile["id"],
+                "username": profile.get("username"),
+                "email": profile.get("email"),
                 "role": profile["role"],
                 "team_id": profile.get("team_id"),
+                "club_id": profile.get("club_id"),
                 "team": profile.get("team"),
+                "club": profile.get("club"),
                 "display_name": profile.get("display_name"),
                 "player_number": profile.get("player_number"),
                 "positions": profile.get("positions", []),
                 "created_at": profile.get("created_at"),
+                "updated_at": profile.get("updated_at"),
             }
         else:
             raise HTTPException(status_code=404, detail="Profile not found")
@@ -707,6 +723,23 @@ async def update_profile(
         update_data = {}
         if profile_data.display_name is not None:
             update_data["display_name"] = profile_data.display_name
+
+        # Email update with validation
+        if profile_data.email is not None:
+            # Basic email format validation
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if profile_data.email.strip() and not re.match(email_pattern, profile_data.email):
+                raise HTTPException(status_code=400, detail="Invalid email format")
+
+            # Check for email uniqueness (if not empty)
+            if profile_data.email.strip():
+                existing = db_conn_holder_obj.client.table("user_profiles").select("id").eq("email", profile_data.email).neq("id", current_user["user_id"]).execute()
+                if existing.data:
+                    raise HTTPException(status_code=409, detail="Email already in use")
+
+            update_data["email"] = profile_data.email if profile_data.email.strip() else None
+
         if profile_data.team_id is not None:
             update_data["team_id"] = profile_data.team_id
         if profile_data.player_number is not None:
@@ -786,10 +819,11 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
 async def get_current_user_info(current_user: dict = Depends(get_current_user_required)):
     """Get current user info for frontend auth state."""
     try:
-        # Get fresh profile data
+        # Get fresh profile data with team AND club info
         profile_response = db_conn_holder_obj.client.table('user_profiles').select('''
             *,
-            team:teams(id, name, city)
+            team:teams(id, name, city, club_id),
+            club:clubs(id, name, city)
         ''').eq('id', current_user['user_id']).execute()
 
         profile = profile_response.data[0] if profile_response.data else {}
@@ -800,13 +834,19 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                 "id": current_user['user_id'],
                 "email": current_user['email'],
                 "profile": {
+                    "username": profile.get('username'),
+                    "email": profile.get('email'),
                     "role": profile.get('role', 'team-fan'),
                     "team_id": profile.get('team_id'),
+                    "club_id": profile.get('club_id'),
                     "display_name": profile.get('display_name'),
                     "name": profile.get('name'),
                     "player_number": profile.get('player_number'),
                     "positions": profile.get('positions'),
-                    "team": profile.get('team')
+                    "team": profile.get('team'),
+                    "club": profile.get('club'),
+                    "created_at": profile.get('created_at'),
+                    "updated_at": profile.get('updated_at')
                 }
             }
         }
@@ -1139,7 +1179,7 @@ async def get_teams(
 async def add_team(
     request: Request,
     team: Team,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
+    current_user: dict[str, Any] = Depends(require_admin)
 ):
     """Add a new team with age groups, division, and optional parent club.
 

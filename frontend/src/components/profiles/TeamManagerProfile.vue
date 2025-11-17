@@ -1,17 +1,33 @@
 <template>
-  <BaseProfile title="Team Manager Dashboard" @logout="$emit('logout')">
+  <BaseProfile :title="dashboardTitle" @logout="$emit('logout')">
     <template #profile-fields>
-      <div v-if="authStore.state.profile.team" class="info-group">
-        <label>Managing Team:</label>
-        <span class="team-name"
-          >{{ authStore.state.profile.team.name }} ({{
-            authStore.state.profile.team.city
-          }})</span
-        >
+      <!-- Club-level Management -->
+      <div v-if="authStore.state.profile.club" class="info-group">
+        <label>Managing Club:</label>
+        <span class="club-name">
+          {{ authStore.state.profile.club.name }}
+          <span class="club-location"
+            >({{ authStore.state.profile.club.city }})</span
+          >
+          <span class="club-badge">All Teams</span>
+        </span>
       </div>
+
+      <!-- Team-level Management -->
+      <div v-else-if="authStore.state.profile.team" class="info-group">
+        <label>Managing Team:</label>
+        <span class="team-name">
+          {{ authStore.state.profile.team.name }}
+          <span v-if="authStore.state.profile.team.city">
+            ({{ authStore.state.profile.team.city }})
+          </span>
+        </span>
+      </div>
+
+      <!-- No Assignment -->
       <div v-else class="info-group">
-        <label>Team Assignment:</label>
-        <span class="no-team">No team assigned</span>
+        <label>Assignment:</label>
+        <span class="no-team">No team or club assigned</span>
       </div>
     </template>
 
@@ -34,8 +50,11 @@
         </div>
       </div>
 
-      <!-- Team Management Section -->
-      <div v-if="authStore.state.profile.team" class="team-management">
+      <!-- Team Management Section (shows for both club and team managers) -->
+      <div
+        v-if="authStore.state.profile.team || authStore.state.profile.club"
+        class="team-management"
+      >
         <h3>Team Management</h3>
         <div class="management-grid">
           <div class="management-card" @click="showPlayers = !showPlayers">
@@ -157,21 +176,28 @@
         </div>
       </div>
 
-      <!-- No Team Assigned Message -->
-      <div v-if="!authStore.state.profile.team" class="no-team-section">
+      <!-- No Team or Club Assigned Message -->
+      <div
+        v-if="!authStore.state.profile.team && !authStore.state.profile.club"
+        class="no-team-section"
+      >
         <div class="no-team-message">
-          <h3>No Team Assigned</h3>
+          <h3>No Assignment</h3>
           <p>
-            You haven't been assigned to manage a team yet. Contact an
-            administrator to get assigned to a team.
+            You haven't been assigned to manage a team or club yet. Contact an
+            administrator to get assigned.
           </p>
           <div class="contact-admin">
-            <p>Once assigned, you'll be able to:</p>
+            <p>You can be assigned to:</p>
             <ul>
-              <li>Manage team roster and player information</li>
-              <li>View and manage game schedules</li>
-              <li>Access team statistics and performance data</li>
-              <li>Coordinate practice sessions</li>
+              <li>
+                <strong>A specific team</strong> - Manage one team's roster,
+                games, and statistics
+              </li>
+              <li>
+                <strong>An entire club</strong> - Manage all teams within a club
+                organization
+              </li>
             </ul>
           </div>
         </div>
@@ -194,6 +220,7 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const teams = ref([]);
+    const clubTeams = ref([]); // Teams in the managed club
     const teamPlayers = ref([]);
     const teamGames = ref([]);
     const showPlayers = ref(false);
@@ -206,6 +233,31 @@ export default {
       team_id: null,
     });
 
+    // Computed: Is this a club manager or team manager?
+    const isClubManager = computed(() => !!authStore.state.profile?.club_id);
+    const isTeamManager = computed(() => !!authStore.state.profile?.team_id);
+
+    // Computed: Dynamic dashboard title
+    const dashboardTitle = computed(() => {
+      if (isClubManager.value) {
+        return 'Club Manager Dashboard';
+      } else if (isTeamManager.value) {
+        return 'Team Manager Dashboard';
+      }
+      return 'Manager Dashboard';
+    });
+
+    // Computed: List of teams this manager is responsible for
+    const managedTeams = computed(() => {
+      if (isClubManager.value) {
+        return clubTeams.value; // All teams in the club
+      } else if (isTeamManager.value && authStore.state.profile?.team) {
+        return [authStore.state.profile.team]; // Just the one team
+      }
+      return [];
+    });
+
+    // Computed: Total counts across all managed teams
     const playerCount = computed(() => teamPlayers.value.length);
     const gameCount = computed(() => teamGames.value.length);
 
@@ -251,6 +303,22 @@ export default {
         }
       } catch (error) {
         console.error('Error fetching teams:', error);
+      }
+    };
+
+    const fetchClubTeams = async () => {
+      const clubId = authStore.state.profile?.club_id;
+      if (!clubId) return;
+
+      try {
+        const response = await fetch(
+          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs/${clubId}/teams`
+        );
+        if (response.ok) {
+          clubTeams.value = await response.json();
+        }
+      } catch (error) {
+        console.error('Error fetching club teams:', error);
       }
     };
 
@@ -311,11 +379,16 @@ export default {
         .slice(0, 2);
     };
 
-    // Watch for team changes
+    // Watch for team or club changes
     watch(
-      () => authStore.state.profile?.team,
-      async newTeam => {
-        if (newTeam) {
+      () => [authStore.state.profile?.team, authStore.state.profile?.club],
+      async ([newTeam, newClub]) => {
+        if (newClub) {
+          // Club manager: fetch all teams in club
+          await fetchClubTeams();
+        }
+        if (newTeam || newClub) {
+          // Fetch players and games (will be updated to handle club managers)
           await Promise.all([fetchTeamPlayers(), fetchTeamGames()]);
         }
       },
@@ -329,6 +402,7 @@ export default {
     return {
       authStore,
       teams,
+      clubTeams,
       teamPlayers,
       teamGames,
       showPlayers,
@@ -337,6 +411,10 @@ export default {
       loadingGames,
       isEditing,
       editForm,
+      isClubManager,
+      isTeamManager,
+      dashboardTitle,
+      managedTeams,
       playerCount,
       gameCount,
       wins,
@@ -344,6 +422,7 @@ export default {
       losses,
       fetchTeamPlayers,
       fetchTeamGames,
+      fetchClubTeams,
       formatGameDate,
       getInitials,
     };
@@ -355,6 +434,30 @@ export default {
 .team-name {
   color: #059669;
   font-weight: 600;
+}
+
+.club-name {
+  color: #2563eb;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.club-location {
+  color: #6b7280;
+  font-weight: 400;
+  font-size: 0.9em;
+}
+
+.club-badge {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .no-team {

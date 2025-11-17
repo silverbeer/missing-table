@@ -188,6 +188,13 @@ ingress:
   className: nginx  # Use nginx ingress controller (not GCE)
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Force HTTPS redirect - stronger enforcement
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # HSTS - instruct browsers to only use HTTPS (1 year, include subdomains)
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+    nginx.ingress.kubernetes.io/hsts-preload: "true"
   tls: []  # TLS configuration for HTTPS
   hosts: []  # List of hostnames (e.g., ["missingtable.com", "www.missingtable.com"])
