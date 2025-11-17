@@ -39,16 +39,30 @@ export default {
     const status = ref('healthy');
     const currentYear = computed(() => new Date().getFullYear());
 
+    // Determine environment based on current hostname
+    const determineEnvironment = () => {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'local';
+      } else if (hostname === 'dev.missingtable.com') {
+        return 'dev';
+      } else if (hostname === 'missingtable.com' || hostname === 'www.missingtable.com') {
+        return 'production';
+      }
+      return 'unknown';
+    };
+
     const fetchVersion = async () => {
       try {
-        const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/api/version`);
+        // Use relative URL - works with ingress routing on same domain
+        const response = await fetch('/api/version');
 
         if (response.ok) {
           const data = await response.json();
           version.value = data.version;
-          environment.value = data.environment;
           status.value = data.status;
+          // Set environment based on hostname, not API response
+          environment.value = determineEnvironment();
         } else {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -56,6 +70,8 @@ export default {
         console.warn('Failed to fetch version info:', error);
         version.value = 'Unknown';
         status.value = 'error';
+        // Still set environment based on hostname even if API fails
+        environment.value = determineEnvironment();
       }
     };
 

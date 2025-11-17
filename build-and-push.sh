@@ -200,15 +200,17 @@ build_service() {
         # Add service-specific build arguments
         if [ "$service" = "frontend" ]; then
             # Set API URL based on environment
-            if [ "$env" = "dev" ]; then
-                API_URL="https://dev.missingtable.com"
-            elif [ "$env" = "prod" ]; then
-                API_URL="https://missingtable.com"
+            # For cloud deployments (dev/prod), use empty string for relative URLs
+            # Ingress routes /api to backend on same domain
+            if [ "$env" = "dev" ] || [ "$env" = "prod" ]; then
+                API_URL=""
+                print_info "Setting VUE_APP_API_URL='' (relative URLs for ingress routing)"
             else
+                # Local development uses localhost backend
                 API_URL="http://localhost:8000"
+                print_info "Setting VUE_APP_API_URL=${API_URL}"
             fi
 
-            print_info "Setting VUE_APP_API_URL=${API_URL}"
             build_args+=" --build-arg VUE_APP_API_URL=${API_URL}"
             build_args+=" --build-arg VUE_APP_VERSION=${APP_VERSION}"
         fi
