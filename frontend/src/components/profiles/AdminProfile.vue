@@ -207,6 +207,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import BaseProfile from './BaseProfile.vue';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminProfile',
@@ -249,7 +250,7 @@ export default {
       try {
         loadingUsers.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users`
+          `${getApiBaseUrl()}/api/auth/users`
         );
         users.value = response;
       } catch (error) {
@@ -264,16 +265,13 @@ export default {
 
     const updateUserRole = async (userId, newRole) => {
       try {
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users/role`,
-          {
-            method: 'PUT',
-            body: JSON.stringify({
-              user_id: userId,
-              role: newRole,
-            }),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/auth/users/role`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            user_id: userId,
+            role: newRole,
+          }),
+        });
         await fetchUsers();
       } catch (error) {
         console.error('Error updating user role:', error);
@@ -397,7 +395,7 @@ export default {
         }
 
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users/profile`,
+          `${getApiBaseUrl()}/api/auth/users/profile`,
           {
             method: 'PUT',
             body: JSON.stringify(updateData),

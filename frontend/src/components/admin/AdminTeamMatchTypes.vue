@@ -260,6 +260,7 @@
 
 <script>
 import { ref, onMounted, computed } from 'vue';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminTeamMatchTypes',
@@ -295,7 +296,7 @@ export default {
 
     const loadTeams = async () => {
       try {
-        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`;
+        let url = `${getApiBaseUrl()}/api/teams`;
         if (filterMatchType.value && filterAgeGroup.value) {
           url += `?match_type_id=${filterMatchType.value}&age_group_id=${filterAgeGroup.value}`;
         }
@@ -314,7 +315,7 @@ export default {
       try {
         // Load age groups
         const ageGroupsResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+          `${getApiBaseUrl()}/api/age-groups`
         );
         if (ageGroupsResponse.ok) {
           ageGroups.value = await ageGroupsResponse.json();
@@ -322,7 +323,7 @@ export default {
 
         // Load match types
         const matchTypesResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
+          `${getApiBaseUrl()}/api/match-types`
         );
         if (matchTypesResponse.ok) {
           matchTypes.value = await matchTypesResponse.json();
@@ -368,19 +369,16 @@ export default {
     const addTeam = async () => {
       try {
         // First create the team
-        const teamResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: newTeam.value.name,
-              city: newTeam.value.city,
-              age_group_ids: [parseInt(newTeam.value.ageGroupId)],
-              division_ids: [],
-            }),
-          }
-        );
+        const teamResponse = await fetch(`${getApiBaseUrl()}/api/teams`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newTeam.value.name,
+            city: newTeam.value.city,
+            age_group_ids: [parseInt(newTeam.value.ageGroupId)],
+            division_ids: [],
+          }),
+        });
 
         if (!teamResponse.ok) throw new Error('Failed to create team');
 

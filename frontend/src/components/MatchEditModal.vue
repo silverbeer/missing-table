@@ -222,6 +222,7 @@
 <script>
 import { ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../config/api';
 
 export default {
   name: 'MatchEditModal',
@@ -358,7 +359,7 @@ export default {
         });
 
         const updatedMatch = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${props.match.id}`,
+          `${getApiBaseUrl()}/api/matches/${props.match.id}`,
           {
             method: 'PATCH',
             body: JSON.stringify(matchData),

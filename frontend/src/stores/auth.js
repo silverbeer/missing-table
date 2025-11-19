@@ -1,10 +1,8 @@
 import { reactive, computed } from 'vue';
 import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
+import { getApiBaseUrl } from '../config/api';
 
 // Remove Supabase client - using backend API instead
-
-// API URL from environment variable
-const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:8000';
 
 // Auth store
 const state = reactive({
@@ -68,7 +66,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await fetch(`${API_URL}/api/auth/signup`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,7 +105,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await fetch(`${API_URL}/api/auth/signup`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +139,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +185,7 @@ export const useAuthStore = () => {
       const token = localStorage.getItem('auth_token');
       if (token) {
         try {
-          await fetch(`${API_URL}/api/auth/logout`, {
+          await fetch(`${getApiBaseUrl()}/api/auth/logout`, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -238,7 +236,7 @@ export const useAuthStore = () => {
     try {
       if (!state.session) return;
 
-      const response = await apiCall(`${API_URL}/api/auth/me`);
+      const response = await apiCall(`${getApiBaseUrl()}/api/auth/me`);
       if (response && response.success) {
         setProfile(response.user.profile);
         return response.user.profile;
@@ -257,7 +255,7 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      const response = await apiCall(`${API_URL}/api/auth/profile`, {
+      const response = await apiCall(`${getApiBaseUrl()}/api/auth/profile`, {
         method: 'PUT',
         body: JSON.stringify({
           ...updates,
@@ -303,7 +301,7 @@ export const useAuthStore = () => {
       }
 
       // Get current user info from backend (verify and refresh)
-      const response = await apiCall(`${API_URL}/api/auth/me`);
+      const response = await apiCall(`${getApiBaseUrl()}/api/auth/me`);
 
       if (response && response.success) {
         setUser(response.user);
@@ -403,7 +401,7 @@ export const useAuthStore = () => {
         throw new Error('No refresh token');
       }
 
-      const response = await fetch(`${API_URL}/api/auth/refresh`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -449,7 +447,7 @@ export const useAuthStore = () => {
   const checkUsernameAvailability = async username => {
     try {
       const response = await fetch(
-        `${API_URL}/api/auth/username-available/${username}`,
+        `${getApiBaseUrl()}/api/auth/username-available/${username}`,
         {
           method: 'GET',
           headers: {

@@ -156,6 +156,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminAgeGroups',
@@ -178,7 +179,7 @@ export default {
       try {
         loading.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
+          `${getApiBaseUrl()}/api/age-groups`,
           {
             method: 'GET',
           }
@@ -194,7 +195,7 @@ export default {
     const fetchTeams = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+          `${getApiBaseUrl()}/api/teams`,
           {
             method: 'GET',
           }
@@ -218,13 +219,10 @@ export default {
     const createAgeGroup = async () => {
       try {
         formLoading.value = true;
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
-          {
-            method: 'POST',
-            body: JSON.stringify(formData.value),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/age-groups`, {
+          method: 'POST',
+          body: JSON.stringify(formData.value),
+        });
 
         await fetchAgeGroups();
         closeModals();
@@ -246,7 +244,7 @@ export default {
       try {
         formLoading.value = true;
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups/${editingAgeGroup.value.id}`,
+          `${getApiBaseUrl()}/api/age-groups/${editingAgeGroup.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(formData.value),
@@ -274,7 +272,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups/${ageGroup.id}`,
+          `${getApiBaseUrl()}/api/age-groups/${ageGroup.id}`,
           {
             method: 'DELETE',
           }

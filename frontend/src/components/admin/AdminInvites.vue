@@ -237,6 +237,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 const authStore = useAuthStore();
 
@@ -269,17 +270,15 @@ const fetchReferenceData = async () => {
     const headers = authStore.getAuthHeaders();
 
     // Fetch teams
-    const teamsResponse = await fetch(
-      `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
-      { headers }
-    );
+    const teamsResponse = await fetch(`${getApiBaseUrl()}/api/teams`, {
+      headers,
+    });
     teams.value = await teamsResponse.json();
 
     // Fetch age groups
-    const ageGroupsResponse = await fetch(
-      `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
-      { headers }
-    );
+    const ageGroupsResponse = await fetch(`${getApiBaseUrl()}/api/age-groups`, {
+      headers,
+    });
     ageGroups.value = await ageGroupsResponse.json();
   } catch (error) {
     console.error('Error fetching reference data:', error);
@@ -290,7 +289,7 @@ const fetchReferenceData = async () => {
 const fetchInvites = async () => {
   try {
     const headers = authStore.getAuthHeaders();
-    let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/invites/my-invites`;
+    let url = `${getApiBaseUrl()}/api/invites/my-invites`;
     if (statusFilter.value) {
       url += `?status=${statusFilter.value}`;
     }
@@ -323,19 +322,16 @@ const createInvite = async () => {
       endpoint += 'team-fan';
     }
 
-    const response = await fetch(
-      `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}${endpoint}`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          invite_type: newInvite.value.inviteType,
-          team_id: parseInt(newInvite.value.teamId),
-          age_group_id: parseInt(newInvite.value.ageGroupId),
-          email: newInvite.value.email || null,
-        }),
-      }
-    );
+    const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        invite_type: newInvite.value.inviteType,
+        team_id: parseInt(newInvite.value.teamId),
+        age_group_id: parseInt(newInvite.value.ageGroupId),
+        email: newInvite.value.email || null,
+      }),
+    });
 
     if (!response.ok) {
       throw new Error('Failed to create invite');
@@ -367,13 +363,10 @@ const cancelInvite = async inviteId => {
 
   try {
     const headers = authStore.getAuthHeaders();
-    const response = await fetch(
-      `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/invites/${inviteId}`,
-      {
-        method: 'DELETE',
-        headers,
-      }
-    );
+    const response = await fetch(`${getApiBaseUrl()}/api/invites/${inviteId}`, {
+      method: 'DELETE',
+      headers,
+    });
 
     if (!response.ok) {
       throw new Error('Failed to cancel invite');

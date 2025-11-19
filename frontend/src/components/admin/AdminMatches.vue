@@ -383,6 +383,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminMatches',
@@ -418,7 +419,7 @@ export default {
     const fetchMatches = async () => {
       try {
         loading.value = true;
-        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`;
+        let url = `${getApiBaseUrl()}/api/matches`;
         const params = new URLSearchParams();
 
         if (filterSeason.value) params.append('season_id', filterSeason.value);
@@ -453,22 +454,18 @@ export default {
       try {
         const [teamsData, seasonsData, matchTypesData, ageGroupsData] =
           await Promise.all([
-            authStore.apiRequest(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
-              { method: 'GET' }
-            ),
-            authStore.apiRequest(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`,
-              { method: 'GET' }
-            ),
-            authStore.apiRequest(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`,
-              { method: 'GET' }
-            ),
-            authStore.apiRequest(
-              `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
-              { method: 'GET' }
-            ),
+            authStore.apiRequest(`${getApiBaseUrl()}/api/teams`, {
+              method: 'GET',
+            }),
+            authStore.apiRequest(`${getApiBaseUrl()}/api/seasons`, {
+              method: 'GET',
+            }),
+            authStore.apiRequest(`${getApiBaseUrl()}/api/match-types`, {
+              method: 'GET',
+            }),
+            authStore.apiRequest(`${getApiBaseUrl()}/api/age-groups`, {
+              method: 'GET',
+            }),
           ]);
 
         teams.value = teamsData;
@@ -549,7 +546,7 @@ export default {
         };
 
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${editingMatch.value.id}`,
+          `${getApiBaseUrl()}/api/matches/${editingMatch.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(matchData),
@@ -586,7 +583,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${match.id}`,
+          `${getApiBaseUrl()}/api/matches/${match.id}`,
           {
             method: 'DELETE',
           }

@@ -259,6 +259,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminClubs',
@@ -281,9 +282,7 @@ export default {
       loading.value = true;
       error.value = null;
       try {
-        const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs`
-        );
+        const data = await authStore.apiRequest(`${getApiBaseUrl()}/api/clubs`);
         clubs.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error('Error fetching clubs:', err);
@@ -302,16 +301,13 @@ export default {
       error.value = null;
 
       try {
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(newClub.value),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/clubs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(newClub.value),
+        });
 
         // Success! Refresh clubs list
         await fetchClubs();
@@ -346,12 +342,9 @@ export default {
       }
 
       try {
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs/${club.id}`,
-          {
-            method: 'DELETE',
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/clubs/${club.id}`, {
+          method: 'DELETE',
+        });
 
         // Refresh clubs list
         await fetchClubs();

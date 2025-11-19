@@ -29,7 +29,7 @@ export const getApiBaseUrl = () => getApiUrl();
 export const API_BASE_URL = getApiUrl();
 
 // Helper to build API URL at runtime
-const buildUrl = (path) => `${getApiUrl()}${path}`;
+const buildUrl = path => `${getApiUrl()}${path}`;
 
 export const API_ENDPOINTS = {
   get AUTH() {
@@ -54,10 +54,18 @@ export const API_ENDPOINTS = {
       CANCEL: id => `${base}/api/invites/${id}`,
     };
   },
-  get TEAMS() { return buildUrl('/api/teams'); },
-  get AGE_GROUPS() { return buildUrl('/api/age-groups'); },
-  get SEASONS() { return buildUrl('/api/seasons'); },
-  get MATCHES() { return buildUrl('/api/matches'); },
+  get TEAMS() {
+    return buildUrl('/api/teams');
+  },
+  get AGE_GROUPS() {
+    return buildUrl('/api/age-groups');
+  },
+  get SEASONS() {
+    return buildUrl('/api/seasons');
+  },
+  get MATCHES() {
+    return buildUrl('/api/matches');
+  },
 };
 
 console.log('API Configuration:', {

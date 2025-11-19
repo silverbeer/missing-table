@@ -479,6 +479,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminTeams',
@@ -518,7 +519,7 @@ export default {
       try {
         loading.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams?include_parent=true`,
+          `${getApiBaseUrl()}/api/teams?include_parent=true`,
           {
             method: 'GET',
           }
@@ -534,7 +535,7 @@ export default {
     const fetchAgeGroups = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`,
+          `${getApiBaseUrl()}/api/age-groups`,
           {
             method: 'GET',
           }
@@ -548,7 +549,7 @@ export default {
     const fetchClubs = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs?include_empty=true`,
+          `${getApiBaseUrl()}/api/clubs?include_empty=true`,
           {
             method: 'GET',
           }
@@ -563,7 +564,7 @@ export default {
     const fetchDivisions = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
+          `${getApiBaseUrl()}/api/divisions`,
           {
             method: 'GET',
           }
@@ -577,7 +578,7 @@ export default {
     const fetchGameTypes = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`,
+          `${getApiBaseUrl()}/api/match-types`,
           {
             method: 'GET',
           }
@@ -645,13 +646,10 @@ export default {
           academy_team: formData.value.academyTeam,
         };
 
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
-          {
-            method: 'POST',
-            body: JSON.stringify(teamData),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/teams`, {
+          method: 'POST',
+          body: JSON.stringify(teamData),
+        });
 
         // Note: In a full implementation, you would also add game type participation here
         // using the team ID returned from the response and the selected game type IDs
@@ -710,7 +708,7 @@ export default {
           academy_team: formData.value.academyTeam,
         };
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams/${editingTeam.value.id}`,
+          `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(updateData),
@@ -731,7 +729,7 @@ export default {
             for (const ageGroup of editingTeam.value.age_groups || []) {
               try {
                 await authStore.apiRequest(
-                  `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams/${editingTeam.value.id}/game-types/${gameTypeId}/${ageGroup.id}`,
+                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/game-types/${gameTypeId}/${ageGroup.id}`,
                   {
                     method: 'DELETE',
                   }
@@ -753,7 +751,7 @@ export default {
             for (const ageGroup of editingTeam.value.age_groups || []) {
               try {
                 await authStore.apiRequest(
-                  `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams/${editingTeam.value.id}/game-types`,
+                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/game-types`,
                   {
                     method: 'POST',
                     body: JSON.stringify({
@@ -786,12 +784,9 @@ export default {
       if (!confirm(`Are you sure you want to delete "${team.name}"?`)) return;
 
       try {
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams/${team.id}`,
-          {
-            method: 'DELETE',
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/teams/${team.id}`, {
+          method: 'DELETE',
+        });
 
         await fetchTeams();
       } catch (err) {
@@ -807,17 +802,14 @@ export default {
     const addTeamMapping = async () => {
       try {
         mappingLoading.value = true;
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/team-mappings`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              team_id: selectedTeam.value.id,
-              age_group_id: parseInt(mappingForm.value.age_group_id),
-              division_id: parseInt(mappingForm.value.division_id),
-            }),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/team-mappings`, {
+          method: 'POST',
+          body: JSON.stringify({
+            team_id: selectedTeam.value.id,
+            age_group_id: parseInt(mappingForm.value.age_group_id),
+            division_id: parseInt(mappingForm.value.division_id),
+          }),
+        });
 
         await fetchTeams();
         selectedTeam.value = teams.value.find(
@@ -837,7 +829,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/team-mappings/${selectedTeam.value.id}/${mapping.age_groups.id}/${mapping.divisions.id}`,
+          `${getApiBaseUrl()}/api/team-mappings/${selectedTeam.value.id}/${mapping.age_groups.id}/${mapping.divisions.id}`,
           {
             method: 'DELETE',
           }

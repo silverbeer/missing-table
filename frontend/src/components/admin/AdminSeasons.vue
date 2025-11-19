@@ -196,6 +196,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminSeasons',
@@ -220,7 +221,7 @@ export default {
       try {
         loading.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`,
+          `${getApiBaseUrl()}/api/seasons`,
           {
             method: 'GET',
           }
@@ -236,7 +237,7 @@ export default {
     const fetchGames = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`,
+          `${getApiBaseUrl()}/api/matches`,
           {
             method: 'GET',
           }
@@ -265,13 +266,10 @@ export default {
     const createSeason = async () => {
       try {
         formLoading.value = true;
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`,
-          {
-            method: 'POST',
-            body: JSON.stringify(formData.value),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/seasons`, {
+          method: 'POST',
+          body: JSON.stringify(formData.value),
+        });
 
         await fetchSeasons();
         closeModals();
@@ -293,7 +291,7 @@ export default {
       try {
         formLoading.value = true;
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons/${editingSeason.value.id}`,
+          `${getApiBaseUrl()}/api/seasons/${editingSeason.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(formData.value),
@@ -320,7 +318,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons/${season.id}`,
+          `${getApiBaseUrl()}/api/seasons/${season.id}`,
           {
             method: 'DELETE',
           }

@@ -1244,6 +1244,7 @@
 <script>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../config/api';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 
 export default {
@@ -1276,7 +1277,7 @@ export default {
     const fetchAgeGroups = async () => {
       try {
         const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+          `${getApiBaseUrl()}/api/age-groups`
         );
         ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
@@ -1287,7 +1288,7 @@ export default {
     const fetchSeasons = async () => {
       try {
         const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+          `${getApiBaseUrl()}/api/seasons`
         );
         seasons.value = data.sort(
           (a, b) => new Date(b.start_date) - new Date(a.start_date)
@@ -1306,7 +1307,7 @@ export default {
     const fetchGameTypes = async () => {
       try {
         matchTypes.value = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
+          `${getApiBaseUrl()}/api/match-types`
         );
       } catch (err) {
         console.error('Error fetching match types:', err);
@@ -1316,7 +1317,7 @@ export default {
     const fetchLeagues = async () => {
       try {
         const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues`
+          `${getApiBaseUrl()}/api/leagues`
         );
         leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
@@ -1354,7 +1355,7 @@ export default {
     const fetchTeams = async () => {
       try {
         teams.value = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+          `${getApiBaseUrl()}/api/teams`
         );
 
         // Auto-select for non-admin users (team managers, fans, players)
@@ -1403,7 +1404,7 @@ export default {
 
         try {
           const url =
-            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches?` +
+            `${getApiBaseUrl()}/api/matches?` +
             `start_date=${start_date}&end_date=${end_date}` +
             `&season_id=${selectedSeasonId.value}` +
             `&age_group_id=${selectedAgeGroupId.value}`;
@@ -1431,7 +1432,7 @@ export default {
           'age_group:',
           selectedAgeGroupId.value
         );
-        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}`;
+        const url = `${getApiBaseUrl()}/api/matches/team/${selectedTeam.value}?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}`;
         matches.value = await authStore.apiRequest(url);
         console.log('Games received:', matches.value);
       } catch (err) {

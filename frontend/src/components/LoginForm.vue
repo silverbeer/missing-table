@@ -160,6 +160,7 @@
 <script>
 import { ref, reactive, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../config/api';
 
 export default {
   name: 'LoginForm',
@@ -204,7 +205,7 @@ export default {
 
       try {
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/invites/validate/${form.inviteCode}`
+          `${getApiBaseUrl()}/api/invites/validate/${form.inviteCode}`
         );
 
         if (response.ok) {
@@ -222,9 +223,7 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
-        );
+        const response = await fetch(`${getApiBaseUrl()}/api/teams`);
         const data = await response.json();
         teams.value = data;
       } catch (error) {
