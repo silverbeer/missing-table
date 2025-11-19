@@ -121,6 +121,7 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../config/api';
 
 export default {
   name: 'UserProfile',
@@ -227,7 +228,7 @@ export default {
       try {
         loadingUsers.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users`
+          `${getApiBaseUrl()}/api/auth/users`
         );
         users.value = response;
         console.log('Successfully fetched users for admin');
@@ -249,9 +250,7 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
-        );
+        const response = await fetch(`${getApiBaseUrl()}/api/teams`);
         const data = await response.json();
         teams.value = data;
       } catch (error) {
@@ -261,16 +260,13 @@ export default {
 
     const updateUserRole = async (userId, newRole) => {
       try {
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users/role`,
-          {
-            method: 'PUT',
-            body: JSON.stringify({
-              user_id: userId,
-              role: newRole,
-            }),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/auth/users/role`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            user_id: userId,
+            role: newRole,
+          }),
+        });
 
         // Refresh users list
         await fetchUsers();

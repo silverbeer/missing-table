@@ -121,6 +121,7 @@
 <script>
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'BaseProfile',
@@ -266,13 +267,10 @@ export default {
           updateData.positions = editForm.positions;
         }
 
-        await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/profile`,
-          {
-            method: 'PUT',
-            body: JSON.stringify(updateData),
-          }
-        );
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/auth/profile`, {
+          method: 'PUT',
+          body: JSON.stringify(updateData),
+        });
 
         // Refresh profile data
         await authStore.fetchProfile();

@@ -156,12 +156,8 @@ def get_cors_origins():
         "http://192.168.1.2:8081",
     ]
 
-    # Add development cloud origins
-    dev_origins = [
-        "https://dev.missingtable.com",
-    ]
-
-    # Add production origins (HTTPS only - HTTP redirects to HTTPS via FrontendConfig)
+    # Production origins (HTTPS only - HTTP redirects to HTTPS via Ingress)
+    # After deprecating dev.missingtable.com (2025-11-19), only production domains remain
     production_origins = [
         "https://missingtable.com",
         "https://www.missingtable.com",
@@ -173,12 +169,16 @@ def get_cors_origins():
 
     # Get environment-specific origins
     environment = os.getenv('ENVIRONMENT', 'development')
+
+    # All production domains point to the same namespace (missing-table-dev)
+    all_cloud_origins = production_origins
+
     if environment == 'production':
-        # In production, allow both local (for development) and production origins
-        return local_origins + production_origins + extra_origins
+        # In production, allow both local (for development) and all cloud origins
+        return local_origins + all_cloud_origins + extra_origins
     else:
-        # In development, allow local and dev cloud origins
-        return local_origins + dev_origins + extra_origins
+        # In development/dev environment, also allow all cloud origins (consolidated architecture)
+        return local_origins + all_cloud_origins + extra_origins
 
 origins = get_cors_origins()
 

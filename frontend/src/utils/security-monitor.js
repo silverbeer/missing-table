@@ -8,9 +8,11 @@
  * - User behavior analytics for anomaly detection
  */
 
+import { getApiBaseUrl } from '../config/api';
+
 class SecurityMonitor {
   constructor() {
-    this.apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:8000';
+    this.apiUrl = getApiBaseUrl();
     this.sessionId = this.generateSessionId();
     this.eventQueue = [];
     this.userBehavior = {

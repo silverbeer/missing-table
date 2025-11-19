@@ -254,6 +254,7 @@
 <script>
 import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { getApiBaseUrl } from '../config/api';
 
 export default {
   name: 'MatchForm',
@@ -293,7 +294,7 @@ export default {
         console.log('Current selectedMatchType:', selectedMatchType.value);
         console.log('Current selectedAgeGroup:', selectedAgeGroup.value);
 
-        let url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`;
+        let url = `${getApiBaseUrl()}/api/teams`;
 
         // Add filtering if both match type and age group are selected
         if (selectedMatchType.value && selectedAgeGroup.value) {
@@ -324,7 +325,7 @@ export default {
       try {
         // Fetch active seasons (current and future)
         const activeSeasonsResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/active-seasons`
+          `${getApiBaseUrl()}/api/active-seasons`
         );
         if (activeSeasonsResponse.ok) {
           activeSeasons.value = await activeSeasonsResponse.json();
@@ -336,7 +337,7 @@ export default {
 
         // Fetch age groups
         const ageGroupsResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+          `${getApiBaseUrl()}/api/age-groups`
         );
         if (ageGroupsResponse.ok) {
           ageGroups.value = await ageGroupsResponse.json();
@@ -348,7 +349,7 @@ export default {
 
         // Fetch match types
         const matchTypesResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/match-types`
+          `${getApiBaseUrl()}/api/match-types`
         );
         if (matchTypesResponse.ok) {
           matchTypes.value = await matchTypesResponse.json();
@@ -360,7 +361,7 @@ export default {
 
         // Fetch divisions
         const divisionsResponse = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
+          `${getApiBaseUrl()}/api/divisions`
         );
         if (divisionsResponse.ok) {
           divisions.value = await divisionsResponse.json();
@@ -390,7 +391,7 @@ export default {
         });
 
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/check-match?${params.toString()}`
+          `${getApiBaseUrl()}/api/check-match?${params.toString()}`
         );
 
         if (!response.ok) {
@@ -479,7 +480,7 @@ export default {
         ) {
           // Update existing match
           result = await apiRequest(
-            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/${matchCheck.match_id}`,
+            `${getApiBaseUrl()}/api/matches/${matchCheck.match_id}`,
             {
               method: 'PUT',
               body: requestBody,
@@ -487,13 +488,10 @@ export default {
           );
         } else {
           // Create new match
-          result = await apiRequest(
-            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches`,
-            {
-              method: 'POST',
-              body: requestBody,
-            }
-          );
+          result = await apiRequest(`${getApiBaseUrl()}/api/matches`, {
+            method: 'POST',
+            body: requestBody,
+          });
         }
 
         if (result) {

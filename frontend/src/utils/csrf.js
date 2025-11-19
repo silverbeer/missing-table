@@ -2,6 +2,8 @@
  * CSRF token management utilities
  */
 
+import { getApiBaseUrl } from '../config/api';
+
 let csrfToken = null;
 
 /**
@@ -9,15 +11,12 @@ let csrfToken = null;
  */
 export async function fetchCSRFToken() {
   try {
-    const response = await fetch(
-      `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/csrf-token`,
-      {
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-        },
-      }
-    );
+    const response = await fetch(`${getApiBaseUrl()}/api/csrf-token`, {
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
 
     if (!response.ok) {
       throw new Error('Failed to fetch CSRF token');

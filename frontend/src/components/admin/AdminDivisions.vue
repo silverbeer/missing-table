@@ -204,6 +204,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'AdminDivisions',
@@ -229,7 +230,7 @@ export default {
       try {
         loading.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
+          `${getApiBaseUrl()}/api/divisions`,
           {
             method: 'GET',
           }
@@ -245,7 +246,7 @@ export default {
     const fetchTeams = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`,
+          `${getApiBaseUrl()}/api/teams`,
           {
             method: 'GET',
           }
@@ -259,7 +260,7 @@ export default {
     const fetchLeagues = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues`,
+          `${getApiBaseUrl()}/api/leagues`,
           {
             method: 'GET',
           }
@@ -297,7 +298,7 @@ export default {
         console.log('User role:', authStore.userRole.value);
 
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`,
+          `${getApiBaseUrl()}/api/divisions`,
           {
             method: 'POST',
             body: JSON.stringify(formData.value),
@@ -327,7 +328,7 @@ export default {
       try {
         formLoading.value = true;
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions/${editingDivision.value.id}`,
+          `${getApiBaseUrl()}/api/divisions/${editingDivision.value.id}`,
           {
             method: 'PUT',
             body: JSON.stringify(formData.value),
@@ -355,7 +356,7 @@ export default {
 
       try {
         await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions/${division.id}`,
+          `${getApiBaseUrl()}/api/divisions/${division.id}`,
           {
             method: 'DELETE',
           }

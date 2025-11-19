@@ -215,6 +215,7 @@
 <script>
 import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { getApiBaseUrl } from '../config/api';
 
 export default {
   name: 'LeagueTable',
@@ -243,7 +244,7 @@ export default {
     const fetchAgeGroups = async () => {
       try {
         const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/age-groups`
+          `${getApiBaseUrl()}/api/age-groups`
         );
         ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -259,9 +260,7 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
-        );
+        const data = await authStore.apiRequest(`${getApiBaseUrl()}/api/teams`);
         teams.value = data;
       } catch (err) {
         console.error('Error fetching teams:', err);
@@ -271,7 +270,7 @@ export default {
     const fetchLeagues = async () => {
       try {
         const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/leagues`
+          `${getApiBaseUrl()}/api/leagues`
         );
         leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -322,7 +321,7 @@ export default {
     const fetchDivisions = async () => {
       try {
         const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/divisions`
+          `${getApiBaseUrl()}/api/divisions`
         );
         allDivisions.value = data.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -344,7 +343,7 @@ export default {
     const fetchSeasons = async () => {
       try {
         const data = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/seasons`
+          `${getApiBaseUrl()}/api/seasons`
         );
         // Sort seasons by start date (most recent first)
         seasons.value = data.sort(
@@ -381,7 +380,7 @@ export default {
         divisionId: selectedDivisionId.value,
       });
       try {
-        const url = `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
+        const url = `${getApiBaseUrl()}/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
 
         const data = await authStore.apiRequest(url);
         console.log('Table data received:', data);
@@ -422,7 +421,7 @@ export default {
         try {
           // Fetch the user's team to get its league and division
           const teams = await authStore.apiRequest(
-            `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
+            `${getApiBaseUrl()}/api/teams`
           );
           const userTeam = teams.find(t => t.id === authStore.userTeamId.value);
 

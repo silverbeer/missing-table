@@ -5,6 +5,7 @@
  */
 
 import securityMonitor from '../utils/security-monitor.js';
+import { getApiBaseUrl } from '../config/api';
 
 const SecurityPlugin = {
   install(app, options = {}) {
@@ -62,8 +63,8 @@ const SecurityPlugin = {
 
   getCSPPolicy() {
     // Define a strict CSP policy
-    // Use API URL from environment variable
-    const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:8000';
+    // Use runtime API detection
+    const apiUrl = getApiBaseUrl();
 
     const policy = [
       "default-src 'self'",

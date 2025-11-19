@@ -210,6 +210,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import BaseProfile from './BaseProfile.vue';
+import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'TeamManagerProfile',
@@ -295,9 +296,7 @@ export default {
 
     const fetchTeams = async () => {
       try {
-        const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/teams`
-        );
+        const response = await fetch(`${getApiBaseUrl()}/api/teams`);
         if (response.ok) {
           teams.value = await response.json();
         }
@@ -312,7 +311,7 @@ export default {
 
       try {
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/clubs/${clubId}/teams`
+          `${getApiBaseUrl()}/api/clubs/${clubId}/teams`
         );
         if (response.ok) {
           clubTeams.value = await response.json();
@@ -329,7 +328,7 @@ export default {
       try {
         loadingPlayers.value = true;
         const response = await authStore.apiRequest(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/auth/users`
+          `${getApiBaseUrl()}/api/auth/users`
         );
         teamPlayers.value = response.filter(
           user => user.team_id === teamId && user.role === 'team-player'
@@ -348,7 +347,7 @@ export default {
       try {
         loadingGames.value = true;
         const response = await fetch(
-          `${process.env.VUE_APP_API_URL || 'http://localhost:8000'}/api/matches/team/${teamId}`
+          `${getApiBaseUrl()}/api/matches/team/${teamId}`
         );
         if (response.ok) {
           teamGames.value = await response.json();
