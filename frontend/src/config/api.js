@@ -2,14 +2,8 @@
 // Centralized configuration for API endpoints
 
 const getApiUrl = () => {
-  // Try to get from environment variable first
-  const envApiUrl = process.env.VUE_APP_API_URL;
-
-  if (envApiUrl) {
-    return envApiUrl;
-  }
-
-  // Fallback based on current location
+  // ALWAYS use runtime detection in browser (ignore build-time env vars)
+  // This ensures browser uses the correct URL regardless of how it was built
   if (typeof window !== 'undefined') {
     const { protocol, hostname } = window.location;
 
@@ -18,36 +12,52 @@ const getApiUrl = () => {
       return 'http://localhost:8000';
     }
 
-    // For production, construct API URL based on current domain
-    return `${protocol}//${hostname.replace('frontend', 'backend')}`;
+    // For cloud deployment, use same domain (ingress routes /api to backend)
+    // Works for: dev.missingtable.com, missingtable.com, www.missingtable.com
+    return `${protocol}//${hostname}`;
   }
 
-  // Ultimate fallback
+  // SSR/build-time fallback only (never executed in browser)
   return 'http://localhost:8000';
 };
 
+// CRITICAL: Must be a getter function, NOT a constant!
+// Constants are evaluated at BUILD time (Node.js, no window), getters at RUNTIME (browser)
+export const getApiBaseUrl = () => getApiUrl();
+
+// For backwards compatibility, export as property that calls getter
 export const API_BASE_URL = getApiUrl();
+
+// Helper to build API URL at runtime
+const buildUrl = (path) => `${getApiUrl()}${path}`;
+
 export const API_ENDPOINTS = {
-  AUTH: {
-    SIGNUP: `${API_BASE_URL}/api/auth/signup`,
-    LOGIN: `${API_BASE_URL}/api/auth/login`,
-    LOGOUT: `${API_BASE_URL}/api/auth/logout`,
-    PROFILE: `${API_BASE_URL}/api/profile`,
+  get AUTH() {
+    const base = getApiUrl();
+    return {
+      SIGNUP: `${base}/api/auth/signup`,
+      LOGIN: `${base}/api/auth/login`,
+      LOGOUT: `${base}/api/auth/logout`,
+      PROFILE: `${base}/api/profile`,
+    };
   },
-  INVITES: {
-    VALIDATE: code => `${API_BASE_URL}/api/invites/validate/${code}`,
-    MY_INVITES: `${API_BASE_URL}/api/invites/my-invites`,
-    ADMIN_TEAM_MANAGER: `${API_BASE_URL}/api/invites/admin/team-manager`,
-    ADMIN_TEAM_PLAYER: `${API_BASE_URL}/api/invites/admin/team-player`,
-    ADMIN_TEAM_FAN: `${API_BASE_URL}/api/invites/admin/team-fan`,
-    TEAM_MANAGER_PLAYER: `${API_BASE_URL}/api/invites/team-manager/team-player`,
-    TEAM_MANAGER_FAN: `${API_BASE_URL}/api/invites/team-manager/team-fan`,
-    CANCEL: id => `${API_BASE_URL}/api/invites/${id}`,
+  get INVITES() {
+    const base = getApiUrl();
+    return {
+      VALIDATE: code => `${base}/api/invites/validate/${code}`,
+      MY_INVITES: `${base}/api/invites/my-invites`,
+      ADMIN_TEAM_MANAGER: `${base}/api/invites/admin/team-manager`,
+      ADMIN_TEAM_PLAYER: `${base}/api/invites/admin/team-player`,
+      ADMIN_TEAM_FAN: `${base}/api/invites/admin/team-fan`,
+      TEAM_MANAGER_PLAYER: `${base}/api/invites/team-manager/team-player`,
+      TEAM_MANAGER_FAN: `${base}/api/invites/team-manager/team-fan`,
+      CANCEL: id => `${base}/api/invites/${id}`,
+    };
   },
-  TEAMS: `${API_BASE_URL}/api/teams`,
-  AGE_GROUPS: `${API_BASE_URL}/api/age-groups`,
-  SEASONS: `${API_BASE_URL}/api/seasons`,
-  MATCHES: `${API_BASE_URL}/api/matches`,
+  get TEAMS() { return buildUrl('/api/teams'); },
+  get AGE_GROUPS() { return buildUrl('/api/age-groups'); },
+  get SEASONS() { return buildUrl('/api/seasons'); },
+  get MATCHES() { return buildUrl('/api/matches'); },
 };
 
 console.log('API Configuration:', {
