@@ -113,7 +113,7 @@ def test_user(faker_instance: Faker) -> TestUser:
     """Generate a test user with realistic data."""
     return TestUser(
         username=f"test_user_{faker_instance.random_int(1000, 9999)}",
-        password="TestPassword123!",
+        password="TestPassword123!",  # pragma: allowlist secret
         role="user",
         display_name=faker_instance.name(),
     )
@@ -123,33 +123,45 @@ def test_user(faker_instance: Faker) -> TestUser:
 def admin_user() -> TestUser:
     """Admin user credentials for testing."""
     return TestUser(
-        username=os.getenv("E2E_ADMIN_USERNAME", "admin"),
+        username=os.getenv("E2E_ADMIN_USERNAME", "e2e_admin"),
         password=os.getenv("E2E_ADMIN_PASSWORD", "AdminPassword123!"),
         role="admin",
-        display_name="Test Admin",
+        display_name="E2E Admin",
     )
 
 
 @pytest.fixture(scope="session")
-def team_manager_user() -> TestUser:
+def manager_user() -> TestUser:
     """Team manager user credentials for testing."""
     return TestUser(
-        username=os.getenv("E2E_MANAGER_USERNAME", "manager"),
+        username=os.getenv("E2E_MANAGER_USERNAME", "e2e_manager"),
         password=os.getenv("E2E_MANAGER_PASSWORD", "ManagerPassword123!"),
-        role="team_manager",
-        display_name="Test Manager",
+        role="team-manager",
+        display_name="E2E Manager",
         team_id=1,
     )
 
 
 @pytest.fixture(scope="session")
-def regular_user() -> TestUser:
-    """Regular user credentials for testing."""
+def player_user() -> TestUser:
+    """Team player user credentials for testing."""
     return TestUser(
-        username=os.getenv("E2E_USER_USERNAME", "testuser"),
-        password=os.getenv("E2E_USER_PASSWORD", "UserPassword123!"),
-        role="user",
-        display_name="Test User",
+        username=os.getenv("E2E_PLAYER_USERNAME", "e2e_player"),
+        password=os.getenv("E2E_PLAYER_PASSWORD", "PlayerPassword123!"),
+        role="team-player",
+        display_name="E2E Player",
+        team_id=1,
+    )
+
+
+@pytest.fixture(scope="session")
+def fan_user() -> TestUser:
+    """Team fan user credentials for testing."""
+    return TestUser(
+        username=os.getenv("E2E_FAN_USERNAME", "e2e_fan"),
+        password=os.getenv("E2E_FAN_PASSWORD", "FanPassword123!"),
+        role="team-fan",
+        display_name="E2E Fan",
     )
 
 
@@ -216,11 +228,11 @@ def nav_bar(page: Page) -> NavigationBar:
 def authenticated_page(
     page: Page,
     login_page: LoginPage,
-    regular_user: TestUser
+    fan_user: TestUser
 ) -> Generator[Page, None, None]:
-    """Page with regular user authenticated."""
+    """Page with fan user authenticated."""
     login_page.navigate()
-    login_page.login(regular_user.username, regular_user.password)
+    login_page.login(fan_user.username, fan_user.password)
 
     # Wait for authentication to complete
     page.wait_for_timeout(1000)
@@ -245,18 +257,18 @@ def admin_authenticated_page(
 
 
 @pytest.fixture(scope="function")
-def team_manager_authenticated_page(
+def manager_authenticated_page(
     page: Page,
     login_page: LoginPage,
-    team_manager_user: TestUser
+    manager_user: TestUser
 ) -> Generator[Page, None, None]:
     """Page with team manager user authenticated."""
     login_page.navigate()
-    login_page.login(team_manager_user.username, team_manager_user.password)
+    login_page.login(manager_user.username, manager_user.password)
 
     # Wait for authentication to complete
     page.wait_for_timeout(1000)
-    
+
     yield page
 
 

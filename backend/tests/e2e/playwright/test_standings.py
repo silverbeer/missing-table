@@ -20,6 +20,9 @@ from playwright.sync_api import Page, expect
 
 from page_objects import StandingsPage, NavigationBar
 
+# Note: All standings tests require authentication since the app is invite-only.
+# Tests use authenticated_page fixture to ensure user is logged in.
+
 
 class TestStandingsDisplay:
     """Tests for basic standings display functionality."""
@@ -27,32 +30,37 @@ class TestStandingsDisplay:
     @pytest.mark.smoke
     @pytest.mark.standings
     @pytest.mark.critical
-    def test_standings_page_loads(self, standings_page: StandingsPage):
+    def test_standings_page_loads(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that standings page loads successfully.
-        
+
         Critical smoke test for core functionality.
+        Requires authentication since app is invite-only.
         """
-        # Act
+        # Act - user is already authenticated via fixture
         standings_page.navigate()
-        
+
         # Assert
         assert standings_page.is_table_visible(), "Standings table should be visible"
         assert standings_page.is_current_page(), "Should be on standings page"
 
     @pytest.mark.standings
-    def test_standings_show_all_required_columns(self, standings_page: StandingsPage):
+    def test_standings_show_all_required_columns(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that standings table shows all required data columns.
-        
+
         Verifies UI completeness.
         """
         # Arrange
         standings_page.navigate()
-        
+
         # Act - Get standings data
         standings = standings_page.get_standings()
-        
+
         # Assert - Verify data structure
         if standings:
             team = standings[0]
@@ -61,18 +69,20 @@ class TestStandingsDisplay:
             assert team.points >= 0, "Points should be present"
 
     @pytest.mark.standings
-    def test_standings_ordered_by_points(self, standings_page: StandingsPage):
+    def test_standings_ordered_by_points(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that standings are ordered by points in descending order.
-        
+
         Business rule verification.
         """
         # Arrange
         standings_page.navigate()
-        
+
         # Act
         standings = standings_page.get_standings()
-        
+
         # Assert
         if len(standings) >= 2:
             assert standings_page.validate_standings_sorted_by_points(), \
@@ -84,43 +94,49 @@ class TestBusinessLogicValidation:
 
     @pytest.mark.standings
     @pytest.mark.critical
-    def test_points_calculation_is_correct(self, standings_page: StandingsPage):
+    def test_points_calculation_is_correct(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that points = wins * 3 + draws.
-        
+
         Critical business rule for soccer standings.
         """
         # Arrange
         standings_page.navigate()
-        
+
         # Assert
         assert standings_page.validate_point_calculations(), \
             "Points should equal (wins × 3) + draws"
 
     @pytest.mark.standings
-    def test_games_played_equals_wins_draws_losses(self, standings_page: StandingsPage):
+    def test_games_played_equals_wins_draws_losses(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that games played = wins + draws + losses.
-        
+
         Data integrity verification.
         """
         # Arrange
         standings_page.navigate()
-        
+
         # Assert
         assert standings_page.validate_games_played(), \
             "Games played should equal wins + draws + losses"
 
     @pytest.mark.standings
-    def test_goal_difference_calculation(self, standings_page: StandingsPage):
+    def test_goal_difference_calculation(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that GD = GF - GA.
-        
+
         Business rule verification.
         """
         # Arrange
         standings_page.navigate()
-        
+
         # Assert
         assert standings_page.validate_goal_difference(), \
             "Goal difference should equal goals for minus goals against"
@@ -131,47 +147,53 @@ class TestStandingsFiltering:
 
     @pytest.mark.standings
     @pytest.mark.filters
-    def test_filter_by_season(self, standings_page: StandingsPage):
+    def test_filter_by_season(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """Test filtering standings by season."""
         # Arrange
         standings_page.navigate()
         available_seasons = standings_page.get_available_seasons()
-        
+
         if len(available_seasons) > 1:
             # Act
             standings_page.select_season(available_seasons[0])
-            
+
             # Assert
             assert standings_page.get_selected_season() == available_seasons[0]
             # Standings should update (may have different teams)
 
     @pytest.mark.standings
     @pytest.mark.filters
-    def test_filter_by_age_group(self, standings_page: StandingsPage):
+    def test_filter_by_age_group(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """Test filtering standings by age group."""
         # Arrange
         standings_page.navigate()
         available_age_groups = standings_page.get_available_age_groups()
-        
+
         if len(available_age_groups) > 1:
             # Act
             standings_page.select_age_group(available_age_groups[0])
-            
+
             # Assert
             assert standings_page.is_table_visible()
 
     @pytest.mark.standings
     @pytest.mark.filters
-    def test_filter_by_division(self, standings_page: StandingsPage):
+    def test_filter_by_division(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """Test filtering standings by division."""
         # Arrange
         standings_page.navigate()
         available_divisions = standings_page.get_available_divisions()
-        
+
         if len(available_divisions) > 1:
             # Act
             standings_page.select_division(available_divisions[0])
-            
+
             # Assert
             assert standings_page.is_table_visible()
 
@@ -185,6 +207,7 @@ class TestStandingsFiltering:
     ])
     def test_multiple_filter_combinations(
         self,
+        authenticated_page: Page,
         standings_page: StandingsPage,
         filter_combination: dict
     ):
@@ -216,21 +239,23 @@ class TestStandingsFiltering:
 
     @pytest.mark.standings
     @pytest.mark.filters
-    def test_filters_update_url_params(self, standings_page: StandingsPage):
+    def test_filters_update_url_params(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that filter selections update URL parameters.
-        
+
         Enables bookmarking and sharing filtered views.
         """
         # Arrange
         standings_page.navigate()
         initial_url = standings_page.get_current_url()
-        
+
         available_age_groups = standings_page.get_available_age_groups()
         if len(available_age_groups) > 0:
             # Act
             standings_page.select_age_group(available_age_groups[0])
-            
+
             # Assert
             new_url = standings_page.get_current_url()
             # URL should have changed to include filter params
@@ -241,20 +266,22 @@ class TestStandingsInteraction:
     """Tests for user interactions with standings."""
 
     @pytest.mark.standings
-    def test_click_team_shows_details(self, standings_page: StandingsPage):
+    def test_click_team_shows_details(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that clicking a team name shows team details.
-        
+
         User journey: View standings -> Click team -> See details.
         """
         # Arrange
         standings_page.navigate()
         team_names = standings_page.get_team_names()
-        
+
         if team_names:
             # Act
             standings_page.click_team(team_names[0])
-            
+
             # Assert
             # Should navigate to team details page
             current_url = standings_page.get_current_url()
@@ -265,37 +292,41 @@ class TestEdgeCases:
     """Edge case and boundary testing for standings."""
 
     @pytest.mark.standings
-    def test_empty_standings_shows_message(self, standings_page: StandingsPage):
+    def test_empty_standings_shows_message(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that empty standings display appropriate message.
-        
+
         UX requirement: Don't show empty table.
         """
         # This test requires filter combination that returns no results
         # Skip if we can't create that condition
         standings_page.navigate()
-        
+
         # Verify that empty state is handled gracefully
         # Either has data or shows a "no data" message
 
     @pytest.mark.standings
-    def test_standings_with_tied_points(self, standings_page: StandingsPage):
+    def test_standings_with_tied_points(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test handling of teams with equal points.
-        
+
         Tiebreaker logic verification.
         """
         # Arrange
         standings_page.navigate()
         standings = standings_page.get_standings()
-        
+
         # Find teams with same points
         point_groups = {}
         for team in standings:
             if team.points not in point_groups:
                 point_groups[team.points] = []
             point_groups[team.points].append(team)
-        
+
         # Assert - Tied teams should be ordered by goal difference
         for points, teams in point_groups.items():
             if len(teams) > 1:
@@ -318,21 +349,21 @@ class TestResponsiveBehavior:
     ])
     def test_standings_at_different_viewports(
         self,
-        page: Page,
+        authenticated_page: Page,
         standings_page: StandingsPage,
         viewport: dict
     ):
         """
         Test that standings display correctly at various screen sizes.
-        
+
         Responsive design verification.
         """
         # Arrange
-        page.set_viewport_size(viewport)
-        
+        authenticated_page.set_viewport_size(viewport)
+
         # Act
         standings_page.navigate()
-        
+
         # Assert
         assert standings_page.is_table_visible() or standings_page.has_standings_data()
 
@@ -342,42 +373,46 @@ class TestPerformance:
 
     @pytest.mark.standings
     @pytest.mark.slow
-    def test_standings_load_time(self, standings_page: StandingsPage):
+    def test_standings_load_time(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that standings page loads within acceptable time.
-        
+
         Performance requirement.
         """
         import time
-        
+
         # Act
         start = time.time()
         standings_page.navigate()
         load_time = time.time() - start
-        
+
         # Assert - Page should load within 5 seconds
         assert load_time < 5.0, f"Page load took {load_time:.2f}s, should be < 5s"
 
     @pytest.mark.standings
     @pytest.mark.slow
-    def test_filter_response_time(self, standings_page: StandingsPage):
+    def test_filter_response_time(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that filter changes respond quickly.
-        
+
         UX requirement: Responsive filtering.
         """
         import time
-        
+
         # Arrange
         standings_page.navigate()
         age_groups = standings_page.get_available_age_groups()
-        
+
         if age_groups:
             # Act
             start = time.time()
             standings_page.select_age_group(age_groups[0])
             response_time = time.time() - start
-            
+
             # Assert - Filter should respond within 2 seconds
             assert response_time < 2.0, f"Filter took {response_time:.2f}s, should be < 2s"
 
@@ -386,18 +421,20 @@ class TestDataIntegrity:
     """Tests for data integrity in standings."""
 
     @pytest.mark.standings
-    def test_no_duplicate_teams(self, standings_page: StandingsPage):
+    def test_no_duplicate_teams(
+        self, authenticated_page: Page, standings_page: StandingsPage
+    ):
         """
         Test that no team appears more than once in standings.
-        
+
         Data integrity requirement.
         """
         # Arrange
         standings_page.navigate()
-        
+
         # Act
         team_names = standings_page.get_team_names()
-        
+
         # Assert
         unique_names = set(team_names)
         assert len(team_names) == len(unique_names), \
@@ -406,23 +443,24 @@ class TestDataIntegrity:
     @pytest.mark.standings
     def test_standings_match_api_data(
         self,
+        authenticated_page: Page,
         standings_page: StandingsPage,
         api_client
     ):
         """
         Test that frontend standings match backend API data.
-        
+
         Data consistency verification.
         """
         # Arrange
         standings_page.navigate()
         ui_standings = standings_page.get_standings()
-        
+
         # Get API data
         response = api_client.get("/api/table")
         if response.status_code == 200:
             api_data = response.json()
-            
+
             # Assert - Compare team count
             assert len(ui_standings) == len(api_data), \
                 "UI and API should have same number of teams"

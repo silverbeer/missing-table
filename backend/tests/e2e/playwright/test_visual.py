@@ -18,6 +18,9 @@ from playwright.sync_api import Page
 from page_objects import StandingsPage, LoginPage
 from fixtures.visual_regression import VisualRegression
 
+# Note: Most visual tests require authentication since the app is invite-only.
+# Tests use authenticated_page fixture to ensure user is logged in before screenshots.
+
 
 @pytest.fixture(scope="function")
 def visual_regression(
@@ -41,18 +44,20 @@ class TestVisualRegression:
     @pytest.mark.smoke
     def test_homepage_visual(
         self,
+        authenticated_page: Page,
         standings_page: StandingsPage,
         visual_regression: VisualRegression
     ):
         """
         Test homepage visual appearance.
-        
+
         Captures full-page screenshot and compares to baseline.
+        Requires authentication since app is invite-only.
         """
-        # Arrange
+        # Arrange - user is already authenticated via fixture
         standings_page.navigate()
         standings_page.wait_for_load()
-        
+
         # Assert
         assert visual_regression.compare("homepage_full"), \
             "Homepage visual should match baseline"
@@ -74,18 +79,20 @@ class TestVisualRegression:
     @pytest.mark.visual
     def test_standings_table_visual(
         self,
+        authenticated_page: Page,
         standings_page: StandingsPage,
         visual_regression: VisualRegression
     ):
         """
         Test standings table component visual.
-        
+
         Element-specific screenshot for focused testing.
+        Requires authentication since app is invite-only.
         """
-        # Arrange
+        # Arrange - user is already authenticated via fixture
         standings_page.navigate()
         standings_page.wait_for_load()
-        
+
         # Assert - Just the table element
         assert visual_regression.compare(
             "standings_table",
@@ -121,7 +128,7 @@ class TestVisualRegression:
     ])
     def test_responsive_visual(
         self,
-        page: Page,
+        authenticated_page: Page,
         standings_page: StandingsPage,
         visual_regression: VisualRegression,
         viewport: dict,
@@ -129,14 +136,15 @@ class TestVisualRegression:
     ):
         """
         Test visual appearance at different viewports.
-        
+
         Responsive design visual verification.
+        Requires authentication since app is invite-only.
         """
-        # Arrange
-        page.set_viewport_size(viewport)
+        # Arrange - user is already authenticated via fixture
+        authenticated_page.set_viewport_size(viewport)
         standings_page.navigate()
         standings_page.wait_for_load()
-        
+
         # Assert
         assert visual_regression.compare(f"homepage_{name}"), \
             f"Homepage at {name} viewport should match baseline"

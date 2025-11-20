@@ -32,20 +32,20 @@ class TestLoginFlow:
     def test_successful_login(
         self,
         login_page: LoginPage,
-        regular_user,
+        fan_user,
         standings_page: StandingsPage
     ):
         """
         Test successful login with valid credentials.
-        
+
         Critical path: User can authenticate and access the application.
         """
         # Arrange
         login_page.navigate()
-        
+
         # Act
-        login_page.login(regular_user.email, regular_user.password)
-        
+        login_page.login(fan_user.username, fan_user.password)
+
         # Assert
         assert login_page.is_login_successful(), "Login should succeed with valid credentials"
         assert standings_page.is_current_page() or "/" in login_page.get_current_url()
@@ -65,7 +65,7 @@ class TestLoginFlow:
         """
         # Arrange & Act
         login_page.navigate()
-        login_page.login(admin_user.email, admin_user.password)
+        login_page.login(admin_user.username, admin_user.password)
         
         # Assert - Admin should see admin nav link
         # Note: This may need adjustment based on actual UI
@@ -75,15 +75,15 @@ class TestLoginFlow:
     def test_invalid_password_shows_error(
         self,
         login_page: LoginPage,
-        regular_user
+        fan_user
     ):
         """Test that invalid password displays appropriate error."""
         # Arrange
         login_page.navigate()
-        
+
         # Act
-        login_page.login(regular_user.email, "wrong_password")
-        
+        login_page.login(fan_user.username, "wrong_password")
+
         # Assert
         assert login_page.has_error_message(), "Error should be displayed for invalid password"
         assert not login_page.is_login_successful()

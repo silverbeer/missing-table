@@ -81,6 +81,9 @@ def create_backup():
         'match_types',  # Updated from game_types
         'seasons',
 
+        # Clubs (before teams - teams have club_id foreign key)
+        'clubs',
+
         # Teams and mappings
         'teams',
         'team_mappings',

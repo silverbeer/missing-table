@@ -272,9 +272,13 @@ def create_user(supabase, email, password=None, role='user', display_name=None, 
             user_id = create_response.user.id
             print(f"✅ User created successfully: {user_id}")
 
+            # Extract username from email (e.g., "e2e_admin" from "e2e_admin@missingtable.local")
+            username = email.split('@')[0]
+
             # Create user profile
             profile_data = {
                 "id": user_id,
+                "username": username,
                 "role": role,
                 "display_name": display_name
             }
@@ -290,6 +294,7 @@ def create_user(supabase, email, password=None, role='user', display_name=None, 
                 print(f"🔑 Password: {password}")
 
             print(f"📧 Email: {email}")
+            print(f"👤 Username: {username}")
             print(f"👤 Role: {role}")
             print(f"📝 Display Name: {display_name}")
 

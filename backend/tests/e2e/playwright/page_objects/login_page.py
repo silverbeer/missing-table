@@ -154,7 +154,7 @@ class LoginPage(BasePage):
 
     def has_error_message(self) -> bool:
         """Check if error message is displayed."""
-        return self.page.locator(self.ERROR_MESSAGE).is_visible()
+        return self.page.locator(self.ERROR_MESSAGE).first.is_visible()
 
     def get_error_message(self) -> str:
         """Get the error message text."""

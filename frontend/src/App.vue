@@ -39,31 +39,154 @@
       <!-- Content based on auth status -->
       <div v-if="!authStore.state.loading">
         <!-- Show welcome message if not authenticated -->
+        <div v-if="!authStore.state.session" class="max-w-4xl mx-auto">
+          <!-- Main Card -->
+          <div class="bg-white rounded-lg shadow p-8 text-center mb-6">
+            <div class="text-6xl mb-4">🔒</div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+              Invite-Only Platform
+            </h2>
+            <p class="text-gray-600 mb-6">
+              Missing Table is an invite-only community platform for tracking
+              youth soccer league standings and games.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                @click="showLoginModal = true"
+                class="bg-blue-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-blue-700 transition-colors text-lg"
+              >
+                Log In
+              </button>
+              <button
+                @click="showInviteRequestModal = true"
+                class="bg-gray-100 text-gray-700 px-8 py-3 rounded-md font-semibold hover:bg-gray-200 transition-colors text-lg border border-gray-300"
+              >
+                Request Invite
+              </button>
+            </div>
+          </div>
+
+          <!-- Features Section -->
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-lg shadow p-6 text-center">
+              <div class="text-3xl mb-3">📊</div>
+              <h3 class="font-semibold text-gray-800 mb-2">Live Standings</h3>
+              <p class="text-sm text-gray-600">
+                Real-time league tables with automatic point calculations and
+                rankings
+              </p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 text-center">
+              <div class="text-3xl mb-3">📅</div>
+              <h3 class="font-semibold text-gray-800 mb-2">Match Tracking</h3>
+              <p class="text-sm text-gray-600">
+                Track scores, schedules, and results for your team's games
+              </p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 text-center">
+              <div class="text-3xl mb-3">👥</div>
+              <h3 class="font-semibold text-gray-800 mb-2">Team Management</h3>
+              <p class="text-sm text-gray-600">
+                Manage rosters, match types, and team information all in one
+                place
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Invite Request Modal -->
         <div
-          v-if="!authStore.isAuthenticated"
-          class="bg-white rounded-lg shadow p-8 text-center max-w-2xl mx-auto"
+          v-if="showInviteRequestModal"
+          class="modal-overlay"
+          @click="showInviteRequestModal = false"
         >
-          <div class="text-6xl mb-4">🔒</div>
-          <h2 class="text-2xl font-bold text-gray-800 mb-4">
-            Invite-Only Platform
-          </h2>
-          <p class="text-gray-700 mb-4 font-medium">
-            You must log in to access this site.
-          </p>
-          <p class="text-gray-600 mb-6">
-            Missing Table is an invite-only community platform for tracking
-            youth soccer league standings and games. If you have an account,
-            please log in below.
-          </p>
-          <button
-            @click="showLoginModal = true"
-            class="bg-blue-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-blue-700 transition-colors text-lg"
-          >
-            Log In
-          </button>
-          <p class="text-sm text-gray-500 mt-6">
-            Don't have an account? You'll need an invitation code to sign up.
-          </p>
+          <div class="modal-content p-6" @click.stop>
+            <button @click="showInviteRequestModal = false" class="modal-close">
+              ×
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Request Invite</h3>
+            <p class="text-gray-600 mb-4">
+              Missing Table is currently invite-only. Please provide your
+              information and we'll reach out when spots are available.
+            </p>
+            <form @submit.prevent="submitInviteRequest" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Email</label
+                >
+                <input
+                  v-model="inviteRequest.email"
+                  type="email"
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="your@email.com"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Name</label
+                >
+                <input
+                  v-model="inviteRequest.name"
+                  type="text"
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Your name"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Team/Club (optional)</label
+                >
+                <input
+                  v-model="inviteRequest.team"
+                  type="text"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Your team or club name"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Why do you want to join?</label
+                >
+                <textarea
+                  v-model="inviteRequest.reason"
+                  rows="3"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Tell us about your interest in Missing Table"
+                ></textarea>
+              </div>
+              <div class="flex gap-3">
+                <button
+                  type="submit"
+                  :disabled="inviteRequestSubmitting"
+                  class="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {{
+                    inviteRequestSubmitting ? 'Submitting...' : 'Submit Request'
+                  }}
+                </button>
+                <button
+                  type="button"
+                  @click="showInviteRequestModal = false"
+                  class="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+            <div
+              v-if="inviteRequestMessage"
+              :class="[
+                'mt-4 p-3 rounded-md text-sm',
+                inviteRequestSuccess
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-red-100 text-red-800',
+              ]"
+            >
+              {{ inviteRequestMessage }}
+            </div>
+          </div>
         </div>
 
         <!-- Tabs for authenticated users -->
@@ -86,10 +209,7 @@
         </div>
 
         <!-- Tab Content (only for authenticated users) -->
-        <div
-          v-if="authStore.isAuthenticated"
-          class="bg-white rounded-lg shadow"
-        >
+        <div v-if="authStore.state.session" class="bg-white rounded-lg shadow">
           <!-- Standings -->
           <div v-if="currentTab === 'table'" class="p-4">
             <LeagueTable />
@@ -160,6 +280,16 @@ export default {
     const authStore = useAuthStore();
     const currentTab = ref('table');
     const showLoginModal = ref(false);
+    const showInviteRequestModal = ref(false);
+    const inviteRequest = ref({
+      email: '',
+      name: '',
+      team: '',
+      reason: '',
+    });
+    const inviteRequestSubmitting = ref(false);
+    const inviteRequestMessage = ref('');
+    const inviteRequestSuccess = ref(false);
 
     // Define all possible tabs
     const allTabs = [
@@ -216,6 +346,42 @@ export default {
       }
     };
 
+    const submitInviteRequest = async () => {
+      inviteRequestSubmitting.value = true;
+      inviteRequestMessage.value = '';
+
+      try {
+        // For now, just show a success message
+        // Backend endpoint will be added in Phase 2
+        // const response = await fetch(`${getApiBaseUrl()}/api/invite-requests`, {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify(inviteRequest.value),
+        // });
+
+        // Simulate success for now
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        inviteRequestSuccess.value = true;
+        inviteRequestMessage.value =
+          "Thank you for your interest! We'll review your request and reach out soon.";
+
+        // Reset form
+        inviteRequest.value = {
+          email: '',
+          name: '',
+          team: '',
+          reason: '',
+        };
+      } catch (error) {
+        inviteRequestSuccess.value = false;
+        inviteRequestMessage.value =
+          'Failed to submit request. Please try again.';
+      } finally {
+        inviteRequestSubmitting.value = false;
+      }
+    };
+
     // Initialize auth on app start
     onMounted(async () => {
       // For testing - uncomment the next line to force logout on each page load
@@ -229,9 +395,15 @@ export default {
       currentTab,
       availableTabs,
       showLoginModal,
+      showInviteRequestModal,
+      inviteRequest,
+      inviteRequestSubmitting,
+      inviteRequestMessage,
+      inviteRequestSuccess,
       closeModal,
       handleLoginSuccess,
       handleLogout,
+      submitInviteRequest,
     };
   },
 };
