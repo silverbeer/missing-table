@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator, model_validator
 
 from api.invites import router as invites_router
+from api.invite_requests import router as invite_requests_router
 from auth import (
     AuthManager,
     get_current_user_required,
@@ -340,6 +341,7 @@ class RefreshTokenRequest(BaseModel):
 
 # === Include API Routers ===
 app.include_router(invites_router)
+app.include_router(invite_requests_router)
 
 # Version endpoint
 from endpoints.version import router as version_router
