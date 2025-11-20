@@ -156,6 +156,16 @@
                   placeholder="Tell us about your interest in Missing Table"
                 ></textarea>
               </div>
+              <!-- Honeypot field - hidden from humans, bots will fill it -->
+              <div style="position: absolute; left: -9999px" aria-hidden="true">
+                <input
+                  v-model="inviteRequest.website"
+                  type="text"
+                  name="website"
+                  tabindex="-1"
+                  autocomplete="off"
+                />
+              </div>
               <div class="flex gap-3">
                 <button
                   type="submit"
@@ -255,6 +265,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from './stores/auth';
+import { getApiBaseUrl } from './config/api';
 import MatchForm from './components/MatchForm.vue';
 import LeagueTable from './components/LeagueTable.vue';
 import MatchesView from './components/MatchesView.vue';
@@ -286,6 +297,7 @@ export default {
       name: '',
       team: '',
       reason: '',
+      website: '', // Honeypot field - bots will fill this
     });
     const inviteRequestSubmitting = ref(false);
     const inviteRequestMessage = ref('');
@@ -351,28 +363,31 @@ export default {
       inviteRequestMessage.value = '';
 
       try {
-        // For now, just show a success message
-        // Backend endpoint will be added in Phase 2
-        // const response = await fetch(`${getApiBaseUrl()}/api/invite-requests`, {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(inviteRequest.value),
-        // });
+        const response = await fetch(`${getApiBaseUrl()}/api/invite-requests`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(inviteRequest.value),
+        });
 
-        // Simulate success for now
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const data = await response.json();
 
-        inviteRequestSuccess.value = true;
-        inviteRequestMessage.value =
-          "Thank you for your interest! We'll review your request and reach out soon.";
+        if (response.ok && data.success) {
+          inviteRequestSuccess.value = true;
+          inviteRequestMessage.value = data.message;
 
-        // Reset form
-        inviteRequest.value = {
-          email: '',
-          name: '',
-          team: '',
-          reason: '',
-        };
+          // Reset form
+          inviteRequest.value = {
+            email: '',
+            name: '',
+            team: '',
+            reason: '',
+            website: '',
+          };
+        } else {
+          inviteRequestSuccess.value = false;
+          inviteRequestMessage.value =
+            data.detail || 'Failed to submit request. Please try again.';
+        }
       } catch (error) {
         inviteRequestSuccess.value = false;
         inviteRequestMessage.value =
