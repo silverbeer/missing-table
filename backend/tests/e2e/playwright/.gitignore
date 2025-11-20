@@ -1,0 +1,19 @@
+# Test outputs
+test-results/
+videos/
+screenshots/diff/
+
+# Keep baseline screenshots
+!screenshots/baseline/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

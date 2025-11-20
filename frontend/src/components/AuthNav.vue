@@ -1,42 +1,73 @@
 <template>
-  <nav class="auth-nav">
+  <nav class="auth-nav" data-testid="main-nav">
     <div class="nav-content">
       <div class="nav-brand">
-        <h1>Missing Table</h1>
+        <h1 data-testid="nav-brand">Missing Table</h1>
       </div>
 
       <div class="nav-links">
         <!-- No navigation links here - they're handled by tabs in App.vue -->
 
         <!-- Authenticated user menu -->
-        <div v-if="authStore.isAuthenticated.value" class="user-menu">
+        <div
+          v-if="authStore.isAuthenticated.value"
+          class="user-menu"
+          data-testid="user-menu"
+        >
           <!-- User dropdown -->
-          <div class="user-dropdown" @click="toggleDropdown">
+          <div
+            class="user-dropdown"
+            @click="toggleDropdown"
+            data-testid="user-dropdown"
+          >
             <div class="user-info">
-              <span class="user-name">
+              <span class="user-name" data-testid="user-name">
                 {{ authStore.state.profile?.display_name || 'User' }}
               </span>
-              <span class="user-role" :class="roleClass">
+              <span
+                class="user-role"
+                :class="roleClass"
+                data-testid="user-role"
+              >
                 {{ formatRole(authStore.userRole) }}
               </span>
             </div>
             <div class="dropdown-arrow">▼</div>
           </div>
 
-          <div v-if="showDropdown" class="dropdown-menu">
-            <button @click="handleLogout" class="dropdown-item logout-item">
+          <div
+            v-if="showDropdown"
+            class="dropdown-menu"
+            data-testid="dropdown-menu"
+          >
+            <button
+              @click="handleLogout"
+              class="dropdown-item logout-item"
+              data-testid="logout-button"
+            >
               Logout
             </button>
           </div>
         </div>
 
         <!-- Login button for non-authenticated users -->
-        <button v-else @click="showLogin" class="login-btn">Login</button>
+        <button
+          v-else
+          @click="showLogin"
+          class="login-btn"
+          data-testid="nav-login-button"
+        >
+          Login
+        </button>
       </div>
     </div>
 
     <!-- Loading indicator -->
-    <div v-if="authStore.state.loading" class="loading-bar"></div>
+    <div
+      v-if="authStore.state.loading"
+      class="loading-bar"
+      data-testid="loading-bar"
+    ></div>
   </nav>
 </template>
 

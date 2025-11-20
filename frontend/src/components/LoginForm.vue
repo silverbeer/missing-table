@@ -15,6 +15,7 @@
             placeholder="Enter your username"
             pattern="[a-zA-Z0-9_]{3,50}"
             title="Username must be 3-50 characters (letters, numbers, underscores only)"
+            data-testid="username-input"
           />
         </div>
 
@@ -28,6 +29,7 @@
             :disabled="authStore.state.loading"
             placeholder="Enter your password"
             minlength="6"
+            data-testid="password-input"
           />
         </div>
 
@@ -75,7 +77,11 @@
           />
         </div>
 
-        <div v-if="authStore.state.error" class="error-message">
+        <div
+          v-if="authStore.state.error"
+          class="error-message"
+          data-testid="error-message"
+        >
           {{ authStore.state.error }}
         </div>
 
@@ -84,6 +90,7 @@
             type="submit"
             :disabled="authStore.state.loading"
             class="submit-btn"
+            data-testid="login-button"
           >
             {{
               authStore.state.loading
@@ -96,16 +103,26 @@
         </div>
       </form>
 
-      <div class="form-footer">
+      <div class="form-footer" data-testid="form-footer">
         <p v-if="!showInviteSignup">
           Have an invite code?
-          <button @click="showInviteForm" class="link-btn">
+          <button
+            @click="showInviteForm"
+            class="link-btn"
+            data-testid="signup-link"
+          >
             Click here to Sign Up
           </button>
         </p>
         <p v-if="showInviteSignup">
           Already have an account?
-          <button @click="showLoginForm" class="link-btn">Login</button>
+          <button
+            @click="showLoginForm"
+            class="link-btn"
+            data-testid="login-link"
+          >
+            Login
+          </button>
         </p>
       </div>
 

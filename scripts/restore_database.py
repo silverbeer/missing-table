@@ -157,11 +157,15 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     restoration_order = [
         # Reference data first (no dependencies)
         'age_groups',
+        'leagues',  # leagues before divisions
         'divisions',
         'match_types',  # Updated from game_types
         'seasons',
 
-        # Teams (depend on divisions, age_groups)
+        # Clubs before teams (teams have club_id foreign key)
+        'clubs',
+
+        # Teams (depend on divisions, age_groups, clubs)
         'teams',
         'team_mappings',
         'team_match_types',  # Updated from team_game_types

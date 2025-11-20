@@ -288,30 +288,67 @@ export const useAuthStore = () => {
         return;
       }
 
-      // Try to restore profile from localStorage first (fast)
-      const savedProfile = localStorage.getItem('auth_profile');
-      if (savedProfile) {
-        try {
-          const profile = JSON.parse(savedProfile);
-          setProfile(profile);
-          setSession({ access_token: token }); // Minimal session object
-        } catch (e) {
-          console.error('Failed to parse saved profile:', e);
+      // Don't set session until verification succeeds
+      // This prevents showing authenticated content while verifying
+
+      // Get current user info from backend (verify token)
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success) {
+          setUser(data.user);
+          // /api/auth/me returns role/team_id nested in user.profile
+          const profileData = data.user.profile || data.user;
+          setProfile(profileData);
+          setSession({ access_token: token }); // Only set session after verification
+          console.log('Initialize - Profile loaded:', profileData);
+        } else {
+          // Invalid response, clear storage
+          localStorage.clear();
         }
-      }
-
-      // Get current user info from backend (verify and refresh)
-      const response = await apiCall(`${getApiBaseUrl()}/api/auth/me`);
-
-      if (response && response.success) {
-        setUser(response.user);
-        // /api/auth/me returns role/team_id nested in user.profile
-        const profileData = response.user.profile || response.user;
-        setProfile(profileData);
-        setSession({ access_token: token }); // Minimal session object
-        console.log('Initialize - Profile loaded:', profileData);
+      } else if (response.status === 401) {
+        // Token expired, try to refresh
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+          const refreshResult = await refreshSession();
+          if (refreshResult.success) {
+            // Retry initialization with new token
+            const newToken = localStorage.getItem('auth_token');
+            const retryResponse = await fetch(
+              `${getApiBaseUrl()}/api/auth/me`,
+              {
+                headers: {
+                  Authorization: `Bearer ${newToken}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              if (retryData && retryData.success) {
+                setUser(retryData.user);
+                const profileData = retryData.user.profile || retryData.user;
+                setProfile(profileData);
+                setSession({ access_token: newToken });
+                console.log(
+                  'Initialize - Profile loaded after refresh:',
+                  profileData
+                );
+                return;
+              }
+            }
+          }
+        }
+        // Refresh failed or no refresh token, clear storage
+        localStorage.clear();
       } else {
-        // Invalid token, clear storage
+        // Other error, clear storage
         localStorage.clear();
       }
     } catch (error) {
