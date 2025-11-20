@@ -121,52 +121,52 @@
         <thead class="bg-gray-50">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-1 sm:px-2 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              Pos
+              #
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-[100px] sm:max-w-[140px] md:max-w-none"
             >
               Team
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               GP
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               W
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               D
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               L
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               GF
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               GA
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               GD
             </th>
             <th
-              class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Pts
             </th>
@@ -181,51 +181,53 @@
             :key="team.team"
             data-testid="standings-row"
           >
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td
+              class="px-1 sm:px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500"
+            >
               {{ index + 1 }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm font-medium text-gray-900 max-w-[100px] sm:max-w-[140px] md:max-w-none md:whitespace-nowrap"
             >
               {{ getTeamDisplayName(team.team) }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
             >
               {{ team.played }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
             >
               {{ team.wins }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
             >
               {{ team.draws }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
             >
               {{ team.losses }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
             >
               {{ team.goals_for }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
             >
               {{ team.goals_against }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
             >
               {{ team.goal_difference }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900"
             >
               {{ team.points }}
             </td>

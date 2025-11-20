@@ -42,6 +42,11 @@
 
       <!-- Section Content -->
       <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <!-- Invite Requests Management -->
+        <div v-if="currentSection === 'invite-requests'" class="p-6">
+          <AdminInviteRequests />
+        </div>
+
         <!-- Age Groups Management -->
         <div v-if="currentSection === 'age-groups'" class="p-6">
           <AdminAgeGroups />
@@ -97,6 +102,7 @@ import AdminClubs from './admin/AdminClubs.vue';
 import AdminTeams from './admin/AdminTeams.vue';
 import AdminMatches from './admin/AdminMatches.vue';
 import AdminInvites from './admin/AdminInvites.vue';
+import AdminInviteRequests from './admin/AdminInviteRequests.vue';
 
 export default {
   name: 'AdminPanel',
@@ -109,12 +115,14 @@ export default {
     AdminTeams,
     AdminMatches,
     AdminInvites,
+    AdminInviteRequests,
   },
   setup() {
     const authStore = useAuthStore();
-    const currentSection = ref('age-groups');
+    const currentSection = ref('invite-requests');
 
     const adminSections = [
+      { id: 'invite-requests', name: 'Requests' },
       { id: 'age-groups', name: 'Age Groups' },
       { id: 'seasons', name: 'Seasons' },
       { id: 'leagues', name: 'Leagues' },
