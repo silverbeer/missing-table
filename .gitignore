@@ -171,3 +171,8 @@ backend/crew_testing/
 
 # Deprecated scripts with sensitive data
 backend/archive/deprecated-user-scripts/
+
+# Playwright test results
+test-results/
+backend/test-results/
+backend/tests/e2e/playwright/screenshots/
