@@ -3,7 +3,7 @@
     <!-- Filters Section -->
     <div class="mb-6 space-y-4">
       <!-- Age Group Links -->
-      <div>
+      <div data-testid="age-group-filter">
         <h3 class="text-sm font-medium text-gray-700 mb-3">Age Groups</h3>
         <div class="flex flex-wrap gap-2">
           <button
@@ -16,6 +16,7 @@
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
             ]"
+            :data-testid="`age-group-${ageGroup.name}`"
           >
             {{ ageGroup.name }}
           </button>
@@ -59,6 +60,7 @@
           <select
             v-model="selectedSeasonId"
             class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            data-testid="season-filter"
           >
             <option
               v-for="season in seasons"
@@ -76,6 +78,7 @@
           <select
             v-model="selectedDivisionId"
             class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            data-testid="division-filter"
           >
             <option
               v-for="division in divisions"
@@ -92,15 +95,29 @@
 
     <div class="overflow-x-auto">
       <!-- Loading State -->
-      <div v-if="loading" class="text-center py-4">Loading table data...</div>
+      <div
+        v-if="loading"
+        class="text-center py-4"
+        data-testid="loading-indicator"
+      >
+        Loading table data...
+      </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="text-center py-4 text-red-600">
+      <div
+        v-else-if="error"
+        class="text-center py-4 text-red-600"
+        data-testid="error-message"
+      >
         Error: {{ error }}
       </div>
 
       <!-- Table -->
-      <table v-else class="min-w-full divide-y divide-gray-200">
+      <table
+        v-else
+        class="min-w-full divide-y divide-gray-200"
+        data-testid="standings-table"
+      >
         <thead class="bg-gray-50">
           <tr>
             <th
@@ -155,8 +172,15 @@
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="(team, index) in tableData" :key="team.team">
+        <tbody
+          class="bg-white divide-y divide-gray-200"
+          data-testid="standings-body"
+        >
+          <tr
+            v-for="(team, index) in tableData"
+            :key="team.team"
+            data-testid="standings-row"
+          >
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ index + 1 }}
             </td>
