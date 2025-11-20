@@ -37,7 +37,7 @@ redis:
   image:
     repository: redis
     tag: "7-alpine"
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   
   persistence:
     size: 1Gi
@@ -66,7 +66,7 @@ backend:
   image:
     repository: missing-table-backend
     tag: ""  # Defaults to chart appVersion
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   
   env:
     databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:54322/postgres"
@@ -117,7 +117,7 @@ frontend:
   image:
     repository: missing-table-frontend
     tag: ""  # Defaults to chart appVersion
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
 
   env:
     nodeEnv: "development"
