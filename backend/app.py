@@ -1388,9 +1388,9 @@ async def add_match(request: Request, match: EnhancedMatch, current_user: dict[s
 
 @app.put("/api/matches/{match_id}")
 async def update_match(
-    match_id: int, match: EnhancedMatch, current_user: dict[str, Any] = Depends(require_admin_or_service_account)
+    match_id: int, match: EnhancedMatch, current_user: dict[str, Any] = Depends(require_match_management_permission)
 ):
-    """Update an existing match (admin or service account with manage_matches permission)."""
+    """Update an existing match (admin, club_manager, team-manager, or service account with manage_matches permission)."""
     try:
         # Get current match to check permissions
         current_match = sports_dao.get_match_by_id(match_id)
