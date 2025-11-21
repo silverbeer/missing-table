@@ -128,13 +128,9 @@
         <h4 class="font-semibold text-green-800 mb-2">
           Invite Created Successfully!
         </h4>
-        <div class="space-y-2 text-sm">
-          <p>
-            <span class="font-medium">Invite Code:</span>
-            <code class="bg-gray-100 px-2 py-1 rounded text-lg font-mono">{{
-              createdInvite.invite_code
-            }}</code>
-          </p>
+
+        <!-- Invite Details Summary -->
+        <div class="space-y-1 text-sm mb-4">
           <p>
             <span class="font-medium">Type:</span>
             {{ formatInviteType(createdInvite.invite_type) }}
@@ -155,20 +151,47 @@
             <span class="font-medium">Expires:</span>
             {{ formatDate(createdInvite.expires_at) }}
           </p>
-          <p class="text-gray-600 mt-2">
-            Share this registration link:<br />
-            <code class="text-xs break-all"
-              >{{ currentOrigin }}/register?code={{
-                createdInvite.invite_code
-              }}</code
-            >
-          </p>
         </div>
+
+        <!-- Copy-Ready Invite Message -->
+        <div class="bg-white border border-gray-300 rounded-md p-4 mb-3">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-gray-700"
+              >Invite Message (copy and send):</span
+            >
+            <button
+              @click="copyInviteMessage"
+              class="text-sm bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded flex items-center gap-1"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+              {{ copyButtonText }}
+            </button>
+          </div>
+          <pre
+            class="text-sm text-gray-800 whitespace-pre-wrap font-sans bg-gray-50 p-3 rounded border border-gray-200"
+            >{{ generatedInviteMessage }}</pre
+          >
+        </div>
+
+        <!-- Copy Link Only Button -->
         <button
           @click="copyInviteLink(createdInvite.invite_code)"
-          class="mt-3 text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+          class="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
         >
-          Copy Registration Link
+          Copy Link Only
         </button>
       </div>
     </div>
@@ -293,6 +316,7 @@ const invites = ref([]);
 const loading = ref(false);
 const createdInvite = ref(null);
 const statusFilter = ref('');
+const copyButtonText = ref('Copy Message');
 
 // Safely get the current origin
 const currentOrigin = computed(() => {
@@ -300,6 +324,59 @@ const currentOrigin = computed(() => {
     return window.location.origin;
   }
   return 'http://localhost:8080'; // fallback for SSR or when window is undefined
+});
+
+// Generate the invite message for easy copy/paste
+const generatedInviteMessage = computed(() => {
+  if (!createdInvite.value) return '';
+
+  const invite = createdInvite.value;
+  const registrationUrl = `${currentOrigin.value}/register?code=${invite.invite_code}`;
+  const roleDescription = formatInviteType(invite.invite_type);
+
+  // Get organization name
+  let orgName = '';
+  if (invite.club_id) {
+    orgName = getClubName(invite.club_id);
+  } else if (invite.team_id) {
+    const teamName = getTeamName(invite.team_id);
+    const ageGroupName = invite.age_group_id
+      ? getAgeGroupName(invite.age_group_id)
+      : '';
+    orgName = ageGroupName ? `${teamName} (${ageGroupName})` : teamName;
+  }
+
+  // Format expiration date nicely
+  const expiresDate = new Date(invite.expires_at).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  return `🎉 You're Invited!
+
+You've been invited to join Missing Table as a ${roleDescription}${orgName ? ` for ${orgName}` : ''}!
+
+📋 To get started:
+
+1️⃣ Click this link to register:
+   ${registrationUrl}
+
+2️⃣ Fill out the registration form:
+   • Username (required) - choose a unique username
+   • Password (required) - create a secure password
+   • Invite Code - already filled in for you ✅
+   • Display Name (optional)
+   • Email (optional)
+
+3️⃣ Click "Sign Up" and you're done!
+
+🔑 You'll automatically have ${roleDescription} access once registered.
+
+⏰ This invite expires on ${expiresDate}.
+
+❓ Questions? Reply to this message for help.`;
 });
 
 const newInvite = ref({
@@ -483,6 +560,19 @@ const copyInviteLink = code => {
   const link = `${currentOrigin.value}/register?code=${code}`;
   navigator.clipboard.writeText(link);
   alert('Registration link copied to clipboard!');
+};
+
+const copyInviteMessage = async () => {
+  try {
+    await navigator.clipboard.writeText(generatedInviteMessage.value);
+    copyButtonText.value = 'Copied!';
+    setTimeout(() => {
+      copyButtonText.value = 'Copy Message';
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy:', err);
+    alert('Failed to copy message. Please select and copy manually.');
+  }
 };
 
 // Lifecycle
