@@ -243,7 +243,7 @@ def change_password(supabase, email, new_password=None, generate=False):
         print(f"❌ Error changing password: {e}")
         return False
 
-def create_user(supabase, email, password=None, role='user', display_name=None, generate=False):
+def create_user(supabase, email, password=None, role='user', display_name=None, generate=False, club_id=None):
     """Create a new user."""
     try:
         # Handle password
@@ -283,6 +283,10 @@ def create_user(supabase, email, password=None, role='user', display_name=None, 
                 "display_name": display_name
             }
 
+            # Add club_id if provided (for club_manager role)
+            if club_id:
+                profile_data["club_id"] = club_id
+
             profile_response = supabase.table('user_profiles').insert(profile_data).execute()
 
             if profile_response.data:
@@ -297,6 +301,8 @@ def create_user(supabase, email, password=None, role='user', display_name=None, 
             print(f"👤 Username: {username}")
             print(f"👤 Role: {role}")
             print(f"📝 Display Name: {display_name}")
+            if club_id:
+                print(f"🏢 Club ID: {club_id}")
 
             return True
         else:
@@ -592,6 +598,7 @@ def create_command(
     password: Optional[str] = typer.Option(None, "--password", "-p", help="New password (if not provided, will prompt)"),
     role: str = typer.Option("user", "--role", "-r", help="User role"),
     display_name: Optional[str] = typer.Option(None, "--display-name", "-n", help="Display name for new users"),
+    club_id: Optional[int] = typer.Option(None, "--club-id", "-c", help="Club ID for club_manager role"),
     generate: bool = typer.Option(False, "--generate", "-g", help="Generate secure password"),
     confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts")
 ):
@@ -610,7 +617,7 @@ def create_command(
     if not supabase:
         raise typer.Exit(1)
 
-    success = create_user(supabase, email, password, role, display_name, generate)
+    success = create_user(supabase, email, password, role, display_name, generate, club_id)
     if success:
         console.print("\n[green]🎉 Operation completed successfully![/green]")
     else:
