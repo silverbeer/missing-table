@@ -436,12 +436,14 @@ async def signup(request: Request, user_data: UserSignup):
                 if invite_info:
                     # Map invite type to user role
                     role_mapping = {
+                        'club_manager': 'club_manager',
                         'team_manager': 'team-manager',
                         'team_player': 'team-player',
                         'team_fan': 'team-fan'
                     }
                     profile_data['role'] = role_mapping.get(invite_info['invite_type'], 'team-fan')
-                    profile_data['team_id'] = invite_info['team_id']
+                    profile_data['team_id'] = invite_info.get('team_id')
+                    profile_data['club_id'] = invite_info.get('club_id')
 
                 # Insert user profile
                 db_conn_holder_obj.client.table('user_profiles')\
@@ -1181,14 +1183,32 @@ async def get_teams(
 async def add_team(
     request: Request,
     team: Team,
-    current_user: dict[str, Any] = Depends(require_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
 ):
     """Add a new team with age groups, division, and optional parent club.
 
     Division represents location (e.g., Northeast Division for Homegrown, New England Conference for Academy).
     All age groups for a team share the same division.
+
+    Club managers can only add teams to their assigned club.
     """
     try:
+        user_role = current_user.get('role')
+        user_club_id = current_user.get('club_id')
+
+        # Team managers cannot create teams (only manage existing ones)
+        if user_role == 'team-manager':
+            raise HTTPException(status_code=403, detail="Team managers cannot create teams")
+
+        # Club managers can only add teams to their assigned club
+        if user_role == 'club_manager':
+            if not user_club_id:
+                raise HTTPException(status_code=403, detail="Club manager must have a club assigned")
+            # Force team to be created in the club manager's club
+            if team.club_id and team.club_id != user_club_id:
+                raise HTTPException(status_code=403, detail="Can only create teams for your assigned club")
+            # Auto-assign club_id if not provided
+            team.club_id = user_club_id
         # Get client IP for security monitoring
         client_ip = "unknown"
         if security_monitor:

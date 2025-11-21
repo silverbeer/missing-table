@@ -311,14 +311,14 @@ export default {
         id: 'add-match',
         name: 'Add Match',
         requiresAuth: true,
-        requiresRole: ['admin', 'team-manager'],
+        requiresRole: ['admin', 'club_manager', 'team-manager'],
       },
       { id: 'profile', name: 'Profile', requiresAuth: true },
       {
         id: 'admin',
         name: 'Admin',
         requiresAuth: true,
-        requiresRole: ['admin'],
+        requiresRole: ['admin', 'club_manager'],
       },
     ];
 

@@ -18,14 +18,34 @@
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select type...</option>
+            <option value="club_manager">Club Manager</option>
             <option value="team_manager">Team Manager</option>
             <option value="team_player">Team Player</option>
             <option value="team_fan">Team Fan</option>
           </select>
         </div>
 
-        <!-- Team Selection -->
-        <div>
+        <!-- Club Selection (for Club Manager invites) -->
+        <div v-if="newInvite.inviteType === 'club_manager'">
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Club</label
+          >
+          <select
+            v-model="newInvite.clubId"
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select club...</option>
+            <option v-for="club in clubs" :key="club.id" :value="club.id">
+              {{ club.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Team Selection (for team-level invites) -->
+        <div
+          v-if="newInvite.inviteType && newInvite.inviteType !== 'club_manager'"
+        >
           <label class="block text-sm font-medium text-gray-700 mb-2"
             >Team</label
           >
@@ -41,8 +61,10 @@
           </select>
         </div>
 
-        <!-- Age Group Selection -->
-        <div>
+        <!-- Age Group Selection (for team-level invites) -->
+        <div
+          v-if="newInvite.inviteType && newInvite.inviteType !== 'club_manager'"
+        >
           <label class="block text-sm font-medium text-gray-700 mb-2"
             >Age Group</label
           >
@@ -104,11 +126,15 @@
             <span class="font-medium">Type:</span>
             {{ formatInviteType(createdInvite.invite_type) }}
           </p>
-          <p>
+          <p v-if="createdInvite.club_id">
+            <span class="font-medium">Club:</span>
+            {{ getClubName(createdInvite.club_id) }}
+          </p>
+          <p v-if="createdInvite.team_id">
             <span class="font-medium">Team:</span>
             {{ getTeamName(createdInvite.team_id) }}
           </p>
-          <p>
+          <p v-if="createdInvite.age_group_id">
             <span class="font-medium">Age Group:</span>
             {{ getAgeGroupName(createdInvite.age_group_id) }}
           </p>
@@ -170,7 +196,7 @@
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Team
+                Club/Team
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -198,7 +224,12 @@
                 {{ formatInviteType(invite.invite_type) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
-                {{ invite.teams?.name }} - {{ invite.age_groups?.name }}
+                <template v-if="invite.club_id">
+                  {{ invite.clubs?.name || 'Club ' + invite.club_id }}
+                </template>
+                <template v-else>
+                  {{ invite.teams?.name }} - {{ invite.age_groups?.name }}
+                </template>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span
@@ -244,6 +275,7 @@ const authStore = useAuthStore();
 // State
 const teams = ref([]);
 const ageGroups = ref([]);
+const clubs = ref([]);
 const invites = ref([]);
 const loading = ref(false);
 const createdInvite = ref(null);
@@ -259,12 +291,13 @@ const currentOrigin = computed(() => {
 
 const newInvite = ref({
   inviteType: '',
+  clubId: '',
   teamId: '',
   ageGroupId: '',
   email: '',
 });
 
-// Fetch teams and age groups
+// Fetch teams, age groups, and clubs
 const fetchReferenceData = async () => {
   try {
     const headers = authStore.getAuthHeaders();
@@ -280,6 +313,12 @@ const fetchReferenceData = async () => {
       headers,
     });
     ageGroups.value = await ageGroupsResponse.json();
+
+    // Fetch clubs
+    const clubsResponse = await fetch(`${getApiBaseUrl()}/api/clubs`, {
+      headers,
+    });
+    clubs.value = await clubsResponse.json();
   } catch (error) {
     console.error('Error fetching reference data:', error);
   }
@@ -312,29 +351,41 @@ const createInvite = async () => {
       'Content-Type': 'application/json',
     };
 
-    // Determine endpoint based on invite type
+    // Determine endpoint and body based on invite type
     let endpoint = '/api/invites/admin/';
-    if (newInvite.value.inviteType === 'team_manager') {
-      endpoint += 'team-manager';
-    } else if (newInvite.value.inviteType === 'team_player') {
-      endpoint += 'team-player';
+    let body;
+
+    if (newInvite.value.inviteType === 'club_manager') {
+      endpoint += 'club-manager';
+      body = JSON.stringify({
+        club_id: parseInt(newInvite.value.clubId),
+        email: newInvite.value.email || null,
+      });
     } else {
-      endpoint += 'team-fan';
+      if (newInvite.value.inviteType === 'team_manager') {
+        endpoint += 'team-manager';
+      } else if (newInvite.value.inviteType === 'team_player') {
+        endpoint += 'team-player';
+      } else {
+        endpoint += 'team-fan';
+      }
+      body = JSON.stringify({
+        invite_type: newInvite.value.inviteType,
+        team_id: parseInt(newInvite.value.teamId),
+        age_group_id: parseInt(newInvite.value.ageGroupId),
+        email: newInvite.value.email || null,
+      });
     }
 
     const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        invite_type: newInvite.value.inviteType,
-        team_id: parseInt(newInvite.value.teamId),
-        age_group_id: parseInt(newInvite.value.ageGroupId),
-        email: newInvite.value.email || null,
-      }),
+      body,
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create invite');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to create invite');
     }
 
     createdInvite.value = await response.json();
@@ -342,6 +393,7 @@ const createInvite = async () => {
     // Reset form
     newInvite.value = {
       inviteType: '',
+      clubId: '',
       teamId: '',
       ageGroupId: '',
       email: '',
@@ -351,7 +403,7 @@ const createInvite = async () => {
     await fetchInvites();
   } catch (error) {
     console.error('Error creating invite:', error);
-    alert('Failed to create invite. Please try again.');
+    alert(`Failed to create invite: ${error.message}`);
   } finally {
     loading.value = false;
   }
@@ -382,11 +434,17 @@ const cancelInvite = async inviteId => {
 // Utility functions
 const formatInviteType = type => {
   const types = {
+    club_manager: 'Club Manager',
     team_manager: 'Team Manager',
     team_player: 'Team Player',
     team_fan: 'Team Fan',
   };
   return types[type] || type;
+};
+
+const getClubName = clubId => {
+  const club = clubs.value.find(c => c.id === clubId);
+  return club?.name || 'Unknown';
 };
 
 const formatDate = dateString => {
