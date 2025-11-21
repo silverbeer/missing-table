@@ -19,14 +19,19 @@
           >
             <option value="">Select type...</option>
             <option value="club_manager">Club Manager</option>
+            <option value="club_fan">Club Fan</option>
             <option value="team_manager">Team Manager</option>
             <option value="team_player">Team Player</option>
-            <option value="team_fan">Team Fan</option>
           </select>
         </div>
 
-        <!-- Club Selection (for Club Manager invites) -->
-        <div v-if="newInvite.inviteType === 'club_manager'">
+        <!-- Club Selection (for club-level invites) -->
+        <div
+          v-if="
+            newInvite.inviteType === 'club_manager' ||
+            newInvite.inviteType === 'club_fan'
+          "
+        >
           <label class="block text-sm font-medium text-gray-700 mb-2"
             >Club</label
           >
@@ -44,7 +49,11 @@
 
         <!-- Team Selection (for team-level invites) -->
         <div
-          v-if="newInvite.inviteType && newInvite.inviteType !== 'club_manager'"
+          v-if="
+            newInvite.inviteType &&
+            newInvite.inviteType !== 'club_manager' &&
+            newInvite.inviteType !== 'club_fan'
+          "
         >
           <label class="block text-sm font-medium text-gray-700 mb-2"
             >Team</label
@@ -63,7 +72,11 @@
 
         <!-- Age Group Selection (for team-level invites) -->
         <div
-          v-if="newInvite.inviteType && newInvite.inviteType !== 'club_manager'"
+          v-if="
+            newInvite.inviteType &&
+            newInvite.inviteType !== 'club_manager' &&
+            newInvite.inviteType !== 'club_fan'
+          "
         >
           <label class="block text-sm font-medium text-gray-700 mb-2"
             >Age Group</label
@@ -361,13 +374,17 @@ const createInvite = async () => {
         club_id: parseInt(newInvite.value.clubId),
         email: newInvite.value.email || null,
       });
+    } else if (newInvite.value.inviteType === 'club_fan') {
+      endpoint += 'club-fan';
+      body = JSON.stringify({
+        club_id: parseInt(newInvite.value.clubId),
+        email: newInvite.value.email || null,
+      });
     } else {
       if (newInvite.value.inviteType === 'team_manager') {
         endpoint += 'team-manager';
       } else if (newInvite.value.inviteType === 'team_player') {
         endpoint += 'team-player';
-      } else {
-        endpoint += 'team-fan';
       }
       body = JSON.stringify({
         invite_type: newInvite.value.inviteType,
@@ -435,6 +452,7 @@ const cancelInvite = async inviteId => {
 const formatInviteType = type => {
   const types = {
     club_manager: 'Club Manager',
+    club_fan: 'Club Fan',
     team_manager: 'Team Manager',
     team_player: 'Team Player',
     team_fan: 'Team Fan',

@@ -208,14 +208,19 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 
 -- Invitations
 CREATE TABLE IF NOT EXISTS invitations (
-    id SERIAL PRIMARY KEY,
-    code VARCHAR(50) NOT NULL UNIQUE,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'team-manager', 'team_manager')),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    invite_code VARCHAR(12) NOT NULL UNIQUE,
     invited_by_user_id UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    invite_type VARCHAR(50) NOT NULL,
+    team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+    age_group_id INTEGER REFERENCES age_groups(id) ON DELETE SET NULL,
+    email VARCHAR(255),
+    status VARCHAR(20) DEFAULT 'pending',
+    expires_at TIMESTAMP WITH TIME ZONE,
     used_at TIMESTAMP WITH TIME ZONE,
-    used_by_user_id UUID
+    used_by_user_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Team Manager Assignments

@@ -437,6 +437,7 @@ async def signup(request: Request, user_data: UserSignup):
                     # Map invite type to user role
                     role_mapping = {
                         'club_manager': 'club_manager',
+                        'club_fan': 'club-fan',
                         'team_manager': 'team-manager',
                         'team_player': 'team-player',
                         'team_fan': 'team-fan'
@@ -467,7 +468,11 @@ async def signup(request: Request, user_data: UserSignup):
 
                 message = f"Account created successfully! Welcome, {user_data.username}!"
                 if invite_info:
-                    message += f" You have been assigned to {invite_info['team_name']} as a {invite_info['invite_type'].replace('_', ' ')}."
+                    invite_type_display = invite_info['invite_type'].replace('_', ' ')
+                    if invite_info.get('club_name'):
+                        message += f" You have been assigned to {invite_info['club_name']} as a {invite_type_display}."
+                    elif invite_info.get('team_name'):
+                        message += f" You have been assigned to {invite_info['team_name']} as a {invite_type_display}."
 
                 return {
                     "message": message,
