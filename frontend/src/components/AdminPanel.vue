@@ -1,7 +1,10 @@
 <template>
   <div class="admin-panel">
     <!-- Admin Access Check -->
-    <div v-if="!authStore.isAdmin.value" class="text-center py-12">
+    <div
+      v-if="!authStore.isAdmin.value && !authStore.isClubManager.value"
+      class="text-center py-12"
+    >
       <div class="max-w-md mx-auto">
         <div class="text-red-600 text-6xl mb-4">🚫</div>
         <h2 class="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
@@ -92,7 +95,7 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import AdminAgeGroups from './admin/AdminAgeGroups.vue';
 import AdminSeasons from './admin/AdminSeasons.vue';
@@ -121,17 +124,35 @@ export default {
     const authStore = useAuthStore();
     const currentSection = ref('invite-requests');
 
-    const adminSections = [
-      { id: 'invite-requests', name: 'Requests' },
-      { id: 'age-groups', name: 'Age Groups' },
-      { id: 'seasons', name: 'Seasons' },
-      { id: 'leagues', name: 'Leagues' },
-      { id: 'divisions', name: 'Divisions' },
-      { id: 'clubs', name: 'Clubs' },
-      { id: 'teams', name: 'Teams' },
-      { id: 'matches', name: 'Matches' },
-      { id: 'invites', name: 'Invites' },
+    // Define all sections with role requirements
+    const allAdminSections = [
+      { id: 'invite-requests', name: 'Requests', adminOnly: true },
+      { id: 'age-groups', name: 'Age Groups', adminOnly: true },
+      { id: 'seasons', name: 'Seasons', adminOnly: true },
+      { id: 'leagues', name: 'Leagues', adminOnly: true },
+      { id: 'divisions', name: 'Divisions', adminOnly: true },
+      { id: 'clubs', name: 'Clubs', adminOnly: true },
+      { id: 'teams', name: 'Teams', adminOnly: false },
+      { id: 'matches', name: 'Matches', adminOnly: false },
+      { id: 'invites', name: 'Invites', adminOnly: false },
     ];
+
+    // Filter sections based on user role
+    const adminSections = computed(() => {
+      if (authStore.isAdmin.value) {
+        return allAdminSections;
+      }
+      // Club managers only see Teams, Matches, Invites
+      return allAdminSections.filter(section => !section.adminOnly);
+    });
+
+    // Update current section when role changes
+    if (
+      !authStore.isAdmin.value &&
+      currentSection.value === 'invite-requests'
+    ) {
+      currentSection.value = 'teams';
+    }
 
     return {
       authStore,

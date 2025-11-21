@@ -140,7 +140,7 @@ async def list_invite_requests(
 
     Supports filtering by status and pagination.
     """
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in ['admin', 'club_manager']:
         raise HTTPException(status_code=403, detail="Only admins can view invite requests")
 
     try:
@@ -165,7 +165,7 @@ async def get_invite_request_stats(current_user=Depends(get_current_user_require
     """
     Get statistics about invite requests (admin only).
     """
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in ['admin', 'club_manager']:
         raise HTTPException(status_code=403, detail="Only admins can view invite request stats")
 
     try:
@@ -201,7 +201,7 @@ async def get_invite_request(
     """
     Get a specific invite request by ID (admin only).
     """
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in ['admin', 'club_manager']:
         raise HTTPException(status_code=403, detail="Only admins can view invite requests")
 
     try:
@@ -232,7 +232,7 @@ async def update_invite_request_status(
 
     Used to approve or reject invite requests.
     """
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in ['admin', 'club_manager']:
         raise HTTPException(status_code=403, detail="Only admins can update invite requests")
 
     try:
@@ -287,7 +287,7 @@ async def delete_invite_request(
 
     Use with caution - this permanently removes the request.
     """
-    if current_user.get('role') != 'admin':
+    if current_user.get('role') not in ['admin', 'club_manager']:
         raise HTTPException(status_code=403, detail="Only admins can delete invite requests")
 
     try:

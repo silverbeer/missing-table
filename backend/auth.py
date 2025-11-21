@@ -130,6 +130,7 @@ class AuthManager:
                 "email": real_email,  # Real email (optional, for notifications)
                 "role": profile["role"],
                 "team_id": profile.get("team_id"),
+                "club_id": profile.get("club_id"),  # For club managers
                 "display_name": profile.get("display_name"),
             }
 
@@ -255,6 +256,7 @@ class AuthManager:
         """Check if user can manage a specific team."""
         role = user_data.get("role")
         user_team_id = user_data.get("team_id")
+        user_club_id = user_data.get("club_id")
 
         # Admins can manage any team
         if role == "admin":
@@ -264,7 +266,24 @@ class AuthManager:
         if role == "team-manager" and user_team_id == team_id:
             return True
 
+        # Club managers can manage any team in their club
+        if role == "club_manager" and user_club_id:
+            team_club_id = self._get_team_club_id(team_id)
+            if team_club_id and team_club_id == user_club_id:
+                return True
+
         return False
+
+    def _get_team_club_id(self, team_id: int) -> int | None:
+        """Get the club_id for a team."""
+        try:
+            result = self.supabase.table("teams").select("club_id").eq("id", team_id).execute()
+            if result.data and len(result.data) > 0:
+                return result.data[0].get("club_id")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting team club_id: {e}")
+            return None
 
     def can_edit_match(
         self, user_data: dict[str, Any], home_team_id: int, away_team_id: int
@@ -272,6 +291,7 @@ class AuthManager:
         """Check if user can edit a match between specific teams."""
         role = user_data.get("role")
         user_team_id = user_data.get("team_id")
+        user_club_id = user_data.get("club_id")
 
         # Admins can edit any match
         if role == "admin":
@@ -286,6 +306,13 @@ class AuthManager:
         # Team managers can edit matches involving their team
         if role == "team-manager" and user_team_id in [home_team_id, away_team_id]:
             return True
+
+        # Club managers can edit matches involving any team in their club
+        if role == "club_manager" and user_club_id:
+            home_club_id = self._get_team_club_id(home_team_id)
+            away_club_id = self._get_team_club_id(away_team_id)
+            if user_club_id in [home_club_id, away_club_id]:
+                return True
 
         return False
 
@@ -326,10 +353,10 @@ def require_admin(
 def require_team_manager_or_admin(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ) -> dict[str, Any]:
-    """Require team-manager or admin role."""
+    """Require team-manager, club_manager, or admin role."""
     role = current_user.get("role")
-    if role not in ["admin", "team-manager"]:
-        raise HTTPException(status_code=403, detail="Team manager or admin access required")
+    if role not in ["admin", "club_manager", "team-manager"]:
+        raise HTTPException(status_code=403, detail="Team manager, club manager, or admin access required")
     return current_user
 
 
@@ -360,7 +387,7 @@ def require_admin_or_service_account(
 def require_match_management_permission(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ) -> dict[str, Any]:
-    """Require permission to manage matches (admin, team-manager, or service account)."""
+    """Require permission to manage matches (admin, club_manager, team-manager, or service account)."""
     import logging
     logger = logging.getLogger(__name__)
 
@@ -370,8 +397,8 @@ def require_match_management_permission(
 
     logger.info(f"Match management permission check - User: {user_identifier}, Role: {role}, User data: {current_user}")
 
-    # Allow admin and team managers
-    if role in ["admin", "team-manager"]:
+    # Allow admin, club managers, and team managers
+    if role in ["admin", "club_manager", "team-manager"]:
         logger.info(f"Access granted - User {user_identifier} has role {role}")
         return current_user
 
@@ -391,5 +418,5 @@ def require_match_management_permission(
     logger.warning(f"Access denied - User {user_identifier} has insufficient role: {role}")
     raise HTTPException(
         status_code=403,
-        detail="Admin, team manager, or authorized service account access required"
+        detail="Admin, club manager, team manager, or authorized service account access required"
     )

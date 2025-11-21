@@ -17,10 +17,19 @@ export const useAuthStore = () => {
   // Computed properties
   const isAuthenticated = computed(() => !!state.session);
   const isAdmin = computed(() => state.profile?.role === 'admin');
-  const isTeamManager = computed(() => state.profile?.role === 'team-manager');
-  const canManageTeam = computed(() => isAdmin.value || isTeamManager.value);
+  const isClubManager = computed(() => state.profile?.role === 'club_manager');
+  const isTeamManager = computed(
+    () =>
+      state.profile?.role === 'team-manager' ||
+      state.profile?.role === 'team_manager'
+  );
+  const canManageTeam = computed(
+    () => isAdmin.value || isClubManager.value || isTeamManager.value
+  );
+  const canManageClub = computed(() => isAdmin.value || isClubManager.value);
   const userRole = computed(() => state.profile?.role || 'team-fan');
   const userTeamId = computed(() => state.profile?.team_id);
+  const userClubId = computed(() => state.profile?.club_id);
 
   // Actions
   const setLoading = loading => {
@@ -512,10 +521,13 @@ export const useAuthStore = () => {
     // Computed
     isAuthenticated,
     isAdmin,
+    isClubManager,
     isTeamManager,
     canManageTeam,
+    canManageClub,
     userRole,
     userTeamId,
+    userClubId,
 
     // Actions
     signup,

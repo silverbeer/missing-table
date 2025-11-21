@@ -202,15 +202,23 @@
               >
               <select
                 v-model="formData.parentClubId"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                :disabled="isClubManager()"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
-                <option :value="null">Independent Team (No Parent Club)</option>
+                <option v-if="!isClubManager()" :value="null">
+                  Independent Team (No Parent Club)
+                </option>
                 <option v-for="club in clubs" :key="club.id" :value="club.id">
                   {{ club.name }} - {{ club.city }}
                 </option>
               </select>
               <p class="text-xs text-gray-500 mt-1">
-                Link this team to a parent club organization
+                <span v-if="isClubManager()">
+                  Teams you create will be assigned to your club
+                </span>
+                <span v-else>
+                  Link this team to a parent club organization
+                </span>
               </p>
             </div>
 
@@ -548,17 +556,40 @@ export default {
 
     const fetchClubs = async () => {
       try {
-        const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/clubs?include_empty=true`,
-          {
-            method: 'GET',
-          }
-        );
-        clubs.value = response.sort((a, b) => a.name.localeCompare(b.name));
+        // Club managers can only see their own club
+        const userRole = authStore.userRole.value;
+        const userClubId = authStore.userClubId.value;
+
+        if (userRole === 'club_manager' && userClubId) {
+          // Fetch only the club manager's club
+          const response = await authStore.apiRequest(
+            `${getApiBaseUrl()}/api/clubs/${userClubId}`,
+            {
+              method: 'GET',
+            }
+          );
+          clubs.value = [response];
+          // Auto-select the club for club managers
+          formData.value.parentClubId = userClubId;
+        } else {
+          // Admins can see all clubs
+          const response = await authStore.apiRequest(
+            `${getApiBaseUrl()}/api/clubs?include_empty=true`,
+            {
+              method: 'GET',
+            }
+          );
+          clubs.value = response.sort((a, b) => a.name.localeCompare(b.name));
+        }
       } catch (err) {
         console.error('Error fetching clubs:', err);
         // Not fatal - parent club is optional
       }
+    };
+
+    // Check if user is a club manager (used for UI restrictions)
+    const isClubManager = () => {
+      return authStore.userRole.value === 'club_manager';
     };
 
     const fetchDivisions = async () => {
@@ -640,9 +671,9 @@ export default {
         const teamData = {
           name: formData.value.name,
           city: formData.value.city,
-          parent_club_id: formData.value.parentClubId,
+          club_id: formData.value.parentClubId,
           age_group_ids: formData.value.ageGroupIds.map(id => parseInt(id)),
-          division_ids: [],
+          division_id: 1, // Default division - TODO: add division selection to form
           academy_team: formData.value.academyTeam,
         };
 
@@ -704,7 +735,7 @@ export default {
         const updateData = {
           name: formData.value.name,
           city: formData.value.city,
-          parent_club_id: formData.value.parentClubId,
+          club_id: formData.value.parentClubId,
           academy_team: formData.value.academyTeam,
         };
         await authStore.apiRequest(
@@ -908,6 +939,7 @@ export default {
       removeTeamMapping,
       closeModals,
       closeMappingsModal,
+      isClubManager,
     };
   },
 };

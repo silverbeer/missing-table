@@ -42,30 +42,46 @@ class InviteService:
         invite_type: str,
         team_id: Optional[int] = None,
         age_group_id: Optional[int] = None,
+        club_id: Optional[int] = None,
         email: Optional[str] = None,
         expires_in_days: int = 7
     ) -> Dict:
         """
         Create a new invitation
-        
+
         Args:
             invited_by_user_id: ID of the user creating the invite
-            invite_type: Type of invite ('team_manager', 'team_player', 'team_fan')
-            team_id: ID of the team (required for all invite types)
-            age_group_id: ID of the age group (required for all invite types)
+            invite_type: Type of invite ('club_manager', 'team_manager', 'team_player', 'team_fan')
+            team_id: ID of the team (required for team-level invite types)
+            age_group_id: ID of the age group (required for team-level invite types)
+            club_id: ID of the club (required for club_manager invite type)
             email: Optional email to pre-fill during registration
             expires_in_days: Number of days until invite expires
-            
+
         Returns:
             Created invitation record
         """
         try:
+            # Validate parameters based on invite type
+            if invite_type == 'club_manager':
+                if not club_id:
+                    raise ValueError("club_id is required for club_manager invites")
+                # Club managers don't need team_id or age_group_id
+                team_id = None
+                age_group_id = None
+            else:
+                if not team_id:
+                    raise ValueError("team_id is required for team-level invites")
+                if not age_group_id:
+                    raise ValueError("age_group_id is required for team-level invites")
+                club_id = None
+
             # Generate unique invite code
             invite_code = self.generate_invite_code()
-            
+
             # Calculate expiration date
             expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
-            
+
             # Create invitation record
             invitation_data = {
                 'invite_code': invite_code,
@@ -73,19 +89,20 @@ class InviteService:
                 'invite_type': invite_type,
                 'team_id': team_id,
                 'age_group_id': age_group_id,
+                'club_id': club_id,
                 'email': email,
                 'status': 'pending',
                 'expires_at': expires_at.isoformat()
             }
-            
+
             response = self.supabase.table('invitations').insert(invitation_data).execute()
-            
+
             if response.data:
                 logger.info(f"Created {invite_type} invitation: {invite_code}")
                 return response.data[0]
             else:
                 raise Exception("Failed to create invitation")
-                
+
         except Exception as e:
             logger.error(f"Error creating invitation: {e}")
             raise
@@ -105,7 +122,7 @@ class InviteService:
 
             # Get invitation by code (use .execute() without .single() to avoid exception on no results)
             response = self.supabase.table('invitations')\
-                .select('*, teams(name), age_groups(name)')\
+                .select('*, teams(name), age_groups(name), clubs(name)')\
                 .eq('invite_code', code)\
                 .execute()
 
@@ -150,6 +167,8 @@ class InviteService:
                 'team_name': invitation['teams']['name'] if invitation.get('teams') else None,
                 'age_group_id': invitation['age_group_id'],
                 'age_group_name': invitation['age_groups']['name'] if invitation.get('age_groups') else None,
+                'club_id': invitation.get('club_id'),
+                'club_name': invitation['clubs']['name'] if invitation.get('clubs') else None,
                 'email': invitation['email']
             }
 

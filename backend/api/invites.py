@@ -37,6 +37,21 @@ class CreateInviteRequest(BaseModel):
     age_group_id: int
     email: Optional[str] = None
 
+class CreateClubManagerInviteRequest(BaseModel):
+    club_id: int
+    email: Optional[str] = None
+
+class ClubManagerInviteResponse(BaseModel):
+    id: str
+    invite_code: str
+    invite_type: str
+    club_id: int
+    club_name: Optional[str]
+    email: Optional[str]
+    status: str
+    expires_at: datetime
+    created_at: datetime
+
 class InviteCodeValidation(BaseModel):
     invite_code: str = Field(..., min_length=12, max_length=12)
 
@@ -68,6 +83,37 @@ async def validate_invite_code(invite_code: str):
     return validation
 
 # Admin endpoints
+@router.post("/admin/club-manager")
+async def create_club_manager_invite(
+    request: CreateClubManagerInviteRequest,
+    current_user=Depends(get_current_user_required)
+):
+    """Create a club manager invitation (admin only)"""
+    if current_user['role'] != 'admin':
+        raise HTTPException(status_code=403, detail="Only admins can create club manager invites")
+
+    # Use service role client for admin operations to bypass RLS
+    invite_service = InviteService(service_client)
+
+    try:
+        # Handle different user ID field names
+        user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
+
+        invitation = invite_service.create_invitation(
+            invited_by_user_id=user_id,
+            invite_type='club_manager',
+            club_id=request.club_id,
+            email=request.email
+        )
+
+        return invitation
+
+    except Exception as e:
+        print(f"DEBUG: Club manager invite creation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/admin/team-manager")
 async def create_team_manager_invite(
     request: CreateInviteRequest,
