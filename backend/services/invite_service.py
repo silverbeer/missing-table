@@ -51,10 +51,10 @@ class InviteService:
 
         Args:
             invited_by_user_id: ID of the user creating the invite
-            invite_type: Type of invite ('club_manager', 'team_manager', 'team_player', 'team_fan')
+            invite_type: Type of invite ('club_manager', 'club_fan', 'team_manager', 'team_player', 'team_fan')
             team_id: ID of the team (required for team-level invite types)
             age_group_id: ID of the age group (required for team-level invite types)
-            club_id: ID of the club (required for club_manager invite type)
+            club_id: ID of the club (required for club_manager and club_fan invite types)
             email: Optional email to pre-fill during registration
             expires_in_days: Number of days until invite expires
 
@@ -63,10 +63,10 @@ class InviteService:
         """
         try:
             # Validate parameters based on invite type
-            if invite_type == 'club_manager':
+            if invite_type in ('club_manager', 'club_fan'):
                 if not club_id:
-                    raise ValueError("club_id is required for club_manager invites")
-                # Club managers don't need team_id or age_group_id
+                    raise ValueError(f"club_id is required for {invite_type} invites")
+                # Club-level invites don't need team_id or age_group_id
                 team_id = None
                 age_group_id = None
             else:

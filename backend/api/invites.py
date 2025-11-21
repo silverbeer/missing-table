@@ -149,24 +149,55 @@ async def create_team_manager_invite(
         print(f"DEBUG: Invite creation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/admin/team-fan", )
-async def create_team_fan_invite_admin(
-    request: CreateInviteRequest,
+@router.post("/admin/club-fan")
+async def create_club_fan_invite_admin(
+    request: CreateClubManagerInviteRequest,
     current_user=Depends(get_current_user_required)
 ):
-    """Create a team fan invitation (admin)"""
+    """Create a club fan invitation (admin only)"""
     if current_user['role'] != 'admin':
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    
+        raise HTTPException(status_code=403, detail="Only admins can create club fan invites")
+
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
-    
+
     try:
         # Handle different user ID field names
         user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
         if not user_id:
             raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
-        
+
+        invitation = invite_service.create_invitation(
+            invited_by_user_id=user_id,
+            invite_type='club_fan',
+            club_id=request.club_id,
+            email=request.email
+        )
+
+        return invitation
+
+    except Exception as e:
+        print(f"DEBUG: Club fan invite creation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/admin/team-fan")
+async def create_team_fan_invite_admin(
+    request: CreateInviteRequest,
+    current_user=Depends(get_current_user_required)
+):
+    """Create a team fan invitation (admin) - DEPRECATED: Use club-fan instead"""
+    if current_user['role'] != 'admin':
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    # Use service role client for admin operations to bypass RLS
+    invite_service = InviteService(service_client)
+
+    try:
+        # Handle different user ID field names
+        user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
+
         invitation = invite_service.create_invitation(
             invited_by_user_id=user_id,
             invite_type='team_fan',
@@ -174,9 +205,9 @@ async def create_team_fan_invite_admin(
             age_group_id=request.age_group_id,
             email=request.email
         )
-        
+
         return invitation
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -211,13 +242,54 @@ async def create_team_player_invite_admin(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# Club manager endpoints
+@router.post("/club-manager/club-fan")
+async def create_club_fan_invite_club_manager(
+    request: CreateClubManagerInviteRequest,
+    current_user=Depends(get_current_user_required)
+):
+    """Create a club fan invitation (club manager or admin)"""
+    if current_user['role'] not in ['admin', 'club_manager']:
+        raise HTTPException(status_code=403, detail="Only club managers or admins can create club fan invites")
+
+    # Use service role client for operations to bypass RLS
+    invite_service = InviteService(service_client)
+
+    try:
+        # Handle different user ID field names
+        user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
+
+        # Club managers can only create invites for their own club
+        if current_user['role'] == 'club_manager':
+            user_club_id = current_user.get('club_id')
+            if not user_club_id or user_club_id != request.club_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only create fan invites for your own club"
+                )
+
+        invitation = invite_service.create_invitation(
+            invited_by_user_id=user_id,
+            invite_type='club_fan',
+            club_id=request.club_id,
+            email=request.email
+        )
+
+        return invitation
+
+    except Exception as e:
+        print(f"DEBUG: Club fan invite creation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 # Team manager endpoints
-@router.post("/team-manager/team-fan", )
+@router.post("/team-manager/team-fan")
 async def create_team_fan_invite(
     request: CreateInviteRequest,
     current_user=Depends(get_current_user_required)
 ):
-    """Create a team fan invitation (team manager)"""
+    """Create a team fan invitation (team manager) - DEPRECATED: Use club-fan instead"""
     if current_user['role'] not in ['admin', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
