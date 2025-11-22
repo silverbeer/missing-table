@@ -1,0 +1,17 @@
+# Grafana Cloud Configuration
+# Copy this file to terraform.tfvars and fill in your values
+
+# Your Grafana Cloud instance URL
+# Find this in: Grafana Cloud -> Your Stack -> Grafana -> URL
+grafana_url = "https://yourorg.grafana.net"
+
+# Grafana API Key with Admin role
+# Create at: Grafana Cloud -> Your Stack -> Grafana -> Administration -> API Keys
+grafana_api_key = "glsa_xxxxxxxxxxxxxxxxxxxx"
+
+# Your Prometheus datasource UID
+# Find this in: Grafana -> Connections -> Data sources -> Prometheus -> Settings -> UID
+prometheus_datasource_uid = "grafanacloud-yourorg-prom"
+
+# Folder name for dashboards
+folder_name = "Missing Table"

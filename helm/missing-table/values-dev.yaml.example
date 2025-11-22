@@ -24,6 +24,11 @@ secrets:
   # Application secrets
   serviceAccountSecret: "your-service-account-secret-here"
 
+  # Grafana Cloud OTLP credentials (for frontend telemetry)
+  # Get these from: Grafana Cloud -> Connections -> OTLP
+  grafanaInstanceId: "your-grafana-instance-id"
+  grafanaApiKey: "your-grafana-api-key"
+
 # Backend configuration
 backend:
   replicaCount: 1

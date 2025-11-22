@@ -6,6 +6,7 @@
 
 import securityMonitor from '../utils/security-monitor.js';
 import { getApiBaseUrl } from '../config/api';
+import { recordError } from '../telemetry';
 
 const SecurityPlugin = {
   install(app, options = {}) {
@@ -19,6 +20,9 @@ const SecurityPlugin = {
     // Set up Vue-specific error handling
     const originalErrorHandler = app.config.errorHandler;
     app.config.errorHandler = (err, instance, info) => {
+      const componentName =
+        instance?.$options?.name || instance?.$?.type?.name || 'Unknown';
+
       // Report Vue errors to security monitor
       securityMonitor.reportCustomEvent('vue_error', 'medium', {
         error: {
@@ -27,9 +31,14 @@ const SecurityPlugin = {
           name: err.name,
         },
         componentInfo: info,
-        componentName:
-          instance?.$options?.name || instance?.$?.type?.name || 'Unknown',
+        componentName,
         location: window.location.href,
+      });
+
+      // Record error metric for OTEL
+      recordError('vue_error', {
+        component: componentName,
+        severity: 'medium',
       });
 
       // Call original handler if it exists

@@ -263,9 +263,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from './stores/auth';
 import { getApiBaseUrl } from './config/api';
+import { recordPageView, recordInviteRequest } from './telemetry';
 import MatchForm from './components/MatchForm.vue';
 import LeagueTable from './components/LeagueTable.vue';
 import MatchesView from './components/MatchesView.vue';
@@ -374,6 +375,7 @@ export default {
         if (response.ok && data.success) {
           inviteRequestSuccess.value = true;
           inviteRequestMessage.value = data.message;
+          recordInviteRequest(true);
 
           // Reset form
           inviteRequest.value = {
@@ -387,15 +389,25 @@ export default {
           inviteRequestSuccess.value = false;
           inviteRequestMessage.value =
             data.detail || 'Failed to submit request. Please try again.';
+          recordInviteRequest(false);
         }
       } catch (error) {
         inviteRequestSuccess.value = false;
         inviteRequestMessage.value =
           'Failed to submit request. Please try again.';
+        recordInviteRequest(false);
       } finally {
         inviteRequestSubmitting.value = false;
       }
     };
+
+    // Watch for tab changes and record page views
+    watch(currentTab, newTab => {
+      recordPageView(newTab, {
+        authenticated: authStore.isAuthenticated.value ? 'true' : 'false',
+        user_role: authStore.userRole.value || 'anonymous',
+      });
+    });
 
     // Initialize auth on app start
     onMounted(async () => {
@@ -403,6 +415,12 @@ export default {
       // authStore.forceLogout()
 
       await authStore.initialize();
+
+      // Record initial page view after auth initialization
+      recordPageView(currentTab.value, {
+        authenticated: authStore.isAuthenticated.value ? 'true' : 'false',
+        user_role: authStore.userRole.value || 'anonymous',
+      });
     });
 
     return {
