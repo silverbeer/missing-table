@@ -1,0 +1,297 @@
+{
+  "title": "MT Frontend Observability",
+  "description": "Missing Table frontend metrics - page views, auth, API calls, Web Vitals",
+  "tags": ["missing-table", "frontend", "otel"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Page Views by Tab",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(page_view_total[5m])) by (page_name)",
+          "legendFormat": "{{page_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Total Page Views",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(page_view_total)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Active Users (by role)",
+      "type": "piechart",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(page_view_total) by (user_role)",
+          "legendFormat": "{{user_role}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Login Success Rate",
+      "type": "gauge",
+      "gridPos": { "x": 12, "y": 4, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(auth_login_total{status=\"success\"}) / sum(auth_login_total) * 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 90 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Auth Events",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(auth_login_total[5m])) by (status)",
+          "legendFormat": "login_{{status}}"
+        },
+        {
+          "expr": "sum(rate(auth_signup_total[5m]))",
+          "legendFormat": "signup"
+        },
+        {
+          "expr": "sum(rate(auth_logout_total[5m]))",
+          "legendFormat": "logout"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Login Duration P95",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 8, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(auth_login_duration_ms_bucket[5m])) by (le))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1000 },
+              { "color": "red", "value": 3000 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "HTTP Error Rate",
+      "type": "gauge",
+      "gridPos": { "x": 16, "y": 8, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_total{success=\"false\"}[5m])) / sum(rate(http_request_total[5m])) * 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Total Logins",
+      "type": "stat",
+      "gridPos": { "x": 20, "y": 8, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(auth_login_total{status=\"success\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "API Requests by Endpoint",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 16, "h": 8 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_total[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "API Latency P95",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 12, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket[5m])) by (le))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 2000 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Frontend Errors",
+      "type": "timeseries",
+      "gridPos": { "x": 20, "y": 12, "w": 4, "h": 4 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "sum(rate(frontend_error_total[5m])) by (error_type)",
+          "legendFormat": "{{error_type}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Web Vitals",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 6 },
+      "datasource": { "uid": "${datasource_uid}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.75, sum(rate(web_vitals_lcp_bucket[5m])) by (le))",
+          "legendFormat": "LCP P75",
+          "instant": true
+        },
+        {
+          "expr": "histogram_quantile(0.75, sum(rate(web_vitals_inp_bucket[5m])) by (le))",
+          "legendFormat": "INP P75",
+          "instant": true
+        },
+        {
+          "expr": "histogram_quantile(0.75, sum(rate(web_vitals_cls_bucket[5m])) by (le))",
+          "legendFormat": "CLS P75",
+          "instant": true
+        },
+        {
+          "expr": "histogram_quantile(0.75, sum(rate(web_vitals_fcp_bucket[5m])) by (le))",
+          "legendFormat": "FCP P75",
+          "instant": true
+        },
+        {
+          "expr": "histogram_quantile(0.75, sum(rate(web_vitals_ttfb_bucket[5m])) by (le))",
+          "legendFormat": "TTFB P75",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "CLS P75" },
+            "properties": [
+              { "id": "unit", "value": "none" }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "schemaVersion": 39
+}

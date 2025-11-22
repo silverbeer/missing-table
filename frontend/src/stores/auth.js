@@ -1,6 +1,14 @@
 import { reactive, computed } from 'vue';
 import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
 import { getApiBaseUrl } from '../config/api';
+import {
+  recordLogin,
+  recordLoginDuration,
+  recordSignup,
+  recordLogout,
+  recordSessionRefresh,
+  recordHttpRequest,
+} from '../telemetry';
 
 // Remove Supabase client - using backend API instead
 
@@ -90,13 +98,16 @@ export const useAuthStore = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        recordSignup(false, 'signup', { error_type: 'signup_failed' });
         throw new Error(errorData.detail || 'Signup failed');
       }
 
       const data = await response.json();
+      recordSignup(true, 'signup');
       return { success: true, message: data.message || 'Signup successful!' };
     } catch (error) {
       setError(error.message);
+      recordSignup(false, 'signup', { error_type: 'exception' });
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -130,13 +141,18 @@ export const useAuthStore = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        recordSignup(false, 'signup_with_invite', {
+          error_type: 'signup_failed',
+        });
         throw new Error(errorData.detail || 'Signup failed');
       }
 
       const data = await response.json();
+      recordSignup(true, 'signup_with_invite');
       return { success: true, message: data.message || 'Signup successful!' };
     } catch (error) {
       setError(error.message);
+      recordSignup(false, 'signup_with_invite', { error_type: 'exception' });
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -144,6 +160,7 @@ export const useAuthStore = () => {
   };
 
   const login = async (username, password) => {
+    const startTime = performance.now();
     try {
       setLoading(true);
       clearError();
@@ -156,8 +173,12 @@ export const useAuthStore = () => {
         body: JSON.stringify({ username, password }),
       });
 
+      const duration = performance.now() - startTime;
+
       if (!response.ok) {
         const errorData = await response.json();
+        recordLogin(false, { error_type: 'invalid_credentials' });
+        recordLoginDuration(duration, false);
         throw new Error(errorData.detail || 'Login failed');
       }
 
@@ -177,9 +198,16 @@ export const useAuthStore = () => {
 
       console.log('Login successful - Profile set:', data.user);
 
+      // Record successful login metrics
+      recordLogin(true, { user_role: data.user.role || 'team-fan' });
+      recordLoginDuration(duration, true);
+
       return { success: true, user: data.user };
     } catch (error) {
+      const duration = performance.now() - startTime;
       setError(error.message);
+      recordLogin(false, { error_type: 'exception' });
+      recordLoginDuration(duration, false);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -215,6 +243,9 @@ export const useAuthStore = () => {
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('sb-localhost-auth-token');
       clearCSRFToken();
+
+      // Record logout metric
+      recordLogout();
 
       return { success: true };
     } catch (error) {
@@ -379,6 +410,8 @@ export const useAuthStore = () => {
 
   // NEW: Simple API call helper with auth headers
   const apiCall = async (endpoint, options = {}) => {
+    const startTime = performance.now();
+    const method = options.method || 'GET';
     const token = localStorage.getItem('auth_token');
     const defaultHeaders = {
       'Content-Type': 'application/json',
@@ -396,6 +429,8 @@ export const useAuthStore = () => {
       },
     });
 
+    const duration = performance.now() - startTime;
+
     if (response.status === 401) {
       // Token expired, try refresh
       const refreshResult = await refreshSession();
@@ -411,15 +446,32 @@ export const useAuthStore = () => {
               ...options.headers,
             },
           });
+          const retryDuration = performance.now() - startTime;
           if (retryResponse.ok) {
+            recordHttpRequest(
+              endpoint,
+              method,
+              retryResponse.status,
+              retryDuration
+            );
             return retryResponse.json();
           }
+          recordHttpRequest(
+            endpoint,
+            method,
+            retryResponse.status,
+            retryDuration
+          );
         }
       }
       // Refresh failed or retry failed, force logout
+      recordHttpRequest(endpoint, method, 401, duration);
       await logout();
       throw new Error('Session expired. Please log in again.');
     }
+
+    // Record HTTP request metrics
+    recordHttpRequest(endpoint, method, response.status, duration);
 
     if (!response.ok) {
       const error = await response
@@ -444,6 +496,7 @@ export const useAuthStore = () => {
     try {
       const refreshToken = localStorage.getItem('refresh_token');
       if (!refreshToken) {
+        recordSessionRefresh(false);
         throw new Error('No refresh token');
       }
 
@@ -456,12 +509,14 @@ export const useAuthStore = () => {
       });
 
       if (!response.ok) {
+        recordSessionRefresh(false);
         throw new Error('Token refresh failed');
       }
 
       const data = await response.json();
       setSession(data.session);
 
+      recordSessionRefresh(true);
       return { success: true };
     } catch (error) {
       // Refresh failed, force logout
@@ -469,6 +524,7 @@ export const useAuthStore = () => {
       setSession(null);
       setProfile(null);
       localStorage.clear();
+      recordSessionRefresh(false);
       return { success: false, error: error.message };
     }
   };

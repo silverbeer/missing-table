@@ -1,8 +1,15 @@
+// Initialize telemetry first (before any other app code)
+import './telemetry';
+import { initWebVitals } from './telemetry';
+
 import { createApp } from 'vue';
 import App from './App.vue';
 import './style.css';
 
 const app = createApp(App);
+
+// Initialize Web Vitals tracking after app creation
+initWebVitals();
 
 // Conditionally load security plugin
 const DISABLE_SECURITY = process.env.VUE_APP_DISABLE_SECURITY === 'true';
