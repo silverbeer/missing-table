@@ -501,23 +501,28 @@ const createInvite = async () => {
       'Content-Type': 'application/json',
     };
 
-    // Determine endpoint and body based on invite type
-    let endpoint = '/api/invites/admin/';
+    // Determine endpoint and body based on invite type and user role
+    let endpoint;
     let body;
 
     if (newInvite.value.inviteType === 'club_manager') {
-      endpoint += 'club-manager';
+      endpoint = '/api/invites/admin/club-manager';
       body = JSON.stringify({
         club_id: parseInt(newInvite.value.clubId),
         email: newInvite.value.email || null,
       });
     } else if (newInvite.value.inviteType === 'club_fan') {
-      endpoint += 'club-fan';
+      // Club managers use their own endpoint, admins use admin endpoint
+      endpoint =
+        authStore.userRole.value === 'club_manager'
+          ? '/api/invites/club-manager/club-fan'
+          : '/api/invites/admin/club-fan';
       body = JSON.stringify({
         club_id: parseInt(newInvite.value.clubId),
         email: newInvite.value.email || null,
       });
     } else {
+      endpoint = '/api/invites/admin/';
       if (newInvite.value.inviteType === 'team_manager') {
         endpoint += 'team-manager';
       } else if (newInvite.value.inviteType === 'team_player') {
