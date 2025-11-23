@@ -304,7 +304,11 @@ export default {
           console.log('Fetching all teams (no filter)');
         }
 
-        const response = await fetch(url);
+        // Get auth token for authenticated requests
+        const token = localStorage.getItem('auth_token');
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const response = await fetch(url, { headers: authHeaders });
         if (!response.ok) throw new Error('Failed to fetch teams');
         const data = await response.json();
         console.log('Teams received count:', data.length);
