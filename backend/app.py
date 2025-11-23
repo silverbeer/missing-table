@@ -1068,7 +1068,7 @@ async def get_current_season(current_user: dict[str, Any] = Depends(get_current_
 
 
 @app.get("/api/active-seasons")
-async def get_active_seasons():
+async def get_active_seasons(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get active seasons (current and future) for scheduling new matches."""
     try:
         active_seasons = sports_dao.get_active_seasons()
@@ -1079,7 +1079,7 @@ async def get_active_seasons():
 
 
 @app.get("/api/match-types")
-async def get_match_types():
+async def get_match_types(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get all match types."""
     try:
         match_types = sports_dao.get_all_match_types()
