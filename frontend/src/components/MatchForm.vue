@@ -323,9 +323,14 @@ export default {
 
     const fetchReferenceData = async () => {
       try {
+        // Get auth token for authenticated requests
+        const token = localStorage.getItem('auth_token');
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
         // Fetch active seasons (current and future)
         const activeSeasonsResponse = await fetch(
-          `${getApiBaseUrl()}/api/active-seasons`
+          `${getApiBaseUrl()}/api/active-seasons`,
+          { headers: authHeaders }
         );
         if (activeSeasonsResponse.ok) {
           activeSeasons.value = await activeSeasonsResponse.json();
@@ -337,7 +342,8 @@ export default {
 
         // Fetch age groups
         const ageGroupsResponse = await fetch(
-          `${getApiBaseUrl()}/api/age-groups`
+          `${getApiBaseUrl()}/api/age-groups`,
+          { headers: authHeaders }
         );
         if (ageGroupsResponse.ok) {
           ageGroups.value = await ageGroupsResponse.json();
@@ -349,7 +355,8 @@ export default {
 
         // Fetch match types
         const matchTypesResponse = await fetch(
-          `${getApiBaseUrl()}/api/match-types`
+          `${getApiBaseUrl()}/api/match-types`,
+          { headers: authHeaders }
         );
         if (matchTypesResponse.ok) {
           matchTypes.value = await matchTypesResponse.json();
@@ -361,7 +368,8 @@ export default {
 
         // Fetch divisions
         const divisionsResponse = await fetch(
-          `${getApiBaseUrl()}/api/divisions`
+          `${getApiBaseUrl()}/api/divisions`,
+          { headers: authHeaders }
         );
         if (divisionsResponse.ok) {
           divisions.value = await divisionsResponse.json();
