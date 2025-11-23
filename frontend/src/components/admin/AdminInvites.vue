@@ -1,10 +1,14 @@
 <template>
-  <div class="p-6">
-    <h2 class="text-2xl font-bold mb-6">Invite Management</h2>
+  <div class="p-4 sm:p-6">
+    <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
+      Invite Management
+    </h2>
 
     <!-- Create Invite Section -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-      <h3 class="text-lg font-semibold mb-4">Create New Invite</h3>
+    <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-4 sm:mb-6">
+      <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+        Create New Invite
+      </h3>
 
       <form @submit.prevent="createInvite" class="space-y-4">
         <!-- Invite Type Selection -->
@@ -197,15 +201,17 @@
     </div>
 
     <!-- Existing Invites -->
-    <div class="bg-white rounded-lg shadow p-6">
-      <h3 class="text-lg font-semibold mb-4">Existing Invites</h3>
+    <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+      <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+        Existing Invites
+      </h3>
 
       <!-- Filter -->
       <div class="mb-4">
         <select
           v-model="statusFilter"
           @change="fetchInvites"
-          class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Invites</option>
           <option value="pending">Pending</option>
@@ -214,8 +220,62 @@
         </select>
       </div>
 
-      <!-- Invites Table -->
-      <div class="overflow-x-auto">
+      <!-- Mobile Card View -->
+      <div class="sm:hidden space-y-3">
+        <div
+          v-for="invite in invites"
+          :key="invite.id"
+          class="border rounded-lg p-3 bg-gray-50"
+        >
+          <div class="flex justify-between items-start mb-2">
+            <span class="font-mono text-sm font-medium">{{
+              invite.invite_code
+            }}</span>
+            <span
+              :class="{
+                'bg-yellow-100 text-yellow-800': invite.status === 'pending',
+                'bg-green-100 text-green-800': invite.status === 'used',
+                'bg-red-100 text-red-800': invite.status === 'expired',
+              }"
+              class="px-2 py-1 text-xs rounded-full"
+            >
+              {{ invite.status }}
+            </span>
+          </div>
+          <div class="text-sm space-y-1">
+            <p>
+              <span class="text-gray-500">Type:</span>
+              {{ formatInviteType(invite.invite_type) }}
+            </p>
+            <p>
+              <span class="text-gray-500">For:</span>
+              <template v-if="invite.club_id">
+                {{ invite.clubs?.name || 'Club ' + invite.club_id }}
+              </template>
+              <template v-else>
+                {{ invite.teams?.name }} - {{ invite.age_groups?.name }}
+              </template>
+            </p>
+            <p class="text-gray-500 text-xs">
+              {{ formatDate(invite.created_at) }}
+            </p>
+          </div>
+          <div class="mt-2 pt-2 border-t" v-if="invite.status === 'pending'">
+            <button
+              @click="cancelInvite(invite.id)"
+              class="text-red-600 hover:text-red-900 text-sm font-medium"
+            >
+              Cancel Invite
+            </button>
+          </div>
+        </div>
+        <p v-if="invites.length === 0" class="text-gray-500 text-center py-4">
+          No invites found
+        </p>
+      </div>
+
+      <!-- Desktop Table View -->
+      <div class="hidden sm:block overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
