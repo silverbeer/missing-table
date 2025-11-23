@@ -421,6 +421,13 @@ export default {
         authenticated: authStore.isAuthenticated.value ? 'true' : 'false',
         user_role: authStore.userRole.value || 'anonymous',
       });
+
+      // Check for invite code in URL - automatically open login modal for signup
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteCode = urlParams.get('code');
+      if (inviteCode && !authStore.isAuthenticated.value) {
+        showLoginModal.value = true;
+      }
     });
 
     return {
