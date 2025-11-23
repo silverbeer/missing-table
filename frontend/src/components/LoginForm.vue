@@ -296,6 +296,20 @@ export default {
 
     onMounted(() => {
       fetchTeams();
+
+      // Check for invite code in URL query parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteCode = urlParams.get('code');
+
+      if (inviteCode) {
+        // Switch to invite signup form and pre-fill the code
+        showInviteSignup.value = true;
+        isSignup.value = true;
+        form.inviteCode = inviteCode;
+
+        // Validate the invite code automatically
+        validateInviteCode();
+      }
     });
 
     return {
