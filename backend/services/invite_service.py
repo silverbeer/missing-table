@@ -225,7 +225,7 @@ class InviteService:
         """
         try:
             response = self.supabase.table('invitations')\
-                .select('*, teams(name), age_groups(name), clubs(name), used_by:user_profiles!invitations_used_by_user_id_fkey(email, first_name, last_name)')\
+                .select('*, teams(name), age_groups(name), clubs(name)')\
                 .eq('invited_by_user_id', user_id)\
                 .order('created_at', desc=True)\
                 .execute()
