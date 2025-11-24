@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -257,6 +257,10 @@ class Club(BaseModel):
     city: str
     website: str | None = None
     description: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    secondary_color: str | None = None
+    pro_academy: bool = False
 
 
 class ClubWithTeams(BaseModel):
@@ -2108,7 +2112,11 @@ async def create_club(
             name=club.name,
             city=club.city,
             website=club.website,
-            description=club.description
+            description=club.description,
+            logo_url=club.logo_url,
+            primary_color=club.primary_color,
+            secondary_color=club.secondary_color,
+            pro_academy=club.pro_academy
         )
         logger.info(f"Created new club: {new_club['name']}")
         return new_club
@@ -2144,7 +2152,11 @@ async def update_club(
             name=club.name,
             city=club.city,
             website=club.website,
-            description=club.description
+            description=club.description,
+            logo_url=club.logo_url,
+            primary_color=club.primary_color,
+            secondary_color=club.secondary_color,
+            pro_academy=club.pro_academy
         )
         if not updated_club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
@@ -2155,6 +2167,70 @@ async def update_club(
     except Exception as e:
         logger.error(f"Error updating club: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/clubs/{club_id}/logo")
+async def upload_club_logo(
+    club_id: int,
+    file: UploadFile = File(...),
+    current_user: dict[str, Any] = Depends(require_admin)
+):
+    """Upload a logo image for a club (admin only).
+
+    Uploads the image to Supabase Storage and returns the public URL.
+    Accepted formats: PNG, JPG/JPEG. Max size: 2MB.
+    """
+    # Validate file type
+    allowed_types = ["image/png", "image/jpeg", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed types: PNG, JPG. Got: {file.content_type}"
+        )
+
+    # Read file content
+    content = await file.read()
+
+    # Validate file size (2MB max)
+    max_size = 2 * 1024 * 1024  # 2MB
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is 2MB. Got: {len(content) / 1024 / 1024:.2f}MB"
+        )
+
+    # Determine file extension
+    ext = "png" if file.content_type == "image/png" else "jpg"
+    file_path = f"{club_id}.{ext}"
+
+    try:
+        # Get the Supabase client from the DAO
+        storage = sports_dao.client.storage
+
+        # Upload to club-logos bucket (upsert to overwrite existing)
+        result = storage.from_("club-logos").upload(
+            file_path,
+            content,
+            file_options={"content-type": file.content_type, "upsert": "true"}
+        )
+
+        # Get public URL
+        public_url = storage.from_("club-logos").get_public_url(file_path)
+
+        # Update the club with the new logo URL
+        updated_club = sports_dao.update_club(club_id=club_id, logo_url=public_url)
+
+        if not updated_club:
+            raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
+
+        logger.info(f"Uploaded logo for club {club_id}: {public_url}")
+        return {"logo_url": public_url, "club": updated_club}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading club logo: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {str(e)}")
 
 
 @app.delete("/api/clubs/{club_id}")
