@@ -258,6 +258,10 @@ class EnhancedSportsDAO:
                 self.client.table("teams")
                 .select("""
                 *,
+                leagues!teams_league_id_fkey (
+                    id,
+                    name
+                ),
                 team_mappings (
                     age_groups (
                         id,
@@ -281,6 +285,10 @@ class EnhancedSportsDAO:
             # Flatten the age groups and divisions for each team
             teams = []
             for team in response.data:
+                # Extract league_name from the joined leagues table
+                if "leagues" in team and team["leagues"]:
+                    team["league_name"] = team["leagues"]["name"]
+
                 age_groups = []
                 divisions_by_age_group = {}
                 if "team_mappings" in team:
@@ -1634,7 +1642,9 @@ class EnhancedSportsDAO:
             print(f"Error querying club for team: {e}")
             return None
 
-    def create_club(self, name: str, city: str, website: str = None, description: str = None) -> dict:
+    def create_club(self, name: str, city: str, website: str = None, description: str = None,
+                    logo_url: str = None, primary_color: str = None, secondary_color: str = None,
+                    pro_academy: bool = False) -> dict:
         """Create a new club.
 
         Args:
@@ -1642,16 +1652,26 @@ class EnhancedSportsDAO:
             city: Club city/location
             website: Optional website URL
             description: Optional description
+            logo_url: Optional URL to club logo in Supabase Storage
+            primary_color: Optional primary brand color (hex code)
+            secondary_color: Optional secondary brand color (hex code)
+            pro_academy: Optional flag indicating if this is a professional academy
 
         Returns:
             Created club dict
         """
         try:
-            club_data = {"name": name, "city": city}
+            club_data = {"name": name, "city": city, "pro_academy": pro_academy}
             if website:
                 club_data["website"] = website
             if description:
                 club_data["description"] = description
+            if logo_url:
+                club_data["logo_url"] = logo_url
+            if primary_color:
+                club_data["primary_color"] = primary_color
+            if secondary_color:
+                club_data["secondary_color"] = secondary_color
 
             result = self.client.table("clubs").insert(club_data).execute()
 
@@ -1662,7 +1682,9 @@ class EnhancedSportsDAO:
             print(f"Error creating club: {e}")
             raise e
 
-    def update_club(self, club_id: int, name: str = None, city: str = None, website: str = None, description: str = None) -> dict | None:
+    def update_club(self, club_id: int, name: str = None, city: str = None, website: str = None,
+                    description: str = None, logo_url: str = None, primary_color: str = None,
+                    secondary_color: str = None, pro_academy: bool = None) -> dict | None:
         """Update an existing club.
 
         Args:
@@ -1671,6 +1693,10 @@ class EnhancedSportsDAO:
             city: Optional new city/location
             website: Optional new website URL
             description: Optional new description
+            logo_url: Optional URL to club logo in Supabase Storage
+            primary_color: Optional primary brand color (hex code)
+            secondary_color: Optional secondary brand color (hex code)
+            pro_academy: Optional flag indicating if this is a professional academy
 
         Returns:
             Updated club dict or None if not found
@@ -1685,6 +1711,14 @@ class EnhancedSportsDAO:
                 update_data["website"] = website
             if description is not None:
                 update_data["description"] = description
+            if logo_url is not None:
+                update_data["logo_url"] = logo_url
+            if primary_color is not None:
+                update_data["primary_color"] = primary_color
+            if secondary_color is not None:
+                update_data["secondary_color"] = secondary_color
+            if pro_academy is not None:
+                update_data["pro_academy"] = pro_academy
 
             if not update_data:
                 # Nothing to update

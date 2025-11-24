@@ -46,17 +46,12 @@
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
-              Leagues
+              League
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Age Groups
-            </th>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              Type
             </th>
             <th
               class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -82,29 +77,24 @@
               <span v-else class="text-gray-400 italic">Independent</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <div class="flex flex-wrap gap-1">
-                <!-- Show league badge based on academy_team flag -->
-                <span
-                  v-if="team.academy_team"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
-                >
-                  Academy
-                </span>
-                <span
-                  v-else
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
-                >
-                  Homegrown
-                </span>
-                <!-- Show additional divisions/leagues if team has mappings -->
-                <span
-                  v-for="mapping in team.team_mappings || []"
-                  :key="`${mapping.age_group_id}-${mapping.division_id}`"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                >
-                  {{ mapping.divisions?.leagues?.name || 'Unknown' }}
-                </span>
-              </div>
+              <span
+                v-if="team.league_name === 'Academy'"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+              >
+                Academy
+              </span>
+              <span
+                v-else-if="team.league_name === 'Homegrown'"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
+              >
+                Homegrown
+              </span>
+              <span
+                v-else
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+              >
+                {{ team.league_name || 'Unknown' }}
+              </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               <div class="flex flex-wrap gap-1">
@@ -116,20 +106,6 @@
                   {{ ageGroup.name }}
                 </span>
               </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <span
-                v-if="team.academy_team"
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
-              >
-                Academy
-              </span>
-              <span
-                v-else
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
-              >
-                Regular
-              </span>
             </td>
             <td
               class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
