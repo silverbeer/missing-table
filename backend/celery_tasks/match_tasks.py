@@ -11,7 +11,7 @@ These tasks run asynchronously in Celery workers, allowing for:
 from typing import Dict, Any
 from celery import Task
 from celery_app import app
-from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection
+from dao.match_dao import MatchDAO, SupabaseConnection
 from celery_tasks.validation_tasks import validate_match_data
 from logging_config import get_logger
 
@@ -33,7 +33,7 @@ class DatabaseTask(Task):
         """Lazy initialization of DAO to avoid creating connections at import time."""
         if self._dao is None:
             self._connection = SupabaseConnection()
-            self._dao = EnhancedSportsDAO(self._connection)
+            self._dao = MatchDAO(self._connection)
         return self._dao
 
     def _check_needs_update(self, existing_match: Dict[str, Any], new_data: Dict[str, Any]) -> bool:

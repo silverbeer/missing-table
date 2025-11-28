@@ -16,8 +16,8 @@ from rich.table import Table
 from rich.prompt import Confirm
 from rich import print as rprint
 
-from dao.enhanced_data_access_fixed import EnhancedSportsDAO
-from dao.enhanced_data_access_fixed import SupabaseConnection as DbConnectionHolder
+from dao.match_dao import MatchDAO
+from dao.match_dao import SupabaseConnection as DbConnectionHolder
 
 app = typer.Typer(help="Delete cross-source duplicate matches")
 console = Console()
@@ -25,7 +25,7 @@ console = Console()
 def get_data_access():
     """Initialize data access with current environment"""
     db_conn_holder_obj = DbConnectionHolder()
-    return EnhancedSportsDAO(db_conn_holder_obj)
+    return MatchDAO(db_conn_holder_obj)
 
 
 @app.command()

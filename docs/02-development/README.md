@@ -210,7 +210,6 @@ npm run build --report
 ```bash
 SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_SERVICE_KEY=your_key
-DISABLE_LOGFIRE=true
 ```
 
 **Frontend** (`.env.local`, `.env.development`):

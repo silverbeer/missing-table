@@ -66,7 +66,7 @@ All migrated test files use **absolute imports from backend root**, which work c
 ```python
 # ✅ Correct - absolute imports work from any subdirectory
 from app import app
-from dao.enhanced_data_access_fixed import EnhancedSportsDAO
+from dao.match_dao import MatchDAO
 from fastapi.testclient import TestClient
 import pytest
 ```

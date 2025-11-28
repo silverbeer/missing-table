@@ -77,7 +77,6 @@ SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_ANON_KEY=<from supabase status>
 SUPABASE_SERVICE_KEY=<from supabase status>
 SUPABASE_JWT_SECRET=<from supabase status>
-DISABLE_LOGFIRE=true
 ```
 
 **Frontend** (`.env.local`):

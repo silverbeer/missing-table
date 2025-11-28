@@ -56,7 +56,7 @@ from rich import print as rprint
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Import DAO layer
-from dao.enhanced_data_access_fixed import SupabaseConnection, EnhancedSportsDAO
+from dao.match_dao import SupabaseConnection, MatchDAO
 
 app = typer.Typer(help="Match Search Tool - Search matches with comprehensive filters")
 console = Console()
@@ -73,18 +73,18 @@ def load_environment():
     return app_env
 
 
-def get_dao() -> EnhancedSportsDAO:
+def get_dao() -> MatchDAO:
     """Get DAO instance using proper data access layer"""
     try:
         connection = SupabaseConnection()
-        dao = EnhancedSportsDAO(connection)
+        dao = MatchDAO(connection)
         return dao
     except Exception as e:
         console.print(f"[red]Error connecting to database: {e}[/red]")
         raise typer.Exit(1)
 
 
-def get_reference_data(dao: EnhancedSportsDAO):
+def get_reference_data(dao: MatchDAO):
     """Get reference data for validation and filtering using DAO"""
     try:
         match_types = {mt["name"]: mt["id"] for mt in dao.get_all_match_types()}

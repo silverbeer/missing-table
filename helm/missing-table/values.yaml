@@ -72,7 +72,6 @@ backend:
     databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:54322/postgres"
     environment: "development"
     logLevel: "info"
-    disableLogfire: "true"
     disableSecurity: "true"
     extra: {}  # Additional environment variables
   

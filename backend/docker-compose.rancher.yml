@@ -189,15 +189,6 @@
          networks:
            - missing-table-net
 
-       # Logfire Agent (Mock - for development)
-       logfire-agent:
-         image: busybox:latest
-         container_name: missing-table-logfire
-         command: ["sh", "-c", "echo 'Logfire agent placeholder - integrate with actual Logfire in production' && sleep
-      infinity"]
-         networks:
-           - missing-table-net
-
      volumes:
        postgres_data:
        redis_data:

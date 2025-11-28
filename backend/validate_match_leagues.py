@@ -38,7 +38,7 @@ from rich import print as rprint
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Import DAO layer
-from dao.enhanced_data_access_fixed import SupabaseConnection, EnhancedSportsDAO
+from dao.match_dao import SupabaseConnection, MatchDAO
 
 app = typer.Typer(help="Match League Validation Tool - Find league assignment errors")
 console = Console()
@@ -51,11 +51,11 @@ def load_environment():
     return app_env
 
 
-def get_dao() -> EnhancedSportsDAO:
+def get_dao() -> MatchDAO:
     """Get DAO instance using proper data access layer"""
     try:
         connection = SupabaseConnection()
-        dao = EnhancedSportsDAO(connection)
+        dao = MatchDAO(connection)
         return dao
     except Exception as e:
         console.print(f"[red]Error connecting to database: {e}[/red]")

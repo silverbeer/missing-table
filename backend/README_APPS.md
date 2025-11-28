@@ -17,7 +17,7 @@ This backend contains two FastAPI applications:
   - Database (Supabase/PostgreSQL)
   - Redis for caching
   - Authentication system
-  - Security monitoring (Logfire)
+  - Structured JSON logging (structlog) for Grafana Cloud
 - **Run with**: `uvicorn app:app`
 
 ## 🧪 **test_minimal_app.py** - Minimal Test Version  
@@ -67,7 +67,7 @@ command:
 ### App.py Issues
 If `app.py` fails to start, common issues:
 1. **Database connection**: Ensure Supabase/PostgreSQL is accessible
-2. **Logfire authentication**: Set `DISABLE_LOGFIRE=true` environment variable
+2. **Logging config**: Verify `LOG_LEVEL` is set appropriately (defaults to INFO)
 3. **Missing dependencies**: Check all security/auth modules are available
 
 ### Frontend "Failed to fetch" errors
@@ -78,5 +78,5 @@ If `app.py` fails to start, common issues:
 
 - **Removed**: `app_simple.py` (was causing confusion)
 - **Added**: `test_minimal_app.py` (clearly documented as test-only)
-- **Fixed**: Logfire import issue in `security_monitoring.py` (lazy initialization)
+- **Removed**: Legacy security monitor modules (`security_monitoring.py`, `auth_security.py`, `security_middleware.py`, `dao_security_wrapper.py`)
 - **Updated**: Helm values to default to full `app:app`

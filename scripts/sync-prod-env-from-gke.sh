@@ -181,7 +181,6 @@ APP_VERSION=1.0.0
 
 # Security settings
 DISABLE_SECURITY=false
-DISABLE_LOGFIRE=false
 
 # Logging
 LOG_LEVEL=INFO

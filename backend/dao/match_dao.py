@@ -1,5 +1,8 @@
 """
-Enhanced Supabase data access layer with SSL fix.
+Match data access layer for MissingTable.
+
+Provides data access objects for matches, teams, leagues, divisions, seasons,
+and related soccer/futbol data using Supabase.
 """
 
 import os
@@ -70,8 +73,8 @@ class SupabaseConnection:
         return self.client
 
 
-class EnhancedSportsDAO:
-    """Enhanced Data Access Object for sports data using new normalized schema."""
+class MatchDAO:
+    """Data Access Object for match and league data using normalized schema."""
 
     def __init__(self, connection_holder):
         """Initialize with a SupabaseConnection."""
@@ -1816,3 +1819,138 @@ class EnhancedSportsDAO:
             print(f"Error getting team game counts: {e}")
             # Return empty dict on error - teams will show 0 games
             return {}
+
+    # === User Profile Methods ===
+
+    def get_user_profile_with_relationships(self, user_id: str) -> dict | None:
+        """
+        Get user profile with team and club relationships.
+
+        Args:
+            user_id: User ID to fetch profile for
+
+        Returns:
+            User profile dict with team and club data, or None if not found
+        """
+        try:
+            response = self.client.table('user_profiles').select('''
+                *,
+                team:teams(id, name, city, club_id),
+                club:clubs(id, name, city)
+            ''').eq('id', user_id).execute()
+
+            if response.data and len(response.data) > 0:
+                profile = response.data[0]
+                if len(response.data) > 1:
+                    logger.warning(f"Multiple profiles found for user {user_id}, using first one")
+                return profile
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching user profile: {e}")
+            return None
+
+    def create_or_update_user_profile(self, profile_data: dict) -> dict | None:
+        """
+        Create or update a user profile.
+
+        Args:
+            profile_data: Dictionary containing user profile data
+
+        Returns:
+            Created/updated profile dict, or None on error
+        """
+        try:
+            response = self.client.table('user_profiles').upsert(profile_data).execute()
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error creating/updating user profile: {e}")
+            return None
+
+    def update_user_profile(self, user_id: str, update_data: dict) -> dict | None:
+        """
+        Update user profile fields.
+
+        Args:
+            user_id: User ID to update
+            update_data: Dictionary of fields to update
+
+        Returns:
+            Updated profile dict, or None on error
+        """
+        try:
+            response = self.client.table('user_profiles').update(update_data).eq('id', user_id).execute()
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error updating user profile: {e}")
+            return None
+
+    def get_user_profile_by_email(self, email: str, exclude_user_id: str | None = None) -> dict | None:
+        """
+        Get user profile by email, optionally excluding a specific user ID.
+
+        Useful for checking if an email is already in use by another user.
+
+        Args:
+            email: Email address to search for
+            exclude_user_id: Optional user ID to exclude from search
+
+        Returns:
+            User profile dict if found, None otherwise
+        """
+        try:
+            query = self.client.table('user_profiles').select('id').eq('email', email)
+            if exclude_user_id:
+                query = query.neq('id', exclude_user_id)
+            response = query.execute()
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error checking user profile by email: {e}")
+            return None
+
+    def get_all_user_profiles(self) -> list[dict]:
+        """
+        Get all user profiles with team relationships.
+
+        Returns:
+            List of user profile dicts
+        """
+        try:
+            response = self.client.table('user_profiles').select('''
+                *,
+                team:teams(id, name, city)
+            ''').order('created_at', desc=True).execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Error fetching all user profiles: {e}")
+            return []
+
+    def get_user_profile_by_username(self, username: str, exclude_user_id: str | None = None) -> dict | None:
+        """
+        Get user profile by username, optionally excluding a specific user ID.
+
+        Useful for checking if a username is already taken.
+
+        Args:
+            username: Username to search for (will be lowercased)
+            exclude_user_id: Optional user ID to exclude from search
+
+        Returns:
+            User profile dict if found, None otherwise
+        """
+        try:
+            query = self.client.table('user_profiles').select('id').eq('username', username.lower())
+            if exclude_user_id:
+                query = query.neq('id', exclude_user_id)
+            response = query.execute()
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error checking user profile by username: {e}")
+            return None

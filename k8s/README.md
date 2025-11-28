@@ -79,7 +79,7 @@ The Kubernetes deployment includes:
 **Backend**:
 - `DATABASE_URL`: Points to external Supabase PostgreSQL
 - `REDIS_URL`: Points to Redis service within cluster
-- `DISABLE_LOGFIRE`: Disabled for local development
+- `LOG_LEVEL`: Logging level (default: info)
 
 **Frontend**:
 - `VUE_APP_SUPABASE_URL`: Points to local Supabase instance

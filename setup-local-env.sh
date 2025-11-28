@@ -33,9 +33,6 @@ SUPABASE_URL=$SUPABASE_URL
 SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY
 SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET
-
-# Disable monitoring for local development
-DISABLE_LOGFIRE=true
 EOF
 
 echo "✅ Created backend/.env with Supabase credentials"

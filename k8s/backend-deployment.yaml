@@ -33,8 +33,6 @@ spec:
           value: "development"
         - name: LOG_LEVEL
           value: "info"
-        - name: DISABLE_LOGFIRE
-          value: "true"
         resources:
           requests:
             cpu: 200m

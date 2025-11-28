@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import app
-from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection
+from dao.match_dao import MatchDAO, SupabaseConnection
 
 # Test client for API tests
 client = TestClient(app)
@@ -32,7 +32,7 @@ class TestClubsDAO:
     def setup(self):
         """Set up test database connection."""
         self.conn = SupabaseConnection()
-        self.dao = EnhancedSportsDAO(self.conn)
+        self.dao = MatchDAO(self.conn)
         yield
         # Cleanup after each test
         try:
@@ -129,7 +129,7 @@ class TestClubsAPI:
     def setup(self):
         """Set up test environment."""
         self.conn = SupabaseConnection()
-        self.dao = EnhancedSportsDAO(self.conn)
+        self.dao = MatchDAO(self.conn)
         yield
         # Cleanup
         try:

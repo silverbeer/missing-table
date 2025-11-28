@@ -89,7 +89,7 @@ SKIPPED [102] tests/conftest.py:296: E2E Supabase not accessible at https://ppgx
 **Missing Unit Test Coverage**:
 
 **DAO Layer** (backend/dao/):
-- `enhanced_data_access_fixed.py` (1,248 lines) - 0 unit tests
+- `match_dao.py` (1,248 lines) - 0 unit tests
 - `supabase_data_access.py` - 0 unit tests
 - `local_data_access.py` - 0 unit tests
 
@@ -453,7 +453,7 @@ Based on test catalog and OpenAPI schema analysis:
 4. Generate edge case data (boundary values, invalid inputs)
 
 **Forge Agent Tasks**:
-1. Generate unit tests for `dao/enhanced_data_access_fixed.py`
+1. Generate unit tests for `dao/match_dao.py`
 2. Generate unit tests for `services/invite_service.py`
 3. Generate unit tests for `auth.py` and `auth_security.py`
 4. Generate contract tests for missing endpoints
