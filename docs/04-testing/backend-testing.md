@@ -68,7 +68,6 @@ SUPABASE_ANON_KEY=your_anon_key_here
 
 # Optional: Disable security features for testing
 DISABLE_SECURITY=true
-DISABLE_LOGFIRE=true
 ```
 
 ### 4. Test Data

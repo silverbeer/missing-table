@@ -17,7 +17,7 @@ from supabase import create_client
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth import get_current_user_required
-from dao.enhanced_data_access_fixed import SupabaseConnection as DbConnectionHolder
+from dao.match_dao import SupabaseConnection as DbConnectionHolder
 
 # Initialize database connection with service role for admin operations
 supabase_url = os.getenv('SUPABASE_URL', '')

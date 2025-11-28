@@ -25,7 +25,6 @@ dependencies = [
     "playwright>=1.53.0",
     "slowapi>=0.1.9",
     "redis>=5.0.0",
-    "logfire>=0.64.0",
     "opentelemetry-api>=1.28.0",
     "opentelemetry-sdk>=1.28.0",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
@@ -48,6 +47,7 @@ dependencies = [
     "pytest-html>=4.1.1",
     "pillow>=12.0.0",
     "email-validator>=2.3.0",
+    "debugpy>=1.8.17",
 ]
 
 [project.optional-dependencies]

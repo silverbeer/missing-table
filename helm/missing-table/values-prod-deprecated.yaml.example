@@ -54,7 +54,6 @@ backend:
     # Non-sensitive configuration
     environment: "production"
     logLevel: "info"
-    disableLogfire: "false"  # Enable Logfire in production
     disableSecurity: "false"  # Enable all security in production
     extra:
       # CORS configuration (non-sensitive)

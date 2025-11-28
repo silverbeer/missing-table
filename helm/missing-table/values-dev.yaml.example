@@ -42,7 +42,6 @@ backend:
     # Non-sensitive configuration
     environment: "development"
     logLevel: "info"
-    disableLogfire: "true"
     disableSecurity: "true"
     extra:
       # CORS configuration (non-sensitive)

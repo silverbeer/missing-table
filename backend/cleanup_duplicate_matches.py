@@ -25,8 +25,8 @@ import json
 from datetime import datetime
 from collections import defaultdict, Counter
 
-from dao.enhanced_data_access_fixed import EnhancedSportsDAO
-from dao.enhanced_data_access_fixed import SupabaseConnection as DbConnectionHolder
+from dao.match_dao import MatchDAO
+from dao.match_dao import SupabaseConnection as DbConnectionHolder
 
 app = typer.Typer(help="Interactive tool to find and clean up duplicate matches")
 console = Console()
@@ -34,9 +34,9 @@ console = Console()
 def get_data_access():
     """Initialize data access with current environment"""
     db_conn_holder_obj = DbConnectionHolder()
-    return EnhancedSportsDAO(db_conn_holder_obj)
+    return MatchDAO(db_conn_holder_obj)
 
-def identify_duplicates(dao: EnhancedSportsDAO) -> Dict[str, List[Dict[str, Any]]]:
+def identify_duplicates(dao: MatchDAO) -> Dict[str, List[Dict[str, Any]]]:
     """
     Identify duplicate matches using the same criteria as database constraints:
     - Same teams, date, season, age group, match type, division (for manual matches)

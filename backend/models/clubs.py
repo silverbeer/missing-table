@@ -1,6 +1,6 @@
 """
 Pydantic models for clubs and teams data structure.
-Used for parsing and validating clubs.json.
+Used for parsing and validating clubs.json and API requests.
 """
 from pydantic import BaseModel, Field, field_validator
 
@@ -53,6 +53,30 @@ class ClubData(BaseModel):
         if v and not v.startswith(("http://", "https://")):
             raise ValueError(f"Website must be a valid URL or empty, got {v}")
         return v
+
+
+class Club(BaseModel):
+    """Model for creating a new club via API."""
+    name: str
+    city: str
+    website: str | None = None
+    description: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    secondary_color: str | None = None
+    pro_academy: bool = False
+
+
+class ClubWithTeams(BaseModel):
+    """Model for returning a club with its teams."""
+    id: int
+    name: str
+    city: str
+    website: str | None = None
+    description: str | None = None
+    is_active: bool = True
+    teams: list[dict] = []  # Teams belonging to this club
+    team_count: int = 0  # Number of teams in this club
 
 
 def load_clubs_from_json(clubs_json: list[dict]) -> list[ClubData]:

@@ -165,10 +165,10 @@ def supabase_client():
 @pytest.fixture(scope="session")
 def enhanced_dao():
     """Create an enhanced DAO instance for testing."""
-    from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection
+    from dao.match_dao import MatchDAO, SupabaseConnection
 
     conn = SupabaseConnection()
-    dao = EnhancedSportsDAO(conn)
+    dao = MatchDAO(conn)
     return dao
 
 

@@ -4,6 +4,8 @@
 
 This document outlines the implementation plan to refactor the Missing Table authentication system from client-side Supabase authentication to a backend-centered approach. This change will resolve Kubernetes networking issues, improve security, and create a more maintainable architecture.
 
+> **Update (2025-11-28):** Backend security monitoring hooks referenced later in this doc were removed from the codebase. Treat those sections as legacy notes only.
+
 ## Table of Contents
 
 1. [Current State Analysis](#current-state-analysis)
@@ -334,117 +336,8 @@ def test_auth_endpoints():
 ### Backend Changes
 
 #### 1. Enhanced Login Endpoint
-```python
-# backend/app.py - ENHANCE EXISTING
+> Login logging now uses structlog context binding (see `backend/app.py`).
 
-@app.post("/api/auth/login")
-async def login(request: Request, user_data: UserLogin):
-    """Enhanced login endpoint for frontend consumption."""
-    with logfire.span("auth_login") as span:
-        client_ip = security_monitor.get_client_ip(request) if security_monitor else "unknown"
-        
-        try:
-            # Existing Supabase auth logic...
-            response = db_conn_holder_obj.client.auth.sign_in_with_password({
-                "email": user_data.email,
-                "password": user_data.password
-            })
-            
-            if response.user and response.session:
-                # Get user profile (existing logic)...
-                profile_response = db_conn_holder_obj.client.table('user_profiles').select('*').eq('id', response.user.id).execute()
-                
-                profile = profile_response.data[0] if profile_response.data else {}
-                
-                # NEW: Return frontend-friendly response
-                return {
-                    "success": True,
-                    "message": "Login successful",
-                    "user": {
-                        "id": response.user.id,
-                        "email": response.user.email,
-                        "profile": {
-                            "role": profile.get('role', 'user'),
-                            "team_id": profile.get('team_id'),
-                            "display_name": profile.get('display_name')
-                        }
-                    },
-                    "session": {
-                        "access_token": response.session.access_token,
-                        "refresh_token": response.session.refresh_token,
-                        "expires_at": response.session.expires_at
-                    }
-                }
-            else:
-                raise HTTPException(status_code=401, detail="Invalid credentials")
-                
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Login error: {e}")
-            raise HTTPException(status_code=400, detail="Login failed")
-```
-
-#### 2. New Refresh Token Endpoint
-```python
-# backend/app.py - ADD NEW
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str
-
-@app.post("/api/auth/refresh")
-async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
-    """Refresh JWT token using refresh token."""
-    try:
-        response = db_conn_holder_obj.client.auth.refresh_session(refresh_data.refresh_token)
-        
-        if response.session:
-            return {
-                "success": True,
-                "session": {
-                    "access_token": response.session.access_token,
-                    "refresh_token": response.session.refresh_token,
-                    "expires_at": response.session.expires_at
-                }
-            }
-        else:
-            raise HTTPException(status_code=401, detail="Failed to refresh token")
-            
-    except Exception as e:
-        logger.error(f"Token refresh error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-```
-
-#### 3. Enhanced Profile Endpoint
-```python
-# backend/app.py - ENHANCE EXISTING
-
-@app.get("/api/auth/me")
-async def get_current_user_info(current_user: dict = Depends(auth_manager.get_current_user)):
-    """Get current user info for frontend auth state."""
-    try:
-        # Get fresh profile data
-        profile_response = db_conn_holder_obj.client.table('user_profiles').select(
-            '''
-            *,
-            team:teams(id, name, city)
-            '''
-        ).eq('id', current_user['user_id']).execute()
-        
-        profile = profile_response.data[0] if profile_response.data else {}
-        
-        return {
-            "success": True,
-            "user": {
-                "id": current_user['user_id'],
-                "email": current_user['email'],
-                "profile": profile
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Get user info error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get user info")
 ```
 
 ### Frontend Changes

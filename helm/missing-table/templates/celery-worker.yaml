@@ -65,8 +65,6 @@ spec:
           value: {{ .Values.backend.env.environment | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.backend.env.logLevel | quote }}
-        - name: DISABLE_LOGFIRE
-          value: {{ .Values.backend.env.disableLogfire | quote }}
         - name: DISABLE_SECURITY
           value: {{ .Values.backend.env.disableSecurity | quote }}
         {{- range $key, $value := .Values.backend.env.extra }}

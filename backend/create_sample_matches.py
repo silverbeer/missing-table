@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Create sample matches for testing the league layer implementation."""
 
-from dao.enhanced_data_access_fixed import EnhancedSportsDAO, SupabaseConnection
+from dao.match_dao import MatchDAO, SupabaseConnection
 from datetime import datetime, timedelta
 import random
 
@@ -9,7 +9,7 @@ import random
 def create_sample_matches():
     """Create sample matches with the new league-aware schema."""
     conn = SupabaseConnection()
-    dao = EnhancedSportsDAO(conn)
+    dao = MatchDAO(conn)
 
     # Get current data
     teams = dao.get_all_teams()
