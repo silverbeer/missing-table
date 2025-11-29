@@ -1,6 +1,46 @@
 <template>
+  <!-- Profile Editor Modal -->
+  <div v-if="showEditor" class="editor-modal">
+    <div class="editor-modal-content">
+      <PlayerProfileEditor
+        @close="showEditor = false"
+        @saved="showEditor = false"
+      />
+    </div>
+  </div>
+
   <BaseProfile title="Player Dashboard" @logout="$emit('logout')">
     <template #profile-fields>
+      <!-- Profile Photo Preview -->
+      <div class="profile-photo-section">
+        <PlayerPhotoOverlay
+          :photo-url="profilePhotoUrl"
+          :number="authStore.state.profile.player_number"
+          :position="primaryPosition"
+          :overlay-style="authStore.state.profile.overlay_style || 'badge'"
+          :primary-color="authStore.state.profile.primary_color || '#3B82F6'"
+          :text-color="authStore.state.profile.text_color || '#FFFFFF'"
+          :accent-color="authStore.state.profile.accent_color || '#1D4ED8'"
+          class="profile-photo-preview"
+        />
+        <button
+          type="button"
+          class="edit-profile-btn"
+          @click="showEditor = true"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+            />
+          </svg>
+          Edit Profile
+        </button>
+      </div>
+
       <div v-if="authStore.state.profile.team" class="info-group">
         <label>Team:</label>
         <span class="team-name"
@@ -314,12 +354,16 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import BaseProfile from './BaseProfile.vue';
+import PlayerPhotoOverlay from './PlayerPhotoOverlay.vue';
+import PlayerProfileEditor from './PlayerProfileEditor.vue';
 import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'PlayerProfile',
   components: {
     BaseProfile,
+    PlayerPhotoOverlay,
+    PlayerProfileEditor,
   },
   emits: ['logout'],
   setup() {
@@ -332,6 +376,30 @@ export default {
     const loadingGames = ref(false);
     const loadingTeammates = ref(false);
     const loadingPositions = ref(false);
+    const showEditor = ref(false);
+
+    // Profile photo URL - use profile photo slot or first available
+    const profilePhotoUrl = computed(() => {
+      const profile = authStore.state.profile;
+      if (!profile) return null;
+      const slot = profile.profile_photo_slot;
+      if (slot && profile[`photo_${slot}_url`]) {
+        return profile[`photo_${slot}_url`];
+      }
+      // Fall back to first available photo
+      for (let i = 1; i <= 3; i++) {
+        if (profile[`photo_${i}_url`]) {
+          return profile[`photo_${i}_url`];
+        }
+      }
+      return null;
+    });
+
+    // Primary position for overlay display
+    const primaryPosition = computed(() => {
+      const positions = authStore.state.profile?.positions;
+      return positions && positions.length > 0 ? positions[0] : null;
+    });
 
     const upcomingGames = computed(() => {
       const now = new Date();
@@ -549,6 +617,9 @@ export default {
       loadingGames,
       loadingTeammates,
       loadingPositions,
+      showEditor,
+      profilePhotoUrl,
+      primaryPosition,
       upcomingGames,
       playedGames,
       totalGames,
@@ -1047,5 +1118,78 @@ export default {
 .position-label small {
   color: #6b7280;
   font-size: 11px;
+}
+
+/* Profile Photo Section */
+.profile-photo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.profile-photo-preview {
+  width: 150px;
+  height: 150px;
+}
+
+.edit-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.edit-profile-btn:hover {
+  background-color: #2563eb;
+}
+
+.edit-profile-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Editor Modal */
+.editor-modal {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.editor-modal-content {
+  width: 100%;
+  max-width: 1000px;
+  background-color: white;
+  border-radius: 16px;
+  margin: 40px 0;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 </style>

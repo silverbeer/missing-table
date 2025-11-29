@@ -6,6 +6,8 @@ All models are organized by domain for better maintainability.
 
 # Auth models
 from .auth import (
+    PlayerCustomization,
+    ProfilePhotoSlot,
     RefreshTokenRequest,
     RoleUpdate,
     UserLogin,
@@ -46,6 +48,8 @@ __all__ = [
     "RoleUpdate",
     "UserProfileUpdate",
     "RefreshTokenRequest",
+    "ProfilePhotoSlot",
+    "PlayerCustomization",
     # Matches
     "EnhancedMatch",
     "MatchPatch",
