@@ -9,11 +9,12 @@ import argparse
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Add the backend directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add backend root directory to path for imports (scripts/utilities/ -> backend/)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auth import AuthManager
 

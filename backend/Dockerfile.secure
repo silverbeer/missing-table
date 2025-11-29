@@ -53,9 +53,12 @@ COPY --chown=65532:65532 app.py ./
 COPY --chown=65532:65532 auth.py ./
 COPY --chown=65532:65532 csrf_protection.py ./
 COPY --chown=65532:65532 rate_limiter.py ./
+COPY --chown=65532:65532 logging_config.py ./
 COPY --chown=65532:65532 dao/ ./dao/
 COPY --chown=65532:65532 api/ ./api/
 COPY --chown=65532:65532 services/ ./services/
+COPY --chown=65532:65532 models/ ./models/
+COPY --chown=65532:65532 endpoints/ ./endpoints/
 
 # Security: Set PATH to include virtual environment
 ENV PATH="/app/.venv/bin:$PATH"

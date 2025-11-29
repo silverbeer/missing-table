@@ -69,17 +69,17 @@ def authenticated_api_client(api_base_url: str) -> MissingTableClient:
     client = MissingTableClient(base_url=api_base_url)
 
     # Create a test user and login
-    test_email = f"contract_test_{os.getpid()}@example.com"
+    test_username = f"contract_test_{os.getpid()}"
     test_password = "Test123!@#"  # pragma: allowlist secret
 
     try:
         # Try to signup (may fail if user exists)
-        client.signup(email=test_email, password=test_password, display_name="Contract Test User")
+        client.signup(username=test_username, password=test_password, display_name="Contract Test User")
     except Exception:
         pass  # User probably exists
 
     # Always login to ensure we have tokens (signup doesn't auto-login)
-    client.login(email=test_email, password=test_password)
+    client.login(username=test_username, password=test_password)
 
     yield client
     client.close()
@@ -88,13 +88,13 @@ def authenticated_api_client(api_base_url: str) -> MissingTableClient:
 @pytest.fixture
 def admin_client(api_base_url: str) -> MissingTableClient:
     """Create an admin API client."""
-    admin_email = os.getenv("ADMIN_TEST_EMAIL", "admin@example.com")
+    admin_username = os.getenv("ADMIN_TEST_USERNAME", "admin")
     admin_password = os.getenv("ADMIN_TEST_PASSWORD", "admin123")
 
     client = MissingTableClient(base_url=api_base_url)
 
     try:
-        client.login(email=admin_email, password=admin_password)
+        client.login(username=admin_username, password=admin_password)
     except Exception as e:
         pytest.skip(f"Admin user not available: {e}")
 

@@ -15,9 +15,13 @@ def populate_teams():
     """Populate teams from CSV and create game type mappings."""
     cursor = conn.cursor()
 
-    # Read teams from CSV
+    # Read teams from CSV (path relative to backend root)
+    from pathlib import Path
+    backend_root = Path(__file__).parent.parent.parent
+    csv_path = backend_root / "mlsnext_u13_teams.csv"
+    
     teams = []
-    with open("/Users/tdrake/silverbeer/missing-table/backend/mlsnext_u13_teams.csv") as file:
+    with open(csv_path) as file:
         reader = csv.DictReader(file)
         for row in reader:
             if row["name"].strip():  # Skip empty rows

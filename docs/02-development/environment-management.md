@@ -223,7 +223,7 @@ All database operations support environment specification:
 ./missing-table.sh start                        # Start with cloud database
 
 # Generate service account token for match-scraper
-cd backend && uv run python create_service_account_token.py --service-name match-scraper --permissions manage_games
+cd backend && uv run python scripts/utilities/create_service_account_token.py --service-name match-scraper --permissions manage_games
 ```
 
 ### Testing Workflow

@@ -282,6 +282,17 @@ def pytest_runtest_setup(item):
     # Check if test is marked as integration or e2e
     if item.get_closest_marker("integration") or item.get_closest_marker("e2e"):
         import httpx
+        import inspect
+
+        # Check if test uses TestClient (in-memory) - these don't need Supabase
+        # Tests that use TestClient typically don't need a real database connection
+        test_func = item.function
+        if hasattr(test_func, '__code__'):
+            # Check if test uses test_client fixture (which uses TestClient)
+            sig = inspect.signature(test_func)
+            if 'test_client' in sig.parameters:
+                # Test uses TestClient, skip Supabase check
+                return
 
         url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
         

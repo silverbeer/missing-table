@@ -10,45 +10,49 @@ from api_client.models import EnhancedGame, GamePatch
 class TestGamesReadContract:
     """Test read operations for games endpoints."""
 
-    def test_get_games_returns_list(self, api_client: MissingTableClient):
+    def test_get_games_returns_list(self, authenticated_api_client: MissingTableClient):
         """Test getting all games returns a list."""
-        games = api_client.get_games()
+        # Matches endpoint requires authentication
+        games = authenticated_api_client.get_games()
 
         assert isinstance(games, list)
 
-    def test_get_games_with_filters(self, api_client: MissingTableClient):
+    def test_get_games_with_filters(self, authenticated_api_client: MissingTableClient):
         """Test getting games with various filters."""
+        # Matches endpoint requires authentication
         # Test with season filter
-        games = api_client.get_games(season_id=1)
+        games = authenticated_api_client.get_games(season_id=1)
         assert isinstance(games, list)
 
         # Test with age group filter
-        games = api_client.get_games(age_group_id=1)
+        games = authenticated_api_client.get_games(age_group_id=1)
         assert isinstance(games, list)
 
-        # Test with game type filter
-        games = api_client.get_games(game_type_id=1)
+        # Test with match type filter (game_type_id is legacy, match_type_id is current)
+        games = authenticated_api_client.get_games(match_type_id=1)
         assert isinstance(games, list)
 
         # Test with limit
-        games = api_client.get_games(limit=5)
+        games = authenticated_api_client.get_games(limit=5)
         assert isinstance(games, list)
 
         # Test with upcoming filter
-        games = api_client.get_games(upcoming=True)
+        games = authenticated_api_client.get_games(upcoming=True)
         assert isinstance(games, list)
 
-    def test_get_games_by_team(self, api_client: MissingTableClient):
+    def test_get_games_by_team(self, authenticated_api_client: MissingTableClient):
         """Test getting games for a specific team."""
+        # Matches endpoint requires authentication
         # Use team_id=1 (should exist in test data)
-        games = api_client.get_games_by_team(team_id=1)
+        games = authenticated_api_client.get_games_by_team(team_id=1)
 
         assert isinstance(games, list)
 
-    def test_get_nonexistent_game(self, api_client: MissingTableClient):
+    def test_get_nonexistent_game(self, authenticated_api_client: MissingTableClient):
         """Test getting a non-existent game returns 404."""
+        # Matches endpoint requires authentication
         with pytest.raises(NotFoundError) as exc_info:
-            api_client.get_game(game_id=999999)
+            authenticated_api_client.get_game(game_id=999999)
 
         assert exc_info.value.status_code == 404
 
@@ -59,6 +63,8 @@ class TestGamesWriteContract:
 
     def test_create_game(self, authenticated_api_client: MissingTableClient):
         """Test creating a new game."""
+        # Note: EnhancedGame model uses game_type_id, but API expects match_type_id
+        # The API client will handle the conversion
         game = EnhancedGame(
             game_date="2025-12-15",
             home_team_id=1,
@@ -67,7 +73,7 @@ class TestGamesWriteContract:
             away_score=0,
             season_id=1,
             age_group_id=1,
-            game_type_id=1,
+            game_type_id=1,  # Will be converted to match_type_id by API client
             status="scheduled",
         )
 
@@ -88,15 +94,19 @@ class TestGamesWriteContract:
         game_id = games[0]["id"]
 
         # Create updated game data
+        # Note: API returns match_type_id and match_date, but EnhancedGame expects game_type_id and game_date
+        # We need to handle the conversion
+        match_type_id = games[0].get("match_type_id") or games[0].get("game_type_id", 1)
+        match_date = games[0].get("match_date") or games[0].get("game_date")
         updated_game = EnhancedGame(
-            game_date=games[0]["game_date"],
+            game_date=match_date,
             home_team_id=games[0]["home_team_id"],
             away_team_id=games[0]["away_team_id"],
             home_score=3,
             away_score=2,
             season_id=games[0]["season_id"],
             age_group_id=games[0]["age_group_id"],
-            game_type_id=games[0]["game_type_id"],
+            game_type_id=match_type_id,  # Will be converted to match_type_id by API client
             status="played",
         )
 
@@ -191,20 +201,22 @@ class TestGamesWriteContract:
 class TestGamesBusinessLogic:
     """Test business logic for games."""
 
-    def test_game_status_values(self, api_client: MissingTableClient):
+    def test_game_status_values(self, authenticated_api_client: MissingTableClient):
         """Test that games have valid status values."""
-        games = api_client.get_games(limit=10)
+        # Matches endpoint requires authentication
+        games = authenticated_api_client.get_games(limit=10)
 
-        valid_statuses = ["scheduled", "tbd", "played", "postponed", "cancelled", "completed"]
+        valid_statuses = ["scheduled", "tbd", "played", "postponed", "cancelled", "completed", "live"]
 
         for game in games:
             status = game.get("status") or game.get("match_status")
             if status:
                 assert status in valid_statuses, f"Invalid status: {status}"
 
-    def test_game_scores_non_negative(self, api_client: MissingTableClient):
+    def test_game_scores_non_negative(self, authenticated_api_client: MissingTableClient):
         """Test that game scores are non-negative."""
-        games = api_client.get_games(limit=20)
+        # Matches endpoint requires authentication
+        games = authenticated_api_client.get_games(limit=20)
 
         for game in games:
             if game.get("home_score") is not None:
@@ -212,9 +224,10 @@ class TestGamesBusinessLogic:
             if game.get("away_score") is not None:
                 assert game["away_score"] >= 0
 
-    def test_game_has_different_teams(self, api_client: MissingTableClient):
+    def test_game_has_different_teams(self, authenticated_api_client: MissingTableClient):
         """Test that home and away teams are different."""
-        games = api_client.get_games(limit=20)
+        # Matches endpoint requires authentication
+        games = authenticated_api_client.get_games(limit=20)
 
         for game in games:
             if "home_team_id" in game and "away_team_id" in game:

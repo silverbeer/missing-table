@@ -781,7 +781,7 @@ All database operations now support environment specification:
 ./missing-table.sh start                        # Start with cloud database
 
 # Generate service account token for match-scraper
-cd backend && uv run python create_service_account_token.py --service-name match-scraper --permissions manage_matches
+cd backend && uv run python scripts/utilities/create_service_account_token.py --service-name match-scraper --permissions manage_matches
 ```
 
 ### Duplicate Match Cleanup
@@ -790,7 +790,7 @@ Interactive tool to find and clean up duplicate matches using typer and rich:
 
 ```bash
 # Scan for duplicates without making changes
-cd backend && uv run python cleanup_duplicate_matches.py scan
+cd backend && uv run python scripts/utilities/cleanup_duplicate_matches.py scan
 
 # Show database statistics
 cd backend && uv run python cleanup_duplicate_matches.py stats
@@ -805,7 +805,7 @@ cd backend && uv run python cleanup_duplicate_matches.py interactive
 cd backend && uv run python cleanup_duplicate_matches.py clean --no-dry-run
 
 # Export duplicates to JSON for analysis
-cd backend && uv run python cleanup_duplicate_matches.py scan --format json --save duplicates.json
+cd backend && uv run python scripts/utilities/cleanup_duplicate_matches.py scan --format json --save duplicates.json
 
 # IMPORTANT: The tool identifies duplicates using the same criteria as database constraints:
 # - For manual matches: same teams, date, season, age group, match type, division

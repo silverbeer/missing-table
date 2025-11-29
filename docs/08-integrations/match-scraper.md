@@ -33,7 +33,7 @@ Match-Scraper → RabbitMQ (direct) → Celery Workers → Database
 ```bash
 # Generate a token for match-scraper with match management permissions
 cd backend
-uv run python create_service_account_token.py --service-name match-scraper --permissions manage_matches
+uv run python scripts/utilities/create_service_account_token.py --service-name match-scraper --permissions manage_matches
 
 # Example output:
 # Service Account Token Generated Successfully!
