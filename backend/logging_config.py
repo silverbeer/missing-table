@@ -33,6 +33,11 @@ def setup_logging(service_name: str = "missing-table") -> None:
         level=getattr(logging, log_level, logging.INFO),
         handlers=[logging.StreamHandler()],
     )
+    
+    # Suppress verbose httpcore/httpx debug logs (they're too noisy)
+    # Only show warnings and errors from httpcore/httpx
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     # Configure structlog with JSON renderer for Loki
     structlog.configure(
