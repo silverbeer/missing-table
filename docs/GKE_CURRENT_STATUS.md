@@ -201,7 +201,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
    - View worker logs for connection errors
 
 3. **Authentication Issues**:
-   - Generate new service account token: `cd backend && uv run python create_service_account_token.py`
+   - Generate new service account token: `cd backend && uv run python scripts/utilities/create_service_account_token.py`
    - Verify token format: `Authorization: Bearer TOKEN`
 
 4. **Database Connection**:

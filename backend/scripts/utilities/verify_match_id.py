@@ -12,8 +12,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from dao.match_dao import SupabaseConnection
 
-# Load dev environment
-load_dotenv('.env.dev')
+# Load dev environment (from backend root)
+backend_root = Path(__file__).parent.parent.parent
+load_dotenv(backend_root / '.env.dev')
 
 print("Connecting to dev database...")
 db = SupabaseConnection()

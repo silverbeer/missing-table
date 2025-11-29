@@ -250,7 +250,7 @@ class DivisionUpdate(BaseModel):
 ### Step 1.5.6: Verify Backup and Cleanup Tools
 
 **Files**:
-- `backend/cleanup_duplicate_matches.py`
+- `backend/scripts/utilities/cleanup_duplicate_matches.py`
 - `scripts/backup_database.py`
 - `scripts/restore_database.py`
 - `scripts/db_tools.sh`
@@ -262,7 +262,7 @@ class DivisionUpdate(BaseModel):
 - [ ] Verify backup includes leagues table
 - [ ] Test restore: `./scripts/db_tools.sh restore`
 - [ ] Verify restored data includes leagues and divisions with league_id
-- [ ] Test duplicate match cleanup: `cd backend && uv run python cleanup_duplicate_matches.py scan`
+- [ ] Test duplicate match cleanup: `cd backend && uv run python scripts/utilities/cleanup_duplicate_matches.py scan`
 
 ---
 

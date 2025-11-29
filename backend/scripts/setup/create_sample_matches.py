@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Create sample matches for testing the league layer implementation."""
 
+import sys
+from pathlib import Path
+
+# Add backend root directory to path for imports (scripts/setup/ -> backend/)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 from dao.match_dao import MatchDAO, SupabaseConnection
 from datetime import datetime, timedelta
 import random

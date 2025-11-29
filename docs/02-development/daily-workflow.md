@@ -170,7 +170,7 @@ Interactive tool to find and clean up duplicate matches:
 
 ```bash
 # Scan for duplicates without making changes
-cd backend && uv run python cleanup_duplicate_matches.py scan
+cd backend && uv run python scripts/utilities/cleanup_duplicate_matches.py scan
 
 # Show database statistics
 cd backend && uv run python cleanup_duplicate_matches.py stats
@@ -185,7 +185,7 @@ cd backend && uv run python cleanup_duplicate_matches.py interactive
 cd backend && uv run python cleanup_duplicate_matches.py clean --no-dry-run
 
 # Export duplicates to JSON for analysis
-cd backend && uv run python cleanup_duplicate_matches.py scan --format json --save duplicates.json
+cd backend && uv run python scripts/utilities/cleanup_duplicate_matches.py scan --format json --save duplicates.json
 ```
 
 ---

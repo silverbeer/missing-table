@@ -7,11 +7,17 @@ interface to review and clean them up. It uses the same logic as the database
 constraints to identify duplicates.
 
 Usage:
-    python cleanup_duplicate_matches.py --help
-    python cleanup_duplicate_matches.py scan
-    python cleanup_duplicate_matches.py clean --dry-run
-    python cleanup_duplicate_matches.py clean
+    python scripts/utilities/cleanup_duplicate_matches.py --help
+    python scripts/utilities/cleanup_duplicate_matches.py scan
+    python scripts/utilities/cleanup_duplicate_matches.py clean --dry-run
+    python scripts/utilities/cleanup_duplicate_matches.py clean
 """
+
+import sys
+from pathlib import Path
+
+# Add backend root directory to path for imports (scripts/utilities/ -> backend/)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import typer
 from rich.console import Console

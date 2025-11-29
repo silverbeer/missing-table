@@ -40,7 +40,7 @@ Documentation for integrating with external services and using the Missing Table
 ```bash
 # Generate token for external service
 cd backend
-uv run python create_service_account_token.py \
+uv run python scripts/utilities/create_service_account_token.py \
   --service-name match-scraper \
   --permissions manage_games
 

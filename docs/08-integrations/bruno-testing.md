@@ -117,7 +117,7 @@ First, generate a token (one-time setup):
 
 ```bash
 cd backend
-uv run python create_service_account_token.py \
+uv run python scripts/utilities/create_service_account_token.py \
   --service-name match-scraper \
   --permissions manage_games
 ```
@@ -398,7 +398,7 @@ Start with public endpoints to verify connectivity:
 
 ```bash
 cd backend
-uv run python create_service_account_token.py \
+uv run python scripts/utilities/create_service_account_token.py \
   --service-name match-scraper \
   --permissions manage_matches
 ```

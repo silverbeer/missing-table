@@ -147,12 +147,12 @@ class MissingTableClient:
 
     # Authentication endpoints
 
-    def login(self, email: str, password: str) -> dict[str, Any]:
+    def login(self, username: str, password: str) -> dict[str, Any]:
         """
-        Login with username (email) and password.
+        Login with username and password.
 
         Args:
-            email: Username (can be email or username)
+            username: Username (primary identifier)
             password: User password
 
         Returns:
@@ -161,7 +161,7 @@ class MissingTableClient:
         response = self._request(
             "POST",
             "/api/auth/login",
-            json_data={"username": email, "password": password},  # Backend expects 'username'
+            json_data={"username": username, "password": password},
         )
         data = response.json()
 
@@ -184,16 +184,27 @@ class MissingTableClient:
             self._refresh_token = data.get("refresh_token")
             return data
 
-    def signup(self, email: str, password: str, display_name: str | None = None) -> dict[str, Any]:
+    def signup(self, username: str, password: str, display_name: str | None = None, email: str | None = None, invite_code: str | None = None) -> dict[str, Any]:
         """
-        Sign up a new user.
+        Sign up a new user with username authentication.
+
+        Args:
+            username: Username (required, primary identifier)
+            password: User password
+            display_name: Optional display name
+            email: Optional email for notifications
+            invite_code: Optional invite code
 
         Returns:
             Dict with user info (may include access_token depending on API configuration)
         """
-        payload = {"email": email, "password": password}
+        payload = {"username": username, "password": password}
         if display_name:
             payload["display_name"] = display_name
+        if email:
+            payload["email"] = email
+        if invite_code:
+            payload["invite_code"] = invite_code
 
         response = self._request("POST", "/api/auth/signup", json_data=payload)
         data = response.json()
@@ -298,18 +309,21 @@ class MissingTableClient:
         season_id: int | None = None,
         age_group_id: int | None = None,
         game_type_id: int | None = None,
+        match_type_id: int | None = None,
         team_id: int | None = None,
         limit: int | None = None,
         upcoming: bool | None = None,
     ) -> list[dict[str, Any]]:
-        """Get games with optional filters."""
+        """Get matches (games) with optional filters."""
         params = {}
         if season_id is not None:
             params["season_id"] = season_id
         if age_group_id is not None:
             params["age_group_id"] = age_group_id
-        if game_type_id is not None:
-            params["game_type_id"] = game_type_id
+        # Support both game_type_id (legacy) and match_type_id (current)
+        match_type = match_type_id if match_type_id is not None else game_type_id
+        if match_type is not None:
+            params["match_type_id"] = match_type
         if team_id is not None:
             params["team_id"] = team_id
         if limit is not None:
@@ -317,37 +331,54 @@ class MissingTableClient:
         if upcoming is not None:
             params["upcoming"] = upcoming
 
-        response = self._request("GET", "/api/games", params=params)
+        response = self._request("GET", "/api/matches", params=params)
         return response.json()
 
     def get_game(self, game_id: int) -> dict[str, Any]:
-        """Get a specific game by ID."""
-        response = self._request("GET", f"/api/games/{game_id}")
+        """Get a specific match (game) by ID."""
+        response = self._request("GET", f"/api/matches/{game_id}")
         return response.json()
 
-    def get_games_by_team(self, team_id: int) -> list[dict[str, Any]]:
-        """Get all games for a specific team."""
-        response = self._request("GET", f"/api/games/team/{team_id}")
+    def get_games_by_team(self, team_id: int, season_id: int | None = None, age_group_id: int | None = None) -> list[dict[str, Any]]:
+        """Get all matches (games) for a specific team."""
+        params = {}
+        if season_id:
+            params["season_id"] = season_id
+        if age_group_id:
+            params["age_group_id"] = age_group_id
+        response = self._request("GET", f"/api/matches/team/{team_id}", params=params)
         return response.json()
 
     def create_game(self, game: EnhancedGame) -> dict[str, Any]:
-        """Create a new game."""
-        response = self._request("POST", "/api/games", json_data=game.model_dump(exclude_none=True))
+        """Create a new match (game)."""
+        # Convert game_type_id to match_type_id for API compatibility
+        game_data = game.model_dump(exclude_none=True)
+        if "game_type_id" in game_data:
+            game_data["match_type_id"] = game_data.pop("game_type_id")
+        response = self._request("POST", "/api/matches", json_data=game_data)
         return response.json()
 
     def update_game(self, game_id: int, game: EnhancedGame) -> dict[str, Any]:
-        """Update a game (full update)."""
-        response = self._request("PUT", f"/api/games/{game_id}", json_data=game.model_dump(exclude_none=True))
+        """Update a match (game) - full update."""
+        # Convert game_type_id to match_type_id for API compatibility
+        game_data = game.model_dump(exclude_none=True)
+        if "game_type_id" in game_data:
+            game_data["match_type_id"] = game_data.pop("game_type_id")
+        response = self._request("PUT", f"/api/matches/{game_id}", json_data=game_data)
         return response.json()
 
     def patch_game(self, game_id: int, game_patch: GamePatch) -> dict[str, Any]:
-        """Partially update a game."""
-        response = self._request("PATCH", f"/api/games/{game_id}", json_data=game_patch.model_dump(exclude_none=True))
+        """Partially update a match (game)."""
+        # Convert game_type_id to match_type_id for API compatibility
+        patch_data = game_patch.model_dump(exclude_none=True)
+        if "game_type_id" in patch_data:
+            patch_data["match_type_id"] = patch_data.pop("game_type_id")
+        response = self._request("PATCH", f"/api/matches/{game_id}", json_data=patch_data)
         return response.json()
 
     def delete_game(self, game_id: int) -> dict[str, Any]:
-        """Delete a game."""
-        response = self._request("DELETE", f"/api/games/{game_id}")
+        """Delete a match (game)."""
+        response = self._request("DELETE", f"/api/matches/{game_id}")
         return response.json()
 
     # Reference data endpoints

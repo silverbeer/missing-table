@@ -565,7 +565,7 @@ def divisions(
 
 **Impact**: 🟢 NONE - No changes needed
 
-**File Location**: `backend/cleanup_duplicate_matches.py`
+**File Location**: `backend/scripts/utilities/cleanup_duplicate_matches.py`
 
 **Analysis**: Script works with matches table, not divisions or leagues. No changes needed.
 
