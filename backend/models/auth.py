@@ -103,6 +103,11 @@ class ProfilePhotoSlot(BaseModel):
 
 class PlayerCustomization(BaseModel):
     """Model for player profile customization (colors, style, number, position, social media)."""
+    # Personal info
+    first_name: str | None = None
+    last_name: str | None = None
+    hometown: str | None = None
+    # Visual customization
     overlay_style: str | None = None
     primary_color: str | None = None
     text_color: str | None = None
@@ -143,5 +148,39 @@ class PlayerCustomization(BaseModel):
         if v is not None:
             if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
                 raise ValueError('Color must be a valid hex color (e.g., #3B82F6)')
+        return v
+
+
+class PlayerHistoryCreate(BaseModel):
+    """Model for creating a player team history entry."""
+    team_id: int
+    season_id: int
+    jersey_number: int | None = None
+    positions: list[str] | None = None
+    notes: str | None = None
+    is_current: bool = False
+
+    @field_validator('jersey_number')
+    @classmethod
+    def validate_jersey_number(cls, v):
+        """Validate jersey number is 1-99."""
+        if v is not None and (v < 1 or v > 99):
+            raise ValueError('Jersey number must be between 1 and 99')
+        return v
+
+
+class PlayerHistoryUpdate(BaseModel):
+    """Model for updating a player team history entry."""
+    jersey_number: int | None = None
+    positions: list[str] | None = None
+    notes: str | None = None
+    is_current: bool | None = None
+
+    @field_validator('jersey_number')
+    @classmethod
+    def validate_jersey_number(cls, v):
+        """Validate jersey number is 1-99."""
+        if v is not None and (v < 1 or v > 99):
+            raise ValueError('Jersey number must be between 1 and 99')
         return v
 

@@ -424,14 +424,12 @@ export default {
         saving.value = true;
         error.value = null;
 
-        // Build customization update
+        // Build customization update (player_number and positions are edited on main dashboard)
         const customization = {
           overlay_style: localState.value.overlay_style,
           primary_color: localState.value.primary_color,
           text_color: localState.value.text_color,
           accent_color: localState.value.accent_color,
-          player_number: localState.value.player_number || null,
-          positions: localState.value.positions,
           // Social media handles (send empty string as null)
           instagram_handle: localState.value.instagram_handle || null,
           snapchat_handle: localState.value.snapchat_handle || null,

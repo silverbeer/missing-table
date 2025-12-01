@@ -189,14 +189,18 @@ export const useAuthStore = () => {
         access_token: data.access_token,
         refresh_token: data.refresh_token,
       });
-      // Login endpoint returns role/team_id directly on user object
+      // Login endpoint returns basic user info
       setProfile(data.user);
 
       // Store tokens for API calls
       localStorage.setItem('auth_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
 
-      console.log('Login successful - Profile set:', data.user);
+      console.log('Login successful - Basic profile set:', data.user);
+
+      // Fetch complete profile (includes photos, personal info, etc.)
+      await fetchProfile();
+      console.log('Complete profile fetched:', state.profile);
 
       // Record successful login metrics
       recordLogin(true, { user_role: data.user.role || 'team-fan' });
