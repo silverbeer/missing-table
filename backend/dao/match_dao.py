@@ -1906,8 +1906,8 @@ class MatchDAO:
         try:
             response = self.client.table('user_profiles').select('''
                 *,
-                team:teams(id, name, city, club_id, age_group:age_groups(id, name)),
-                club:clubs(id, name, city)
+                team:teams(id, name, city, club_id, age_group:age_groups(id, name), club:clubs(id, name, city, primary_color, secondary_color)),
+                club:clubs(id, name, city, primary_color, secondary_color)
             ''').eq('id', user_id).execute()
 
             if response.data and len(response.data) > 0:
