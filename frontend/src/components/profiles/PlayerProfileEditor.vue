@@ -2,7 +2,7 @@
   <div class="player-profile-editor">
     <!-- Header -->
     <div class="editor-header">
-      <h2>Edit Profile</h2>
+      <h2>Customize Profile</h2>
       <div class="header-actions">
         <button type="button" class="btn btn-secondary" @click="handleCancel">
           Cancel
@@ -129,14 +129,14 @@
               help-text="Main background color for your profile card"
             />
             <ColorInput
+              v-model="localState.accent_color"
+              label="Secondary Color"
+              help-text="Color for highlights and borders"
+            />
+            <ColorInput
               v-model="localState.text_color"
               label="Text Color"
               help-text="Color for your jersey number and position"
-            />
-            <ColorInput
-              v-model="localState.accent_color"
-              label="Accent Color"
-              help-text="Secondary color for highlights and borders"
             />
           </div>
         </div>
