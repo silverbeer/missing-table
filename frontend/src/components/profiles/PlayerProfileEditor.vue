@@ -141,6 +141,41 @@
           </div>
         </div>
 
+        <!-- Player Info -->
+        <div class="settings-section">
+          <h3>Player Information</h3>
+          <div class="player-info-inputs">
+            <div class="form-group">
+              <label for="playerNumber">Jersey Number</label>
+              <input
+                id="playerNumber"
+                type="text"
+                v-model="localState.player_number"
+                placeholder="e.g., 10"
+                maxlength="3"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label for="playerPosition">Primary Position</label>
+              <select
+                id="playerPosition"
+                v-model="selectedPosition"
+                class="form-select"
+              >
+                <option value="">Select position...</option>
+                <option
+                  v-for="pos in availablePositions"
+                  :key="pos.abbreviation"
+                  :value="pos.abbreviation"
+                >
+                  {{ pos.abbreviation }} - {{ pos.full_name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <!-- Social Media -->
         <div class="settings-section">
           <h3>Social Media</h3>
