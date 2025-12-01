@@ -712,14 +712,12 @@ async def get_csrf_token_endpoint(request: Request, response: Response):
 
 @app.get("/api/age-groups")
 async def get_age_groups(
-    request: Request,
     current_user: dict[str, Any] = Depends(get_current_user_required)
 ):
     """Get all age groups."""
     try:
         logger.info(f"age-groups endpoint - current_user: {current_user}")
-        client_ip = get_client_ip(request)
-        age_groups = match_dao.get_all_age_groups(client_ip=client_ip)
+        age_groups = match_dao.get_all_age_groups()
         logger.info(f"age-groups endpoint - returning {len(age_groups)} groups")
         return age_groups
     except Exception as e:
