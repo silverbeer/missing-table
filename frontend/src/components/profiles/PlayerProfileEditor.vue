@@ -74,27 +74,6 @@
           />
         </div>
 
-        <!-- Quick Actions -->
-        <div class="settings-section">
-          <button
-            v-if="teamColors"
-            type="button"
-            class="btn btn-team-colors"
-            @click="applyTeamColors"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z"
-              />
-            </svg>
-            Use Team Colors
-          </button>
-        </div>
-
         <!-- Overlay Style -->
         <div class="settings-section">
           <h3>Overlay Style</h3>
@@ -120,15 +99,44 @@
         <!-- Colors -->
         <div class="settings-section">
           <h3>Colors</h3>
+          <p class="color-help-text">
+            Choose colors using the color picker or enter hex codes (e.g.,
+            #3B82F6)
+          </p>
+          <button
+            v-if="hasClubColors"
+            type="button"
+            class="btn btn-club-colors"
+            @click="useClubColors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            Use Club Colors
+          </button>
           <div class="color-settings">
-            <ColorPalette
+            <ColorInput
               v-model="localState.primary_color"
               label="Primary Color"
+              help-text="Main background color for your profile card"
             />
-            <ColorPalette v-model="localState.text_color" label="Text Color" />
-            <ColorPalette
+            <ColorInput
+              v-model="localState.text_color"
+              label="Text Color"
+              help-text="Color for your jersey number and position"
+            />
+            <ColorInput
               v-model="localState.accent_color"
               label="Accent Color"
+              help-text="Secondary color for highlights and borders"
             />
           </div>
         </div>
@@ -167,6 +175,55 @@
             </div>
           </div>
         </div>
+
+        <!-- Social Media -->
+        <div class="settings-section">
+          <h3>Social Media</h3>
+          <p class="social-help-text">
+            Enter your username only (without @ or full URL)
+          </p>
+          <div class="social-inputs">
+            <div class="form-group social-input-group">
+              <label for="instagram">
+                <span class="social-icon">📸</span> Instagram
+              </label>
+              <input
+                id="instagram"
+                type="text"
+                v-model="localState.instagram_handle"
+                placeholder="username"
+                maxlength="30"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group social-input-group">
+              <label for="snapchat">
+                <span class="social-icon">👻</span> Snapchat
+              </label>
+              <input
+                id="snapchat"
+                type="text"
+                v-model="localState.snapchat_handle"
+                placeholder="username"
+                maxlength="30"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group social-input-group">
+              <label for="tiktok">
+                <span class="social-icon">🎵</span> TikTok
+              </label>
+              <input
+                id="tiktok"
+                type="text"
+                v-model="localState.tiktok_handle"
+                placeholder="username"
+                maxlength="30"
+                class="form-input"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -187,14 +244,14 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
-import ColorPalette from './ColorPalette.vue';
+import ColorInput from '../shared/ColorInput.vue';
 import PlayerPhotoOverlay from './PlayerPhotoOverlay.vue';
 import PlayerPhotoUpload from './PlayerPhotoUpload.vue';
 
 export default {
   name: 'PlayerProfileEditor',
   components: {
-    ColorPalette,
+    ColorInput,
     PlayerPhotoOverlay,
     PlayerPhotoUpload,
   },
@@ -206,6 +263,21 @@ export default {
     const success = ref(null);
     const availablePositions = ref([]);
 
+    // Helper to parse positions (may be JSON string or array)
+    const parsePositions = positions => {
+      if (!positions) return [];
+      if (Array.isArray(positions)) return positions;
+      if (typeof positions === 'string') {
+        try {
+          const parsed = JSON.parse(positions);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
     // Overlay style options
     const overlayStyles = [
       { value: 'badge', label: 'Badge', icon: '🏅' },
@@ -214,22 +286,56 @@ export default {
       { value: 'none', label: 'None', icon: '🚫' },
     ];
 
+    // Get club colors for defaults
+    const getClubColors = () => {
+      const club = authStore.state.profile?.club;
+      const team = authStore.state.profile?.team;
+      // Try club colors first, then team's club colors
+      const primary = club?.primary_color || team?.club?.primary_color;
+      const secondary = club?.secondary_color || team?.club?.secondary_color;
+      return { primary, secondary };
+    };
+
     // Initialize local state from profile
     const getInitialState = () => {
       const profile = authStore.state.profile || {};
+      const clubColors = getClubColors();
       return {
         photo_1_url: profile.photo_1_url || null,
         photo_2_url: profile.photo_2_url || null,
         photo_3_url: profile.photo_3_url || null,
         profile_photo_slot: profile.profile_photo_slot || null,
         overlay_style: profile.overlay_style || 'badge',
-        primary_color: profile.primary_color || '#3B82F6',
+        // Default to club colors if profile colors not set
+        primary_color: profile.primary_color || clubColors.primary || '#3B82F6',
         text_color: profile.text_color || '#FFFFFF',
-        accent_color: profile.accent_color || '#1D4ED8',
+        accent_color: profile.accent_color || clubColors.secondary || '#1D4ED8',
         player_number: profile.player_number || '',
-        positions: profile.positions || [],
+        // positions may be a JSON string from the database
+        positions: parsePositions(profile.positions),
+        // Social media handles
+        instagram_handle: profile.instagram_handle || '',
+        snapchat_handle: profile.snapchat_handle || '',
+        tiktok_handle: profile.tiktok_handle || '',
       };
     };
+
+    // Apply club colors to current state
+    const useClubColors = () => {
+      const clubColors = getClubColors();
+      if (clubColors.primary) {
+        localState.value.primary_color = clubColors.primary;
+      }
+      if (clubColors.secondary) {
+        localState.value.accent_color = clubColors.secondary;
+      }
+    };
+
+    // Check if club colors are available
+    const hasClubColors = computed(() => {
+      const clubColors = getClubColors();
+      return !!(clubColors.primary || clubColors.secondary);
+    });
 
     const localState = ref(getInitialState());
     const savedState = ref(JSON.stringify(getInitialState()));
@@ -275,29 +381,6 @@ export default {
       return positions && positions.length > 0 ? positions[0] : null;
     });
 
-    // Team colors
-    const teamColors = computed(() => {
-      const team = authStore.state.profile?.team;
-      const club = team?.club;
-      if (club?.primary_color) {
-        return {
-          primary: club.primary_color,
-          secondary: club.secondary_color || '#1D4ED8',
-          text: '#FFFFFF',
-        };
-      }
-      return null;
-    });
-
-    // Apply team colors
-    const applyTeamColors = () => {
-      if (teamColors.value) {
-        localState.value.primary_color = teamColors.value.primary;
-        localState.value.accent_color = teamColors.value.secondary;
-        localState.value.text_color = teamColors.value.text;
-      }
-    };
-
     // Handle photo upload update
     const handlePhotoUpdate = profile => {
       if (profile) {
@@ -313,10 +396,11 @@ export default {
     // Fetch available positions
     const fetchPositions = async () => {
       try {
-        const response = await fetch(`${getApiBaseUrl()}/api/positions`);
-        if (response.ok) {
-          availablePositions.value = await response.json();
-        }
+        const positions = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/positions`,
+          { method: 'GET' }
+        );
+        availablePositions.value = positions;
       } catch (err) {
         console.error('Error fetching positions:', err);
       }
@@ -348,6 +432,10 @@ export default {
           accent_color: localState.value.accent_color,
           player_number: localState.value.player_number || null,
           positions: localState.value.positions,
+          // Social media handles (send empty string as null)
+          instagram_handle: localState.value.instagram_handle || null,
+          snapchat_handle: localState.value.snapchat_handle || null,
+          tiktok_handle: localState.value.tiktok_handle || null,
         };
 
         await authStore.apiRequest(
@@ -422,10 +510,10 @@ export default {
       previewPhotoUrl,
       primaryPosition,
       selectedPosition,
-      teamColors,
       overlayStyles,
       availablePositions,
-      applyTeamColors,
+      hasClubColors,
+      useClubColors,
       handlePhotoUpdate,
       handleCancel,
       handlePublish,
@@ -577,31 +665,6 @@ export default {
   font-weight: 600;
 }
 
-.btn-team-colors {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px;
-  background-color: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-team-colors:hover {
-  background-color: #d1fae5;
-}
-
-.btn-team-colors svg {
-  width: 20px;
-  height: 20px;
-}
-
 .style-options {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -655,6 +718,38 @@ export default {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   border: 0;
+}
+
+.color-help-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 16px 0;
+}
+
+.btn-club-colors {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  background-color: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-club-colors:hover {
+  background-color: #e0f2fe;
+}
+
+.btn-club-colors svg {
+  width: 20px;
+  height: 20px;
 }
 
 .color-settings {
@@ -750,5 +845,27 @@ export default {
   cursor: pointer;
   color: inherit;
   line-height: 1;
+}
+
+.social-help-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 16px 0;
+}
+
+.social-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.social-input-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.social-icon {
+  font-size: 16px;
 }
 </style>

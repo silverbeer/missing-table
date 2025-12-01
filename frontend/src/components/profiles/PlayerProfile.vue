@@ -23,21 +23,19 @@
           :accent-color="authStore.state.profile.accent_color || '#1D4ED8'"
           class="profile-photo-preview"
         />
-        <button
-          type="button"
-          class="edit-profile-btn"
-          @click="showEditor = true"
-        >
+        <button type="button" class="edit-photo-btn" @click="showEditor = true">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
             <path
-              d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+              fill-rule="evenodd"
+              d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+              clip-rule="evenodd"
             />
           </svg>
-          Edit Profile
+          Customize Photo
         </button>
       </div>
 
@@ -53,6 +51,15 @@
         <label>Team Assignment:</label>
         <span class="no-team">Not assigned to a team</span>
       </div>
+      <div
+        v-if="authStore.state.profile.team?.age_group?.name"
+        class="info-group"
+      >
+        <label>Age Group:</label>
+        <span class="age-group-badge">{{
+          authStore.state.profile.team.age_group.name
+        }}</span>
+      </div>
       <div class="info-group">
         <label>Player Number:</label>
         <span
@@ -65,15 +72,9 @@
       </div>
       <div class="info-group">
         <label>Positions:</label>
-        <div
-          v-if="
-            authStore.state.profile.positions &&
-            authStore.state.profile.positions.length > 0
-          "
-          class="positions-display"
-        >
+        <div v-if="parsedPositions.length > 0" class="positions-display">
           <span
-            v-for="position in authStore.state.profile.positions"
+            v-for="position in parsedPositions"
             :key="position"
             class="position-badge"
           >
@@ -86,74 +87,58 @@
         <label>Player Status:</label>
         <span class="player-status active">Active Player</span>
       </div>
-    </template>
 
-    <template #profile-sections="{ isEditing, editForm }">
-      <!-- Player Information Editing -->
-      <div v-if="isEditing" class="player-edit-section">
-        <h3>Player Information</h3>
-
-        <!-- Team Selection -->
-        <div class="form-group">
-          <label for="teamSelect">Team Assignment:</label>
-          <select
-            id="teamSelect"
-            v-model="editForm.team_id"
-            class="form-select"
+      <!-- Social Media Section -->
+      <div v-if="hasSocialMedia" class="social-media-section">
+        <label>Social Media:</label>
+        <div class="social-links-display">
+          <a
+            v-if="authStore.state.profile.instagram_handle"
+            :href="`https://instagram.com/${authStore.state.profile.instagram_handle}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link-badge instagram"
           >
-            <option value="">No team</option>
-            <option v-for="team in teams" :key="team.id" :value="team.id">
-              {{ team.name }} ({{ team.city }})
-            </option>
-          </select>
-          <p class="form-note">Team assignment requires manager approval</p>
-        </div>
-
-        <!-- Player Number -->
-        <div class="form-group">
-          <label for="playerNumber">Player Number:</label>
-          <input
-            id="playerNumber"
-            v-model.number="editForm.player_number"
-            type="number"
-            min="1"
-            max="99"
-            class="form-input"
-            placeholder="Enter jersey number"
-          />
-          <p class="form-note">Choose a unique number for your team</p>
-        </div>
-
-        <!-- Positions -->
-        <div class="form-group">
-          <label>Playing Positions:</label>
-          <div v-if="loadingPositions" class="loading">
-            Loading positions...
-          </div>
-          <div v-else class="positions-selector">
-            <div class="positions-grid">
-              <label
-                v-for="position in availablePositions"
-                :key="position.abbreviation"
-                class="position-option"
-              >
-                <input
-                  type="checkbox"
-                  :value="position.abbreviation"
-                  v-model="editForm.positions"
-                  class="position-checkbox"
-                />
-                <span class="position-label">
-                  <strong>{{ position.abbreviation }}</strong>
-                  <small>{{ position.full_name }}</small>
-                </span>
-              </label>
-            </div>
-          </div>
-          <p class="form-note">Select all positions you can play</p>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"
+              />
+            </svg>
+            <span>@{{ authStore.state.profile.instagram_handle }}</span>
+          </a>
+          <a
+            v-if="authStore.state.profile.snapchat_handle"
+            :href="`https://snapchat.com/add/${authStore.state.profile.snapchat_handle}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link-badge snapchat"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12.166 2c1.34.006 2.613.139 3.49.476.96.369 1.715.984 2.285 1.794.548.779.86 1.728.98 2.979.066.69.068 1.43.068 2.21v.242c.002.4.004.775.038 1.172.043.498.13.805.286 1.048.13.203.342.395.749.584.16.074.33.143.52.22l.18.073c.5.2.87.37 1.138.557.404.28.567.563.567.813s-.163.533-.567.813c-.268.187-.638.357-1.138.557l-.18.073c-.19.077-.36.146-.52.22-.407.189-.619.381-.749.584-.156.243-.243.55-.286 1.048-.034.397-.036.772-.038 1.172v.242c0 .78-.002 1.52-.068 2.21-.12 1.251-.432 2.2-.98 2.979-.57.81-1.325 1.425-2.285 1.794-.877.337-2.15.47-3.49.476h-.332c-1.34-.006-2.613-.139-3.49-.476-.96-.369-1.715-.984-2.285-1.794-.548-.779-.86-1.728-.98-2.979-.066-.69-.068-1.43-.068-2.21v-.242c-.002-.4-.004-.775-.038-1.172-.043-.498-.13-.805-.286-1.048-.13-.203-.342-.395-.749-.584-.16-.074-.33-.143-.52-.22l-.18-.073c-.5-.2-.87-.37-1.138-.557-.404-.28-.567-.563-.567-.813s.163-.533.567-.813c.268-.187.638-.357 1.138-.557l.18-.073c.19-.077.36-.146.52-.22.407-.189.619-.381.749-.584.156-.243.243-.55.286-1.048.034-.397.036-.772.038-1.172v-.242c0-.78.002-1.52.068-2.21.12-1.251.432-2.2.98-2.979.57-.81 1.325-1.425 2.285-1.794.877-.337 2.15-.47 3.49-.476z"
+              />
+            </svg>
+            <span>@{{ authStore.state.profile.snapchat_handle }}</span>
+          </a>
+          <a
+            v-if="authStore.state.profile.tiktok_handle"
+            :href="`https://tiktok.com/@${authStore.state.profile.tiktok_handle}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="social-link-badge tiktok"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"
+              />
+            </svg>
+            <span>@{{ authStore.state.profile.tiktok_handle }}</span>
+          </a>
         </div>
       </div>
+    </template>
 
+    <template #profile-sections>
       <!-- My Games Section -->
       <div v-if="authStore.state.profile.team" class="my-games">
         <h3>My Games</h3>
@@ -368,14 +353,11 @@ export default {
   emits: ['logout'],
   setup() {
     const authStore = useAuthStore();
-    const teams = ref([]);
     const teamGames = ref([]);
     const teammates = ref([]);
-    const availablePositions = ref([]);
     const activeTab = ref('upcoming');
     const loadingGames = ref(false);
     const loadingTeammates = ref(false);
-    const loadingPositions = ref(false);
     const showEditor = ref(false);
 
     // Profile photo URL - use profile photo slot or first available
@@ -395,10 +377,35 @@ export default {
       return null;
     });
 
+    // Parse positions (may be JSON string or array)
+    const parsedPositions = computed(() => {
+      const positions = authStore.state.profile?.positions;
+      if (!positions) return [];
+      if (Array.isArray(positions)) return positions;
+      if (typeof positions === 'string') {
+        try {
+          const parsed = JSON.parse(positions);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    });
+
     // Primary position for overlay display
     const primaryPosition = computed(() => {
-      const positions = authStore.state.profile?.positions;
-      return positions && positions.length > 0 ? positions[0] : null;
+      return parsedPositions.value.length > 0 ? parsedPositions.value[0] : null;
+    });
+
+    // Check if player has any social media handles
+    const hasSocialMedia = computed(() => {
+      const profile = authStore.state.profile;
+      return (
+        profile?.instagram_handle ||
+        profile?.snapchat_handle ||
+        profile?.tiktok_handle
+      );
     });
 
     const upcomingGames = computed(() => {
@@ -464,43 +471,17 @@ export default {
       }, 0);
     });
 
-    const fetchTeams = async () => {
-      try {
-        const response = await fetch(`${getApiBaseUrl()}/api/teams`);
-        if (response.ok) {
-          teams.value = await response.json();
-        }
-      } catch (error) {
-        console.error('Error fetching teams:', error);
-      }
-    };
-
-    const fetchPositions = async () => {
-      try {
-        loadingPositions.value = true;
-        const response = await fetch(`${getApiBaseUrl()}/api/positions`);
-        if (response.ok) {
-          availablePositions.value = await response.json();
-        }
-      } catch (error) {
-        console.error('Error fetching positions:', error);
-      } finally {
-        loadingPositions.value = false;
-      }
-    };
-
     const fetchTeamGames = async () => {
       const teamId = authStore.state.profile?.team?.id;
       if (!teamId) return;
 
       try {
         loadingGames.value = true;
-        const response = await fetch(
-          `${getApiBaseUrl()}/api/matches/team/${teamId}`
+        const games = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/matches/team/${teamId}`,
+          { method: 'GET' }
         );
-        if (response.ok) {
-          teamGames.value = await response.json();
-        }
+        teamGames.value = games;
       } catch (error) {
         console.error('Error fetching team games:', error);
       } finally {
@@ -511,6 +492,13 @@ export default {
     const fetchTeammates = async () => {
       const teamId = authStore.state.profile?.team?.id;
       if (!teamId) return;
+
+      // Only admins and team managers can list all users
+      const role = authStore.state.profile?.role;
+      if (role !== 'admin' && role !== 'team-manager') {
+        // Players can't view teammates list (would need a dedicated endpoint)
+        return;
+      }
 
       try {
         loadingTeammates.value = true;
@@ -603,23 +591,21 @@ export default {
     );
 
     onMounted(() => {
-      fetchTeams();
-      fetchPositions();
+      // Component initialization - team games loaded via watch
     });
 
     return {
       authStore,
-      teams,
       teamGames,
       teammates,
-      availablePositions,
       activeTab,
       loadingGames,
       loadingTeammates,
-      loadingPositions,
       showEditor,
       profilePhotoUrl,
       primaryPosition,
+      parsedPositions,
+      hasSocialMedia,
       upcomingGames,
       playedGames,
       totalGames,
@@ -679,6 +665,15 @@ export default {
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
+  font-weight: 600;
+}
+
+.age-group-badge {
+  background-color: #8b5cf6;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -1021,105 +1016,6 @@ export default {
   margin-bottom: 5px;
 }
 
-/* Player Edit Form Styles */
-.player-edit-section {
-  background-color: #f0f9ff;
-  padding: 25px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  border: 1px solid #bae6fd;
-}
-
-.player-edit-section h3 {
-  color: #1e40af;
-  margin-bottom: 20px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #1e40af;
-}
-
-.form-select,
-.form-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  background-color: white;
-}
-
-.form-select:focus,
-.form-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-note {
-  color: #6b7280;
-  font-size: 12px;
-  margin: 5px 0 0 0;
-}
-
-.positions-selector {
-  margin-top: 10px;
-}
-
-.positions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background-color: white;
-}
-
-.position-option {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.position-option:hover {
-  background-color: #f3f4f6;
-}
-
-.position-checkbox {
-  margin-right: 10px;
-  width: 16px;
-  height: 16px;
-}
-
-.position-label {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.position-label strong {
-  color: #1f2937;
-  font-size: 14px;
-}
-
-.position-label small {
-  color: #6b7280;
-  font-size: 11px;
-}
-
 /* Profile Photo Section */
 .profile-photo-section {
   display: flex;
@@ -1136,7 +1032,7 @@ export default {
   height: 150px;
 }
 
-.edit-profile-btn {
+.edit-photo-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1151,11 +1047,11 @@ export default {
   transition: background-color 0.15s ease;
 }
 
-.edit-profile-btn:hover {
+.edit-photo-btn:hover {
   background-color: #2563eb;
 }
 
-.edit-profile-btn svg {
+.edit-photo-btn svg {
   width: 16px;
   height: 16px;
 }
@@ -1190,6 +1086,87 @@ export default {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+/* Social Media Section */
+.social-media-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.social-media-section label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.social-links-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.social-link-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  min-height: 44px;
+}
+
+.social-link-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.social-link-badge svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.social-link-badge.instagram {
+  background: linear-gradient(
+    45deg,
+    #f09433,
+    #e6683c,
+    #dc2743,
+    #cc2366,
+    #bc1888
+  );
+  color: white;
+}
+
+.social-link-badge.snapchat {
+  background: #fffc00;
+  color: #000000;
+}
+
+.social-link-badge.tiktok {
+  background: #000000;
+  color: white;
+}
+
+@media (max-width: 480px) {
+  .social-links-display {
+    flex-direction: column;
+  }
+
+  .social-link-badge {
+    justify-content: center;
   }
 }
 </style>

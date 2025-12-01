@@ -307,8 +307,7 @@ export default {
           {
             method: 'POST',
             body: formData,
-          },
-          true // Skip JSON content-type
+          }
         );
 
         // Update local state

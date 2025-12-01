@@ -64,7 +64,6 @@ class Club(BaseModel):
     logo_url: str | None = None
     primary_color: str | None = None
     secondary_color: str | None = None
-    pro_academy: bool = False
 
 
 class ClubWithTeams(BaseModel):

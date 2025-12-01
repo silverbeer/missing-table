@@ -519,6 +519,82 @@ class MatchDAO:
             print(f"Error getting team by name '{name}': {e}")
             return None
 
+    def get_team_by_id(self, team_id: int) -> dict | None:
+        """Get a team by ID.
+
+        Returns team info (id, name, city, club_id).
+        """
+        try:
+            response = (
+                self.client.table("teams")
+                .select("id, name, city, club_id")
+                .eq("id", team_id)
+                .limit(1)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting team by id {team_id}: {e}")
+            return None
+
+    def get_team_with_details(self, team_id: int) -> dict | None:
+        """Get a team with club, league, division, and age group details.
+
+        Returns enriched team info for the team roster page header.
+        """
+        try:
+            # Get team with club, division, and age_group (these have FK relationships)
+            response = (
+                self.client.table("teams")
+                .select("""
+                    id, name, city, academy_team, league_id,
+                    club:clubs(id, name, logo_url, primary_color, secondary_color),
+                    division:divisions(id, name),
+                    age_group:age_groups(id, name)
+                """)
+                .eq("id", team_id)
+                .limit(1)
+                .execute()
+            )
+
+            if not response.data or len(response.data) == 0:
+                return None
+
+            team = response.data[0]
+            result = {
+                "id": team.get("id"),
+                "name": team.get("name"),
+                "city": team.get("city"),
+                "academy_team": team.get("academy_team"),
+                "club": team.get("club"),
+                "league": None,
+                "division": team.get("division"),
+                "age_group": team.get("age_group"),
+            }
+
+            # Fetch league separately (no FK relationship)
+            league_id = team.get("league_id")
+            if league_id:
+                league_response = (
+                    self.client.table("match_types")
+                    .select("id, name")
+                    .eq("id", league_id)
+                    .limit(1)
+                    .execute()
+                )
+                if league_response.data and len(league_response.data) > 0:
+                    result["league"] = league_response.data[0]
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting team with details for id {team_id}: {e}")
+            return None
+
     def get_age_group_by_name(self, name: str) -> dict | None:
         """Get an age group by name (case-insensitive exact match).
 
@@ -1646,8 +1722,7 @@ class MatchDAO:
             return None
 
     def create_club(self, name: str, city: str, website: str = None, description: str = None,
-                    logo_url: str = None, primary_color: str = None, secondary_color: str = None,
-                    pro_academy: bool = False) -> dict:
+                    logo_url: str = None, primary_color: str = None, secondary_color: str = None) -> dict:
         """Create a new club.
 
         Args:
@@ -1658,13 +1733,12 @@ class MatchDAO:
             logo_url: Optional URL to club logo in Supabase Storage
             primary_color: Optional primary brand color (hex code)
             secondary_color: Optional secondary brand color (hex code)
-            pro_academy: Optional flag indicating if this is a professional academy
 
         Returns:
             Created club dict
         """
         try:
-            club_data = {"name": name, "city": city, "pro_academy": pro_academy}
+            club_data = {"name": name, "city": city}
             if website:
                 club_data["website"] = website
             if description:
@@ -1687,7 +1761,7 @@ class MatchDAO:
 
     def update_club(self, club_id: int, name: str = None, city: str = None, website: str = None,
                     description: str = None, logo_url: str = None, primary_color: str = None,
-                    secondary_color: str = None, pro_academy: bool = None) -> dict | None:
+                    secondary_color: str = None) -> dict | None:
         """Update an existing club.
 
         Args:
@@ -1699,7 +1773,6 @@ class MatchDAO:
             logo_url: Optional URL to club logo in Supabase Storage
             primary_color: Optional primary brand color (hex code)
             secondary_color: Optional secondary brand color (hex code)
-            pro_academy: Optional flag indicating if this is a professional academy
 
         Returns:
             Updated club dict or None if not found
@@ -1720,8 +1793,6 @@ class MatchDAO:
                 update_data["primary_color"] = primary_color
             if secondary_color is not None:
                 update_data["secondary_color"] = secondary_color
-            if pro_academy is not None:
-                update_data["pro_academy"] = pro_academy
 
             if not update_data:
                 # Nothing to update
@@ -1824,18 +1895,18 @@ class MatchDAO:
 
     def get_user_profile_with_relationships(self, user_id: str) -> dict | None:
         """
-        Get user profile with team and club relationships.
+        Get user profile with team, club, and age group relationships.
 
         Args:
             user_id: User ID to fetch profile for
 
         Returns:
-            User profile dict with team and club data, or None if not found
+            User profile dict with team, club, and age_group data, or None if not found
         """
         try:
             response = self.client.table('user_profiles').select('''
                 *,
-                team:teams(id, name, city, club_id),
+                team:teams(id, name, city, club_id, age_group:age_groups(id, name)),
                 club:clubs(id, name, city)
             ''').eq('id', user_id).execute()
 
@@ -1928,6 +1999,45 @@ class MatchDAO:
             return response.data or []
         except Exception as e:
             logger.error(f"Error fetching all user profiles: {e}")
+            return []
+
+    def get_team_players(self, team_id: int) -> list[dict]:
+        """
+        Get all players on a team for the team roster page.
+
+        Returns player profiles with fields needed for player cards:
+        - id, display_name, player_number, positions
+        - photo_1_url, photo_2_url, photo_3_url, profile_photo_slot
+        - overlay_style, primary_color, text_color, accent_color
+        - instagram_handle, snapchat_handle, tiktok_handle
+
+        Args:
+            team_id: The team ID to get players for
+
+        Returns:
+            List of player profile dicts
+        """
+        try:
+            response = self.client.table('user_profiles').select('''
+                id,
+                display_name,
+                player_number,
+                positions,
+                photo_1_url,
+                photo_2_url,
+                photo_3_url,
+                profile_photo_slot,
+                overlay_style,
+                primary_color,
+                text_color,
+                accent_color,
+                instagram_handle,
+                snapchat_handle,
+                tiktok_handle
+            ''').eq('team_id', team_id).eq('role', 'team-player').order('player_number').execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Error fetching team players for team {team_id}: {e}")
             return []
 
     def get_user_profile_by_username(self, username: str, exclude_user_id: str | None = None) -> dict | None:

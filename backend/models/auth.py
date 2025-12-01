@@ -102,13 +102,31 @@ class ProfilePhotoSlot(BaseModel):
 
 
 class PlayerCustomization(BaseModel):
-    """Model for player profile customization (colors, style, number, position)."""
+    """Model for player profile customization (colors, style, number, position, social media)."""
     overlay_style: str | None = None
     primary_color: str | None = None
     text_color: str | None = None
     accent_color: str | None = None
     player_number: str | None = None
     positions: list[str] | None = None
+    # Social media handles (username only, not full URLs)
+    instagram_handle: str | None = None
+    snapchat_handle: str | None = None
+    tiktok_handle: str | None = None
+
+    @field_validator('instagram_handle', 'snapchat_handle', 'tiktok_handle')
+    @classmethod
+    def validate_social_handle(cls, v):
+        """Validate social media handle format."""
+        if v is not None:
+            # Remove @ if present
+            v = v.lstrip('@')
+            # Basic validation: alphanumeric, underscores, periods, max 30 chars
+            if len(v) > 30:
+                raise ValueError('Handle must be 30 characters or less')
+            if v and not re.match(r'^[a-zA-Z0-9_.]+$', v):
+                raise ValueError('Handle can only contain letters, numbers, underscores, and periods')
+        return v
 
     @field_validator('overlay_style')
     @classmethod

@@ -443,6 +443,19 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             "positions": profile.get("positions", []),
             "created_at": profile.get("created_at"),
             "updated_at": profile.get("updated_at"),
+            # Photo fields
+            "photo_1_url": profile.get("photo_1_url"),
+            "photo_2_url": profile.get("photo_2_url"),
+            "photo_3_url": profile.get("photo_3_url"),
+            "profile_photo_slot": profile.get("profile_photo_slot"),
+            "overlay_style": profile.get("overlay_style"),
+            "primary_color": profile.get("primary_color"),
+            "text_color": profile.get("text_color"),
+            "accent_color": profile.get("accent_color"),
+            # Social media handles
+            "instagram_handle": profile.get("instagram_handle"),
+            "snapchat_handle": profile.get("snapchat_handle"),
+            "tiktok_handle": profile.get("tiktok_handle"),
         }
 
     except Exception as e:
@@ -781,6 +794,13 @@ async def update_player_customization(
             update_data["player_number"] = customization.player_number
         if customization.positions is not None:
             update_data["positions"] = customization.positions
+        # Social media handles
+        if customization.instagram_handle is not None:
+            update_data["instagram_handle"] = customization.instagram_handle
+        if customization.snapchat_handle is not None:
+            update_data["snapchat_handle"] = customization.snapchat_handle
+        if customization.tiktok_handle is not None:
+            update_data["tiktok_handle"] = customization.tiktok_handle
 
         if len(update_data) > 1:  # More than just updated_at
             match_dao.update_user_profile(user_id, update_data)
@@ -860,7 +880,20 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     "team": profile.get('team'),
                     "club": profile.get('club'),
                     "created_at": profile.get('created_at'),
-                    "updated_at": profile.get('updated_at')
+                    "updated_at": profile.get('updated_at'),
+                    # Photo fields
+                    "photo_1_url": profile.get('photo_1_url'),
+                    "photo_2_url": profile.get('photo_2_url'),
+                    "photo_3_url": profile.get('photo_3_url'),
+                    "profile_photo_slot": profile.get('profile_photo_slot'),
+                    "overlay_style": profile.get('overlay_style'),
+                    "primary_color": profile.get('primary_color'),
+                    "text_color": profile.get('text_color'),
+                    "accent_color": profile.get('accent_color'),
+                    # Social media handles
+                    "instagram_handle": profile.get('instagram_handle'),
+                    "snapchat_handle": profile.get('snapchat_handle'),
+                    "tiktok_handle": profile.get('tiktok_handle'),
                 }
             }
         }
@@ -1982,8 +2015,7 @@ async def create_club(
             description=club.description,
             logo_url=club.logo_url,
             primary_color=club.primary_color,
-            secondary_color=club.secondary_color,
-            pro_academy=club.pro_academy
+            secondary_color=club.secondary_color
         )
         logger.info(f"Created new club: {new_club['name']}")
         return new_club
@@ -2022,8 +2054,7 @@ async def update_club(
             description=club.description,
             logo_url=club.logo_url,
             primary_color=club.primary_color,
-            secondary_color=club.secondary_color,
-            pro_academy=club.pro_academy
+            secondary_color=club.secondary_color
         )
         if not updated_club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
@@ -2421,8 +2452,148 @@ async def check_match(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === Team Roster & Player Profile Endpoints ===
 
-# Health check
+
+@app.get("/api/teams/{team_id}/players")
+async def get_team_players(
+    team_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """
+    Get all players on a team for the team roster page.
+
+    Only allows teammates to view roster (users must be on the same team).
+
+    Returns player data needed for player cards:
+    - id, display_name, player_number, positions
+    - photo fields (photo_1_url, etc.)
+    - customization fields (overlay_style, colors)
+    - social media handles
+    """
+    try:
+        # Get user's team_id from profile
+        user_profile = match_dao.get_user_profile_with_relationships(current_user['user_id'])
+        user_team_id = user_profile.get('team_id') if user_profile else None
+
+        # Authorization: user must be on the same team
+        if user_team_id != team_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view your own team's roster"
+            )
+
+        # Get team info with relationships
+        team = match_dao.get_team_with_details(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Get players
+        players = match_dao.get_team_players(team_id)
+
+        return {
+            "success": True,
+            "team": team,
+            "players": players
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting team players: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get team players")
+
+
+@app.get("/api/players/{user_id}/profile")
+async def get_player_profile(
+    user_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """
+    Get a specific player's full profile for the player detail view.
+
+    Only allows teammates to view profile (users must be on the same team).
+
+    Returns full profile data including:
+    - Profile info (display_name, number, positions)
+    - Photos and customization
+    - Social media handles
+    - Team info
+    - Recent games (player's team matches)
+    """
+    try:
+        # Get current user's team_id
+        current_user_profile = match_dao.get_user_profile_with_relationships(current_user['user_id'])
+        current_user_team_id = current_user_profile.get('team_id') if current_user_profile else None
+
+        # Get the target player's profile
+        target_profile = match_dao.get_user_profile_with_relationships(user_id)
+        if not target_profile:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        target_team_id = target_profile.get('team_id')
+
+        # Authorization: users must be on the same team (or viewing own profile)
+        if user_id != current_user['user_id'] and current_user_team_id != target_team_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view profiles of your teammates"
+            )
+
+        # Get recent games for the player's team (if they have a team)
+        recent_games = []
+        if target_team_id:
+            try:
+                # Get matches for the team (already sorted by date desc, take first 5)
+                matches = match_dao.get_matches_by_team(target_team_id)[:5]
+                for match in matches:
+                    recent_games.append({
+                        "id": match.get("id"),
+                        "match_date": match.get("match_date"),
+                        "home_team": match.get("home_team"),
+                        "away_team": match.get("away_team"),
+                        "home_score": match.get("home_score"),
+                        "away_score": match.get("away_score"),
+                        "status": match.get("status")
+                    })
+            except Exception as e:
+                logger.warning(f"Could not fetch recent games: {e}")
+
+        return {
+            "success": True,
+            "player": {
+                "id": target_profile.get("id"),
+                "display_name": target_profile.get("display_name"),
+                "player_number": target_profile.get("player_number"),
+                "positions": target_profile.get("positions"),
+                # Photo fields
+                "photo_1_url": target_profile.get("photo_1_url"),
+                "photo_2_url": target_profile.get("photo_2_url"),
+                "photo_3_url": target_profile.get("photo_3_url"),
+                "profile_photo_slot": target_profile.get("profile_photo_slot"),
+                # Customization
+                "overlay_style": target_profile.get("overlay_style"),
+                "primary_color": target_profile.get("primary_color"),
+                "text_color": target_profile.get("text_color"),
+                "accent_color": target_profile.get("accent_color"),
+                # Social media
+                "instagram_handle": target_profile.get("instagram_handle"),
+                "snapchat_handle": target_profile.get("snapchat_handle"),
+                "tiktok_handle": target_profile.get("tiktok_handle"),
+                # Team info
+                "team": target_profile.get("team"),
+                "club": target_profile.get("club")
+            },
+            "recent_games": recent_games
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting player profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get player profile")
+
+
 # Health check
 @app.get("/health")
 async def health_check():

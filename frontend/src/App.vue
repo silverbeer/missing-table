@@ -249,6 +249,11 @@
             <ProfileRouter @logout="handleLogout" />
           </div>
 
+          <!-- My Team (players only) -->
+          <div v-if="currentTab === 'my-team'" class="p-4">
+            <TeamRosterRouter />
+          </div>
+
           <!-- Admin Panel (admin only) -->
           <div v-if="currentTab === 'admin'" class="p-4">
             <AdminPanel />
@@ -273,6 +278,7 @@ import MatchesView from './components/MatchesView.vue';
 import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
 import ProfileRouter from './components/ProfileRouter.vue';
+import TeamRosterRouter from './components/profiles/TeamRosterRouter.vue';
 import AdminPanel from './components/AdminPanel.vue';
 import VersionFooter from './components/VersionFooter.vue';
 
@@ -285,6 +291,7 @@ export default {
     AuthNav,
     LoginForm,
     ProfileRouter,
+    TeamRosterRouter,
     AdminPanel,
     VersionFooter,
   },
@@ -315,6 +322,12 @@ export default {
         requiresRole: ['admin', 'club_manager', 'team-manager'],
       },
       { id: 'profile', name: 'Profile', requiresAuth: true },
+      {
+        id: 'my-team',
+        name: 'My Team',
+        requiresAuth: true,
+        requiresRole: ['team-player'],
+      },
       {
         id: 'admin',
         name: 'Admin',
