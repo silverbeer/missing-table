@@ -107,7 +107,7 @@ class PlayerCustomization(BaseModel):
     primary_color: str | None = None
     text_color: str | None = None
     accent_color: str | None = None
-    player_number: str | None = None
+    player_number: int | None = None  # Jersey number (1-99)
     positions: list[str] | None = None
     # Social media handles (username only, not full URLs)
     instagram_handle: str | None = None
