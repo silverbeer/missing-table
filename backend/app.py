@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 from typing import Any
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +31,8 @@ from models import (
     LeagueUpdate,
     MatchPatch,
     MatchSubmissionData,
+    PlayerCustomization,
+    ProfilePhotoSlot,
     RefreshTokenRequest,
     RoleUpdate,
     SeasonCreate,
@@ -440,6 +443,19 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             "positions": profile.get("positions", []),
             "created_at": profile.get("created_at"),
             "updated_at": profile.get("updated_at"),
+            # Photo fields
+            "photo_1_url": profile.get("photo_1_url"),
+            "photo_2_url": profile.get("photo_2_url"),
+            "photo_3_url": profile.get("photo_3_url"),
+            "profile_photo_slot": profile.get("profile_photo_slot"),
+            "overlay_style": profile.get("overlay_style"),
+            "primary_color": profile.get("primary_color"),
+            "text_color": profile.get("text_color"),
+            "accent_color": profile.get("accent_color"),
+            # Social media handles
+            "instagram_handle": profile.get("instagram_handle"),
+            "snapchat_handle": profile.get("snapchat_handle"),
+            "tiktok_handle": profile.get("tiktok_handle"),
         }
 
     except Exception as e:
@@ -480,6 +496,18 @@ async def update_profile(
         if profile_data.positions is not None:
             update_data["positions"] = profile_data.positions
 
+        # Customization fields (overlay style and colors)
+        if profile_data.overlay_style is not None:
+            if profile_data.overlay_style not in ('badge', 'jersey', 'caption', 'none'):
+                raise HTTPException(status_code=400, detail="Invalid overlay_style")
+            update_data["overlay_style"] = profile_data.overlay_style
+        if profile_data.primary_color is not None:
+            update_data["primary_color"] = profile_data.primary_color
+        if profile_data.text_color is not None:
+            update_data["text_color"] = profile_data.text_color
+        if profile_data.accent_color is not None:
+            update_data["accent_color"] = profile_data.accent_color
+
         # Only allow role updates by admins
         if profile_data.role is not None:
             if current_user.get("role") != "admin":
@@ -495,6 +523,298 @@ async def update_profile(
     except Exception as e:
         logger.error(f"Update profile error: {e}")
         raise HTTPException(status_code=500, detail="Failed to update profile")
+
+
+# =============================================================================
+# PLAYER PROFILE PHOTO ENDPOINTS
+# =============================================================================
+
+MAX_PHOTO_SIZE = 500 * 1024  # 500KB
+ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"]
+
+
+class StorageHelper:
+    """Helper for direct Supabase Storage API calls (bypasses RLS issues with client)."""
+
+    def __init__(self):
+        self.url = os.getenv("SUPABASE_URL")
+        self.service_key = os.getenv("SUPABASE_SERVICE_KEY")
+
+    def upload(self, bucket: str, file_path: str, content: bytes, content_type: str) -> dict:
+        """Upload a file to storage using direct HTTP API."""
+        headers = {
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
+            "Content-Type": content_type,
+            "x-upsert": "true"
+        }
+        response = httpx.post(
+            f"{self.url}/storage/v1/object/{bucket}/{file_path}",
+            content=content,
+            headers=headers,
+            timeout=30.0
+        )
+        if response.status_code not in (200, 201):
+            raise Exception(f"Storage upload failed: {response.text}")
+        return response.json()
+
+    def delete(self, bucket: str, file_paths: list[str]) -> dict:
+        """Delete files from storage using direct HTTP API."""
+        headers = {
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
+            "Content-Type": "application/json"
+        }
+        response = httpx.delete(
+            f"{self.url}/storage/v1/object/{bucket}",
+            json={"prefixes": file_paths},
+            headers=headers,
+            timeout=30.0
+        )
+        if response.status_code not in (200, 204):
+            # Ignore 404s - file might already be gone
+            if response.status_code != 404:
+                raise Exception(f"Storage delete failed: {response.text}")
+        return {"deleted": file_paths}
+
+    def get_public_url(self, bucket: str, file_path: str) -> str:
+        """Get the public URL for a file."""
+        return f"{self.url}/storage/v1/object/public/{bucket}/{file_path}"
+
+
+storage_helper = StorageHelper()
+
+
+def require_player_role(current_user: dict[str, Any] = Depends(get_current_user_required)):
+    """Dependency that requires team-player role."""
+    if current_user.get("role") != "team-player":
+        raise HTTPException(
+            status_code=403,
+            detail="This feature is only available for players"
+        )
+    return current_user
+
+
+@app.post("/api/auth/profile/photo/{slot}")
+async def upload_player_photo(
+    slot: int,
+    file: UploadFile = File(...),
+    current_user: dict[str, Any] = Depends(require_player_role)
+):
+    """Upload a profile photo to a slot (1, 2, or 3). Players only.
+
+    Uploads the image to Supabase Storage and updates the user profile.
+    Accepted formats: PNG, JPG/JPEG, WebP. Max size: 500KB.
+    """
+    # Validate slot
+    if slot not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Slot must be 1, 2, or 3")
+
+    # Validate file type
+    if file.content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: JPG, PNG, WebP. Got: {file.content_type}"
+        )
+
+    # Read file content
+    content = await file.read()
+
+    # Validate file size
+    if len(content) > MAX_PHOTO_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is 500KB. Got: {len(content) / 1024:.1f}KB"
+        )
+
+    # Determine file extension
+    ext_map = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+    ext = ext_map.get(file.content_type, "jpg")
+    user_id = current_user["user_id"]
+    file_path = f"{user_id}/photo_{slot}.{ext}"
+
+    try:
+        # Upload to player-photos bucket using direct HTTP API
+        storage_helper.upload("player-photos", file_path, content, file.content_type)
+
+        # Get public URL
+        public_url = storage_helper.get_public_url("player-photos", file_path)
+
+        # Update user profile with the photo URL
+        photo_column = f"photo_{slot}_url"
+        update_data = {photo_column: public_url, "updated_at": "NOW()"}
+
+        # If no profile photo is set, set this as the profile photo
+        profile = match_dao.get_user_profile_with_relationships(user_id)
+        if not profile.get("profile_photo_slot"):
+            update_data["profile_photo_slot"] = slot
+
+        match_dao.update_user_profile(user_id, update_data)
+
+        # Return updated profile
+        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        return {
+            "message": f"Photo uploaded to slot {slot}",
+            "photo_url": public_url,
+            "profile": updated_profile
+        }
+
+    except Exception as e:
+        logger.error(f"Error uploading player photo: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/auth/profile/photo/{slot}")
+async def delete_player_photo(
+    slot: int,
+    current_user: dict[str, Any] = Depends(require_player_role)
+):
+    """Delete a profile photo from a slot (1, 2, or 3). Players only.
+
+    If this was the profile photo, auto-selects the next available photo.
+    """
+    # Validate slot
+    if slot not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Slot must be 1, 2, or 3")
+
+    user_id = current_user["user_id"]
+
+    try:
+        # Get current profile
+        profile = match_dao.get_user_profile_with_relationships(user_id)
+        photo_column = f"photo_{slot}_url"
+        current_url = profile.get(photo_column)
+
+        if not current_url:
+            raise HTTPException(status_code=404, detail=f"No photo in slot {slot}")
+
+        # Delete from storage - try all extensions
+        file_path = f"{user_id}/photo_{slot}"
+        for ext in ["jpg", "png", "webp"]:
+            try:
+                storage_helper.delete("player-photos", [f"{file_path}.{ext}"])
+            except Exception:
+                pass  # File might not exist with this extension
+
+        # Update profile to remove URL
+        update_data = {photo_column: None, "updated_at": "NOW()"}
+
+        # If this was the profile photo, find next available
+        if profile.get("profile_photo_slot") == slot:
+            new_profile_slot = None
+            for check_slot in [1, 2, 3]:
+                if check_slot != slot and profile.get(f"photo_{check_slot}_url"):
+                    new_profile_slot = check_slot
+                    break
+            update_data["profile_photo_slot"] = new_profile_slot
+
+        match_dao.update_user_profile(user_id, update_data)
+
+        # Return updated profile
+        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        return {
+            "message": f"Photo deleted from slot {slot}",
+            "profile": updated_profile
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting player photo: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/auth/profile/photo/profile-slot")
+async def set_profile_photo_slot(
+    slot_data: ProfilePhotoSlot,
+    current_user: dict[str, Any] = Depends(require_player_role)
+):
+    """Set which photo slot is the profile picture. Players only.
+
+    The specified slot must have a photo uploaded.
+    """
+    slot = slot_data.slot
+    user_id = current_user["user_id"]
+
+    try:
+        # Get current profile
+        profile = match_dao.get_user_profile_with_relationships(user_id)
+        photo_url = profile.get(f"photo_{slot}_url")
+
+        if not photo_url:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No photo in slot {slot}. Upload a photo first."
+            )
+
+        # Update profile photo slot
+        match_dao.update_user_profile(user_id, {
+            "profile_photo_slot": slot,
+            "updated_at": "NOW()"
+        })
+
+        # Return updated profile
+        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        return {
+            "message": f"Profile photo set to slot {slot}",
+            "profile": updated_profile
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting profile photo slot: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/auth/profile/customization")
+async def update_player_customization(
+    customization: PlayerCustomization,
+    current_user: dict[str, Any] = Depends(require_player_role)
+):
+    """Update player profile customization (colors, style). Players only.
+
+    This is a convenience endpoint for updating multiple customization
+    fields at once. All fields are optional.
+    """
+    user_id = current_user["user_id"]
+
+    try:
+        update_data = {"updated_at": "NOW()"}
+
+        if customization.overlay_style is not None:
+            update_data["overlay_style"] = customization.overlay_style
+        if customization.primary_color is not None:
+            update_data["primary_color"] = customization.primary_color
+        if customization.text_color is not None:
+            update_data["text_color"] = customization.text_color
+        if customization.accent_color is not None:
+            update_data["accent_color"] = customization.accent_color
+        if customization.player_number is not None:
+            update_data["player_number"] = customization.player_number
+        if customization.positions is not None:
+            update_data["positions"] = customization.positions
+        # Social media handles
+        if customization.instagram_handle is not None:
+            update_data["instagram_handle"] = customization.instagram_handle
+        if customization.snapchat_handle is not None:
+            update_data["snapchat_handle"] = customization.snapchat_handle
+        if customization.tiktok_handle is not None:
+            update_data["tiktok_handle"] = customization.tiktok_handle
+
+        if len(update_data) > 1:  # More than just updated_at
+            match_dao.update_user_profile(user_id, update_data)
+
+        # Return updated profile
+        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        return {
+            "message": "Customization updated",
+            "profile": updated_profile
+        }
+
+    except Exception as e:
+        logger.error(f"Error updating player customization: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/auth/users")
@@ -560,7 +880,20 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     "team": profile.get('team'),
                     "club": profile.get('club'),
                     "created_at": profile.get('created_at'),
-                    "updated_at": profile.get('updated_at')
+                    "updated_at": profile.get('updated_at'),
+                    # Photo fields
+                    "photo_1_url": profile.get('photo_1_url'),
+                    "photo_2_url": profile.get('photo_2_url'),
+                    "photo_3_url": profile.get('photo_3_url'),
+                    "profile_photo_slot": profile.get('profile_photo_slot'),
+                    "overlay_style": profile.get('overlay_style'),
+                    "primary_color": profile.get('primary_color'),
+                    "text_color": profile.get('text_color'),
+                    "accent_color": profile.get('accent_color'),
+                    # Social media handles
+                    "instagram_handle": profile.get('instagram_handle'),
+                    "snapchat_handle": profile.get('snapchat_handle'),
+                    "tiktok_handle": profile.get('tiktok_handle'),
                 }
             }
         }
@@ -1682,8 +2015,7 @@ async def create_club(
             description=club.description,
             logo_url=club.logo_url,
             primary_color=club.primary_color,
-            secondary_color=club.secondary_color,
-            pro_academy=club.pro_academy
+            secondary_color=club.secondary_color
         )
         logger.info(f"Created new club: {new_club['name']}")
         return new_club
@@ -1722,8 +2054,7 @@ async def update_club(
             description=club.description,
             logo_url=club.logo_url,
             primary_color=club.primary_color,
-            secondary_color=club.secondary_color,
-            pro_academy=club.pro_academy
+            secondary_color=club.secondary_color
         )
         if not updated_club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
@@ -2121,8 +2452,148 @@ async def check_match(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === Team Roster & Player Profile Endpoints ===
 
-# Health check
+
+@app.get("/api/teams/{team_id}/players")
+async def get_team_players(
+    team_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """
+    Get all players on a team for the team roster page.
+
+    Only allows teammates to view roster (users must be on the same team).
+
+    Returns player data needed for player cards:
+    - id, display_name, player_number, positions
+    - photo fields (photo_1_url, etc.)
+    - customization fields (overlay_style, colors)
+    - social media handles
+    """
+    try:
+        # Get user's team_id from profile
+        user_profile = match_dao.get_user_profile_with_relationships(current_user['user_id'])
+        user_team_id = user_profile.get('team_id') if user_profile else None
+
+        # Authorization: user must be on the same team
+        if user_team_id != team_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view your own team's roster"
+            )
+
+        # Get team info with relationships
+        team = match_dao.get_team_with_details(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Get players
+        players = match_dao.get_team_players(team_id)
+
+        return {
+            "success": True,
+            "team": team,
+            "players": players
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting team players: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get team players")
+
+
+@app.get("/api/players/{user_id}/profile")
+async def get_player_profile(
+    user_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """
+    Get a specific player's full profile for the player detail view.
+
+    Only allows teammates to view profile (users must be on the same team).
+
+    Returns full profile data including:
+    - Profile info (display_name, number, positions)
+    - Photos and customization
+    - Social media handles
+    - Team info
+    - Recent games (player's team matches)
+    """
+    try:
+        # Get current user's team_id
+        current_user_profile = match_dao.get_user_profile_with_relationships(current_user['user_id'])
+        current_user_team_id = current_user_profile.get('team_id') if current_user_profile else None
+
+        # Get the target player's profile
+        target_profile = match_dao.get_user_profile_with_relationships(user_id)
+        if not target_profile:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        target_team_id = target_profile.get('team_id')
+
+        # Authorization: users must be on the same team (or viewing own profile)
+        if user_id != current_user['user_id'] and current_user_team_id != target_team_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view profiles of your teammates"
+            )
+
+        # Get recent games for the player's team (if they have a team)
+        recent_games = []
+        if target_team_id:
+            try:
+                # Get matches for the team (already sorted by date desc, take first 5)
+                matches = match_dao.get_matches_by_team(target_team_id)[:5]
+                for match in matches:
+                    recent_games.append({
+                        "id": match.get("id"),
+                        "match_date": match.get("match_date"),
+                        "home_team": match.get("home_team"),
+                        "away_team": match.get("away_team"),
+                        "home_score": match.get("home_score"),
+                        "away_score": match.get("away_score"),
+                        "status": match.get("status")
+                    })
+            except Exception as e:
+                logger.warning(f"Could not fetch recent games: {e}")
+
+        return {
+            "success": True,
+            "player": {
+                "id": target_profile.get("id"),
+                "display_name": target_profile.get("display_name"),
+                "player_number": target_profile.get("player_number"),
+                "positions": target_profile.get("positions"),
+                # Photo fields
+                "photo_1_url": target_profile.get("photo_1_url"),
+                "photo_2_url": target_profile.get("photo_2_url"),
+                "photo_3_url": target_profile.get("photo_3_url"),
+                "profile_photo_slot": target_profile.get("profile_photo_slot"),
+                # Customization
+                "overlay_style": target_profile.get("overlay_style"),
+                "primary_color": target_profile.get("primary_color"),
+                "text_color": target_profile.get("text_color"),
+                "accent_color": target_profile.get("accent_color"),
+                # Social media
+                "instagram_handle": target_profile.get("instagram_handle"),
+                "snapchat_handle": target_profile.get("snapchat_handle"),
+                "tiktok_handle": target_profile.get("tiktok_handle"),
+                # Team info
+                "team": target_profile.get("team"),
+                "club": target_profile.get("club")
+            },
+            "recent_games": recent_games
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting player profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get player profile")
+
+
 # Health check
 @app.get("/health")
 async def health_check():

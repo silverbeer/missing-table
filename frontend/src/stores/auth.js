@@ -413,9 +413,13 @@ export const useAuthStore = () => {
     const startTime = performance.now();
     const method = options.method || 'GET';
     const token = localStorage.getItem('auth_token');
-    const defaultHeaders = {
-      'Content-Type': 'application/json',
-    };
+    const defaultHeaders = {};
+
+    // Only set Content-Type for non-FormData requests
+    // FormData needs the browser to set Content-Type with boundary automatically
+    if (!(options.body instanceof FormData)) {
+      defaultHeaders['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       defaultHeaders.Authorization = `Bearer ${token}`;
@@ -530,11 +534,19 @@ export const useAuthStore = () => {
   };
 
   const apiRequest = async (url, options = {}) => {
-    // Add CSRF headers for state-changing methods
+    // For FormData, don't set Content-Type - browser sets it with boundary
+    const isFormData = options.body instanceof FormData;
+    const token = localStorage.getItem('auth_token');
+
     let headers = {
-      ...getAuthHeaders(),
+      Authorization: `Bearer ${token}`,
       ...options.headers,
     };
+
+    // Only add Content-Type for non-FormData requests
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (
       ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method?.toUpperCase())
