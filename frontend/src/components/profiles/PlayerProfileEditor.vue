@@ -141,41 +141,6 @@
           </div>
         </div>
 
-        <!-- Player Info -->
-        <div class="settings-section">
-          <h3>Player Information</h3>
-          <div class="player-info-inputs">
-            <div class="form-group">
-              <label for="playerNumber">Jersey Number</label>
-              <input
-                id="playerNumber"
-                type="text"
-                v-model="localState.player_number"
-                placeholder="e.g., 10"
-                maxlength="3"
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label for="playerPosition">Primary Position</label>
-              <select
-                id="playerPosition"
-                v-model="selectedPosition"
-                class="form-select"
-              >
-                <option value="">Select position...</option>
-                <option
-                  v-for="pos in availablePositions"
-                  :key="pos.abbreviation"
-                  :value="pos.abbreviation"
-                >
-                  {{ pos.abbreviation }} - {{ pos.full_name }}
-                </option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <!-- Social Media -->
         <div class="settings-section">
           <h3>Social Media</h3>
@@ -424,14 +389,12 @@ export default {
         saving.value = true;
         error.value = null;
 
-        // Build customization update
+        // Build customization update (player_number and positions are edited on main dashboard)
         const customization = {
           overlay_style: localState.value.overlay_style,
           primary_color: localState.value.primary_color,
           text_color: localState.value.text_color,
           accent_color: localState.value.accent_color,
-          player_number: localState.value.player_number || null,
-          positions: localState.value.positions,
           // Social media handles (send empty string as null)
           instagram_handle: localState.value.instagram_handle || null,
           snapchat_handle: localState.value.snapchat_handle || null,

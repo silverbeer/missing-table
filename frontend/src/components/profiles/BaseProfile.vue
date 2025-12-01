@@ -69,14 +69,14 @@
           />
         </div>
 
-        <div class="info-group">
+        <div v-if="!hideRoleInfo" class="info-group">
           <label>Role:</label>
           <span class="role-badge" :class="roleClass">
             {{ displayRole }}
           </span>
         </div>
 
-        <div class="info-group">
+        <div v-if="!hideRoleInfo" class="info-group">
           <label>Member Since:</label>
           <span>{{ formatDate(authStore.state.profile.created_at) }}</span>
         </div>
@@ -129,6 +129,10 @@ export default {
     title: {
       type: String,
       default: 'User Profile',
+    },
+    hideRoleInfo: {
+      type: Boolean,
+      default: false,
     },
   },
   emits: ['logout'],

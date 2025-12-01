@@ -94,7 +94,17 @@ export default {
       );
     });
 
-    const formatRole = role => {
+    const formatRole = roleRef => {
+      // Handle both ref and plain value
+      const role = roleRef?.value ?? roleRef;
+      // For players and fans, show team name instead of role
+      if (role === 'team-player' || role === 'team-fan') {
+        const teamName = authStore.state.profile?.team?.name;
+        if (teamName) {
+          return teamName;
+        }
+      }
+      // For admin and manager, show role name
       const roleNames = {
         admin: 'Admin',
         'team-manager': 'Manager',

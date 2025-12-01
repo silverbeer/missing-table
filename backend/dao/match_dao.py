@@ -1906,7 +1906,12 @@ class MatchDAO:
         try:
             response = self.client.table('user_profiles').select('''
                 *,
-                team:teams(id, name, city, club_id, age_group:age_groups(id, name), club:clubs(id, name, city, primary_color, secondary_color)),
+                team:teams(id, name, city, club_id, league_id, division_id, age_group_id,
+                    age_group:age_groups(id, name),
+                    league:leagues(id, name),
+                    division:divisions(id, name),
+                    club:clubs(id, name, city, primary_color, secondary_color)
+                ),
                 club:clubs(id, name, city, primary_color, secondary_color)
             ''').eq('id', user_id).execute()
 
@@ -2064,3 +2069,254 @@ class MatchDAO:
         except Exception as e:
             logger.error(f"Error checking user profile by username: {e}")
             return None
+
+    # === Player Team History Methods ===
+
+    def get_player_team_history(self, player_id: str) -> list[dict]:
+        """
+        Get complete team history for a player across all seasons.
+
+        Returns history entries ordered by season (most recent first),
+        with full team, season, age_group, league, and division details.
+
+        Args:
+            player_id: User ID of the player
+
+        Returns:
+            List of history entry dicts with related data
+        """
+        try:
+            response = self.client.table('player_team_history').select('''
+                *,
+                team:teams(id, name, city,
+                    club:clubs(id, name, primary_color, secondary_color)
+                ),
+                season:seasons(id, name, start_date, end_date),
+                age_group:age_groups(id, name),
+                league:leagues(id, name),
+                division:divisions(id, name)
+            ''').eq('player_id', player_id).order('season_id', desc=True).execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Error fetching player team history: {e}")
+            return []
+
+    def get_current_player_team_assignment(self, player_id: str) -> dict | None:
+        """
+        Get the current team assignment for a player (is_current=true).
+
+        Args:
+            player_id: User ID of the player
+
+        Returns:
+            Current history entry dict with related data, or None if not found
+        """
+        try:
+            response = self.client.table('player_team_history').select('''
+                *,
+                team:teams(id, name, city,
+                    club:clubs(id, name, primary_color, secondary_color)
+                ),
+                season:seasons(id, name, start_date, end_date),
+                age_group:age_groups(id, name),
+                league:leagues(id, name),
+                division:divisions(id, name)
+            ''').eq('player_id', player_id).eq('is_current', True).limit(1).execute()
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching current player team assignment: {e}")
+            return None
+
+    def create_player_history_entry(
+        self,
+        player_id: str,
+        team_id: int,
+        season_id: int,
+        jersey_number: int | None = None,
+        positions: list[str] | None = None,
+        notes: str | None = None,
+        is_current: bool = False
+    ) -> dict | None:
+        """
+        Create a new player team history entry.
+
+        Uses the database function to handle:
+        - Auto-populating age_group_id, league_id, division_id from team
+        - Marking previous entries as not current if is_current=True
+
+        Args:
+            player_id: User ID of the player
+            team_id: Team ID
+            season_id: Season ID
+            jersey_number: Optional jersey number for that season
+            positions: Optional list of positions played
+            notes: Optional notes about the assignment
+            is_current: Whether this is the current assignment
+
+        Returns:
+            Created history entry dict, or None on error
+        """
+        try:
+            # Use the database function for proper handling
+            response = self.client.rpc('create_player_history_entry', {
+                'p_player_id': player_id,
+                'p_team_id': team_id,
+                'p_season_id': season_id,
+                'p_jersey_number': jersey_number,
+                'p_positions': positions
+            }).execute()
+
+            if response.data:
+                # If not marked as current by function, update it
+                if is_current and response.data.get('is_current') != True:
+                    self.update_player_history_entry(
+                        response.data['id'],
+                        is_current=True
+                    )
+                if notes:
+                    self.update_player_history_entry(
+                        response.data['id'],
+                        notes=notes
+                    )
+                # Refetch to get full related data
+                return self.get_player_history_entry_by_id(response.data['id'])
+            return None
+        except Exception as e:
+            logger.error(f"Error creating player history entry: {e}")
+            # Fallback to direct insert if RPC fails
+            try:
+                # Get team details for age_group_id, league_id, division_id
+                team_response = self.client.table('teams').select(
+                    'age_group_id, league_id, division_id'
+                ).eq('id', team_id).execute()
+
+                team_data = team_response.data[0] if team_response.data else {}
+
+                # If is_current, mark existing current entries as not current
+                if is_current:
+                    self.client.table('player_team_history').update({
+                        'is_current': False
+                    }).eq('player_id', player_id).eq('is_current', True).execute()
+
+                insert_data = {
+                    'player_id': player_id,
+                    'team_id': team_id,
+                    'season_id': season_id,
+                    'age_group_id': team_data.get('age_group_id'),
+                    'league_id': team_data.get('league_id'),
+                    'division_id': team_data.get('division_id'),
+                    'jersey_number': jersey_number,
+                    'positions': positions,
+                    'is_current': is_current,
+                    'notes': notes
+                }
+
+                response = self.client.table('player_team_history').insert(insert_data).execute()
+                if response.data and len(response.data) > 0:
+                    return self.get_player_history_entry_by_id(response.data[0]['id'])
+                return None
+            except Exception as fallback_error:
+                logger.error(f"Error in fallback insert: {fallback_error}")
+                return None
+
+    def get_player_history_entry_by_id(self, history_id: int) -> dict | None:
+        """
+        Get a single player history entry by ID with related data.
+
+        Args:
+            history_id: History entry ID
+
+        Returns:
+            History entry dict with related data, or None if not found
+        """
+        try:
+            response = self.client.table('player_team_history').select('''
+                *,
+                team:teams(id, name, city,
+                    club:clubs(id, name, primary_color, secondary_color)
+                ),
+                season:seasons(id, name, start_date, end_date),
+                age_group:age_groups(id, name),
+                league:leagues(id, name),
+                division:divisions(id, name)
+            ''').eq('id', history_id).execute()
+
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching player history entry: {e}")
+            return None
+
+    def update_player_history_entry(
+        self,
+        history_id: int,
+        jersey_number: int | None = None,
+        positions: list[str] | None = None,
+        notes: str | None = None,
+        is_current: bool | None = None
+    ) -> dict | None:
+        """
+        Update a player team history entry.
+
+        Args:
+            history_id: History entry ID to update
+            jersey_number: Optional new jersey number
+            positions: Optional new positions list
+            notes: Optional new notes
+            is_current: Optional new is_current flag
+
+        Returns:
+            Updated history entry dict, or None on error
+        """
+        try:
+            update_data = {'updated_at': 'now()'}
+
+            if jersey_number is not None:
+                update_data['jersey_number'] = jersey_number
+            if positions is not None:
+                update_data['positions'] = positions
+            if notes is not None:
+                update_data['notes'] = notes
+            if is_current is not None:
+                update_data['is_current'] = is_current
+
+                # If marking as current, unmark other current entries for this player
+                if is_current:
+                    # First get the player_id for this entry
+                    entry = self.client.table('player_team_history').select('player_id').eq('id', history_id).execute()
+                    if entry.data and len(entry.data) > 0:
+                        player_id = entry.data[0]['player_id']
+                        # Unmark other current entries
+                        self.client.table('player_team_history').update({
+                            'is_current': False
+                        }).eq('player_id', player_id).eq('is_current', True).neq('id', history_id).execute()
+
+            response = self.client.table('player_team_history').update(update_data).eq('id', history_id).execute()
+
+            if response.data and len(response.data) > 0:
+                return self.get_player_history_entry_by_id(history_id)
+            return None
+        except Exception as e:
+            logger.error(f"Error updating player history entry: {e}")
+            return None
+
+    def delete_player_history_entry(self, history_id: int) -> bool:
+        """
+        Delete a player team history entry.
+
+        Args:
+            history_id: History entry ID to delete
+
+        Returns:
+            True if deleted successfully, False otherwise
+        """
+        try:
+            self.client.table('player_team_history').delete().eq('id', history_id).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting player history entry: {e}")
+            return False

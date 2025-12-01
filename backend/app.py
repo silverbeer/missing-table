@@ -32,6 +32,8 @@ from models import (
     MatchPatch,
     MatchSubmissionData,
     PlayerCustomization,
+    PlayerHistoryCreate,
+    PlayerHistoryUpdate,
     ProfilePhotoSlot,
     RefreshTokenRequest,
     RoleUpdate,
@@ -456,6 +458,10 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             "instagram_handle": profile.get("instagram_handle"),
             "snapchat_handle": profile.get("snapchat_handle"),
             "tiktok_handle": profile.get("tiktok_handle"),
+            # Personal info
+            "first_name": profile.get("first_name"),
+            "last_name": profile.get("last_name"),
+            "hometown": profile.get("hometown"),
         }
 
     except Exception as e:
@@ -515,7 +521,8 @@ async def update_profile(
             update_data["role"] = profile_data.role
 
         if update_data:
-            update_data["updated_at"] = "NOW()"
+            from datetime import datetime, timezone
+            update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
             match_dao.update_user_profile(current_user["user_id"], update_data)
 
         return {"message": "Profile updated successfully"}
@@ -641,8 +648,9 @@ async def upload_player_photo(
         public_url = storage_helper.get_public_url("player-photos", file_path)
 
         # Update user profile with the photo URL
+        from datetime import datetime, timezone
         photo_column = f"photo_{slot}_url"
-        update_data = {photo_column: public_url, "updated_at": "NOW()"}
+        update_data = {photo_column: public_url, "updated_at": datetime.now(timezone.utc).isoformat()}
 
         # If no profile photo is set, set this as the profile photo
         profile = match_dao.get_user_profile_with_relationships(user_id)
@@ -697,7 +705,8 @@ async def delete_player_photo(
                 pass  # File might not exist with this extension
 
         # Update profile to remove URL
-        update_data = {photo_column: None, "updated_at": "NOW()"}
+        from datetime import datetime, timezone
+        update_data = {photo_column: None, "updated_at": datetime.now(timezone.utc).isoformat()}
 
         # If this was the profile photo, find next available
         if profile.get("profile_photo_slot") == slot:
@@ -748,9 +757,10 @@ async def set_profile_photo_slot(
             )
 
         # Update profile photo slot
+        from datetime import datetime, timezone
         match_dao.update_user_profile(user_id, {
             "profile_photo_slot": slot,
-            "updated_at": "NOW()"
+            "updated_at": datetime.now(timezone.utc).isoformat()
         })
 
         # Return updated profile
@@ -780,8 +790,17 @@ async def update_player_customization(
     user_id = current_user["user_id"]
 
     try:
-        update_data = {"updated_at": "NOW()"}
+        from datetime import datetime, timezone
+        update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
 
+        # Personal info
+        if customization.first_name is not None:
+            update_data["first_name"] = customization.first_name
+        if customization.last_name is not None:
+            update_data["last_name"] = customization.last_name
+        if customization.hometown is not None:
+            update_data["hometown"] = customization.hometown
+        # Visual customization
         if customization.overlay_style is not None:
             update_data["overlay_style"] = customization.overlay_style
         if customization.primary_color is not None:
@@ -814,6 +833,169 @@ async def update_player_customization(
 
     except Exception as e:
         logger.error(f"Error updating player customization: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# === Player Team History Endpoints ===
+
+
+@app.get("/api/auth/profile/history")
+async def get_player_history(
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Get player's team history across all seasons.
+
+    Returns history entries ordered by season (most recent first),
+    with full team, season, age_group, league, and division details.
+    """
+    user_id = current_user["user_id"]
+
+    try:
+        history = match_dao.get_player_team_history(user_id)
+        return {
+            "success": True,
+            "history": history
+        }
+    except Exception as e:
+        logger.error(f"Error getting player history: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/auth/profile/history/current")
+async def get_current_team_assignment(
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Get player's current team assignment (is_current=true).
+
+    Returns the current history entry with full related data,
+    or null if no current assignment exists.
+    """
+    user_id = current_user["user_id"]
+
+    try:
+        current = match_dao.get_current_player_team_assignment(user_id)
+        return {
+            "success": True,
+            "current": current
+        }
+    except Exception as e:
+        logger.error(f"Error getting current team assignment: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/profile/history")
+async def create_player_history(
+    history_data: PlayerHistoryCreate,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Create a new player team history entry.
+
+    Players can add their own history entries for different seasons.
+    The entry will automatically capture age_group, league, and division
+    from the team's current configuration.
+    """
+    user_id = current_user["user_id"]
+
+    try:
+        entry = match_dao.create_player_history_entry(
+            player_id=user_id,
+            team_id=history_data.team_id,
+            season_id=history_data.season_id,
+            jersey_number=history_data.jersey_number,
+            positions=history_data.positions,
+            notes=history_data.notes,
+            is_current=history_data.is_current
+        )
+
+        if entry:
+            return {
+                "success": True,
+                "entry": entry
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create history entry")
+
+    except Exception as e:
+        logger.error(f"Error creating player history entry: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/auth/profile/history/{history_id}")
+async def update_player_history(
+    history_id: int,
+    history_data: PlayerHistoryUpdate,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Update a player team history entry.
+
+    Players can only update their own history entries.
+    """
+    user_id = current_user["user_id"]
+
+    try:
+        # Verify this entry belongs to the user
+        existing = match_dao.get_player_history_entry_by_id(history_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="History entry not found")
+        if existing.get("player_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this entry")
+
+        entry = match_dao.update_player_history_entry(
+            history_id=history_id,
+            jersey_number=history_data.jersey_number,
+            positions=history_data.positions,
+            notes=history_data.notes,
+            is_current=history_data.is_current
+        )
+
+        if entry:
+            return {
+                "success": True,
+                "entry": entry
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update history entry")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating player history entry: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/auth/profile/history/{history_id}")
+async def delete_player_history(
+    history_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Delete a player team history entry.
+
+    Players can only delete their own history entries.
+    """
+    user_id = current_user["user_id"]
+
+    try:
+        # Verify this entry belongs to the user
+        existing = match_dao.get_player_history_entry_by_id(history_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="History entry not found")
+        if existing.get("player_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this entry")
+
+        success = match_dao.delete_player_history_entry(history_id)
+
+        if success:
+            return {
+                "success": True,
+                "message": "History entry deleted"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete history entry")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting player history entry: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -894,6 +1076,10 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     "instagram_handle": profile.get('instagram_handle'),
                     "snapchat_handle": profile.get('snapchat_handle'),
                     "tiktok_handle": profile.get('tiktok_handle'),
+                    # Personal info
+                    "first_name": profile.get('first_name'),
+                    "last_name": profile.get('last_name'),
+                    "hometown": profile.get('hometown'),
                 }
             }
         }
@@ -941,7 +1127,8 @@ async def update_user_role(
 ):
     """Update user role (admin only)."""
     try:
-        update_data = {"role": role_data.role, "updated_at": "NOW()"}
+        from datetime import datetime, timezone
+        update_data = {"role": role_data.role, "updated_at": datetime.now(timezone.utc).isoformat()}
 
         if role_data.team_id:
             update_data["team_id"] = role_data.team_id
