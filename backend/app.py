@@ -883,6 +883,32 @@ async def get_current_team_assignment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/auth/profile/teams/current")
+async def get_all_current_teams(
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Get ALL current team assignments for a player.
+
+    Returns all team assignments where is_current=true.
+    This supports players being on multiple teams simultaneously
+    (e.g., for futsal/soccer leagues).
+
+    Returns:
+        List of current teams with club info for team selector UI.
+    """
+    user_id = current_user["user_id"]
+
+    try:
+        teams = match_dao.get_all_current_player_teams(user_id)
+        return {
+            "success": True,
+            "teams": teams
+        }
+    except Exception as e:
+        logger.error(f"Error getting all current teams: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/auth/profile/history")
 async def create_player_history(
     history_data: PlayerHistoryCreate,

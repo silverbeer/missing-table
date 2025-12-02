@@ -2142,6 +2142,36 @@ class MatchDAO:
             logger.error(f"Error fetching current player team assignment: {e}")
             return None
 
+    def get_all_current_player_teams(self, player_id: str) -> list[dict]:
+        """
+        Get ALL current team assignments for a player (is_current=true).
+
+        This supports players being on multiple teams simultaneously
+        (e.g., for futsal/soccer leagues).
+
+        Args:
+            player_id: User ID of the player
+
+        Returns:
+            List of current history entries with related team and club data
+        """
+        try:
+            response = self.client.table('player_team_history').select('''
+                *,
+                team:teams(id, name, city,
+                    club:clubs(id, name, logo_url, primary_color, secondary_color),
+                    age_group:age_groups(id, name),
+                    league:leagues(id, name),
+                    division:divisions(id, name)
+                ),
+                season:seasons(id, name, start_date, end_date),
+                age_group:age_groups(id, name)
+            ''').eq('player_id', player_id).eq('is_current', True).execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Error fetching all current player teams: {e}")
+            return []
+
     def create_player_history_entry(
         self,
         player_id: str,
