@@ -19,6 +19,8 @@ from auth import (
 )
 from csrf_protection import provide_csrf_token
 from models import (
+    AdminPlayerTeamAssignment,
+    AdminPlayerUpdate,
     AgeGroupCreate,
     AgeGroupUpdate,
     Club,
@@ -996,6 +998,124 @@ async def delete_player_history(
         raise
     except Exception as e:
         logger.error(f"Error deleting player history entry: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# === Admin Player Management Endpoints ===
+
+
+@app.get("/api/admin/players")
+async def get_admin_players(
+    search: str | None = None,
+    club_id: int | None = None,
+    team_id: int | None = None,
+    limit: int = Query(default=50, le=100),
+    offset: int = Query(default=0, ge=0),
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Get all players with team assignments for admin management.
+
+    Supports filtering by search text, club, and team.
+    Returns paginated results with current team assignments.
+    """
+    try:
+        result = match_dao.get_all_players_admin(
+            search=search,
+            club_id=club_id,
+            team_id=team_id,
+            limit=limit,
+            offset=offset
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Error getting admin players: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/players/{player_id}")
+async def update_admin_player(
+    player_id: str,
+    data: AdminPlayerUpdate,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Update a player's profile info (admin/manager operation).
+
+    Allows updating display_name, player_number, and positions.
+    """
+    try:
+        result = match_dao.update_player_admin(
+            player_id=player_id,
+            display_name=data.display_name,
+            player_number=data.player_number,
+            positions=data.positions
+        )
+
+        if result:
+            return {"success": True, "player": result}
+        else:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating admin player: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/players/{player_id}/teams")
+async def add_admin_player_team(
+    player_id: str,
+    data: AdminPlayerTeamAssignment,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Assign a player to a team (admin/manager operation).
+
+    Creates a player_team_history entry for the assignment.
+    """
+    try:
+        # Use the existing create_player_history_entry method
+        entry = match_dao.create_player_history_entry(
+            player_id=player_id,
+            team_id=data.team_id,
+            season_id=data.season_id,
+            jersey_number=data.jersey_number,
+            is_current=data.is_current
+        )
+
+        if entry:
+            return {"success": True, "assignment": entry}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create team assignment")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding admin player team: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/admin/players/teams/{history_id}/end")
+async def end_admin_player_team(
+    history_id: int,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """End a player's team assignment (admin/manager operation).
+
+    Sets is_current=false on the player_team_history entry.
+    """
+    try:
+        result = match_dao.end_player_team_assignment(history_id=history_id)
+
+        if result:
+            return {"success": True, "assignment": result}
+        else:
+            raise HTTPException(status_code=404, detail="Assignment not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error ending admin player team: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1982,15 +2102,13 @@ async def delete_league(
 # Divisions CRUD
 @app.post("/api/divisions")
 async def create_division(
-    request: Request,
     division: DivisionCreate,
     current_user: dict[str, Any] = Depends(require_admin)
 ):
     """Create a new division (admin only)."""
     try:
-        client_ip = get_client_ip(request)
         division_data = division.model_dump()
-        result = match_dao.create_division(division_data, client_ip=client_ip)
+        result = match_dao.create_division(division_data)
         return result
     except Exception as e:
         logger.error(f"Error creating division: {e!s}")

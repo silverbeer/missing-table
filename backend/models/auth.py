@@ -184,3 +184,40 @@ class PlayerHistoryUpdate(BaseModel):
             raise ValueError('Jersey number must be between 1 and 99')
         return v
 
+
+class AdminPlayerUpdate(BaseModel):
+    """Model for admin updating a player's profile info."""
+    display_name: str | None = None
+    player_number: int | None = None
+    positions: list[str] | None = None
+
+    @field_validator('player_number')
+    @classmethod
+    def validate_player_number(cls, v):
+        """Validate player number is 1-99."""
+        if v is not None and (v < 1 or v > 99):
+            raise ValueError('Player number must be between 1 and 99')
+        return v
+
+
+class AdminPlayerTeamAssignment(BaseModel):
+    """Model for admin assigning a player to a team."""
+    team_id: int
+    season_id: int
+    jersey_number: int | None = None
+    start_date: str | None = None
+    is_current: bool = True
+
+    @field_validator('jersey_number')
+    @classmethod
+    def validate_jersey_number(cls, v):
+        """Validate jersey number is 1-99."""
+        if v is not None and (v < 1 or v > 99):
+            raise ValueError('Jersey number must be between 1 and 99')
+        return v
+
+
+class AdminPlayerTeamEnd(BaseModel):
+    """Model for ending a player's team assignment."""
+    end_date: str
+
