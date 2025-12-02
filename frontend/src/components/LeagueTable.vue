@@ -26,7 +26,7 @@
       <!-- League Selector -->
       <div>
         <h3 class="text-sm font-medium text-gray-700 mb-3">League</h3>
-        <div v-if="authStore.isAdmin.value" class="flex flex-wrap gap-2">
+        <div v-if="authStore.canBrowseAll.value" class="flex flex-wrap gap-2">
           <button
             v-for="league in leagues"
             :key="league.id"

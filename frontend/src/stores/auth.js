@@ -31,6 +31,9 @@ export const useAuthStore = () => {
       state.profile?.role === 'team-manager' ||
       state.profile?.role === 'team_manager'
   );
+  const isPlayer = computed(() => state.profile?.role === 'team-player');
+  // Players can browse all leagues/divisions but not edit
+  const canBrowseAll = computed(() => isAdmin.value || isPlayer.value);
   const canManageTeam = computed(
     () => isAdmin.value || isClubManager.value || isTeamManager.value
   );
@@ -595,6 +598,8 @@ export const useAuthStore = () => {
     isAdmin,
     isClubManager,
     isTeamManager,
+    isPlayer,
+    canBrowseAll,
     canManageTeam,
     canManageClub,
     userRole,
