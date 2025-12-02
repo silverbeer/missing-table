@@ -6,6 +6,9 @@ All models are organized by domain for better maintainability.
 
 # Auth models
 from .auth import (
+    AdminPlayerTeamAssignment,
+    AdminPlayerTeamEnd,
+    AdminPlayerUpdate,
     PlayerCustomization,
     PlayerHistoryCreate,
     PlayerHistoryUpdate,
@@ -54,6 +57,9 @@ __all__ = [
     "PlayerCustomization",
     "PlayerHistoryCreate",
     "PlayerHistoryUpdate",
+    "AdminPlayerUpdate",
+    "AdminPlayerTeamAssignment",
+    "AdminPlayerTeamEnd",
     # Matches
     "EnhancedMatch",
     "MatchPatch",

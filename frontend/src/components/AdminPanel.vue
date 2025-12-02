@@ -80,6 +80,11 @@
           <AdminTeams />
         </div>
 
+        <!-- Players Management -->
+        <div v-if="currentSection === 'players'" class="p-6">
+          <AdminPlayers />
+        </div>
+
         <!-- Matches Management -->
         <div v-if="currentSection === 'matches'" class="p-6">
           <AdminMatches />
@@ -103,6 +108,7 @@ import AdminLeagues from './admin/AdminLeagues.vue';
 import AdminDivisions from './admin/AdminDivisions.vue';
 import AdminClubs from './admin/AdminClubs.vue';
 import AdminTeams from './admin/AdminTeams.vue';
+import AdminPlayers from './admin/AdminPlayers.vue';
 import AdminMatches from './admin/AdminMatches.vue';
 import AdminInvites from './admin/AdminInvites.vue';
 import AdminInviteRequests from './admin/AdminInviteRequests.vue';
@@ -116,6 +122,7 @@ export default {
     AdminDivisions,
     AdminClubs,
     AdminTeams,
+    AdminPlayers,
     AdminMatches,
     AdminInvites,
     AdminInviteRequests,
@@ -133,6 +140,7 @@ export default {
       { id: 'divisions', name: 'Divisions', adminOnly: true },
       { id: 'clubs', name: 'Clubs', adminOnly: true },
       { id: 'teams', name: 'Teams', adminOnly: false },
+      { id: 'players', name: 'Players', adminOnly: false },
       { id: 'matches', name: 'Matches', adminOnly: false },
       { id: 'invites', name: 'Invites', adminOnly: false },
     ];
