@@ -1251,12 +1251,18 @@ class MatchDAO:
                 self.client.table("matches")
                 .select("""
                     *,
-                    home_team:teams!matches_home_team_id_fkey(id, name),
-                    away_team:teams!matches_away_team_id_fkey(id, name),
+                    home_team:teams!matches_home_team_id_fkey(
+                        id, name,
+                        club:clubs(id, name, logo_url, primary_color, secondary_color)
+                    ),
+                    away_team:teams!matches_away_team_id_fkey(
+                        id, name,
+                        club:clubs(id, name, logo_url, primary_color, secondary_color)
+                    ),
                     season:seasons(id, name),
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
-                    division:divisions(id, name)
+                    division:divisions(id, name, leagues(id, name))
                 """)
                 .eq("id", match_id)
                 .execute()
@@ -1276,6 +1282,12 @@ class MatchDAO:
                     "away_team_name": match["away_team"]["name"]
                     if match.get("away_team")
                     else "Unknown",
+                    "home_team_club": match["home_team"].get("club")
+                    if match.get("home_team")
+                    else None,
+                    "away_team_club": match["away_team"].get("club")
+                    if match.get("away_team")
+                    else None,
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],
