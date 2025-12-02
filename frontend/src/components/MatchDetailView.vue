@@ -434,6 +434,8 @@ export default {
           backgroundColor: '#1e293b', // slate-800
           scale: 2, // Higher resolution
           logging: false,
+          useCORS: true, // Enable CORS for cross-origin images (logos)
+          allowTaint: false, // Don't taint canvas (safer)
         });
 
         canvas.toBlob(async blob => {
