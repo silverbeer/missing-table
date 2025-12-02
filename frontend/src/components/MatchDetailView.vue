@@ -83,12 +83,12 @@
           </div>
 
           <!-- Teams and Score -->
-          <div class="flex flex-row items-center justify-center gap-4 lg:gap-8">
+          <div class="flex flex-row items-start justify-center gap-4 lg:gap-8">
             <!-- Home Team -->
-            <div class="flex flex-col items-center text-center flex-1">
+            <div class="flex flex-col items-center text-center flex-1 min-w-0">
               <!-- Club Logo -->
               <div
-                class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500"
+                class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500 flex-shrink-0"
                 :style="{ boxShadow: `0 0 20px ${homeTeamColor}40` }"
               >
                 <img
@@ -101,7 +101,9 @@
                   {{ getTeamInitials(match.home_team_name) }}
                 </div>
               </div>
-              <h2 class="text-sm lg:text-base font-bold text-white mb-0.5">
+              <h2
+                class="text-sm lg:text-base font-bold text-white mb-0.5 line-clamp-2"
+              >
                 {{ match.home_team_name }}
               </h2>
               <span class="text-[10px] text-slate-400 uppercase tracking-wider"
@@ -110,7 +112,7 @@
             </div>
 
             <!-- Score Display -->
-            <div class="flex items-center gap-2 lg:gap-3">
+            <div class="flex items-center gap-2 lg:gap-3 pt-4 lg:pt-5">
               <span
                 class="score-number text-3xl lg:text-5xl font-bold text-white"
               >
@@ -127,10 +129,10 @@
             </div>
 
             <!-- Away Team -->
-            <div class="flex flex-col items-center text-center flex-1">
+            <div class="flex flex-col items-center text-center flex-1 min-w-0">
               <!-- Club Logo -->
               <div
-                class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500"
+                class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500 flex-shrink-0"
                 :style="{ boxShadow: `0 0 20px ${awayTeamColor}40` }"
               >
                 <img
@@ -143,7 +145,9 @@
                   {{ getTeamInitials(match.away_team_name) }}
                 </div>
               </div>
-              <h2 class="text-sm lg:text-base font-bold text-white mb-0.5">
+              <h2
+                class="text-sm lg:text-base font-bold text-white mb-0.5 line-clamp-2"
+              >
                 {{ match.away_team_name }}
               </h2>
               <span class="text-[10px] text-slate-400 uppercase tracking-wider"
