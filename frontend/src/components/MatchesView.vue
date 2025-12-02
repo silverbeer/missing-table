@@ -69,8 +69,8 @@
         <div :class="['space-y-4', showFilters || 'hidden lg:block']">
           <!-- My Club Filters - Only show on My Club tab -->
           <div v-if="selectedViewTab === 'myclub'" class="space-y-4">
-            <!-- League Selector - Only for admins -->
-            <div v-if="authStore.isAdmin.value">
+            <!-- League Selector - For admins and players who can browse all -->
+            <div v-if="authStore.canBrowseAll.value">
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Select League</label
               >
@@ -89,7 +89,7 @@
               </select>
             </div>
 
-            <!-- League Display - For non-admins (read-only) -->
+            <!-- League Display - For non-admins who cannot browse all (read-only) -->
             <div v-else-if="userLeagueInfo">
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >League</label
@@ -110,13 +110,13 @@
                 v-model="selectedTeam"
                 @change="onTeamChange"
                 :disabled="
-                  !authStore.isAdmin.value && authStore.userTeamId.value
+                  !authStore.canBrowseAll.value && authStore.userTeamId.value
                 "
                 class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-700"
               >
                 <option value="">
                   {{
-                    authStore.isAdmin.value
+                    authStore.canBrowseAll.value
                       ? '-- Select a club --'
                       : 'No club assigned'
                   }}
@@ -1621,8 +1621,8 @@ export default {
       // First filter by age group
       let filtered = filteredTeams.value;
 
-      // For admins, filter by selected league
-      if (authStore.isAdmin.value && selectedLeagueId.value) {
+      // For users who can browse all (admins and players), filter by selected league
+      if (authStore.canBrowseAll.value && selectedLeagueId.value) {
         filtered = filtered.filter(team => {
           // Ensure type-safe lookup: divisions_by_age_group uses string keys
           const division =
@@ -1636,8 +1636,8 @@ export default {
           );
         });
       }
-      // For non-admins, only show their team
-      else if (!authStore.isAdmin.value && authStore.userTeamId.value) {
+      // For non-browsing users (team-manager, team-fan), only show their team
+      else if (!authStore.canBrowseAll.value && authStore.userTeamId.value) {
         filtered = filtered.filter(
           team => team.id === authStore.userTeamId.value
         );
@@ -1646,9 +1646,10 @@ export default {
       return filtered;
     });
 
-    // Get league info for non-admin user's team
+    // Get league info for non-browsing user's team (read-only display)
     const userLeagueInfo = computed(() => {
-      if (authStore.isAdmin.value || !authStore.userTeamId.value) return null;
+      if (authStore.canBrowseAll.value || !authStore.userTeamId.value)
+        return null;
 
       const userTeam = teams.value.find(
         t => t.id === authStore.userTeamId.value
