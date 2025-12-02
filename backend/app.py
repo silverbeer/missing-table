@@ -1495,12 +1495,8 @@ async def get_match(
 ):
     """Get a specific match by ID (requires authentication)."""
     try:
-        # Get all matches and filter by ID
-        client_ip = get_client_ip(request)
-        matches = match_dao.get_all_matches(client_ip=client_ip)
-
-        # Find the match with matching ID
-        match = next((m for m in matches if m.get("id") == match_id), None)
+        # Use get_match_by_id for efficient single-match lookup with club data
+        match = match_dao.get_match_by_id(match_id)
 
         if not match:
             raise HTTPException(status_code=404, detail=f"Match with ID {match_id} not found")
