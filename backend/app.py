@@ -2788,7 +2788,8 @@ async def get_team_players(
     """
     Get all players on a team for the team roster page.
 
-    Only allows teammates to view roster (users must be on the same team).
+    Players can view rosters for any team within their club.
+    This allows browsing teammates across different age groups.
 
     Returns player data needed for player cards:
     - id, display_name, player_number, positions
@@ -2797,15 +2798,28 @@ async def get_team_players(
     - social media handles
     """
     try:
-        # Get user's team_id from profile
-        user_profile = match_dao.get_user_profile_with_relationships(current_user['user_id'])
-        user_team_id = user_profile.get('team_id') if user_profile else None
+        # Get the requested team's club_id
+        requested_team = match_dao.get_team_by_id(team_id)
+        if not requested_team:
+            raise HTTPException(status_code=404, detail="Team not found")
+        requested_club_id = requested_team.get('club_id')
 
-        # Authorization: user must be on the same team
-        if user_team_id != team_id:
+        # Get all current teams for the user
+        user_teams = match_dao.get_all_current_player_teams(current_user['user_id'])
+
+        # Check if user belongs to any team in the same club
+        user_club_ids = set()
+        for team_entry in user_teams:
+            team_data = team_entry.get('team', {})
+            club_data = team_data.get('club', {})
+            if club_data and club_data.get('id'):
+                user_club_ids.add(club_data['id'])
+
+        # Authorization: user must belong to a team in the same club
+        if requested_club_id not in user_club_ids:
             raise HTTPException(
                 status_code=403,
-                detail="You can only view your own team's roster"
+                detail="You can only view rosters for teams in your club"
             )
 
         # Get team info with relationships
@@ -2837,7 +2851,8 @@ async def get_player_profile(
     """
     Get a specific player's full profile for the player detail view.
 
-    Only allows teammates to view profile (users must be on the same team).
+    Players can view profiles of anyone in their club.
+    This allows browsing teammates across different age groups.
 
     Returns full profile data including:
     - Profile info (display_name, number, positions)
@@ -2847,23 +2862,41 @@ async def get_player_profile(
     - Recent games (player's team matches)
     """
     try:
-        # Get current user's team_id
-        current_user_profile = match_dao.get_user_profile_with_relationships(current_user['user_id'])
-        current_user_team_id = current_user_profile.get('team_id') if current_user_profile else None
-
-        # Get the target player's profile
+        # Get the target player's profile first
         target_profile = match_dao.get_user_profile_with_relationships(user_id)
         if not target_profile:
             raise HTTPException(status_code=404, detail="Player not found")
 
-        target_team_id = target_profile.get('team_id')
+        # Allow viewing own profile
+        if user_id == current_user['user_id']:
+            pass  # No authorization check needed
+        else:
+            # Get target player's teams and club IDs
+            target_teams = match_dao.get_all_current_player_teams(user_id)
+            target_club_ids = set()
+            for team_entry in target_teams:
+                team_data = team_entry.get('team', {})
+                club_data = team_data.get('club', {})
+                if club_data and club_data.get('id'):
+                    target_club_ids.add(club_data['id'])
 
-        # Authorization: users must be on the same team (or viewing own profile)
-        if user_id != current_user['user_id'] and current_user_team_id != target_team_id:
-            raise HTTPException(
-                status_code=403,
-                detail="You can only view profiles of your teammates"
-            )
+            # Get current user's teams and club IDs
+            user_teams = match_dao.get_all_current_player_teams(current_user['user_id'])
+            user_club_ids = set()
+            for team_entry in user_teams:
+                team_data = team_entry.get('team', {})
+                club_data = team_data.get('club', {})
+                if club_data and club_data.get('id'):
+                    user_club_ids.add(club_data['id'])
+
+            # Authorization: must share at least one club
+            if not (user_club_ids & target_club_ids):
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only view profiles of players in your club"
+                )
+
+        target_team_id = target_profile.get('team_id')
 
         # Get recent games for the player's team (if they have a team)
         recent_games = []
