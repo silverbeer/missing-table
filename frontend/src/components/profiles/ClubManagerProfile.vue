@@ -122,8 +122,8 @@
           <div class="capability-content">
             <h4>Invite Members</h4>
             <p>
-              Invite coaches, players, and parents to join your club on Missing
-              Table.
+              Invite team managers, players, and parents to join your club on
+              Missing Table.
             </p>
           </div>
           <div class="capability-arrow">&rarr;</div>
