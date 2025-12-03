@@ -22,6 +22,12 @@
       <!-- Admin Profile -->
       <AdminProfile v-if="userRole === 'admin'" @logout="handleLogout" />
 
+      <!-- Club Manager Profile -->
+      <ClubManagerProfile
+        v-else-if="userRole === 'club_manager'"
+        @logout="handleLogout"
+      />
+
       <!-- Team Manager Profile -->
       <TeamManagerProfile
         v-else-if="userRole === 'team-manager'"
@@ -70,6 +76,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import AdminProfile from './profiles/AdminProfile.vue';
+import ClubManagerProfile from './profiles/ClubManagerProfile.vue';
 import TeamManagerProfile from './profiles/TeamManagerProfile.vue';
 import PlayerProfile from './profiles/PlayerProfile.vue';
 import FanProfile from './profiles/FanProfile.vue';
@@ -78,6 +85,7 @@ export default {
   name: 'ProfileRouter',
   components: {
     AdminProfile,
+    ClubManagerProfile,
     TeamManagerProfile,
     PlayerProfile,
     FanProfile,
