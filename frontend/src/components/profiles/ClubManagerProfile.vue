@@ -98,7 +98,7 @@
         </div>
 
         <div class="hero-actions">
-          <button class="action-btn primary" @click="showEditProfile = true">
+          <button class="action-btn primary" @click="openEditProfile">
             Edit Profile
           </button>
         </div>
@@ -282,6 +282,11 @@ export default {
       emailError.value = '';
     };
 
+    const openEditProfile = () => {
+      initEditForm();
+      showEditProfile.value = true;
+    };
+
     const validateEmail = () => {
       emailError.value = '';
       if (!editForm.email || editForm.email.trim() === '') {
@@ -358,6 +363,7 @@ export default {
       formatDate,
       handleLogout,
       showEditProfile,
+      openEditProfile,
       editForm,
       emailError,
       saving,
@@ -905,15 +911,19 @@ export default {
   border-radius: 8px;
   font-weight: 500;
   cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    opacity 0.2s ease;
 }
 
-.save-btn:hover {
+.save-btn:hover:not(:disabled) {
   background: #2563eb;
 }
 
 .save-btn:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 /* Responsive */
