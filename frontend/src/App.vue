@@ -246,7 +246,10 @@
 
           <!-- Profile (auth required) -->
           <div v-if="currentTab === 'profile'" class="p-4">
-            <ProfileRouter @logout="handleLogout" />
+            <ProfileRouter
+              @logout="handleLogout"
+              @switch-tab="handleSwitchTab"
+            />
           </div>
 
           <!-- My Club (players only) -->
@@ -321,7 +324,6 @@ export default {
         requiresAuth: true,
         requiresRole: ['admin', 'club_manager', 'team-manager'],
       },
-      { id: 'profile', name: 'Profile', requiresAuth: true },
       {
         id: 'my-club',
         name: 'My Club',
@@ -334,25 +336,35 @@ export default {
         requiresAuth: true,
         requiresRole: ['admin', 'club_manager'],
       },
+      { id: 'profile', name: 'Profile', requiresAuth: true },
     ];
 
     // Computed property for available tabs based on user's auth status and role
     const availableTabs = computed(() => {
-      return allTabs.filter(tab => {
-        // Always show public tabs
-        if (!tab.requiresAuth) return true;
+      const userRole = authStore.userRole.value;
 
-        // Don't show auth-required tabs if user is not authenticated
-        if (!authStore.isAuthenticated.value) return false;
+      return allTabs
+        .filter(tab => {
+          // Always show public tabs
+          if (!tab.requiresAuth) return true;
 
-        // Check role requirements
-        if (tab.requiresRole) {
-          const userRole = authStore.userRole.value;
-          return tab.requiresRole.includes(userRole);
-        }
+          // Don't show auth-required tabs if user is not authenticated
+          if (!authStore.isAuthenticated.value) return false;
 
-        return true;
-      });
+          // Check role requirements
+          if (tab.requiresRole) {
+            return tab.requiresRole.includes(userRole);
+          }
+
+          return true;
+        })
+        .map(tab => {
+          // Rename "Admin" tab to "Manage Club" for club managers
+          if (tab.id === 'admin' && userRole === 'club_manager') {
+            return { ...tab, name: 'Manage Club' };
+          }
+          return tab;
+        });
     });
 
     const closeModal = () => {
@@ -370,6 +382,11 @@ export default {
       if (currentTabData && currentTabData.requiresAuth) {
         currentTab.value = 'table';
       }
+    };
+
+    const handleSwitchTab = tabId => {
+      // Switch to the requested tab
+      currentTab.value = tabId;
     };
 
     const submitInviteRequest = async () => {
@@ -456,6 +473,7 @@ export default {
       closeModal,
       handleLoginSuccess,
       handleLogout,
+      handleSwitchTab,
       submitInviteRequest,
     };
   },

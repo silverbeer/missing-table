@@ -22,6 +22,13 @@
       <!-- Admin Profile -->
       <AdminProfile v-if="userRole === 'admin'" @logout="handleLogout" />
 
+      <!-- Club Manager Profile -->
+      <ClubManagerProfile
+        v-else-if="userRole === 'club_manager'"
+        @logout="handleLogout"
+        @switch-tab="handleSwitchTab"
+      />
+
       <!-- Team Manager Profile -->
       <TeamManagerProfile
         v-else-if="userRole === 'team-manager'"
@@ -70,6 +77,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import AdminProfile from './profiles/AdminProfile.vue';
+import ClubManagerProfile from './profiles/ClubManagerProfile.vue';
 import TeamManagerProfile from './profiles/TeamManagerProfile.vue';
 import PlayerProfile from './profiles/PlayerProfile.vue';
 import FanProfile from './profiles/FanProfile.vue';
@@ -78,11 +86,12 @@ export default {
   name: 'ProfileRouter',
   components: {
     AdminProfile,
+    ClubManagerProfile,
     TeamManagerProfile,
     PlayerProfile,
     FanProfile,
   },
-  emits: ['logout'],
+  emits: ['logout', 'switch-tab'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const showDebug = ref(false);
@@ -108,6 +117,10 @@ export default {
       emit('logout');
     };
 
+    const handleSwitchTab = tabId => {
+      emit('switch-tab', tabId);
+    };
+
     onMounted(() => {
       // Ensure profile is loaded when component mounts
       if (authStore.isAuthenticated && !authStore.state.profile) {
@@ -122,6 +135,7 @@ export default {
       showDebug,
       refreshProfile,
       handleLogout,
+      handleSwitchTab,
     };
   },
 };

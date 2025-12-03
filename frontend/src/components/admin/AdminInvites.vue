@@ -22,7 +22,7 @@
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select type...</option>
-            <option value="club_manager">Club Manager</option>
+            <option v-if="isAdmin" value="club_manager">Club Manager</option>
             <option value="club_fan">Club Fan</option>
             <option value="team_manager">Team Manager</option>
             <option value="team_player">Team Player</option>
@@ -367,6 +367,9 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 
 const authStore = useAuthStore();
+
+// Check if current user is admin
+const isAdmin = computed(() => authStore.userRole.value === 'admin');
 
 // State
 const teams = ref([]);

@@ -1709,7 +1709,8 @@ class MatchDAO:
             club_id: The club ID from the clubs table
 
         Returns:
-            List of teams belonging to this club with team_mappings included
+            List of teams belonging to this club with team_mappings included,
+            plus match_count, player_count, age_group_name, and division_name
         """
         try:
             # Use the same query structure as get_all_teams but filter by club_id
@@ -1742,6 +1743,47 @@ class MatchDAO:
                 .execute()
             )
 
+            # Get team IDs for batch counting
+            team_ids = [team["id"] for team in response.data]
+
+            # Get match counts for all teams in one query
+            match_counts = {}
+            if team_ids:
+                # Count matches where team is home
+                home_matches = (
+                    self.client.table("matches")
+                    .select("home_team_id")
+                    .in_("home_team_id", team_ids)
+                    .execute()
+                )
+                # Count matches where team is away
+                away_matches = (
+                    self.client.table("matches")
+                    .select("away_team_id")
+                    .in_("away_team_id", team_ids)
+                    .execute()
+                )
+                # Aggregate counts
+                for match in home_matches.data:
+                    tid = match["home_team_id"]
+                    match_counts[tid] = match_counts.get(tid, 0) + 1
+                for match in away_matches.data:
+                    tid = match["away_team_id"]
+                    match_counts[tid] = match_counts.get(tid, 0) + 1
+
+            # Get player counts for all teams in one query
+            player_counts = {}
+            if team_ids:
+                players = (
+                    self.client.table("user_profiles")
+                    .select("team_id")
+                    .in_("team_id", team_ids)
+                    .execute()
+                )
+                for player in players.data:
+                    tid = player["team_id"]
+                    player_counts[tid] = player_counts.get(tid, 0) + 1
+
             # Process teams to add league_name and age_groups like get_all_teams does
             teams = []
             for team in response.data:
@@ -1754,6 +1796,7 @@ class MatchDAO:
 
                 # Extract age groups from team_mappings
                 age_groups = []
+                first_division_name = None
                 if team.get("team_mappings"):
                     seen_age_groups = set()
                     for mapping in team["team_mappings"]:
@@ -1762,7 +1805,18 @@ class MatchDAO:
                             if ag_id not in seen_age_groups:
                                 age_groups.append(mapping["age_groups"])
                                 seen_age_groups.add(ag_id)
+                        # Get the first division name
+                        if first_division_name is None and mapping.get("divisions"):
+                            first_division_name = mapping["divisions"].get("name")
                 team_data["age_groups"] = age_groups
+
+                # Add first age_group_name and division_name for display
+                team_data["age_group_name"] = age_groups[0]["name"] if age_groups else None
+                team_data["division_name"] = first_division_name
+
+                # Add match and player counts
+                team_data["match_count"] = match_counts.get(team["id"], 0)
+                team_data["player_count"] = player_counts.get(team["id"], 0)
 
                 teams.append(team_data)
 
@@ -1986,9 +2040,9 @@ class MatchDAO:
                     age_group:age_groups(id, name),
                     league:leagues(id, name),
                     division:divisions(id, name),
-                    club:clubs(id, name, city, primary_color, secondary_color)
+                    club:clubs(id, name, city, logo_url, primary_color, secondary_color)
                 ),
-                club:clubs(id, name, city, primary_color, secondary_color)
+                club:clubs(id, name, city, logo_url, primary_color, secondary_color)
             ''').eq('id', user_id).execute()
 
             if response.data and len(response.data) > 0:
