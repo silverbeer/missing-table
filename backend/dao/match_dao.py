@@ -1986,9 +1986,9 @@ class MatchDAO:
                     age_group:age_groups(id, name),
                     league:leagues(id, name),
                     division:divisions(id, name),
-                    club:clubs(id, name, city, primary_color, secondary_color)
+                    club:clubs(id, name, city, logo_url, primary_color, secondary_color)
                 ),
-                club:clubs(id, name, city, primary_color, secondary_color)
+                club:clubs(id, name, city, logo_url, primary_color, secondary_color)
             ''').eq('id', user_id).execute()
 
             if response.data and len(response.data) > 0:

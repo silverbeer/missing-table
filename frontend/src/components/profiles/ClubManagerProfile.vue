@@ -1,4 +1,51 @@
 <template>
+  <!-- Edit Profile Modal -->
+  <div
+    v-if="showEditProfile"
+    class="modal-overlay"
+    @click.self="showEditProfile = false"
+  >
+    <div class="edit-modal">
+      <div class="modal-header">
+        <h3>Edit Profile</h3>
+        <button class="close-btn" @click="showEditProfile = false">
+          &times;
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Display Name</label>
+          <input
+            v-model="editForm.display_name"
+            type="text"
+            placeholder="Your display name"
+          />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input
+            v-model="editForm.email"
+            type="email"
+            placeholder="your@email.com"
+          />
+          <span v-if="emailError" class="field-error">{{ emailError }}</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="cancel-btn" @click="showEditProfile = false">
+          Cancel
+        </button>
+        <button
+          class="save-btn"
+          @click="saveProfile"
+          :disabled="saving || emailError"
+        >
+          {{ saving ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="club-manager-dashboard">
     <!-- Header -->
     <div class="dashboard-header">
@@ -25,9 +72,7 @@
           <span class="role-badge">Club Manager</span>
         </div>
 
-        <div v-if="club?.city" class="location-line">
-          {{ club.city }}
-        </div>
+        <div v-if="club?.city" class="location-line">{{ club.city }}</div>
 
         <div class="manager-info">
           <span class="manager-name">{{ displayName }}</span>
@@ -51,50 +96,75 @@
             <span class="stat-label">Players</span>
           </div>
         </div>
+
+        <div class="hero-actions">
+          <button class="action-btn primary" @click="showEditProfile = true">
+            Edit Profile
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="quick-actions">
-      <h3>Quick Actions</h3>
-      <div class="actions-grid">
-        <router-link to="/admin?tab=teams" class="action-card">
-          <div class="action-icon">&#9917;</div>
-          <div class="action-content">
+    <!-- What You Can Do Section -->
+    <div class="capabilities-section">
+      <h3>What You Can Do</h3>
+      <p class="section-description">
+        As a club manager, you have full control over your club's teams and
+        matches. Use the <strong>Manage Club</strong> tab above to access these
+        features.
+      </p>
+      <div class="capabilities-grid">
+        <router-link to="/admin?tab=teams" class="capability-card">
+          <div class="capability-icon">&#9917;</div>
+          <div class="capability-content">
             <h4>Manage Teams</h4>
-            <p>Add, edit, and organize your club's teams</p>
+            <p>
+              Add new teams, edit team details, and assign teams to leagues and
+              divisions.
+            </p>
           </div>
-          <div class="action-arrow">&rarr;</div>
+          <div class="capability-arrow">&rarr;</div>
         </router-link>
 
-        <router-link to="/admin?tab=matches" class="action-card">
-          <div class="action-icon">&#128197;</div>
-          <div class="action-content">
+        <router-link to="/admin?tab=matches" class="capability-card">
+          <div class="capability-icon">&#128197;</div>
+          <div class="capability-content">
             <h4>Manage Matches</h4>
-            <p>View and edit match schedules and results</p>
+            <p>
+              Add match results, update scores, and manage your teams' game
+              schedules.
+            </p>
           </div>
-          <div class="action-arrow">&rarr;</div>
+          <div class="capability-arrow">&rarr;</div>
         </router-link>
 
-        <router-link to="/admin?tab=players" class="action-card">
-          <div class="action-icon">&#128101;</div>
-          <div class="action-content">
+        <router-link to="/admin?tab=players" class="capability-card">
+          <div class="capability-icon">&#128101;</div>
+          <div class="capability-content">
             <h4>Manage Players</h4>
-            <p>View and assign players to teams</p>
+            <p>
+              View player rosters, assign players to teams, and manage player
+              information.
+            </p>
           </div>
-          <div class="action-arrow">&rarr;</div>
+          <div class="capability-arrow">&rarr;</div>
         </router-link>
       </div>
     </div>
 
-    <!-- Club Teams -->
+    <!-- Club Teams Overview -->
     <div class="teams-section">
-      <h3>Your Teams</h3>
+      <div class="section-header">
+        <h3>Your Club's Teams</h3>
+        <router-link to="/admin?tab=teams" class="view-all-link">
+          Manage All Teams &rarr;
+        </router-link>
+      </div>
       <div v-if="loadingTeams" class="loading">Loading teams...</div>
       <div v-else-if="clubTeams.length === 0" class="no-teams">
-        <p>No teams found for this club.</p>
+        <p>No teams have been added to your club yet.</p>
         <router-link to="/admin?tab=teams" class="add-team-btn">
-          Add First Team
+          Add Your First Team
         </router-link>
       </div>
       <div v-else class="teams-grid">
@@ -141,7 +211,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 
@@ -152,6 +222,14 @@ export default {
     const authStore = useAuthStore();
     const clubTeams = ref([]);
     const loadingTeams = ref(false);
+    const showEditProfile = ref(false);
+    const saving = ref(false);
+    const emailError = ref('');
+
+    const editForm = reactive({
+      display_name: '',
+      email: '',
+    });
 
     const club = computed(() => authStore.state.profile?.club || null);
 
@@ -198,6 +276,46 @@ export default {
       });
     };
 
+    const initEditForm = () => {
+      editForm.display_name = authStore.state.profile?.display_name || '';
+      editForm.email = authStore.state.profile?.email || '';
+      emailError.value = '';
+    };
+
+    const validateEmail = () => {
+      emailError.value = '';
+      if (!editForm.email || editForm.email.trim() === '') {
+        return true; // Empty email is OK
+      }
+      const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailPattern.test(editForm.email)) {
+        emailError.value = 'Please enter a valid email address';
+        return false;
+      }
+      return true;
+    };
+
+    const saveProfile = async () => {
+      if (!validateEmail()) return;
+
+      try {
+        saving.value = true;
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/auth/profile`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            display_name: editForm.display_name || null,
+            email: editForm.email || null,
+          }),
+        });
+        await authStore.fetchProfile();
+        showEditProfile.value = false;
+      } catch (error) {
+        console.error('Error saving profile:', error);
+      } finally {
+        saving.value = false;
+      }
+    };
+
     const fetchClubTeams = async () => {
       const clubId = authStore.state.profile?.club_id;
       if (!clubId) return;
@@ -224,6 +342,7 @@ export default {
 
     onMounted(() => {
       fetchClubTeams();
+      initEditForm();
     });
 
     return {
@@ -238,6 +357,11 @@ export default {
       totalPlayers,
       formatDate,
       handleLogout,
+      showEditProfile,
+      editForm,
+      emailError,
+      saving,
+      saveProfile,
     };
   },
 };
@@ -265,7 +389,7 @@ export default {
 }
 
 .logout-btn {
-  background-color: #dc2626;
+  background-color: #6b7280;
   color: white;
   padding: 8px 16px;
   border: none;
@@ -277,7 +401,7 @@ export default {
 }
 
 .logout-btn:hover {
-  background-color: #b91c1c;
+  background-color: #4b5563;
 }
 
 /* Hero Card */
@@ -370,8 +494,7 @@ export default {
 .hero-stats {
   display: flex;
   gap: 32px;
-  margin-top: auto;
-  padding-top: 16px;
+  margin-top: 12px;
 }
 
 .hero-stat {
@@ -391,27 +514,58 @@ export default {
   opacity: 0.8;
 }
 
-/* Quick Actions */
-.quick-actions {
+.hero-actions {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.action-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.action-btn.primary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.action-btn.primary:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Capabilities Section */
+.capabilities-section {
   margin-bottom: 24px;
 }
 
-.quick-actions h3 {
+.capabilities-section h3 {
   font-size: 18px;
   font-weight: 600;
   color: #1f2937;
-  margin: 0 0 16px 0;
+  margin: 0 0 8px 0;
 }
 
-.actions-grid {
+.section-description {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.capabilities-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 
-.action-card {
+.capability-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   padding: 20px;
   background: white;
@@ -422,13 +576,13 @@ export default {
   transition: all 0.2s;
 }
 
-.action-card:hover {
+.capability-card:hover {
   border-color: #3b82f6;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
   transform: translateY(-2px);
 }
 
-.action-icon {
+.capability-icon {
   font-size: 28px;
   width: 48px;
   height: 48px;
@@ -437,32 +591,35 @@ export default {
   justify-content: center;
   background: #f0f9ff;
   border-radius: 10px;
+  flex-shrink: 0;
 }
 
-.action-content {
+.capability-content {
   flex: 1;
 }
 
-.action-content h4 {
-  margin: 0 0 4px 0;
+.capability-content h4 {
+  margin: 0 0 6px 0;
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
 }
 
-.action-content p {
+.capability-content p {
   margin: 0;
   font-size: 13px;
   color: #6b7280;
+  line-height: 1.4;
 }
 
-.action-arrow {
+.capability-arrow {
   font-size: 20px;
   color: #9ca3af;
   transition: transform 0.2s;
+  align-self: center;
 }
 
-.action-card:hover .action-arrow {
+.capability-card:hover .capability-arrow {
   transform: translateX(4px);
   color: #3b82f6;
 }
@@ -472,11 +629,29 @@ export default {
   margin-bottom: 24px;
 }
 
-.teams-section h3 {
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
   font-size: 18px;
   font-weight: 600;
   color: #1f2937;
-  margin: 0 0 16px 0;
+  margin: 0;
+}
+
+.view-all-link {
+  font-size: 14px;
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
 }
 
 .teams-grid {
@@ -612,6 +787,135 @@ export default {
   padding: 40px;
 }
 
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 60px 20px;
+}
+
+.edit-modal {
+  width: 100%;
+  max-width: 440px;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #1f2937;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.field-error {
+  display: block;
+  font-size: 12px;
+  color: #dc2626;
+  margin-top: 4px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancel-btn:hover {
+  background: #f3f4f6;
+}
+
+.save-btn {
+  padding: 10px 20px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.save-btn:hover {
+  background: #2563eb;
+}
+
+.save-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hero-card {
@@ -633,12 +937,23 @@ export default {
     justify-content: center;
   }
 
-  .actions-grid {
+  .hero-actions {
+    display: flex;
+    justify-content: center;
+  }
+
+  .capabilities-grid {
     grid-template-columns: 1fr;
   }
 
   .teams-grid {
     grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 

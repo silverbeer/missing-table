@@ -338,21 +338,30 @@ export default {
 
     // Computed property for available tabs based on user's auth status and role
     const availableTabs = computed(() => {
-      return allTabs.filter(tab => {
-        // Always show public tabs
-        if (!tab.requiresAuth) return true;
+      const userRole = authStore.userRole.value;
 
-        // Don't show auth-required tabs if user is not authenticated
-        if (!authStore.isAuthenticated.value) return false;
+      return allTabs
+        .filter(tab => {
+          // Always show public tabs
+          if (!tab.requiresAuth) return true;
 
-        // Check role requirements
-        if (tab.requiresRole) {
-          const userRole = authStore.userRole.value;
-          return tab.requiresRole.includes(userRole);
-        }
+          // Don't show auth-required tabs if user is not authenticated
+          if (!authStore.isAuthenticated.value) return false;
 
-        return true;
-      });
+          // Check role requirements
+          if (tab.requiresRole) {
+            return tab.requiresRole.includes(userRole);
+          }
+
+          return true;
+        })
+        .map(tab => {
+          // Rename "Admin" tab to "Manage Club" for club managers
+          if (tab.id === 'admin' && userRole === 'club_manager') {
+            return { ...tab, name: 'Manage Club' };
+          }
+          return tab;
+        });
     });
 
     const closeModal = () => {
