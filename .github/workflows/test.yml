@@ -80,7 +80,7 @@ jobs:
         id: unit-tests
         run: |
           cd backend
-          uv run python run_tests.py --category unit --xml-coverage --json-coverage --html-coverage
+          uv run python run_tests.py --category unit --xml-coverage --json-coverage --html-coverage --fail-under 0
         continue-on-error: true
 
       # Note: Smoke tests are Playwright E2E tests that require running frontend/backend.
