@@ -76,6 +76,11 @@ jobs:
           cd backend
           uv sync
 
+      - name: Install Playwright browsers
+        run: |
+          cd backend
+          uv run playwright install chromium --with-deps
+
       - name: Run unit tests
         id: unit-tests
         run: |
@@ -281,6 +286,11 @@ jobs:
         run: |
           cd backend
           uv sync
+
+      - name: Install Playwright browsers
+        run: |
+          cd backend
+          uv run playwright install chromium --with-deps
 
       - name: Start Supabase (local)
         run: |
