@@ -110,11 +110,11 @@
       <h3>What You Can Do</h3>
       <p class="section-description">
         As a club manager, you have full control over your club's teams and
-        matches. Use the <strong>Manage Club</strong> tab above to access these
-        features.
+        matches. Click below or use the <strong>Manage Club</strong> tab above
+        to access these features.
       </p>
       <div class="capabilities-grid">
-        <router-link to="/admin?tab=teams" class="capability-card">
+        <div class="capability-card" @click="goToManageClub">
           <div class="capability-icon">&#9917;</div>
           <div class="capability-content">
             <h4>Manage Teams</h4>
@@ -124,9 +124,9 @@
             </p>
           </div>
           <div class="capability-arrow">&rarr;</div>
-        </router-link>
+        </div>
 
-        <router-link to="/admin?tab=matches" class="capability-card">
+        <div class="capability-card" @click="goToManageClub">
           <div class="capability-icon">&#128197;</div>
           <div class="capability-content">
             <h4>Manage Matches</h4>
@@ -136,9 +136,9 @@
             </p>
           </div>
           <div class="capability-arrow">&rarr;</div>
-        </router-link>
+        </div>
 
-        <router-link to="/admin?tab=players" class="capability-card">
+        <div class="capability-card" @click="goToManageClub">
           <div class="capability-icon">&#128101;</div>
           <div class="capability-content">
             <h4>Manage Players</h4>
@@ -148,7 +148,7 @@
             </p>
           </div>
           <div class="capability-arrow">&rarr;</div>
-        </router-link>
+        </div>
       </div>
     </div>
 
@@ -156,16 +156,16 @@
     <div class="teams-section">
       <div class="section-header">
         <h3>Your Club's Teams</h3>
-        <router-link to="/admin?tab=teams" class="view-all-link">
-          Manage All Teams &rarr;
-        </router-link>
+        <button class="view-all-link" @click="goToManageClub">
+          Manage Club &rarr;
+        </button>
       </div>
       <div v-if="loadingTeams" class="loading">Loading teams...</div>
       <div v-else-if="clubTeams.length === 0" class="no-teams">
         <p>No teams have been added to your club yet.</p>
-        <router-link to="/admin?tab=teams" class="add-team-btn">
+        <button class="add-team-btn" @click="goToManageClub">
           Add Your First Team
-        </router-link>
+        </button>
       </div>
       <div v-else class="teams-grid">
         <div v-for="team in clubTeams" :key="team.id" class="team-card">
@@ -217,7 +217,7 @@ import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'ClubManagerProfile',
-  emits: ['logout'],
+  emits: ['logout', 'switch-tab'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const clubTeams = ref([]);
@@ -225,6 +225,10 @@ export default {
     const showEditProfile = ref(false);
     const saving = ref(false);
     const emailError = ref('');
+
+    const goToManageClub = () => {
+      emit('switch-tab', 'admin');
+    };
 
     const editForm = reactive({
       display_name: '',
@@ -362,6 +366,7 @@ export default {
       totalPlayers,
       formatDate,
       handleLogout,
+      goToManageClub,
       showEditProfile,
       openEditProfile,
       editForm,
@@ -580,6 +585,7 @@ export default {
   text-decoration: none;
   color: inherit;
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 .capability-card:hover {
@@ -654,6 +660,10 @@ export default {
   color: #3b82f6;
   text-decoration: none;
   font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
 }
 
 .view-all-link:hover {

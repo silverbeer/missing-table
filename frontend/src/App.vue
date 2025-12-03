@@ -246,7 +246,10 @@
 
           <!-- Profile (auth required) -->
           <div v-if="currentTab === 'profile'" class="p-4">
-            <ProfileRouter @logout="handleLogout" />
+            <ProfileRouter
+              @logout="handleLogout"
+              @switch-tab="handleSwitchTab"
+            />
           </div>
 
           <!-- My Club (players only) -->
@@ -381,6 +384,11 @@ export default {
       }
     };
 
+    const handleSwitchTab = tabId => {
+      // Switch to the requested tab
+      currentTab.value = tabId;
+    };
+
     const submitInviteRequest = async () => {
       inviteRequestSubmitting.value = true;
       inviteRequestMessage.value = '';
@@ -465,6 +473,7 @@ export default {
       closeModal,
       handleLoginSuccess,
       handleLogout,
+      handleSwitchTab,
       submitInviteRequest,
     };
   },

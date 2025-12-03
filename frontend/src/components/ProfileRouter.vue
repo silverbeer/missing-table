@@ -26,6 +26,7 @@
       <ClubManagerProfile
         v-else-if="userRole === 'club_manager'"
         @logout="handleLogout"
+        @switch-tab="handleSwitchTab"
       />
 
       <!-- Team Manager Profile -->
@@ -90,7 +91,7 @@ export default {
     PlayerProfile,
     FanProfile,
   },
-  emits: ['logout'],
+  emits: ['logout', 'switch-tab'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const showDebug = ref(false);
@@ -116,6 +117,10 @@ export default {
       emit('logout');
     };
 
+    const handleSwitchTab = tabId => {
+      emit('switch-tab', tabId);
+    };
+
     onMounted(() => {
       // Ensure profile is loaded when component mounts
       if (authStore.isAuthenticated && !authStore.state.profile) {
@@ -130,6 +135,7 @@ export default {
       showDebug,
       refreshProfile,
       handleLogout,
+      handleSwitchTab,
     };
   },
 };
