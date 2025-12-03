@@ -132,8 +132,8 @@ def main():
         if not args.html_coverage and not args.xml_coverage and not args.json_coverage:
             cmd.extend(["--cov-report=term-missing"])
 
-        # Add coverage threshold
-        fail_under = args.fail_under if args.fail_under else coverage_thresholds.get(args.category, 75)
+        # Add coverage threshold (use is not None to allow 0)
+        fail_under = args.fail_under if args.fail_under is not None else coverage_thresholds.get(args.category, 75)
         cmd.extend(["--cov-fail-under", str(fail_under)])
     
     # Add verbose output
@@ -165,7 +165,7 @@ def main():
     # Run the tests
     description = f"pytest tests ({args.category} category)"
     if args.coverage or args.html_coverage or args.xml_coverage or args.json_coverage:
-        fail_under = args.fail_under if args.fail_under else coverage_thresholds.get(args.category, 75)
+        fail_under = args.fail_under if args.fail_under is not None else coverage_thresholds.get(args.category, 75)
         description += f" with coverage (threshold: {fail_under}%)"
 
     success = run_command(cmd, description)
