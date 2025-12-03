@@ -21,6 +21,10 @@ spec:
         app.kubernetes.io/name: {{ include "missing-table.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: celery-worker
+      annotations:
+        # Force pod restart on each deployment (image tag stays same)
+        rollout/commitSha: {{ .Values.commitSha | default "unknown" | quote }}
+        rollout/buildId: {{ .Values.buildId | default "unknown" | quote }}
     spec:
       containers:
       - name: celery-worker
