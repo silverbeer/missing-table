@@ -324,7 +324,6 @@ export default {
         requiresAuth: true,
         requiresRole: ['admin', 'club_manager', 'team-manager'],
       },
-      { id: 'profile', name: 'Profile', requiresAuth: true },
       {
         id: 'my-club',
         name: 'My Club',
@@ -337,6 +336,7 @@ export default {
         requiresAuth: true,
         requiresRole: ['admin', 'club_manager'],
       },
+      { id: 'profile', name: 'Profile', requiresAuth: true },
     ];
 
     // Computed property for available tabs based on user's auth status and role
