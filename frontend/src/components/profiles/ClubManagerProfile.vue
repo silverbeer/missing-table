@@ -112,11 +112,23 @@
     <div class="capabilities-section">
       <h3>What You Can Do</h3>
       <p class="section-description">
-        As a club manager, you have full control over your club's teams and
-        matches. Click below or use the <strong>Manage Club</strong> tab above
-        to access these features.
+        As a club manager, you have full control over your club's teams,
+        matches, and members. Click below or use the
+        <strong>Manage Club</strong> tab above to access these features.
       </p>
       <div class="capabilities-grid">
+        <div class="capability-card" @click="goToManageClub">
+          <div class="capability-icon">&#128236;</div>
+          <div class="capability-content">
+            <h4>Invite Members</h4>
+            <p>
+              Invite coaches, players, and parents to join your club on Missing
+              Table.
+            </p>
+          </div>
+          <div class="capability-arrow">&rarr;</div>
+        </div>
+
         <div class="capability-card" @click="goToManageClub">
           <div class="capability-icon">&#9917;</div>
           <div class="capability-content">
@@ -529,7 +541,7 @@ export default {
 
 .capabilities-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 
