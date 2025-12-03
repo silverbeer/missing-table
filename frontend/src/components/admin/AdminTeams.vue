@@ -185,7 +185,7 @@
                   Independent Team (No Parent Club)
                 </option>
                 <option v-for="club in clubs" :key="club.id" :value="club.id">
-                  {{ club.name }} - {{ club.city }}
+                  {{ club.name }}
                 </option>
               </select>
               <p class="text-xs text-gray-500 mt-1">
@@ -371,7 +371,13 @@
                   class="flex items-center justify-between p-3 border border-gray-200 rounded-md"
                 >
                   <span class="text-sm">
-                    {{ mapping.age_groups.name }} - {{ mapping.divisions.name }}
+                    <span class="font-medium">{{
+                      mapping.divisions?.leagues?.name || 'Unknown League'
+                    }}</span>
+                    <span class="text-gray-400 mx-1">/</span>
+                    {{ mapping.divisions.name }}
+                    <span class="text-gray-400 mx-1">/</span>
+                    {{ mapping.age_groups.name }}
                   </span>
                   <button
                     @click="removeTeamMapping(mapping)"
@@ -395,7 +401,52 @@
                 Add New Assignment
               </h4>
               <form @submit.prevent="addTeamMapping()" class="space-y-3">
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                      >League</label
+                    >
+                    <select
+                      v-model="mappingForm.league_id"
+                      required
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select League</option>
+                      <option
+                        v-for="league in leagues"
+                        :key="league.id"
+                        :value="league.id"
+                      >
+                        {{ league.name }}
+                      </option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                      >Division</label
+                    >
+                    <select
+                      v-model="mappingForm.division_id"
+                      required
+                      :disabled="!mappingForm.league_id"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">
+                        {{
+                          mappingForm.league_id
+                            ? 'Select Division'
+                            : 'Select League first'
+                        }}
+                      </option>
+                      <option
+                        v-for="division in filteredDivisions"
+                        :key="division.id"
+                        :value="division.id"
+                      >
+                        {{ division.name }}
+                      </option>
+                    </select>
+                  </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"
                       >Age Group</label
@@ -412,25 +463,6 @@
                         :value="ageGroup.id"
                       >
                         {{ ageGroup.name }}
-                      </option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
-                      >Division</label
-                    >
-                    <select
-                      v-model="mappingForm.division_id"
-                      required
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Division</option>
-                      <option
-                        v-for="division in divisions"
-                        :key="division.id"
-                        :value="division.id"
-                      >
-                        {{ division.name }}
                       </option>
                     </select>
                   </div>
@@ -461,7 +493,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 
@@ -473,6 +505,7 @@ export default {
     const clubs = ref([]);
     const ageGroups = ref([]);
     const divisions = ref([]);
+    const leagues = ref([]);
     const gameTypes = ref([]);
     const loading = ref(true);
     const formLoading = ref(false);
@@ -495,8 +528,19 @@ export default {
     });
 
     const mappingForm = ref({
+      league_id: '',
       age_group_id: '',
       division_id: '',
+    });
+
+    // Computed property to filter divisions by selected league
+    const filteredDivisions = computed(() => {
+      if (!mappingForm.value.league_id) {
+        return [];
+      }
+      return divisions.value.filter(
+        d => d.league_id === parseInt(mappingForm.value.league_id)
+      );
     });
 
     const fetchTeams = async () => {
@@ -579,6 +623,20 @@ export default {
         divisions.value = response;
       } catch (err) {
         console.error('Error fetching divisions:', err);
+      }
+    };
+
+    const fetchLeagues = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/leagues`,
+          {
+            method: 'GET',
+          }
+        );
+        leagues.value = response;
+      } catch (err) {
+        console.error('Error fetching leagues:', err);
       }
     };
 
@@ -696,7 +754,7 @@ export default {
       formData.value = {
         name: team.name,
         city: team.city,
-        parentClubId: team.parent_club_id || null,
+        parentClubId: team.club_id || null,
         teamType: teamType,
         ageGroupIds: (team.age_groups || []).map(ag => ag.id),
         gameTypeIds: gameTypeIds,
@@ -822,7 +880,11 @@ export default {
         selectedTeam.value = teams.value.find(
           t => t.id === selectedTeam.value.id
         );
-        mappingForm.value = { age_group_id: '', division_id: '' };
+        mappingForm.value = {
+          league_id: '',
+          age_group_id: '',
+          division_id: '',
+        };
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -861,7 +923,7 @@ export default {
     const closeMappingsModal = () => {
       showMappingsModal.value = false;
       selectedTeam.value = null;
-      mappingForm.value = { age_group_id: '', division_id: '' };
+      mappingForm.value = { league_id: '', age_group_id: '', division_id: '' };
     };
 
     const resetForm = () => {
@@ -884,6 +946,7 @@ export default {
         fetchClubs(),
         fetchAgeGroups(),
         fetchDivisions(),
+        fetchLeagues(),
         fetchGameTypes(),
       ]);
     });
@@ -893,6 +956,8 @@ export default {
       clubs,
       ageGroups,
       divisions,
+      leagues,
+      filteredDivisions,
       gameTypes,
       loading,
       formLoading,

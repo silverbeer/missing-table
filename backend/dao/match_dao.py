@@ -1006,6 +1006,12 @@ class MatchDAO:
                     "division_name": match["division"]["name"]
                     if match.get("division")
                     else "Unknown",
+                    "league_id": match["division"]["league_id"]
+                    if match.get("division")
+                    else None,
+                    "league_name": match["division"]["leagues"]["name"]
+                    if match.get("division") and match["division"].get("leagues")
+                    else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
@@ -1703,21 +1709,67 @@ class MatchDAO:
             club_id: The club ID from the clubs table
 
         Returns:
-            List of teams belonging to this club
+            List of teams belonging to this club with team_mappings included
         """
         try:
-            # Use the database function get_club_teams (updated in migration)
-            response = self.client.rpc('get_club_teams', {'p_club_id': club_id}).execute()
-            return response.data
+            # Use the same query structure as get_all_teams but filter by club_id
+            response = (
+                self.client.table("teams")
+                .select("""
+                *,
+                leagues!teams_league_id_fkey (
+                    id,
+                    name
+                ),
+                team_mappings (
+                    age_groups (
+                        id,
+                        name
+                    ),
+                    divisions (
+                        id,
+                        name,
+                        league_id,
+                        leagues!divisions_league_id_fkey (
+                            id,
+                            name
+                        )
+                    )
+                )
+            """)
+                .eq("club_id", club_id)
+                .order("name")
+                .execute()
+            )
+
+            # Process teams to add league_name and age_groups like get_all_teams does
+            teams = []
+            for team in response.data:
+                team_data = {**team}
+                # Extract league name
+                if team.get("leagues"):
+                    team_data["league_name"] = team["leagues"].get("name")
+                else:
+                    team_data["league_name"] = None
+
+                # Extract age groups from team_mappings
+                age_groups = []
+                if team.get("team_mappings"):
+                    seen_age_groups = set()
+                    for mapping in team["team_mappings"]:
+                        if mapping.get("age_groups"):
+                            ag_id = mapping["age_groups"]["id"]
+                            if ag_id not in seen_age_groups:
+                                age_groups.append(mapping["age_groups"])
+                                seen_age_groups.add(ag_id)
+                team_data["age_groups"] = age_groups
+
+                teams.append(team_data)
+
+            return teams
         except Exception as e:
             print(f"Error querying club teams: {e}")
-            # Fallback to manual query
-            try:
-                teams_response = self.client.table("teams").select("*").eq("club_id", club_id).execute()
-                return teams_response.data
-            except Exception as fallback_error:
-                print(f"Error in fallback query: {fallback_error}")
-                return []
+            return []
 
     def get_club_for_team(self, team_id: int) -> dict | None:
         """Get the club for a team.
