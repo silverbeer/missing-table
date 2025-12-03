@@ -98,7 +98,10 @@
         </div>
 
         <div class="hero-actions">
-          <button class="action-btn primary" @click="openEditProfile">
+          <button class="action-btn primary" @click="goToManageClub">
+            Manage Club
+          </button>
+          <button class="action-btn secondary" @click="openEditProfile">
             Edit Profile
           </button>
         </div>
@@ -476,6 +479,8 @@ export default {
 .hero-actions {
   margin-top: auto;
   padding-top: 12px;
+  display: flex;
+  gap: 12px;
 }
 
 .action-btn {
@@ -488,12 +493,21 @@ export default {
 }
 
 .action-btn.primary {
+  background: white;
+  color: #1e3a8a;
+}
+
+.action-btn.primary:hover {
+  background: #f0f9ff;
+}
+
+.action-btn.secondary {
   background: rgba(255, 255, 255, 0.2);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.action-btn.primary:hover {
+.action-btn.secondary:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
