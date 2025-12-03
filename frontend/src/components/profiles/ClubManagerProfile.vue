@@ -146,7 +146,7 @@
           <div class="capability-content">
             <h4>Manage Matches</h4>
             <p>
-              Add match results, update scores, and manage your teams' game
+              Add match results, update scores, and manage your teams' match
               schedules.
             </p>
           </div>
