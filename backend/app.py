@@ -1472,7 +1472,8 @@ async def get_teams(
     age_group_id: int | None = None,
     include_parent: bool = False,
     include_game_count: bool = False,
-    club_id: int | None = None
+    club_id: int | None = None,
+    for_match_edit: bool = False
 ):
     """
     Get teams, optionally filtered by match type, age group, or club.
@@ -1483,8 +1484,19 @@ async def get_teams(
         include_parent: If true, include parent club information
         include_game_count: If true, include count of games for each team (performance optimized)
         club_id: Filter to only teams belonging to this parent club
+        for_match_edit: If true, return all teams (for match editing dropdowns)
+
+    Note: Club managers automatically see only their club's teams unless for_match_edit=true.
     """
     try:
+        # Club managers should only see their club's teams (unless editing matches)
+        user_role = current_user.get('role')
+        user_club_id = current_user.get('club_id')
+
+        if user_role == 'club_manager' and user_club_id and not for_match_edit:
+            # Override any club_id filter - club managers only see their own club
+            club_id = user_club_id
+
         # Get teams based on filters
         if match_type_id and age_group_id:
             teams = match_dao.get_teams_by_match_type_and_age_group(match_type_id, age_group_id)
@@ -1612,7 +1624,10 @@ async def get_matches(
     start_date: str | None = Query(None, description="Filter by start date (YYYY-MM-DD)"),
     end_date: str | None = Query(None, description="Filter by end date (YYYY-MM-DD)")
 ):
-    """Get all matches with optional filters (requires authentication)."""
+    """Get all matches with optional filters (requires authentication).
+
+    Note: Club managers only see matches involving their club's teams.
+    """
     try:
         client_ip = get_client_ip(request)
         matches = match_dao.get_all_matches(
@@ -1625,6 +1640,22 @@ async def get_matches(
             start_date=start_date,
             end_date=end_date
         )
+
+        # Club managers only see matches involving their club's teams
+        user_role = current_user.get('role')
+        user_club_id = current_user.get('club_id')
+
+        if user_role == 'club_manager' and user_club_id:
+            # Get the team IDs for this club
+            club_teams = match_dao.get_club_teams(user_club_id)
+            club_team_ids = {team['id'] for team in club_teams}
+
+            # Filter matches to only those involving club's teams
+            matches = [
+                m for m in matches
+                if m.get('home_team_id') in club_team_ids or m.get('away_team_id') in club_team_ids
+            ]
+
         return matches
     except Exception as e:
         logger.error(f"Error retrieving matches: {e!s}")
@@ -2309,6 +2340,24 @@ async def get_clubs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/clubs/{club_id}")
+async def get_club(
+    club_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """Get a single club by ID."""
+    try:
+        clubs = match_dao.get_all_clubs()
+        club = next((c for c in clubs if c['id'] == club_id), None)
+        if not club:
+            raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
+        return club
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching club: {e!s}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/clubs/{club_id}/teams")
 async def get_club_teams(
     club_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)
@@ -2490,14 +2539,25 @@ async def delete_club(
 # Team Mappings CRUD
 @app.post("/api/team-mappings")
 async def create_team_mapping(
-    mapping: TeamMappingCreate, current_user: dict[str, Any] = Depends(require_admin)
+    mapping: TeamMappingCreate, current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
 ):
-    """Create a team mapping (admin only)."""
+    """Create a team mapping (admin or club_manager for their club's teams)."""
     try:
+        user_role = current_user.get('role')
+        user_club_id = current_user.get('club_id')
+
+        # Club managers can only add mappings to their own club's teams
+        if user_role == 'club_manager':
+            team = match_dao.get_team_by_id(mapping.team_id)
+            if not team or team.get('club_id') != user_club_id:
+                raise HTTPException(status_code=403, detail="You can only manage teams in your club")
+
         result = match_dao.create_team_mapping(
             mapping.team_id, mapping.age_group_id, mapping.division_id
         )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating team mapping: {e!s}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2508,10 +2568,19 @@ async def delete_team_mapping(
     team_id: int,
     age_group_id: int,
     division_id: int,
-    current_user: dict[str, Any] = Depends(require_admin),
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
-    """Delete a team mapping (admin only)."""
+    """Delete a team mapping (admin or club_manager for their club's teams)."""
     try:
+        user_role = current_user.get('role')
+        user_club_id = current_user.get('club_id')
+
+        # Club managers can only delete mappings from their own club's teams
+        if user_role == 'club_manager':
+            team = match_dao.get_team_by_id(team_id)
+            if not team or team.get('club_id') != user_club_id:
+                raise HTTPException(status_code=403, detail="You can only manage teams in your club")
+
         result = match_dao.delete_team_mapping(team_id, age_group_id, division_id)
         if not result:
             raise HTTPException(status_code=404, detail="Team mapping not found")

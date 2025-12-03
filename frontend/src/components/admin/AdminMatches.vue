@@ -31,6 +31,17 @@
         </select>
 
         <select
+          v-model="filterLeague"
+          @change="fetchMatches"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Leagues</option>
+          <option v-for="league in leagues" :key="league.id" :value="league.id">
+            {{ league.name }}
+          </option>
+        </select>
+
+        <select
           v-model="filterAgeGroup"
           @change="fetchMatches"
           class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -98,6 +109,11 @@
             <th
               class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
             >
+              League
+            </th>
+            <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+            >
               Season
             </th>
             <th
@@ -151,6 +167,14 @@
                 :class="getMatchTypeClass(match.match_type_name)"
               >
                 {{ match.match_type_name }}
+              </span>
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                :class="getLeagueClass(match.league_name)"
+              >
+                {{ match.league_name }}
               </span>
             </td>
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -394,6 +418,7 @@ export default {
     const seasons = ref([]);
     const matchTypes = ref([]);
     const ageGroups = ref([]);
+    const leagues = ref([]);
     const loading = ref(true);
     const formLoading = ref(false);
     const error = ref(null);
@@ -401,6 +426,7 @@ export default {
     const editingMatch = ref(null);
     const filterSeason = ref('');
     const filterMatchType = ref('');
+    const filterLeague = ref('');
     const filterAgeGroup = ref('');
 
     const editFormData = ref({
@@ -439,9 +465,17 @@ export default {
           url += `?${params.toString()}`;
         }
 
-        const response = await authStore.apiRequest(url, {
+        let response = await authStore.apiRequest(url, {
           method: 'GET',
         });
+
+        // Apply league filter client-side
+        if (filterLeague.value) {
+          response = response.filter(
+            m => m.league_id === parseInt(filterLeague.value)
+          );
+        }
+
         matches.value = response;
       } catch (err) {
         error.value = err.message;
@@ -452,25 +486,37 @@ export default {
 
     const fetchReferenceData = async () => {
       try {
-        const [teamsData, seasonsData, matchTypesData, ageGroupsData] =
-          await Promise.all([
-            authStore.apiRequest(`${getApiBaseUrl()}/api/teams`, {
+        const [
+          teamsData,
+          seasonsData,
+          matchTypesData,
+          ageGroupsData,
+          leaguesData,
+        ] = await Promise.all([
+          authStore.apiRequest(
+            `${getApiBaseUrl()}/api/teams?for_match_edit=true`,
+            {
               method: 'GET',
-            }),
-            authStore.apiRequest(`${getApiBaseUrl()}/api/seasons`, {
-              method: 'GET',
-            }),
-            authStore.apiRequest(`${getApiBaseUrl()}/api/match-types`, {
-              method: 'GET',
-            }),
-            authStore.apiRequest(`${getApiBaseUrl()}/api/age-groups`, {
-              method: 'GET',
-            }),
-          ]);
+            }
+          ),
+          authStore.apiRequest(`${getApiBaseUrl()}/api/seasons`, {
+            method: 'GET',
+          }),
+          authStore.apiRequest(`${getApiBaseUrl()}/api/match-types`, {
+            method: 'GET',
+          }),
+          authStore.apiRequest(`${getApiBaseUrl()}/api/age-groups`, {
+            method: 'GET',
+          }),
+          authStore.apiRequest(`${getApiBaseUrl()}/api/leagues`, {
+            method: 'GET',
+          }),
+        ]);
 
         teams.value = teamsData;
         seasons.value = seasonsData;
         matchTypes.value = matchTypesData;
+        leagues.value = leaguesData || [];
         if (ageGroupsData) {
           ageGroups.value = ageGroupsData;
           // Set U14 as default filter
@@ -496,6 +542,15 @@ export default {
         Playoff: 'bg-orange-100 text-orange-800',
       };
       return classes[matchTypeName] || 'bg-gray-100 text-gray-800';
+    };
+
+    const getLeagueClass = leagueName => {
+      const classes = {
+        Homegrown: 'bg-green-100 text-green-800',
+        Academy: 'bg-purple-100 text-purple-800',
+        'Kick Futsal': 'bg-orange-100 text-orange-800',
+      };
+      return classes[leagueName] || 'bg-gray-100 text-gray-800';
     };
 
     const getStatusClass = status => {
@@ -631,6 +686,7 @@ export default {
       seasons,
       matchTypes,
       ageGroups,
+      leagues,
       loading,
       formLoading,
       error,
@@ -638,10 +694,12 @@ export default {
       editFormData,
       filterSeason,
       filterMatchType,
+      filterLeague,
       filterAgeGroup,
       fetchMatches,
       formatDate,
       getMatchTypeClass,
+      getLeagueClass,
       getStatusClass,
       getStatusDisplay,
       editMatch,
