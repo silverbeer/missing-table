@@ -385,10 +385,7 @@ export default {
   width: 140px;
   height: 140px;
   border-radius: 12px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
   object-fit: contain;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 8px;
 }
 
 .club-logo-placeholder {
