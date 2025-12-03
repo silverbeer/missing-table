@@ -152,53 +152,6 @@
       </div>
     </div>
 
-    <!-- Club Teams Overview -->
-    <div class="teams-section">
-      <div class="section-header">
-        <h3>Your Club's Teams</h3>
-        <button class="view-all-link" @click="goToManageClub">
-          Manage Club &rarr;
-        </button>
-      </div>
-      <div v-if="loadingTeams" class="loading">Loading teams...</div>
-      <div v-else-if="clubTeams.length === 0" class="no-teams">
-        <p>No teams have been added to your club yet.</p>
-        <button class="add-team-btn" @click="goToManageClub">
-          Add Your First Team
-        </button>
-      </div>
-      <div v-else class="teams-grid">
-        <div v-for="team in clubTeams" :key="team.id" class="team-card">
-          <div class="team-header">
-            <h4>{{ team.name }}</h4>
-            <span v-if="team.age_group_name" class="age-badge">{{
-              team.age_group_name
-            }}</span>
-          </div>
-          <div class="team-details">
-            <div v-if="team.division_name" class="team-meta">
-              <span class="meta-label">Division:</span>
-              <span>{{ team.division_name }}</span>
-            </div>
-            <div v-if="team.league_name" class="team-meta">
-              <span class="meta-label">League:</span>
-              <span>{{ team.league_name }}</span>
-            </div>
-          </div>
-          <div class="team-stats">
-            <div class="team-stat">
-              <span class="stat-value">{{ team.player_count || 0 }}</span>
-              <span class="stat-name">Players</span>
-            </div>
-            <div class="team-stat">
-              <span class="stat-value">{{ team.match_count || 0 }}</span>
-              <span class="stat-name">Matches</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- No Club Assigned -->
     <div v-if="!club" class="no-club-card">
       <h3>No Club Assigned</h3>
@@ -221,7 +174,6 @@ export default {
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const clubTeams = ref([]);
-    const loadingTeams = ref(false);
     const showEditProfile = ref(false);
     const saving = ref(false);
     const emailError = ref('');
@@ -330,15 +282,12 @@ export default {
       if (!clubId) return;
 
       try {
-        loadingTeams.value = true;
         const response = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/clubs/${clubId}/teams`
         );
         clubTeams.value = response || [];
       } catch (error) {
         console.error('Error fetching club teams:', error);
-      } finally {
-        loadingTeams.value = false;
       }
     };
 
@@ -358,7 +307,6 @@ export default {
       authStore,
       club,
       clubTeams,
-      loadingTeams,
       displayName,
       clubColors,
       heroCardStyle,
@@ -636,148 +584,6 @@ export default {
   color: #3b82f6;
 }
 
-/* Teams Section */
-.teams-section {
-  margin-bottom: 24px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-header h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.view-all-link {
-  font-size: 14px;
-  color: #3b82f6;
-  text-decoration: none;
-  font-weight: 500;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.view-all-link:hover {
-  text-decoration: underline;
-}
-
-.teams-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.team-card {
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 20px;
-  transition: all 0.2s;
-}
-
-.team-card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.team-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.team-header h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.age-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.team-details {
-  margin-bottom: 16px;
-}
-
-.team-meta {
-  display: flex;
-  font-size: 13px;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.meta-label {
-  color: #9ca3af;
-  margin-right: 6px;
-}
-
-.team-stats {
-  display: flex;
-  gap: 24px;
-  padding-top: 12px;
-  border-top: 1px solid #f3f4f6;
-}
-
-.team-stat {
-  display: flex;
-  flex-direction: column;
-}
-
-.team-stat .stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.team-stat .stat-name {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.no-teams {
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 40px;
-  text-align: center;
-}
-
-.no-teams p {
-  color: #6b7280;
-  margin: 0 0 16px 0;
-}
-
-.add-team-btn {
-  display: inline-block;
-  padding: 10px 20px;
-  background: #3b82f6;
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.add-team-btn:hover {
-  background: #2563eb;
-}
-
 /* No Club */
 .no-club-card {
   background: #fef2f2;
@@ -795,12 +601,6 @@ export default {
 .no-club-card p {
   color: #6b7280;
   margin: 0;
-}
-
-.loading {
-  text-align: center;
-  color: #6b7280;
-  padding: 40px;
 }
 
 /* Modal Styles */
@@ -906,7 +706,9 @@ export default {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .cancel-btn:hover {
@@ -920,7 +722,9 @@ export default {
   border: none;
   border-radius: 8px;
   font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
+  white-space: nowrap;
   transition:
     background-color 0.2s ease,
     opacity 0.2s ease;
@@ -964,16 +768,6 @@ export default {
 
   .capabilities-grid {
     grid-template-columns: 1fr;
-  }
-
-  .teams-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
   }
 }
 
