@@ -2032,7 +2032,9 @@ class MatchDAO:
 
     def get_team_players(self, team_id: int) -> list[dict]:
         """
-        Get all players on a team for the team roster page.
+        Get all players currently on a team for the team roster page.
+
+        Uses player_team_history to support multi-team players.
 
         Returns player profiles with fields needed for player cards:
         - id, display_name, player_number, positions
@@ -2047,24 +2049,47 @@ class MatchDAO:
             List of player profile dicts
         """
         try:
-            response = self.client.table('user_profiles').select('''
-                id,
-                display_name,
-                player_number,
+            # Query player_team_history for current team members
+            response = self.client.table('player_team_history').select('''
+                player_id,
+                jersey_number,
                 positions,
-                photo_1_url,
-                photo_2_url,
-                photo_3_url,
-                profile_photo_slot,
-                overlay_style,
-                primary_color,
-                text_color,
-                accent_color,
-                instagram_handle,
-                snapchat_handle,
-                tiktok_handle
-            ''').eq('team_id', team_id).eq('role', 'team-player').order('player_number').execute()
-            return response.data or []
+                user_profiles!player_team_history_player_id_fkey(
+                    id,
+                    display_name,
+                    player_number,
+                    positions,
+                    photo_1_url,
+                    photo_2_url,
+                    photo_3_url,
+                    profile_photo_slot,
+                    overlay_style,
+                    primary_color,
+                    text_color,
+                    accent_color,
+                    instagram_handle,
+                    snapchat_handle,
+                    tiktok_handle
+                )
+            ''').eq('team_id', team_id).eq('is_current', True).execute()
+
+            # Flatten the results - extract user_profiles and merge with history data
+            players = []
+            for entry in response.data or []:
+                profile = entry.get('user_profiles')
+                if profile:
+                    # Use jersey_number from history if available, fallback to profile
+                    player = {**profile}
+                    if entry.get('jersey_number') is not None:
+                        player['player_number'] = entry['jersey_number']
+                    # Use positions from history if available, fallback to profile
+                    if entry.get('positions'):
+                        player['positions'] = entry['positions']
+                    players.append(player)
+
+            # Sort by player_number
+            players.sort(key=lambda p: p.get('player_number') or 999)
+            return players
         except Exception as e:
             logger.error(f"Error fetching team players for team {team_id}: {e}")
             return []
