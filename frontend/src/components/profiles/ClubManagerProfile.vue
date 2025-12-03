@@ -47,12 +47,6 @@
   </div>
 
   <div class="club-manager-dashboard">
-    <!-- Header -->
-    <div class="dashboard-header">
-      <h1>Club Manager Dashboard</h1>
-      <button @click="handleLogout" class="logout-btn">Logout</button>
-    </div>
-
     <!-- Hero Card with Club Info -->
     <div class="hero-card" :style="heroCardStyle">
       <div class="hero-logo">
@@ -185,7 +179,7 @@ import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'ClubManagerProfile',
-  emits: ['logout', 'switch-tab'],
+  emits: ['switch-tab'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const clubTeams = ref([]);
@@ -306,13 +300,6 @@ export default {
       }
     };
 
-    const handleLogout = async () => {
-      if (confirm('Are you sure you want to log out?')) {
-        await authStore.logout();
-        emit('logout');
-      }
-    };
-
     onMounted(() => {
       fetchClubTeams();
       initEditForm();
@@ -328,7 +315,6 @@ export default {
       totalMatches,
       totalPlayers,
       formatDate,
-      handleLogout,
       goToManageClub,
       showEditProfile,
       openEditProfile,
@@ -346,36 +332,6 @@ export default {
   max-width: 1000px;
   margin: 0 auto;
   padding: 20px;
-}
-
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.dashboard-header h1 {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0;
-}
-
-.logout-btn {
-  background-color: #6b7280;
-  color: white;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.logout-btn:hover {
-  background-color: #4b5563;
 }
 
 /* Hero Card */
