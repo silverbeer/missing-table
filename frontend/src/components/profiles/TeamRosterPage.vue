@@ -1,5 +1,25 @@
 <template>
   <div class="team-roster-page">
+    <!-- Club Teams Dropdown -->
+    <div v-if="clubTeams.length > 1" class="club-teams-dropdown-container">
+      <label class="dropdown-label">Club Teams:</label>
+      <select
+        v-model="selectedClubTeamId"
+        @change="onClubTeamChange"
+        class="club-teams-dropdown"
+      >
+        <option
+          v-for="clubTeam in clubTeams"
+          :key="clubTeam.id"
+          :value="clubTeam.id"
+        >
+          {{ isPlayerOnTeam(clubTeam.id) ? '★ ' : '' }}{{ clubTeam.name }}
+          {{ clubTeam.age_group?.name ? `(${clubTeam.age_group.name})` : '' }}
+        </option>
+      </select>
+      <span class="dropdown-hint">★ = My Team</span>
+    </div>
+
     <!-- Loading state -->
     <div v-if="loading" class="loading-container">
       <div class="loading-spinner"></div>
@@ -37,7 +57,7 @@
 
           <!-- Team info -->
           <div class="team-info-container">
-            <h1 class="team-name">{{ teamName }}</h1>
+            <h2 class="team-name">{{ teamName }}</h2>
             <p class="club-name" v-if="team?.club?.name">
               {{ team.club.name }}
             </p>
@@ -158,7 +178,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import PlayerCard from './PlayerCard.vue';
@@ -175,6 +195,14 @@ export default {
     const error = ref(null);
     const team = ref(null);
     const players = ref([]);
+
+    // Multi-team support
+    const currentTeams = ref([]);
+    const selectedTeamId = ref(null);
+
+    // Club teams dropdown
+    const clubTeams = ref([]);
+    const selectedClubTeamId = ref(null);
 
     // Get team name
     const teamName = computed(() => {
@@ -217,15 +245,35 @@ export default {
       };
     });
 
+    // Fetch all current teams for the player
+    const fetchCurrentTeams = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/auth/profile/teams/current`,
+          { method: 'GET' }
+        );
+        if (response.success && response.teams) {
+          currentTeams.value = response.teams;
+          // Set initial selected team
+          if (response.teams.length > 0 && !selectedTeamId.value) {
+            selectedTeamId.value = response.teams[0].team_id;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching current teams:', err);
+      }
+    };
+
     // Fetch team players from API
-    const fetchTeamPlayers = async () => {
+    const fetchTeamPlayers = async (teamId = null) => {
       loading.value = true;
       error.value = null;
 
       try {
-        // Get user's team_id from auth store
-        const teamId = authStore.state.profile?.team_id;
-        if (!teamId) {
+        // Use provided teamId or selectedTeamId or user's team_id
+        const targetTeamId =
+          teamId || selectedTeamId.value || authStore.state.profile?.team_id;
+        if (!targetTeamId) {
           error.value = 'You are not assigned to a team';
           loading.value = false;
           return;
@@ -233,7 +281,7 @@ export default {
 
         const token = localStorage.getItem('auth_token');
         const response = await fetch(
-          `${getApiBaseUrl()}/api/teams/${teamId}/players`,
+          `${getApiBaseUrl()}/api/teams/${targetTeamId}/players`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -269,13 +317,62 @@ export default {
       }
     };
 
+    // Fetch all teams in the player's club
+    const fetchClubTeams = async () => {
+      const clubId = team.value?.club?.id;
+      if (!clubId) return;
+
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/clubs/${clubId}/teams`,
+          { method: 'GET' }
+        );
+        if (Array.isArray(response)) {
+          clubTeams.value = response;
+          // Set initial selected club team to current team
+          if (!selectedClubTeamId.value && team.value?.id) {
+            selectedClubTeamId.value = team.value.id;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching club teams:', err);
+      }
+    };
+
+    // Handle team selection change (for multi-team players - deprecated)
+    const onTeamChange = async () => {
+      await fetchTeamPlayers(selectedTeamId.value);
+      await fetchClubTeams();
+    };
+
+    // Handle club team dropdown change
+    const onClubTeamChange = async () => {
+      await fetchTeamPlayers(selectedClubTeamId.value);
+    };
+
+    // Check if player is on a specific team
+    const isPlayerOnTeam = teamId => {
+      return currentTeams.value.some(t => t.team_id === teamId);
+    };
+
     // Handle player card click
     const handlePlayerClick = player => {
       emit('viewPlayer', player);
     };
 
-    onMounted(() => {
-      fetchTeamPlayers();
+    // Watch for team data to load club teams
+    watch(
+      () => team.value?.club?.id,
+      async clubId => {
+        if (clubId) {
+          await fetchClubTeams();
+        }
+      }
+    );
+
+    onMounted(async () => {
+      await fetchCurrentTeams();
+      await fetchTeamPlayers();
     });
 
     return {
@@ -290,6 +387,15 @@ export default {
       logoPlaceholderStyle,
       fetchTeamPlayers,
       handlePlayerClick,
+      // Multi-team support
+      currentTeams,
+      selectedTeamId,
+      onTeamChange,
+      // Club teams dropdown
+      clubTeams,
+      selectedClubTeamId,
+      onClubTeamChange,
+      isPlayerOnTeam,
     };
   },
 };
@@ -300,6 +406,47 @@ export default {
   padding: 16px;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* Club Teams Dropdown */
+.club-teams-dropdown-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 10px;
+}
+
+.dropdown-label {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.club-teams-dropdown {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.club-teams-dropdown:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.dropdown-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
 }
 
 /* Loading state */
@@ -527,6 +674,10 @@ export default {
   color: #6b7280;
 }
 
+.empty-state.small {
+  padding: 24px 16px;
+}
+
 .empty-icon {
   width: 64px;
   height: 64px;
@@ -594,6 +745,18 @@ export default {
 }
 
 /* Mobile adjustments */
+@media (max-width: 640px) {
+  .club-teams-dropdown-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .dropdown-hint {
+    text-align: center;
+  }
+}
+
 @media (max-width: 480px) {
   .team-roster-page {
     padding: 12px;
