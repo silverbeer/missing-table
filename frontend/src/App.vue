@@ -249,8 +249,8 @@
             <ProfileRouter @logout="handleLogout" />
           </div>
 
-          <!-- My Team (players only) -->
-          <div v-if="currentTab === 'my-team'" class="p-4">
+          <!-- My Club (players only) -->
+          <div v-if="currentTab === 'my-club'" class="p-4">
             <TeamRosterRouter />
           </div>
 
@@ -323,8 +323,8 @@ export default {
       },
       { id: 'profile', name: 'Profile', requiresAuth: true },
       {
-        id: 'my-team',
-        name: 'My Team',
+        id: 'my-club',
+        name: 'My Club',
         requiresAuth: true,
         requiresRole: ['team-player'],
       },

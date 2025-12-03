@@ -1,5 +1,27 @@
 <template>
   <div class="team-roster-page">
+    <!-- Page Header with Team Selector -->
+    <div class="page-header">
+      <h1>My Club</h1>
+      <!-- Team Selector for multi-team players -->
+      <div v-if="currentTeams.length > 1" class="team-selector-container">
+        <label class="team-selector-label">Viewing:</label>
+        <select
+          v-model="selectedTeamId"
+          @change="onTeamChange"
+          class="team-selector"
+        >
+          <option
+            v-for="teamEntry in currentTeams"
+            :key="teamEntry.team_id"
+            :value="teamEntry.team_id"
+          >
+            {{ teamEntry.team?.name || 'Unknown Team' }}
+          </option>
+        </select>
+      </div>
+    </div>
+
     <!-- Loading state -->
     <div v-if="loading" class="loading-container">
       <div class="loading-spinner"></div>
@@ -37,7 +59,7 @@
 
           <!-- Team info -->
           <div class="team-info-container">
-            <h1 class="team-name">{{ teamName }}</h1>
+            <h2 class="team-name">{{ teamName }}</h2>
             <p class="club-name" v-if="team?.club?.name">
               {{ team.club.name }}
             </p>
@@ -153,12 +175,118 @@
           @click="handlePlayerClick"
         />
       </div>
+
+      <!-- Browse Club Teams Section -->
+      <div
+        v-if="currentClub && clubTeams.length > 0"
+        class="browse-club-section"
+      >
+        <div class="browse-club-header">
+          <h3>Browse {{ currentClub.name }} Teams</h3>
+          <span class="team-count">{{ clubTeams.length }} teams</span>
+        </div>
+        <div class="club-teams-grid">
+          <div
+            v-for="clubTeam in clubTeams"
+            :key="clubTeam.id"
+            class="club-team-card"
+            :class="{ 'is-my-team': isPlayerOnTeam(clubTeam.id) }"
+            @click="viewTeamRoster(clubTeam)"
+          >
+            <div class="team-card-header">
+              <div class="team-logo">
+                <img
+                  v-if="currentClub.logo_url"
+                  :src="currentClub.logo_url"
+                  :alt="currentClub.name"
+                  class="team-logo-img"
+                />
+                <div v-else class="team-logo-placeholder">
+                  {{ getClubInitials(currentClub.name) }}
+                </div>
+              </div>
+              <div class="team-card-info">
+                <div class="team-card-name">{{ clubTeam.name }}</div>
+                <div class="team-card-details">
+                  <span v-if="clubTeam.age_group?.name" class="age-group-tag">
+                    {{ clubTeam.age_group.name }}
+                  </span>
+                  <span v-if="clubTeam.division?.name" class="division-tag">
+                    {{ clubTeam.division.name }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <span v-if="isPlayerOnTeam(clubTeam.id)" class="team-card-badge"
+              >My Team</span
+            >
+          </div>
+        </div>
+      </div>
     </template>
+
+    <!-- Team Roster Modal -->
+    <div
+      v-if="showTeamRoster"
+      class="roster-modal"
+      @click.self="showTeamRoster = false"
+    >
+      <div class="roster-modal-content">
+        <div class="modal-header">
+          <h3>{{ viewingTeam?.name }} Roster</h3>
+          <button class="close-btn" @click="showTeamRoster = false">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loadingRoster" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>Loading roster...</p>
+          </div>
+          <div v-else-if="rosterPlayers.length === 0" class="empty-state small">
+            <p>No players on this team yet</p>
+          </div>
+          <div v-else class="roster-grid">
+            <div
+              v-for="player in rosterPlayers"
+              :key="player.id"
+              class="roster-player-card"
+              @click="viewPlayerDetail(player)"
+            >
+              <div class="player-avatar">
+                <img
+                  v-if="player.profile_photo_url"
+                  :src="player.profile_photo_url"
+                  :alt="player.display_name"
+                  class="avatar-img"
+                />
+                <div v-else class="avatar-placeholder">
+                  {{ (player.display_name || 'P').charAt(0).toUpperCase() }}
+                </div>
+              </div>
+              <div class="player-info">
+                <div class="player-name-row">
+                  <span class="name">{{
+                    player.display_name || 'Player'
+                  }}</span>
+                  <span v-if="player.player_number" class="jersey"
+                    >#{{ player.player_number }}</span
+                  >
+                </div>
+                <div v-if="player.positions?.length" class="player-position">
+                  {{ player.positions.join(', ') }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import PlayerCard from './PlayerCard.vue';
@@ -175,6 +303,22 @@ export default {
     const error = ref(null);
     const team = ref(null);
     const players = ref([]);
+
+    // Multi-team support
+    const currentTeams = ref([]);
+    const selectedTeamId = ref(null);
+
+    // Club browsing
+    const clubTeams = ref([]);
+    const showTeamRoster = ref(false);
+    const viewingTeam = ref(null);
+    const rosterPlayers = ref([]);
+    const loadingRoster = ref(false);
+
+    // Get current club from selected team
+    const currentClub = computed(() => {
+      return team.value?.club || null;
+    });
 
     // Get team name
     const teamName = computed(() => {
@@ -217,15 +361,35 @@ export default {
       };
     });
 
+    // Fetch all current teams for the player
+    const fetchCurrentTeams = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/auth/profile/teams/current`,
+          { method: 'GET' }
+        );
+        if (response.success && response.teams) {
+          currentTeams.value = response.teams;
+          // Set initial selected team
+          if (response.teams.length > 0 && !selectedTeamId.value) {
+            selectedTeamId.value = response.teams[0].team_id;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching current teams:', err);
+      }
+    };
+
     // Fetch team players from API
-    const fetchTeamPlayers = async () => {
+    const fetchTeamPlayers = async (teamId = null) => {
       loading.value = true;
       error.value = null;
 
       try {
-        // Get user's team_id from auth store
-        const teamId = authStore.state.profile?.team_id;
-        if (!teamId) {
+        // Use provided teamId or selectedTeamId or user's team_id
+        const targetTeamId =
+          teamId || selectedTeamId.value || authStore.state.profile?.team_id;
+        if (!targetTeamId) {
           error.value = 'You are not assigned to a team';
           loading.value = false;
           return;
@@ -233,7 +397,7 @@ export default {
 
         const token = localStorage.getItem('auth_token');
         const response = await fetch(
-          `${getApiBaseUrl()}/api/teams/${teamId}/players`,
+          `${getApiBaseUrl()}/api/teams/${targetTeamId}/players`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -269,13 +433,101 @@ export default {
       }
     };
 
+    // Fetch all teams in the player's club
+    const fetchClubTeams = async () => {
+      const clubId = team.value?.club?.id;
+      if (!clubId) return;
+
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/clubs/${clubId}/teams`,
+          { method: 'GET' }
+        );
+        if (Array.isArray(response)) {
+          clubTeams.value = response;
+        }
+      } catch (err) {
+        console.error('Error fetching club teams:', err);
+      }
+    };
+
+    // Handle team selection change
+    const onTeamChange = async () => {
+      await fetchTeamPlayers(selectedTeamId.value);
+      await fetchClubTeams();
+    };
+
+    // Check if player is on a specific team
+    const isPlayerOnTeam = teamId => {
+      return currentTeams.value.some(t => t.team_id === teamId);
+    };
+
+    // Get club initials helper
+    const getClubInitials = name => {
+      if (!name) return '?';
+      return name
+        .split(' ')
+        .map(w => w[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase();
+    };
+
+    // View another team's roster
+    const viewTeamRoster = async clubTeam => {
+      viewingTeam.value = clubTeam;
+      showTeamRoster.value = true;
+      loadingRoster.value = true;
+      rosterPlayers.value = [];
+
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(
+          `${getApiBaseUrl()}/api/teams/${clubTeam.id}/players`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            rosterPlayers.value = data.players || [];
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching team roster:', err);
+      } finally {
+        loadingRoster.value = false;
+      }
+    };
+
+    // View player detail
+    const viewPlayerDetail = player => {
+      emit('viewPlayer', player);
+    };
+
     // Handle player card click
     const handlePlayerClick = player => {
       emit('viewPlayer', player);
     };
 
-    onMounted(() => {
-      fetchTeamPlayers();
+    // Watch for team data to load club teams
+    watch(
+      () => team.value?.club?.id,
+      async clubId => {
+        if (clubId) {
+          await fetchClubTeams();
+        }
+      }
+    );
+
+    onMounted(async () => {
+      await fetchCurrentTeams();
+      await fetchTeamPlayers();
     });
 
     return {
@@ -290,6 +542,22 @@ export default {
       logoPlaceholderStyle,
       fetchTeamPlayers,
       handlePlayerClick,
+      // Multi-team support
+      currentTeams,
+      selectedTeamId,
+      onTeamChange,
+      // Club browsing
+      currentClub,
+      clubTeams,
+      isPlayerOnTeam,
+      getClubInitials,
+      viewTeamRoster,
+      // Roster modal
+      showTeamRoster,
+      viewingTeam,
+      rosterPlayers,
+      loadingRoster,
+      viewPlayerDetail,
     };
   },
 };
@@ -300,6 +568,50 @@ export default {
   padding: 16px;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* Page Header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+/* Team Selector */
+.team-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-selector-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.team-selector {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.team-selector:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Loading state */
@@ -527,6 +839,10 @@ export default {
   color: #6b7280;
 }
 
+.empty-state.small {
+  padding: 24px 16px;
+}
+
 .empty-icon {
   width: 64px;
   height: 64px;
@@ -566,6 +882,267 @@ export default {
   grid-template-columns: repeat(2, 1fr);
 }
 
+/* Browse Club Section */
+.browse-club-section {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-top: 24px;
+}
+
+.browse-club-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.browse-club-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.team-count {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.club-teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.club-team-card {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  position: relative;
+}
+
+.club-team-card:hover {
+  background: #f3f4f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.club-team-card.is-my-team {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.team-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-logo {
+  flex-shrink: 0;
+}
+
+.team-logo-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.team-logo-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #6b7280;
+}
+
+.team-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-card-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 15px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-card-details {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.age-group-tag,
+.division-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.team-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  background: #3b82f6;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Roster Modal */
+.roster-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 40px 20px;
+}
+
+.roster-modal-content {
+  width: 100%;
+  max-width: 700px;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #1f2937;
+}
+
+.modal-body {
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.roster-player-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.roster-player-card:hover {
+  background: #f3f4f6;
+}
+
+.player-avatar {
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.player-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.player-info .player-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-info .name {
+  font-weight: 500;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-info .jersey {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.player-position {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
 /* Tablet: 3 columns */
 @media (min-width: 640px) {
   .player-grid {
@@ -594,6 +1171,31 @@ export default {
 }
 
 /* Mobile adjustments */
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .team-selector-container {
+    width: 100%;
+  }
+
+  .team-selector {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .club-teams-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .roster-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 480px) {
   .team-roster-page {
     padding: 12px;
