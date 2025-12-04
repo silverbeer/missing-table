@@ -21,6 +21,47 @@ from supabase import create_client
 app = typer.Typer()
 console = Console()
 
+# Valid roles matching the database constraint (user_profiles_role_check)
+VALID_ROLES = {
+    'admin',
+    'club_manager', 'club-manager',
+    'club_fan', 'club-fan',
+    'team_manager', 'team-manager',
+    'team_player', 'team-player',
+    'team_fan', 'team-fan',
+}
+
+def validate_role(role: str) -> tuple[bool, str]:
+    """
+    Validate a role against the database constraint.
+    Returns (is_valid, error_message).
+    """
+    if role in VALID_ROLES:
+        return True, ""
+
+    # Try to suggest a correction
+    suggestions = []
+    role_lower = role.lower()
+    for valid_role in VALID_ROLES:
+        # Check for common typos using simple edit distance approximation
+        if role_lower in valid_role or valid_role in role_lower:
+            suggestions.append(valid_role)
+        # Check if only 1-2 chars different
+        elif len(role) == len(valid_role):
+            diff = sum(1 for a, b in zip(role_lower, valid_role) if a != b)
+            if diff <= 2:
+                suggestions.append(valid_role)
+
+    # Deduplicate and format suggestions
+    suggestions = list(set(suggestions))
+
+    error_msg = f"Invalid role: '{role}'"
+    if suggestions:
+        error_msg += f"\n  Did you mean: {', '.join(suggestions)}?"
+    error_msg += f"\n  Valid roles: {', '.join(sorted(VALID_ROLES))}"
+
+    return False, error_msg
+
 def load_environment():
     """Load environment variables based on APP_ENV or default to dev."""
     load_dotenv()
@@ -596,7 +637,7 @@ def password_command(
 def create_command(
     email: str = typer.Option(..., "--email", "-e", help="User email"),
     password: Optional[str] = typer.Option(None, "--password", "-p", help="New password (if not provided, will prompt)"),
-    role: str = typer.Option("user", "--role", "-r", help="User role"),
+    role: str = typer.Option("team_fan", "--role", "-r", help="User role (admin, club_manager, club_fan, team_manager, team_player, team_fan)"),
     display_name: Optional[str] = typer.Option(None, "--display-name", "-n", help="Display name for new users"),
     club_id: Optional[int] = typer.Option(None, "--club-id", "-c", help="Club ID for club_manager role"),
     generate: bool = typer.Option(False, "--generate", "-g", help="Generate secure password"),
@@ -605,6 +646,12 @@ def create_command(
     """Create a new user."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
     console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    # Validate role before proceeding
+    is_valid, error_msg = validate_role(role)
+    if not is_valid:
+        console.print(f"[red]❌ {error_msg}[/red]")
+        raise typer.Exit(1)
 
     if not confirm:
         if not Confirm.ask(f"⚠️  Create user {email} with role {role}?"):
@@ -628,12 +675,18 @@ def create_command(
 @app.command("role")
 def role_command(
     user: str = typer.Option(..., "--user", "-u", help="Username or email"),
-    role: str = typer.Option(..., "--role", "-r", help="New role"),
+    role: str = typer.Option(..., "--role", "-r", help="New role (admin, club_manager, club_fan, team_manager, team_player, team_fan)"),
     confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts")
 ):
     """Update a user's role (accepts username or email)."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
     console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    # Validate role before proceeding
+    is_valid, error_msg = validate_role(role)
+    if not is_valid:
+        console.print(f"[red]❌ {error_msg}[/red]")
+        raise typer.Exit(1)
 
     if not confirm:
         if not Confirm.ask(f"⚠️  Change role for {user} to {role}?"):
