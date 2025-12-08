@@ -369,29 +369,37 @@ The dev environment is deployed to GKE with HTTPS and custom domain:
 - [GKE HTTPS & Domain Setup Guide](./docs/GKE_HTTPS_DOMAIN_SETUP.md) - Full step-by-step guide
 - [Quick Reference](./docs/HTTPS_QUICK_REFERENCE.md) - Common commands and troubleshooting
 
-### Production Environment (Consolidated)
+### Production Environment (SHUTDOWN)
 
-**⚠️ INFRASTRUCTURE CONSOLIDATION (2025-11-14):**
-The separate production environment has been **consolidated into missing-table-dev** to reduce GCP costs from **$283/month to $40/month** (84-87% reduction).
+**⚠️ GKE CLUSTER SHUTDOWN (2025-12-07):**
+The GKE Autopilot cluster has been **deleted** to save costs. The application is currently **offline**.
 
-**Current Setup:**
-- **All domains** → `missing-table-dev` namespace (single environment)
-  - https://dev.missingtable.com
-  - https://missingtable.com
-  - https://www.missingtable.com
-- **GKE Cluster:** `missing-table-dev` (single cluster)
-- **Ingress:** nginx ingress controller (migrated from GCE ingress)
-- **SSL:** Let's Encrypt via cert-manager (migrated from Google-managed certificates)
-- **Load Balancer:** Single nginx LB at `34.173.92.110` serving all domains
-- **Database:** Supabase (shared dev/prod project)
+**Current Status:**
+- ❌ **GKE Cluster:** DELETED (was `missing-table-dev` in `us-central1`)
+- ❌ **Artifact Registry:** DELETED (Docker images need rebuild on restart)
+- ❌ **Domains:** NOT RESOLVING (DNS points to deleted IP `34.173.92.110`)
+  - https://dev.missingtable.com - OFFLINE
+  - https://missingtable.com - OFFLINE
+  - https://www.missingtable.com - OFFLINE
+- ✅ **Database:** Supabase STILL ACTIVE (data preserved)
+- ✅ **DNS Zone:** Still exists (~$0.20/month, needs IP update when restarting)
 
-**What Changed:**
-- ❌ Deleted `missing-table-prod` namespace (saved ~$46/month)
-- ❌ Deleted GCE ingress + static IPs (saved ~$25/month)
-- ❌ Removed Google-managed certificates
-- ✅ Single nginx ingress controller with cert-manager (saved ~$60/month)
-- ✅ All domains point to same namespace
-- ✅ Same data, same backend, same deployment process
+**What Was Deleted:**
+- GKE Autopilot cluster `missing-table-dev`
+- Artifact Registry repository (~175 GB of Docker images)
+- All Kubernetes resources (deployments, services, ingress)
+- Nginx ingress controller and cert-manager
+- Let's Encrypt certificates
+
+**Estimated Savings:** ~$40/month (from ~$40/month to ~$0.20/month)
+
+**To Restart:** See [GKE Shutdown Documentation](docs/07-operations/GKE_SHUTDOWN_2025-12-07.md)
+
+**Previous Setup (for reference):**
+- GKE Cluster: `missing-table-dev` (single cluster)
+- Ingress: nginx ingress controller
+- SSL: Let's Encrypt via cert-manager
+- Load Balancer: Single nginx LB at `34.173.92.110`
 
 #### Deployment Workflows
 
@@ -1093,5 +1101,5 @@ This file contains **quick reference commands only**. For comprehensive informat
 
 ---
 
-**Last Updated**: 2025-11-14
+**Last Updated**: 2025-12-07
 **Documentation Standards**: [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
