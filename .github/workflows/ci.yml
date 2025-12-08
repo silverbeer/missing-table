@@ -87,7 +87,7 @@
         - name: Run unit tests
           run: |
             cd backend
-            uv run python run_tests.py --category unit --fail-under 0
+            uv run pytest tests/unit --no-cov -v
       
 
     build-and-push:
