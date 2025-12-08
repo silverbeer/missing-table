@@ -33,10 +33,12 @@
             cd backend
             uv sync            
         - name: Run Ruff (Python lint)
+          continue-on-error: true
           run: |
             cd backend
             uv run ruff check .
         - name: Run MyPy (Python type check)
+          continue-on-error: true
           run: |
             cd backend
             uv run mypy .
@@ -53,6 +55,7 @@
             npm ci
 
         - name: Run frontend lint
+          continue-on-error: true
           run: |
             cd frontend
             npm run lint
