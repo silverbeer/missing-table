@@ -35,5 +35,4 @@ ingress:
 imageCredentials:
   registry: ghcr.io
   username: silverbeer
-  # passwrod will come from --set
-  
+  # password will come from --set
