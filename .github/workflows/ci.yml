@@ -148,4 +148,4 @@
               --set secrets.serviceAccountSecret="${{ secrets.SERVICE_ACCOUNT_SECRET }}" \
               --set imageCredentials.registry=ghcr.io \
               --set imageCredentials.username=${{ github.actor }} \
-              --set imageCredentials.password=${{ secrets.GITHUB_TOKEN }}
+              --set imageCredentials.password=${{ secrets.GHCR_PAT }}
