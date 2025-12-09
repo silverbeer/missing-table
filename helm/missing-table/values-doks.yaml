@@ -31,4 +31,8 @@ ingress:
     - secretName: missing-table-tls  #pragma: allowlist secret
       hosts:
         - missingtable.com
-  
+
+imageCredentials:
+  registry: ghcr.io
+  username: silverbeer
+  # password will come from --set
