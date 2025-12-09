@@ -121,7 +121,7 @@
           uses: actions/checkout@v4
 
         - name: Install doctl (DigitalOcean CLI)
-          uses: digitalocean/action-doctl@v4
+          uses: digitalocean/action-doctl@v2
           with:
             token: ${{ secrets.DIGITALOCEAN_TOKEN }}
 
