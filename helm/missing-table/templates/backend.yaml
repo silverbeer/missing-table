@@ -25,6 +25,10 @@ spec:
         rollout/commitSha: {{ .Values.commitSha | default "unknown" | quote }}
         rollout/buildId: {{ .Values.buildId | default "unknown" | quote }}
     spec:
+      {{- if .Values.imageCredentials }}
+      imagePullSecrets:
+        - name: {{ include "missing-table.fullname" . }}-ghcr
+      {{- end }}
       containers:
       - name: backend
         image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"

@@ -145,4 +145,7 @@
               --set secrets.supabaseAnonKey="${{ secrets.SUPABASE_ANON_KEY }}" \
               --set secrets.supabaseServiceKey="${{ secrets.SUPABASE_SERVICE_KEY }}" \
               --set secrets.supabaseJwtSecret="${{ secrets.SUPABASE_JWT_SECRET }}" \
-              --set secrets.serviceAccountSecret="${{ secrets.SERVICE_ACCOUNT_SECRET }}"
+              --set secrets.serviceAccountSecret="${{ secrets.SERVICE_ACCOUNT_SECRET }}" \
+              --set imageCredentials.registry=ghcr.io \
+              --set imageCredentials.username=${{ github.actor }} \
+              --set imageCredentials.password=${{ secrets.GITHUB_TOKEN }}
