@@ -19,6 +19,14 @@ frontend:
     tag: latest
     pullPolicy: Always
 
+  # Webpack dev server takes ~90s to build on startup
+  livenessProbe:
+    initialDelaySeconds: 120
+    periodSeconds: 10
+  readinessProbe:
+    initialDelaySeconds: 90
+    periodSeconds: 5
+
 ingress:
   enabled: true
   className: nginx
