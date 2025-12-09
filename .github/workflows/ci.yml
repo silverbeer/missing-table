@@ -137,6 +137,6 @@
         - name: Deploy to Kubernetes
           run: |
             helm upgrade --install missing-table ./helm/missing-table \
-              --namespace missing-table-dev \
+              --namespace missing-table \
               --create-namespace \
-              --values ./helm/missing-table/values-dev.yaml
+              --values ./helm/missing-table/values-doks.yaml

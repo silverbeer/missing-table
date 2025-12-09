@@ -122,6 +122,7 @@ terraform/**/.terraform.tfstate.lock.info
 # Keep example files (*.example) but ignore actual values files
 helm/**/values-*.yaml
 !helm/**/values-*.yaml.example
+!helm/**/values-doks.yaml
 
 # Frontend build configuration
 # Keep example files but ignore actual build env files
