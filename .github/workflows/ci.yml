@@ -139,4 +139,10 @@
             helm upgrade --install missing-table ./helm/missing-table \
               --namespace missing-table \
               --create-namespace \
-              --values ./helm/missing-table/values-doks.yaml
+              --values ./helm/missing-table/values-doks.yaml \
+              --set secrets.databaseUrl="${{ secrets.DATABASE_URL }}" \
+              --set secrets.supabaseUrl="${{ secrets.SUPABASE_URL }}" \
+              --set secrets.supabaseAnonKey="${{ secrets.SUPABASE_ANON_KEY }}" \
+              --set secrets.supabaseServiceKey="${{ secrets.SUPABASE_SERVICE_KEY }}" \
+              --set secrets.supabaseJwtSecret="${{ secrets.SUPABASE_JWT_SECRET }}" \
+              --set secrets.serviceAccountSecret="${{ secrets.SERVICE_ACCOUNT_SECRET }}"
