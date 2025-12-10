@@ -12,7 +12,7 @@ const app = createApp(App);
 initWebVitals();
 
 // Conditionally load security plugin
-const DISABLE_SECURITY = process.env.VUE_APP_DISABLE_SECURITY === 'true';
+const DISABLE_SECURITY = import.meta.env.VITE_DISABLE_SECURITY === 'true';
 
 if (!DISABLE_SECURITY) {
   import('./plugins/security.js').then(SecurityPlugin => {

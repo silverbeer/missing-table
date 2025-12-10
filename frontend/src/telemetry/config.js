@@ -19,13 +19,13 @@ export function isTelemetryEnabled() {
   }
 
   // Fall back to environment variable
-  const envValue = process.env.VUE_APP_TELEMETRY_ENABLED;
+  const envValue = import.meta.env.VITE_TELEMETRY_ENABLED;
   if (envValue !== undefined) {
     return envValue === 'true';
   }
 
   // Default: enabled in production, disabled locally
-  return process.env.NODE_ENV === 'production';
+  return import.meta.env.PROD;
 }
 
 /**
@@ -62,15 +62,15 @@ export function getTelemetryStatus() {
   const source =
     localStorage.getItem(STORAGE_KEY) !== null
       ? 'localStorage override'
-      : process.env.VUE_APP_TELEMETRY_ENABLED !== undefined
+      : import.meta.env.VITE_TELEMETRY_ENABLED !== undefined
         ? 'environment variable'
         : 'default';
 
   return {
     enabled,
     source,
-    endpoint: process.env.VUE_APP_GRAFANA_OTLP_ENDPOINT || 'not configured',
-    environment: process.env.VUE_APP_OTEL_ENVIRONMENT || process.env.NODE_ENV,
+    endpoint: import.meta.env.VITE_GRAFANA_OTLP_ENDPOINT || 'not configured',
+    environment: import.meta.env.VITE_OTEL_ENVIRONMENT || import.meta.env.MODE,
   };
 }
 
@@ -79,12 +79,12 @@ export function getTelemetryStatus() {
  */
 export function getGrafanaConfig() {
   return {
-    endpoint: process.env.VUE_APP_GRAFANA_OTLP_ENDPOINT,
-    instanceId: process.env.VUE_APP_GRAFANA_INSTANCE_ID,
-    apiKey: process.env.VUE_APP_GRAFANA_API_KEY,
+    endpoint: import.meta.env.VITE_GRAFANA_OTLP_ENDPOINT,
+    instanceId: import.meta.env.VITE_GRAFANA_INSTANCE_ID,
+    apiKey: import.meta.env.VITE_GRAFANA_API_KEY,
     serviceName:
-      process.env.VUE_APP_OTEL_SERVICE_NAME || 'missing-table-frontend',
-    environment: process.env.VUE_APP_OTEL_ENVIRONMENT || process.env.NODE_ENV,
+      import.meta.env.VITE_OTEL_SERVICE_NAME || 'missing-table-frontend',
+    environment: import.meta.env.VITE_OTEL_ENVIRONMENT || import.meta.env.MODE,
   };
 }
 
