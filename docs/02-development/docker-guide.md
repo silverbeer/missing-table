@@ -96,8 +96,8 @@ kubectl get pods -n missing-table-prod
 # Build for local testing (no push to registry)
 ./build-and-push.sh backend local
 
-# Use with docker-compose
-docker-compose up
+# Or use the local dev script (recommended)
+./missing-table.sh dev
 ```
 
 ## What the Script Does

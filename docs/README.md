@@ -79,7 +79,7 @@ Welcome to the Missing Table documentation! This guide will help you get started
 > Docker, Kubernetes, GKE, and infrastructure management
 
 - **[Deployment Overview](05-deployment/README.md)** - Deployment options
-- **[Docker Compose](05-deployment/docker-compose.md)** - Local containerized deployment
+- **[Docker Guide](02-development/docker-guide.md)** - Docker image building
 - **[Kubernetes](05-deployment/kubernetes.md)** - K8s concepts and usage
 - **[GKE Deployment](05-deployment/gke-deployment.md)** - Google Kubernetes Engine
 - **[Helm Charts](05-deployment/helm-charts.md)** - Helm deployment configuration

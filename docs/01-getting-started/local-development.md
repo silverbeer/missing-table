@@ -207,20 +207,9 @@ cd backend && uv run python ../scripts/uptime_test.py
 # - Authentication flow
 ```
 
-## Production Deployment (Optional)
+## Cloud Deployment (Optional)
 
-### 1. Docker Compose
-
-```bash
-# Build and run with Docker Compose
-docker-compose up --build
-
-# Access:
-# - Frontend: http://localhost:8080
-# - Backend: http://localhost:8000
-```
-
-### 2. Kubernetes with Helm
+### Kubernetes with Helm
 
 ```bash
 # Deploy to local Kubernetes cluster
@@ -281,7 +270,7 @@ After following this guide, you'll have:
 - ✅ Complete development environment on new machine
 - ✅ Identical database state from primary development machine (502 records)  
 - ✅ All services running locally (frontend, backend, database)
-- ✅ Production deployment capabilities (Docker + Kubernetes)
+- ✅ Cloud deployment capabilities (DOKS via Helm)
 - ✅ Testing and validation tools
 
 Your new machine will be fully synchronized with your primary development environment.

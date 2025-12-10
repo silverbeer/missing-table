@@ -337,26 +337,15 @@ kubectl rollout status deployment/missing-table-backend -n missing-table-dev
 - Docker images must match the deployment platform
 - Manual docker build commands often fail with "no match for platform" errors
 
-### Docker Compose (Local Development)
+### Kubernetes with Helm
 ```bash
-docker-compose up     # Start all services (uses external DB)
-docker-compose down   # Stop all services
-docker-compose build  # Rebuild images
-
-# For completely self-contained setup with database:
-docker-compose -f docker-compose.minimal.yml up
-```
-
-### Kubernetes with Helm (Rancher/Production)
-```bash
-cd helm && ./deploy-helm.sh    # Deploy to Rancher Kubernetes
-helm upgrade missing-table ./missing-table --namespace missing-table
+helm upgrade missing-table ./helm/missing-table --namespace missing-table --values ./helm/missing-table/values-doks.yaml
 ```
 
 ### When to use which:
-- **build-and-push.sh**: Building images for cloud deployment (ALWAYS use this for GKE)
-- **Docker Compose**: Quick local development, testing single services, CI/CD
-- **Helm/K8s**: Production deployment, scaling, team collaboration via Rancher
+- **./missing-table.sh dev**: Local development with hot reload (recommended)
+- **build-and-push.sh**: Building images for cloud deployment
+- **Helm/K8s**: Cloud deployment to DOKS
 
 ### HTTPS & Custom Domain (GKE)
 

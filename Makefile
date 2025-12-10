@@ -147,24 +147,15 @@ build-frontend: ## Build frontend for production
 	cd frontend && npm run build
 
 # Docker Commands
-docker: docker-build ## Build all Docker images
-
-docker-build: ## Build Docker images for backend and frontend
+docker-build: ## Build Docker images for DOKS deployment
 	@echo "🐳 Building Docker images..."
-	docker-compose build
+	./build-and-push.sh all dev
 	@echo "✅ Docker images built successfully!"
 
-docker-up: ## Start application with Docker Compose
-	@echo "🐳 Starting application with Docker..."
-	docker-compose up -d
-	@echo "✅ Application running on Docker!"
-
-docker-down: ## Stop Docker containers
-	@echo "🐳 Stopping Docker containers..."
-	docker-compose down
-
-docker-logs: ## View Docker container logs
-	docker-compose logs -f
+docker-push: ## Build and push Docker images to registry
+	@echo "🐳 Building and pushing Docker images..."
+	./build-and-push.sh all prod
+	@echo "✅ Docker images pushed to registry!"
 
 # Database Commands
 db-reset: ## Reset local database (Supabase)
@@ -209,7 +200,7 @@ clean-frontend: ## Clean frontend build artifacts
 
 clean-docker: ## Clean Docker images and containers
 	@echo "🐳 Cleaning Docker artifacts..."
-	docker-compose down --rmi all --volumes --remove-orphans || true
+	docker system prune -f || true
 
 # Git and Pre-commit Commands
 pre-commit: ## Run pre-commit hooks on all files

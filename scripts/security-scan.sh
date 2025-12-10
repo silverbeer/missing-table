@@ -55,48 +55,44 @@ check_trivy() {
 # Scan Docker images
 scan_images() {
     log "Scanning Docker images for vulnerabilities..."
-    
-    # Build images first
+
+    # Build images first using build-and-push.sh (local mode, no push)
     cd "${PROJECT_ROOT}"
-    docker compose build --no-cache
-    
-    # Get image names
-    BACKEND_IMAGE=$(docker compose images backend -q | head -1)
-    FRONTEND_IMAGE=$(docker compose images frontend -q | head -1)
-    
-    if [ ! -z "$BACKEND_IMAGE" ]; then
-        log "Scanning backend image: $BACKEND_IMAGE"
-        trivy image \
-            --config "${SECURITY_DIR}/trivy-config.yaml" \
-            --output "${RESULTS_DIR}/backend-image-scan.sarif" \
-            --format sarif \
-            --severity CRITICAL,HIGH,MEDIUM \
-            "$BACKEND_IMAGE"
-        
-        # Also generate human-readable report
-        trivy image \
-            --format table \
-            --output "${RESULTS_DIR}/backend-image-scan.txt" \
-            --severity CRITICAL,HIGH,MEDIUM \
-            "$BACKEND_IMAGE"
-    fi
-    
-    if [ ! -z "$FRONTEND_IMAGE" ]; then
-        log "Scanning frontend image: $FRONTEND_IMAGE"
-        trivy image \
-            --config "${SECURITY_DIR}/trivy-config.yaml" \
-            --output "${RESULTS_DIR}/frontend-image-scan.sarif" \
-            --format sarif \
-            --severity CRITICAL,HIGH,MEDIUM \
-            "$FRONTEND_IMAGE"
-            
-        # Also generate human-readable report
-        trivy image \
-            --format table \
-            --output "${RESULTS_DIR}/frontend-image-scan.txt" \
-            --severity CRITICAL,HIGH,MEDIUM \
-            "$FRONTEND_IMAGE"
-    fi
+    ./build-and-push.sh all local
+
+    # Define image names (matches build-and-push.sh local tags)
+    BACKEND_IMAGE="us-central1-docker.pkg.dev/missing-table/missing-table/backend:local"
+    FRONTEND_IMAGE="us-central1-docker.pkg.dev/missing-table/missing-table/frontend:local"
+
+    log "Scanning backend image: $BACKEND_IMAGE"
+    trivy image \
+        --config "${SECURITY_DIR}/trivy-config.yaml" \
+        --output "${RESULTS_DIR}/backend-image-scan.sarif" \
+        --format sarif \
+        --severity CRITICAL,HIGH,MEDIUM \
+        "$BACKEND_IMAGE" || warn "Backend image scan failed or not found"
+
+    # Also generate human-readable report
+    trivy image \
+        --format table \
+        --output "${RESULTS_DIR}/backend-image-scan.txt" \
+        --severity CRITICAL,HIGH,MEDIUM \
+        "$BACKEND_IMAGE" || true
+
+    log "Scanning frontend image: $FRONTEND_IMAGE"
+    trivy image \
+        --config "${SECURITY_DIR}/trivy-config.yaml" \
+        --output "${RESULTS_DIR}/frontend-image-scan.sarif" \
+        --format sarif \
+        --severity CRITICAL,HIGH,MEDIUM \
+        "$FRONTEND_IMAGE" || warn "Frontend image scan failed or not found"
+
+    # Also generate human-readable report
+    trivy image \
+        --format table \
+        --output "${RESULTS_DIR}/frontend-image-scan.txt" \
+        --severity CRITICAL,HIGH,MEDIUM \
+        "$FRONTEND_IMAGE" || true
 }
 
 # Scan filesystem for vulnerabilities and secrets
@@ -129,25 +125,24 @@ scan_filesystem() {
 # Scan configuration files
 scan_configs() {
     log "Scanning configuration files..."
-    
-    # Scan Docker Compose
-    if [ -f "${PROJECT_ROOT}/docker-compose.yml" ]; then
-        trivy config \
-            --format table \
-            --output "${RESULTS_DIR}/docker-compose-scan.txt" \
-            "${PROJECT_ROOT}/docker-compose.yml"
-    fi
-    
+
     # Scan Dockerfiles
-    find "${PROJECT_ROOT}" -name "Dockerfile*" -type f | while read dockerfile; do
-        filename=$(basename "$dockerfile")
+    find "${PROJECT_ROOT}" -name "Dockerfile" -type f | while read dockerfile; do
         dirname=$(basename "$(dirname "$dockerfile")")
         trivy config \
             --format table \
-            --output "${RESULTS_DIR}/${dirname}-${filename}-scan.txt" \
+            --output "${RESULTS_DIR}/${dirname}-Dockerfile-scan.txt" \
             "$dockerfile"
     done
-    
+
+    # Scan Helm charts
+    if [ -d "${PROJECT_ROOT}/helm" ]; then
+        trivy config \
+            --format table \
+            --output "${RESULTS_DIR}/helm-scan.txt" \
+            "${PROJECT_ROOT}/helm"
+    fi
+
     # Scan Terraform files if they exist
     if [ -d "${PROJECT_ROOT}/terraform" ]; then
         trivy config \
@@ -188,8 +183,8 @@ EOF
 - ✅ Secret scan completed
 
 ### Configuration Scans
-- ✅ Docker Compose scan completed
 - ✅ Dockerfile scans completed
+- ✅ Helm chart scans completed
 EOF
 
     if [ -f "${RESULTS_DIR}/terraform-scan.txt" ]; then
@@ -205,7 +200,7 @@ Check individual scan results in the \`security/results/\` directory for detaile
 ### Files Scanned
 - Docker images: Backend, Frontend
 - Source code: Full repository
-- Configurations: Docker Compose, Dockerfiles, Terraform
+- Configurations: Dockerfiles, Helm charts, Terraform
 
 ### Next Steps
 1. Review all CRITICAL and HIGH severity findings

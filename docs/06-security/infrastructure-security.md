@@ -180,8 +180,8 @@ kubectl apply -f k8s/monitoring/prometheus-security-rules.yaml
 
 ### 4. Secure Container Deployment
 ```bash
-# Build and deploy secure containers
-docker-compose -f docker-compose.secure.yml up --build
+# Build secure containers for DOKS
+./build-and-push.sh all prod
 ```
 
 ## Security Compliance

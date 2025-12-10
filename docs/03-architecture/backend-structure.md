@@ -52,7 +52,6 @@ Contains all database connection and data access logic:
 - `supabase_schema.sql` - Base schema definition
 
 ### `/supabase-local/` - Local Supabase Setup
-- `docker-compose.yml` - Local Supabase Docker setup
 - `setup_local_supabase.py` - Local Supabase configuration
 
 ### `/tests/` - Test Files

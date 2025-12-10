@@ -17,7 +17,7 @@ Documentation for deploying the Missing Table application across different envir
 | **[HTTPS Setup](https-setup.md)** | SSL certificates and custom domains |
 | **[HTTPS Architecture](https-architecture.md)** | 📚 **Learning Guide** - How HTTPS and load balancers work |
 | **[Quick Reference](https-quick-reference.md)** | Common commands and troubleshooting |
-| **[Docker Compose](docker-compose.md)** | Local containerized deployment |
+| **[Docker Guide](../../docs/02-development/docker-guide.md)** | Docker image building for DOKS |
 | **[Kubernetes](kubernetes.md)** | K8s concepts and configuration |
 | **[Helm Charts](helm-charts.md)** | Helm deployment and configuration |
 | **[Infrastructure](infrastructure/)** | Terraform, ArgoCD, GitOps |
@@ -67,12 +67,6 @@ helm rollback missing-table -n missing-table-prod
 **Best for**: Development without Docker
 ```bash
 ./missing-table.sh dev
-```
-
-### Option 4: Local Development (Docker Compose)
-**Best for**: Local testing with containers
-```bash
-docker-compose up --build
 ```
 
 ---
@@ -132,11 +126,11 @@ kubectl logs -f deployment/missing-table-backend -n missing-table-dev
 helm rollback missing-table -n missing-table-dev
 ```
 
-### Docker Compose
+### Docker Images
 ```bash
-docker-compose up --build        # Start all services
-docker-compose down              # Stop all services
-docker-compose logs -f backend   # Follow logs
+./build-and-push.sh backend dev   # Build backend for dev
+./build-and-push.sh frontend prod # Build frontend for prod
+./build-and-push.sh all dev       # Build all services
 ```
 
 ---
