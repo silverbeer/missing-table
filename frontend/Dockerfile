@@ -1,39 +1,53 @@
-# Use the official Node.js image
-FROM node:20-slim
+# Build stage
+FROM node:20-slim AS builder
 
-# Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
-# Copy the rest of the application code
+# Copy source code
 COPY . .
 
-# Build arguments (must be provided at build time)
-# Note: Supabase anon key is PUBLIC by design (protected by RLS policies)
-ARG VUE_APP_API_URL
-ARG VUE_APP_SUPABASE_URL
-ARG VUE_APP_SUPABASE_ANON_KEY
-ARG VUE_APP_DISABLE_SECURITY
+# Build arguments (for Vite, must be prefixed with VITE_)
+ARG VITE_API_URL
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_DISABLE_SECURITY
 
-# Set as environment variables for Vue.js build
-ENV VUE_APP_API_URL=$VUE_APP_API_URL
-ENV VUE_APP_SUPABASE_URL=$VUE_APP_SUPABASE_URL
-ENV VUE_APP_SUPABASE_ANON_KEY=$VUE_APP_SUPABASE_ANON_KEY
-ENV VUE_APP_DISABLE_SECURITY=$VUE_APP_DISABLE_SECURITY
+# Set as environment variables for Vite build
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_DISABLE_SECURITY=$VITE_DISABLE_SECURITY
 
-# Build the application
+# Build the application (Vite is FAST - typically under 30 seconds)
 RUN npm run build
 
-# Install serve to serve the built app
-RUN npm install -g serve
+# Production stage - use nginx for static file serving
+FROM nginx:alpine
 
-# Expose the port the app runs on
+# Copy built assets from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration for SPA routing
+RUN echo 'server { \
+    listen 8080; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+    location /health { \
+        access_log off; \
+        return 200 "OK"; \
+        add_header Content-Type text/plain; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
 EXPOSE 8080
 
-# Command to run the application
-CMD ["serve", "-s", "dist", "-l", "8080"]
+CMD ["nginx", "-g", "daemon off;"]

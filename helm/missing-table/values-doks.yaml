@@ -19,12 +19,12 @@ frontend:
     tag: latest
     pullPolicy: Always
 
-  # Webpack dev server takes ~3-4min to build on startup on small nodes
+  # Vite + nginx: instant startup, no build at runtime
   livenessProbe:
-    initialDelaySeconds: 300
+    initialDelaySeconds: 10
     periodSeconds: 10
   readinessProbe:
-    initialDelaySeconds: 180
+    initialDelaySeconds: 5
     periodSeconds: 5
 
 ingress:

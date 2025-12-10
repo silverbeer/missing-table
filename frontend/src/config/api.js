@@ -70,5 +70,5 @@ export const API_ENDPOINTS = {
 
 console.log('API Configuration:', {
   API_BASE_URL,
-  env: process.env.VUE_APP_API_URL,
+  env: import.meta.env.VITE_API_URL,
 });

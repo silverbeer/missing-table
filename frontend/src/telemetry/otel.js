@@ -7,11 +7,6 @@
 
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-  ATTR_DEPLOYMENT_ENVIRONMENT,
-} from '@opentelemetry/semantic-conventions';
-import {
   MeterProvider,
   PeriodicExportingMetricReader,
 } from '@opentelemetry/sdk-metrics';
@@ -57,11 +52,11 @@ export function initializeTelemetry() {
   try {
     const config = getGrafanaConfig();
 
-    // Create resource with service metadata
+    // Create resource with service metadata (using string literals for stability)
     const resource = resourceFromAttributes({
-      [ATTR_SERVICE_NAME]: config.serviceName,
-      [ATTR_SERVICE_VERSION]: process.env.VUE_APP_VERSION || '1.0.0',
-      [ATTR_DEPLOYMENT_ENVIRONMENT]: config.environment,
+      'service.name': config.serviceName,
+      'service.version': import.meta.env.VITE_VERSION || '1.0.0',
+      'deployment.environment': config.environment,
     });
 
     // Create OTLP exporter for Grafana Cloud
@@ -108,9 +103,9 @@ function initializeLocalOnly() {
   const config = getGrafanaConfig();
 
   const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: config.serviceName,
-    [ATTR_SERVICE_VERSION]: process.env.VUE_APP_VERSION || '1.0.0',
-    [ATTR_DEPLOYMENT_ENVIRONMENT]: config.environment,
+    'service.name': config.serviceName,
+    'service.version': import.meta.env.VITE_VERSION || '1.0.0',
+    'deployment.environment': config.environment,
   });
 
   meterProvider = new MeterProvider({
