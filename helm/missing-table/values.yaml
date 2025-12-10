@@ -143,15 +143,16 @@ frontend:
     limits:
       cpu: 500m
       memory: 512Mi
-  
+
+  # Vite + nginx: instant startup, no build at runtime
   livenessProbe:
-    initialDelaySeconds: 60
-    periodSeconds: 10
-  
-  readinessProbe:
     initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    initialDelaySeconds: 5
     periodSeconds: 5
-  
+
   service:
     type: ClusterIP  # Changed from LoadBalancer - using Ingress for external access
     loadBalancerIP: ""  # Let Rancher Desktop assign

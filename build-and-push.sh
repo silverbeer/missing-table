@@ -204,15 +204,14 @@ build_service() {
             # Ingress routes /api to backend on same domain
             if [ "$env" = "dev" ] || [ "$env" = "prod" ]; then
                 API_URL=""
-                print_info "Setting VUE_APP_API_URL='' (relative URLs for ingress routing)"
+                print_info "Setting VITE_API_URL='' (relative URLs for ingress routing)"
             else
                 # Local development uses localhost backend
                 API_URL="http://localhost:8000"
-                print_info "Setting VUE_APP_API_URL=${API_URL}"
+                print_info "Setting VITE_API_URL=${API_URL}"
             fi
 
-            build_args+=" --build-arg VUE_APP_API_URL=${API_URL}"
-            build_args+=" --build-arg VUE_APP_VERSION=${APP_VERSION}"
+            build_args+=" --build-arg VITE_API_URL=${API_URL}"
         fi
 
         # Build and push with all tags
