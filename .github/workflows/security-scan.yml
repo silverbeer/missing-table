@@ -11,94 +11,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  trivy-scan:
-    name: Trivy Security Scan
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build Docker images
-      run: |
-        docker compose build --no-cache
-
-    - name: Run Trivy vulnerability scanner (Backend)
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: 'missing-table-backend:latest'
-        format: 'sarif'
-        output: 'trivy-backend-results.sarif'
-        severity: 'CRITICAL,HIGH,MEDIUM'
-
-    - name: Upload Trivy scan results (Backend)
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-backend-results.sarif'
-        category: 'trivy-backend'
-
-    - name: Run Trivy vulnerability scanner (Frontend)
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: 'missing-table-frontend:latest'
-        format: 'sarif'
-        output: 'trivy-frontend-results.sarif'
-        severity: 'CRITICAL,HIGH,MEDIUM'
-
-    - name: Upload Trivy scan results (Frontend)
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-frontend-results.sarif'
-        category: 'trivy-frontend'
-
-    - name: Run Trivy filesystem scan
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-fs-results.sarif'
-        severity: 'CRITICAL,HIGH,MEDIUM'
-
-    - name: Upload Trivy filesystem results
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-fs-results.sarif'
-        category: 'trivy-filesystem'
-
-    - name: Run Trivy config scan
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'config'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-config-results.sarif'
-
-    - name: Upload Trivy config results
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-config-results.sarif'
-        category: 'trivy-config'
-
-    - name: Store scan artifacts
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: trivy-scan-results
-        path: |
-          trivy-*-results.sarif
-        retention-days: 30
+  # Docker image scanning disabled - GKE cluster and Artifact Registry deleted to save costs (2025-12-07)
+  # Keeping filesystem and config scans in dependency-scan job below
 
   secret-scan:
     name: Secret Scanning (Trivy)
@@ -134,6 +48,10 @@ jobs:
   dependency-scan:
     name: Dependency Scanning
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -172,6 +90,37 @@ jobs:
         uv pip install safety
         uv run safety check --json --output ../python-safety-results.json || true
 
+    - name: Run Trivy filesystem scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-fs-results.sarif'
+        severity: 'CRITICAL,HIGH,MEDIUM'
+
+    - name: Upload Trivy filesystem results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-fs-results.sarif'
+        category: 'trivy-filesystem'
+
+    - name: Run Trivy config scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'config'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-config-results.sarif'
+
+    - name: Upload Trivy config results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-config-results.sarif'
+        category: 'trivy-config'
+
     - name: Store dependency scan results
       uses: actions/upload-artifact@v4
       if: always()
@@ -180,4 +129,6 @@ jobs:
         path: |
           npm-audit-results.json
           python-safety-results.json
+          trivy-fs-results.sarif
+          trivy-config-results.sarif
         retention-days: 30
