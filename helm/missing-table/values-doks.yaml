@@ -35,10 +35,12 @@ ingress:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   hosts:
     - missingtable.com
+    - www.missingtable.com
   tls:
     - secretName: missing-table-tls  #pragma: allowlist secret
       hosts:
         - missingtable.com
+        - www.missingtable.com
 
 imageCredentials:
   registry: ghcr.io
