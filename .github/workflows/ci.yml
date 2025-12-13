@@ -120,13 +120,12 @@
     update-helm-values:
       needs: build-and-push
       runs-on: ubuntu-latest
-      permissions:
-        contents: write
       steps:
         - name: Checkout code
           uses: actions/checkout@v4
           with:
-            token: ${{ secrets.GITHUB_TOKEN }}
+            # Use PAT to bypass branch protection for automated commits
+            token: ${{ secrets.GH_PAT }}
 
         - name: Update image tags in values.yaml
           run: |
