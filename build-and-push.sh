@@ -212,6 +212,12 @@ build_service() {
             fi
 
             build_args+=" --build-arg VITE_API_URL=${API_URL}"
+
+            # Grafana Faro observability - pass from environment variable
+            if [ -n "${VITE_FARO_URL:-}" ]; then
+                print_info "Setting VITE_FARO_URL for frontend observability"
+                build_args+=" --build-arg VITE_FARO_URL=${VITE_FARO_URL}"
+            fi
         fi
 
         # Build and push with all tags
