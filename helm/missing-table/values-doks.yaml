@@ -25,6 +25,9 @@ frontend:
     tag: "436e8ad" # frontend-tag
     pullPolicy: IfNotPresent
 
+  # Production image uses nginx, not npm - override default command
+  command: []
+
   # Vite + nginx: instant startup, no build at runtime
   livenessProbe:
     initialDelaySeconds: 10
