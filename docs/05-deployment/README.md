@@ -21,9 +21,6 @@ Documentation for deploying the Missing Table application across different envir
 | **[Kubernetes](kubernetes.md)** | K8s concepts and configuration |
 | **[Helm Charts](helm-charts.md)** | Helm deployment and configuration |
 | **[Infrastructure](infrastructure/)** | Terraform, ArgoCD, GitOps |
-| **[IaC Migration Plan](IAC_MIGRATION_PLAN.md)** | 🚧 **PLANNING** - Terraform migration strategy |
-| **[IaC Quick Start](IAC_QUICK_START.md)** | Quick reference for Terraform migration |
-| **[IaC Architecture](IAC_ARCHITECTURE.md)** | Visual diagrams of proposed Terraform architecture |
 
 ---
 

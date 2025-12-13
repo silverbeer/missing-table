@@ -212,7 +212,7 @@ deploy_cronjob() {
     print_section "Deploying CronJob to Kubernetes"
 
     print_info "Applying CronJob manifest..."
-    kubectl apply -f k8s/match-scraper-cronjob.yaml
+    kubectl apply -f k3s/match-scraper/match-scraper-cronjob.yaml
 
     print_success "CronJob deployed"
 

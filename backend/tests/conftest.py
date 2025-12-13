@@ -27,10 +27,9 @@ from unittest.mock import patch
 from faker import Faker
 
 # Load environment variables - prioritize test environment
-# Priority: .env.test > .env.e2e > .env
+# Priority: .env.test > .env
 load_dotenv()  # Load .env first (lowest priority)
 load_dotenv("../.env.test", override=True)  # Override with test config
-load_dotenv("../.env.e2e", override=True)  # Override with e2e config when running e2e tests
 
 
 @pytest.fixture(scope="session")
