@@ -112,7 +112,10 @@
         - name: Build and push frontend
           run: |
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            docker build -t ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA} -f frontend/Dockerfile frontend/
+            docker build \
+              --build-arg VITE_FARO_URL="${{ secrets.VITE_FARO_URL }}" \
+              -t ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA} \
+              -f frontend/Dockerfile frontend/
             docker push ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA}
 
     # GitOps: Update Helm values with new image tags
