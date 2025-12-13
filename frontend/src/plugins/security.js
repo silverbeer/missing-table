@@ -6,7 +6,7 @@
 
 import securityMonitor from '../utils/security-monitor.js';
 import { getApiBaseUrl } from '../config/api';
-import { recordError } from '../telemetry';
+import { recordError } from '../faro';
 
 const SecurityPlugin = {
   install(app, options = {}) {
