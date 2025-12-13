@@ -1,5 +1,6 @@
 # DOKS environment configuration
-# Non-sensitive values only - secrets come from GitHub Actions
+# Secrets come from External Secrets Operator (AWS Secrets Manager)
+# Image tags updated by CI workflow
 
 namespace: missing-table
 
@@ -8,16 +9,21 @@ backend:
 
   image:
     repository: ghcr.io/silverbeer/missing-table-backend
-    tag: latest
-    pullPolicy: Always
+    tag: "initial" # backend-tag
+    pullPolicy: IfNotPresent
+
+  env:
+    environment: "production"
+    logLevel: "info"
+    disableSecurity: "false"
 
 frontend:
   replicaCount: 1
 
   image:
     repository: ghcr.io/silverbeer/missing-table-frontend
-    tag: latest
-    pullPolicy: Always
+    tag: "initial" # frontend-tag
+    pullPolicy: IfNotPresent
 
   # Vite + nginx: instant startup, no build at runtime
   livenessProbe:
@@ -31,7 +37,6 @@ ingress:
   enabled: true
   className: nginx
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   hosts:
     - missingtable.com
@@ -42,7 +47,9 @@ ingress:
         - missingtable.com
         - www.missingtable.com
 
+# Image pull credentials - secret created by External Secrets Operator
+# Keep registry/username so imagePullSecrets reference is added to deployments
 imageCredentials:
   registry: ghcr.io
   username: silverbeer
-  # password will come from --set
+  # password comes from ExternalSecret (missing-table-ghcr)

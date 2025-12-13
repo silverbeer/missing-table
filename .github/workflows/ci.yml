@@ -105,47 +105,54 @@
 
         - name: Build and push backend
           run: |
-            docker build -t ghcr.io/silverbeer/missing-table-backend:latest -f backend/Dockerfile backend/
-            docker push ghcr.io/silverbeer/missing-table-backend:latest
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            docker build -t ghcr.io/silverbeer/missing-table-backend:${SHORT_SHA} -f backend/Dockerfile backend/
+            docker push ghcr.io/silverbeer/missing-table-backend:${SHORT_SHA}
 
         - name: Build and push frontend
           run: |
-            docker build -t ghcr.io/silverbeer/missing-table-frontend:latest -f frontend/Dockerfile frontend/
-            docker push ghcr.io/silverbeer/missing-table-frontend:latest
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            docker build -t ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA} -f frontend/Dockerfile frontend/
+            docker push ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA}
 
-    deploy:
+    # GitOps: Update Helm values with new image tags
+    # ArgoCD watches the repo and syncs changes to DOKS
+    update-helm-values:
       needs: build-and-push
       runs-on: ubuntu-latest
+      permissions:
+        contents: write
       steps:
-        - name: Checkout code          
+        - name: Checkout code
           uses: actions/checkout@v4
-
-        - name: Install doctl (DigitalOcean CLI)
-          uses: digitalocean/action-doctl@v2
           with:
-            token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+            token: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: Get kubeconfig fro DOKS Cluster
+        - name: Update image tags in values.yaml
           run: |
-            doctl kubernetes cluster config save missingtable-dev
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            VALUES_FILE="helm/missing-table/values-doks.yaml"
 
-        - name: Install Helm
-          uses: azure/setup-helm@v4
-          with:
-            version: 'latest'
+            # Update backend tag (line with # backend-tag marker)
+            sed -i "s|tag: \".*\" # backend-tag|tag: \"${SHORT_SHA}\" # backend-tag|" $VALUES_FILE
 
-        - name: Deploy to Kubernetes
+            # Update frontend tag (line with # frontend-tag marker)
+            sed -i "s|tag: \".*\" # frontend-tag|tag: \"${SHORT_SHA}\" # frontend-tag|" $VALUES_FILE
+
+            echo "Updated tags to ${SHORT_SHA}"
+            cat $VALUES_FILE
+
+        - name: Commit and push
           run: |
-            helm upgrade --install missing-table ./helm/missing-table \
-              --namespace missing-table \
-              --create-namespace \
-              --values ./helm/missing-table/values-doks.yaml \
-              --set secrets.databaseUrl="${{ secrets.DATABASE_URL }}" \
-              --set secrets.supabaseUrl="${{ secrets.SUPABASE_URL }}" \
-              --set secrets.supabaseAnonKey="${{ secrets.SUPABASE_ANON_KEY }}" \
-              --set secrets.supabaseServiceKey="${{ secrets.SUPABASE_SERVICE_KEY }}" \
-              --set secrets.supabaseJwtSecret="${{ secrets.SUPABASE_JWT_SECRET }}" \
-              --set secrets.serviceAccountSecret="${{ secrets.SERVICE_ACCOUNT_SECRET }}" \
-              --set imageCredentials.registry=ghcr.io \
-              --set imageCredentials.username=${{ github.actor }} \
-              --set imageCredentials.password=${{ secrets.GHCR_PAT }}
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add helm/missing-table/values-doks.yaml
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+            else
+              SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+              git commit -m "chore: Update image tags to ${SHORT_SHA}
+
+            [skip ci]"
+              git push
+            fi
