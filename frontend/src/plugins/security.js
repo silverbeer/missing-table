@@ -6,7 +6,7 @@
 
 import securityMonitor from '../utils/security-monitor.js';
 import { getApiBaseUrl } from '../config/api';
-import { recordError } from '../telemetry';
+import { recordError } from '../faro';
 
 const SecurityPlugin = {
   install(app, options = {}) {
@@ -81,7 +81,7 @@ const SecurityPlugin = {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https:",
-      `connect-src 'self' ${apiUrl} https://api.github.com ws: wss:`,
+      `connect-src 'self' ${apiUrl} https://api.github.com https://*.grafana.net ws: wss:`,
       "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",

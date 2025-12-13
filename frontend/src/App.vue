@@ -274,7 +274,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from './stores/auth';
 import { getApiBaseUrl } from './config/api';
-import { recordPageView, recordInviteRequest } from './telemetry';
+import { recordPageView, recordInviteRequest } from './faro';
 import MatchForm from './components/MatchForm.vue';
 import LeagueTable from './components/LeagueTable.vue';
 import MatchesView from './components/MatchesView.vue';

@@ -8,7 +8,9 @@ import {
   recordLogout,
   recordSessionRefresh,
   recordHttpRequest,
-} from '../telemetry';
+  setFaroUser,
+  clearFaroUser,
+} from '../faro';
 
 // Remove Supabase client - using backend API instead
 
@@ -205,9 +207,10 @@ export const useAuthStore = () => {
       await fetchProfile();
       console.log('Complete profile fetched:', state.profile);
 
-      // Record successful login metrics
+      // Record successful login metrics and set user context for observability
       recordLogin(true, { user_role: data.user.role || 'team-fan' });
       recordLoginDuration(duration, true);
+      setFaroUser(data.user.id, { role: data.user.role || 'team-fan' });
 
       return { success: true, user: data.user };
     } catch (error) {
@@ -251,8 +254,9 @@ export const useAuthStore = () => {
       localStorage.removeItem('sb-localhost-auth-token');
       clearCSRFToken();
 
-      // Record logout metric
+      // Record logout metric and clear user context
       recordLogout();
+      clearFaroUser();
 
       return { success: true };
     } catch (error) {
