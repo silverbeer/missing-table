@@ -126,6 +126,12 @@
           with:
             # Use PAT to bypass branch protection for automated commits
             token: ${{ secrets.GH_PAT }}
+            ref: main
+            fetch-depth: 0
+
+        - name: Pull latest changes
+          run: |
+            git pull origin main
 
         - name: Update image tags in values.yaml
           run: |
