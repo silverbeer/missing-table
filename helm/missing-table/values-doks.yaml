@@ -9,7 +9,7 @@ backend:
 
   image:
     repository: ghcr.io/silverbeer/missing-table-backend
-    tag: "initial" # backend-tag
+    tag: "436e8ad" # backend-tag
     pullPolicy: IfNotPresent
 
   env:
@@ -22,7 +22,7 @@ frontend:
 
   image:
     repository: ghcr.io/silverbeer/missing-table-frontend
-    tag: "initial" # frontend-tag
+    tag: "436e8ad" # frontend-tag
     pullPolicy: IfNotPresent
 
   # Vite + nginx: instant startup, no build at runtime
