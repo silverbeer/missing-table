@@ -325,7 +325,7 @@ if [ "$ENVIRONMENT" != "local" ]; then
     if [ "$SERVICE" = "match-scraper" ]; then
         echo "  Match-Scraper Deployment:"
         echo "    1. Deploy CronJob:"
-        echo "       kubectl apply -f k8s/match-scraper-cronjob.yaml"
+        echo "       kubectl apply -f k3s/match-scraper/match-scraper-cronjob.yaml"
         echo ""
         echo "    2. Create test job:"
         echo "       kubectl create job --from=cronjob/match-scraper test-\$(date +%s) -n missing-table-${ENVIRONMENT}"
@@ -343,7 +343,7 @@ if [ "$ENVIRONMENT" != "local" ]; then
         echo ""
         echo "  Match-Scraper Deployment:"
         echo "    1. Deploy CronJob:"
-        echo "       kubectl apply -f k8s/match-scraper-cronjob.yaml"
+        echo "       kubectl apply -f k3s/match-scraper/match-scraper-cronjob.yaml"
         echo ""
         echo "    2. Create test job:"
         echo "       kubectl create job --from=cronjob/match-scraper test-\$(date +%s) -n missing-table-${ENVIRONMENT}"

@@ -116,8 +116,6 @@ Welcome to the Missing Table documentation! This guide will help you get started
 - **[Pipeline Overview](09-cicd/pipeline.md)** - CI/CD architecture
 - **[GitHub Actions](09-cicd/github-actions.md)** - Workflow configurations
 - **[Quality Gates](09-cicd/quality-gates.md)** - Automated quality enforcement
-- **[Testkube Integration](09-cicd/testkube-integration.md)** - E2E testing automation
-- **[Testkube GKE CI/CD Plan](TESTKUBE_GKE_CICD_PLAN.md)** ⭐ Implementation guide
 
 ### [10 - Contributing](10-contributing/)
 > How to contribute to the project

@@ -1,8 +1,0 @@
-apiVersion: tests.testkube.io/v1
-kind: TestExecution
-metadata:
-  name: backend-health-check-run-1
-  namespace: testkube
-spec:
-  testName: backend-health-check
-  sync: true

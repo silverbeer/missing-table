@@ -15,7 +15,6 @@ Documentation for continuous integration and deployment pipelines.
 | **[Pipeline Overview](pipeline.md)** | Complete CI/CD architecture |
 | **[GitHub Actions](github-actions.md)** | Workflow configurations |
 | **[Quality Gates](quality-gates.md)** | Automated quality enforcement |
-| **[Testkube Integration](testkube-integration.md)** | E2E testing automation ⭐ NEW |
 
 ---
 
