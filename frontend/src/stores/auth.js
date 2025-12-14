@@ -1,5 +1,6 @@
 import { reactive, computed } from 'vue';
 import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
+import { getTraceHeaders } from '../utils/traceContext';
 import { getApiBaseUrl } from '../config/api';
 import {
   recordLogin,
@@ -92,6 +93,7 @@ export const useAuthStore = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getTraceHeaders(),
         },
         body: JSON.stringify({
           username,
@@ -134,6 +136,7 @@ export const useAuthStore = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getTraceHeaders(),
         },
         body: JSON.stringify({
           username,
@@ -174,6 +177,7 @@ export const useAuthStore = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getTraceHeaders(),
         },
         body: JSON.stringify({ username, password }),
       });
@@ -347,6 +351,7 @@ export const useAuthStore = () => {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...getTraceHeaders(),
         },
       });
 
@@ -377,6 +382,7 @@ export const useAuthStore = () => {
                 headers: {
                   Authorization: `Bearer ${newToken}`,
                   'Content-Type': 'application/json',
+                  ...getTraceHeaders(),
                 },
               }
             );
@@ -416,6 +422,7 @@ export const useAuthStore = () => {
     return {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      ...getTraceHeaders(), // Include session_id and request_id for distributed tracing
     };
   };
 
@@ -424,7 +431,8 @@ export const useAuthStore = () => {
     const startTime = performance.now();
     const method = options.method || 'GET';
     const token = localStorage.getItem('auth_token');
-    const defaultHeaders = {};
+    const traceHeaders = getTraceHeaders(); // Generate trace IDs for this request
+    const defaultHeaders = { ...traceHeaders };
 
     // Only set Content-Type for non-FormData requests
     // FormData needs the browser to set Content-Type with boundary automatically
@@ -519,6 +527,7 @@ export const useAuthStore = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getTraceHeaders(),
         },
         body: JSON.stringify({ refresh_token: refreshToken }),
       });
@@ -551,6 +560,7 @@ export const useAuthStore = () => {
 
     let headers = {
       Authorization: `Bearer ${token}`,
+      ...getTraceHeaders(), // Include trace IDs for distributed tracing
       ...options.headers,
     };
 
@@ -577,6 +587,7 @@ export const useAuthStore = () => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            ...getTraceHeaders(),
           },
         }
       );

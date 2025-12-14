@@ -42,6 +42,8 @@ def setup_logging(service_name: str = "missing-table") -> None:
     # Configure structlog with JSON renderer for Loki
     structlog.configure(
         processors=[
+            # Merge context variables (session_id, request_id from middleware)
+            structlog.contextvars.merge_contextvars,
             # Add log level to event dict
             structlog.stdlib.add_log_level,
             # Add logger name to event dict
@@ -54,7 +56,7 @@ def setup_logging(service_name: str = "missing-table") -> None:
             structlog.processors.format_exc_info,
             # Decode unicode
             structlog.processors.UnicodeDecoder(),
-            # Add service name to all logs
+            # Add callsite info (filename, line number)
             structlog.processors.CallsiteParameterAdder(
                 parameters=[
                     structlog.processors.CallsiteParameter.FILENAME,

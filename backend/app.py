@@ -18,6 +18,7 @@ from auth import (
     require_team_manager_or_admin,
 )
 from csrf_protection import provide_csrf_token
+from middleware import TraceMiddleware
 from models import (
     AdminPlayerTeamAssignment,
     AdminPlayerUpdate,
@@ -141,6 +142,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add trace middleware for distributed logging (session_id, request_id)
+app.add_middleware(TraceMiddleware)
 
 # Initialize Supabase connection - use CLI for local development
 supabase_url = os.getenv('SUPABASE_URL', '')
