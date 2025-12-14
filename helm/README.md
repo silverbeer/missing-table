@@ -156,11 +156,11 @@ helm lint ./helm/missing-table
 
 ## 🔄 GitOps with ArgoCD
 
-This chart is designed to work with ArgoCD for GitOps workflows. See the `../argocd/` directory for:
+This chart is designed to work with ArgoCD for GitOps workflows. ArgoCD is managed via Terraform in the [missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap) repository, following the 100% IaC principle.
 
-- ArgoCD installation scripts
-- Application manifests for dev/prod environments
-- GitOps workflow documentation
+- **ArgoCD installation**: Managed via Helm in Terraform (`clouds/digitalocean/environments/dev/main.tf`)
+- **Application manifests**: Defined as Terraform `kubectl_manifest` resources
+- **GitOps workflow**: ArgoCD syncs from `main` branch using `values-doks.yaml`
 
 ### Benefits of Helm + ArgoCD
 

@@ -248,9 +248,11 @@ spec:
 
 ## ArgoCD GitOps Integration
 
+> **Note**: ArgoCD is managed via Terraform in the [missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap) repository. The examples below illustrate the configuration patterns that would be added to that repo.
+
 ### Application Definition
 ```yaml
-# argocd/applications/missing-table-agents.yaml
+# Example: ArgoCD Application for agents (would be added to platform-bootstrap)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -277,7 +279,7 @@ spec:
 
 **Development Environment**:
 ```yaml
-# argocd/applications/agents-dev.yaml
+# Example: Development configuration
 spec:
   source:
     helm:
@@ -292,7 +294,7 @@ spec:
 
 **Production Environment**:
 ```yaml
-# argocd/applications/agents-prod.yaml
+# Example: Production configuration
 spec:
   source:
     helm:
