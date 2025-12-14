@@ -16,6 +16,7 @@ This section covers daily development workflows, tools, and best practices for w
 | **[Environment Management](environment-management.md)** | Switching between local, dev, and prod environments |
 | **[Database Operations](database-operations.md)** | Backup, restore, and migration procedures |
 | **[Docker Guide](docker-guide.md)** | Building images, platform considerations |
+| **[Logging Standards](logging-standards.md)** | Frontend/backend logging, trace IDs, Grafana Loki |
 | **[API Development](api-development.md)** | Creating new API endpoints |
 
 ---
