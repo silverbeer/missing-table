@@ -198,6 +198,55 @@
               </p>
             </div>
 
+            <!-- League and Division Selection (only for Add, not Edit) -->
+            <div v-if="!showEditModal" class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >League <span class="text-red-500">*</span></label
+              >
+              <select
+                v-model="formData.leagueId"
+                @change="formData.divisionId = null"
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option :value="null">Select League</option>
+                <option
+                  v-for="league in leagues"
+                  :key="league.id"
+                  :value="league.id"
+                >
+                  {{ league.name }}
+                </option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">
+                Select which league this team will participate in
+              </p>
+            </div>
+
+            <div v-if="!showEditModal && formData.leagueId" class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Division <span class="text-red-500">*</span></label
+              >
+              <select
+                v-model="formData.divisionId"
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option :value="null">Select Division</option>
+                <option
+                  v-for="division in formFilteredDivisions"
+                  :key="division.id"
+                  :value="division.id"
+                >
+                  {{ division.name }}
+                </option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">
+                Select the division within the league (e.g., Northeast, Bracket
+                A)
+              </p>
+            </div>
+
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Team Type</label
@@ -525,6 +574,8 @@ export default {
       ageGroupIds: [],
       gameTypeIds: [],
       academyTeam: false,
+      leagueId: null,
+      divisionId: null,
     });
 
     const mappingForm = ref({
@@ -533,13 +584,23 @@ export default {
       division_id: '',
     });
 
-    // Computed property to filter divisions by selected league
+    // Computed property to filter divisions by selected league (for mappings modal)
     const filteredDivisions = computed(() => {
       if (!mappingForm.value.league_id) {
         return [];
       }
       return divisions.value.filter(
         d => d.league_id === parseInt(mappingForm.value.league_id)
+      );
+    });
+
+    // Computed property to filter divisions by selected league (for team creation form)
+    const formFilteredDivisions = computed(() => {
+      if (!formData.value.leagueId) {
+        return [];
+      }
+      return divisions.value.filter(
+        d => d.league_id === parseInt(formData.value.leagueId)
       );
     });
 
@@ -701,13 +762,19 @@ export default {
           return;
         }
 
+        // Validate that a division is selected
+        if (!formData.value.divisionId) {
+          error.value = 'Please select a league and division';
+          return;
+        }
+
         // Create the team with basic info and age groups
         const teamData = {
           name: formData.value.name,
           city: formData.value.city,
           club_id: formData.value.parentClubId,
           age_group_ids: formData.value.ageGroupIds.map(id => parseInt(id)),
-          division_id: 1, // Default division - TODO: add division selection to form
+          division_id: parseInt(formData.value.divisionId),
           academy_team: formData.value.academyTeam,
         };
 
@@ -935,6 +1002,8 @@ export default {
         ageGroupIds: [],
         gameTypeIds: [],
         academyTeam: false,
+        leagueId: null,
+        divisionId: null,
       };
     };
 
@@ -958,6 +1027,7 @@ export default {
       divisions,
       leagues,
       filteredDivisions,
+      formFilteredDivisions,
       gameTypes,
       loading,
       formLoading,
