@@ -10,7 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[Live Demo](https://dev.missingtable.com) • [Documentation](docs/README.md) • [Contributing](docs/10-contributing/README.md) • [Report Bug](https://github.com/silverbeer/missing-table/issues)
+[Documentation](docs/README.md) • [Infrastructure](https://github.com/silverbeer/missingtable-platform-bootstrap) • [Contributing](docs/10-contributing/README.md) • [Report Bug](https://github.com/silverbeer/missing-table/issues)
 
 </div>
 
@@ -52,7 +52,7 @@ Missing Table is a **production-ready web application** designed for managing co
 - **Backend**: FastAPI (Python 3.13+)
 - **Frontend**: Vue.js 3 with Composition API
 - **Database**: PostgreSQL via Supabase
-- **Deployment**: Docker, Kubernetes (GKE)
+- **Infrastructure**: 100% IaC via [platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap)
 
 ### 🧪 Quality & Testing
 - 80%+ test coverage goal
@@ -70,7 +70,7 @@ Missing Table is a **production-ready web application** designed for managing co
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Frontend      │    │     Backend      │    │   Supabase      │
 │  (Vue.js)       │◄──►│    (FastAPI)     │◄──►│  (PostgreSQL)   │
-│  localhost:8081 │    │  localhost:8000  │    │ localhost:54321 │
+│  localhost:8080 │    │  localhost:8000  │    │ localhost:54321 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                                 │ Studio: :54323  │
                                                 │ DB: :54322      │
@@ -104,7 +104,7 @@ supabase start
 ./missing-table.sh dev
 
 # 4. Open your browser
-# Frontend: http://localhost:8081
+# Frontend: http://localhost:8080
 # Backend API: http://localhost:8000/docs
 ```
 
@@ -138,7 +138,8 @@ We've built **world-class documentation** to help you succeed:
 
 **Deploying or managing infrastructure?**
 
-- **[Deployment Guide](docs/05-deployment/)** - Docker, Kubernetes, GKE
+- **[Platform Bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap)** - 100% IaC, ArgoCD, Monitoring
+- **[Deployment Guide](docs/05-deployment/)** - Docker, Kubernetes, Helm
 - **[Security](docs/06-security/)** - Security practices and compliance
 - **[Operations](docs/07-operations/)** - Monitoring, backups, incidents
 - **[CI/CD](docs/09-cicd/)** - Pipeline and quality gates
@@ -360,6 +361,25 @@ We **love** contributions! This project is designed to be welcoming to developer
 - **Authentication**: Supabase Auth with JWT
 - **Testing**: pytest, Vue Test Utils
 - **Development**: Supabase CLI, Docker
+
+## 🏗️ Infrastructure
+
+Infrastructure is managed in a **separate repository** following GitOps best practices:
+
+**[missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap)**
+
+This repository contains:
+- **100% Infrastructure as Code** - All infrastructure defined in Terraform/OpenTofu
+- **ArgoCD** - GitOps-based continuous deployment
+- **Grafana Stack** - Full observability (Loki, Tempo, Grafana dashboards)
+- **DigitalOcean Kubernetes** - Production Kubernetes cluster
+- **Helm Charts** - Application deployment configurations
+
+**Why separate repos?**
+- Clear separation of concerns (app code vs infrastructure)
+- Different change cadences and review processes
+- Follows GitOps best practices
+- Enables independent scaling of teams
 
 ## 📊 Quick Commands Reference
 
