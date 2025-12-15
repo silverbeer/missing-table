@@ -148,11 +148,9 @@ app.add_middleware(TraceMiddleware)
 
 # Initialize Supabase connection - use CLI for local development
 supabase_url = os.getenv('SUPABASE_URL', '')
-print(f"DEBUG: Raw SUPABASE_URL from env: {supabase_url}")
-print(f"DEBUG: Contains localhost? {'localhost' in supabase_url}")
-print(f"DEBUG: Contains 127.0.0.1? {'127.0.0.1' in supabase_url}")
+logger.debug("Supabase URL configuration", url=supabase_url, is_local='localhost' in supabase_url or '127.0.0.1' in supabase_url)
 if 'localhost' in supabase_url or '127.0.0.1' in supabase_url:
-    print("Using Supabase CLI local development: " + supabase_url)
+    logger.info("Using Supabase CLI local development", url=supabase_url)
     # Use the regular connection for Supabase CLI
     db_conn_holder_obj = DbConnectionHolder()
     match_dao = MatchDAO(db_conn_holder_obj)
@@ -303,7 +301,7 @@ async def signup(request: Request, user_data: UserSignup):
         raise
     except Exception as e:
         audit_logger.error("auth_signup_error", error=str(e), email=user_data.email)
-        logger.error(f"Signup error: {e}")
+        logger.error(f"Signup error: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/auth/login")
@@ -358,7 +356,7 @@ async def login(request: Request, user_data: UserLogin):
         raise
     except Exception as e:
         auth_logger.error("auth_login_error", error=str(e))
-        logger.error(f"Login error: {e}")
+        logger.error(f"Login error: {e}", exc_info=True)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
@@ -408,7 +406,7 @@ async def check_username_availability(username: str):
             }
 
     except Exception as e:
-        logger.error(f"Error checking username: {e}")
+        logger.error(f"Error checking username: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error checking username availability")
 
 
@@ -422,7 +420,7 @@ async def logout(current_user: dict[str, Any] = Depends(get_current_user_require
             "message": "Logged out successfully"
         }
     except Exception as e:
-        logger.error(f"Logout error: {e}")
+        logger.error(f"Logout error: {e}", exc_info=True)
         return {
             "success": True,  # Return success even on error since logout should be client-side primarily
             "message": "Logged out successfully"
@@ -471,7 +469,7 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
         }
 
     except Exception as e:
-        logger.error(f"Get profile error: {e}")
+        logger.error(f"Get profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get profile")
 
 
@@ -534,7 +532,7 @@ async def update_profile(
         return {"message": "Profile updated successfully"}
 
     except Exception as e:
-        logger.error(f"Update profile error: {e}")
+        logger.error(f"Update profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update profile")
 
 
@@ -674,7 +672,7 @@ async def upload_player_photo(
         }
 
     except Exception as e:
-        logger.error(f"Error uploading player photo: {e!s}")
+        logger.error(f"Error uploading player photo: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -735,7 +733,7 @@ async def delete_player_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting player photo: {e!s}")
+        logger.error(f"Error deleting player photo: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -779,7 +777,7 @@ async def set_profile_photo_slot(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error setting profile photo slot: {e!s}")
+        logger.error(f"Error setting profile photo slot: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -838,7 +836,7 @@ async def update_player_customization(
         }
 
     except Exception as e:
-        logger.error(f"Error updating player customization: {e!s}")
+        logger.error(f"Error updating player customization: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -863,7 +861,7 @@ async def get_player_history(
             "history": history
         }
     except Exception as e:
-        logger.error(f"Error getting player history: {e!s}")
+        logger.error(f"Error getting player history: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -885,7 +883,7 @@ async def get_current_team_assignment(
             "current": current
         }
     except Exception as e:
-        logger.error(f"Error getting current team assignment: {e!s}")
+        logger.error(f"Error getting current team assignment: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -911,7 +909,7 @@ async def get_all_current_teams(
             "teams": teams
         }
     except Exception as e:
-        logger.error(f"Error getting all current teams: {e!s}")
+        logger.error(f"Error getting all current teams: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -948,7 +946,7 @@ async def create_player_history(
             raise HTTPException(status_code=500, detail="Failed to create history entry")
 
     except Exception as e:
-        logger.error(f"Error creating player history entry: {e!s}")
+        logger.error(f"Error creating player history entry: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -991,7 +989,7 @@ async def update_player_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating player history entry: {e!s}")
+        logger.error(f"Error updating player history entry: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1027,7 +1025,7 @@ async def delete_player_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting player history entry: {e!s}")
+        logger.error(f"Error deleting player history entry: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1059,7 +1057,7 @@ async def get_admin_players(
         return result
 
     except Exception as e:
-        logger.error(f"Error getting admin players: {e!s}")
+        logger.error(f"Error getting admin players: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1089,7 +1087,7 @@ async def update_admin_player(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating admin player: {e!s}")
+        logger.error(f"Error updating admin player: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1121,7 +1119,7 @@ async def add_admin_player_team(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error adding admin player team: {e!s}")
+        logger.error(f"Error adding admin player team: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1145,7 +1143,7 @@ async def end_admin_player_team(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error ending admin player team: {e!s}")
+        logger.error(f"Error ending admin player team: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1156,7 +1154,7 @@ async def get_users(current_user: dict[str, Any] = Depends(require_admin)):
         return match_dao.get_all_user_profiles()
 
     except Exception as e:
-        logger.error(f"Get users error: {e}")
+        logger.error(f"Get users error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get users")
 
 
@@ -1184,7 +1182,7 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
 
     except Exception as e:
         refresh_logger.error("auth_refresh_error", error=str(e))
-        logger.error(f"Token refresh error: {e}")
+        logger.error(f"Token refresh error: {e}", exc_info=True)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 @app.get("/api/auth/me")
@@ -1235,7 +1233,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
         }
 
     except Exception as e:
-        logger.error(f"Get user info error: {e}")
+        logger.error(f"Get user info error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get user info")
 
 @app.get("/api/positions")
@@ -1288,7 +1286,7 @@ async def update_user_role(
         return {"message": "User role updated successfully"}
 
     except Exception as e:
-        logger.error(f"Update user role error: {e}")
+        logger.error(f"Update user role error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update user role")
 
 
@@ -1364,7 +1362,7 @@ async def update_user_profile(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Update user profile error: {e}")
+        logger.error(f"Update user profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update user profile: {e!s}")
 
 
@@ -1391,7 +1389,7 @@ async def get_age_groups(
         logger.info(f"age-groups endpoint - returning {len(age_groups)} groups")
         return age_groups
     except Exception as e:
-        logger.error(f"Error retrieving age groups: {e!s}")
+        logger.error(f"Error retrieving age groups: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
@@ -1404,7 +1402,7 @@ async def get_seasons(current_user: dict[str, Any] = Depends(get_current_user_re
         seasons = match_dao.get_all_seasons()
         return seasons
     except Exception as e:
-        logger.error(f"Error retrieving seasons: {e!s}")
+        logger.error(f"Error retrieving seasons: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
@@ -1423,7 +1421,7 @@ async def get_current_season(current_user: dict[str, Any] = Depends(get_current_
             )
         return current_season
     except Exception as e:
-        logger.error(f"Error retrieving current season: {e!s}")
+        logger.error(f"Error retrieving current season: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1434,7 +1432,7 @@ async def get_active_seasons(current_user: dict[str, Any] = Depends(get_current_
         active_seasons = match_dao.get_active_seasons()
         return active_seasons
     except Exception as e:
-        logger.error(f"Error retrieving active seasons: {e!s}")
+        logger.error(f"Error retrieving active seasons: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1445,7 +1443,7 @@ async def get_match_types(current_user: dict[str, Any] = Depends(get_current_use
         match_types = match_dao.get_all_match_types()
         return match_types
     except Exception as e:
-        logger.error(f"Error retrieving match types: {e!s}")
+        logger.error(f"Error retrieving match types: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1462,7 +1460,7 @@ async def get_divisions(
             divisions = match_dao.get_all_divisions()
         return divisions
     except Exception as e:
-        logger.error(f"Error retrieving divisions: {e!s}")
+        logger.error(f"Error retrieving divisions: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1550,7 +1548,7 @@ async def get_teams(
 
         return teams
     except Exception as e:
-        logger.error(f"Error retrieving teams: {e!s}")
+        logger.error(f"Error retrieving teams: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
@@ -1604,7 +1602,7 @@ async def add_team(
             raise HTTPException(status_code=500, detail="Failed to add team")
     except Exception as e:
         error_str = str(e)
-        logger.error(f"Error adding team: {error_str}")
+        logger.error(f"Error adding team: {error_str}", exc_info=True)
 
         # Check for duplicate team constraint violation
         if "teams_name_division_unique" in error_str or "teams_name_academy_unique" in error_str or "duplicate key value" in error_str.lower():
@@ -1662,7 +1660,7 @@ async def get_matches(
 
         return matches
     except Exception as e:
-        logger.error(f"Error retrieving matches: {e!s}")
+        logger.error(f"Error retrieving matches: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
@@ -1686,7 +1684,7 @@ async def get_match(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrieving match {match_id}: {e!s}")
+        logger.error(f"Error retrieving match {match_id}: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
@@ -1711,7 +1709,7 @@ async def delete_match(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting match {match_id}: {e!s}")
+        logger.error(f"Error deleting match {match_id}: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
         )
@@ -1754,7 +1752,7 @@ async def add_match(request: Request, match: EnhancedMatch, current_user: dict[s
         else:
             raise HTTPException(status_code=500, detail="Failed to add match")
     except Exception as e:
-        logger.error(f"Error adding match: {e!s}")
+        logger.error(f"Error adding match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1801,7 +1799,7 @@ async def update_match(
         else:
             raise HTTPException(status_code=500, detail="Failed to update match")
     except Exception as e:
-        logger.error(f"Error updating match: {e!s}")
+        logger.error(f"Error updating match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1907,7 +1905,7 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
         else:
             raise HTTPException(status_code=500, detail="Failed to delete match")
     except Exception as e:
-        logger.error(f"Error deleting match: {e!s}")
+        logger.error(f"Error deleting match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1924,7 +1922,7 @@ async def get_matches_by_team(
         # Return empty array if no matches found - this is not an error condition
         return matches if matches else []
     except Exception as e:
-        logger.error(f"Error retrieving matches for team '{team_id}': {e!s}")
+        logger.error(f"Error retrieving matches for team '{team_id}': {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1975,7 +1973,7 @@ async def get_table(
 
         return table
     except Exception as e:
-        logger.error(f"Error generating league table: {e!s}")
+        logger.error(f"Error generating league table: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1992,7 +1990,7 @@ async def create_age_group(
         result = match_dao.create_age_group(age_group.name)
         return result
     except Exception as e:
-        logger.error(f"Error creating age group: {e!s}")
+        logger.error(f"Error creating age group: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2011,7 +2009,7 @@ async def update_age_group(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating age group: {e!s}")
+        logger.error(f"Error updating age group: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2028,7 +2026,7 @@ async def delete_age_group(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting age group: {e!s}")
+        logger.error(f"Error deleting age group: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2042,7 +2040,7 @@ async def create_season(
         result = match_dao.create_season(season.name, season.start_date, season.end_date)
         return result
     except Exception as e:
-        logger.error(f"Error creating season: {e!s}")
+        logger.error(f"Error creating season: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2061,7 +2059,7 @@ async def update_season(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating season: {e!s}")
+        logger.error(f"Error updating season: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2076,7 +2074,7 @@ async def delete_season(season_id: int, current_user: dict[str, Any] = Depends(r
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting season: {e!s}")
+        logger.error(f"Error deleting season: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2088,7 +2086,7 @@ async def get_leagues():
         leagues = match_dao.get_all_leagues()
         return leagues
     except Exception as e:
-        logger.error(f"Error fetching leagues: {e!s}")
+        logger.error(f"Error fetching leagues: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2103,7 +2101,7 @@ async def get_league(league_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching league {league_id}: {e!s}")
+        logger.error(f"Error fetching league {league_id}: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2117,7 +2115,7 @@ async def create_league(
         result = match_dao.create_league(league_data)
         return result
     except Exception as e:
-        logger.error(f"Error creating league: {e!s}")
+        logger.error(f"Error creating league: {e!s}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -2138,7 +2136,7 @@ async def update_league(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating league: {e!s}")
+        logger.error(f"Error updating league: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2151,7 +2149,7 @@ async def delete_league(
         match_dao.delete_league(league_id)
         return {"message": "League deleted successfully"}
     except Exception as e:
-        logger.error(f"Error deleting league: {e!s}")
+        logger.error(f"Error deleting league: {e!s}", exc_info=True)
         if "foreign key" in str(e).lower():
             raise HTTPException(
                 status_code=400,
@@ -2172,7 +2170,7 @@ async def create_division(
         result = match_dao.create_division(division_data)
         return result
     except Exception as e:
-        logger.error(f"Error creating division: {e!s}")
+        logger.error(f"Error creating division: {e!s}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -2194,7 +2192,7 @@ async def update_division(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating division: {e!s}")
+        logger.error(f"Error updating division: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2209,7 +2207,7 @@ async def delete_division(division_id: int, current_user: dict[str, Any] = Depen
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting division: {e!s}")
+        logger.error(f"Error deleting division: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2234,7 +2232,7 @@ async def update_team(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating team: {e!s}")
+        logger.error(f"Error updating team: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2249,7 +2247,7 @@ async def delete_team(team_id: int, current_user: dict[str, Any] = Depends(requi
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting team: {e!s}")
+        logger.error(f"Error deleting team: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2273,7 +2271,7 @@ async def add_team_match_type_participation(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error adding team match type participation: {e!s}")
+        logger.error(f"Error adding team match type participation: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2298,7 +2296,7 @@ async def remove_team_match_type_participation(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error removing team match type participation: {e!s}")
+        logger.error(f"Error removing team match type participation: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2340,7 +2338,7 @@ async def get_clubs(
 
         return enriched_clubs
     except Exception as e:
-        logger.error(f"Error fetching clubs: {e!s}")
+        logger.error(f"Error fetching clubs: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2358,7 +2356,7 @@ async def get_club(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching club: {e!s}")
+        logger.error(f"Error fetching club: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2376,7 +2374,7 @@ async def get_club_teams(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching club teams: {e!s}")
+        logger.error(f"Error fetching club teams: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2399,7 +2397,7 @@ async def create_club(
         return new_club
     except Exception as e:
         error_str = str(e)
-        logger.error(f"Error creating club: {error_str}")
+        logger.error(f"Error creating club: {error_str}", exc_info=True)
 
         # Check for duplicate key constraint violation
         if 'duplicate key value violates unique constraint' in error_str.lower():
@@ -2441,7 +2439,7 @@ async def update_club(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating club: {e!s}")
+        logger.error(f"Error updating club: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2505,7 +2503,7 @@ async def upload_club_logo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading club logo: {e!s}")
+        logger.error(f"Error uploading club logo: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to upload logo: {str(e)}")
 
 
@@ -2528,7 +2526,7 @@ async def delete_club(
         raise
     except Exception as e:
         error_str = str(e)
-        logger.error(f"Error deleting club: {error_str}")
+        logger.error(f"Error deleting club: {error_str}", exc_info=True)
 
         # Check if it's a foreign key constraint violation
         if 'foreign key constraint' in error_str.lower() or 'violates' in error_str.lower():
@@ -2563,7 +2561,7 @@ async def create_team_mapping(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating team mapping: {e!s}")
+        logger.error(f"Error creating team mapping: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2592,7 +2590,7 @@ async def delete_team_mapping(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting team mapping: {e!s}")
+        logger.error(f"Error deleting team mapping: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2780,7 +2778,7 @@ async def add_or_update_scraped_match(
                 raise HTTPException(status_code=500, detail="Failed to create match")
 
     except Exception as e:
-        logger.error(f"Error in match-scraper match endpoint: {e!s}")
+        logger.error(f"Error in match-scraper match endpoint: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2846,7 +2844,7 @@ async def check_match(
 
         return {"exists": False}
     except Exception as e:
-        logger.error(f"Error checking match: {e!s}")
+        logger.error(f"Error checking match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2912,7 +2910,7 @@ async def get_team_players(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting team players: {e}")
+        logger.error(f"Error getting team players: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get team players")
 
 
@@ -3021,7 +3019,7 @@ async def get_player_profile(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting player profile: {e}")
+        logger.error(f"Error getting player profile: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get player profile")
 
 

@@ -10,9 +10,12 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field
 from supabase import create_client
+
+logger = structlog.get_logger(__name__)
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -123,7 +126,7 @@ async def create_invite_request(request: InviteRequestCreate):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error creating invite request: {e}")
+        logger.exception("Error creating invite request")
         raise HTTPException(status_code=500, detail="An error occurred while submitting your request")
 
 
@@ -156,7 +159,7 @@ async def list_invite_requests(
         return result.data or []
 
     except Exception as e:
-        print(f"Error listing invite requests: {e}")
+        logger.exception("Error listing invite requests")
         raise HTTPException(status_code=500, detail="Failed to retrieve invite requests")
 
 
@@ -189,7 +192,7 @@ async def get_invite_request_stats(current_user=Depends(get_current_user_require
         return stats
 
     except Exception as e:
-        print(f"Error getting invite request stats: {e}")
+        logger.exception("Error getting invite request stats")
         raise HTTPException(status_code=500, detail="Failed to retrieve statistics")
 
 
@@ -217,7 +220,7 @@ async def get_invite_request(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting invite request: {e}")
+        logger.exception("Error getting invite request")
         raise HTTPException(status_code=500, detail="Failed to retrieve invite request")
 
 
@@ -273,7 +276,7 @@ async def update_invite_request_status(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error updating invite request: {e}")
+        logger.exception("Error updating invite request")
         raise HTTPException(status_code=500, detail="Failed to update invite request")
 
 
@@ -310,5 +313,5 @@ async def delete_invite_request(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error deleting invite request: {e}")
+        logger.exception("Error deleting invite request")
         raise HTTPException(status_code=500, detail="Failed to delete invite request")

@@ -2,14 +2,18 @@
 Invite API endpoints for Missing Table
 """
 
+import os
+import sys
+
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-import sys
-import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+logger = structlog.get_logger(__name__)
 
 from auth import get_current_user_required
 from services import InviteService, TeamManagerService
@@ -111,7 +115,7 @@ async def create_club_manager_invite(
         return invitation
 
     except Exception as e:
-        print(f"DEBUG: Club manager invite creation error: {e}")
+        logger.exception("Club manager invite creation error")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/admin/team-manager")
@@ -127,8 +131,7 @@ async def create_team_manager_invite(
     invite_service = InviteService(service_client)
     
     try:
-        print(f"DEBUG: Creating invite with current_user: {current_user}")
-        print(f"DEBUG: Request data: team_id={request.team_id}, age_group_id={request.age_group_id}, email={request.email}")
+        logger.debug("Creating invite", current_user=current_user, team_id=request.team_id, age_group_id=request.age_group_id, email=request.email)
         
         # Handle different user ID field names
         user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
@@ -146,7 +149,7 @@ async def create_team_manager_invite(
         return invitation
         
     except Exception as e:
-        print(f"DEBUG: Invite creation error: {e}")
+        logger.exception("Invite creation error")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/admin/club-fan")
@@ -177,7 +180,7 @@ async def create_club_fan_invite_admin(
         return invitation
 
     except Exception as e:
-        print(f"DEBUG: Club fan invite creation error: {e}")
+        logger.exception("Club fan invite creation error")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/admin/team-fan")
@@ -280,7 +283,7 @@ async def create_club_fan_invite_club_manager(
         return invitation
 
     except Exception as e:
-        print(f"DEBUG: Club fan invite creation error: {e}")
+        logger.exception("Club fan invite creation error")
         raise HTTPException(status_code=400, detail=str(e))
 
 # Team manager endpoints
