@@ -1472,17 +1472,19 @@ async def get_teams(
     current_user: dict[str, Any] = Depends(get_current_user_required),
     match_type_id: int | None = None,
     age_group_id: int | None = None,
+    division_id: int | None = None,
     include_parent: bool = False,
     include_game_count: bool = False,
     club_id: int | None = None,
     for_match_edit: bool = False
 ):
     """
-    Get teams, optionally filtered by match type, age group, or club.
+    Get teams, optionally filtered by match type, age group, division, or club.
 
     Args:
         match_type_id: Filter by match type
         age_group_id: Filter by age group (requires match_type_id)
+        division_id: Filter by division (e.g., Bracket A for Futsal, Northeast for Homegrown)
         include_parent: If true, include parent club information
         include_game_count: If true, include count of games for each team (performance optimized)
         club_id: Filter to only teams belonging to this parent club
@@ -1501,7 +1503,9 @@ async def get_teams(
 
         # Get teams based on filters
         if match_type_id and age_group_id:
-            teams = match_dao.get_teams_by_match_type_and_age_group(match_type_id, age_group_id)
+            teams = match_dao.get_teams_by_match_type_and_age_group(
+                match_type_id, age_group_id, division_id=division_id
+            )
         elif club_id:
             teams = match_dao.get_club_teams(club_id)
         else:

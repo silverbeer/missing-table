@@ -315,36 +315,76 @@ class MatchDAO:
             return []
 
     def get_teams_by_match_type_and_age_group(
-        self, match_type_id: int, age_group_id: int
+        self, match_type_id: int, age_group_id: int, division_id: int | None = None
     ) -> list[dict]:
-        """Get teams that can participate in a specific match type and age group."""
+        """Get teams that can participate in a specific match type and age group.
+
+        Args:
+            match_type_id: Filter by match type (e.g., League, Cup)
+            age_group_id: Filter by age group (e.g., U14, U15)
+            division_id: Optional - Filter by division (e.g., Bracket A for Futsal)
+        """
         try:
-            response = (
-                self.client.table("teams")
-                .select("""
-                *,
-                team_mappings (
-                    age_groups (
-                        id,
-                        name
+            # Build the base query
+            if division_id:
+                # When filtering by division, use inner join on team_mappings
+                # to only return teams in that specific division + age group
+                query = (
+                    self.client.table("teams")
+                    .select("""
+                    *,
+                    team_mappings!inner (
+                        age_group_id,
+                        division_id,
+                        age_groups (
+                            id,
+                            name
+                        ),
+                        divisions (
+                            id,
+                            name
+                        )
                     ),
-                    divisions (
-                        id,
-                        name
+                    team_match_types!inner (
+                        match_type_id,
+                        age_group_id,
+                        is_active
                     )
-                ),
-                team_match_types!inner (
-                    match_type_id,
-                    age_group_id,
-                    is_active
+                """)
+                    .eq("team_match_types.match_type_id", match_type_id)
+                    .eq("team_match_types.age_group_id", age_group_id)
+                    .eq("team_match_types.is_active", True)
+                    .eq("team_mappings.age_group_id", age_group_id)
+                    .eq("team_mappings.division_id", division_id)
                 )
-            """)
-                .eq("team_match_types.match_type_id", match_type_id)
-                .eq("team_match_types.age_group_id", age_group_id)
-                .eq("team_match_types.is_active", True)
-                .order("name")
-                .execute()
-            )
+            else:
+                # Without division filter, include all team_mappings
+                query = (
+                    self.client.table("teams")
+                    .select("""
+                    *,
+                    team_mappings (
+                        age_groups (
+                            id,
+                            name
+                        ),
+                        divisions (
+                            id,
+                            name
+                        )
+                    ),
+                    team_match_types!inner (
+                        match_type_id,
+                        age_group_id,
+                        is_active
+                    )
+                """)
+                    .eq("team_match_types.match_type_id", match_type_id)
+                    .eq("team_match_types.age_group_id", age_group_id)
+                    .eq("team_match_types.is_active", True)
+                )
+
+            response = query.order("name").execute()
 
             # Flatten the age groups and divisions for each team
             teams = []
