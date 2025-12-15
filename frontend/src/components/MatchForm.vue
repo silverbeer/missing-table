@@ -293,12 +293,19 @@ export default {
         console.log('=== FETCHING TEAMS ===');
         console.log('Current selectedMatchType:', selectedMatchType.value);
         console.log('Current selectedAgeGroup:', selectedAgeGroup.value);
+        console.log('Current selectedDivision:', selectedDivision.value);
 
         let url = `${getApiBaseUrl()}/api/teams`;
 
         // Add filtering if both match type and age group are selected
         if (selectedMatchType.value && selectedAgeGroup.value) {
           url += `?match_type_id=${selectedMatchType.value}&age_group_id=${selectedAgeGroup.value}`;
+
+          // Add division filter for League matches when a division is selected
+          if (isLeagueMatch.value && selectedDivision.value) {
+            url += `&division_id=${selectedDivision.value}`;
+          }
+
           console.log('Fetching filtered teams with URL:', url);
         } else {
           console.log('Fetching all teams (no filter)');
@@ -534,27 +541,26 @@ export default {
       }
     };
 
-    // Watch for changes in match type or age group to refetch teams
+    // Watch for changes in match type, age group, or division to refetch teams
     watch(
-      [selectedMatchType, selectedAgeGroup],
+      [selectedMatchType, selectedAgeGroup, selectedDivision],
       async (newValues, oldValues) => {
         console.log('=== WATCHER TRIGGERED ===');
         console.log('New values:', newValues);
         console.log('Old values:', oldValues);
         console.log('selectedMatchType.value:', selectedMatchType.value);
         console.log('selectedAgeGroup.value:', selectedAgeGroup.value);
+        console.log('selectedDivision.value:', selectedDivision.value);
 
         if (selectedMatchType.value && selectedAgeGroup.value) {
-          console.log(
-            'Both match type and age group are set, fetching teams...'
-          );
+          console.log('Match type and age group are set, fetching teams...');
           await fetchTeams();
           // Reset team selections when filter changes
           console.log('Resetting team selections');
           matchData.value.homeTeam = '';
           matchData.value.awayTeam = '';
         } else {
-          console.log('Game type or age group not set, skipping team fetch');
+          console.log('Match type or age group not set, skipping team fetch');
         }
         console.log('=== END WATCHER ===');
       }
