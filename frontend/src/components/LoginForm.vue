@@ -182,7 +182,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 
@@ -246,6 +246,9 @@ export default {
     };
 
     const fetchTeams = async () => {
+      // Only fetch if not already loaded
+      if (teams.value.length > 0) return;
+
       try {
         const response = await fetch(`${getApiBaseUrl()}/api/teams`);
         const data = await response.json();
@@ -254,6 +257,13 @@ export default {
         console.error('Error fetching teams:', error);
       }
     };
+
+    // Lazy-load teams only when a team-related role is selected
+    watch(selectedRole, newRole => {
+      if (newRole === 'team-manager' || newRole === 'team-player') {
+        fetchTeams();
+      }
+    });
 
     const handleSubmit = async () => {
       authStore.clearError();
@@ -302,8 +312,6 @@ export default {
     };
 
     onMounted(() => {
-      fetchTeams();
-
       // Check for invite code in URL query parameter
       const urlParams = new URLSearchParams(window.location.search);
       const inviteCode = urlParams.get('code');
