@@ -1651,7 +1651,14 @@ class MatchDAO:
             raise e
 
     def create_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> dict:
-        """Create a team mapping and update team's league_id to match division's league."""
+        """Create a team mapping, update team's league_id, and enable League match participation.
+
+        When assigning a team to a division (which belongs to a league), this method:
+        1. Updates the team's league_id to match the division's league
+        2. Creates the team_mapping entry
+        3. Auto-creates a team_match_types entry for League matches (match_type_id=1)
+           This ensures teams can appear in League match dropdowns immediately.
+        """
         try:
             # Get the league_id from the division
             division_response = (
@@ -1662,9 +1669,14 @@ class MatchDAO:
             )
             if division_response.data:
                 league_id = division_response.data[0]["league_id"]
-                # Update team's league_id to match the division's league
-                self.client.table("teams").update({"league_id": league_id}).eq("id", team_id).execute()
+                # Update team's league_id and division_id to match the assignment
+                # Note: division_id is needed for league table filtering to work correctly
+                self.client.table("teams").update({
+                    "league_id": league_id,
+                    "division_id": division_id
+                }).eq("id", team_id).execute()
 
+            # Create the team mapping
             result = (
                 self.client.table("team_mappings")
                 .insert(
@@ -1672,6 +1684,31 @@ class MatchDAO:
                 )
                 .execute()
             )
+
+            # Auto-create team_match_types entry for League matches (match_type_id=1)
+            # This allows the team to appear in League match dropdowns
+            LEAGUE_MATCH_TYPE_ID = 1
+            existing = (
+                self.client.table("team_match_types")
+                .select("id")
+                .eq("team_id", team_id)
+                .eq("match_type_id", LEAGUE_MATCH_TYPE_ID)
+                .eq("age_group_id", age_group_id)
+                .execute()
+            )
+            if not existing.data:
+                self.client.table("team_match_types").insert({
+                    "team_id": team_id,
+                    "match_type_id": LEAGUE_MATCH_TYPE_ID,
+                    "age_group_id": age_group_id,
+                    "is_active": True,
+                }).execute()
+                logger.info(
+                    "Auto-created team_match_types entry for League",
+                    team_id=team_id,
+                    age_group_id=age_group_id
+                )
+
             return result.data[0]
         except Exception as e:
             logger.exception("Error creating team mapping")

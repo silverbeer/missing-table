@@ -1975,6 +1975,15 @@ async def get_table(
             match_type=match_type,
         )
 
+        logger.info(
+            "League table query",
+            season_id=season_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+            match_type=match_type,
+            rows_returned=len(table) if isinstance(table, list) else "N/A",
+        )
+
         return table
     except Exception as e:
         logger.error(f"Error generating league table: {e!s}", exc_info=True)
