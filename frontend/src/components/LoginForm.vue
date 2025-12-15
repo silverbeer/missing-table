@@ -1,6 +1,13 @@
 <template>
   <div class="login-form">
     <div class="form-container">
+      <div class="logo-container">
+        <img
+          src="@/assets/logo-full.png"
+          alt="Missing Table"
+          class="login-logo"
+        />
+      </div>
       <h2>{{ showInviteSignup ? 'Sign Up with Invite' : 'Login' }}</h2>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
@@ -354,6 +361,16 @@ export default {
   text-align: center;
   margin-bottom: 1.5rem;
   color: #333;
+}
+
+.logo-container {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.login-logo {
+  max-width: 280px;
+  height: auto;
 }
 
 .auth-form {
