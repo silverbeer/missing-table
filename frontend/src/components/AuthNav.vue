@@ -2,7 +2,12 @@
   <nav class="auth-nav" data-testid="main-nav">
     <div class="nav-content">
       <div class="nav-brand">
-        <h1 data-testid="nav-brand">Missing Table</h1>
+        <img
+          src="@/assets/logo.png"
+          alt="Missing Table"
+          class="nav-logo"
+          data-testid="nav-brand"
+        />
       </div>
 
       <div class="nav-links">
@@ -180,12 +185,14 @@ export default {
   padding: 1rem 2rem;
 }
 
-.nav-brand h1 {
-  margin: 0;
-  color: #2563eb;
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+.nav-brand {
+  display: flex;
+  align-items: center;
+}
+
+.nav-logo {
+  height: 52px;
+  width: auto;
 }
 
 .nav-links {
