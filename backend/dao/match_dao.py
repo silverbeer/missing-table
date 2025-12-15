@@ -48,8 +48,8 @@ class SupabaseConnection:
             raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file")
         
         # Debug output
-        print(f"DEBUG: Connecting to Supabase URL: {self.url}")
-        print(f"DEBUG: Using key type: {'SERVICE_KEY' if 'SUPABASE_SERVICE_KEY' in os.environ and self.key == os.getenv('SUPABASE_SERVICE_KEY') else 'ANON_KEY'}")
+        key_type = 'SERVICE_KEY' if 'SUPABASE_SERVICE_KEY' in os.environ and self.key == os.getenv('SUPABASE_SERVICE_KEY') else 'ANON_KEY'
+        logger.debug("Connecting to Supabase", url=self.url, key_type=key_type)
         
         try:
             # Try with custom httpx client
@@ -61,12 +61,12 @@ class SupabaseConnection:
 
             # Create Supabase client with custom HTTP client
             self.client = create_client(self.url, self.key, options={"httpx_client": http_client})
-            print("Connection to Supabase established.")
+            logger.debug("Connection to Supabase established")
 
         except Exception:
             # Fallback to standard client
             self.client = create_client(self.url, self.key)
-            print("Connection to Supabase established.")
+            logger.debug("Connection to Supabase established (fallback client)")
 
     def get_client(self):
         """Get the Supabase client instance."""
@@ -91,7 +91,7 @@ class MatchDAO:
             response = self.client.table("age_groups").select("*").order("name").execute()
             return response.data
         except Exception as e:
-            print(f"Error querying age groups: {e}")
+            logger.exception("Error querying age groups")
             return []
 
     def get_all_seasons(self) -> list[dict]:
@@ -102,7 +102,7 @@ class MatchDAO:
             )
             return response.data
         except Exception as e:
-            print(f"Error querying seasons: {e}")
+            logger.exception("Error querying seasons")
             return []
 
     def get_current_season(self) -> dict | None:
@@ -123,7 +123,7 @@ class MatchDAO:
 
             return response.data
         except Exception as e:
-            print(f"No current season found: {e}")
+            logger.info("No current season found", error=str(e))
             return None
 
     def get_active_seasons(self) -> list[dict]:
@@ -143,7 +143,7 @@ class MatchDAO:
 
             return response.data
         except Exception as e:
-            print(f"Error querying active seasons: {e}")
+            logger.exception("Error querying active seasons")
             return []
 
     def get_all_match_types(self) -> list[dict]:
@@ -152,7 +152,7 @@ class MatchDAO:
             response = self.client.table("match_types").select("*").order("name").execute()
             return response.data
         except Exception as e:
-            print(f"Error querying match types: {e}")
+            logger.exception("Error querying match types")
             return []
 
     def get_match_type_by_id(self, match_type_id: int) -> dict | None:
@@ -161,7 +161,7 @@ class MatchDAO:
             response = self.client.table("match_types").select("*").eq("id", match_type_id).execute()
             return response.data[0] if response.data else None
         except Exception as e:
-            print(f"Error querying match type: {e}")
+            logger.exception("Error querying match type")
             return None
 
     # === League Methods ===
@@ -172,7 +172,7 @@ class MatchDAO:
             response = self.client.table("leagues").select("*").order("name").execute()
             return response.data
         except Exception as e:
-            print(f"Error querying leagues: {e}")
+            logger.exception("Error querying leagues")
             return []
 
     def get_league_by_id(self, league_id: int) -> dict | None:
@@ -186,7 +186,7 @@ class MatchDAO:
             )
             return response.data[0] if response.data else None
         except Exception as e:
-            print(f"Error querying league {league_id}: {e}")
+            logger.exception("Error querying league", league_id=league_id)
             return None
 
     def create_league(self, league_data: dict) -> dict:
@@ -195,7 +195,7 @@ class MatchDAO:
             response = self.client.table("leagues").insert(league_data).execute()
             return response.data[0]
         except Exception as e:
-            print(f"Error creating league: {e}")
+            logger.exception("Error creating league")
             raise
 
     def update_league(self, league_id: int, league_data: dict) -> dict:
@@ -209,7 +209,7 @@ class MatchDAO:
             )
             return response.data[0] if response.data else None
         except Exception as e:
-            print(f"Error updating league {league_id}: {e}")
+            logger.exception("Error updating league", league_id=league_id)
             raise
 
     def delete_league(self, league_id: int) -> bool:
@@ -218,7 +218,7 @@ class MatchDAO:
             self.client.table("leagues").delete().eq("id", league_id).execute()
             return True
         except Exception as e:
-            print(f"Error deleting league {league_id}: {e}")
+            logger.exception("Error deleting league", league_id=league_id)
             raise
 
     # === Division Methods ===
@@ -234,7 +234,7 @@ class MatchDAO:
             )
             return response.data
         except Exception as e:
-            print(f"Error querying divisions: {e}")
+            logger.exception("Error querying divisions")
             return []
 
     def get_divisions_by_league(self, league_id: int) -> list[dict]:
@@ -249,7 +249,7 @@ class MatchDAO:
             )
             return response.data
         except Exception as e:
-            print(f"Error querying divisions for league {league_id}: {e}")
+            logger.exception("Error querying divisions for league", league_id=league_id)
             return []
 
     # === Team Methods ===
@@ -311,7 +311,7 @@ class MatchDAO:
 
             return teams
         except Exception as e:
-            print(f"Error querying teams: {e}")
+            logger.exception("Error querying teams")
             return []
 
     def get_teams_by_match_type_and_age_group(
@@ -364,7 +364,7 @@ class MatchDAO:
 
             return teams
         except Exception as e:
-            print(f"Error querying teams by match type and age group: {e}")
+            logger.exception("Error querying teams by match type and age group")
             return []
 
     def add_team_match_type_participation(
@@ -382,7 +382,7 @@ class MatchDAO:
             ).execute()
             return True
         except Exception as e:
-            print(f"Error adding team match type participation: {e}")
+            logger.exception("Error adding team match type participation")
             return False
 
     def remove_team_match_type_participation(
@@ -395,7 +395,7 @@ class MatchDAO:
             ).eq("match_type_id", match_type_id).eq("age_group_id", age_group_id).execute()
             return True
         except Exception as e:
-            print(f"Error removing team match type participation: {e}")
+            logger.exception("Error removing team match type participation")
             return False
 
     def add_team(
@@ -471,7 +471,7 @@ class MatchDAO:
 
         except Exception as e:
             error_str = str(e)
-            print(f"Error adding team: {e}")
+            logger.exception("Error adding team")
 
             # Re-raise duplicate key errors so API can handle them properly
             if "teams_name_division_unique" in error_str or "teams_name_academy_unique" in error_str or "duplicate key value" in error_str.lower():
@@ -493,7 +493,7 @@ class MatchDAO:
             return bool(response.data)
 
         except Exception as e:
-            print(f"Error updating team division: {e}")
+            logger.exception("Error updating team division")
             return False
 
     def get_team_by_name(self, name: str) -> dict | None:
@@ -516,7 +516,7 @@ class MatchDAO:
             return None
 
         except Exception as e:
-            print(f"Error getting team by name '{name}': {e}")
+            logger.exception("Error getting team by name", team_name=name)
             return None
 
     def get_team_by_id(self, team_id: int) -> dict | None:
@@ -615,7 +615,7 @@ class MatchDAO:
             return None
 
         except Exception as e:
-            print(f"Error getting age group by name '{name}': {e}")
+            logger.exception("Error getting age group by name", age_group_name=name)
             return None
 
     def get_division_by_name(self, name: str) -> dict | None:
@@ -638,7 +638,7 @@ class MatchDAO:
             return None
 
         except Exception as e:
-            print(f"Error getting division by name '{name}': {e}")
+            logger.exception("Error getting division by name", division_name=name)
             return None
 
     def get_match_by_external_id(self, external_match_id: str) -> dict | None:
@@ -699,7 +699,7 @@ class MatchDAO:
             return None
 
         except Exception as e:
-            print(f"Error getting match by external ID '{external_match_id}': {e}")
+            logger.exception("Error getting match by external ID", external_match_id=external_match_id)
             return None
 
     def get_match_by_teams_and_date(
@@ -778,7 +778,7 @@ class MatchDAO:
             return None
 
         except Exception as e:
-            print(f"Error getting match by teams and date: {e}")
+            logger.exception("Error getting match by teams and date")
             return None
 
     def update_match_external_id(self, match_id: int, external_match_id: str) -> bool:
@@ -806,12 +806,12 @@ class MatchDAO:
             )
 
             if response.data:
-                print(f"Updated match {match_id} with external match_id: {external_match_id}")
+                logger.info("Updated match with external match_id", match_id=match_id, external_match_id=external_match_id)
                 return True
             return False
 
         except Exception as e:
-            print(f"Error updating match external_id: {e}")
+            logger.exception("Error updating match external_id")
             return False
 
     def create_match(
@@ -908,7 +908,7 @@ class MatchDAO:
             return None
 
         except Exception as e:
-            print(f"Error creating match: {e}")
+            logger.exception("Error creating match")
             return None
 
     # === Match Methods ===
@@ -1026,7 +1026,7 @@ class MatchDAO:
             return matches
 
         except Exception as e:
-            print(f"Error querying matches: {e}")
+            logger.exception("Error querying matches")
             return []
 
     def get_matches_by_team(self, team_id: int, season_id: int | None = None, age_group_id: int | None = None) -> list[dict]:
@@ -1098,7 +1098,7 @@ class MatchDAO:
             return matches
 
         except Exception as e:
-            print(f"Error querying matches by team: {e}")
+            logger.exception("Error querying matches by team")
             return []
 
     def add_match(
@@ -1146,7 +1146,7 @@ class MatchDAO:
             return bool(response.data)
 
         except Exception as e:
-            print(f"Error adding match: {e}")
+            logger.exception("Error adding match")
             return False
 
     def add_match_with_external_id(
@@ -1235,7 +1235,7 @@ class MatchDAO:
 
             # Check if update actually affected any rows
             if not response.data or len(response.data) == 0:
-                print(f"WARNING: Update match {match_id} failed - no rows affected")
+                logger.warning("Update match failed - no rows affected", match_id=match_id)
                 # Return None to signal failure
                 return None
 
@@ -1247,7 +1247,7 @@ class MatchDAO:
             return self.get_match_by_id(match_id)
 
         except Exception as e:
-            print(f"Error updating match: {e}")
+            logger.exception("Error updating match")
             return None
 
     def get_match_by_id(self, match_id: int) -> dict | None:
@@ -1324,7 +1324,7 @@ class MatchDAO:
                 return None
 
         except Exception as e:
-            print(f"Error retrieving match by ID: {e}")
+            logger.exception("Error retrieving match by ID")
             return None
 
     def delete_match(self, match_id: int) -> bool:
@@ -1335,7 +1335,7 @@ class MatchDAO:
             return True  # Supabase delete returns empty data even on success
 
         except Exception as e:
-            print(f"Error deleting match: {e}")
+            logger.exception("Error deleting match")
             return False
 
     def get_league_table(
@@ -1462,7 +1462,7 @@ class MatchDAO:
             return table
 
         except Exception as e:
-            print(f"Error generating league table: {e}")
+            logger.exception("Error generating league table")
             return []
 
     # === Admin CRUD Methods ===
@@ -1473,7 +1473,7 @@ class MatchDAO:
             result = self.client.table("age_groups").insert({"name": name}).execute()
             return result.data[0]
         except Exception as e:
-            print(f"Error creating age group: {e}")
+            logger.exception("Error creating age group")
             raise e
 
     def update_age_group(self, age_group_id: int, name: str) -> dict | None:
@@ -1487,7 +1487,7 @@ class MatchDAO:
             )
             return result.data[0] if result.data else None
         except Exception as e:
-            print(f"Error updating age group: {e}")
+            logger.exception("Error updating age group")
             raise e
 
     def delete_age_group(self, age_group_id: int) -> bool:
@@ -1496,7 +1496,7 @@ class MatchDAO:
             result = self.client.table("age_groups").delete().eq("id", age_group_id).execute()
             return len(result.data) > 0
         except Exception as e:
-            print(f"Error deleting age group: {e}")
+            logger.exception("Error deleting age group")
             raise e
 
     def create_season(self, name: str, start_date: str, end_date: str) -> dict:
@@ -1509,7 +1509,7 @@ class MatchDAO:
             )
             return result.data[0]
         except Exception as e:
-            print(f"Error creating season: {e}")
+            logger.exception("Error creating season")
             raise e
 
     def update_season(
@@ -1525,7 +1525,7 @@ class MatchDAO:
             )
             return result.data[0] if result.data else None
         except Exception as e:
-            print(f"Error updating season: {e}")
+            logger.exception("Error updating season")
             raise e
 
     def delete_season(self, season_id: int) -> bool:
@@ -1534,7 +1534,7 @@ class MatchDAO:
             result = self.client.table("seasons").delete().eq("id", season_id).execute()
             return len(result.data) > 0
         except Exception as e:
-            print(f"Error deleting season: {e}")
+            logger.exception("Error deleting season")
             raise e
 
     def create_division(self, division_data: dict) -> dict:
@@ -1544,12 +1544,12 @@ class MatchDAO:
             division_data: Dict with keys: name, description (optional), league_id (required)
         """
         try:
-            print(f"Creating division with data: {division_data}")
+            logger.debug("Creating division", division_data=division_data)
             result = self.client.table("divisions").insert(division_data).execute()
-            print(f"Division created successfully: {result.data[0]}")
+            logger.debug("Division created successfully", division=result.data[0])
             return result.data[0]
         except Exception as e:
-            print(f"Error creating division: {e}")
+            logger.exception("Error creating division")
             raise e
 
     def update_division(self, division_id: int, division_data: dict) -> dict | None:
@@ -1563,7 +1563,7 @@ class MatchDAO:
             result = self.client.table("divisions").update(division_data).eq("id", division_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
-            print(f"Error updating division: {e}")
+            logger.exception("Error updating division")
             raise e
 
     def delete_division(self, division_id: int) -> bool:
@@ -1572,7 +1572,7 @@ class MatchDAO:
             result = self.client.table("divisions").delete().eq("id", division_id).execute()
             return len(result.data) > 0
         except Exception as e:
-            print(f"Error deleting division: {e}")
+            logger.exception("Error deleting division")
             raise e
 
     def update_team(
@@ -1586,7 +1586,7 @@ class MatchDAO:
                 "academy_team": academy_team,
                 "club_id": club_id
             }
-            print(f"DEBUG DAO update_team: team_id={team_id}, update_data={update_data}")
+            logger.debug("DAO update_team", team_id=team_id, update_data=update_data)
 
             result = (
                 self.client.table("teams")
@@ -1595,10 +1595,10 @@ class MatchDAO:
                 .execute()
             )
 
-            print(f"DEBUG DAO update result: {result.data}")
+            logger.debug("DAO update result", data=result.data)
             return result.data[0] if result.data else None
         except Exception as e:
-            print(f"Error updating team: {e}")
+            logger.exception("Error updating team")
             raise e
 
     def delete_team(self, team_id: int) -> bool:
@@ -1607,7 +1607,7 @@ class MatchDAO:
             result = self.client.table("teams").delete().eq("id", team_id).execute()
             return len(result.data) > 0
         except Exception as e:
-            print(f"Error deleting team: {e}")
+            logger.exception("Error deleting team")
             raise e
 
     def create_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> dict:
@@ -1634,7 +1634,7 @@ class MatchDAO:
             )
             return result.data[0]
         except Exception as e:
-            print(f"Error creating team mapping: {e}")
+            logger.exception("Error creating team mapping")
             raise e
 
     def delete_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> bool:
@@ -1650,7 +1650,7 @@ class MatchDAO:
             )
             return len(result.data) > 0
         except Exception as e:
-            print(f"Error deleting team mapping: {e}")
+            logger.exception("Error deleting team mapping")
             raise e
 
     # === Club/Parent Club Methods ===
@@ -1666,7 +1666,7 @@ class MatchDAO:
             response = self.client.table("teams").select("*").is_("club_id", "null").execute()
             return response.data
         except Exception as e:
-            print(f"Error querying parent club entities: {e}")
+            logger.exception("Error querying parent club entities")
             return []
 
     def get_all_clubs(self) -> list[dict]:
@@ -1699,7 +1699,7 @@ class MatchDAO:
 
             return clubs
         except Exception as e:
-            print(f"Error querying clubs: {e}")
+            logger.exception("Error querying clubs")
             return []
 
     def get_club_teams(self, club_id: int) -> list[dict]:
@@ -1822,7 +1822,7 @@ class MatchDAO:
 
             return teams
         except Exception as e:
-            print(f"Error querying club teams: {e}")
+            logger.exception("Error querying club teams")
             return []
 
     def get_club_for_team(self, team_id: int) -> dict | None:
@@ -1848,7 +1848,7 @@ class MatchDAO:
             club_response = self.client.table("clubs").select("*").eq("id", club_id).execute()
             return club_response.data[0] if club_response.data and len(club_response.data) > 0 else None
         except Exception as e:
-            print(f"Error querying club for team: {e}")
+            logger.exception("Error querying club for team")
             return None
 
     def create_club(self, name: str, city: str, website: str = None, description: str = None,
@@ -1886,7 +1886,7 @@ class MatchDAO:
                 raise ValueError("Failed to create club")
             return result.data[0]
         except Exception as e:
-            print(f"Error creating club: {e}")
+            logger.exception("Error creating club")
             raise e
 
     def update_club(self, club_id: int, name: str = None, city: str = None, website: str = None,
@@ -1934,7 +1934,7 @@ class MatchDAO:
                 return None
             return result.data[0]
         except Exception as e:
-            print(f"Error updating club: {e}")
+            logger.exception("Error updating club")
             raise e
 
     def update_team_club(self, team_id: int, club_id: int | None) -> dict:
@@ -1958,7 +1958,7 @@ class MatchDAO:
                 raise ValueError(f"Failed to update club for team {team_id}")
             return result.data[0]
         except Exception as e:
-            print(f"Error updating team club: {e}")
+            logger.exception("Error updating team club")
             raise e
 
     def delete_club(self, club_id: int) -> bool:
@@ -1978,7 +1978,7 @@ class MatchDAO:
             self.client.table("clubs").delete().eq("id", club_id).execute()
             return True
         except Exception as e:
-            print(f"Error deleting club: {e}")
+            logger.exception("Error deleting club")
             raise e
 
     # === Team Statistics Methods ===
@@ -2017,7 +2017,7 @@ class MatchDAO:
             # Convert RPC result to dictionary
             return {row['team_id']: row['game_count'] for row in response.data}
         except Exception as e:
-            print(f"Error getting team game counts: {e}")
+            logger.exception("Error getting team game counts")
             # Return empty dict on error - teams will show 0 games
             return {}
 

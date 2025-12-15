@@ -99,14 +99,24 @@ class TraceMiddleware(BaseHTTPMiddleware):
             # Calculate duration
             duration_ms = (time.perf_counter() - start_time) * 1000
 
-            # Log request completion
-            logger.info(
-                "request_completed",
-                method=request.method,
-                path=request.url.path,
-                status_code=response.status_code,
-                duration_ms=round(duration_ms, 2),
-            )
+            # Log request completion - use warning level for server errors
+            if response.status_code >= 500:
+                logger.warning(
+                    "request_server_error",
+                    method=request.method,
+                    path=request.url.path,
+                    status_code=response.status_code,
+                    duration_ms=round(duration_ms, 2),
+                    hint="Check endpoint logs above for stack trace with same request_id",
+                )
+            else:
+                logger.info(
+                    "request_completed",
+                    method=request.method,
+                    path=request.url.path,
+                    status_code=response.status_code,
+                    duration_ms=round(duration_ms, 2),
+                )
 
             # Add trace IDs to response headers for debugging
             response.headers["X-Request-ID"] = request_id
