@@ -1669,8 +1669,12 @@ class MatchDAO:
             )
             if division_response.data:
                 league_id = division_response.data[0]["league_id"]
-                # Update team's league_id to match the division's league
-                self.client.table("teams").update({"league_id": league_id}).eq("id", team_id).execute()
+                # Update team's league_id and division_id to match the assignment
+                # Note: division_id is needed for league table filtering to work correctly
+                self.client.table("teams").update({
+                    "league_id": league_id,
+                    "division_id": division_id
+                }).eq("id", team_id).execute()
 
             # Create the team mapping
             result = (
