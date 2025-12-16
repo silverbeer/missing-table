@@ -24,10 +24,10 @@ spec:
         # Force pod restart on each deployment (image tag stays same)
         rollout/commitSha: {{ .Values.commitSha | default "unknown" | quote }}
         rollout/buildId: {{ .Values.buildId | default "unknown" | quote }}
-        # Prometheus scraping - Grafana Alloy will autodiscover and scrape /metrics
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
-        prometheus.io/path: "/metrics"
+        # Grafana Alloy autodiscovery annotations (k8s-monitoring chart v2)
+        k8s.grafana.com/scrape: "true"
+        k8s.grafana.com/metrics.portNumber: "8000"
+        k8s.grafana.com/metrics.path: "/metrics"
     spec:
       {{- if .Values.imageCredentials }}
       imagePullSecrets:
