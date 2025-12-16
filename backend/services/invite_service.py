@@ -169,7 +169,8 @@ class InviteService:
                 'age_group_name': invitation['age_groups']['name'] if invitation.get('age_groups') else None,
                 'club_id': invitation.get('club_id'),
                 'club_name': invitation['clubs']['name'] if invitation.get('clubs') else None,
-                'email': invitation['email']
+                'email': invitation['email'],
+                'invited_by_user_id': invitation.get('invited_by_user_id')
             }
 
         except Exception as e:
@@ -179,11 +180,11 @@ class InviteService:
     def redeem_invitation(self, code: str, user_id: str) -> bool:
         """
         Redeem an invitation code
-        
+
         Args:
             code: The invite code to redeem
             user_id: ID of the user redeeming the code
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -192,7 +193,7 @@ class InviteService:
             invitation = self.validate_invite_code(code)
             if not invitation:
                 return False
-            
+
             # Update invitation status
             response = self.supabase.table('invitations')\
                 .update({
@@ -202,15 +203,79 @@ class InviteService:
                 })\
                 .eq('invite_code', code)\
                 .execute()
-            
+
             if response.data:
                 logger.info(f"Invitation {code} redeemed by user {user_id}")
+
+                # Create team_manager_assignments entry for team_manager invites
+                # This enables the team manager to create player/fan invites for their team
+                if invitation.get('invite_type') == 'team_manager':
+                    self._create_team_manager_assignment(
+                        user_id=user_id,
+                        team_id=invitation.get('team_id'),
+                        age_group_id=invitation.get('age_group_id'),
+                        assigned_by_user_id=invitation.get('invited_by_user_id')
+                    )
+
                 return True
-            
+
             return False
-            
+
         except Exception as e:
             logger.error(f"Error redeeming invitation {code}: {e}")
+            return False
+
+    def _create_team_manager_assignment(
+        self,
+        user_id: str,
+        team_id: int,
+        age_group_id: int,
+        assigned_by_user_id: str
+    ) -> bool:
+        """
+        Create a team_manager_assignments entry to grant team management permissions.
+
+        Args:
+            user_id: The user being granted management rights
+            team_id: The team they can manage
+            age_group_id: The age group they can manage
+            assigned_by_user_id: The user who created the invite
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Check if assignment already exists
+            existing = self.supabase.table('team_manager_assignments')\
+                .select('id')\
+                .eq('user_id', user_id)\
+                .eq('team_id', team_id)\
+                .eq('age_group_id', age_group_id)\
+                .execute()
+
+            if existing.data:
+                logger.info(f"Team manager assignment already exists for user {user_id}, team {team_id}, age_group {age_group_id}")
+                return True
+
+            # Create new assignment
+            response = self.supabase.table('team_manager_assignments')\
+                .insert({
+                    'user_id': user_id,
+                    'team_id': team_id,
+                    'age_group_id': age_group_id,
+                    'assigned_by_user_id': assigned_by_user_id
+                })\
+                .execute()
+
+            if response.data:
+                logger.info(f"Created team manager assignment: user {user_id} -> team {team_id}, age_group {age_group_id}")
+                return True
+
+            logger.warning(f"Failed to create team manager assignment for user {user_id}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error creating team manager assignment: {e}")
             return False
     
     def get_user_invitations(self, user_id: str) -> List[Dict]:
