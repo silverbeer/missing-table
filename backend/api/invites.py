@@ -293,7 +293,7 @@ async def create_team_fan_invite(
     current_user=Depends(get_current_user_required)
 ):
     """Create a team fan invitation (team manager) - DEPRECATED: Use club-fan instead"""
-    if current_user['role'] not in ['admin', 'team_manager']:
+    if current_user['role'] not in ['admin', 'team-manager', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     supabase = service_client
@@ -305,21 +305,21 @@ async def create_team_fan_invite(
         raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
     
     # Check if team manager can manage this team
-    if current_user['role'] == 'team_manager':
+    if current_user['role'] in ['team_manager', 'team-manager']:
         can_manage = team_manager_service.can_manage_team(
             user_id,
             request.team_id,
             request.age_group_id
         )
-        
+
         if not can_manage:
             raise HTTPException(
-                status_code=403, 
+                status_code=403,
                 detail="You can only create invites for teams you manage"
             )
-    
+
     invite_service = InviteService(supabase)
-    
+
     try:
         invitation = invite_service.create_invitation(
             invited_by_user_id=user_id,
@@ -340,7 +340,7 @@ async def create_team_player_invite(
     current_user=Depends(get_current_user_required)
 ):
     """Create a team player invitation (team manager)"""
-    if current_user['role'] not in ['admin', 'team_manager']:
+    if current_user['role'] not in ['admin', 'team-manager', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     supabase = service_client
@@ -352,21 +352,21 @@ async def create_team_player_invite(
         raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
     
     # Check if team manager can manage this team
-    if current_user['role'] == 'team_manager':
+    if current_user['role'] in ['team_manager', 'team-manager']:
         can_manage = team_manager_service.can_manage_team(
             user_id,
             request.team_id,
             request.age_group_id
         )
-        
+
         if not can_manage:
             raise HTTPException(
-                status_code=403, 
+                status_code=403,
                 detail="You can only create invites for teams you manage"
             )
-    
+
     invite_service = InviteService(supabase)
-    
+
     try:
         invitation = invite_service.create_invitation(
             invited_by_user_id=user_id,
@@ -432,7 +432,7 @@ async def cancel_invitation(
 @router.get("/team-manager/assignments", )
 async def get_team_manager_assignments(current_user=Depends(get_current_user_required)):
     """Get team assignments for the current user"""
-    if current_user['role'] not in ['admin', 'team_manager']:
+    if current_user['role'] not in ['admin', 'team-manager', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     supabase = service_client
