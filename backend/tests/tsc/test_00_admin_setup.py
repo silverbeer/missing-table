@@ -76,20 +76,26 @@ class TestAdminSetup:
         tsc_config: TSCConfig,
         existing_admin_credentials: tuple[str, str],
     ):
-        """Create TSC admin user via signup."""
+        """Create TSC admin user via signup (idempotent - handles existing users)."""
         # Note: Signup creates a regular user, not admin
         # Admin role needs to be assigned separately or via invite
         # For now, we'll create the user and use the existing admin for admin operations
 
-        # Create TSC admin user
-        result = tsc_client.client.signup(
-            username=tsc_config.full_admin_username,
-            password=tsc_config.admin_password,
-            display_name=f"TSC Admin ({tsc_config.prefix})",
-        )
-
-        assert "user" in result or "id" in result
-        print(f"Created TSC admin user: {tsc_config.full_admin_username}")
+        # Create TSC admin user (handle if already exists)
+        try:
+            result = tsc_client.client.signup(
+                username=tsc_config.full_admin_username,
+                password=tsc_config.admin_password,
+                display_name=f"TSC Admin ({tsc_config.prefix})",
+            )
+            assert "user_id" in result or "user" in result or "id" in result
+            print(f"Created TSC admin user: {tsc_config.full_admin_username}")
+        except Exception as e:
+            error_str = str(e).lower()
+            if "already" in error_str or "taken" in error_str or "exists" in error_str:
+                print(f"TSC admin user already exists: {tsc_config.full_admin_username}")
+            else:
+                raise
 
         # Re-login as existing admin to continue setup
         username, password = existing_admin_credentials

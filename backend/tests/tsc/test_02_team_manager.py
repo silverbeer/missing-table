@@ -189,56 +189,35 @@ class TestTeamManagerJourney:
         self,
         tsc_client: TSCClient,
         entity_registry: EntityRegistry,
-        tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
-        """Create invite for player."""
-        # Re-login as team manager
-        tsc_client.login_team_manager()
+        """Create invite for player (admin creates since team manager lacks permission)."""
+        # Use admin to create player invite
+        username, password = existing_admin_credentials
+        tsc_client.login(username, password)
 
-        try:
-            result = tsc_client.create_team_player_invite(
-                team_id=entity_registry.premier_team_id
-            )
-            assert "invite_code" in result
-            print(f"Created player invite: {result['invite_code']}")
-        except Exception as e:
-            # May need admin to create if team manager doesn't have permission
-            print(f"Team manager cannot create player invite, trying admin...")
-            from tests.tsc.conftest import existing_admin_credentials
-            tsc_client.login("tom", "tom123!")
-            result = tsc_client.client.create_team_player_invite_admin(
-                entity_registry.premier_team_id,
-                entity_registry.age_group_id,
-            )
-            entity_registry.add_invite(result["id"], result["invite_code"], "team_player")
-            print(f"Admin created player invite: {result['invite_code']}")
+        result = tsc_client.create_team_player_invite_admin(
+            team_id=entity_registry.premier_team_id
+        )
+        assert "invite_code" in result
+        print(f"Created player invite: {result['invite_code']}")
 
     def test_13_create_team_fan_invite(
         self,
         tsc_client: TSCClient,
         entity_registry: EntityRegistry,
-        tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
-        """Create invite for team fan."""
-        # Re-login as team manager
-        tsc_client.login_team_manager()
+        """Create invite for team fan (admin creates since team manager lacks permission)."""
+        # Use admin to create team fan invite
+        username, password = existing_admin_credentials
+        tsc_client.login(username, password)
 
-        try:
-            result = tsc_client.create_team_fan_invite(
-                team_id=entity_registry.premier_team_id
-            )
-            assert "invite_code" in result
-            print(f"Created team fan invite: {result['invite_code']}")
-        except Exception as e:
-            # May need admin to create if team manager doesn't have permission
-            print(f"Team manager cannot create team fan invite, trying admin...")
-            tsc_client.login("tom", "tom123!")
-            result = tsc_client.client.create_team_fan_invite_admin(
-                entity_registry.premier_team_id,
-                entity_registry.age_group_id,
-            )
-            entity_registry.add_invite(result["id"], result["invite_code"], "team_fan")
-            print(f"Admin created team fan invite: {result['invite_code']}")
+        result = tsc_client.create_team_fan_invite_admin(
+            team_id=entity_registry.premier_team_id
+        )
+        assert "invite_code" in result
+        print(f"Created team fan invite: {result['invite_code']}")
 
     def test_14_verify_team_manager_journey(
         self,
