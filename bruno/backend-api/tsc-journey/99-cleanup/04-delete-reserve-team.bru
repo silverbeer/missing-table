@@ -1,0 +1,20 @@
+meta {
+  name: 04 Delete Reserve Team
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{api_url}}/api/teams/{{reserve_team_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+tests {
+  test("should delete reserve team", function() {
+    expect([200, 404]).to.include(res.status);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: 07 Create TSC Admin User
+  type: http
+  seq: 80
+}
+
+post {
+  url: {{api_url}}/api/auth/signup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{tsc_admin_user}}",
+    "password": "{{tsc_admin_pass}}",
+    "display_name": "TSC Admin ({{prefix}})"
+  }
+}
+
+tests {
+  test("should create TSC admin user or already exist", function() {
+    // 200 = created, 400 = user already exists (acceptable)
+    expect([200, 400]).to.include(res.status);
+  });
+}

@@ -1,0 +1,41 @@
+meta {
+  name: 16 Create Team Manager Invite
+  type: http
+  seq: 89
+}
+
+post {
+  url: {{api_url}}/api/invites/admin/team-manager
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "invite_type": "team_manager",
+    "team_id": {{premier_team_id}},
+    "age_group_id": {{age_group_id}}
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.invite_code: isDefined
+}
+
+script:post-response {
+  if (res.body.invite_code) {
+    bru.setEnvVar("team_manager_invite_code", res.body.invite_code);
+  }
+}
+
+tests {
+  test("should create team manager invite", function() {
+    expect(res.body.invite_code).to.be.a('string');
+    expect(res.body.invite_code.length).to.equal(12);
+  });
+}

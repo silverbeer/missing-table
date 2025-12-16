@@ -1,0 +1,21 @@
+meta {
+  name: 03 Delete Team 3
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{api_url}}/api/teams/{{team_3_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+tests {
+  test("should delete team 3", function() {
+    // 200 = deleted, 404 = already deleted
+    expect([200, 404]).to.include(res.status);
+  });
+}

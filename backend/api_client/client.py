@@ -514,3 +514,200 @@ class MissingTableClient:
         """Get CSRF token."""
         response = self._request("GET", "/api/csrf-token")
         return response.json()["csrf_token"]
+
+    # Club endpoints
+
+    def get_clubs(self, include_teams: bool = False) -> list[dict[str, Any]]:
+        """Get all clubs."""
+        params = {"include_teams": include_teams}
+        response = self._request("GET", "/api/clubs", params=params)
+        return response.json()
+
+    def get_club(self, club_id: int) -> dict[str, Any]:
+        """Get a specific club by ID."""
+        response = self._request("GET", f"/api/clubs/{club_id}")
+        return response.json()
+
+    def get_club_teams(self, club_id: int) -> list[dict[str, Any]]:
+        """Get all teams for a club."""
+        response = self._request("GET", f"/api/clubs/{club_id}/teams")
+        return response.json()
+
+    def create_club(self, name: str, city: str | None = None, description: str | None = None) -> dict[str, Any]:
+        """Create a new club (admin only)."""
+        payload = {"name": name}
+        if city:
+            payload["city"] = city
+        if description:
+            payload["description"] = description
+        response = self._request("POST", "/api/clubs", json_data=payload)
+        return response.json()
+
+    def update_club(self, club_id: int, name: str | None = None, city: str | None = None, description: str | None = None) -> dict[str, Any]:
+        """Update a club (admin only)."""
+        payload = {}
+        if name:
+            payload["name"] = name
+        if city:
+            payload["city"] = city
+        if description:
+            payload["description"] = description
+        response = self._request("PUT", f"/api/clubs/{club_id}", json_data=payload)
+        return response.json()
+
+    def delete_club(self, club_id: int) -> dict[str, Any]:
+        """Delete a club (admin only)."""
+        response = self._request("DELETE", f"/api/clubs/{club_id}")
+        return response.json()
+
+    # Invite endpoints
+
+    def validate_invite(self, invite_code: str) -> dict[str, Any]:
+        """Validate an invite code (public endpoint)."""
+        response = self._request("GET", f"/api/invites/validate/{invite_code}")
+        return response.json()
+
+    def get_my_invites(self, status: str | None = None) -> list[dict[str, Any]]:
+        """Get invites created by current user."""
+        params = {}
+        if status:
+            params["status"] = status
+        response = self._request("GET", "/api/invites/my-invites", params=params)
+        return response.json()
+
+    def cancel_invite(self, invite_id: str) -> dict[str, Any]:
+        """Cancel a pending invite."""
+        response = self._request("DELETE", f"/api/invites/{invite_id}")
+        return response.json()
+
+    # Admin invite creation endpoints
+
+    def create_club_manager_invite(self, club_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a club manager invite (admin only)."""
+        payload = {"club_id": club_id}
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/admin/club-manager", json_data=payload)
+        return response.json()
+
+    def create_team_manager_invite(self, team_id: int, age_group_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a team manager invite (admin only)."""
+        payload = {
+            "invite_type": "team_manager",
+            "team_id": team_id,
+            "age_group_id": age_group_id,
+        }
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/admin/team-manager", json_data=payload)
+        return response.json()
+
+    def create_team_player_invite_admin(self, team_id: int, age_group_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a team player invite (admin only)."""
+        payload = {
+            "invite_type": "team_player",
+            "team_id": team_id,
+            "age_group_id": age_group_id,
+        }
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/admin/team-player", json_data=payload)
+        return response.json()
+
+    def create_team_fan_invite_admin(self, team_id: int, age_group_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a team fan invite (admin only)."""
+        payload = {
+            "invite_type": "team_fan",
+            "team_id": team_id,
+            "age_group_id": age_group_id,
+        }
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/admin/team-fan", json_data=payload)
+        return response.json()
+
+    def create_club_fan_invite_admin(self, club_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a club fan invite (admin only)."""
+        payload = {"club_id": club_id}
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/admin/club-fan", json_data=payload)
+        return response.json()
+
+    # Club manager invite creation endpoints
+
+    def create_club_fan_invite(self, club_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a club fan invite (club manager or admin)."""
+        payload = {"club_id": club_id}
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/club-manager/club-fan", json_data=payload)
+        return response.json()
+
+    # Team manager invite creation endpoints
+
+    def create_team_player_invite(self, team_id: int, age_group_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a team player invite (team manager or admin)."""
+        payload = {
+            "invite_type": "team_player",
+            "team_id": team_id,
+            "age_group_id": age_group_id,
+        }
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/team-manager/team-player", json_data=payload)
+        return response.json()
+
+    def create_team_fan_invite(self, team_id: int, age_group_id: int, email: str | None = None) -> dict[str, Any]:
+        """Create a team fan invite (team manager or admin)."""
+        payload = {
+            "invite_type": "team_fan",
+            "team_id": team_id,
+            "age_group_id": age_group_id,
+        }
+        if email:
+            payload["email"] = email
+        response = self._request("POST", "/api/invites/team-manager/team-fan", json_data=payload)
+        return response.json()
+
+    def get_team_manager_assignments(self) -> list[dict[str, Any]]:
+        """Get team assignments for current team manager."""
+        response = self._request("GET", "/api/invites/team-manager/assignments")
+        return response.json()
+
+    # League endpoints
+
+    def get_leagues(self) -> list[dict[str, Any]]:
+        """Get all leagues."""
+        response = self._request("GET", "/api/leagues")
+        return response.json()
+
+    def get_league(self, league_id: int) -> dict[str, Any]:
+        """Get a specific league by ID."""
+        response = self._request("GET", f"/api/leagues/{league_id}")
+        return response.json()
+
+    def create_league(self, name: str, description: str | None = None, is_active: bool = True) -> dict[str, Any]:
+        """Create a new league (admin only)."""
+        payload = {"name": name, "is_active": is_active}
+        if description:
+            payload["description"] = description
+        response = self._request("POST", "/api/leagues", json_data=payload)
+        return response.json()
+
+    def update_league(self, league_id: int, name: str | None = None, description: str | None = None, is_active: bool | None = None) -> dict[str, Any]:
+        """Update a league (admin only)."""
+        payload = {}
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        if is_active is not None:
+            payload["is_active"] = is_active
+        response = self._request("PUT", f"/api/leagues/{league_id}", json_data=payload)
+        return response.json()
+
+    def delete_league(self, league_id: int) -> dict[str, Any]:
+        """Delete a league (admin only)."""
+        response = self._request("DELETE", f"/api/leagues/{league_id}")
+        return response.json()

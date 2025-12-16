@@ -1,0 +1,21 @@
+meta {
+  name: 06 Delete Club
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{api_url}}/api/clubs/{{club_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+tests {
+  test("should delete club", function() {
+    // 200 = deleted, 404 = already deleted
+    expect([200, 404]).to.include(res.status);
+  });
+}

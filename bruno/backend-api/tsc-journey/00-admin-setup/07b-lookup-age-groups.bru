@@ -1,0 +1,35 @@
+meta {
+  name: 07b Lookup Age Groups
+  type: http
+  seq: 71
+}
+
+get {
+  url: {{api_url}}/api/age-groups
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const ageGroups = res.body || [];
+  const ageName = bru.getEnvVar("age_group_name");
+
+  for (const ag of ageGroups) {
+    if (ag.name === ageName) {
+      bru.setEnvVar("age_group_id", ag.id);
+      break;
+    }
+  }
+}
+
+tests {
+  test("should find age group by name", function() {
+    const ageGroups = res.body || [];
+    const ageName = bru.getEnvVar("age_group_name");
+    const ag = ageGroups.find(a => a.name === ageName);
+    expect(ag).to.not.be.undefined;
+  });
+}

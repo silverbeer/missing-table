@@ -1,0 +1,37 @@
+meta {
+  name: 02 Login Club Fan
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{api_url}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{club_fan_user}}",
+    "password": "{{club_fan_pass}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:post-response {
+  if (res.body.session && res.body.session.access_token) {
+    bru.setEnvVar("access_token", res.body.session.access_token);
+  } else if (res.body.access_token) {
+    bru.setEnvVar("access_token", res.body.access_token);
+  }
+}
+
+tests {
+  test("should login club fan", function() {
+    const token = res.body.session ? res.body.session.access_token : res.body.access_token;
+    expect(token).to.be.a('string');
+  });
+}

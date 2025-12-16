@@ -1,0 +1,34 @@
+meta {
+  name: 05 Create Team 3
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{api_url}}/api/teams
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "name": "{{team_3_name}}",
+    "city": "Test City",
+    "age_group_ids": [{{age_group_id}}],
+    "division_id": {{division_id}},
+    "club_id": {{club_id}}
+  }
+}
+
+tests {
+  test("should create team 3 or already exist", function() {
+    expect([200, 409]).to.include(res.status);
+    if (res.status === 200) {
+      expect(res.body.message).to.include("success");
+    }
+  });
+}

@@ -1,0 +1,37 @@
+meta {
+  name: 07e Lookup Clubs
+  type: http
+  seq: 74
+}
+
+get {
+  url: {{api_url}}/api/clubs
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const clubs = res.body;
+  const clubName = bru.getEnvVar("club_name");
+
+  for (const club of clubs) {
+    if (club.name === clubName) {
+      bru.setEnvVar("club_id", club.id);
+      break;
+    }
+  }
+}
+
+tests {
+  test("should find club by name", function() {
+    const clubs = res.body;
+    const clubName = bru.getEnvVar("club_name");
+    const club = clubs.find(c => c.name === clubName);
+
+    expect(club).to.not.be.undefined;
+    expect(club.id).to.be.a('number');
+  });
+}

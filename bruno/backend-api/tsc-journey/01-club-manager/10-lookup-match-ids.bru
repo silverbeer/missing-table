@@ -1,0 +1,39 @@
+meta {
+  name: 10 Lookup Match IDs
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{api_url}}/api/matches?team_id={{team_3_id}}&season_id={{season_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const matches = res.body || [];
+
+  for (const match of matches) {
+    if (match.match_date === "2025-02-15") {
+      bru.setEnvVar("match_3_id", match.id);
+    }
+    if (match.match_date === "2025-02-22") {
+      bru.setEnvVar("match_4_id", match.id);
+    }
+  }
+}
+
+tests {
+  test("should find match 3 and match 4", function() {
+    const matches = res.body || [];
+
+    const match3 = matches.find(m => m.match_date === "2025-02-15");
+    const match4 = matches.find(m => m.match_date === "2025-02-22");
+
+    expect(match3).to.not.be.undefined;
+    expect(match4).to.not.be.undefined;
+  });
+}

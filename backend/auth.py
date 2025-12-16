@@ -94,6 +94,7 @@ class AuthManager:
                 return None
 
             # Get user profile with role
+            logger.debug(f"Querying user_profiles for user_id: {user_id}")
             profile_response = (
                 self.supabase.table("user_profiles").select("*").eq("id", user_id).execute()
             )

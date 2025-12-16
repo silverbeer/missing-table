@@ -1,0 +1,52 @@
+meta {
+  name: TSC Journey Tests
+}
+
+docs {
+  # TSC Journey Tests
+
+  Tom's Soccer Club journey test suite for role-based API testing.
+
+  ## Phases
+
+  - **00-admin-setup**: Admin creates infrastructure (season, age group, league, division, club, teams, matches, invites)
+  - **01-club-manager**: Club manager signs up via invite and creates club fan invite
+  - **02-team-manager**: Team manager signs up, creates matches (including LIVE), creates player/fan invites
+  - **03-player**: Player signs up and views schedule
+  - **04-fan**: Fan signs up, views standings and LIVE match
+  - **99-cleanup**: Delete all test entities in FK-safe order
+
+  ## Usage
+
+  ```bash
+  # Full journey with cleanup
+  bru run bruno/backend-api/tsc-journey --env tsc
+
+  # Journey WITHOUT cleanup (for UI testing)
+  bru run bruno/backend-api/tsc-journey/00-admin-setup --env tsc
+  bru run bruno/backend-api/tsc-journey/01-club-manager --env tsc
+  bru run bruno/backend-api/tsc-journey/02-team-manager --env tsc
+  bru run bruno/backend-api/tsc-journey/03-player --env tsc
+  bru run bruno/backend-api/tsc-journey/04-fan --env tsc
+
+  # Cleanup only (after UI testing)
+  bru run bruno/backend-api/tsc-journey/99-cleanup --env tsc
+  ```
+
+  ## Configuration
+
+  Set these secrets in the TSC environment before running:
+  - `existing_admin_pass`: Password for existing admin (e.g., tom123!)
+
+  The following passwords follow the pattern `{username}123!`:
+  - `tsc_admin_pass`: tsc_b_admin123!
+  - `club_manager_pass`: tsc_b_club_mgr123!
+  - `team_manager_pass`: tsc_b_team_mgr123!
+  - `player_pass`: tsc_b_player123!
+  - `club_fan_pass`: tsc_b_club_fan123!
+  - `team_fan_pass`: tsc_b_team_fan123!
+
+  ## Entity Prefix
+
+  All entities use `tsc_b_` prefix to avoid conflicts.
+}

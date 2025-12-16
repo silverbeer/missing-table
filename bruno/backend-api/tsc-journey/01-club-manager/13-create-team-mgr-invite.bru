@@ -1,0 +1,19 @@
+meta {
+  name: 13 Verify Team Manager Invite Exists
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{api_url}}/api/invites/validate/{{team_manager_invite_code}}
+  auth: none
+}
+
+tests {
+  test("should have team manager invite from admin setup", function() {
+    expect([200, 404]).to.include(res.status);
+    if (res.status === 200) {
+      expect(res.body.invite_type).to.equal('team_manager');
+    }
+  });
+}

@@ -1,0 +1,39 @@
+meta {
+  name: 05 Create Club Fan Invite
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{api_url}}/api/invites/club-manager/club-fan
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "club_id": {{club_id}}
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.invite_code: isDefined
+}
+
+script:post-response {
+  if (res.body.invite_code) {
+    bru.setEnvVar("club_fan_invite_code", res.body.invite_code);
+  }
+}
+
+tests {
+  test("should create club fan invite", function() {
+    expect(res.body.invite_code).to.be.a('string');
+    expect(res.body.invite_code.length).to.equal(12);
+  });
+}

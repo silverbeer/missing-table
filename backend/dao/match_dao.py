@@ -42,14 +42,17 @@ class SupabaseConnection:
         """Initialize Supabase client with custom SSL configuration."""
         self.url = os.getenv("SUPABASE_URL")
         # Backend should always use SERVICE_KEY for administrative operations
-        self.key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+        service_key = os.getenv("SUPABASE_SERVICE_KEY")
+        anon_key = os.getenv("SUPABASE_ANON_KEY")
+        self.key = service_key or anon_key
 
         if not self.url or not self.key:
             raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file")
-        
-        # Debug output
-        key_type = 'SERVICE_KEY' if 'SUPABASE_SERVICE_KEY' in os.environ and self.key == os.getenv('SUPABASE_SERVICE_KEY') else 'ANON_KEY'
-        logger.debug("Connecting to Supabase", url=self.url, key_type=key_type)
+
+        # Debug output - check what keys are actually set
+        key_type = 'SERVICE_KEY' if service_key and self.key == service_key else 'ANON_KEY'
+        logger.debug("Connecting to Supabase", url=self.url, key_type=key_type,
+                     service_key_present=bool(service_key), anon_key_present=bool(anon_key))
         
         try:
             # Try with custom httpx client
@@ -1642,8 +1645,25 @@ class MatchDAO:
             raise e
 
     def delete_team(self, team_id: int) -> bool:
-        """Delete a team."""
+        """Delete a team and its related data.
+
+        Cascades deletion of:
+        - team_mappings (FK constraint)
+        - team_match_types (FK constraint)
+        - matches where team is home or away (FK constraint)
+        """
         try:
+            # Delete team_mappings first (FK constraint)
+            self.client.table("team_mappings").delete().eq("team_id", team_id).execute()
+
+            # Delete team_match_types (FK constraint)
+            self.client.table("team_match_types").delete().eq("team_id", team_id).execute()
+
+            # Delete matches where this team participates (FK constraint)
+            self.client.table("matches").delete().eq("home_team_id", team_id).execute()
+            self.client.table("matches").delete().eq("away_team_id", team_id).execute()
+
+            # Now delete the team
             result = self.client.table("teams").delete().eq("id", team_id).execute()
             return len(result.data) > 0
         except Exception as e:
@@ -2050,8 +2070,12 @@ class MatchDAO:
         Note:
             This will fail if there are teams still associated with this club
             due to ON DELETE RESTRICT constraint.
+            Invitations referencing this club are deleted first.
         """
         try:
+            # Delete invitations referencing this club first (FK constraint)
+            self.client.table("invitations").delete().eq("club_id", club_id).execute()
+            # Now delete the club
             self.client.table("clubs").delete().eq("id", club_id).execute()
             return True
         except Exception as e:

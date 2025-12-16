@@ -1,0 +1,25 @@
+meta {
+  name: 04 View Live Match
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{api_url}}/api/matches/{{match_2_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("should return live match", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.match_status).to.equal('live');
+  });
+}

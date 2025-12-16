@@ -9,9 +9,12 @@ Headers:
 - X-Request-ID: Per-request identifier (mt-req-{uuid})
 
 If headers are not provided, generates new identifiers.
+
+Note: This middleware only handles context binding, not request logging.
+Request lifecycle logging should be done at the application level where
+the actual business logic resides, so log callsites show meaningful filenames.
 """
 
-import time
 import uuid
 from contextvars import ContextVar
 from typing import Optional, Tuple
@@ -24,8 +27,6 @@ from starlette.responses import Response
 # Context variables for trace IDs - accessible throughout the request lifecycle
 _session_id: ContextVar[Optional[str]] = ContextVar("session_id", default=None)
 _request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
-
-logger = structlog.get_logger(__name__)
 
 
 def generate_request_id() -> str:
@@ -63,13 +64,12 @@ class TraceMiddleware(BaseHTTPMiddleware):
     Middleware that extracts trace IDs from request headers and binds
     them to structlog context for distributed tracing.
 
-    Also logs request start/end with timing information.
+    This middleware only handles context binding - no logging is done here
+    so that log callsites show the actual business logic location.
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with trace context."""
-        start_time = time.perf_counter()
-
         # Extract or generate trace IDs
         session_id = request.headers.get("X-Session-ID") or generate_session_id()
         request_id = request.headers.get("X-Request-ID") or generate_request_id()
@@ -84,60 +84,13 @@ class TraceMiddleware(BaseHTTPMiddleware):
             request_id=request_id,
         )
 
-        # Log request start
-        logger.info(
-            "request_started",
-            method=request.method,
-            path=request.url.path,
-            query=str(request.query_params) if request.query_params else None,
-            client_ip=request.client.host if request.client else None,
-        )
-
         try:
             response = await call_next(request)
-
-            # Calculate duration
-            duration_ms = (time.perf_counter() - start_time) * 1000
-
-            # Log request completion - use warning level for server errors
-            if response.status_code >= 500:
-                logger.warning(
-                    "request_server_error",
-                    method=request.method,
-                    path=request.url.path,
-                    status_code=response.status_code,
-                    duration_ms=round(duration_ms, 2),
-                    hint="Check endpoint logs above for stack trace with same request_id",
-                )
-            else:
-                logger.info(
-                    "request_completed",
-                    method=request.method,
-                    path=request.url.path,
-                    status_code=response.status_code,
-                    duration_ms=round(duration_ms, 2),
-                )
 
             # Add trace IDs to response headers for debugging
             response.headers["X-Request-ID"] = request_id
 
             return response
-
-        except Exception as e:
-            # Calculate duration even on error
-            duration_ms = (time.perf_counter() - start_time) * 1000
-
-            # Log request failure
-            logger.error(
-                "request_failed",
-                method=request.method,
-                path=request.url.path,
-                error_type=type(e).__name__,
-                error_message=str(e),
-                duration_ms=round(duration_ms, 2),
-                exc_info=True,
-            )
-            raise
 
         finally:
             # Reset context variables

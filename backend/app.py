@@ -91,6 +91,12 @@ logger = get_logger(__name__)
 
 app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
 
+# Setup Prometheus metrics - exposes /metrics endpoint for Grafana
+from metrics_config import setup_metrics
+
+setup_metrics(app)
+logger.info("prometheus_metrics_enabled", endpoint="/metrics")
+
 # Configure Rate Limiting
 # TODO: Fix middleware order issue
 # limiter = create_rate_limit_middleware(app)
@@ -159,8 +165,21 @@ else:
     db_conn_holder_obj = DbConnectionHolder()
     match_dao = MatchDAO(db_conn_holder_obj)
 
-# Initialize Authentication Manager
-auth_manager = AuthManager(db_conn_holder_obj.client)
+# Initialize Authentication Manager with a dedicated service client
+# This prevents login operations from modifying the client used for profile lookups
+from supabase import create_client
+auth_service_client = create_client(
+    os.getenv('SUPABASE_URL', ''),
+    os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_ANON_KEY', '')
+)
+auth_manager = AuthManager(auth_service_client)
+
+# Create a separate client for auth operations (login/signup/logout)
+# This prevents auth operations from modifying the client used by match_dao
+auth_ops_client = create_client(
+    os.getenv('SUPABASE_URL', ''),
+    os.getenv('SUPABASE_ANON_KEY', '')  # Auth operations use anon key
+)
 
 
 def get_client_ip(request: Request) -> str:
@@ -185,6 +204,76 @@ app.include_router(version_router)
 # === Authentication Endpoints ===
 
 
+async def _update_existing_user_role(user_data, invite_info, audit_logger):
+    """Helper to update an existing user's role when they re-signup with an invite code.
+
+    This handles the case where a user already exists (e.g., created as team-fan)
+    but is now signing up with an invite code to get a different role (e.g., team-manager).
+    """
+    from auth import username_to_internal_email
+
+    try:
+        logger.info(f"Updating existing user {user_data.username} role via invite code")
+
+        # Get the user's ID from user_profiles
+        existing_profile = match_dao.get_user_profile_by_username(user_data.username)
+        if not existing_profile:
+            # Try to find by internal email in auth.users
+            internal_email = username_to_internal_email(user_data.username)
+            auth_response = auth_service_client.auth.admin.list_users()
+            existing_user = None
+            for user in auth_response:
+                if user.email == internal_email:
+                    existing_user = user
+                    break
+
+            if not existing_user:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"User {user_data.username} not found"
+                )
+            user_id = existing_user.id
+        else:
+            user_id = existing_profile['id']
+
+        # Map invite type to user role
+        role_mapping = {
+            'club_manager': 'club_manager',
+            'club_fan': 'club-fan',
+            'team_manager': 'team-manager',
+            'team_player': 'team-player',
+            'team_fan': 'team-fan'
+        }
+        new_role = role_mapping.get(invite_info['invite_type'], 'team-fan')
+
+        # Update user profile with new role and invite info
+        update_data = {
+            'username': user_data.username.lower(),
+            'role': new_role,
+            'team_id': invite_info.get('team_id'),
+            'club_id': invite_info.get('club_id')
+        }
+        match_dao.update_user_profile(user_id, update_data)
+
+        # Redeem the invitation
+        invite_service = InviteService(db_conn_holder_obj.client)
+        invite_service.redeem_invitation(user_data.invite_code, user_id)
+
+        logger.info(f"Updated existing user {user_id} role to {new_role} via invite code")
+        audit_logger.info("auth_role_update_success", user_id=user_id, new_role=new_role)
+
+        return {
+            "message": f"Welcome back, {user_data.username}! Your role has been updated to {invite_info['invite_type'].replace('_', ' ')}.",
+            "user_id": user_id,
+            "username": user_data.username
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update existing user role: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/api/auth/signup")
 # @rate_limit("3 per hour")
 async def signup(request: Request, user_data: UserSignup):
@@ -195,18 +284,7 @@ async def signup(request: Request, user_data: UserSignup):
     audit_logger = logger.bind(flow="auth_signup", username=user_data.username, client_ip=client_ip)
 
     try:
-            # Validate username availability
-            username_available = await check_username_available(
-                db_conn_holder_obj.client,
-                user_data.username
-            )
-            if not username_available:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Username '{user_data.username}' is already taken"
-                )
-
-            # Validate invite code if provided
+            # Validate invite code if provided (do this FIRST)
             invite_info = None
             if user_data.invite_code:
                 invite_service = InviteService(db_conn_holder_obj.client)
@@ -222,13 +300,31 @@ async def signup(request: Request, user_data: UserSignup):
                             detail=f"This invite code is for {invite_info['email']}. Please use that email address."
                         )
 
+            # Validate username availability
+            username_available = await check_username_available(
+                db_conn_holder_obj.client,
+                user_data.username
+            )
+            if not username_available:
+                # If user has invite code, allow them to "re-signup" to update their role
+                if invite_info:
+                    logger.info(f"User {user_data.username} exists but has invite code - will update role")
+                    # Redirect to the role update flow
+                    return await _update_existing_user_role(user_data, invite_info, audit_logger)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Username '{user_data.username}' is already taken"
+                )
+
+            if invite_info:
                 logger.info(f"Valid invite code for {invite_info['invite_type']}: {user_data.invite_code}")
 
             # Convert username to internal email for Supabase Auth
             internal_email = username_to_internal_email(user_data.username)
 
             # Create Supabase Auth user with internal email
-            response = db_conn_holder_obj.client.auth.sign_up({
+            # Use auth_ops_client to avoid modifying the match_dao client
+            response = auth_ops_client.auth.sign_up({
                 "email": internal_email,
                 "password": user_data.password,
                 "options": {
@@ -300,9 +396,59 @@ async def signup(request: Request, user_data: UserSignup):
     except HTTPException:
         raise
     except Exception as e:
-        audit_logger.error("auth_signup_error", error=str(e), email=user_data.email)
+        error_msg = str(e)
+        # Handle "User already registered" case - update role if invite code is valid
+        logger.info(f"Signup exception handler: error='{error_msg}', invite_info={invite_info is not None}")
+        if "User already registered" in error_msg and invite_info:
+            try:
+                logger.info(f"Attempting to update existing user {user_data.username} role via invite")
+                # Get existing user by internal email from auth.users
+                from auth import username_to_internal_email
+                internal_email = username_to_internal_email(user_data.username)
+                # Query auth.users to get user_id
+                auth_response = auth_service_client.auth.admin.list_users()
+                existing_user = None
+                for user in auth_response:
+                    if user.email == internal_email:
+                        existing_user = user
+                        break
+                logger.info(f"Found existing auth user: {existing_user.id if existing_user else None}")
+                if existing_user:
+                    # Map invite type to user role
+                    role_mapping = {
+                        'club_manager': 'club_manager',
+                        'club_fan': 'club-fan',
+                        'team_manager': 'team-manager',
+                        'team_player': 'team-player',
+                        'team_fan': 'team-fan'
+                    }
+                    new_role = role_mapping.get(invite_info['invite_type'], 'team-fan')
+
+                    # Update user profile with new role, username, and invite info
+                    update_data = {
+                        'username': user_data.username.lower(),  # Fix missing username
+                        'role': new_role,
+                        'team_id': invite_info.get('team_id'),
+                        'club_id': invite_info.get('club_id')
+                    }
+                    match_dao.update_user_profile(existing_user.id, update_data)
+
+                    # Redeem the invitation
+                    invite_service = InviteService(db_conn_holder_obj.client)
+                    invite_service.redeem_invitation(user_data.invite_code, existing_user.id)
+
+                    logger.info(f"Updated existing user {existing_user.id} role to {new_role} via invite code")
+                    return {
+                        "message": f"Welcome back! Your role has been updated to {invite_info['invite_type'].replace('_', ' ')}.",
+                        "user_id": existing_user.id,
+                        "username": user_data.username
+                    }
+            except Exception as update_error:
+                logger.error(f"Failed to update existing user role: {update_error}", exc_info=True)
+
+        audit_logger.error("auth_signup_error", error=error_msg, email=user_data.email)
         logger.error(f"Signup error: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=error_msg)
 
 @app.post("/api/auth/login")
 # @rate_limit("5 per minute")
@@ -318,7 +464,8 @@ async def login(request: Request, user_data: UserLogin):
         internal_email = username_to_internal_email(user_data.username)
 
         # Authenticate with Supabase using internal email
-        response = db_conn_holder_obj.client.auth.sign_in_with_password({
+        # Use auth_ops_client to avoid modifying the match_dao client
+        response = auth_ops_client.auth.sign_in_with_password({
             "email": internal_email,
             "password": user_data.password
         })
@@ -414,7 +561,8 @@ async def check_username_availability(username: str):
 async def logout(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """User logout endpoint."""
     try:
-        db_conn_holder_obj.client.auth.sign_out()
+        # Use auth_ops_client to avoid modifying the match_dao client
+        auth_ops_client.auth.sign_out()
         return {
             "success": True,
             "message": "Logged out successfully"
@@ -1163,7 +1311,8 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
     """Refresh JWT token using refresh token."""
     refresh_logger = logger.bind(flow="auth_refresh", client_ip=get_client_ip(request))
     try:
-        response = db_conn_holder_obj.client.auth.refresh_session(refresh_data.refresh_token)
+        # Use auth_ops_client to avoid modifying the match_dao client
+        response = auth_ops_client.auth.refresh_session(refresh_data.refresh_token)
 
         if response.session:
             refresh_logger.info("auth_refresh_success")
@@ -1323,9 +1472,10 @@ async def update_user_profile(
                 update_data["username"] = username.lower()
 
                 # Update auth.users email to internal format
+                # Use auth_service_client for admin operations (requires service key)
                 internal_email = f"{username.lower()}@missingtable.local"
                 try:
-                    db_conn_holder_obj.client.auth.admin.update_user_by_id(
+                    auth_service_client.auth.admin.update_user_by_id(
                         profile_data.user_id,
                         {
                             "email": internal_email,
@@ -1702,8 +1852,7 @@ async def delete_match(
 ):
     """Delete a match by ID (requires admin permission)."""
     try:
-        client_ip = get_client_ip(request)
-        result = match_dao.delete_match(match_id, client_ip=client_ip)
+        result = match_dao.delete_match(match_id)
 
         if result:
             return {"message": f"Match {match_id} deleted successfully"}

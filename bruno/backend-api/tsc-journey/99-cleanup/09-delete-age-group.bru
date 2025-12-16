@@ -1,0 +1,20 @@
+meta {
+  name: 09 Delete Age Group
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{api_url}}/api/age-groups/{{age_group_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+tests {
+  test("should delete age group", function() {
+    expect([200, 404]).to.include(res.status);
+  });
+}
