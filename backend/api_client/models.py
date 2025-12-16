@@ -41,14 +41,14 @@ class DivisionUpdate(BaseModel):
 
 
 class EnhancedGame(BaseModel):
-    game_date: str = Field(..., title='Game Date')
+    match_date: str = Field(..., title='Match Date')  # MANUAL: Fixed - backend expects match_date not game_date
     home_team_id: int = Field(..., title='Home Team Id')
     away_team_id: int = Field(..., title='Away Team Id')
     home_score: int = Field(..., title='Home Score')
     away_score: int = Field(..., title='Away Score')
     season_id: int = Field(..., title='Season Id')
     age_group_id: int = Field(..., title='Age Group Id')
-    game_type_id: int = Field(..., title='Game Type Id')
+    match_type_id: int = Field(..., title='Match Type Id')  # MANUAL: Fixed - backend expects match_type_id not game_type_id
     division_id: Optional[int] = Field(None, title='Division Id')
     status: Optional[str] = Field('scheduled', title='Status')
     created_by: Optional[str] = Field(None, title='Created By')
@@ -100,7 +100,8 @@ class Team(BaseModel):
     name: str = Field(..., title='Name')
     city: str = Field(..., title='City')
     age_group_ids: list[int] = Field(..., title='Age Group Ids')
-    division_ids: Optional[list[int]] = Field(None, title='Division Ids')
+    division_id: int = Field(..., title='Division Id')  # MANUAL: Fixed - backend expects singular division_id
+    club_id: Optional[int] = Field(None, title='Club Id')
     academy_team: Optional[bool] = Field(False, title='Academy Team')
 
 

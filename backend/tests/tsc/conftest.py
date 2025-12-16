@@ -91,22 +91,13 @@ def tsc_client(tsc_config: TSCConfig, entity_registry: EntityRegistry) -> TSCCli
     TSC client fixture (module-scoped).
 
     Provides API client with entity tracking.
+    Automatically saves registry on teardown for persistence between runs.
     """
     client = TSCClient(config=tsc_config, registry=entity_registry)
     yield client
     client.close()
 
-
-@pytest.fixture(scope="module")
-def save_registry(entity_registry: EntityRegistry):
-    """
-    Save registry after tests complete.
-
-    Use as a finalizer to persist entity state.
-    """
-    yield
-
-    # Save registry to file
+    # Save registry to file on teardown
     with open(REGISTRY_FILE, "w") as f:
         json.dump(entity_registry.to_dict(), f, indent=2)
 

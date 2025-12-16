@@ -2,11 +2,14 @@
 TSC Client Wrapper.
 
 Wraps MissingTableClient with TSC-specific entity tracking and helper methods.
+Provides idempotent "get or create" operations for all entities.
 """
 
+import logging
 from typing import Any
 
 from api_client import MissingTableClient
+from api_client.exceptions import APIError
 from api_client.models import (
     AgeGroupCreate,
     DivisionCreate,
@@ -18,6 +21,8 @@ from api_client.models import (
 
 from .config import TSCConfig
 from .entities import EntityRegistry
+
+logger = logging.getLogger(__name__)
 
 
 class TSCClient:
@@ -96,17 +101,34 @@ class TSCClient:
         invite_code: str,
         display_name: str | None = None,
     ) -> dict[str, Any]:
-        """Sign up a new user with an invite code."""
-        result = self._client.signup(
-            username=username,
-            password=password,
-            display_name=display_name or username,
-            invite_code=invite_code,
-        )
-        # Track user if ID is returned
-        if "user" in result and result["user"].get("id"):
-            self.registry.add_user(result["user"]["id"])
-        return result
+        """Sign up a new user with an invite code (idempotent - handles existing users)."""
+        try:
+            result = self._client.signup(
+                username=username,
+                password=password,
+                display_name=display_name or username,
+                invite_code=invite_code,
+            )
+            logger.info(f"Signed up user: {username}")
+            # Track user if ID is returned
+            if "user" in result and result["user"].get("id"):
+                self.registry.add_user(result["user"]["id"])
+            return result
+        except (APIError, Exception) as e:
+            error_str = str(e).lower()
+            # If user already exists, try to login instead
+            if "already" in error_str or "exists" in error_str or "registered" in error_str or "duplicate" in error_str:
+                logger.info(f"User already exists, logging in: {username}")
+                # Login and return a similar structure
+                login_result = self._client.login(username, password)
+                # Get profile to return user info
+                profile = self._client.get_profile()
+                return {
+                    "user": profile,
+                    "session": login_result,
+                    "already_existed": True,
+                }
+            raise
 
     def get_profile(self) -> dict[str, Any]:
         """Get current user profile."""
@@ -116,91 +138,315 @@ class TSCClient:
         """Update current user profile."""
         return self._client.update_profile(display_name=display_name, team_id=team_id)
 
-    # Reference Data Creation (with tracking)
+    # Reference Data Creation (with tracking) - Idempotent get-or-create
+
+    def _find_by_name(self, items: list[dict], name: str) -> dict | None:
+        """Find an item by name in a list."""
+        for item in items:
+            if item.get("name") == name:
+                return item
+        return None
 
     def create_season(self, name: str | None = None, start_date: str = "2025-01-01", end_date: str = "2025-12-31") -> dict[str, Any]:
-        """Create a season and track it."""
+        """Create a season or return existing one if it exists (idempotent)."""
         season_name = name or self.config.full_season_name
-        season = SeasonCreate(name=season_name, start_date=start_date, end_date=end_date)
-        result = self._client.create_season(season)
-        self.registry.season_id = result["id"]
-        return result
+
+        # Check if already exists
+        existing = self._find_by_name(self._client.get_seasons(), season_name)
+        if existing:
+            logger.info(f"Season already exists: {season_name} (ID: {existing['id']})")
+            self.registry.season_id = existing["id"]
+            return existing
+
+        # Try to create
+        try:
+            season = SeasonCreate(name=season_name, start_date=start_date, end_date=end_date)
+            result = self._client.create_season(season)
+            logger.info(f"Created season: {season_name} (ID: {result['id']})")
+            self.registry.season_id = result["id"]
+            return result
+        except (APIError, Exception) as e:
+            # On duplicate error, look up existing
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_by_name(self._client.get_seasons(), season_name)
+                if existing:
+                    logger.info(f"Season exists (found after error): {season_name} (ID: {existing['id']})")
+                    self.registry.season_id = existing["id"]
+                    return existing
+            raise
 
     def create_age_group(self, name: str | None = None) -> dict[str, Any]:
-        """Create an age group and track it."""
+        """Create an age group or return existing one if it exists (idempotent)."""
         ag_name = name or self.config.full_age_group_name
-        age_group = AgeGroupCreate(name=ag_name)
-        result = self._client.create_age_group(age_group)
-        self.registry.age_group_id = result["id"]
-        return result
+
+        # Check if already exists
+        existing = self._find_by_name(self._client.get_age_groups(), ag_name)
+        if existing:
+            logger.info(f"Age group already exists: {ag_name} (ID: {existing['id']})")
+            self.registry.age_group_id = existing["id"]
+            return existing
+
+        # Try to create
+        try:
+            age_group = AgeGroupCreate(name=ag_name)
+            result = self._client.create_age_group(age_group)
+            logger.info(f"Created age group: {ag_name} (ID: {result['id']})")
+            self.registry.age_group_id = result["id"]
+            return result
+        except (APIError, Exception) as e:
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_by_name(self._client.get_age_groups(), ag_name)
+                if existing:
+                    logger.info(f"Age group exists (found after error): {ag_name} (ID: {existing['id']})")
+                    self.registry.age_group_id = existing["id"]
+                    return existing
+            raise
 
     def create_league(self, name: str | None = None, description: str | None = None) -> dict[str, Any]:
-        """Create a league and track it."""
+        """Create a league or return existing one if it exists (idempotent)."""
         league_name = name or self.config.prefixed("league")
-        result = self._client.create_league(name=league_name, description=description)
-        self.registry.league_id = result["id"]
-        return result
+
+        # Check if already exists
+        existing = self._find_by_name(self._client.get_leagues(), league_name)
+        if existing:
+            logger.info(f"League already exists: {league_name} (ID: {existing['id']})")
+            self.registry.league_id = existing["id"]
+            return existing
+
+        # Try to create
+        try:
+            result = self._client.create_league(name=league_name, description=description)
+            logger.info(f"Created league: {league_name} (ID: {result['id']})")
+            self.registry.league_id = result["id"]
+            return result
+        except (APIError, Exception) as e:
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_by_name(self._client.get_leagues(), league_name)
+                if existing:
+                    logger.info(f"League exists (found after error): {league_name} (ID: {existing['id']})")
+                    self.registry.league_id = existing["id"]
+                    return existing
+            raise
 
     def create_division(self, name: str | None = None, league_id: int | None = None, description: str | None = None) -> dict[str, Any]:
-        """Create a division and track it."""
+        """Create a division or return existing one if it exists (idempotent)."""
         div_name = name or self.config.full_division_name
         # Use tracked league_id if not provided
         lid = league_id or self.registry.league_id
         if lid is None:
             raise ValueError("league_id is required for division creation - create a league first")
-        division = DivisionCreate(name=div_name, league_id=lid, description=description)
-        result = self._client.create_division(division)
-        self.registry.division_id = result["id"]
-        return result
 
-    # Club and Team Creation (with tracking)
+        # Check if already exists
+        existing = self._find_by_name(self._client.get_divisions(), div_name)
+        if existing:
+            logger.info(f"Division already exists: {div_name} (ID: {existing['id']})")
+            self.registry.division_id = existing["id"]
+            return existing
+
+        # Try to create
+        try:
+            division = DivisionCreate(name=div_name, league_id=lid, description=description)
+            result = self._client.create_division(division)
+            logger.info(f"Created division: {div_name} (ID: {result['id']})")
+            self.registry.division_id = result["id"]
+            return result
+        except (APIError, Exception) as e:
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_by_name(self._client.get_divisions(), div_name)
+                if existing:
+                    logger.info(f"Division exists (found after error): {div_name} (ID: {existing['id']})")
+                    self.registry.division_id = existing["id"]
+                    return existing
+            raise
+
+    # Club and Team Creation (with tracking) - Idempotent get-or-create
+
+    def _find_club_by_name(self, name: str) -> dict | None:
+        """Find a club by name."""
+        try:
+            clubs = self._client.get_clubs()
+            for club in clubs:
+                if club.get("name") == name:
+                    return club
+        except Exception:
+            pass
+        return None
+
+    def _find_team_by_name(self, name: str) -> dict | None:
+        """Find a team by name."""
+        try:
+            teams = self._client.get_teams()
+            for team in teams:
+                if team.get("name") == name:
+                    return team
+        except Exception:
+            pass
+        return None
 
     def create_club(self, name: str | None = None, city: str = "Test City") -> dict[str, Any]:
-        """Create a club and track it."""
+        """Create a club or return existing one if it exists (idempotent)."""
         club_name = name or self.config.full_club_name
-        result = self._client.create_club(name=club_name, city=city)
-        self.registry.club_id = result["id"]
-        return result
+
+        # Check if already exists
+        existing = self._find_club_by_name(club_name)
+        if existing:
+            logger.info(f"Club already exists: {club_name} (ID: {existing['id']})")
+            self.registry.club_id = existing["id"]
+            return existing
+
+        # Try to create
+        try:
+            result = self._client.create_club(name=club_name, city=city)
+            logger.info(f"Created club: {club_name} (ID: {result['id']})")
+            self.registry.club_id = result["id"]
+            return result
+        except (APIError, Exception) as e:
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_club_by_name(club_name)
+                if existing:
+                    logger.info(f"Club exists (found after error): {club_name} (ID: {existing['id']})")
+                    self.registry.club_id = existing["id"]
+                    return existing
+            raise
 
     def create_premier_team(self, name: str | None = None, city: str = "Test City") -> dict[str, Any]:
-        """Create the premier team and track it."""
+        """Create the premier team or return existing one if it exists (idempotent)."""
         team_name = name or self.config.full_premier_team_name
-        team = Team(
-            name=team_name,
-            city=city,
-            age_group_ids=[self.registry.age_group_id] if self.registry.age_group_id else [],
-            division_ids=[self.registry.division_id] if self.registry.division_id else None,
-        )
-        result = self._client.create_team(team)
-        self.registry.premier_team_id = result["id"]
-        return result
+
+        # Check if already exists
+        existing = self._find_team_by_name(team_name)
+        if existing:
+            logger.info(f"Premier team already exists: {team_name} (ID: {existing['id']})")
+            self.registry.premier_team_id = existing["id"]
+            return existing
+
+        # Try to create
+        try:
+            if not self.registry.division_id:
+                raise ValueError("division_id is required for team creation - create a division first")
+            team = Team(
+                name=team_name,
+                city=city,
+                age_group_ids=[self.registry.age_group_id] if self.registry.age_group_id else [],
+                division_id=self.registry.division_id,
+            )
+            self._client.create_team(team)
+
+            # API only returns {"message": "..."}, so look up the team we just created
+            created_team = self._find_team_by_name(team_name)
+            if created_team:
+                logger.info(f"Created premier team: {team_name} (ID: {created_team['id']})")
+                self.registry.premier_team_id = created_team["id"]
+                return created_team
+            else:
+                logger.warning(f"Created premier team but couldn't find it: {team_name}")
+                return {"name": team_name, "message": "Team created but ID not available"}
+        except (APIError, Exception) as e:
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_team_by_name(team_name)
+                if existing:
+                    logger.info(f"Premier team exists (found after error): {team_name} (ID: {existing['id']})")
+                    self.registry.premier_team_id = existing["id"]
+                    return existing
+            raise
 
     def create_reserve_team(self, name: str | None = None, city: str = "Test City") -> dict[str, Any]:
-        """Create the reserve team and track it."""
+        """Create the reserve team or return existing one if it exists (idempotent)."""
         team_name = name or self.config.full_reserve_team_name
-        team = Team(
-            name=team_name,
-            city=city,
-            age_group_ids=[self.registry.age_group_id] if self.registry.age_group_id else [],
-            division_ids=[self.registry.division_id] if self.registry.division_id else None,
-        )
-        result = self._client.create_team(team)
-        self.registry.reserve_team_id = result["id"]
-        return result
+
+        # Check if already exists
+        existing = self._find_team_by_name(team_name)
+        if existing:
+            logger.info(f"Reserve team already exists: {team_name} (ID: {existing['id']})")
+            self.registry.reserve_team_id = existing["id"]
+            return existing
+
+        # Try to create
+        try:
+            if not self.registry.division_id:
+                raise ValueError("division_id is required for team creation - create a division first")
+            team = Team(
+                name=team_name,
+                city=city,
+                age_group_ids=[self.registry.age_group_id] if self.registry.age_group_id else [],
+                division_id=self.registry.division_id,
+            )
+            self._client.create_team(team)
+
+            # API only returns {"message": "..."}, so look up the team we just created
+            created_team = self._find_team_by_name(team_name)
+            if created_team:
+                logger.info(f"Created reserve team: {team_name} (ID: {created_team['id']})")
+                self.registry.reserve_team_id = created_team["id"]
+                return created_team
+            else:
+                logger.warning(f"Created reserve team but couldn't find it: {team_name}")
+                return {"name": team_name, "message": "Team created but ID not available"}
+        except (APIError, Exception) as e:
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_team_by_name(team_name)
+                if existing:
+                    logger.info(f"Reserve team exists (found after error): {team_name} (ID: {existing['id']})")
+                    self.registry.reserve_team_id = existing["id"]
+                    return existing
+            raise
 
     def create_team(self, name: str, city: str = "Test City") -> dict[str, Any]:
-        """Create an additional team and track it."""
-        team = Team(
-            name=name,
-            city=city,
-            age_group_ids=[self.registry.age_group_id] if self.registry.age_group_id else [],
-            division_ids=[self.registry.division_id] if self.registry.division_id else None,
-        )
-        result = self._client.create_team(team)
-        self.registry.add_team(result["id"])
-        return result
+        """Create an additional team or return existing one if it exists (idempotent)."""
+        # Check if already exists
+        existing = self._find_team_by_name(name)
+        if existing:
+            logger.info(f"Team already exists: {name} (ID: {existing['id']})")
+            self.registry.add_team(existing["id"])
+            return existing
 
-    # Match Creation (with tracking)
+        # Try to create
+        try:
+            if not self.registry.division_id:
+                raise ValueError("division_id is required for team creation - create a division first")
+            team = Team(
+                name=name,
+                city=city,
+                age_group_ids=[self.registry.age_group_id] if self.registry.age_group_id else [],
+                division_id=self.registry.division_id,
+            )
+            self._client.create_team(team)
+
+            # API only returns {"message": "..."}, so look up the team we just created
+            created_team = self._find_team_by_name(name)
+            if created_team:
+                logger.info(f"Created team: {name} (ID: {created_team['id']})")
+                self.registry.add_team(created_team["id"])
+                return created_team
+            else:
+                logger.warning(f"Created team but couldn't find it: {name}")
+                return {"name": name, "message": "Team created but ID not available"}
+        except (APIError, Exception) as e:
+            if "duplicate" in str(e).lower() or "already exists" in str(e).lower():
+                existing = self._find_team_by_name(name)
+                if existing:
+                    logger.info(f"Team exists (found after error): {name} (ID: {existing['id']})")
+                    self.registry.add_team(existing["id"])
+                    return existing
+            raise
+
+    # Match Creation (with tracking) - Idempotent get-or-create
+
+    def _find_match(self, home_team_id: int, away_team_id: int, match_date: str) -> dict | None:
+        """Find an existing match by teams and date."""
+        try:
+            matches = self._client.get_games(
+                season_id=self.registry.season_id,
+                age_group_id=self.registry.age_group_id,
+            )
+            for match in matches:
+                if (match.get("home_team_id") == home_team_id and
+                    match.get("away_team_id") == away_team_id and
+                    match.get("match_date") == match_date):
+                    return match
+        except Exception:
+            pass
+        return None
 
     def create_match(
         self,
@@ -211,25 +457,42 @@ class TSCClient:
         away_score: int = 0,
         status: str = "scheduled",
     ) -> dict[str, Any]:
-        """Create a match and track it."""
+        """Create a match or return existing one if it exists (idempotent)."""
         if not self.registry.season_id or not self.registry.age_group_id:
             raise ValueError("Season and age group must be created first")
 
+        # Check if match already exists
+        existing = self._find_match(home_team_id, away_team_id, game_date)
+        if existing:
+            logger.info(f"Match already exists: {home_team_id} vs {away_team_id} on {game_date} (ID: {existing['id']})")
+            self.registry.add_match(existing["id"])
+            return existing
+
+        # Create new match
         game = EnhancedGame(
-            game_date=game_date,
+            match_date=game_date,  # API expects match_date
             home_team_id=home_team_id,
             away_team_id=away_team_id,
             home_score=home_score,
             away_score=away_score,
             season_id=self.registry.season_id,
             age_group_id=self.registry.age_group_id,
-            game_type_id=1,  # Default match type
+            match_type_id=1,  # Default match type (API expects match_type_id)
             division_id=self.registry.division_id,
             status=status,
         )
         result = self._client.create_game(game)
-        self.registry.add_match(result["id"])
-        return result
+
+        # API only returns {"message": "..."}, so look up the match we just created
+        created_match = self._find_match(home_team_id, away_team_id, game_date)
+        if created_match:
+            logger.info(f"Created match: {home_team_id} vs {away_team_id} on {game_date} (ID: {created_match['id']})")
+            self.registry.add_match(created_match["id"])
+            return created_match
+        else:
+            # Return API response if we can't find the match (shouldn't happen)
+            logger.warning(f"Created match but couldn't find it: {home_team_id} vs {away_team_id} on {game_date}")
+            return result
 
     def update_match_score(self, match_id: int, home_score: int, away_score: int, match_status: str = "completed") -> dict[str, Any]:
         """Update match score and status."""
@@ -289,6 +552,28 @@ class TSCClient:
         if not tid:
             raise ValueError("Team ID required")
         result = self._client.create_team_fan_invite(tid, self.registry.age_group_id, email)
+        self.registry.add_invite(result["id"], result["invite_code"], "team_fan")
+        return result
+
+    def create_team_player_invite_admin(self, team_id: int | None = None, email: str | None = None) -> dict[str, Any]:
+        """Create a team player invite and track it (admin endpoint)."""
+        if not self.registry.age_group_id:
+            raise ValueError("Age group must be created first")
+        tid = team_id or self.registry.premier_team_id
+        if not tid:
+            raise ValueError("Team ID required")
+        result = self._client.create_team_player_invite_admin(tid, self.registry.age_group_id, email)
+        self.registry.add_invite(result["id"], result["invite_code"], "team_player")
+        return result
+
+    def create_team_fan_invite_admin(self, team_id: int | None = None, email: str | None = None) -> dict[str, Any]:
+        """Create a team fan invite and track it (admin endpoint)."""
+        if not self.registry.age_group_id:
+            raise ValueError("Age group must be created first")
+        tid = team_id or self.registry.premier_team_id
+        if not tid:
+            raise ValueError("Team ID required")
+        result = self._client.create_team_fan_invite_admin(tid, self.registry.age_group_id, email)
         self.registry.add_invite(result["id"], result["invite_code"], "team_fan")
         return result
 
