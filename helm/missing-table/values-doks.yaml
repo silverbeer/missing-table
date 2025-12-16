@@ -9,7 +9,7 @@ backend:
 
   image:
     repository: ghcr.io/silverbeer/missing-table-backend
-    tag: "881f3ec" # backend-tag
+    tag: "6ed9adf" # backend-tag
     pullPolicy: IfNotPresent
 
   env:
@@ -22,7 +22,7 @@ frontend:
 
   image:
     repository: ghcr.io/silverbeer/missing-table-frontend
-    tag: "881f3ec" # frontend-tag
+    tag: "6ed9adf" # frontend-tag
     pullPolicy: IfNotPresent
 
   # Production image uses nginx, not npm - override default command
