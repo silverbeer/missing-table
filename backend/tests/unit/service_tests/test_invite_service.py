@@ -17,6 +17,7 @@ import pytest
 from backend.services.invite_service import InviteService
 
 
+@pytest.mark.unit
 class TestInviteCodeGeneration:
     """Tests for generate_invite_code method"""
 
@@ -84,6 +85,7 @@ class TestInviteCodeGeneration:
             service.generate_invite_code()
 
 
+@pytest.mark.unit
 class TestCreateInvitation:
     """Tests for create_invitation method"""
 
@@ -239,6 +241,7 @@ class TestCreateInvitation:
         assert insert_data['age_group_id'] == 3
 
 
+@pytest.mark.unit
 class TestValidateInviteCode:
     """Tests for validate_invite_code method"""
 
@@ -342,6 +345,7 @@ class TestValidateInviteCode:
         assert result['valid'] is True
 
 
+@pytest.mark.unit
 class TestRedeemInvitation:
     """Tests for redeem_invitation method"""
 
@@ -385,6 +389,7 @@ class TestRedeemInvitation:
         assert result is True
 
 
+@pytest.mark.unit
 class TestCancelInvitation:
     """Tests for cancel_invitation method"""
 
@@ -426,6 +431,7 @@ class TestCancelInvitation:
         assert result is True
 
 
+@pytest.mark.unit
 class TestExpireOldInvitations:
     """Tests for expire_old_invitations method"""
 
