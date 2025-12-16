@@ -159,8 +159,14 @@ else:
     db_conn_holder_obj = DbConnectionHolder()
     match_dao = MatchDAO(db_conn_holder_obj)
 
-# Initialize Authentication Manager
-auth_manager = AuthManager(db_conn_holder_obj.client)
+# Initialize Authentication Manager with a dedicated service client
+# This prevents login operations from modifying the client used for profile lookups
+from supabase import create_client
+auth_service_client = create_client(
+    os.getenv('SUPABASE_URL', ''),
+    os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_ANON_KEY', '')
+)
+auth_manager = AuthManager(auth_service_client)
 
 
 def get_client_ip(request: Request) -> str:

@@ -42,14 +42,17 @@ class SupabaseConnection:
         """Initialize Supabase client with custom SSL configuration."""
         self.url = os.getenv("SUPABASE_URL")
         # Backend should always use SERVICE_KEY for administrative operations
-        self.key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+        service_key = os.getenv("SUPABASE_SERVICE_KEY")
+        anon_key = os.getenv("SUPABASE_ANON_KEY")
+        self.key = service_key or anon_key
 
         if not self.url or not self.key:
             raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file")
-        
-        # Debug output
-        key_type = 'SERVICE_KEY' if 'SUPABASE_SERVICE_KEY' in os.environ and self.key == os.getenv('SUPABASE_SERVICE_KEY') else 'ANON_KEY'
-        logger.debug("Connecting to Supabase", url=self.url, key_type=key_type)
+
+        # Debug output - check what keys are actually set
+        key_type = 'SERVICE_KEY' if service_key and self.key == service_key else 'ANON_KEY'
+        logger.debug("Connecting to Supabase", url=self.url, key_type=key_type,
+                     service_key_present=bool(service_key), anon_key_present=bool(anon_key))
         
         try:
             # Try with custom httpx client
