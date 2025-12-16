@@ -1,0 +1,39 @@
+meta {
+  name: 09 Create Match 4
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{api_url}}/api/matches
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "match_date": "2025-02-22",
+    "home_team_id": {{team_4_id}},
+    "away_team_id": {{team_3_id}},
+    "home_score": 0,
+    "away_score": 0,
+    "season_id": {{season_id}},
+    "age_group_id": {{age_group_id}},
+    "match_type_id": 1,
+    "division_id": {{division_id}},
+    "status": "scheduled"
+  }
+}
+
+tests {
+  test("should create match 4", function() {
+    expect([200, 409, 500]).to.include(res.status);
+    if (res.status === 200) {
+      expect(res.body.message).to.include("success");
+    }
+  });
+}

@@ -1,0 +1,25 @@
+meta {
+  name: 04 View Club
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{api_url}}/api/clubs/{{club_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{club_id}}
+}
+
+tests {
+  test("should view club details", function() {
+    expect(res.body.name).to.equal(bru.getEnvVar("club_name"));
+  });
+}

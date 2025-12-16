@@ -1,0 +1,31 @@
+meta {
+  name: 04 Set Match Live
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{api_url}}/api/matches/{{match_2_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "match_status": "live"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("should set match to live", function() {
+    expect(res.status).to.equal(200);
+  });
+}

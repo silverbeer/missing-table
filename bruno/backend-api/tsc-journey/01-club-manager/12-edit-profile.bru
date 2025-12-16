@@ -1,0 +1,27 @@
+meta {
+  name: 12 Edit Profile
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{api_url}}/api/auth/profile
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "display_name": "TSC Club Manager (Updated)"
+  }
+}
+
+tests {
+  test("should update profile", function() {
+    expect([200, 204]).to.include(res.status);
+  });
+}

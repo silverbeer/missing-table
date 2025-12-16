@@ -1645,8 +1645,25 @@ class MatchDAO:
             raise e
 
     def delete_team(self, team_id: int) -> bool:
-        """Delete a team."""
+        """Delete a team and its related data.
+
+        Cascades deletion of:
+        - team_mappings (FK constraint)
+        - team_match_types (FK constraint)
+        - matches where team is home or away (FK constraint)
+        """
         try:
+            # Delete team_mappings first (FK constraint)
+            self.client.table("team_mappings").delete().eq("team_id", team_id).execute()
+
+            # Delete team_match_types (FK constraint)
+            self.client.table("team_match_types").delete().eq("team_id", team_id).execute()
+
+            # Delete matches where this team participates (FK constraint)
+            self.client.table("matches").delete().eq("home_team_id", team_id).execute()
+            self.client.table("matches").delete().eq("away_team_id", team_id).execute()
+
+            # Now delete the team
             result = self.client.table("teams").delete().eq("id", team_id).execute()
             return len(result.data) > 0
         except Exception as e:
@@ -2053,8 +2070,12 @@ class MatchDAO:
         Note:
             This will fail if there are teams still associated with this club
             due to ON DELETE RESTRICT constraint.
+            Invitations referencing this club are deleted first.
         """
         try:
+            # Delete invitations referencing this club first (FK constraint)
+            self.client.table("invitations").delete().eq("club_id", club_id).execute()
+            # Now delete the club
             self.client.table("clubs").delete().eq("id", club_id).execute()
             return True
         except Exception as e:

@@ -1,0 +1,33 @@
+meta {
+  name: 14 Update Match Scores
+  type: http
+  seq: 87
+}
+
+patch {
+  url: {{api_url}}/api/matches/{{match_1_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "home_score": 2,
+    "away_score": 1,
+    "match_status": "completed"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("should update match 1 score", function() {
+    expect(res.status).to.equal(200);
+  });
+}

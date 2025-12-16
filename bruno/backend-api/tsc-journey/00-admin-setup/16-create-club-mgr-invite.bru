@@ -1,0 +1,39 @@
+meta {
+  name: 15 Create Club Manager Invite
+  type: http
+  seq: 88
+}
+
+post {
+  url: {{api_url}}/api/invites/admin/club-manager
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "club_id": {{club_id}}
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.invite_code: isDefined
+}
+
+script:post-response {
+  if (res.body.invite_code) {
+    bru.setEnvVar("club_manager_invite_code", res.body.invite_code);
+  }
+}
+
+tests {
+  test("should create club manager invite", function() {
+    expect(res.body.invite_code).to.be.a('string');
+    expect(res.body.invite_code.length).to.equal(12);
+  });
+}

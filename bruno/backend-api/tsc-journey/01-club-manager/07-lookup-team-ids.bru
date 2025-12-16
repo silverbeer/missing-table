@@ -1,0 +1,43 @@
+meta {
+  name: 07 Lookup Team IDs
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{api_url}}/api/teams?club_id={{club_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const teams = res.body || [];
+  const team3Name = bru.getEnvVar("team_3_name");
+  const team4Name = bru.getEnvVar("team_4_name");
+
+  for (const team of teams) {
+    if (team.name === team3Name) {
+      bru.setEnvVar("team_3_id", team.id);
+    }
+    if (team.name === team4Name) {
+      bru.setEnvVar("team_4_id", team.id);
+    }
+  }
+}
+
+tests {
+  test("should find team 3 and team 4", function() {
+    const teams = res.body || [];
+    const team3Name = bru.getEnvVar("team_3_name");
+    const team4Name = bru.getEnvVar("team_4_name");
+
+    const team3 = teams.find(t => t.name === team3Name);
+    const team4 = teams.find(t => t.name === team4Name);
+
+    expect(team3).to.not.be.undefined;
+    expect(team4).to.not.be.undefined;
+  });
+}

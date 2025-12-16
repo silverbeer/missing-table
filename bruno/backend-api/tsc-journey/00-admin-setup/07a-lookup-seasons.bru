@@ -1,0 +1,35 @@
+meta {
+  name: 07a Lookup Seasons
+  type: http
+  seq: 70
+}
+
+get {
+  url: {{api_url}}/api/seasons
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const seasons = res.body || [];
+  const seasonName = bru.getEnvVar("season_name");
+
+  for (const season of seasons) {
+    if (season.name === seasonName) {
+      bru.setEnvVar("season_id", season.id);
+      break;
+    }
+  }
+}
+
+tests {
+  test("should find season by name", function() {
+    const seasons = res.body || [];
+    const seasonName = bru.getEnvVar("season_name");
+    const season = seasons.find(s => s.name === seasonName);
+    expect(season).to.not.be.undefined;
+  });
+}

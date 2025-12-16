@@ -1,0 +1,30 @@
+meta {
+  name: 01 Signup Club Fan
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{api_url}}/api/auth/signup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{club_fan_user}}",
+    "password": "{{club_fan_pass}}",
+    "display_name": "TSC Club Fan",
+    "invite_code": "{{club_fan_invite_code}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("should signup club fan", function() {
+    expect(res.status).to.equal(200);
+  });
+}

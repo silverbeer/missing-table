@@ -1,0 +1,35 @@
+meta {
+  name: 07d Lookup Divisions
+  type: http
+  seq: 76
+}
+
+get {
+  url: {{api_url}}/api/divisions
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const divisions = res.body || [];
+  const divName = bru.getEnvVar("division_name");
+
+  for (const div of divisions) {
+    if (div.name === divName) {
+      bru.setEnvVar("division_id", div.id);
+      break;
+    }
+  }
+}
+
+tests {
+  test("should find division by name", function() {
+    const divisions = res.body || [];
+    const divName = bru.getEnvVar("division_name");
+    const div = divisions.find(d => d.name === divName);
+    expect(div).to.not.be.undefined;
+  });
+}

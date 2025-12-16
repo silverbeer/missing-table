@@ -1,0 +1,35 @@
+meta {
+  name: 07c Lookup Leagues
+  type: http
+  seq: 72
+}
+
+get {
+  url: {{api_url}}/api/leagues
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const leagues = res.body || [];
+  const leagueName = bru.getEnvVar("league_name");
+
+  for (const league of leagues) {
+    if (league.name === leagueName) {
+      bru.setEnvVar("league_id", league.id);
+      break;
+    }
+  }
+}
+
+tests {
+  test("should find league by name", function() {
+    const leagues = res.body || [];
+    const leagueName = bru.getEnvVar("league_name");
+    const league = leagues.find(l => l.name === leagueName);
+    expect(league).to.not.be.undefined;
+  });
+}

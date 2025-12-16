@@ -1,0 +1,43 @@
+meta {
+  name: 10 Lookup Team IDs
+  type: http
+  seq: 83
+}
+
+get {
+  url: {{api_url}}/api/teams?club_id={{club_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  const teams = res.body;
+  const premierName = bru.getEnvVar("premier_team_name");
+  const reserveName = bru.getEnvVar("reserve_team_name");
+
+  for (const team of teams) {
+    if (team.name === premierName) {
+      bru.setEnvVar("premier_team_id", team.id);
+    }
+    if (team.name === reserveName) {
+      bru.setEnvVar("reserve_team_id", team.id);
+    }
+  }
+}
+
+tests {
+  test("should find both teams", function() {
+    const teams = res.body;
+    const premierName = bru.getEnvVar("premier_team_name");
+    const reserveName = bru.getEnvVar("reserve_team_name");
+
+    const premier = teams.find(t => t.name === premierName);
+    const reserve = teams.find(t => t.name === reserveName);
+
+    expect(premier).to.not.be.undefined;
+    expect(reserve).to.not.be.undefined;
+  });
+}

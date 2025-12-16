@@ -1,0 +1,37 @@
+meta {
+  name: 01 Admin Login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{api_url}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{existing_admin_user}}",
+    "password": "{{existing_admin_pass}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:post-response {
+  if (res.body.session && res.body.session.access_token) {
+    bru.setEnvVar("access_token", res.body.session.access_token);
+  } else if (res.body.access_token) {
+    bru.setEnvVar("access_token", res.body.access_token);
+  }
+}
+
+tests {
+  test("should login admin for cleanup", function() {
+    const token = res.body.session ? res.body.session.access_token : res.body.access_token;
+    expect(token).to.be.a('string');
+  });
+}

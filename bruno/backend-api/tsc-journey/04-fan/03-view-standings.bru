@@ -1,0 +1,25 @@
+meta {
+  name: 03 View Standings
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{api_url}}/api/table?season_id={{season_id}}&age_group_id={{age_group_id}}&division_id={{division_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("should return standings", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.be.an('array');
+  });
+}

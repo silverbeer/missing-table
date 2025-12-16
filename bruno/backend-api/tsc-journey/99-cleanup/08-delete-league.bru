@@ -1,0 +1,21 @@
+meta {
+  name: 08 Delete League
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{api_url}}/api/leagues/{{league_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+tests {
+  test("should delete league", function() {
+    // 200 = deleted, 404 = already deleted
+    expect([200, 404]).to.include(res.status);
+  });
+}

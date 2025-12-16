@@ -178,3 +178,6 @@ backend/archive/deprecated-user-scripts/
 test-results/
 backend/test-results/
 backend/tests/e2e/playwright/screenshots/
+
+# TSC test artifacts
+backend/tests/tsc/.entity_registry.json

@@ -1,0 +1,26 @@
+meta {
+  name: 02 Signup Club Manager
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{api_url}}/api/auth/signup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{club_manager_user}}",
+    "password": "{{club_manager_pass}}",
+    "display_name": "TSC Club Manager",
+    "invite_code": "{{club_manager_invite_code}}"
+  }
+}
+
+tests {
+  test("should signup club manager or already exist", function() {
+    expect([200, 400]).to.include(res.status);
+  });
+}

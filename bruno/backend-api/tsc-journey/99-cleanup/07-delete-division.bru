@@ -1,0 +1,21 @@
+meta {
+  name: 07 Delete Division
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{api_url}}/api/divisions/{{division_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+tests {
+  test("should delete division", function() {
+    // 200 = deleted, 404 = already deleted
+    expect([200, 404]).to.include(res.status);
+  });
+}
