@@ -1,15 +1,20 @@
 """
 TSC Journey Tests - Phase 99: Cleanup.
 
-This phase cleans up all test entities in FK-safe order:
+This phase cleans up all test entities by querying for entities with the
+tsc_a_ prefix. This approach is safer than ID-based cleanup because:
+- Works across environments (local, dev, prod)
+- Doesn't depend on a registry file
+- Idempotent - safe to run multiple times
+
+Cleanup order (FK-safe):
 1. Matches (depends on teams, seasons, age_groups)
 2. Teams (depends on clubs, divisions, age_groups)
 3. Club (no dependencies after teams gone)
-4. Pending invites (cancel any remaining)
-5. Division (no dependencies after teams gone)
-6. League (no dependencies after division gone)
-7. Age Group (no dependencies after teams gone)
-8. Season (no dependencies after matches gone)
+4. Division (no dependencies after teams gone)
+5. League (no dependencies after division gone)
+6. Age Group (no dependencies after teams gone)
+7. Season (no dependencies after matches gone)
 
 Note: Users created via invites are NOT deleted automatically.
 They can be manually cleaned up by an admin.
@@ -19,12 +24,12 @@ Run: pytest tests/tsc/test_99_cleanup.py -v
 
 import pytest
 
-from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig
+from tests.fixtures.tsc import TSCClient, TSCConfig
 from api_client.exceptions import NotFoundError
 
 
 class TestCleanup:
-    """Phase 99: Clean up all test entities."""
+    """Phase 99: Clean up all test entities by name prefix."""
 
     def test_01_login_admin(
         self,
@@ -38,259 +43,291 @@ class TestCleanup:
         assert "access_token" in result or "session" in result
         print(f"Logged in as admin: {username}")
 
-    def test_02_delete_matches(
+    def test_02_find_and_delete_matches(
         self,
         tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
+        tsc_config: TSCConfig,
     ):
-        """Delete all test matches."""
-        deleted = 0
-        failed = 0
+        """Find and delete all matches involving tsc_a_ teams."""
+        prefix = tsc_config.prefix
 
-        for match_id in entity_registry.match_ids:
-            try:
-                tsc_client.delete_match(match_id)
-                deleted += 1
-                print(f"  Deleted match: {match_id}")
-            except NotFoundError:
-                print(f"  Match {match_id} not found (already deleted?)")
-                deleted += 1
-            except Exception as e:
-                print(f"  Failed to delete match {match_id}: {e}")
-                failed += 1
+        # First find teams with our prefix
+        print(f"\nFinding teams with prefix '{prefix}'...")
+        all_teams = tsc_client.get_teams()
+        tsc_teams = [t for t in all_teams if t.get("name", "").startswith(prefix)]
+        team_ids = [t["id"] for t in tsc_teams]
 
-        print(f"Deleted {deleted} matches, {failed} failed")
-        entity_registry.match_ids.clear()
+        if not team_ids:
+            print("No teams found with prefix - skipping match cleanup")
+            return
 
-    def test_03_delete_extra_teams(
-        self,
-        tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
-    ):
-        """Delete extra teams created during journey."""
-        deleted = 0
-        failed = 0
+        print(f"Found {len(tsc_teams)} teams: {[t['name'] for t in tsc_teams]}")
 
-        for team_id in entity_registry.extra_team_ids:
-            try:
-                tsc_client.delete_team(team_id)
-                deleted += 1
-                print(f"  Deleted extra team: {team_id}")
-            except NotFoundError:
-                print(f"  Team {team_id} not found (already deleted?)")
-                deleted += 1
-            except Exception as e:
-                print(f"  Failed to delete team {team_id}: {e}")
-                failed += 1
-
-        print(f"Deleted {deleted} extra teams, {failed} failed")
-        entity_registry.extra_team_ids.clear()
-
-    def test_04_delete_reserve_team(
-        self,
-        tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
-    ):
-        """Delete reserve team."""
-        if not entity_registry.reserve_team_id:
-            pytest.skip("No reserve team to delete")
-
-        try:
-            tsc_client.delete_team(entity_registry.reserve_team_id)
-            print(f"Deleted reserve team: {entity_registry.reserve_team_id}")
-            entity_registry.reserve_team_id = None
-        except NotFoundError:
-            print(f"Reserve team not found (already deleted?)")
-            entity_registry.reserve_team_id = None
-        except Exception as e:
-            pytest.fail(f"Failed to delete reserve team: {e}")
-
-    def test_05_delete_premier_team(
-        self,
-        tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
-    ):
-        """Delete premier team."""
-        if not entity_registry.premier_team_id:
-            pytest.skip("No premier team to delete")
-
-        try:
-            tsc_client.delete_team(entity_registry.premier_team_id)
-            print(f"Deleted premier team: {entity_registry.premier_team_id}")
-            entity_registry.premier_team_id = None
-        except NotFoundError:
-            print(f"Premier team not found (already deleted?)")
-            entity_registry.premier_team_id = None
-        except Exception as e:
-            pytest.fail(f"Failed to delete premier team: {e}")
-
-    def test_06_delete_club(
-        self,
-        tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
-    ):
-        """Delete club."""
-        if not entity_registry.club_id:
-            pytest.skip("No club to delete")
-
-        try:
-            tsc_client.delete_club(entity_registry.club_id)
-            print(f"Deleted club: {entity_registry.club_id}")
-            entity_registry.club_id = None
-        except NotFoundError:
-            print(f"Club not found (already deleted?)")
-            entity_registry.club_id = None
-        except Exception as e:
-            pytest.fail(f"Failed to delete club: {e}")
-
-    def test_07_cancel_pending_invites(
-        self,
-        tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
-    ):
-        """Cancel any pending invites."""
-        cancelled = 0
-        failed = 0
-
-        pending_invites = [
-            inv for inv in entity_registry.invites
-            if inv["status"] == "pending"
+        # Find matches involving these teams
+        print("\nFinding matches involving these teams...")
+        all_matches = tsc_client.get_matches()
+        tsc_matches = [
+            m for m in all_matches
+            if m.get("home_team_id") in team_ids or m.get("away_team_id") in team_ids
         ]
 
-        for invite in pending_invites:
+        print(f"Found {len(tsc_matches)} matches to delete")
+
+        # Delete matches
+        deleted = 0
+        failed = 0
+        for match in tsc_matches:
             try:
-                tsc_client.cancel_invite(invite["id"])
-                invite["status"] = "cancelled"
-                cancelled += 1
-                print(f"  Cancelled invite: {invite['id']}")
+                tsc_client.delete_match(match["id"])
+                deleted += 1
+                print(f"  Deleted match: {match['id']}")
             except NotFoundError:
-                print(f"  Invite {invite['id']} not found (already cancelled?)")
-                cancelled += 1
+                print(f"  Match {match['id']} not found (already deleted?)")
+                deleted += 1
             except Exception as e:
-                print(f"  Failed to cancel invite {invite['id']}: {e}")
+                print(f"  Failed to delete match {match['id']}: {e}")
                 failed += 1
 
-        print(f"Cancelled {cancelled} invites, {failed} failed")
+        print(f"\nDeleted {deleted} matches, {failed} failed")
 
-    def test_08_delete_division(
+    def test_03_find_and_delete_teams(
         self,
         tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
+        tsc_config: TSCConfig,
     ):
-        """Delete division."""
-        if not entity_registry.division_id:
-            pytest.skip("No division to delete")
+        """Find and delete all teams with tsc_a_ prefix."""
+        prefix = tsc_config.prefix
 
-        try:
-            tsc_client.delete_division(entity_registry.division_id)
-            print(f"Deleted division: {entity_registry.division_id}")
-            entity_registry.division_id = None
-        except NotFoundError:
-            print(f"Division not found (already deleted?)")
-            entity_registry.division_id = None
-        except Exception as e:
-            pytest.fail(f"Failed to delete division: {e}")
+        print(f"\nFinding teams with prefix '{prefix}'...")
+        all_teams = tsc_client.get_teams()
+        tsc_teams = [t for t in all_teams if t.get("name", "").startswith(prefix)]
 
-    def test_09_delete_league(
+        print(f"Found {len(tsc_teams)} teams to delete")
+
+        deleted = 0
+        failed = 0
+        for team in tsc_teams:
+            try:
+                tsc_client.delete_team(team["id"])
+                deleted += 1
+                print(f"  Deleted team: {team['name']} (ID: {team['id']})")
+            except NotFoundError:
+                print(f"  Team {team['name']} not found (already deleted?)")
+                deleted += 1
+            except Exception as e:
+                print(f"  Failed to delete team {team['name']}: {e}")
+                failed += 1
+
+        print(f"\nDeleted {deleted} teams, {failed} failed")
+
+    def test_04_find_and_delete_clubs(
         self,
         tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
+        tsc_config: TSCConfig,
     ):
-        """Delete league."""
-        if not entity_registry.league_id:
-            pytest.skip("No league to delete")
+        """Find and delete all clubs with tsc_a_ prefix."""
+        prefix = tsc_config.prefix
 
-        try:
-            tsc_client.delete_league(entity_registry.league_id)
-            print(f"Deleted league: {entity_registry.league_id}")
-            entity_registry.league_id = None
-        except NotFoundError:
-            print(f"League not found (already deleted?)")
-            entity_registry.league_id = None
-        except Exception as e:
-            pytest.fail(f"Failed to delete league: {e}")
+        print(f"\nFinding clubs with prefix '{prefix}'...")
+        all_clubs = tsc_client.get_clubs()
+        tsc_clubs = [c for c in all_clubs if c.get("name", "").startswith(prefix)]
 
-    def test_10_delete_age_group(
+        print(f"Found {len(tsc_clubs)} clubs to delete")
+
+        deleted = 0
+        failed = 0
+        for club in tsc_clubs:
+            try:
+                tsc_client.delete_club(club["id"])
+                deleted += 1
+                print(f"  Deleted club: {club['name']} (ID: {club['id']})")
+            except NotFoundError:
+                print(f"  Club {club['name']} not found (already deleted?)")
+                deleted += 1
+            except Exception as e:
+                print(f"  Failed to delete club {club['name']}: {e}")
+                failed += 1
+
+        print(f"\nDeleted {deleted} clubs, {failed} failed")
+
+    def test_05_find_and_delete_divisions(
         self,
         tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
+        tsc_config: TSCConfig,
     ):
-        """Delete age group."""
-        if not entity_registry.age_group_id:
-            pytest.skip("No age group to delete")
+        """Find and delete all divisions with tsc_a_ prefix."""
+        prefix = tsc_config.prefix
 
-        try:
-            tsc_client.delete_age_group(entity_registry.age_group_id)
-            print(f"Deleted age group: {entity_registry.age_group_id}")
-            entity_registry.age_group_id = None
-        except NotFoundError:
-            print(f"Age group not found (already deleted?)")
-            entity_registry.age_group_id = None
-        except Exception as e:
-            pytest.fail(f"Failed to delete age group: {e}")
+        print(f"\nFinding divisions with prefix '{prefix}'...")
+        all_divisions = tsc_client.get_divisions()
+        tsc_divisions = [d for d in all_divisions if d.get("name", "").startswith(prefix)]
 
-    def test_11_delete_season(
+        print(f"Found {len(tsc_divisions)} divisions to delete")
+
+        deleted = 0
+        failed = 0
+        for division in tsc_divisions:
+            try:
+                tsc_client.delete_division(division["id"])
+                deleted += 1
+                print(f"  Deleted division: {division['name']} (ID: {division['id']})")
+            except NotFoundError:
+                print(f"  Division {division['name']} not found (already deleted?)")
+                deleted += 1
+            except Exception as e:
+                print(f"  Failed to delete division {division['name']}: {e}")
+                failed += 1
+
+        print(f"\nDeleted {deleted} divisions, {failed} failed")
+
+    def test_06_find_and_delete_leagues(
         self,
         tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
+        tsc_config: TSCConfig,
     ):
-        """Delete season."""
-        if not entity_registry.season_id:
-            pytest.skip("No season to delete")
+        """Find and delete all leagues with tsc_a_ prefix."""
+        prefix = tsc_config.prefix
 
-        try:
-            tsc_client.delete_season(entity_registry.season_id)
-            print(f"Deleted season: {entity_registry.season_id}")
-            entity_registry.season_id = None
-        except NotFoundError:
-            print(f"Season not found (already deleted?)")
-            entity_registry.season_id = None
-        except Exception as e:
-            pytest.fail(f"Failed to delete season: {e}")
+        print(f"\nFinding leagues with prefix '{prefix}'...")
+        all_leagues = tsc_client.get_leagues()
+        tsc_leagues = [lg for lg in all_leagues if lg.get("name", "").startswith(prefix)]
 
-    def test_12_verify_cleanup(
+        print(f"Found {len(tsc_leagues)} leagues to delete")
+
+        deleted = 0
+        failed = 0
+        for league in tsc_leagues:
+            try:
+                tsc_client.delete_league(league["id"])
+                deleted += 1
+                print(f"  Deleted league: {league['name']} (ID: {league['id']})")
+            except NotFoundError:
+                print(f"  League {league['name']} not found (already deleted?)")
+                deleted += 1
+            except Exception as e:
+                print(f"  Failed to delete league {league['name']}: {e}")
+                failed += 1
+
+        print(f"\nDeleted {deleted} leagues, {failed} failed")
+
+    def test_07_find_and_delete_age_groups(
         self,
         tsc_client: TSCClient,
-        entity_registry: EntityRegistry,
+        tsc_config: TSCConfig,
     ):
-        """Verify all entities were cleaned up."""
-        print("\n=== Cleanup Verification ===")
-        print(f"Season ID: {entity_registry.season_id} (should be None)")
-        print(f"Age Group ID: {entity_registry.age_group_id} (should be None)")
-        print(f"League ID: {entity_registry.league_id} (should be None)")
-        print(f"Division ID: {entity_registry.division_id} (should be None)")
-        print(f"Club ID: {entity_registry.club_id} (should be None)")
-        print(f"Premier Team ID: {entity_registry.premier_team_id} (should be None)")
-        print(f"Reserve Team ID: {entity_registry.reserve_team_id} (should be None)")
-        print(f"Extra Teams: {len(entity_registry.extra_team_ids)} (should be 0)")
-        print(f"Matches: {len(entity_registry.match_ids)} (should be 0)")
+        """Find and delete all age groups with tsc_a_ prefix."""
+        prefix = tsc_config.prefix
 
-        # Verify all main entities are gone
-        assert entity_registry.season_id is None, "Season not deleted"
-        assert entity_registry.age_group_id is None, "Age group not deleted"
-        assert entity_registry.league_id is None, "League not deleted"
-        assert entity_registry.division_id is None, "Division not deleted"
-        assert entity_registry.club_id is None, "Club not deleted"
-        assert entity_registry.premier_team_id is None, "Premier team not deleted"
-        assert entity_registry.reserve_team_id is None, "Reserve team not deleted"
-        assert len(entity_registry.extra_team_ids) == 0, "Extra teams not deleted"
-        assert len(entity_registry.match_ids) == 0, "Matches not deleted"
+        print(f"\nFinding age groups with prefix '{prefix}'...")
+        all_age_groups = tsc_client.get_age_groups()
+        tsc_age_groups = [ag for ag in all_age_groups if ag.get("name", "").startswith(prefix)]
 
-        # Note about users
-        if entity_registry.user_ids:
-            print(f"\nNote: {len(entity_registry.user_ids)} users were created via invites.")
-            print("These users are NOT automatically deleted.")
-            print("To manually clean up users, use the admin panel or database.")
-            for user_id in entity_registry.user_ids:
-                print(f"  - User ID: {user_id}")
+        print(f"Found {len(tsc_age_groups)} age groups to delete")
 
-        print("\n=== Phase 99 Complete - All Test Entities Cleaned Up ===")
+        deleted = 0
+        failed = 0
+        for age_group in tsc_age_groups:
+            try:
+                tsc_client.delete_age_group(age_group["id"])
+                deleted += 1
+                print(f"  Deleted age group: {age_group['name']} (ID: {age_group['id']})")
+            except NotFoundError:
+                print(f"  Age group {age_group['name']} not found (already deleted?)")
+                deleted += 1
+            except Exception as e:
+                print(f"  Failed to delete age group {age_group['name']}: {e}")
+                failed += 1
 
-    def test_13_clear_registry_file(
+        print(f"\nDeleted {deleted} age groups, {failed} failed")
+
+    def test_08_find_and_delete_seasons(
         self,
-        entity_registry: EntityRegistry,
+        tsc_client: TSCClient,
+        tsc_config: TSCConfig,
     ):
-        """Clear the persisted registry file."""
+        """Find and delete all seasons with tsc_a_ prefix."""
+        prefix = tsc_config.prefix
+
+        print(f"\nFinding seasons with prefix '{prefix}'...")
+        all_seasons = tsc_client.get_seasons()
+        tsc_seasons = [s for s in all_seasons if s.get("name", "").startswith(prefix)]
+
+        print(f"Found {len(tsc_seasons)} seasons to delete")
+
+        deleted = 0
+        failed = 0
+        for season in tsc_seasons:
+            try:
+                tsc_client.delete_season(season["id"])
+                deleted += 1
+                print(f"  Deleted season: {season['name']} (ID: {season['id']})")
+            except NotFoundError:
+                print(f"  Season {season['name']} not found (already deleted?)")
+                deleted += 1
+            except Exception as e:
+                print(f"  Failed to delete season {season['name']}: {e}")
+                failed += 1
+
+        print(f"\nDeleted {deleted} seasons, {failed} failed")
+
+    def test_09_verify_cleanup(
+        self,
+        tsc_client: TSCClient,
+        tsc_config: TSCConfig,
+    ):
+        """Verify all entities with prefix were cleaned up."""
+        prefix = tsc_config.prefix
+
+        print(f"\n{'=' * 50}")
+        print("CLEANUP VERIFICATION")
+        print(f"{'=' * 50}")
+        print(f"Prefix: {prefix}")
+
+        # Check each entity type
+        issues = []
+
+        teams = [t for t in tsc_client.get_teams() if t.get("name", "").startswith(prefix)]
+        if teams:
+            issues.append(f"Teams remaining: {[t['name'] for t in teams]}")
+        print(f"Teams with prefix: {len(teams)}")
+
+        clubs = [c for c in tsc_client.get_clubs() if c.get("name", "").startswith(prefix)]
+        if clubs:
+            issues.append(f"Clubs remaining: {[c['name'] for c in clubs]}")
+        print(f"Clubs with prefix: {len(clubs)}")
+
+        divisions = [d for d in tsc_client.get_divisions() if d.get("name", "").startswith(prefix)]
+        if divisions:
+            issues.append(f"Divisions remaining: {[d['name'] for d in divisions]}")
+        print(f"Divisions with prefix: {len(divisions)}")
+
+        leagues = [lg for lg in tsc_client.get_leagues() if lg.get("name", "").startswith(prefix)]
+        if leagues:
+            issues.append(f"Leagues remaining: {[lg['name'] for lg in leagues]}")
+        print(f"Leagues with prefix: {len(leagues)}")
+
+        age_groups = [ag for ag in tsc_client.get_age_groups() if ag.get("name", "").startswith(prefix)]
+        if age_groups:
+            issues.append(f"Age groups remaining: {[ag['name'] for ag in age_groups]}")
+        print(f"Age groups with prefix: {len(age_groups)}")
+
+        seasons = [s for s in tsc_client.get_seasons() if s.get("name", "").startswith(prefix)]
+        if seasons:
+            issues.append(f"Seasons remaining: {[s['name'] for s in seasons]}")
+        print(f"Seasons with prefix: {len(seasons)}")
+
+        if issues:
+            print(f"\n⚠️  Some entities were not cleaned up:")
+            for issue in issues:
+                print(f"  - {issue}")
+            pytest.fail(f"Cleanup incomplete: {len(issues)} entity types still have data")
+
+        print(f"\n✅ All {prefix}* entities cleaned up successfully!")
+        print("\nNote: Users created via invites are NOT automatically deleted.")
+        print("To clean up users, use the admin panel or database directly.")
+
+    def test_10_clear_registry_file(self):
+        """Clear the persisted registry file (legacy cleanup)."""
         from tests.tsc.conftest import clear_entity_registry
 
         clear_entity_registry()
