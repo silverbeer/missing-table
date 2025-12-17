@@ -27,9 +27,13 @@ import httpx
 def load_env_file():
     """Load environment variables from .env.tsc file."""
     env_files = [
-        Path(__file__).parent.parent / "tests" / "tsc" / ".env.tsc",
-        Path.cwd() / "tests" / "tsc" / ".env.tsc",
+        # Check multiple common locations
+        Path(__file__).parent.parent / ".env.tsc",  # backend/.env.tsc
+        Path(__file__).parent.parent / "tests" / ".env.tsc",  # backend/tests/.env.tsc
+        Path(__file__).parent.parent / "tests" / "tsc" / ".env.tsc",  # backend/tests/tsc/.env.tsc
         Path.cwd() / ".env.tsc",
+        Path.cwd() / "tests" / ".env.tsc",
+        Path.cwd() / "tests" / "tsc" / ".env.tsc",
     ]
 
     for env_file in env_files:

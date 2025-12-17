@@ -2,10 +2,27 @@
 Entity Registry for TSC Journey Tests.
 
 Tracks all created entities for cleanup in FK-safe order.
+Environment-aware: stores base_url to detect environment mismatches.
 """
 
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
+
+
+def get_env_key(base_url: str) -> str:
+    """
+    Generate environment key from base_url.
+
+    Examples:
+        http://localhost:8000 -> local
+        https://missingtable.com -> missingtable.com
+        https://dev.missingtable.com -> dev.missingtable.com
+    """
+    parsed = urlparse(base_url)
+    if parsed.hostname in ("localhost", "127.0.0.1"):
+        return "local"
+    return parsed.hostname or "unknown"
 
 
 @dataclass
@@ -15,7 +32,12 @@ class EntityRegistry:
 
     Entities are tracked in the order they should be deleted (FK-safe).
     Cleanup should delete in order: matches -> teams -> club -> invites -> division -> age_group -> season
+
+    Environment-aware: stores base_url to detect mismatches when loading.
     """
+
+    # Environment tracking (Option B)
+    base_url: str | None = None
 
     # Reference data IDs
     season_id: int | None = None
@@ -82,6 +104,7 @@ class EntityRegistry:
     def to_dict(self) -> dict[str, Any]:
         """Export registry to dict for persistence."""
         return {
+            "base_url": self.base_url,
             "season_id": self.season_id,
             "age_group_id": self.age_group_id,
             "division_id": self.division_id,
@@ -99,6 +122,7 @@ class EntityRegistry:
     def from_dict(cls, data: dict[str, Any]) -> "EntityRegistry":
         """Create registry from dict."""
         registry = cls()
+        registry.base_url = data.get("base_url")
         registry.season_id = data.get("season_id")
         registry.age_group_id = data.get("age_group_id")
         registry.division_id = data.get("division_id")

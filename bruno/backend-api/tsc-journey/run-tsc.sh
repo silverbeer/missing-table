@@ -71,8 +71,10 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         cleanup|99-cleanup)
-            RUN_PHASE="99-cleanup"
-            shift
+            echo_error "Standalone cleanup not supported (Bruno can't persist IDs between runs)"
+            echo_info "Use the Python cleanup script instead:"
+            echo "  cd backend && uv run python scripts/tsc_cleanup.py --prefix tsc_b_"
+            exit 1
             ;;
         00-admin-setup|01-club-manager|02-team-manager|03-player|04-fan)
             RUN_PHASE="$1"
@@ -130,19 +132,33 @@ if [ -n "$RUN_PHASE" ]; then
     run_phase "$RUN_PHASE"
 else
     if [ "$SKIP_CLEANUP" = true ]; then
-        # Exclude cleanup - need to run phases individually but sequentially
-        # Unfortunately Bruno doesn't have --exclude, so we run each phase
-        echo_warn "Running phases separately (env vars may not persist between phases)"
-        echo_info "For full env var persistence, consider removing --skip-cleanup"
+        # Temporarily move cleanup folder OUTSIDE tsc-journey so bru -r skips it
+        # This preserves env vars across all phases in a single execution
+        CLEANUP_DIR="$SCRIPT_DIR/99-cleanup"
+        CLEANUP_HIDDEN="$BRUNO_COLLECTION/.tsc-cleanup-temp"  # Parent dir
 
-        PHASES=("00-admin-setup" "01-club-manager" "02-team-manager" "03-player" "04-fan")
+        # Function to restore cleanup folder (called on exit)
+        restore_cleanup() {
+            if [ -d "$CLEANUP_HIDDEN" ]; then
+                mv "$CLEANUP_HIDDEN" "$CLEANUP_DIR"
+                echo_info "Restored cleanup folder"
+            fi
+        }
 
-        for phase in "${PHASES[@]}"; do
-            run_phase "$phase" || {
-                echo_error "Phase $phase failed"
-                exit 1
-            }
-        done
+        # Ensure cleanup folder is restored even if script fails
+        trap restore_cleanup EXIT
+
+        if [ -d "$CLEANUP_DIR" ]; then
+            echo_info "Moving cleanup folder temporarily..."
+            mv "$CLEANUP_DIR" "$CLEANUP_HIDDEN"
+        fi
+
+        # Run all phases at once (single bru command preserves env vars)
+        echo_info "Running phases 00-04 in single execution (env vars persist)"
+        cd "$BRUNO_COLLECTION"
+        # shellcheck disable=SC2086
+        bru run "$TSC_JOURNEY_DIR" -r --env tsc $ENV_VARS
+
         echo_info "Skipping cleanup phase (--skip-cleanup)"
         echo_info "Run cleanup later with: $0 cleanup"
     else

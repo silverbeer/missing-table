@@ -327,8 +327,10 @@ class TestCleanup:
         print("To clean up users, use the admin panel or database directly.")
 
     def test_10_clear_registry_file(self):
-        """Clear the persisted registry file (legacy cleanup)."""
-        from tests.tsc.conftest import clear_entity_registry
+        """Clear the persisted registry file for current environment."""
+        from tests.tsc.conftest import clear_entity_registry, get_registry_file
 
+        registry_file = get_registry_file()
+        print(f"Registry file: {registry_file.name}")
         clear_entity_registry()
-        print("Cleared entity registry file")
+        print("Cleared entity registry file for current environment")
