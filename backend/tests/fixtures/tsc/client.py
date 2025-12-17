@@ -613,6 +613,26 @@ class TSCClient:
         """Get current user's team manager assignments."""
         return self._client.get_team_manager_assignments()
 
+    def get_clubs(self) -> list[dict[str, Any]]:
+        """Get all clubs."""
+        return self._client.get_clubs(include_teams=False)
+
+    def get_divisions(self) -> list[dict[str, Any]]:
+        """Get all divisions."""
+        return self._client.get_divisions()
+
+    def get_leagues(self) -> list[dict[str, Any]]:
+        """Get all leagues."""
+        return self._client.get_leagues()
+
+    def get_age_groups(self) -> list[dict[str, Any]]:
+        """Get all age groups."""
+        return self._client.get_age_groups()
+
+    def get_seasons(self) -> list[dict[str, Any]]:
+        """Get all seasons."""
+        return self._client.get_seasons()
+
     # Cleanup Operations
 
     def delete_match(self, match_id: int) -> dict[str, Any]:

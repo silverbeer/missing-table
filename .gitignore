@@ -179,5 +179,6 @@ test-results/
 backend/test-results/
 backend/tests/e2e/playwright/screenshots/
 
-# TSC test artifacts
+# TSC test artifacts (environment-specific registry files)
 backend/tests/tsc/.entity_registry.json
+backend/tests/tsc/.entity_registry.*.json
