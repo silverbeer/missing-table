@@ -1,8 +1,14 @@
 # DOKS environment configuration
 # Secrets come from External Secrets Operator (AWS Secrets Manager)
-# Image tags updated by CI workflow
+# Image tags and version info updated by CI workflow
 
 namespace: missing-table
+
+# Version information - updated by CI workflow
+version: "1.0.1" # version-tag
+buildId: "" # build-id
+commitSha: "" # commit-sha
+buildDate: "" # build-date
 
 backend:
   replicaCount: 1
