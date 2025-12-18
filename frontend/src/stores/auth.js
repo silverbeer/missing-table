@@ -2,6 +2,7 @@ import { reactive, computed } from 'vue';
 import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
 import { getTraceHeaders } from '../utils/traceContext';
 import { getApiBaseUrl } from '../config/api';
+import { supabase, getOAuthRedirectUrl } from '../config/supabase';
 import {
   recordLogin,
   recordLoginDuration,
@@ -13,7 +14,7 @@ import {
   clearFaroUser,
 } from '../faro';
 
-// Remove Supabase client - using backend API instead
+// Supabase client imported for OAuth only - regular API calls go through backend
 
 // Auth store
 const state = reactive({
@@ -222,6 +223,111 @@ export const useAuthStore = () => {
       setError(error.message);
       recordLogin(false, { error_type: 'exception' });
       recordLoginDuration(duration, false);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OAuth Social Login with Google
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true);
+      clearError();
+
+      const redirectTo = getOAuthRedirectUrl();
+      console.log('Starting Google OAuth, redirect URL:', redirectTo);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) {
+        recordLogin(false, { error_type: 'oauth_initiation_failed' });
+        throw new Error(error.message);
+      }
+
+      // User will be redirected to Google, then back to our callback URL
+      // The callback handler will complete the authentication
+      return { success: true, url: data.url };
+    } catch (error) {
+      setError(error.message);
+      recordLogin(false, { error_type: 'oauth_exception' });
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle OAuth callback - called after redirect back from Google
+  const handleOAuthCallback = async () => {
+    try {
+      setLoading(true);
+      clearError();
+
+      // Get the session from the URL hash (Supabase puts tokens there)
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.session) {
+        throw new Error('No session found after OAuth callback');
+      }
+
+      // Store the tokens
+      setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+
+      // Now verify with our backend and get/create user profile
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/auth/oauth/callback`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${data.session.access_token}`,
+            ...getTraceHeaders(),
+          },
+          body: JSON.stringify({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+            provider: 'google',
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'OAuth callback failed');
+      }
+
+      const userData = await response.json();
+
+      setUser(userData.user);
+      setProfile(userData.user);
+
+      // Record successful OAuth login
+      recordLogin(true, {
+        user_role: userData.user.role || 'team-fan',
+        provider: 'google',
+      });
+      setFaroUser(userData.user.id, { role: userData.user.role || 'team-fan' });
+
+      return { success: true, user: userData.user };
+    } catch (error) {
+      setError(error.message);
+      recordLogin(false, { error_type: 'oauth_callback_failed' });
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -625,6 +731,8 @@ export const useAuthStore = () => {
     signup,
     signupWithInvite,
     login,
+    signInWithGoogle,
+    handleOAuthCallback,
     logout,
     forceLogout,
     fetchProfile,
