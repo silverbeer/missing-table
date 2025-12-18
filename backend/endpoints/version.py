@@ -43,7 +43,7 @@ async def get_version():
     # Construct full version string with build ID if available
     full_version = version
     if build_id:
-        full_version = f"{version}-build.{build_id}"
+        full_version = f"{version}.{build_id}"
 
     return VersionInfo(
         version=full_version,

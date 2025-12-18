@@ -407,7 +407,7 @@ The GKE Autopilot cluster has been **deleted** to save costs. The application is
 - **All branches → Dev Environment:** All commits automatically deploy to `missing-table-dev`
 - **Main branch:** Can optionally create git tags for releases
 - **Automatic rollback:** Deployments rollback automatically on failure
-- **Versioning:** Semantic versioning with build IDs (e.g., v1.0.0-build.123)
+- **Versioning:** Semantic versioning with build numbers (e.g., 1.0.1.147)
 
 **Key files:**
 - `.github/workflows/deploy.yml` - **Unified deployment workflow** (all branches → missing-table-dev)
@@ -419,16 +419,32 @@ The GKE Autopilot cluster has been **deleted** to save costs. The application is
 
 #### Version Management
 
+**Claude is the Git Ninja** - Claude creates all commits and PRs, and decides when to bump version numbers.
+
+**Version Format:** `MAJOR.MINOR.PATCH.BUILD` (e.g., `1.0.1.147`)
+
+| Position | Name | When to Increment |
+|----------|------|-------------------|
+| **1** | MAJOR | **Breaking changes** - API changes that break existing clients, database schema changes requiring migration, complete rewrites |
+| **2** | MINOR | **New features** - Adding new endpoints, new UI features, new capabilities that don't break existing functionality |
+| **3** | PATCH | **Bug fixes** - Fixing bugs, security patches, performance tweaks, refactoring, small improvements |
+| **4** | BUILD | **Automatic** - Increments on every CI deployment (never manually changed) |
+
+**Examples for Missing Table:**
+- **MAJOR bump:** Switching databases, complete UI redesign, removing API endpoints
+- **MINOR bump:** Adding player photos, team chat, new match import sources, RabbitMQ integration
+- **PATCH bump:** Fixing age group filter bug, fixing invite permissions, CSS fixes
+
+**When creating a PR, Claude MUST:**
+1. Review all changes in the PR
+2. Determine if version bump is needed (MAJOR/MINOR/PATCH)
+3. If needed, run `./scripts/version-bump.sh [major|minor|patch]` and include in the PR
+
 ```bash
 # Bump version
 ./scripts/version-bump.sh major    # 1.0.0 -> 2.0.0
 ./scripts/version-bump.sh minor    # 1.0.0 -> 1.1.0
 ./scripts/version-bump.sh patch    # 1.0.0 -> 1.0.1 (default)
-
-# After bumping, commit and push to trigger deployment
-git add VERSION
-git commit -m "chore: bump version to $(cat VERSION)"
-git push origin main  # Triggers production deployment
 ```
 
 #### Health Checks

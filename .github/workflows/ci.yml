@@ -135,10 +135,14 @@
           run: |
             git pull origin main
 
-        - name: Update image tags in values.yaml
+        - name: Update image tags and version info in values.yaml
           run: |
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
             VALUES_FILE="helm/missing-table/values-doks.yaml"
+
+            # Read version from VERSION file
+            VERSION=$(cat VERSION | tr -d '\n')
+            BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
             # Update backend tag (line with # backend-tag marker)
             sed -i "s|tag: \".*\" # backend-tag|tag: \"${SHORT_SHA}\" # backend-tag|" $VALUES_FILE
@@ -146,7 +150,13 @@
             # Update frontend tag (line with # frontend-tag marker)
             sed -i "s|tag: \".*\" # frontend-tag|tag: \"${SHORT_SHA}\" # frontend-tag|" $VALUES_FILE
 
-            echo "Updated tags to ${SHORT_SHA}"
+            # Update version information
+            sed -i "s|version: \".*\" # version-tag|version: \"${VERSION}\" # version-tag|" $VALUES_FILE
+            sed -i "s|buildId: \".*\" # build-id|buildId: \"${{ github.run_number }}\" # build-id|" $VALUES_FILE
+            sed -i "s|commitSha: \".*\" # commit-sha|commitSha: \"${{ github.sha }}\" # commit-sha|" $VALUES_FILE
+            sed -i "s|buildDate: \".*\" # build-date|buildDate: \"${BUILD_DATE}\" # build-date|" $VALUES_FILE
+
+            echo "Updated tags to ${SHORT_SHA}, version to ${VERSION}"
             cat $VALUES_FILE
 
         - name: Commit and push
@@ -158,7 +168,11 @@
               echo "No changes to commit"
             else
               SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+              VERSION=$(cat VERSION | tr -d '\n')
               git commit -m "chore: Update image tags to ${SHORT_SHA}
+
+            Version: ${VERSION}
+            Build: ${{ github.run_number }}
 
             [skip ci]"
               git push
