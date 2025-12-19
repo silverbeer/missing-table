@@ -641,15 +641,27 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
         display_name = user_metadata.get("full_name") or user_metadata.get("name") or email.split("@")[0]
         avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
 
-        # Check if user profile exists
+        # Check if user profile exists - check by EMAIL first (different OAuth providers create different user IDs)
+        email_profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("email", email).execute()
+
+        if email_profile_response.data and len(email_profile_response.data) > 0:
+            # User with this email already exists - they should login normally, not use invite
+            existing_profile = email_profile_response.data[0]
+            oauth_logger.warning("oauth_callback_failed", reason="email_already_exists", existing_username=existing_profile.get("username"))
+            raise HTTPException(
+                status_code=400,
+                detail=f"An account with this email already exists (username: {existing_profile.get('username')}). Please login with your existing account instead."
+            )
+
+        # Also check by Supabase user ID (in case they've used this OAuth before)
         profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("id", user_id).execute()
 
         if profile_response.data and len(profile_response.data) > 0:
-            # User already exists - they should login normally, not use invite
-            oauth_logger.warning("oauth_callback_failed", reason="user_already_exists")
+            # User already exists with this OAuth ID
+            oauth_logger.warning("oauth_callback_failed", reason="user_id_already_exists")
             raise HTTPException(
                 status_code=400,
-                detail="An account with this email already exists. Please login instead."
+                detail="An account already exists. Please login instead."
             )
         else:
             # New OAuth user - create profile using invite info
