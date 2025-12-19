@@ -4,11 +4,20 @@ This guide explains how to enable "Sign in with Google" for Missing Table.
 
 ## Overview
 
-Missing Table supports social login via Google OAuth for **invite-based signups**. Users with a valid invite code can choose to sign up with their Google account instead of creating a username/password.
+Missing Table supports social login via Google OAuth for both **new user signups** (with invite) and **returning user logins**.
 
-**Important:** Google OAuth is only available for new user signups with an invite code. This maintains the invite-only model while providing a convenient signup option.
+**Two OAuth Flows:**
 
-**Flow:**
+1. **SIGNUP Flow** (new users with invite code):
+   - User enters invite code on signup form
+   - "Sign up with Google" button appears
+   - Backend creates profile with invite's role/team/club
+
+2. **LOGIN Flow** (returning users):
+   - User clicks "Continue with Google" on login form
+   - Backend finds existing profile and logs them in
+
+**Signup Flow:**
 ```
 User enters invite code on signup form
     → Invite is validated
@@ -21,6 +30,17 @@ User enters invite code on signup form
     → Backend validates invite code again
     → Backend creates profile with invite's role/team
     → Invite is marked as used
+    → User is logged in
+```
+
+**Login Flow:**
+```
+User clicks "Continue with Google" on login form
+    → Redirect to Google consent screen
+    → User approves
+    → Google redirects to Supabase
+    → Redirect back to Missing Table with tokens
+    → Backend finds existing profile by email
     → User is logged in
 ```
 
@@ -204,9 +224,15 @@ The OAuth callback endpoint might be failing silently.
 
 ### Google Button Not Showing
 
-Only shows on login form, not on invite signup form.
+The Google button should appear in two places:
 
-**Expected behavior:** OAuth is only available for login, not invite-based signup.
+1. **Login form**: "Continue with Google" button for returning users
+2. **Signup form**: "Sign up with Google" button (only after valid invite code is entered)
+
+If the button is missing:
+- Check browser console for JavaScript errors
+- Verify Supabase is configured correctly
+- Ensure the component is rendering properly
 
 ## Security Considerations
 
