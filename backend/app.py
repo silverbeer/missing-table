@@ -581,7 +581,7 @@ class OAuthCallbackData(BaseModel):
     access_token: str
     refresh_token: str | None = None
     provider: str = "google"
-    invite_code: str  # Required - OAuth signup requires invite code
+    invite_code: str | None = None  # Optional - required for signup, not required for login
     display_name: str | None = None  # Optional - user's custom display name from signup form
 
 
@@ -593,38 +593,31 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
     After Supabase OAuth flow completes, the frontend sends the tokens here
     to verify and get/create the user profile.
 
-    IMPORTANT: OAuth signup requires a valid invite code. The invite determines
-    the user's role and team/club assignment.
+    TWO FLOWS:
+    1. LOGIN (no invite_code): For returning users who already have an account
+    2. SIGNUP (with invite_code): For new users, invite determines role/team/club
     """
     from services.invite_service import InviteService
 
     client_ip = get_client_ip(request)
-    oauth_logger = logger.bind(flow="auth_oauth_callback", provider=callback_data.provider, client_ip=client_ip)
+    is_login_flow = callback_data.invite_code is None
+    oauth_logger = logger.bind(
+        flow="auth_oauth_callback",
+        provider=callback_data.provider,
+        client_ip=client_ip,
+        is_login_flow=is_login_flow
+    )
 
     try:
-        # First, validate the invite code
-        invite_service = InviteService(db_conn_holder_obj.client)
-        invite_info = invite_service.validate_invite_code(callback_data.invite_code)
-
-        if not invite_info:
-            oauth_logger.warning("oauth_callback_failed", reason="invalid_invite_code")
-            raise HTTPException(status_code=400, detail="Invalid or expired invite code")
-
-        oauth_logger = oauth_logger.bind(invite_type=invite_info.get("invite_type"))
-
-        # Verify the token by getting user info from Supabase
+        # Verify the token by getting user info from Supabase FIRST
+        # This is needed for both login and signup flows
         from supabase import create_client
 
-        # Create a temporary client with the user's access token
         temp_client = create_client(
             os.getenv("SUPABASE_URL", ""),
             os.getenv("SUPABASE_ANON_KEY", "")
         )
-
-        # Set the session with the provided tokens
         temp_client.auth.set_session(callback_data.access_token, callback_data.refresh_token or "")
-
-        # Get user info
         user_response = temp_client.auth.get_user()
 
         if not user_response or not user_response.user:
@@ -638,45 +631,81 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 
         oauth_logger = oauth_logger.bind(user_id=user_id, email=email)
 
-        # Extract user info - prefer user's custom display_name from signup form over OAuth metadata
+        # Check if user profile exists by email or user_id
+        email_profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("email", email).execute()
+        existing_by_email = email_profile_response.data[0] if email_profile_response.data else None
+
+        profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("id", user_id).execute()
+        existing_by_id = profile_response.data[0] if profile_response.data else None
+
+        # Check if it's a trigger stub (incomplete profile)
+        is_trigger_stub = (
+            existing_by_id and
+            existing_by_id.get("username") is None and
+            existing_by_id.get("auth_provider") == "password"
+        )
+
+        # Determine existing profile (prefer email match, then id match)
+        existing_profile = existing_by_email or (existing_by_id if not is_trigger_stub else None)
+
+        # ===== LOGIN FLOW (no invite code) =====
+        if is_login_flow:
+            if not existing_profile:
+                oauth_logger.warning("oauth_login_failed", reason="no_account")
+                # Sign out of Supabase to clean up the session
+                try:
+                    await asyncio.to_thread(temp_client.auth.sign_out)
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=400,
+                    detail="No account found with this Google account. Please sign up with an invite code first."
+                )
+
+            # Verify auth_provider is google (not password user trying to use OAuth)
+            if existing_profile.get("auth_provider") == "password":
+                oauth_logger.warning("oauth_login_failed", reason="wrong_auth_provider")
+                try:
+                    await asyncio.to_thread(temp_client.auth.sign_out)
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=400,
+                    detail="This account was created with username/password. Please use the login form instead."
+                )
+
+            oauth_logger.info("oauth_login_success", username=existing_profile.get("username"))
+            return {
+                "message": "Login successful",
+                "user": existing_profile
+            }
+
+        # ===== SIGNUP FLOW (with invite code) =====
+        # Validate the invite code
+        invite_service = InviteService(db_conn_holder_obj.client)
+        invite_info = invite_service.validate_invite_code(callback_data.invite_code)
+
+        if not invite_info:
+            oauth_logger.warning("oauth_callback_failed", reason="invalid_invite_code")
+            raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+
+        oauth_logger = oauth_logger.bind(invite_type=invite_info.get("invite_type"))
+
+        # Extract user info for signup
         display_name = (
-            callback_data.display_name  # User's custom input from signup form
-            or user_metadata.get("full_name")  # Google's full_name
-            or user_metadata.get("name")  # Google's name
-            or email.split("@")[0]  # Fallback to email prefix
+            callback_data.display_name
+            or user_metadata.get("full_name")
+            or user_metadata.get("name")
+            or email.split("@")[0]
         )
         avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
 
-        # Check if user profile exists - check by EMAIL first (different OAuth providers create different user IDs)
-        email_profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("email", email).execute()
-
-        if email_profile_response.data and len(email_profile_response.data) > 0:
-            # User with this email already exists - they should login normally, not use invite
-            existing_profile = email_profile_response.data[0]
+        # For signup, reject if account already exists
+        if existing_profile:
             oauth_logger.warning("oauth_callback_failed", reason="email_already_exists", existing_username=existing_profile.get("username"))
             raise HTTPException(
                 status_code=400,
-                detail=f"An account with this email already exists (username: {existing_profile.get('username')}). Please login with your existing account instead."
-            )
-
-        # Also check by Supabase user ID (in case they've used this OAuth before)
-        profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("id", user_id).execute()
-
-        # Check if profile exists and if it's a "stub" created by Supabase trigger
-        # The trigger creates profiles with: username=null, auth_provider='password' (default)
-        existing_profile = profile_response.data[0] if profile_response.data else None
-        is_trigger_stub = (
-            existing_profile and
-            existing_profile.get("username") is None and
-            existing_profile.get("auth_provider") == "password"
-        )
-
-        if existing_profile and not is_trigger_stub:
-            # User already exists with a complete profile - they should login instead
-            oauth_logger.warning("oauth_callback_failed", reason="user_id_already_exists")
-            raise HTTPException(
-                status_code=400,
-                detail="An account already exists. Please login instead."
+                detail=f"An account with this email already exists (username: {existing_profile.get('username')}). Please login instead of signing up."
             )
 
         # Either new user OR trigger-created stub that needs to be completed
