@@ -96,9 +96,6 @@
           <button class="action-btn secondary" @click="openEditProfile">
             Edit Profile
           </button>
-          <button class="action-btn logout" @click="$emit('logout')">
-            Logout
-          </button>
         </div>
       </div>
     </div>
@@ -568,15 +565,6 @@ export default {
 
 .action-btn.secondary:hover {
   background: rgba(255, 255, 255, 0.3);
-}
-
-.action-btn.logout {
-  background: rgba(220, 38, 38, 0.8);
-  color: white;
-}
-
-.action-btn.logout:hover {
-  background: rgba(220, 38, 38, 1);
 }
 
 /* Club Teams Section */
