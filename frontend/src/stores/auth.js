@@ -230,7 +230,7 @@ export const useAuthStore = () => {
   };
 
   // OAuth Social Login with Google (requires invite code for signup)
-  const signInWithGoogle = async (inviteCode = null) => {
+  const signInWithGoogle = async (inviteCode = null, displayName = null) => {
     try {
       setLoading(true);
       clearError();
@@ -242,9 +242,12 @@ export const useAuthStore = () => {
       const redirectTo = getOAuthRedirectUrl();
       console.log('Starting Google OAuth, redirect URL:', redirectTo);
 
-      // Store invite code in localStorage to retrieve after OAuth callback
+      // Store invite code and display name in localStorage to retrieve after OAuth callback
       // (OAuth state parameter is limited and can be unreliable across redirects)
       localStorage.setItem('oauth_invite_code', inviteCode);
+      if (displayName) {
+        localStorage.setItem('oauth_display_name', displayName);
+      }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -259,6 +262,7 @@ export const useAuthStore = () => {
 
       if (error) {
         localStorage.removeItem('oauth_invite_code');
+        localStorage.removeItem('oauth_display_name');
         recordLogin(false, { error_type: 'oauth_initiation_failed' });
         throw new Error(error.message);
       }
@@ -281,9 +285,11 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      // Retrieve invite code stored before OAuth redirect
+      // Retrieve invite code and display name stored before OAuth redirect
       const inviteCode = localStorage.getItem('oauth_invite_code');
+      const customDisplayName = localStorage.getItem('oauth_display_name');
       localStorage.removeItem('oauth_invite_code'); // Clean up immediately
+      localStorage.removeItem('oauth_display_name');
 
       if (!inviteCode) {
         throw new Error(
@@ -321,6 +327,7 @@ export const useAuthStore = () => {
             refresh_token: data.session.refresh_token,
             provider: 'google',
             invite_code: inviteCode,
+            display_name: customDisplayName, // User's custom display name from signup form
           }),
         }
       );

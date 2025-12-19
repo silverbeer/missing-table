@@ -582,6 +582,7 @@ class OAuthCallbackData(BaseModel):
     refresh_token: str | None = None
     provider: str = "google"
     invite_code: str  # Required - OAuth signup requires invite code
+    display_name: str | None = None  # Optional - user's custom display name from signup form
 
 
 @app.post("/api/auth/oauth/callback")
@@ -637,8 +638,13 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 
         oauth_logger = oauth_logger.bind(user_id=user_id, email=email)
 
-        # Extract user info from OAuth provider metadata
-        display_name = user_metadata.get("full_name") or user_metadata.get("name") or email.split("@")[0]
+        # Extract user info - prefer user's custom display_name from signup form over OAuth metadata
+        display_name = (
+            callback_data.display_name  # User's custom input from signup form
+            or user_metadata.get("full_name")  # Google's full_name
+            or user_metadata.get("name")  # Google's name
+            or email.split("@")[0]  # Fallback to email prefix
+        )
         avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
 
         # Check if user profile exists - check by EMAIL first (different OAuth providers create different user IDs)

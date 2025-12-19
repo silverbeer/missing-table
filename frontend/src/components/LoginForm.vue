@@ -316,8 +316,11 @@ export default {
 
     const handleGoogleSignUp = async () => {
       authStore.clearError();
-      // Pass the invite code through OAuth state parameter
-      const result = await authStore.signInWithGoogle(form.inviteCode);
+      // Pass the invite code and display name through localStorage
+      const result = await authStore.signInWithGoogle(
+        form.inviteCode,
+        form.displayName || null
+      );
       if (!result.success) {
         console.error('Google sign-up failed:', result.error);
       }
