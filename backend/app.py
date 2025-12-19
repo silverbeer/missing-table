@@ -581,6 +581,7 @@ class OAuthCallbackData(BaseModel):
     access_token: str
     refresh_token: str | None = None
     provider: str = "google"
+    invite_code: str  # Required - OAuth signup requires invite code
 
 
 @app.post("/api/auth/oauth/callback")
@@ -590,13 +591,27 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 
     After Supabase OAuth flow completes, the frontend sends the tokens here
     to verify and get/create the user profile.
+
+    IMPORTANT: OAuth signup requires a valid invite code. The invite determines
+    the user's role and team/club assignment.
     """
+    from services.invite_service import InviteService
+
     client_ip = get_client_ip(request)
     oauth_logger = logger.bind(flow="auth_oauth_callback", provider=callback_data.provider, client_ip=client_ip)
 
     try:
+        # First, validate the invite code
+        invite_service = InviteService(db_conn_holder_obj.client)
+        invite_info = invite_service.validate_invite_code(callback_data.invite_code)
+
+        if not invite_info:
+            oauth_logger.warning("oauth_callback_failed", reason="invalid_invite_code")
+            raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+
+        oauth_logger = oauth_logger.bind(invite_type=invite_info.get("invite_type"))
+
         # Verify the token by getting user info from Supabase
-        # Use the access token to authenticate with Supabase
         from supabase import create_client
 
         # Create a temporary client with the user's access token
@@ -630,26 +645,24 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
         profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("id", user_id).execute()
 
         if profile_response.data and len(profile_response.data) > 0:
-            # User exists - return existing profile
-            profile = profile_response.data[0]
-            oauth_logger.info("oauth_login_success", existing_user=True)
-
-            return {
-                "success": True,
-                "user": {
-                    "id": user_id,
-                    "email": email,
-                    "username": profile.get("username"),
-                    "display_name": profile.get("display_name", display_name),
-                    "role": profile.get("role", "team-fan"),
-                    "team_id": profile.get("team_id"),
-                    "club_id": profile.get("club_id"),
-                    "profile_photo_url": profile.get("profile_photo_url") or avatar_url,
-                    "auth_provider": callback_data.provider,
-                }
-            }
+            # User already exists - they should login normally, not use invite
+            oauth_logger.warning("oauth_callback_failed", reason="user_already_exists")
+            raise HTTPException(
+                status_code=400,
+                detail="An account with this email already exists. Please login instead."
+            )
         else:
-            # New OAuth user - create profile
+            # New OAuth user - create profile using invite info
+            # Map invite_type to role
+            invite_type_to_role = {
+                "club_manager": "club_manager",
+                "club_fan": "club_fan",
+                "team_manager": "team-manager",
+                "team_player": "team-player",
+                "team_fan": "team-fan",
+            }
+            role = invite_type_to_role.get(invite_info.get("invite_type"), "team-fan")
+
             # Generate a unique username from email
             base_username = email.split("@")[0].replace(".", "_").replace("-", "_")[:40]
             username = base_username
@@ -666,13 +679,15 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
                     username = f"{base_username}_{str(uuid.uuid4())[:8]}"
                     break
 
-            # Create new profile
+            # Create new profile with invite-based role and team/club
             new_profile = {
                 "id": user_id,
                 "username": username,
                 "display_name": display_name,
                 "email": email,
-                "role": "team-fan",  # Default role for OAuth users
+                "role": role,
+                "team_id": invite_info.get("team_id"),
+                "club_id": invite_info.get("club_id"),
                 "profile_photo_url": avatar_url,
                 "auth_provider": callback_data.provider,
                 "created_at": datetime.utcnow().isoformat(),
@@ -681,7 +696,10 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 
             db_conn_holder_obj.client.table("user_profiles").insert(new_profile).execute()
 
-            oauth_logger.info("oauth_signup_success", username=username)
+            # Redeem the invite (marks as used)
+            invite_service.redeem_invitation(callback_data.invite_code, user_id)
+
+            oauth_logger.info("oauth_signup_success", username=username, role=role)
 
             return {
                 "success": True,
@@ -690,9 +708,9 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
                     "email": email,
                     "username": username,
                     "display_name": display_name,
-                    "role": "team-fan",
-                    "team_id": None,
-                    "club_id": None,
+                    "role": role,
+                    "team_id": invite_info.get("team_id"),
+                    "club_id": invite_info.get("club_id"),
                     "profile_photo_url": avatar_url,
                     "auth_provider": callback_data.provider,
                     "is_new_user": True,

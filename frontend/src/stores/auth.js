@@ -229,14 +229,22 @@ export const useAuthStore = () => {
     }
   };
 
-  // OAuth Social Login with Google
-  const signInWithGoogle = async () => {
+  // OAuth Social Login with Google (requires invite code for signup)
+  const signInWithGoogle = async (inviteCode = null) => {
     try {
       setLoading(true);
       clearError();
 
+      if (!inviteCode) {
+        throw new Error('Invite code is required for Google sign-up');
+      }
+
       const redirectTo = getOAuthRedirectUrl();
       console.log('Starting Google OAuth, redirect URL:', redirectTo);
+
+      // Store invite code in localStorage to retrieve after OAuth callback
+      // (OAuth state parameter is limited and can be unreliable across redirects)
+      localStorage.setItem('oauth_invite_code', inviteCode);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -250,6 +258,7 @@ export const useAuthStore = () => {
       });
 
       if (error) {
+        localStorage.removeItem('oauth_invite_code');
         recordLogin(false, { error_type: 'oauth_initiation_failed' });
         throw new Error(error.message);
       }
@@ -272,6 +281,16 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
+      // Retrieve invite code stored before OAuth redirect
+      const inviteCode = localStorage.getItem('oauth_invite_code');
+      localStorage.removeItem('oauth_invite_code'); // Clean up immediately
+
+      if (!inviteCode) {
+        throw new Error(
+          'No invite code found. Please start the signup process again with your invite code.'
+        );
+      }
+
       // Get the session from the URL hash (Supabase puts tokens there)
       const { data, error } = await supabase.auth.getSession();
 
@@ -290,6 +309,7 @@ export const useAuthStore = () => {
       });
 
       // Now verify with our backend and get/create user profile
+      // Pass the invite code for validation
       const response = await fetch(
         `${getApiBaseUrl()}/api/auth/oauth/callback`,
         {
@@ -303,6 +323,7 @@ export const useAuthStore = () => {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
             provider: 'google',
+            invite_code: inviteCode,
           }),
         }
       );

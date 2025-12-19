@@ -4,17 +4,23 @@ This guide explains how to enable "Sign in with Google" for Missing Table.
 
 ## Overview
 
-Missing Table supports social login via Google OAuth. Users can sign in with their Google account instead of creating a username/password.
+Missing Table supports social login via Google OAuth for **invite-based signups**. Users with a valid invite code can choose to sign up with their Google account instead of creating a username/password.
+
+**Important:** Google OAuth is only available for new user signups with an invite code. This maintains the invite-only model while providing a convenient signup option.
 
 **Flow:**
 ```
-User clicks "Continue with Google"
+User enters invite code on signup form
+    → Invite is validated
+    → "Sign up with Google" button appears
+    → User clicks button
     → Redirect to Google consent screen
     → User approves
     → Google redirects to Supabase
-    → Supabase creates/links user
     → Redirect back to Missing Table with tokens
-    → Backend verifies and creates profile
+    → Backend validates invite code again
+    → Backend creates profile with invite's role/team
+    → Invite is marked as used
     → User is logged in
 ```
 
