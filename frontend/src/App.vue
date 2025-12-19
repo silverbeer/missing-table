@@ -444,7 +444,25 @@ export default {
       // For testing - uncomment the next line to force logout on each page load
       // authStore.forceLogout()
 
-      await authStore.initialize();
+      // Check for OAuth callback (tokens in URL hash from Supabase redirect)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+
+      if (accessToken) {
+        // This is an OAuth callback - handle it
+        console.log('OAuth callback detected, processing...');
+        const result = await authStore.handleOAuthCallback();
+        if (result.success) {
+          // Clear the hash from URL
+          window.history.replaceState(null, '', window.location.pathname);
+          console.log('OAuth login successful');
+        } else {
+          console.error('OAuth callback failed:', result.error);
+        }
+      } else {
+        // Normal initialization
+        await authStore.initialize();
+      }
 
       // Record initial page view after auth initialization
       recordPageView(currentTab.value, {

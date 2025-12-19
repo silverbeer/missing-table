@@ -575,6 +575,137 @@ async def logout(current_user: dict[str, Any] = Depends(get_current_user_require
         }
 
 
+class OAuthCallbackData(BaseModel):
+    """OAuth callback data from frontend."""
+    access_token: str
+    refresh_token: str | None = None
+    provider: str = "google"
+
+
+@app.post("/api/auth/oauth/callback")
+async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
+    """
+    Handle OAuth callback from frontend.
+
+    After Supabase OAuth flow completes, the frontend sends the tokens here
+    to verify and get/create the user profile.
+    """
+    client_ip = get_client_ip(request)
+    oauth_logger = logger.bind(flow="auth_oauth_callback", provider=callback_data.provider, client_ip=client_ip)
+
+    try:
+        # Verify the token by getting user info from Supabase
+        # Use the access token to authenticate with Supabase
+        from supabase import create_client
+
+        # Create a temporary client with the user's access token
+        temp_client = create_client(
+            os.getenv("SUPABASE_URL", ""),
+            os.getenv("SUPABASE_ANON_KEY", "")
+        )
+
+        # Set the session with the provided tokens
+        temp_client.auth.set_session(callback_data.access_token, callback_data.refresh_token or "")
+
+        # Get user info
+        user_response = temp_client.auth.get_user()
+
+        if not user_response or not user_response.user:
+            oauth_logger.warning("oauth_callback_failed", reason="invalid_token")
+            raise HTTPException(status_code=401, detail="Invalid OAuth token")
+
+        supabase_user = user_response.user
+        user_id = supabase_user.id
+        email = supabase_user.email
+        user_metadata = supabase_user.user_metadata or {}
+
+        oauth_logger = oauth_logger.bind(user_id=user_id, email=email)
+
+        # Extract user info from OAuth provider metadata
+        display_name = user_metadata.get("full_name") or user_metadata.get("name") or email.split("@")[0]
+        avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
+
+        # Check if user profile exists
+        profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("id", user_id).execute()
+
+        if profile_response.data and len(profile_response.data) > 0:
+            # User exists - return existing profile
+            profile = profile_response.data[0]
+            oauth_logger.info("oauth_login_success", existing_user=True)
+
+            return {
+                "success": True,
+                "user": {
+                    "id": user_id,
+                    "email": email,
+                    "username": profile.get("username"),
+                    "display_name": profile.get("display_name", display_name),
+                    "role": profile.get("role", "team-fan"),
+                    "team_id": profile.get("team_id"),
+                    "club_id": profile.get("club_id"),
+                    "profile_photo_url": profile.get("profile_photo_url") or avatar_url,
+                    "auth_provider": callback_data.provider,
+                }
+            }
+        else:
+            # New OAuth user - create profile
+            # Generate a unique username from email
+            base_username = email.split("@")[0].replace(".", "_").replace("-", "_")[:40]
+            username = base_username
+
+            # Check if username exists and make unique if needed
+            from auth import check_username_available
+            counter = 1
+            while not await check_username_available(db_conn_holder_obj.client, username):
+                username = f"{base_username}_{counter}"
+                counter += 1
+                if counter > 100:
+                    # Fallback to UUID suffix
+                    import uuid
+                    username = f"{base_username}_{str(uuid.uuid4())[:8]}"
+                    break
+
+            # Create new profile
+            new_profile = {
+                "id": user_id,
+                "username": username,
+                "display_name": display_name,
+                "email": email,
+                "role": "team-fan",  # Default role for OAuth users
+                "profile_photo_url": avatar_url,
+                "auth_provider": callback_data.provider,
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+            }
+
+            db_conn_holder_obj.client.table("user_profiles").insert(new_profile).execute()
+
+            oauth_logger.info("oauth_signup_success", username=username)
+
+            return {
+                "success": True,
+                "user": {
+                    "id": user_id,
+                    "email": email,
+                    "username": username,
+                    "display_name": display_name,
+                    "role": "team-fan",
+                    "team_id": None,
+                    "club_id": None,
+                    "profile_photo_url": avatar_url,
+                    "auth_provider": callback_data.provider,
+                    "is_new_user": True,
+                }
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        oauth_logger.error("oauth_callback_error", error=str(e))
+        logger.error(f"OAuth callback error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="OAuth authentication failed")
+
+
 @app.get("/api/auth/profile")
 async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get current user's profile."""
