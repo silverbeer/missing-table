@@ -26,7 +26,7 @@
       <!-- League Selector -->
       <div>
         <h3 class="text-sm font-medium text-gray-700 mb-3">League</h3>
-        <div v-if="authStore.canBrowseAll.value" class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
             v-for="league in leagues"
             :key="league.id"
@@ -40,13 +40,6 @@
           >
             {{ league.name }}
           </button>
-        </div>
-        <div v-else class="flex flex-wrap gap-2">
-          <div
-            class="px-4 py-2 text-sm rounded-md font-medium bg-gray-50 text-gray-700 border border-gray-300"
-          >
-            {{ selectedLeagueName || 'No league assigned' }}
-          </div>
         </div>
       </div>
 
@@ -85,7 +78,6 @@
               :key="division.id"
               :value="division.id"
             >
-              {{ division.leagues?.name || 'Unknown League' }} -
               {{ division.name }}
             </option>
           </select>
