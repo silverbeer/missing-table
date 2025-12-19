@@ -237,7 +237,25 @@ import { getApiBaseUrl } from '../config/api';
 
 export default {
   name: 'LeagueTable',
-  setup() {
+  props: {
+    initialAgeGroupId: {
+      type: Number,
+      default: null,
+    },
+    initialLeagueId: {
+      type: Number,
+      default: null,
+    },
+    initialDivisionId: {
+      type: Number,
+      default: null,
+    },
+    filterKey: {
+      type: Number,
+      default: 0,
+    },
+  },
+  setup(props) {
     const authStore = useAuthStore();
     const tableData = ref([]);
     const teams = ref([]); // Store all teams for name→id mapping
@@ -422,6 +440,39 @@ export default {
     watch([selectedSeasonId, selectedAgeGroupId, selectedDivisionId], () => {
       fetchTableData();
     });
+
+    // Watch for filterKey changes to apply external filters (from team card clicks)
+    watch(
+      () => props.filterKey,
+      async newKey => {
+        if (newKey > 0 && props.initialLeagueId) {
+          console.log('Applying external filters:', {
+            ageGroupId: props.initialAgeGroupId,
+            leagueId: props.initialLeagueId,
+            divisionId: props.initialDivisionId,
+          });
+
+          // Apply age group filter
+          if (props.initialAgeGroupId) {
+            selectedAgeGroupId.value = props.initialAgeGroupId;
+          }
+
+          // Apply league filter and re-filter divisions
+          if (props.initialLeagueId) {
+            selectedLeagueId.value = props.initialLeagueId;
+            filterDivisionsByLeague();
+          }
+
+          // Apply division filter
+          if (props.initialDivisionId) {
+            selectedDivisionId.value = props.initialDivisionId;
+          }
+
+          // Fetch updated table data
+          await fetchTableData();
+        }
+      }
+    );
 
     onMounted(async () => {
       console.log('LeagueTable component mounted');

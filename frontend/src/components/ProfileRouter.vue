@@ -117,8 +117,8 @@ export default {
       emit('logout');
     };
 
-    const handleSwitchTab = tabId => {
-      emit('switch-tab', tabId);
+    const handleSwitchTab = (tabId, filters = null) => {
+      emit('switch-tab', tabId, filters);
     };
 
     onMounted(() => {

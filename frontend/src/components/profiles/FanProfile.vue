@@ -379,9 +379,23 @@ export default {
       emit('navigate', 'table');
     };
 
-    const goToTeam = () => {
-      // Team detail view - navigate to standings for now
-      emit('navigate', 'table');
+    const goToTeam = team => {
+      // Extract filter IDs from team data
+      const filters = {
+        ageGroupId: team.age_groups?.[0]?.id || null,
+        leagueId: team.leagues?.id || team.league_id || null,
+        divisionId: team.team_mappings?.[0]?.divisions?.id || null,
+      };
+
+      console.log(
+        'Navigating to table with filters:',
+        filters,
+        'from team:',
+        team
+      );
+
+      // Navigate to table with filters
+      emit('navigate', 'table', filters);
     };
 
     onMounted(async () => {

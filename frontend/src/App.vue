@@ -222,7 +222,12 @@
         <div v-if="authStore.state.session" class="bg-white rounded-lg shadow">
           <!-- Standings -->
           <div v-if="currentTab === 'table'" class="p-4">
-            <LeagueTable />
+            <LeagueTable
+              :initial-age-group-id="tableFilters.ageGroupId"
+              :initial-league-id="tableFilters.leagueId"
+              :initial-division-id="tableFilters.divisionId"
+              :filter-key="tableFilters.key"
+            />
           </div>
 
           <!-- Matches -->
@@ -301,6 +306,12 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const currentTab = ref('table');
+    const tableFilters = ref({
+      ageGroupId: null,
+      leagueId: null,
+      divisionId: null,
+      key: 0, // Used to force re-render when filters change
+    });
     const showLoginModal = ref(false);
     const showInviteRequestModal = ref(false);
     const inviteRequest = ref({
@@ -384,9 +395,19 @@ export default {
       }
     };
 
-    const handleSwitchTab = tabId => {
+    const handleSwitchTab = (tabId, filters = null) => {
       // Switch to the requested tab
       currentTab.value = tabId;
+
+      // If filters provided and switching to table, apply them
+      if (tabId === 'table' && filters) {
+        tableFilters.value = {
+          ageGroupId: filters.ageGroupId || null,
+          leagueId: filters.leagueId || null,
+          divisionId: filters.divisionId || null,
+          key: tableFilters.value.key + 1, // Force re-render
+        };
+      }
     };
 
     const submitInviteRequest = async () => {
@@ -484,6 +505,7 @@ export default {
     return {
       authStore,
       currentTab,
+      tableFilters,
       availableTabs,
       showLoginModal,
       showInviteRequestModal,
