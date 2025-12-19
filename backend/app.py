@@ -656,78 +656,93 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
         # Also check by Supabase user ID (in case they've used this OAuth before)
         profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("id", user_id).execute()
 
-        if profile_response.data and len(profile_response.data) > 0:
-            # User already exists with this OAuth ID
+        # Check if profile exists and if it's a "stub" created by Supabase trigger
+        # The trigger creates profiles with: username=null, auth_provider='password' (default)
+        existing_profile = profile_response.data[0] if profile_response.data else None
+        is_trigger_stub = (
+            existing_profile and
+            existing_profile.get("username") is None and
+            existing_profile.get("auth_provider") == "password"
+        )
+
+        if existing_profile and not is_trigger_stub:
+            # User already exists with a complete profile - they should login instead
             oauth_logger.warning("oauth_callback_failed", reason="user_id_already_exists")
             raise HTTPException(
                 status_code=400,
                 detail="An account already exists. Please login instead."
             )
+
+        # Either new user OR trigger-created stub that needs to be completed
+        # Map invite_type to role
+        invite_type_to_role = {
+            "club_manager": "club_manager",
+            "club_fan": "club_fan",
+            "team_manager": "team-manager",
+            "team_player": "team-player",
+            "team_fan": "team-fan",
+        }
+        role = invite_type_to_role.get(invite_info.get("invite_type"), "team-fan")
+
+        # Generate a unique username from email
+        base_username = email.split("@")[0].replace(".", "_").replace("-", "_")[:40]
+        username = base_username
+
+        # Check if username exists and make unique if needed
+        from auth import check_username_available
+        counter = 1
+        while not await check_username_available(db_conn_holder_obj.client, username):
+            username = f"{base_username}_{counter}"
+            counter += 1
+            if counter > 100:
+                # Fallback to UUID suffix
+                import uuid
+                username = f"{base_username}_{str(uuid.uuid4())[:8]}"
+                break
+
+        # Profile data with invite-based role and team/club
+        profile_data = {
+            "username": username,
+            "display_name": display_name,
+            "email": email,
+            "role": role,
+            "team_id": invite_info.get("team_id"),
+            "club_id": invite_info.get("club_id"),
+            "profile_photo_url": avatar_url,
+            "auth_provider": callback_data.provider,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+
+        if is_trigger_stub:
+            # Update the stub profile created by Supabase trigger
+            oauth_logger.info("oauth_updating_trigger_stub", user_id=user_id)
+            db_conn_holder_obj.client.table("user_profiles").update(profile_data).eq("id", user_id).execute()
         else:
-            # New OAuth user - create profile using invite info
-            # Map invite_type to role
-            invite_type_to_role = {
-                "club_manager": "club_manager",
-                "club_fan": "club_fan",
-                "team_manager": "team-manager",
-                "team_player": "team-player",
-                "team_fan": "team-fan",
-            }
-            role = invite_type_to_role.get(invite_info.get("invite_type"), "team-fan")
+            # Create new profile (shouldn't happen if trigger exists, but handle it)
+            profile_data["id"] = user_id
+            profile_data["created_at"] = datetime.utcnow().isoformat()
+            db_conn_holder_obj.client.table("user_profiles").insert(profile_data).execute()
 
-            # Generate a unique username from email
-            base_username = email.split("@")[0].replace(".", "_").replace("-", "_")[:40]
-            username = base_username
+        # Redeem the invite (marks as used) - do this for both update and insert
+        invite_service.redeem_invitation(callback_data.invite_code, user_id)
 
-            # Check if username exists and make unique if needed
-            from auth import check_username_available
-            counter = 1
-            while not await check_username_available(db_conn_holder_obj.client, username):
-                username = f"{base_username}_{counter}"
-                counter += 1
-                if counter > 100:
-                    # Fallback to UUID suffix
-                    import uuid
-                    username = f"{base_username}_{str(uuid.uuid4())[:8]}"
-                    break
+        oauth_logger.info("oauth_signup_success", username=username, role=role)
 
-            # Create new profile with invite-based role and team/club
-            new_profile = {
+        return {
+            "success": True,
+            "user": {
                 "id": user_id,
+                "email": email,
                 "username": username,
                 "display_name": display_name,
-                "email": email,
                 "role": role,
                 "team_id": invite_info.get("team_id"),
                 "club_id": invite_info.get("club_id"),
                 "profile_photo_url": avatar_url,
                 "auth_provider": callback_data.provider,
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
+                "is_new_user": True,
             }
-
-            db_conn_holder_obj.client.table("user_profiles").insert(new_profile).execute()
-
-            # Redeem the invite (marks as used)
-            invite_service.redeem_invitation(callback_data.invite_code, user_id)
-
-            oauth_logger.info("oauth_signup_success", username=username, role=role)
-
-            return {
-                "success": True,
-                "user": {
-                    "id": user_id,
-                    "email": email,
-                    "username": username,
-                    "display_name": display_name,
-                    "role": role,
-                    "team_id": invite_info.get("team_id"),
-                    "club_id": invite_info.get("club_id"),
-                    "profile_photo_url": avatar_url,
-                    "auth_provider": callback_data.provider,
-                    "is_new_user": True,
-                }
-            }
+        }
 
     except HTTPException:
         raise
