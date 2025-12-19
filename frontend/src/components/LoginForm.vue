@@ -52,13 +52,7 @@
             @blur="validateInviteCode"
           />
           <div v-if="inviteInfo" class="invite-info">
-            <p>
-              ✓ Valid invite for <strong>{{ inviteInfo.team_name }}</strong>
-            </p>
-            <p>
-              Role:
-              <strong>{{ inviteInfo.invite_type.replace('_', ' ') }}</strong>
-            </p>
+            <p>{{ formatInviteMessage(inviteInfo) }}</p>
           </div>
         </div>
 
@@ -279,6 +273,27 @@ export default {
       }
     };
 
+    const formatInviteMessage = invite => {
+      // Format user-friendly invite message without exposing internal role names
+      const inviteType = invite.invite_type;
+      const teamName = invite.team_name;
+      const clubName = invite.club_name;
+
+      const typeLabels = {
+        club_manager: { label: 'Manager', entity: clubName },
+        club_fan: { label: 'Fan', entity: clubName },
+        team_manager: { label: 'Manager', entity: teamName },
+        team_player: { label: 'Player', entity: teamName },
+        team_fan: { label: 'Fan', entity: teamName },
+      };
+
+      const config = typeLabels[inviteType] || {
+        label: '',
+        entity: teamName || clubName,
+      };
+      return `✓ Valid ${config.label} invite for ${config.entity}`;
+    };
+
     const fetchTeams = async () => {
       // Only fetch if not already loaded
       if (teams.value.length > 0) return;
@@ -384,6 +399,7 @@ export default {
       showInviteForm,
       showLoginForm,
       validateInviteCode,
+      formatInviteMessage,
       handleSubmit,
       handleGoogleSignUp,
       completeProfile,
