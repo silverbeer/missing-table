@@ -302,13 +302,10 @@ export const useAuthStore = () => {
         throw new Error('No session found after OAuth callback');
       }
 
-      // Store the tokens
-      setSession({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      });
+      // DO NOT set session yet - wait for backend validation
+      // The backend will verify the invite code and check for existing accounts
 
-      // Now verify with our backend and get/create user profile
+      // Verify with our backend and get/create user profile
       // Pass the invite code for validation
       const response = await fetch(
         `${getApiBaseUrl()}/api/auth/oauth/callback`,
@@ -330,10 +327,26 @@ export const useAuthStore = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        // Backend rejected - sign out of Supabase to clean up
+        // This removes the Supabase user created during OAuth
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          console.warn(
+            'Failed to sign out of Supabase after rejection:',
+            signOutError
+          );
+        }
         throw new Error(errorData.detail || 'OAuth callback failed');
       }
 
       const userData = await response.json();
+
+      // Only NOW set the session - after backend validation succeeded
+      setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
 
       setUser(userData.user);
       setProfile(userData.user);
