@@ -1,6 +1,12 @@
 <template>
   <BaseProfile title="Fan Dashboard" @logout="$emit('logout')">
     <template #profile-fields>
+      <!-- Club Assignment (for club fans) -->
+      <div v-if="club" class="info-group">
+        <label>Club:</label>
+        <span class="club-name">{{ club.name }}</span>
+      </div>
+      <!-- Favorite Team -->
       <div v-if="authStore.state.profile.team" class="info-group">
         <label>Favorite Team:</label>
         <span class="team-name"
@@ -15,7 +21,9 @@
       </div>
       <div class="info-group">
         <label>Fan Status:</label>
-        <span class="fan-status">Registered Fan</span>
+        <span class="fan-status">{{
+          club ? 'Club Fan' : 'Registered Fan'
+        }}</span>
       </div>
     </template>
 
@@ -266,10 +274,26 @@ export default {
     const showAllGames = ref(false);
     const loadingGames = ref(false);
     const isEditing = ref(false);
+    const club = ref(null);
 
     const editForm = ref({
       team_id: null,
     });
+
+    // Fetch club info if user has club_id
+    const fetchClub = async () => {
+      const clubId = authStore.state.profile?.club_id;
+      if (!clubId) return;
+
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/clubs/${clubId}`);
+        if (response.ok) {
+          club.value = await response.json();
+        }
+      } catch (error) {
+        console.error('Error fetching club:', error);
+      }
+    };
 
     const upcomingGames = computed(() => {
       const now = new Date();
@@ -402,6 +426,7 @@ export default {
 
     onMounted(() => {
       fetchTeams();
+      fetchClub();
     });
 
     return {
@@ -421,12 +446,18 @@ export default {
       formatGameDate,
       getGameResult,
       getResultClass,
+      club,
     };
   },
 };
 </script>
 
 <style scoped>
+.club-name {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
 .team-name {
   color: #059669;
   font-weight: 600;
