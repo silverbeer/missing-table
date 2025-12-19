@@ -116,7 +116,15 @@
           <div class="team-icon">⚽</div>
           <div class="team-details">
             <h4>{{ team.name }}</h4>
-            <p>{{ team.age_group_name || 'Youth' }}</p>
+            <p class="team-meta">
+              <span v-if="team.age_group_name">{{ team.age_group_name }}</span>
+              <span v-if="team.division_name" class="meta-separator">•</span>
+              <span v-if="team.division_name">{{ team.division_name }}</span>
+              <span v-if="team.league_name" class="meta-separator">•</span>
+              <span v-if="team.league_name" class="team-league">{{
+                team.league_name
+              }}</span>
+            </p>
           </div>
           <div class="team-arrow">&rarr;</div>
         </div>
@@ -435,9 +443,7 @@ export default {
   width: 120px;
   height: 120px;
   object-fit: contain;
-  background: white;
   border-radius: 12px;
-  padding: 10px;
 }
 
 .club-logo-placeholder,
@@ -628,6 +634,23 @@ export default {
   margin: 4px 0 0;
   color: #6b7280;
   font-size: 13px;
+}
+
+.team-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-separator {
+  color: #d1d5db;
+  font-size: 10px;
+}
+
+.team-league {
+  color: #9ca3af;
+  font-size: 12px;
 }
 
 .team-arrow {
