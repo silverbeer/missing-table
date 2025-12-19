@@ -453,11 +453,14 @@ export default {
         console.log('OAuth callback detected, processing...');
         const result = await authStore.handleOAuthCallback();
         if (result.success) {
-          // Clear the hash from URL
-          window.history.replaceState(null, '', window.location.pathname);
+          // Redirect to home page and clear the OAuth tokens from URL
+          window.history.replaceState(null, '', '/');
+          currentTab.value = 'profile'; // Show profile tab after login
           console.log('OAuth login successful');
         } else {
           console.error('OAuth callback failed:', result.error);
+          // Redirect to home even on failure to clear the callback URL
+          window.history.replaceState(null, '', '/');
         }
       } else {
         // Normal initialization

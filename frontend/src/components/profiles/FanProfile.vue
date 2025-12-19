@@ -286,9 +286,11 @@ export default {
       if (!clubId) return;
 
       try {
-        const response = await fetch(`${getApiBaseUrl()}/api/clubs/${clubId}`);
-        if (response.ok) {
-          club.value = await response.json();
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/clubs/${clubId}`
+        );
+        if (response) {
+          club.value = response;
           // Fetch club teams after getting club
           await fetchClubTeams(clubId);
         }
@@ -299,11 +301,11 @@ export default {
 
     const fetchClubTeams = async clubId => {
       try {
-        const response = await fetch(
+        const response = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/clubs/${clubId}/teams`
         );
-        if (response.ok) {
-          clubTeams.value = await response.json();
+        if (response) {
+          clubTeams.value = response;
         }
       } catch (error) {
         console.error('Error fetching club teams:', error);

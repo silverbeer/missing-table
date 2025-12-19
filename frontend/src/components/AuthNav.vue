@@ -92,8 +92,11 @@ export default {
       return (
         {
           admin: 'role-admin',
+          club_manager: 'role-manager',
           'team-manager': 'role-manager',
+          team_manager: 'role-manager',
           'team-player': 'role-player',
+          club_fan: 'role-fan',
           'team-fan': 'role-fan',
         }[role] || 'role-fan'
       );
@@ -102,6 +105,25 @@ export default {
     const formatRole = roleRef => {
       // Handle both ref and plain value
       const role = roleRef?.value ?? roleRef;
+
+      // For club fans, show club name
+      if (role === 'club_fan') {
+        const clubName = authStore.state.profile?.club?.name;
+        if (clubName) {
+          return `${clubName} Fan`;
+        }
+        return 'Club Fan';
+      }
+
+      // For club managers, show club name
+      if (role === 'club_manager') {
+        const clubName = authStore.state.profile?.club?.name;
+        if (clubName) {
+          return `${clubName} Manager`;
+        }
+        return 'Club Manager';
+      }
+
       // For players and fans, show team name instead of role
       if (role === 'team-player' || role === 'team-fan') {
         const teamName = authStore.state.profile?.team?.name;
@@ -109,10 +131,12 @@ export default {
           return teamName;
         }
       }
+
       // For admin and manager, show role name
       const roleNames = {
         admin: 'Admin',
         'team-manager': 'Manager',
+        team_manager: 'Manager',
         'team-player': 'Player',
         'team-fan': 'Fan',
       };
