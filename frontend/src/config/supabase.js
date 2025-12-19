@@ -18,6 +18,18 @@ const getSupabaseConfig = () => {
       };
     }
 
+    // Production environment
+    if (
+      hostname === 'missingtable.com' ||
+      hostname === 'www.missingtable.com'
+    ) {
+      return {
+        url: 'https://ppgxasqgqbnauvxozmjw.supabase.co',
+        anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwZ3hhc3FncWJuYXV2eG96bWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1ODQ1NTgsImV4cCI6MjA3NTE2MDU1OH0.q-H9jS8fnPXyFY5M0rq5MO3_8dniFu5OxaKhL1r_2TU', // pragma: allowlist secret
+      };
+    }
+
     // Cloud environments - use environment variables set at build time
     // Check both VITE_ (Vite standard) and VUE_APP_ (legacy) prefixes
     return {
