@@ -42,7 +42,7 @@
       />
 
       <!-- Fan Profile (default) -->
-      <FanProfile v-else @logout="handleLogout" />
+      <FanProfile v-else @logout="handleLogout" @navigate="handleSwitchTab" />
     </div>
 
     <!-- Role Debug Info (only in development) -->

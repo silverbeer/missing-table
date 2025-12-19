@@ -217,15 +217,13 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router';
 import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'FanProfile',
-  emits: ['logout'],
-  setup() {
+  emits: ['logout', 'navigate'],
+  setup(props, { emit }) {
     const authStore = useAuthStore();
-    const router = useRouter();
     const club = ref(null);
     const clubTeams = ref([]);
     const upcomingMatches = ref([]);
@@ -362,19 +360,21 @@ export default {
     };
 
     const goToStandings = () => {
-      router.push({ name: 'Table' });
+      emit('navigate', 'table');
     };
 
     const goToSchedule = () => {
-      router.push({ name: 'Matches' });
+      emit('navigate', 'scores');
     };
 
     const goToTeams = () => {
-      router.push({ name: 'Teams' });
+      // Teams tab may not exist - navigate to standings as fallback
+      emit('navigate', 'table');
     };
 
-    const goToTeam = team => {
-      router.push({ name: 'TeamDetail', params: { id: team.id } });
+    const goToTeam = () => {
+      // Team detail view - navigate to standings for now
+      emit('navigate', 'table');
     };
 
     onMounted(async () => {
