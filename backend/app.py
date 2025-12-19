@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.invites import router as invites_router
