@@ -235,16 +235,19 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      if (!inviteCode) {
-        throw new Error('Invite code is required for Google sign-up');
-      }
-
       const redirectTo = getOAuthRedirectUrl();
       console.log('Starting Google OAuth, redirect URL:', redirectTo);
 
       // Store invite code and display name in localStorage to retrieve after OAuth callback
       // (OAuth state parameter is limited and can be unreliable across redirects)
-      localStorage.setItem('oauth_invite_code', inviteCode);
+      // For LOGIN flow (no invite code), we store a marker to indicate this is a login attempt
+      if (inviteCode) {
+        localStorage.setItem('oauth_invite_code', inviteCode);
+        localStorage.setItem('oauth_flow_type', 'signup');
+      } else {
+        localStorage.removeItem('oauth_invite_code');
+        localStorage.setItem('oauth_flow_type', 'login');
+      }
       if (displayName) {
         localStorage.setItem('oauth_display_name', displayName);
       }
@@ -285,17 +288,17 @@ export const useAuthStore = () => {
       setLoading(true);
       clearError();
 
-      // Retrieve invite code and display name stored before OAuth redirect
+      // Retrieve invite code, flow type, and display name stored before OAuth redirect
       const inviteCode = localStorage.getItem('oauth_invite_code');
+      const flowType = localStorage.getItem('oauth_flow_type') || 'signup';
       const customDisplayName = localStorage.getItem('oauth_display_name');
-      localStorage.removeItem('oauth_invite_code'); // Clean up immediately
+
+      // Clean up immediately
+      localStorage.removeItem('oauth_invite_code');
+      localStorage.removeItem('oauth_flow_type');
       localStorage.removeItem('oauth_display_name');
 
-      if (!inviteCode) {
-        throw new Error(
-          'No invite code found. Please start the signup process again with your invite code.'
-        );
-      }
+      const isLoginFlow = flowType === 'login' || !inviteCode;
 
       // Get the session from the URL hash (Supabase puts tokens there)
       const { data, error } = await supabase.auth.getSession();
@@ -309,10 +312,28 @@ export const useAuthStore = () => {
       }
 
       // DO NOT set session yet - wait for backend validation
-      // The backend will verify the invite code and check for existing accounts
+      // The backend will verify the invite code (signup) or find existing user (login)
 
       // Verify with our backend and get/create user profile
-      // Pass the invite code for validation
+      // For LOGIN: invite_code will be null, backend finds existing user
+      // For SIGNUP: invite_code validates invite and creates profile
+      const requestBody = {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        provider: 'google',
+      };
+
+      // Only include invite_code and display_name for signup flow
+      if (!isLoginFlow && inviteCode) {
+        requestBody.invite_code = inviteCode;
+        requestBody.display_name = customDisplayName;
+      }
+
+      console.log(
+        `OAuth callback: ${isLoginFlow ? 'LOGIN' : 'SIGNUP'} flow`,
+        isLoginFlow ? '' : `invite_code: ${inviteCode}`
+      );
+
       const response = await fetch(
         `${getApiBaseUrl()}/api/auth/oauth/callback`,
         {
@@ -322,13 +343,7 @@ export const useAuthStore = () => {
             Authorization: `Bearer ${data.session.access_token}`,
             ...getTraceHeaders(),
           },
-          body: JSON.stringify({
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-            provider: 'google',
-            invite_code: inviteCode,
-            display_name: customDisplayName, // User's custom display name from signup form
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
