@@ -476,6 +476,13 @@ export default {
 
     onMounted(async () => {
       console.log('LeagueTable component mounted');
+      console.log('Initial props:', {
+        initialAgeGroupId: props.initialAgeGroupId,
+        initialLeagueId: props.initialLeagueId,
+        initialDivisionId: props.initialDivisionId,
+        filterKey: props.filterKey,
+      });
+
       await Promise.all([
         fetchAgeGroups(),
         fetchLeagues(),
@@ -485,8 +492,21 @@ export default {
       // Fetch divisions after leagues are loaded so we can filter by default league
       await fetchDivisions();
 
-      // For non-admins, auto-select based on their team's league and division
-      if (!authStore.isAdmin.value && authStore.userTeamId.value) {
+      // Apply initial filters from props if provided (e.g., from team card click)
+      if (props.filterKey > 0 && props.initialLeagueId) {
+        console.log('Applying initial filters from props');
+        if (props.initialAgeGroupId) {
+          selectedAgeGroupId.value = props.initialAgeGroupId;
+        }
+        if (props.initialLeagueId) {
+          selectedLeagueId.value = props.initialLeagueId;
+          filterDivisionsByLeague();
+        }
+        if (props.initialDivisionId) {
+          selectedDivisionId.value = props.initialDivisionId;
+        }
+      } else if (!authStore.isAdmin.value && authStore.userTeamId.value) {
+        // For non-admins without explicit filters, auto-select based on their team
         try {
           // Fetch the user's team to get its league and division
           const teams = await authStore.apiRequest(
