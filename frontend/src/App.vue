@@ -232,7 +232,12 @@
 
           <!-- Matches -->
           <div v-if="currentTab === 'scores'" class="p-4">
-            <MatchesView />
+            <MatchesView
+              :initial-age-group-id="matchesFilters.ageGroupId"
+              :initial-league-id="matchesFilters.leagueId"
+              :initial-division-id="matchesFilters.divisionId"
+              :filter-key="matchesFilters.key"
+            />
           </div>
 
           <!-- Add Match Form (auth required) -->
@@ -307,6 +312,12 @@ export default {
     const authStore = useAuthStore();
     const currentTab = ref('table');
     const tableFilters = ref({
+      ageGroupId: null,
+      leagueId: null,
+      divisionId: null,
+      key: 0, // Used to force re-render when filters change
+    });
+    const matchesFilters = ref({
       ageGroupId: null,
       leagueId: null,
       divisionId: null,
@@ -408,6 +419,16 @@ export default {
           key: tableFilters.value.key + 1, // Force re-render
         };
       }
+
+      // If filters provided and switching to scores/matches, apply them
+      if (tabId === 'scores' && filters) {
+        matchesFilters.value = {
+          ageGroupId: filters.ageGroupId || null,
+          leagueId: filters.leagueId || null,
+          divisionId: filters.divisionId || null,
+          key: matchesFilters.value.key + 1, // Force re-render
+        };
+      }
     };
 
     const submitInviteRequest = async () => {
@@ -506,6 +527,7 @@ export default {
       authStore,
       currentTab,
       tableFilters,
+      matchesFilters,
       availableTabs,
       showLoginModal,
       showInviteRequestModal,
