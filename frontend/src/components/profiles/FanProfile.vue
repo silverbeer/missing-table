@@ -90,10 +90,7 @@
         </div>
 
         <div class="hero-actions">
-          <button class="action-btn primary" @click="goToStandings">
-            View Standings
-          </button>
-          <button class="action-btn secondary" @click="openEditProfile">
+          <button class="action-btn primary" @click="openEditProfile">
             Edit Profile
           </button>
         </div>
@@ -101,7 +98,11 @@
     </div>
 
     <!-- Club Teams Section (for Club Fans) - Grouped by League > Division -->
-    <div v-if="club && groupedTeams.length > 0" class="club-teams-section">
+    <div
+      v-if="club && groupedTeams.length > 0"
+      class="club-teams-section"
+      :style="clubTeamsStyle"
+    >
       <h3>{{ club.name }} Teams</h3>
       <div class="leagues-container">
         <div
@@ -109,7 +110,7 @@
           :key="league.id"
           class="league-group"
         >
-          <div class="league-header">
+          <div class="league-header" :style="leagueHeaderStyle">
             <span class="league-icon">🏆</span>
             <span class="league-name">{{ league.name }}</span>
           </div>
@@ -119,7 +120,9 @@
               :key="division.id"
               class="division-group"
             >
-              <div class="division-header">{{ division.name }}</div>
+              <div class="division-header" :style="divisionHeaderStyle">
+                {{ division.name }}
+              </div>
               <div class="age-groups-list">
                 <div
                   v-for="ageGroup in division.ageGroups"
@@ -130,6 +133,7 @@
                   <div class="age-group-links">
                     <button
                       class="link-btn table-link"
+                      :style="tableLinkStyle"
                       @click="
                         goToTableWithFilters(
                           ageGroup.id,
@@ -142,6 +146,7 @@
                     </button>
                     <button
                       class="link-btn matches-link"
+                      :style="matchesLinkStyle"
                       @click="
                         goToMatchesWithFilters(
                           ageGroup.id,
@@ -299,6 +304,43 @@ export default {
     const heroCardStyle = computed(() => {
       return {
         background: `linear-gradient(135deg, ${clubColors.value.primary} 0%, ${clubColors.value.secondary} 100%)`,
+      };
+    });
+
+    // Club-themed styles for the teams section
+    const clubTeamsStyle = computed(() => {
+      return {
+        '--club-primary': clubColors.value.primary,
+        '--club-secondary': clubColors.value.secondary,
+      };
+    });
+
+    const leagueHeaderStyle = computed(() => {
+      return {
+        background: `linear-gradient(135deg, ${clubColors.value.primary} 0%, ${clubColors.value.secondary} 100%)`,
+      };
+    });
+
+    const divisionHeaderStyle = computed(() => {
+      // Lighter version of primary color for division headers
+      return {
+        background: `${clubColors.value.primary}15`,
+        color: clubColors.value.primary,
+        borderLeft: `3px solid ${clubColors.value.primary}`,
+      };
+    });
+
+    const tableLinkStyle = computed(() => {
+      return {
+        background: `${clubColors.value.secondary}20`,
+        color: clubColors.value.primary,
+      };
+    });
+
+    const matchesLinkStyle = computed(() => {
+      return {
+        background: `${clubColors.value.primary}20`,
+        color: clubColors.value.primary,
       };
     });
 
@@ -543,6 +585,11 @@ export default {
       followedTeam,
       upcomingMatchCount,
       heroCardStyle,
+      clubTeamsStyle,
+      leagueHeaderStyle,
+      divisionHeaderStyle,
+      tableLinkStyle,
+      matchesLinkStyle,
       formatDate,
       formatMatchDate,
       openEditProfile,
@@ -743,7 +790,7 @@ export default {
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  /* Background set via inline style for club theming */
   color: white;
   font-weight: 600;
   font-size: 15px;
@@ -771,8 +818,7 @@ export default {
 
 .division-header {
   padding: 10px 16px;
-  background: #f1f5f9;
-  color: #475569;
+  /* Background and color set via inline style for club theming */
   font-weight: 600;
   font-size: 13px;
   text-transform: uppercase;
@@ -822,21 +868,19 @@ export default {
 }
 
 .link-btn.table-link {
-  background: #dbeafe;
-  color: #1e40af;
+  /* Background and color set via inline style for club theming */
 }
 
 .link-btn.table-link:hover {
-  background: #bfdbfe;
+  filter: brightness(0.9);
 }
 
 .link-btn.matches-link {
-  background: #fef3c7;
-  color: #92400e;
+  /* Background and color set via inline style for club theming */
 }
 
 .link-btn.matches-link:hover {
-  background: #fde68a;
+  filter: brightness(0.9);
 }
 
 /* Quick Access */
