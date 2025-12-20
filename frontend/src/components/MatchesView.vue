@@ -1367,7 +1367,13 @@ export default {
     MatchEditModal,
     MatchDetailView,
   },
-  setup() {
+  props: {
+    initialAgeGroupId: { type: Number, default: null },
+    initialLeagueId: { type: Number, default: null },
+    initialDivisionId: { type: Number, default: null },
+    filterKey: { type: Number, default: 0 },
+  },
+  setup(props) {
     const authStore = useAuthStore();
     const teams = ref([]);
     const matches = ref([]);
@@ -2181,6 +2187,19 @@ export default {
         fetchLeagues(),
         fetchTeams(),
       ]);
+
+      // Apply initial filters from props if provided
+      if (props.filterKey > 0) {
+        if (props.initialAgeGroupId) {
+          selectedAgeGroupId.value = props.initialAgeGroupId;
+        }
+        if (props.initialLeagueId) {
+          selectedLeagueId.value = props.initialLeagueId;
+          // Switch to My Club tab when league is specified
+          selectedViewTab.value = 'myclub';
+        }
+      }
+
       // Fetch matches for the default "All Matches" tab with current week
       await fetchMatches();
     });

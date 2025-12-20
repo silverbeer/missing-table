@@ -100,30 +100,63 @@
       </div>
     </div>
 
-    <!-- Club Teams Section (for Club Fans) -->
-    <div v-if="club && clubTeams.length > 0" class="club-teams-section">
+    <!-- Club Teams Section (for Club Fans) - Grouped by League > Division -->
+    <div v-if="club && groupedTeams.length > 0" class="club-teams-section">
       <h3>{{ club.name }} Teams</h3>
-      <div class="teams-grid">
+      <div class="leagues-container">
         <div
-          v-for="team in clubTeams"
-          :key="team.id"
-          class="team-card"
-          @click="goToTeam(team)"
+          v-for="league in groupedTeams"
+          :key="league.id"
+          class="league-group"
         >
-          <div class="team-icon">⚽</div>
-          <div class="team-details">
-            <h4>{{ team.name }}</h4>
-            <p class="team-meta">
-              <span v-if="team.age_group_name">{{ team.age_group_name }}</span>
-              <span v-if="team.division_name" class="meta-separator">•</span>
-              <span v-if="team.division_name">{{ team.division_name }}</span>
-              <span v-if="team.league_name" class="meta-separator">•</span>
-              <span v-if="team.league_name" class="team-league">{{
-                team.league_name
-              }}</span>
-            </p>
+          <div class="league-header">
+            <span class="league-icon">🏆</span>
+            <span class="league-name">{{ league.name }}</span>
           </div>
-          <div class="team-arrow">&rarr;</div>
+          <div class="divisions-container">
+            <div
+              v-for="division in league.divisions"
+              :key="division.id"
+              class="division-group"
+            >
+              <div class="division-header">{{ division.name }}</div>
+              <div class="age-groups-list">
+                <div
+                  v-for="ageGroup in division.ageGroups"
+                  :key="ageGroup.id"
+                  class="age-group-row"
+                >
+                  <span class="age-group-name">{{ ageGroup.name }}</span>
+                  <div class="age-group-links">
+                    <button
+                      class="link-btn table-link"
+                      @click="
+                        goToTableWithFilters(
+                          ageGroup.id,
+                          league.id,
+                          division.id
+                        )
+                      "
+                    >
+                      Table
+                    </button>
+                    <button
+                      class="link-btn matches-link"
+                      @click="
+                        goToMatchesWithFilters(
+                          ageGroup.id,
+                          league.id,
+                          division.id
+                        )
+                      "
+                    >
+                      Matches
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -267,6 +300,71 @@ export default {
       return {
         background: `linear-gradient(135deg, ${clubColors.value.primary} 0%, ${clubColors.value.secondary} 100%)`,
       };
+    });
+
+    // Group teams by League > Division > Age Groups
+    const groupedTeams = computed(() => {
+      const leagues = {};
+
+      clubTeams.value.forEach(team => {
+        const leagueId = team.leagues?.id || team.league_id;
+        const leagueName =
+          team.leagues?.name || team.league_name || 'Unknown League';
+
+        if (!leagues[leagueId]) {
+          leagues[leagueId] = {
+            id: leagueId,
+            name: leagueName,
+            divisions: {},
+          };
+        }
+
+        // Process team_mappings for division and age group info
+        const mappings = team.team_mappings || [];
+        mappings.forEach(mapping => {
+          const divisionId = mapping.divisions?.id || mapping.division_id;
+          const divisionName = mapping.divisions?.name || 'Unknown Division';
+          const ageGroupId = mapping.age_groups?.id || mapping.age_group_id;
+          const ageGroupName = mapping.age_groups?.name || 'Unknown';
+
+          if (!divisionId) return;
+
+          if (!leagues[leagueId].divisions[divisionId]) {
+            leagues[leagueId].divisions[divisionId] = {
+              id: divisionId,
+              name: divisionName,
+              ageGroups: {},
+            };
+          }
+
+          if (
+            ageGroupId &&
+            !leagues[leagueId].divisions[divisionId].ageGroups[ageGroupId]
+          ) {
+            leagues[leagueId].divisions[divisionId].ageGroups[ageGroupId] = {
+              id: ageGroupId,
+              name: ageGroupName,
+              leagueId: leagueId,
+              divisionId: divisionId,
+            };
+          }
+        });
+      });
+
+      // Convert to sorted array
+      return Object.values(leagues)
+        .map(league => ({
+          ...league,
+          divisions: Object.values(league.divisions)
+            .map(division => ({
+              ...division,
+              ageGroups: Object.values(division.ageGroups).sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, { numeric: true })
+              ),
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     });
 
     const formatDate = dateString => {
@@ -417,6 +515,16 @@ export default {
       emit('navigate', 'table', filters);
     };
 
+    const goToTableWithFilters = (ageGroupId, leagueId, divisionId) => {
+      const filters = { ageGroupId, leagueId, divisionId };
+      emit('navigate', 'table', filters);
+    };
+
+    const goToMatchesWithFilters = (ageGroupId, leagueId, divisionId) => {
+      const filters = { ageGroupId, leagueId, divisionId };
+      emit('navigate', 'scores', filters);
+    };
+
     onMounted(async () => {
       await fetchClub();
       await fetchUpcomingMatches();
@@ -426,6 +534,7 @@ export default {
       authStore,
       club,
       clubTeams,
+      groupedTeams,
       upcomingMatches,
       showEditProfile,
       saving,
@@ -442,6 +551,8 @@ export default {
       goToSchedule,
       goToTeams,
       goToTeam,
+      goToTableWithFilters,
+      goToMatchesWithFilters,
     };
   },
 };
@@ -600,7 +711,7 @@ export default {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Club Teams Section */
+/* Club Teams Section - Grouped Layout */
 .club-teams-section {
   background: white;
   border-radius: 12px;
@@ -615,68 +726,117 @@ export default {
   font-size: 18px;
 }
 
-.teams-grid {
-  display: grid;
-  gap: 12px;
+.leagues-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.team-card {
+.league-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.league-header {
   display: flex;
   align-items: center;
-  padding: 15px;
-  background: #f8fafc;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid #e5e7eb;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
 }
 
-.team-card:hover {
-  background: #f1f5f9;
-  transform: translateX(4px);
+.league-icon {
+  font-size: 18px;
 }
 
-.team-icon {
-  font-size: 24px;
-  margin-right: 15px;
-}
-
-.team-details {
+.league-name {
   flex: 1;
 }
 
-.team-details h4 {
-  margin: 0;
-  color: #1f2937;
-  font-size: 16px;
+.divisions-container {
+  padding: 0;
 }
 
-.team-details p {
-  margin: 4px 0 0;
-  color: #6b7280;
+.division-group {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.division-group:last-child {
+  border-bottom: none;
+}
+
+.division-header {
+  padding: 10px 16px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
   font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.team-meta {
+.age-groups-list {
+  padding: 0;
+}
+
+.age-group-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s;
 }
 
-.meta-separator {
-  color: #d1d5db;
-  font-size: 10px;
+.age-group-row:last-child {
+  border-bottom: none;
 }
 
-.team-league {
-  color: #9ca3af;
-  font-size: 12px;
+.age-group-row:hover {
+  background: #f8fafc;
 }
 
-.team-arrow {
-  color: #9ca3af;
-  font-size: 18px;
+.age-group-name {
+  font-weight: 500;
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.age-group-links {
+  display: flex;
+  gap: 8px;
+}
+
+.link-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+
+.link-btn.table-link {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.link-btn.table-link:hover {
+  background: #bfdbfe;
+}
+
+.link-btn.matches-link {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.link-btn.matches-link:hover {
+  background: #fde68a;
 }
 
 /* Quick Access */
