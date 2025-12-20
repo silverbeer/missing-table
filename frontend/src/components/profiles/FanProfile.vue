@@ -381,18 +381,37 @@ export default {
 
     const goToTeam = team => {
       // Extract filter IDs from team data
+      // The team object from get_club_teams includes:
+      // - age_groups: array of {id, name} (processed by backend)
+      // - team_mappings: raw data with nested age_groups and divisions
+      // - leagues: {id, name} from foreign key
+      // - league_id: direct column value
+
+      // Get age group ID - try processed array first, then raw team_mappings
+      const ageGroupId =
+        team.age_groups?.[0]?.id ||
+        team.team_mappings?.[0]?.age_groups?.id ||
+        null;
+
+      // Get league ID - try leagues object first, then direct column
+      const leagueId = team.leagues?.id || team.league_id || null;
+
+      // Get division ID from team_mappings
+      const divisionId = team.team_mappings?.[0]?.divisions?.id || null;
+
       const filters = {
-        ageGroupId: team.age_groups?.[0]?.id || null,
-        leagueId: team.leagues?.id || team.league_id || null,
-        divisionId: team.team_mappings?.[0]?.divisions?.id || null,
+        ageGroupId,
+        leagueId,
+        divisionId,
       };
 
-      console.log(
-        'Navigating to table with filters:',
-        filters,
-        'from team:',
-        team
-      );
+      console.log('Navigating to table with filters:', filters);
+      console.log('Team data:', {
+        age_groups: team.age_groups,
+        team_mappings: team.team_mappings,
+        leagues: team.leagues,
+        league_id: team.league_id,
+      });
 
       // Navigate to table with filters
       emit('navigate', 'table', filters);
