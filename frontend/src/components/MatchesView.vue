@@ -78,66 +78,49 @@
           <div :class="['space-y-4', showFilters || 'hidden lg:block']">
             <!-- My Club Filters - Only show on My Club tab -->
             <div v-if="selectedViewTab === 'myclub'" class="space-y-4">
-              <!-- League Selector - For admins and players who can browse all -->
-              <div v-if="authStore.canBrowseAll.value">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Select League</label
-                >
-                <select
-                  v-model="selectedLeagueId"
-                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option :value="null">-- Select a league --</option>
-                  <option
-                    v-for="league in leagues"
-                    :key="league.id"
-                    :value="league.id"
-                  >
-                    {{ league.name }}
-                  </option>
-                </select>
-              </div>
-
-              <!-- League Display - For non-admins who cannot browse all (read-only) -->
-              <div v-else-if="userLeagueInfo">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >League</label
-                >
-                <div
-                  class="block w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg text-gray-700"
-                >
-                  {{ userLeagueInfo.leagueName }}
-                </div>
-              </div>
-
-              <!-- Team Selector -->
+              <!-- Club Selector - Pre-selected for club fans/managers, browsable for all -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2"
                   >Select Club</label
                 >
                 <select
+                  v-model="selectedClubId"
+                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option :value="null">-- Select a club --</option>
+                  <option v-for="club in clubs" :key="club.id" :value="club.id">
+                    {{ club.name }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Team Selector - Rich format with League/Division -->
+              <div v-if="selectedClubId">
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Select Team</label
+                >
+                <select
                   v-model="selectedTeam"
                   @change="onTeamChange"
-                  :disabled="
-                    !authStore.canBrowseAll.value && authStore.userTeamId.value
-                  "
-                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-700"
+                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">
-                    {{
-                      authStore.canBrowseAll.value
-                        ? '-- Select a club --'
-                        : 'No club assigned'
-                    }}
-                  </option>
+                  <option value="">-- Select a team --</option>
                   <option
                     v-for="team in filteredTeamsByLeague"
                     :key="team.id"
                     :value="team.id"
                   >
-                    {{ getTeamDisplayName(team) }}
+                    {{ getTeamDisplayWithContext(team) }}
                   </option>
                 </select>
+              </div>
+
+              <!-- Prompt to select club if none selected -->
+              <div
+                v-else
+                class="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm"
+              >
+                Please select a club to view teams and matches.
               </div>
             </div>
 
@@ -1381,8 +1364,10 @@ export default {
     const seasons = ref([]);
     const matchTypes = ref([]);
     const leagues = ref([]);
+    const clubs = ref([]); // All clubs for Club dropdown
     const selectedViewTab = ref('all'); // Default to "All Matches" tab
     const selectedTeam = ref('');
+    const selectedClubId = ref(null); // Selected club for My Club tab
     const selectedLeagueId = ref(null); // Selected league for My Club tab
     const selectedAgeGroupId = ref(2); // Default to U14
     const selectedSeasonId = ref(3); // Default to 2025-2026
@@ -1444,6 +1429,15 @@ export default {
         leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error('Error fetching leagues:', err);
+      }
+    };
+
+    const fetchClubs = async () => {
+      try {
+        const data = await authStore.apiRequest(`${getApiBaseUrl()}/api/clubs`);
+        clubs.value = data.sort((a, b) => a.name.localeCompare(b.name));
+      } catch (err) {
+        console.error('Error fetching clubs:', err);
       }
     };
 
@@ -1738,34 +1732,87 @@ export default {
       });
     });
 
+    // Filter teams by selected club (for My Club tab)
+    const teamsForSelectedClub = computed(() => {
+      if (!selectedClubId.value) return [];
+      return filteredTeams.value.filter(
+        team => team.club_id === selectedClubId.value
+      );
+    });
+
+    // Get rich team display with context (League - Division)
+    const getTeamDisplayWithContext = team => {
+      const ageGroupId = selectedAgeGroupId.value;
+      const division = team.divisions_by_age_group?.[String(ageGroupId)];
+
+      if (division) {
+        return `${team.name} (${division.league_name || 'Unknown'} - ${division.name})`;
+      }
+      return team.name;
+    };
+
+    // Sort teams by league name, then by team name
+    const sortTeamsByLeague = teams => {
+      return [...teams].sort((a, b) => {
+        const divA =
+          a.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
+        const divB =
+          b.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
+        const leagueA = divA?.league_name || 'ZZZ'; // Put teams without league at end
+        const leagueB = divB?.league_name || 'ZZZ';
+
+        // First sort by league name
+        const leagueCompare = leagueA.localeCompare(leagueB);
+        if (leagueCompare !== 0) return leagueCompare;
+
+        // Then sort by team name within the same league
+        return a.name.localeCompare(b.name);
+      });
+    };
+
     // Filter teams by selected league (for My Club tab)
     const filteredTeamsByLeague = computed(() => {
-      // First filter by age group
-      let filtered = filteredTeams.value;
+      // For My Club tab, always use club-filtered teams when a club is selected
+      if (selectedClubId.value) {
+        let filtered = teamsForSelectedClub.value;
 
-      // For users who can browse all (admins and players), filter by selected league
-      if (authStore.canBrowseAll.value && selectedLeagueId.value) {
-        filtered = filtered.filter(team => {
-          // Ensure type-safe lookup: divisions_by_age_group uses string keys
-          const division =
-            team.divisions_by_age_group[String(selectedAgeGroupId.value)];
+        // Optionally filter by league if selected (for admins)
+        if (authStore.canBrowseAll.value && selectedLeagueId.value) {
+          filtered = filtered.filter(team => {
+            const division =
+              team.divisions_by_age_group[String(selectedAgeGroupId.value)];
+            return (
+              division &&
+              Number(division.league_id) === Number(selectedLeagueId.value)
+            );
+          });
+        }
 
-          // Ensure type-safe comparison: convert both to numbers for comparison
-          // This handles cases where v-model returns strings from form inputs
-          return (
-            division &&
-            Number(division.league_id) === Number(selectedLeagueId.value)
-          );
-        });
+        return sortTeamsByLeague(filtered);
       }
-      // For non-browsing users (team-manager, team-fan), only show their team
-      else if (!authStore.canBrowseAll.value && authStore.userTeamId.value) {
-        filtered = filtered.filter(
+
+      // Fallback for team managers/players with team_id but no club selection
+      if (!authStore.canBrowseAll.value && authStore.userTeamId.value) {
+        return filteredTeams.value.filter(
           team => team.id === authStore.userTeamId.value
         );
       }
 
-      return filtered;
+      // Admins can browse all teams filtered by league
+      if (authStore.canBrowseAll.value && selectedLeagueId.value) {
+        return sortTeamsByLeague(
+          filteredTeams.value.filter(team => {
+            const division =
+              team.divisions_by_age_group[String(selectedAgeGroupId.value)];
+            return (
+              division &&
+              Number(division.league_id) === Number(selectedLeagueId.value)
+            );
+          })
+        );
+      }
+
+      return sortTeamsByLeague(filteredTeams.value);
     });
 
     // Get league info for non-browsing user's team (read-only display)
@@ -2062,6 +2109,13 @@ export default {
       }
     });
 
+    // Watch for club changes to clear team selection and refresh
+    watch(selectedClubId, () => {
+      // Clear team selection when club changes
+      selectedTeam.value = '';
+      matches.value = [];
+    });
+
     // Watch for auth changes to auto-select player's team
     watch(
       () => authStore.userTeamId,
@@ -2185,18 +2239,44 @@ export default {
         fetchSeasons(),
         fetchGameTypes(),
         fetchLeagues(),
+        fetchClubs(),
         fetchTeams(),
       ]);
 
-      // Apply initial filters from props if provided
+      // Pre-select user's club if they have one (club fans, club managers)
+      if (authStore.userClubId.value) {
+        selectedClubId.value = authStore.userClubId.value;
+      }
+
+      // Apply initial filters from props if provided (navigation from FanProfile)
       if (props.filterKey > 0) {
+        // Switch to My Club tab when filters are specified
+        selectedViewTab.value = 'myclub';
+
         if (props.initialAgeGroupId) {
           selectedAgeGroupId.value = props.initialAgeGroupId;
         }
-        if (props.initialLeagueId) {
-          selectedLeagueId.value = props.initialLeagueId;
-          // Switch to My Club tab when league is specified
-          selectedViewTab.value = 'myclub';
+
+        // If league/division is specified, try to auto-select the matching team
+        if (props.initialLeagueId && selectedClubId.value) {
+          // Find the team that matches the league/division for this age group
+          const matchingTeam = teams.value.find(team => {
+            if (team.club_id !== selectedClubId.value) return false;
+            const division =
+              team.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
+            if (!division) return false;
+            // Match by league_id (and optionally division_id if provided)
+            const leagueMatch =
+              Number(division.league_id) === Number(props.initialLeagueId);
+            const divisionMatch = props.initialDivisionId
+              ? Number(division.id) === Number(props.initialDivisionId)
+              : true;
+            return leagueMatch && divisionMatch;
+          });
+
+          if (matchingTeam) {
+            selectedTeam.value = String(matchingTeam.id);
+          }
         }
       }
 
@@ -2224,8 +2304,10 @@ export default {
       seasons,
       matchTypes,
       leagues,
+      clubs,
       selectedViewTab,
       selectedTeam,
+      selectedClubId,
       selectedLeagueId,
       selectedAgeGroupId,
       selectedSeasonId,
@@ -2234,6 +2316,7 @@ export default {
       weekRangeDisplay,
       filteredTeams,
       filteredTeamsByLeague,
+      teamsForSelectedClub,
       userLeagueInfo,
       selectedTeamLeagueInfo,
       selectedSeasonName,
@@ -2249,6 +2332,7 @@ export default {
       getTeamDisplay,
       getSelectedTeamName,
       getTeamDisplayName,
+      getTeamDisplayWithContext,
       formatSeasonDates,
       getSegmentGridClass,
       canEditGames,
