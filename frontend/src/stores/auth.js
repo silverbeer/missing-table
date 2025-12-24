@@ -30,6 +30,8 @@ export const useAuthStore = () => {
   const isAuthenticated = computed(() => !!state.session);
   const isAdmin = computed(() => state.profile?.role === 'admin');
   const isClubManager = computed(() => state.profile?.role === 'club_manager');
+  const isClubFan = computed(() => state.profile?.role === 'club_fan');
+  const hasClubAccess = computed(() => !!state.profile?.club_id);
   const isTeamManager = computed(
     () =>
       state.profile?.role === 'team-manager' ||
@@ -774,6 +776,8 @@ export const useAuthStore = () => {
     isAuthenticated,
     isAdmin,
     isClubManager,
+    isClubFan,
+    hasClubAccess,
     isTeamManager,
     isPlayer,
     canBrowseAll,
