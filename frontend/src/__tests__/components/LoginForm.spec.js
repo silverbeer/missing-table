@@ -353,7 +353,10 @@ describe('LoginForm', () => {
       await flushPromises();
 
       // After signup succeeds, login should be called
-      expect(mockAuthStore.login).toHaveBeenCalledWith('newuser', 'password123');
+      expect(mockAuthStore.login).toHaveBeenCalledWith(
+        'newuser',
+        'password123'
+      );
     });
   });
 
@@ -441,7 +444,9 @@ describe('LoginForm', () => {
     it('calls signInWithGoogle when clicking Google button', async () => {
       const wrapper = mountLoginForm();
 
-      await wrapper.find('[data-testid="google-login-button"]').trigger('click');
+      await wrapper
+        .find('[data-testid="google-login-button"]')
+        .trigger('click');
       await flushPromises();
 
       // For login flow, signInWithGoogle is called with null (no invite code)

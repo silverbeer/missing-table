@@ -64,7 +64,23 @@
       "ecmaVersion": "latest",
       "sourceType": "module"
     },
-    "rules": {}
+    "rules": {},
+    "overrides": [
+      {
+        "files": ["src/__tests__/**/*.js"],
+        "globals": {
+          "describe": "readonly",
+          "it": "readonly",
+          "expect": "readonly",
+          "vi": "readonly",
+          "beforeEach": "readonly",
+          "afterEach": "readonly",
+          "beforeAll": "readonly",
+          "afterAll": "readonly",
+          "test": "readonly"
+        }
+      }
+    ]
   },
   "browserslist": [
     "> 1%",
