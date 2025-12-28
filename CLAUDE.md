@@ -307,6 +307,11 @@ cd backend && uv run python app.py
 # Run backend tests
 cd backend && uv run pytest
 
+# Run frontend tests
+cd frontend && npm run test:run      # Run once
+cd frontend && npm test              # Watch mode
+cd frontend && npm run test:coverage # With coverage
+
 # Lint frontend
 cd frontend && npm run lint
 ```

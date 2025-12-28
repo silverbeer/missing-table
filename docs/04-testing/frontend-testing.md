@@ -1,385 +1,314 @@
-# Frontend Test Status - October 7, 2025
+# Frontend Testing Guide
 
-**Branch:** `feature/zero-failed-tests`
-**Date:** 2025-10-07
-**Assessment:** Initial frontend testing infrastructure review
+**Last Updated:** December 28, 2025
 
 ---
 
-## Executive Summary
+## Overview
 
-### Critical Finding
-🔴 **ZERO TESTS EXIST** - The frontend has no testing infrastructure whatsoever
+The frontend uses **Vitest** with **Vue Test Utils** for component testing. Tests run in a simulated browser environment using **happy-dom**.
 
-### Status
-- ❌ No test framework configured
-- ❌ No test directories present
-- ❌ No test scripts in package.json
-- ❌ No testing dependencies installed
-- ❌ 0% code coverage
+### Quick Start
 
----
-
-## Current State
-
-### Package.json Scripts
-```json
-{
-  "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint",
-    "lint:fix": "vue-cli-service lint --fix",
-    "format": "prettier --write \"src/**/*.{js,vue,ts,css,md}\"",
-    "format:check": "prettier --check \"src/**/*.{js,vue,ts,css,md}\"",
-    "start": "vue-cli-service serve --host 0.0.0.0 --port $PORT",
-    "prepare": "husky"
-  }
-}
-```
-
-**Missing Scripts:**
-- ❌ `test` - No test runner configured
-- ❌ `test:unit` - No unit tests
-- ❌ `test:e2e` - No end-to-end tests
-- ❌ `test:coverage` - No coverage reporting
-
-### Test Directories
-**Checked Locations:**
-- ❌ `frontend/tests/` - Does not exist
-- ❌ `frontend/test/` - Does not exist
-- ❌ `frontend/__tests__/` - Does not exist
-- ❌ `frontend/src/**/*.spec.js` - Not found
-- ❌ `frontend/src/**/*.test.js` - Not found
-
-### Testing Dependencies
-**Missing from package.json:**
-- ❌ Jest - Test framework
-- ❌ @vue/test-utils - Vue component testing utilities
-- ❌ @testing-library/vue - Vue testing library
-- ❌ vitest - Modern Vite-based test runner (alternative to Jest)
-- ❌ cypress - E2E testing framework
-- ❌ playwright - E2E testing framework
-
----
-
-## Impact Assessment
-
-### Risk Level: 🔴 **CRITICAL**
-
-**Implications:**
-1. **Zero Frontend Test Coverage** - All Vue components, stores, and utilities are untested
-2. **No Regression Protection** - Changes can break functionality without detection
-3. **No Quality Gates** - Cannot enforce testing in CI/CD
-4. **Manual Testing Only** - Relies entirely on manual QA
-5. **Slower Development** - No fast feedback loop for developers
-
-### Critical Untested Code
-
-**Components (All Untested):**
-- `AdminPanel.vue` - Admin functionality
-- `AuthNav.vue` - Navigation and authentication UI
-- `GameForm.vue` - Game creation/editing
-- `LeagueTable.vue` - Standings display
-- `LoginForm.vue` - User authentication
-- `ProfileRouter.vue` - User profile management
-- `ScoresSchedule.vue` - Games and schedules
-
-**Stores (All Untested):**
-- `auth.js` - Authentication state management
-- Other stores (if any)
-
-**Utilities (All Untested):**
-- Date formatting functions
-- Validation helpers
-- CSRF utilities
-- Any utility functions
-
----
-
-## Recommendations
-
-### Immediate Actions (This Week)
-
-#### 1. Set Up Test Infrastructure (Highest Priority)
-**Estimated Time:** 2-3 hours
-
-**Steps:**
-1. Install testing dependencies
-2. Configure test framework (Jest or Vitest)
-3. Set up Vue Test Utils
-4. Create test script in package.json
-5. Add example test to verify setup
-
-**Commands:**
 ```bash
 cd frontend
 
-# Option 1: Jest (traditional, well-documented)
-npm install --save-dev jest @vue/test-utils@next @vue/vue3-jest babel-jest
+# Run tests once
+npm run test:run
 
-# Option 2: Vitest (modern, faster, recommended for Vite projects)
-npm install --save-dev vitest @vue/test-utils@next @vitest/ui jsdom
+# Run tests in watch mode (re-runs on file changes)
+npm test
 
-# Add test script to package.json
-npm pkg set scripts.test="vitest"
-npm pkg set scripts.test:ui="vitest --ui"
-npm pkg set scripts.test:coverage="vitest --coverage"
+# Run with coverage report
+npm run test:coverage
 ```
 
-#### 2. Create Test Directory Structure
+---
+
+## Test Infrastructure
+
+### Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `vitest` | Test framework (made by Vite team) |
+| `@vue/test-utils` | Vue component mounting and interaction |
+| `happy-dom` | Fast DOM simulation for Node.js |
+
+### File Structure
+
 ```
 frontend/
+├── vitest.config.js              # Test configuration
 ├── src/
-│   ├── components/
-│   │   └── __tests__/       # Component tests
-│   ├── stores/
-│   │   └── __tests__/       # Store tests
-│   └── utils/
-│       └── __tests__/       # Utility tests
-└── tests/
-    ├── unit/                # Unit tests
-    └── e2e/                 # E2E tests (future)
+│   └── __tests__/
+│       ├── setup.js              # Global mocks and test setup
+│       └── components/
+│           └── LoginForm.spec.js # Component tests
 ```
 
-#### 3. Write Initial Tests
-**Priority Order:**
-1. **AuthNav.vue** - Navigation component (critical)
-2. **LoginForm.vue** - Authentication (critical)
-3. **auth.js store** - Auth state management (critical)
-4. **LeagueTable.vue** - Core functionality
-5. **GameForm.vue** - Data entry
+### Configuration Files
 
-### Short-Term Goals (Next 2 Weeks)
+**vitest.config.js** - Main test configuration:
+- Uses `happy-dom` for DOM simulation
+- Enables global test APIs (`describe`, `it`, `expect`)
+- Configures `@` path alias
+- Sets up coverage reporting
 
-#### Week 1: Foundation
-- [ ] Install and configure test framework
-- [ ] Write 5-10 example tests for critical components
-- [ ] Set up coverage reporting
-- [ ] Document testing patterns
-- [ ] Achieve 10%+ coverage
-
-#### Week 2: Expansion
-- [ ] Test all critical components (auth, navigation, forms)
-- [ ] Test auth store thoroughly
-- [ ] Add snapshot tests for UI components
-- [ ] Achieve 30%+ coverage
-- [ ] Add test npm scripts to documentation
-
-### Medium-Term Goals (Weeks 3-6)
-
-#### Coverage Targets
-- **Week 3-4:** 50%+ coverage
-- **Week 5-6:** 60%+ coverage
-- **Final Goal:** 80%+ coverage
-
-#### Test Types to Implement
-1. **Unit Tests** - Components, stores, utilities
-2. **Integration Tests** - Component interactions
-3. **Snapshot Tests** - UI regression protection
-4. **E2E Tests** - Critical user flows (future phase)
+**src/__tests__/setup.js** - Runs before each test:
+- Mocks `localStorage` (not available in Node.js)
+- Mocks `window.location` for URL parameters
+- Mocks `fetch` to prevent real API calls
+- Mocks external modules (Supabase, Faro, etc.)
 
 ---
 
-## Recommended Test Framework: Vitest
+## Writing Tests
 
-### Why Vitest?
-1. ✅ **Fast** - Native ESM support, instant hot reload
-2. ✅ **Modern** - Built for Vite, works great with Vue 3
-3. ✅ **Compatible** - Jest-compatible API, easy migration
-4. ✅ **Built-in Coverage** - Via c8/istanbul
-5. ✅ **Great DX** - UI mode, watch mode, fast feedback
+### Basic Test Structure
 
-### Configuration Example
 ```javascript
-// vitest.config.js
-import { defineConfig } from 'vitest/config'
-import vue from '@vitejs/plugin-vue'
-import path from 'path'
+import { describe, it, expect, vi } from 'vitest';
+import { mount } from '@vue/test-utils';
+import MyComponent from '@/components/MyComponent.vue';
 
-export default defineConfig({
-  plugins: [vue()],
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
-      exclude: [
-        'node_modules/',
-        'dist/',
-        '**/*.spec.js',
-        '**/*.test.js',
-      ]
-    }
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    const wrapper = mount(MyComponent);
+    expect(wrapper.find('h1').text()).toBe('Hello');
+  });
+});
+```
+
+### Key Concepts
+
+| Concept | Description |
+|---------|-------------|
+| `mount()` | Creates a real component instance |
+| `wrapper.find()` | Queries DOM by CSS selector |
+| `wrapper.trigger()` | Simulates user events (click, submit) |
+| `wrapper.setValue()` | Types into form inputs |
+| `wrapper.emitted()` | Gets events the component emitted |
+| `vi.fn()` | Creates a mock function |
+| `vi.mock()` | Replaces an entire module |
+| `flushPromises()` | Waits for async operations |
+
+### Testing Components with Stores
+
+```javascript
+// Create a mock store
+const mockAuthStore = {
+  state: { loading: false, error: null },
+  login: vi.fn(() => Promise.resolve({ success: true })),
+  clearError: vi.fn(),
+};
+
+// Mock the store module
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => mockAuthStore,
+}));
+
+// Mount component - it will use the mock store
+const wrapper = mount(LoginForm);
+```
+
+### Testing User Interactions
+
+```javascript
+it('submits form with user input', async () => {
+  const wrapper = mount(LoginForm);
+
+  // Type in form fields
+  await wrapper.find('[data-testid="username-input"]').setValue('testuser');
+  await wrapper.find('[data-testid="password-input"]').setValue('password123');
+
+  // Submit the form
+  await wrapper.find('form').trigger('submit');
+
+  // Wait for async operations
+  await flushPromises();
+
+  // Verify the result
+  expect(mockAuthStore.login).toHaveBeenCalledWith('testuser', 'password123');
+});
+```
+
+### Testing Emitted Events
+
+```javascript
+it('emits login-success on successful login', async () => {
+  const wrapper = mount(LoginForm);
+
+  await wrapper.find('form').trigger('submit');
+  await flushPromises();
+
+  // Check component emitted the event
+  expect(wrapper.emitted('login-success')).toBeTruthy();
+});
+```
+
+---
+
+## Current Test Coverage
+
+### Components Tested
+
+| Component | Tests | Status |
+|-----------|-------|--------|
+| LoginForm.vue | 19 tests | ✅ Complete |
+| AuthNav.vue | 0 tests | ⏳ Planned |
+| LeagueTable.vue | 0 tests | ⏳ Planned |
+| MatchesView.vue | 0 tests | ⏳ Planned |
+
+### Running Coverage Report
+
+```bash
+npm run test:coverage
+```
+
+This generates:
+- Terminal output with coverage summary
+- HTML report in `coverage/` directory
+
+---
+
+## Best Practices
+
+### 1. Use data-testid Attributes
+
+Add `data-testid` attributes to elements you need to query in tests:
+
+```html
+<button data-testid="submit-button">Submit</button>
+```
+
+```javascript
+wrapper.find('[data-testid="submit-button"]')
+```
+
+This is more stable than class names or text content.
+
+### 2. Test Behavior, Not Implementation
+
+**Good:** Test what the user sees and does
+```javascript
+it('shows error message when login fails', () => {
+  // ...
+});
+```
+
+**Avoid:** Testing internal component details
+```javascript
+it('sets isLoading to true', () => {
+  // Too implementation-specific
+});
+```
+
+### 3. Keep Tests Independent
+
+Each test should work in isolation. Use `beforeEach` to reset state:
+
+```javascript
+beforeEach(() => {
+  mockAuthStore = createMockAuthStore();
+});
+```
+
+### 4. Use Descriptive Test Names
+
+```javascript
+// Good
+it('disables submit button while form is loading')
+
+// Less helpful
+it('test button')
+```
+
+---
+
+## Troubleshooting
+
+### "Cannot find module" Errors
+
+Ensure `vitest.config.js` has the same path aliases as `vite.config.js`:
+
+```javascript
+resolve: {
+  alias: {
+    '@': fileURLToPath(new URL('./src', import.meta.url)),
   },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  }
-})
+},
+```
+
+### Tests Hang or Timeout
+
+Usually caused by unmocked API calls. Check that `setup.js` mocks all external dependencies.
+
+### "localStorage is not defined"
+
+Ensure `setup.js` is listed in `vitest.config.js`:
+
+```javascript
+test: {
+  setupFiles: ['./src/__tests__/setup.js'],
+}
 ```
 
 ---
 
-## Example Tests to Start With
+## Adding Tests for New Components
 
-### 1. LoginForm.vue Test
+1. Create test file: `src/__tests__/components/ComponentName.spec.js`
+2. Import the component and test utilities
+3. Mock any stores or external dependencies
+4. Write tests for:
+   - Initial rendering
+   - User interactions
+   - Different states (loading, error, success)
+   - Emitted events
+
+### Template
+
 ```javascript
-// src/components/__tests__/LoginForm.spec.js
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
-import LoginForm from '../LoginForm.vue'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mount, flushPromises } from '@vue/test-utils';
+import ComponentName from '@/components/ComponentName.vue';
 
-describe('LoginForm.vue', () => {
-  it('renders login form', () => {
-    const wrapper = mount(LoginForm)
-    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
-    expect(wrapper.find('input[type="password"]').exists()).toBe(true)
-  })
-
-  it('shows error message when login fails', async () => {
-    const wrapper = mount(LoginForm)
-    // ... test implementation
-  })
-
-  it('emits login-success event on successful login', async () => {
-    const wrapper = mount(LoginForm)
-    // ... test implementation
-  })
-})
-```
-
-### 2. Auth Store Test
-```javascript
-// src/stores/__tests__/auth.spec.js
-import { describe, it, expect, beforeEach } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
-import { useAuthStore } from '../auth'
-
-describe('Auth Store', () => {
+describe('ComponentName', () => {
   beforeEach(() => {
-    setActivePinia(createPinia())
-  })
+    // Reset mocks
+  });
 
-  it('initializes with logged out state', () => {
-    const store = useAuthStore()
-    expect(store.isAuthenticated).toBe(false)
-  })
+  describe('rendering', () => {
+    it('renders correctly', () => {
+      const wrapper = mount(ComponentName);
+      // assertions
+    });
+  });
 
-  it('sets authenticated state after login', async () => {
-    const store = useAuthStore()
-    await store.login('test@example.com', 'password123')  // pragma: allowlist secret
-    expect(store.isAuthenticated).toBe(true)
-  })
-})
+  describe('user interactions', () => {
+    it('handles click events', async () => {
+      const wrapper = mount(ComponentName);
+      await wrapper.find('button').trigger('click');
+      // assertions
+    });
+  });
+});
 ```
-
-### 3. AuthNav.vue Test
-```javascript
-// src/components/__tests__/AuthNav.spec.js
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
-import AuthNav from '../AuthNav.vue'
-
-describe('AuthNav.vue', () => {
-  it('shows login button when not authenticated', () => {
-    const wrapper = mount(AuthNav)
-    expect(wrapper.find('.login-btn').exists()).toBe(true)
-  })
-
-  it('shows user menu when authenticated', () => {
-    // ... test with authenticated state
-  })
-})
-```
-
----
-
-## Success Criteria
-
-### Phase 1: Setup (Week 1)
-- [ ] Test framework installed and configured
-- [ ] Test command working (`npm test`)
-- [ ] Coverage reporting configured
-- [ ] 3-5 example tests written
-- [ ] All example tests passing
-- [ ] Coverage >5%
-
-### Phase 2: Critical Coverage (Week 2-3)
-- [ ] All critical components tested
-- [ ] Auth store fully tested
-- [ ] Login/logout workflows tested
-- [ ] Coverage >30%
-
-### Phase 3: Comprehensive Coverage (Week 4-6)
-- [ ] All components have tests
-- [ ] All stores have tests
-- [ ] All utilities have tests
-- [ ] Snapshot tests for UI components
-- [ ] Coverage >60%
-
-### Final Goal
-- [ ] 80%+ code coverage
-- [ ] All critical paths tested
-- [ ] Zero flaky tests
-- [ ] Tests run in <30 seconds
-- [ ] Coverage badges in README
-
----
-
-## Comparison with Backend
-
-| Metric | Backend | Frontend | Gap |
-|--------|---------|----------|-----|
-| **Test Count** | 191 tests | 0 tests | -191 |
-| **Coverage** | 16.26% | 0% | -16.26% |
-| **Test Framework** | ✅ pytest | ❌ None | Critical |
-| **Test Scripts** | ✅ Configured | ❌ Missing | Critical |
-| **Passing Tests** | 158/191 (82.7%) | N/A | - |
-| **Test Infrastructure** | ✅ Complete | ❌ Missing | Critical |
-
----
-
-## Next Steps
-
-### Immediate (Today/Tomorrow)
-1. ✅ Document current state → **COMPLETED** (this document)
-2. ⏳ Decide on test framework (Vitest recommended)
-3. ⏳ Create setup task for testing infrastructure
-4. ⏳ Update QUALITY_INITIATIVE.md with frontend tasks
-
-### This Week
-1. Install Vitest and @vue/test-utils
-2. Configure test setup
-3. Write 3-5 example tests
-4. Verify tests run successfully
-5. Generate initial coverage report
-
-### Next 2 Weeks
-1. Test all critical components
-2. Test auth store
-3. Achieve 30%+ coverage
-4. Add to CI/CD pipeline
-5. Document testing patterns
 
 ---
 
 ## Resources
 
-### Documentation
 - [Vitest Documentation](https://vitest.dev/)
-- [Vue Test Utils](https://test-utils.vuejs.org/)
+- [Vue Test Utils Guide](https://test-utils.vuejs.org/)
 - [Testing Vue 3 Apps](https://vuejs.org/guide/scaling-up/testing.html)
-- [Pinia Testing](https://pinia.vuejs.org/cookbook/testing.html)
-
-### Example Repositories
-- [Vue 3 + Vitest Examples](https://github.com/vitest-dev/vitest/tree/main/examples/vue)
-- [Vue Test Utils Examples](https://github.com/vuejs/test-utils/tree/main/examples)
 
 ---
 
-**Report Generated:** 2025-10-07
-**Status:** 🔴 **CRITICAL** - No tests exist, infrastructure setup required
-**Priority:** **HIGHEST** - Frontend testing is critical quality gap
+## History
+
+| Date | Change |
+|------|--------|
+| 2025-12-28 | Added Vitest infrastructure, LoginForm tests (19 tests) |
+| 2025-10-07 | Initial gap analysis (0 tests existed) |
