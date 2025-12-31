@@ -29,7 +29,8 @@ jobs:
       - name: Setup Python with uv
         run: |
           cd backend
-          uv sync
+          uv python install 3.13
+          uv sync --python 3.13
 
       - name: Run unit tests with coverage
         id: unit-tests
