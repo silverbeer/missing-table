@@ -1,0 +1,112 @@
+name: Publish Quality Reports
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type to run'
+        required: true
+        default: 'unit'
+        type: choice
+        options:
+          - 'unit'
+          - 'all'
+
+env:
+  PYTHON_VERSION: '3.13'
+  S3_BUCKET: 'quality-missingtable-com'
+  CLOUDFRONT_DISTRIBUTION_ID: 'E15AUGI7OKJ99L'
+
+jobs:
+  publish-quality:
+    name: Run Tests & Publish
+    runs-on: [self-hosted, quality-runner]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python with uv
+        run: |
+          # uv is pre-installed on the runner
+          cd backend
+          ~/.local/bin/uv sync
+
+      - name: Run unit tests with coverage
+        id: unit-tests
+        run: |
+          cd backend
+          ~/.local/bin/uv run python run_tests.py --category unit --html-coverage --fail-under 0
+        continue-on-error: true
+
+      - name: Create report index
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          RUN_ID=${{ github.run_id }}
+          COMMIT_SHA=${{ github.sha }}
+          TEST_STATUS=${{ steps.unit-tests.outcome }}
+
+          cat > backend/htmlcov/index_wrapper.html << EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Quality Reports - missing-table</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+              h1 { color: #333; }
+              .meta { background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0; }
+              .meta p { margin: 5px 0; }
+              .status-success { color: #22863a; }
+              .status-failure { color: #cb2431; }
+              a { color: #0366d6; }
+              .reports { margin-top: 30px; }
+              .report-link { display: block; padding: 10px; margin: 10px 0; background: #f0f7ff; border-radius: 4px; text-decoration: none; }
+              .report-link:hover { background: #e1f0ff; }
+            </style>
+          </head>
+          <body>
+            <h1>Quality Reports - missing-table</h1>
+            <div class="meta">
+              <p><strong>Generated:</strong> ${TIMESTAMP}</p>
+              <p><strong>Commit:</strong> <a href="https://github.com/silverbeer/missing-table/commit/${COMMIT_SHA}">${COMMIT_SHA:0:7}</a></p>
+              <p><strong>Run:</strong> <a href="https://github.com/silverbeer/missing-table/actions/runs/${RUN_ID}">#${RUN_ID}</a></p>
+              <p><strong>Status:</strong> <span class="status-${TEST_STATUS}">${TEST_STATUS}</span></p>
+            </div>
+            <div class="reports">
+              <h2>Available Reports</h2>
+              <a class="report-link" href="index.html">📊 Coverage Report (pytest-cov)</a>
+            </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload to S3
+        run: |
+          # Upload coverage report to latest/
+          aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/latest/missing-table/prod/backend-unit/ \
+            --delete \
+            --cache-control "max-age=300"
+
+          # Upload wrapper as the root index
+          aws s3 cp backend/htmlcov/index_wrapper.html s3://${S3_BUCKET}/index.html \
+            --cache-control "max-age=300"
+
+          # Also archive to runs/<date>/<run-id>/
+          RUN_DATE=$(date -u +"%Y-%m-%d")
+          aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/backend-unit/ \
+            --cache-control "max-age=31536000"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} \
+            --paths "/*"
+
+      - name: Summary
+        run: |
+          echo "### 🎉 Quality Reports Published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Site:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Reports:**" >> $GITHUB_STEP_SUMMARY
+          echo "- [Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
