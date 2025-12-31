@@ -13,6 +13,9 @@ The frontend uses **Vitest** with **Vue Test Utils** for component testing. Test
 ```bash
 cd frontend
 
+# Install dependencies (if not already installed)
+npm install
+
 # Run tests once
 npm run test:run
 

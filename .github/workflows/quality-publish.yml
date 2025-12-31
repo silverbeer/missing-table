@@ -28,15 +28,14 @@ jobs:
 
       - name: Setup Python with uv
         run: |
-          # uv is pre-installed on the runner
           cd backend
-          ~/.local/bin/uv sync
+          uv sync
 
       - name: Run unit tests with coverage
         id: unit-tests
         run: |
           cd backend
-          ~/.local/bin/uv run python run_tests.py --category unit --html-coverage --fail-under 0
+          uv run python run_tests.py --category unit --html-coverage --fail-under 0
         continue-on-error: true
 
       - name: Create report index
