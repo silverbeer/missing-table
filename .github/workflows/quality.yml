@@ -55,6 +55,19 @@ jobs:
           cd backend
           allure generate allure-results -o allure-report --clean
 
+      - name: Add dashboard navigation to reports
+        run: |
+          cd backend
+
+          # Banner HTML to inject
+          BANNER='<div style="background:#2563eb;color:white;padding:8px 16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;gap:8px;"><a href="https://quality.missingtable.com" style="color:white;text-decoration:none;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">←</span> Back to Quality Dashboard</a></div><div style="height:40px;"></div>'
+
+          # Inject into Allure report
+          sed -i "s|<body>|<body>${BANNER}|" allure-report/index.html
+
+          # Inject into Coverage report
+          sed -i "s|<body>|<body>${BANNER}|" htmlcov/index.html
+
       - name: Extract coverage percentage
         id: coverage
         run: |
