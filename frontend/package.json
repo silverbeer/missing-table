@@ -67,7 +67,9 @@
     "rules": {},
     "overrides": [
       {
-        "files": ["src/__tests__/**/*.js"],
+        "files": [
+          "src/__tests__/**/*.js"
+        ],
         "globals": {
           "describe": "readonly",
           "it": "readonly",

@@ -2,17 +2,18 @@
 """
 Generate Quality Dashboard HTML from test results.
 
-This script reads Allure and coverage reports and generates a unified
-quality dashboard. Designed to be extensible for multiple test types.
+This script reads backend (Allure) and frontend (Vitest JSON) test reports
+and generates a unified quality dashboard showing both test suites.
 
 Usage:
     python scripts/generate-quality-dashboard.py \
         --output /tmp/index.html \
         --commit-sha abc1234 \
         --run-id 12345 \
-        --test-type unit \
-        --allure-dir backend/allure-report \
-        --coverage-json backend/coverage.json
+        --backend-allure-dir backend/allure-report \
+        --backend-coverage-json backend/coverage.json \
+        --frontend-results-json frontend/test-results.json \
+        --frontend-coverage-json frontend/coverage/coverage-final.json
 """
 
 import argparse
@@ -31,7 +32,7 @@ from pydantic import BaseModel, Field, computed_field
 
 
 class TestStatistic(BaseModel):
-    """Test result statistics from Allure."""
+    """Test result statistics."""
 
     passed: int = 0
     failed: int = 0
@@ -61,7 +62,7 @@ class AllureSummary(BaseModel):
 
 
 class CoverageTotals(BaseModel):
-    """Coverage totals from coverage.json."""
+    """Coverage totals from coverage.json (Python coverage.py format)."""
 
     covered_lines: int = 0
     num_statements: int = 0
@@ -77,12 +78,15 @@ class CoverageReport(BaseModel):
 
 
 class TestMetrics(BaseModel):
-    """Aggregated metrics for a test type."""
+    """Aggregated metrics for a test suite."""
 
-    test_type: str
+    name: str
+    label: str
     statistic: TestStatistic = Field(default_factory=TestStatistic)
     duration_ms: int = 0
     coverage_percent: Optional[float] = None
+    coverage_report_url: Optional[str] = None
+    allure_report_url: Optional[str] = None
 
     @computed_field
     @property
@@ -162,8 +166,8 @@ def load_allure_summary(allure_dir: Path) -> AllureSummary:
     return AllureSummary.model_validate(data)
 
 
-def load_coverage_report(coverage_json: Path) -> Optional[CoverageReport]:
-    """Load and parse coverage.json."""
+def load_python_coverage(coverage_json: Path) -> Optional[float]:
+    """Load Python coverage.json and return percent covered."""
     if not coverage_json.exists():
         print(f"Warning: {coverage_json} not found", file=sys.stderr)
         return None
@@ -171,28 +175,106 @@ def load_coverage_report(coverage_json: Path) -> Optional[CoverageReport]:
     with open(coverage_json) as f:
         data = json.load(f)
 
-    return CoverageReport.model_validate(data)
+    report = CoverageReport.model_validate(data)
+    return report.totals.percent_covered
 
 
-def build_test_metrics(
-    test_type: str,
-    allure_dir: Path,
+def load_vitest_results(results_json: Path) -> tuple[TestStatistic, int]:
+    """Load Vitest JSON results and return (statistics, duration_ms)."""
+    if not results_json.exists():
+        print(f"Warning: {results_json} not found", file=sys.stderr)
+        return TestStatistic(), 0
+
+    with open(results_json) as f:
+        data = json.load(f)
+
+    # Calculate duration from start/end times
+    start_time = data.get("startTime", 0)
+    test_results = data.get("testResults", [])
+    end_time = max((t.get("endTime", 0) for t in test_results), default=start_time)
+    duration_ms = int(end_time - start_time) if end_time > start_time else 0
+
+    return TestStatistic(
+        passed=data.get("numPassedTests", 0),
+        failed=data.get("numFailedTests", 0),
+        skipped=data.get("numPendingTests", 0) + data.get("numTodoTests", 0),
+        total=data.get("numTotalTests", 0),
+    ), duration_ms
+
+
+def load_istanbul_coverage(coverage_json: Path) -> Optional[float]:
+    """Load Istanbul/V8 coverage-final.json and return percent covered."""
+    if not coverage_json.exists():
+        print(f"Warning: {coverage_json} not found", file=sys.stderr)
+        return None
+
+    with open(coverage_json) as f:
+        data = json.load(f)
+
+    total_statements = 0
+    covered_statements = 0
+
+    for file_data in data.values():
+        statements = file_data.get("s", {})
+        total_statements += len(statements)
+        covered_statements += sum(1 for count in statements.values() if count > 0)
+
+    if total_statements == 0:
+        return 0.0
+
+    return (covered_statements / total_statements) * 100
+
+
+def build_backend_metrics(
+    allure_dir: Optional[Path] = None,
     coverage_json: Optional[Path] = None,
 ) -> TestMetrics:
-    """Build TestMetrics from Allure and coverage data."""
-    allure = load_allure_summary(allure_dir)
+    """Build TestMetrics for backend tests."""
+    if allure_dir:
+        allure = load_allure_summary(allure_dir)
+        statistic = allure.statistic
+        duration_ms = allure.time.duration
+    else:
+        statistic = TestStatistic()
+        duration_ms = 0
 
     coverage_percent = None
     if coverage_json:
-        coverage = load_coverage_report(coverage_json)
-        if coverage:
-            coverage_percent = coverage.totals.percent_covered
+        coverage_percent = load_python_coverage(coverage_json)
 
     return TestMetrics(
-        test_type=test_type,
-        statistic=allure.statistic,
-        duration_ms=allure.time.duration,
+        name="backend",
+        label="Backend Unit",
+        statistic=statistic,
+        duration_ms=duration_ms,
         coverage_percent=coverage_percent,
+        coverage_report_url="latest/missing-table/prod/backend-unit/index.html",
+        allure_report_url="latest/missing-table/prod/allure/index.html",
+    )
+
+
+def build_frontend_metrics(
+    results_json: Optional[Path] = None,
+    coverage_json: Optional[Path] = None,
+) -> TestMetrics:
+    """Build TestMetrics for frontend tests."""
+    if results_json:
+        statistic, duration_ms = load_vitest_results(results_json)
+    else:
+        statistic = TestStatistic()
+        duration_ms = 0
+
+    coverage_percent = None
+    if coverage_json:
+        coverage_percent = load_istanbul_coverage(coverage_json)
+
+    return TestMetrics(
+        name="frontend",
+        label="Frontend Unit",
+        statistic=statistic,
+        duration_ms=duration_ms,
+        coverage_percent=coverage_percent,
+        coverage_report_url="latest/missing-table/prod/frontend-unit/index.html",
     )
 
 
@@ -210,10 +292,92 @@ def generate_status_style(status: str) -> tuple[str, str, str]:
     return "❓", "#6b7280", "#f3f4f6"
 
 
-def generate_dashboard_html(metrics: TestMetrics, config: DashboardConfig) -> str:
+def overall_status(metrics_list: list[TestMetrics]) -> str:
+    """Determine overall status from multiple test suites."""
+    if not metrics_list:
+        return "unknown"
+    if any(m.status == "failure" for m in metrics_list):
+        return "failure"
+    if all(m.status == "success" for m in metrics_list):
+        return "success"
+    return "unknown"
+
+
+def generate_test_suite_card(m: TestMetrics) -> str:
+    """Generate HTML card for a single test suite."""
+    icon, color, bg = generate_status_style(m.status)
+    coverage_str = f"{m.coverage_percent:.1f}%" if m.coverage_percent is not None else "N/A"
+
+    return f'''
+      <div class="suite-card">
+        <div class="suite-header">
+          <span class="suite-icon">{icon}</span>
+          <h3>{m.label}</h3>
+        </div>
+        <div class="suite-stats">
+          <div class="stat">
+            <span class="stat-value">{m.statistic.passed}<span class="stat-small">/{m.statistic.total}</span></span>
+            <span class="stat-label">Tests</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">{coverage_str}</span>
+            <span class="stat-label">Coverage</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">{m.duration_sec}<span class="stat-small">s</span></span>
+            <span class="stat-label">Duration</span>
+          </div>
+        </div>
+        <div class="test-bar">
+          <div class="test-bar-passed" style="width: {m.passed_pct:.0f}%;"></div>
+          <div class="test-bar-failed" style="width: {m.failed_pct:.0f}%;"></div>
+          <div class="test-bar-skipped" style="width: {m.skipped_pct:.0f}%;"></div>
+        </div>
+      </div>'''
+
+
+def generate_report_links(metrics_list: list[TestMetrics]) -> str:
+    """Generate HTML for report links."""
+    links = []
+
+    for m in metrics_list:
+        if m.allure_report_url:
+            links.append(f'''
+        <a class="report-link" href="{m.allure_report_url}">
+          <span class="report-icon">🎯</span>
+          <div class="report-info">
+            <h3>{m.label} Allure Report</h3>
+            <p>Interactive test report with charts and history</p>
+          </div>
+        </a>''')
+
+        if m.coverage_report_url:
+            links.append(f'''
+        <a class="report-link" href="{m.coverage_report_url}">
+          <span class="report-icon">📈</span>
+          <div class="report-info">
+            <h3>{m.label} Coverage</h3>
+            <p>Detailed code coverage analysis</p>
+          </div>
+        </a>''')
+
+    return "\n".join(links)
+
+
+def generate_dashboard_html(
+    metrics_list: list[TestMetrics],
+    config: DashboardConfig,
+) -> str:
     """Generate the complete dashboard HTML."""
-    icon, color, bg = generate_status_style(metrics.status)
-    coverage_str = f"{metrics.coverage_percent:.1f}" if metrics.coverage_percent else "N/A"
+    status = overall_status(metrics_list)
+    icon, color, bg = generate_status_style(status)
+
+    total_passed = sum(m.statistic.passed for m in metrics_list)
+    total_tests = sum(m.statistic.total for m in metrics_list)
+    total_duration = sum(m.duration_ms for m in metrics_list)
+
+    suite_cards = "\n".join(generate_test_suite_card(m) for m in metrics_list)
+    report_links = generate_report_links(metrics_list)
 
     return f'''<!DOCTYPE html>
 <html lang="en">
@@ -233,60 +397,99 @@ def generate_dashboard_html(metrics: TestMetrics, config: DashboardConfig) -> st
     .header {{ text-align: center; margin-bottom: 2rem; }}
     .header h1 {{ font-size: 2.25rem; font-weight: 700; color: #2563eb; margin-bottom: 0.5rem; }}
     .header p {{ font-size: 1.125rem; color: #4b5563; }}
-    .cards {{
+
+    /* Summary cards */
+    .summary-cards {{
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 1rem;
       margin-bottom: 1.5rem;
     }}
-    .card {{
+    .summary-card {{
       background: white;
       border-radius: 0.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 1rem;
       text-align: center;
     }}
-    .card-icon {{ font-size: 1.5rem; margin-bottom: 0.5rem; }}
-    .card-value {{ font-size: 1.75rem; font-weight: 700; color: #1f2937; }}
-    .card-value-small {{ font-size: 1rem; font-weight: 400; color: #6b7280; }}
-    .card-label {{ color: #4b5563; font-size: 0.75rem; margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }}
+    .summary-card-icon {{ font-size: 1.25rem; margin-bottom: 0.25rem; }}
+    .summary-card-value {{ font-size: 1.5rem; font-weight: 700; color: #1f2937; }}
+    .summary-card-value-small {{ font-size: 0.875rem; font-weight: 400; color: #6b7280; }}
+    .summary-card-label {{ color: #4b5563; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }}
     .status-badge {{
       display: inline-block;
-      padding: 0.375rem 0.75rem;
-      border-radius: 0.375rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
       font-weight: 600;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
     }}
-    .progress-bar {{
+
+    /* Test suite section */
+    .suites-section {{
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }}
+    .suites-section h2 {{ font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 1rem; }}
+    .suites-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }}
+    .suite-card {{
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }}
+    .suite-header {{
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }}
+    .suite-icon {{ font-size: 1.25rem; }}
+    .suite-header h3 {{ font-size: 1rem; font-weight: 600; color: #1f2937; }}
+    .suite-stats {{
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }}
+    .stat {{ text-align: center; }}
+    .stat-value {{ font-size: 1.125rem; font-weight: 600; color: #1f2937; }}
+    .stat-small {{ font-size: 0.75rem; font-weight: 400; color: #6b7280; }}
+    .stat-label {{ display: block; font-size: 0.65rem; color: #6b7280; text-transform: uppercase; }}
+    .test-bar {{
       height: 0.375rem;
       background: #e5e7eb;
       border-radius: 0.25rem;
       overflow: hidden;
-      margin-top: 0.5rem;
+      display: flex;
     }}
-    .progress-bar-fill {{ height: 100%; border-radius: 0.25rem; }}
-    .progress-bar-fill.green {{ background: #22c55e; }}
-    .test-bar {{ display: flex; }}
     .test-bar-passed {{ background: #22c55e; }}
     .test-bar-failed {{ background: #ef4444; }}
     .test-bar-skipped {{ background: #f59e0b; }}
+
+    /* Reports section */
     .reports-section {{
       background: white;
       border-radius: 0.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       padding: 1.5rem;
       margin-bottom: 1.5rem;
     }}
     .reports-section h2 {{ font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 1rem; }}
     .report-grid {{
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 1rem;
     }}
     .report-link {{
       display: flex;
       align-items: center;
-      padding: 1rem;
+      padding: 0.875rem;
       background: #f9fafb;
       border: 1px solid #e5e7eb;
       border-radius: 0.5rem;
@@ -295,13 +498,15 @@ def generate_dashboard_html(metrics: TestMetrics, config: DashboardConfig) -> st
       transition: all 0.15s ease;
     }}
     .report-link:hover {{ background: #eff6ff; border-color: #2563eb; }}
-    .report-icon {{ font-size: 1.5rem; margin-right: 1rem; }}
-    .report-info h3 {{ font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }}
-    .report-info p {{ color: #6b7280; font-size: 0.875rem; }}
+    .report-icon {{ font-size: 1.25rem; margin-right: 0.75rem; }}
+    .report-info h3 {{ font-size: 0.875rem; font-weight: 600; margin-bottom: 0.125rem; }}
+    .report-info p {{ color: #6b7280; font-size: 0.75rem; }}
+
+    /* Meta section */
     .meta-section {{
       background: white;
       border-radius: 0.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       padding: 1rem 1.5rem;
       display: flex;
       flex-wrap: wrap;
@@ -319,52 +524,40 @@ def generate_dashboard_html(metrics: TestMetrics, config: DashboardConfig) -> st
       <p>Test results and coverage reports for Missing Table</p>
     </div>
 
-    <div class="cards">
-      <div class="card">
-        <div class="card-icon">{icon}</div>
-        <div class="card-value"><span class="status-badge" style="background: {bg}; color: {color};">{metrics.status}</span></div>
-        <div class="card-label">Build Status</div>
+    <div class="summary-cards">
+      <div class="summary-card">
+        <div class="summary-card-icon">{icon}</div>
+        <div class="summary-card-value"><span class="status-badge" style="background: {bg}; color: {color};">{status}</span></div>
+        <div class="summary-card-label">Overall Status</div>
       </div>
-      <div class="card">
-        <div class="card-icon">✅</div>
-        <div class="card-value">{metrics.statistic.passed}<span class="card-value-small"> / {metrics.statistic.total}</span></div>
-        <div class="card-label">Tests Passed</div>
-        <div class="progress-bar test-bar">
-          <div class="test-bar-passed" style="width: {metrics.passed_pct:.0f}%;"></div>
-          <div class="test-bar-failed" style="width: {metrics.failed_pct:.0f}%;"></div>
-          <div class="test-bar-skipped" style="width: {metrics.skipped_pct:.0f}%;"></div>
-        </div>
+      <div class="summary-card">
+        <div class="summary-card-icon">✅</div>
+        <div class="summary-card-value">{total_passed}<span class="summary-card-value-small">/{total_tests}</span></div>
+        <div class="summary-card-label">Total Tests</div>
       </div>
-      <div class="card">
-        <div class="card-icon">📊</div>
-        <div class="card-value">{coverage_str}<span class="card-value-small">%</span></div>
-        <div class="card-label">Code Coverage</div>
-        <div class="progress-bar"><div class="progress-bar-fill green" style="width: {metrics.coverage_percent or 0:.0f}%;"></div></div>
+      <div class="summary-card">
+        <div class="summary-card-icon">📦</div>
+        <div class="summary-card-value">{len(metrics_list)}</div>
+        <div class="summary-card-label">Test Suites</div>
       </div>
-      <div class="card">
-        <div class="card-icon">⚡</div>
-        <div class="card-value">{metrics.duration_sec}<span class="card-value-small">s</span></div>
-        <div class="card-label">Test Duration</div>
+      <div class="summary-card">
+        <div class="summary-card-icon">⚡</div>
+        <div class="summary-card-value">{total_duration / 1000:.1f}<span class="summary-card-value-small">s</span></div>
+        <div class="summary-card-label">Total Duration</div>
+      </div>
+    </div>
+
+    <div class="suites-section">
+      <h2>Test Suites</h2>
+      <div class="suites-grid">
+{suite_cards}
       </div>
     </div>
 
     <div class="reports-section">
-      <h2>Available Reports</h2>
+      <h2>Detailed Reports</h2>
       <div class="report-grid">
-        <a class="report-link" href="latest/missing-table/prod/allure/index.html">
-          <span class="report-icon">🎯</span>
-          <div class="report-info">
-            <h3>Allure Report</h3>
-            <p>Interactive test report with charts and history</p>
-          </div>
-        </a>
-        <a class="report-link" href="latest/missing-table/prod/backend-unit/index.html">
-          <span class="report-icon">📈</span>
-          <div class="report-info">
-            <h3>Coverage Report</h3>
-            <p>Detailed code coverage analysis</p>
-          </div>
-        </a>
+{report_links}
       </div>
     </div>
 
@@ -388,17 +581,58 @@ def main() -> None:
     parser.add_argument("--output", "-o", required=True, help="Output HTML file path")
     parser.add_argument("--commit-sha", required=True, help="Git commit SHA")
     parser.add_argument("--run-id", required=True, help="GitHub Actions run ID")
-    parser.add_argument("--test-type", default="unit", help="Test type (unit, integration, e2e)")
-    parser.add_argument("--allure-dir", required=True, help="Path to Allure report directory")
-    parser.add_argument("--coverage-json", help="Path to coverage.json")
+
+    # Backend test inputs
+    parser.add_argument("--backend-allure-dir", help="Path to backend Allure report directory")
+    parser.add_argument("--backend-coverage-json", help="Path to backend coverage.json")
+
+    # Frontend test inputs
+    parser.add_argument("--frontend-results-json", help="Path to frontend test-results.json")
+    parser.add_argument("--frontend-coverage-json", help="Path to frontend coverage-final.json")
+
+    # Legacy single-suite arguments (for backwards compatibility)
+    parser.add_argument("--allure-dir", help="(deprecated) Use --backend-allure-dir")
+    parser.add_argument("--coverage-json", help="(deprecated) Use --backend-coverage-json")
+
     args = parser.parse_args()
 
-    # Build metrics
-    metrics = build_test_metrics(
-        test_type=args.test_type,
-        allure_dir=Path(args.allure_dir),
-        coverage_json=Path(args.coverage_json) if args.coverage_json else None,
+    # Handle legacy arguments
+    backend_allure = Path(args.backend_allure_dir) if args.backend_allure_dir else (
+        Path(args.allure_dir) if args.allure_dir else None
     )
+    backend_coverage = Path(args.backend_coverage_json) if args.backend_coverage_json else (
+        Path(args.coverage_json) if args.coverage_json else None
+    )
+
+    # Build metrics for each test suite
+    metrics_list = []
+
+    if backend_allure or backend_coverage:
+        backend = build_backend_metrics(
+            allure_dir=backend_allure,
+            coverage_json=backend_coverage,
+        )
+        metrics_list.append(backend)
+        print(f"Backend: {backend.statistic.passed}/{backend.statistic.total} tests, "
+              f"{backend.coverage_percent:.1f}% coverage" if backend.coverage_percent else
+              f"Backend: {backend.statistic.passed}/{backend.statistic.total} tests")
+
+    frontend_results = Path(args.frontend_results_json) if args.frontend_results_json else None
+    frontend_coverage = Path(args.frontend_coverage_json) if args.frontend_coverage_json else None
+
+    if frontend_results or frontend_coverage:
+        frontend = build_frontend_metrics(
+            results_json=frontend_results,
+            coverage_json=frontend_coverage,
+        )
+        metrics_list.append(frontend)
+        print(f"Frontend: {frontend.statistic.passed}/{frontend.statistic.total} tests, "
+              f"{frontend.coverage_percent:.1f}% coverage" if frontend.coverage_percent else
+              f"Frontend: {frontend.statistic.passed}/{frontend.statistic.total} tests")
+
+    if not metrics_list:
+        print("Error: No test results provided", file=sys.stderr)
+        sys.exit(1)
 
     # Build config
     config = DashboardConfig(
@@ -407,20 +641,14 @@ def main() -> None:
     )
 
     # Generate HTML
-    html = generate_dashboard_html(metrics, config)
+    html = generate_dashboard_html(metrics_list, config)
 
     # Write output
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
 
-    # Print summary
     print(f"Dashboard generated: {output_path}")
-    print(f"  Test type: {metrics.test_type}")
-    print(f"  Tests: {metrics.statistic.passed}/{metrics.statistic.total} passed ({metrics.pass_rate:.0f}%)")
-    if metrics.coverage_percent:
-        print(f"  Coverage: {metrics.coverage_percent:.1f}%")
-    print(f"  Duration: {metrics.duration_sec}s")
 
 
 if __name__ == "__main__":

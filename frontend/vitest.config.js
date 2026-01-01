@@ -27,10 +27,14 @@ export default defineConfig({
     // Where to look for test files
     include: ['src/**/*.{test,spec}.{js,ts}'],
 
+    // Reporters: default (terminal) + JSON for quality dashboard
+    reporters: ['default', 'json'],
+    outputFile: './test-results.json',
+
     // Coverage configuration (optional, for 'npm run test:coverage')
     coverage: {
       provider: 'v8', // Uses V8's built-in coverage (fast)
-      reporter: ['text', 'html'], // Output formats: terminal + HTML report
+      reporter: ['text', 'html', 'json'], // Added JSON for dashboard
       include: ['src/**/*.{js,vue}'],
       exclude: [
         'src/__tests__/**', // Don't measure coverage of test files themselves

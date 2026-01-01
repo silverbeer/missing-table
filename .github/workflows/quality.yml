@@ -36,8 +36,8 @@ jobs:
           uv python install 3.13
           uv sync --python 3.13
 
-      - name: Run unit tests with coverage and Allure
-        id: unit-tests
+      - name: Run backend unit tests with coverage and Allure
+        id: backend-tests
         run: |
           cd backend
           mkdir -p allure-results
@@ -50,23 +50,32 @@ jobs:
             -v
         continue-on-error: true
 
-      - name: Generate Allure report
+      - name: Generate backend Allure report
         run: |
           cd backend
           allure generate allure-results -o allure-report --clean
 
+      - name: Run frontend unit tests with coverage
+        id: frontend-tests
+        run: |
+          cd frontend
+          npm ci
+          npm run test:coverage
+        continue-on-error: true
+
       - name: Add dashboard navigation to reports
         run: |
-          cd backend
-
           # Banner HTML to inject
           BANNER='<div style="background:#2563eb;color:white;padding:8px 16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;gap:8px;"><a href="https://quality.missingtable.com" style="color:white;text-decoration:none;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">←</span> Back to Quality Dashboard</a></div><div style="height:40px;"></div>'
 
-          # Inject into Allure report
-          sed -i "s|<body>|<body>${BANNER}|" allure-report/index.html
+          # Inject into backend Allure report
+          sed -i "s|<body>|<body>${BANNER}|" backend/allure-report/index.html
 
-          # Inject into Coverage report (coverage.py uses <body class="indexfile">)
-          sed -i 's|<body class="indexfile">|<body class="indexfile">'"${BANNER}"'|' htmlcov/index.html
+          # Inject into backend coverage report (coverage.py uses <body class="indexfile">)
+          sed -i 's|<body class="indexfile">|<body class="indexfile">'"${BANNER}"'|' backend/htmlcov/index.html
+
+          # Inject into frontend coverage report (c8/v8 uses <body>)
+          sed -i "s|<body>|<body>${BANNER}|" frontend/coverage/index.html
 
       - name: Generate dashboard landing page
         run: |
@@ -75,11 +84,14 @@ jobs:
             --output /tmp/index.html \
             --commit-sha ${{ github.sha }} \
             --run-id ${{ github.run_id }} \
-            --allure-dir allure-report \
-            --coverage-json coverage.json
+            --backend-allure-dir allure-report \
+            --backend-coverage-json coverage.json \
+            --frontend-results-json ../frontend/test-results.json \
+            --frontend-coverage-json ../frontend/coverage/coverage-final.json
 
       - name: Upload to S3
         run: |
+          # Upload latest reports
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/latest/missing-table/prod/allure/ \
             --delete \
             --cache-control "max-age=300"
@@ -88,14 +100,21 @@ jobs:
             --delete \
             --cache-control "max-age=300"
 
+          aws s3 sync frontend/coverage/ s3://${S3_BUCKET}/latest/missing-table/prod/frontend-unit/ \
+            --delete \
+            --cache-control "max-age=300"
+
           aws s3 cp /tmp/index.html s3://${S3_BUCKET}/index.html \
             --cache-control "max-age=300" \
             --content-type "text/html"
 
+          # Archive run reports
           RUN_DATE=$(date -u +"%Y-%m-%d")
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/allure/ \
             --cache-control "max-age=31536000"
           aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/backend-unit/ \
+            --cache-control "max-age=31536000"
+          aws s3 sync frontend/coverage/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/frontend-unit/ \
             --cache-control "max-age=31536000"
 
       - name: Invalidate CloudFront
@@ -106,18 +125,26 @@ jobs:
 
       - name: Summary
         run: |
-          cd backend
-          PASSED=$(python3 -c "import json; print(json.load(open('allure-report/widgets/summary.json'))['statistic']['passed'])")
-          TOTAL=$(python3 -c "import json; print(json.load(open('allure-report/widgets/summary.json'))['statistic']['total'])")
-          COVERAGE=$(python3 -c "import json; print(f\"{json.load(open('coverage.json'))['totals']['percent_covered']:.1f}\")" 2>/dev/null || echo "N/A")
+          # Backend metrics
+          BE_PASSED=$(python3 -c "import json; print(json.load(open('backend/allure-report/widgets/summary.json'))['statistic']['passed'])")
+          BE_TOTAL=$(python3 -c "import json; print(json.load(open('backend/allure-report/widgets/summary.json'))['statistic']['total'])")
+          BE_COV=$(python3 -c "import json; print(f\"{json.load(open('backend/coverage.json'))['totals']['percent_covered']:.1f}\")" 2>/dev/null || echo "N/A")
+
+          # Frontend metrics
+          FE_PASSED=$(python3 -c "import json; print(json.load(open('frontend/test-results.json'))['numPassedTests'])")
+          FE_TOTAL=$(python3 -c "import json; print(json.load(open('frontend/test-results.json'))['numTotalTests'])")
+          FE_COV=$(python3 -c "import json; d=json.load(open('frontend/coverage/coverage-final.json')); t=sum(len(v['s']) for v in d.values()); c=sum(sum(1 for x in v['s'].values() if x>0) for v in d.values()); print(f'{c/t*100:.1f}' if t>0 else 'N/A')" 2>/dev/null || echo "N/A")
 
           echo "### Quality Reports Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Dashboard:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Reports:**" >> $GITHUB_STEP_SUMMARY
-          echo "- [Allure Report](https://quality.missingtable.com/latest/missing-table/prod/allure/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Backend Allure Report](https://quality.missingtable.com/latest/missing-table/prod/allure/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Backend Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Frontend Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/frontend-unit/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Coverage:** ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
-          echo "**Tests:** ${PASSED} passed / ${TOTAL} total" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Tests | Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|-------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${BE_PASSED}/${BE_TOTAL} | ${BE_COV}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${FE_PASSED}/${FE_TOTAL} | ${FE_COV}% |" >> $GITHUB_STEP_SUMMARY
