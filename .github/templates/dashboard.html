@@ -14,7 +14,7 @@
     }
     .container { max-width: 1024px; margin: 0 auto; padding: 2rem 1rem; }
 
-    /* Header - matches missingtable.com */
+    /* Header */
     .header {
       text-align: center;
       margin-bottom: 2rem;
@@ -30,10 +30,10 @@
       color: #4b5563;
     }
 
-    /* Cards grid - matches missingtable.com feature cards */
+    /* Cards grid */
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -41,42 +41,54 @@
       background: white;
       border-radius: 0.5rem;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-      padding: 1.5rem;
+      padding: 1.25rem;
       text-align: center;
     }
-    .card-icon { font-size: 1.875rem; margin-bottom: 0.75rem; }
-    .card-value { font-size: 1.5rem; font-weight: 600; color: #1f2937; }
-    .card-label { color: #4b5563; font-size: 0.875rem; margin-top: 0.5rem; }
+    .card-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .card-value { font-size: 1.75rem; font-weight: 700; color: #1f2937; }
+    .card-value-small { font-size: 1rem; font-weight: 400; color: #6b7280; }
+    .card-label { color: #4b5563; font-size: 0.75rem; margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
     .status-badge {
       display: inline-block;
-      padding: 0.5rem 1rem;
+      padding: 0.375rem 0.75rem;
       border-radius: 0.375rem;
       font-weight: 600;
       font-size: 0.875rem;
     }
     .coverage-bar {
-      height: 0.5rem;
+      height: 0.375rem;
       background: #e5e7eb;
       border-radius: 0.25rem;
       overflow: hidden;
-      margin-top: 0.75rem;
+      margin-top: 0.5rem;
     }
     .coverage-fill {
       height: 100%;
       background: #22c55e;
       border-radius: 0.25rem;
     }
+    .test-bar {
+      height: 0.375rem;
+      background: #e5e7eb;
+      border-radius: 0.25rem;
+      overflow: hidden;
+      margin-top: 0.5rem;
+      display: flex;
+    }
+    .test-bar-passed { background: #22c55e; }
+    .test-bar-failed { background: #ef4444; }
+    .test-bar-skipped { background: #f59e0b; }
 
-    /* Reports section - matches main content card */
+    /* Reports section */
     .reports-section {
       background: white;
       border-radius: 0.5rem;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-      padding: 2rem;
+      padding: 1.5rem;
       margin-bottom: 1.5rem;
     }
     .reports-section h2 {
-      font-size: 1.25rem;
+      font-size: 1.125rem;
       font-weight: 600;
       color: #1f2937;
       margin-bottom: 1rem;
@@ -111,9 +123,11 @@
       border-radius: 0.5rem;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
       padding: 1rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 2rem;
     }
     .meta-section p {
-      margin: 0.5rem 0;
       font-size: 0.875rem;
       color: #4b5563;
     }
@@ -135,20 +149,25 @@
         <div class="card-label">Build Status</div>
       </div>
       <div class="card">
+        <div class="card-icon">✅</div>
+        <div class="card-value">TESTSPASSED<span class="card-value-small"> / TESTSTOTAL</span></div>
+        <div class="card-label">Tests Passed</div>
+        <div class="test-bar">
+          <div class="test-bar-passed" style="width: TESTPASSEDPCT%;"></div>
+          <div class="test-bar-failed" style="width: TESTFAILEDPCT%;"></div>
+          <div class="test-bar-skipped" style="width: TESTSKIPPEDPCT%;"></div>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-icon">📊</div>
-        <div class="card-value">COVERAGE%</div>
+        <div class="card-value">COVERAGE<span class="card-value-small">%</span></div>
         <div class="card-label">Code Coverage</div>
         <div class="coverage-bar"><div class="coverage-fill" style="width: COVERAGE%;"></div></div>
       </div>
       <div class="card">
-        <div class="card-icon">✅</div>
-        <div class="card-value">TESTSPASSED</div>
-        <div class="card-label">Tests Passed</div>
-      </div>
-      <div class="card">
-        <div class="card-icon">📝</div>
-        <div class="card-value">TESTSTOTAL</div>
-        <div class="card-label">Total Tests</div>
+        <div class="card-icon">⚡</div>
+        <div class="card-value">DURATION<span class="card-value-small">s</span></div>
+        <div class="card-label">Test Duration</div>
       </div>
     </div>
 
@@ -175,7 +194,7 @@
     <div class="meta-section">
       <p><strong>Generated:</strong> TIMESTAMP</p>
       <p><strong>Commit:</strong> <a href="https://github.com/silverbeer/missing-table/commit/COMMITSHA">COMMITSHORT</a></p>
-      <p><strong>Workflow Run:</strong> <a href="https://github.com/silverbeer/missing-table/actions/runs/RUNID">#RUNID</a></p>
+      <p><strong>Run:</strong> <a href="https://github.com/silverbeer/missing-table/actions/runs/RUNID">#RUNID</a></p>
     </div>
   </div>
 </body>
