@@ -65,8 +65,8 @@ jobs:
           # Inject into Allure report
           sed -i "s|<body>|<body>${BANNER}|" allure-report/index.html
 
-          # Inject into Coverage report
-          sed -i "s|<body>|<body>${BANNER}|" htmlcov/index.html
+          # Inject into Coverage report (coverage.py uses <body class="indexfile">)
+          sed -i 's|<body class="indexfile">|<body class="indexfile">'"${BANNER}"'|' htmlcov/index.html
 
       - name: Extract coverage percentage
         id: coverage
