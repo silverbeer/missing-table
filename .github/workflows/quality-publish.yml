@@ -26,73 +26,308 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Allure CLI
+        run: |
+          if ! command -v allure &> /dev/null; then
+            echo "Installing Allure CLI..."
+            curl -o allure-2.27.0.tgz -Ls https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+            sudo tar -zxvf allure-2.27.0.tgz -C /opt/
+            sudo ln -sf /opt/allure-2.27.0/bin/allure /usr/local/bin/allure
+            rm allure-2.27.0.tgz
+          fi
+          allure --version
+
       - name: Setup Python with uv
         run: |
           cd backend
           uv python install 3.13
           uv sync --python 3.13
 
-      - name: Run unit tests with coverage
+      - name: Run unit tests with coverage and Allure
         id: unit-tests
         run: |
           cd backend
-          uv run python run_tests.py --category unit --html-coverage --fail-under 0
+          mkdir -p allure-results
+          uv run pytest tests/ -m unit \
+            --cov=. \
+            --cov-report=html \
+            --cov-report=json \
+            --cov-fail-under=0 \
+            --alluredir=allure-results \
+            -v
         continue-on-error: true
 
-      - name: Create report index
+      - name: Generate Allure report
+        run: |
+          cd backend
+          allure generate allure-results -o allure-report --clean
+
+      - name: Extract coverage percentage
+        id: coverage
+        run: |
+          cd backend
+          if [ -f coverage.json ]; then
+            COVERAGE=$(python3 -c "import json; print(f\"{json.load(open('coverage.json'))['totals']['percent_covered']:.1f}\")")
+          else
+            COVERAGE="N/A"
+          fi
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+
+      - name: Count test results
+        id: test-counts
+        run: |
+          cd backend
+          # Count from allure results
+          PASSED=$(find allure-results -name "*.json" -exec grep -l '"status":"passed"' {} \; 2>/dev/null | wc -l | tr -d ' ')
+          FAILED=$(find allure-results -name "*.json" -exec grep -l '"status":"failed"' {} \; 2>/dev/null | wc -l | tr -d ' ')
+          TOTAL=$((PASSED + FAILED))
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+      - name: Create dashboard landing page
         run: |
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           RUN_ID=${{ github.run_id }}
           COMMIT_SHA=${{ github.sha }}
+          COMMIT_SHORT=${COMMIT_SHA:0:7}
           TEST_STATUS=${{ steps.unit-tests.outcome }}
+          COVERAGE=${{ steps.coverage.outputs.percentage }}
+          TESTS_PASSED=${{ steps.test-counts.outputs.passed }}
+          TESTS_FAILED=${{ steps.test-counts.outputs.failed }}
+          TESTS_TOTAL=${{ steps.test-counts.outputs.total }}
 
-          cat > backend/htmlcov/index_wrapper.html << EOF
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Quality Reports - missing-table</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-              h1 { color: #333; }
-              .meta { background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0; }
-              .meta p { margin: 5px 0; }
-              .status-success { color: #22863a; }
-              .status-failure { color: #cb2431; }
-              a { color: #0366d6; }
-              .reports { margin-top: 30px; }
-              .report-link { display: block; padding: 10px; margin: 10px 0; background: #f0f7ff; border-radius: 4px; text-decoration: none; }
-              .report-link:hover { background: #e1f0ff; }
-            </style>
-          </head>
-          <body>
-            <h1>Quality Reports - missing-table</h1>
-            <div class="meta">
-              <p><strong>Generated:</strong> ${TIMESTAMP}</p>
-              <p><strong>Commit:</strong> <a href="https://github.com/silverbeer/missing-table/commit/${COMMIT_SHA}">${COMMIT_SHA:0:7}</a></p>
-              <p><strong>Run:</strong> <a href="https://github.com/silverbeer/missing-table/actions/runs/${RUN_ID}">#${RUN_ID}</a></p>
-              <p><strong>Status:</strong> <span class="status-${TEST_STATUS}">${TEST_STATUS}</span></p>
-            </div>
-            <div class="reports">
-              <h2>Available Reports</h2>
-              <a class="report-link" href="index.html">📊 Coverage Report (pytest-cov)</a>
-            </div>
-          </body>
-          </html>
-          EOF
+          # Determine status color and icon
+          if [ "$TEST_STATUS" = "success" ]; then
+            STATUS_COLOR="#22863a"
+            STATUS_ICON="✅"
+            STATUS_BG="#dcffe4"
+          else
+            STATUS_COLOR="#cb2431"
+            STATUS_ICON="❌"
+            STATUS_BG="#ffeef0"
+          fi
+
+          cat > /tmp/index.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+  <title>Quality Dashboard - Missing Table</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background-color: #f3f4f6;
+      min-height: 100vh;
+    }
+    .container { max-width: 1024px; margin: 0 auto; padding: 2rem 1rem; }
+
+    /* Header - matches missingtable.com */
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .header h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: #2563eb;
+      margin-bottom: 0.5rem;
+    }
+    .header p {
+      font-size: 1.125rem;
+      color: #4b5563;
+    }
+
+    /* Cards grid - matches missingtable.com feature cards */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .card-icon { font-size: 1.875rem; margin-bottom: 0.75rem; }
+    .card-value { font-size: 1.5rem; font-weight: 600; color: #1f2937; }
+    .card-label { color: #4b5563; font-size: 0.875rem; margin-top: 0.5rem; }
+    .status-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+    .coverage-bar {
+      height: 0.5rem;
+      background: #e5e7eb;
+      border-radius: 0.25rem;
+      overflow: hidden;
+      margin-top: 0.75rem;
+    }
+    .coverage-fill {
+      height: 100%;
+      background: #22c55e;
+      border-radius: 0.25rem;
+    }
+
+    /* Reports section - matches main content card */
+    .reports-section {
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .reports-section h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 1rem;
+    }
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .report-link {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      color: #1f2937;
+      transition: all 0.15s ease;
+    }
+    .report-link:hover {
+      background: #eff6ff;
+      border-color: #2563eb;
+    }
+    .report-icon { font-size: 1.5rem; margin-right: 1rem; }
+    .report-info h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .report-info p { color: #6b7280; font-size: 0.875rem; }
+
+    /* Meta section */
+    .meta-section {
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      padding: 1rem 1.5rem;
+    }
+    .meta-section p {
+      margin: 0.5rem 0;
+      font-size: 0.875rem;
+      color: #4b5563;
+    }
+    .meta-section a { color: #2563eb; text-decoration: none; }
+    .meta-section a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Quality Dashboard</h1>
+      <p>Test results and coverage reports for Missing Table</p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">STATUSICON</div>
+        <div class="card-value"><span class="status-badge" style="background: STATUSBG; color: STATUSCOLOR;">TESTSTATUS</span></div>
+        <div class="card-label">Build Status</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-value">COVERAGE%</div>
+        <div class="card-label">Code Coverage</div>
+        <div class="coverage-bar"><div class="coverage-fill" style="width: COVERAGE%;"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <div class="card-value">TESTSPASSED</div>
+        <div class="card-label">Tests Passed</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📝</div>
+        <div class="card-value">TESTSTOTAL</div>
+        <div class="card-label">Total Tests</div>
+      </div>
+    </div>
+
+    <div class="reports-section">
+      <h2>Available Reports</h2>
+      <div class="report-grid">
+        <a class="report-link" href="latest/missing-table/prod/allure/index.html">
+          <span class="report-icon">🎯</span>
+          <div class="report-info">
+            <h3>Allure Report</h3>
+            <p>Interactive test report with charts and history</p>
+          </div>
+        </a>
+        <a class="report-link" href="latest/missing-table/prod/backend-unit/index.html">
+          <span class="report-icon">📈</span>
+          <div class="report-info">
+            <h3>Coverage Report</h3>
+            <p>Detailed code coverage analysis</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="meta-section">
+      <p><strong>Generated:</strong> TIMESTAMP</p>
+      <p><strong>Commit:</strong> <a href="https://github.com/silverbeer/missing-table/commit/COMMITSHA">COMMITSHORT</a></p>
+      <p><strong>Workflow Run:</strong> <a href="https://github.com/silverbeer/missing-table/actions/runs/RUNID">#RUNID</a></p>
+    </div>
+  </div>
+</body>
+</html>
+HTMLEOF
+
+          # Replace placeholders
+          sed -i "s|TIMESTAMP|${TIMESTAMP}|g" /tmp/index.html
+          sed -i "s|RUNID|${RUN_ID}|g" /tmp/index.html
+          sed -i "s|COMMITSHA|${COMMIT_SHA}|g" /tmp/index.html
+          sed -i "s|COMMITSHORT|${COMMIT_SHORT}|g" /tmp/index.html
+          sed -i "s|TESTSTATUS|${TEST_STATUS}|g" /tmp/index.html
+          sed -i "s|STATUSCOLOR|${STATUS_COLOR}|g" /tmp/index.html
+          sed -i "s|STATUSICON|${STATUS_ICON}|g" /tmp/index.html
+          sed -i "s|STATUSBG|${STATUS_BG}|g" /tmp/index.html
+          sed -i "s|COVERAGE|${COVERAGE}|g" /tmp/index.html
+          sed -i "s|TESTSPASSED|${TESTS_PASSED}|g" /tmp/index.html
+          sed -i "s|TESTSFAILED|${TESTS_FAILED}|g" /tmp/index.html
+          sed -i "s|TESTSTOTAL|${TESTS_TOTAL}|g" /tmp/index.html
 
       - name: Upload to S3
         run: |
-          # Upload coverage report to latest/
+          # Upload Allure report
+          aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/latest/missing-table/prod/allure/ \
+            --delete \
+            --cache-control "max-age=300"
+
+          # Upload coverage report
           aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/latest/missing-table/prod/backend-unit/ \
             --delete \
             --cache-control "max-age=300"
 
-          # Upload wrapper as the root index
-          aws s3 cp backend/htmlcov/index_wrapper.html s3://${S3_BUCKET}/index.html \
-            --cache-control "max-age=300"
+          # Upload dashboard
+          aws s3 cp /tmp/index.html s3://${S3_BUCKET}/index.html \
+            --cache-control "max-age=300" \
+            --content-type "text/html"
 
-          # Also archive to runs/<date>/<run-id>/
+          # Archive to runs/<date>/<run-id>/
           RUN_DATE=$(date -u +"%Y-%m-%d")
+          aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/allure/ \
+            --cache-control "max-age=31536000"
           aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/backend-unit/ \
             --cache-control "max-age=31536000"
 
@@ -106,7 +341,11 @@ jobs:
         run: |
           echo "### 🎉 Quality Reports Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Site:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
+          echo "**Dashboard:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Reports:**" >> $GITHUB_STEP_SUMMARY
-          echo "- [Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [🎯 Allure Report](https://quality.missingtable.com/latest/missing-table/prod/allure/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [📈 Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage:** ${{ steps.coverage.outputs.percentage }}%" >> $GITHUB_STEP_SUMMARY
+          echo "**Tests:** ${{ steps.test-counts.outputs.passed }} passed / ${{ steps.test-counts.outputs.total }} total" >> $GITHUB_STEP_SUMMARY

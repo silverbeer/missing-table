@@ -96,6 +96,7 @@ dev = [
     "respx>=0.21.0",
     "pytest-json-report>=1.5.0",
     "faker>=37.12.0",
+    "allure-pytest>=2.13.0",
 ]
 
 # Ruff configuration - Ultra-fast Python linter and formatter
