@@ -26,15 +26,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Allure CLI
+      - name: Verify Allure CLI
         run: |
-          if ! command -v allure &> /dev/null; then
-            echo "Installing Allure CLI..."
-            curl -o allure-2.27.0.tgz -Ls https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-            sudo tar -zxvf allure-2.27.0.tgz -C /opt/
-            sudo ln -sf /opt/allure-2.27.0/bin/allure /usr/local/bin/allure
-            rm allure-2.27.0.tgz
-          fi
           allure --version
 
       - name: Setup Python with uv
