@@ -68,90 +68,15 @@ jobs:
           # Inject into Coverage report (coverage.py uses <body class="indexfile">)
           sed -i 's|<body class="indexfile">|<body class="indexfile">'"${BANNER}"'|' htmlcov/index.html
 
-      - name: Extract coverage percentage
-        id: coverage
+      - name: Generate dashboard landing page
         run: |
           cd backend
-          if [ -f coverage.json ]; then
-            COVERAGE=$(python3 -c "import json; print(f\"{json.load(open('coverage.json'))['totals']['percent_covered']:.1f}\")")
-          else
-            COVERAGE="N/A"
-          fi
-          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
-
-      - name: Extract test metrics from Allure
-        id: test-counts
-        run: |
-          cd backend
-          # Extract metrics from Allure's summary.json (the authoritative source)
-          SUMMARY="allure-report/widgets/summary.json"
-          if [ -f "$SUMMARY" ]; then
-            PASSED=$(python3 -c "import json; print(json.load(open('$SUMMARY'))['statistic']['passed'])")
-            FAILED=$(python3 -c "import json; print(json.load(open('$SUMMARY'))['statistic']['failed'])")
-            BROKEN=$(python3 -c "import json; print(json.load(open('$SUMMARY'))['statistic']['broken'])")
-            SKIPPED=$(python3 -c "import json; print(json.load(open('$SUMMARY'))['statistic']['skipped'])")
-            TOTAL=$(python3 -c "import json; print(json.load(open('$SUMMARY'))['statistic']['total'])")
-            DURATION_MS=$(python3 -c "import json; print(json.load(open('$SUMMARY'))['time']['duration'])")
-            DURATION_SEC=$(python3 -c "print(f'{${DURATION_MS}/1000:.1f}')")
-          else
-            PASSED=0; FAILED=0; BROKEN=0; SKIPPED=0; TOTAL=0; DURATION_SEC="N/A"
-          fi
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "broken=$BROKEN" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "duration=$DURATION_SEC" >> $GITHUB_OUTPUT
-
-      - name: Create dashboard landing page
-        run: |
-          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          RUN_ID=${{ github.run_id }}
-          COMMIT_SHA=${{ github.sha }}
-          COMMIT_SHORT=${COMMIT_SHA:0:7}
-          TEST_STATUS=${{ steps.unit-tests.outcome }}
-          COVERAGE=${{ steps.coverage.outputs.percentage }}
-          TESTS_PASSED=${{ steps.test-counts.outputs.passed }}
-          TESTS_FAILED=${{ steps.test-counts.outputs.failed }}
-          TESTS_SKIPPED=${{ steps.test-counts.outputs.skipped }}
-          TESTS_TOTAL=${{ steps.test-counts.outputs.total }}
-          DURATION=${{ steps.test-counts.outputs.duration }}
-
-          # Calculate percentages for the test bar
-          if [ "$TESTS_TOTAL" -gt 0 ]; then
-            PASSED_PCT=$(python3 -c "print(f'{${TESTS_PASSED}/${TESTS_TOTAL}*100:.0f}')")
-            FAILED_PCT=$(python3 -c "print(f'{${TESTS_FAILED}/${TESTS_TOTAL}*100:.0f}')")
-            SKIPPED_PCT=$(python3 -c "print(f'{${TESTS_SKIPPED}/${TESTS_TOTAL}*100:.0f}')")
-          else
-            PASSED_PCT=0; FAILED_PCT=0; SKIPPED_PCT=0
-          fi
-
-          if [ "$TEST_STATUS" = "success" ]; then
-            STATUS_COLOR="#22863a"
-            STATUS_ICON="✅"
-            STATUS_BG="#dcffe4"
-          else
-            STATUS_COLOR="#cb2431"
-            STATUS_ICON="❌"
-            STATUS_BG="#ffeef0"
-          fi
-
-          cp .github/templates/dashboard.html /tmp/index.html
-          sed -i "s|TIMESTAMP|${TIMESTAMP}|g" /tmp/index.html
-          sed -i "s|RUNID|${RUN_ID}|g" /tmp/index.html
-          sed -i "s|COMMITSHA|${COMMIT_SHA}|g" /tmp/index.html
-          sed -i "s|COMMITSHORT|${COMMIT_SHORT}|g" /tmp/index.html
-          sed -i "s|TESTSTATUS|${TEST_STATUS}|g" /tmp/index.html
-          sed -i "s|STATUSCOLOR|${STATUS_COLOR}|g" /tmp/index.html
-          sed -i "s|STATUSICON|${STATUS_ICON}|g" /tmp/index.html
-          sed -i "s|STATUSBG|${STATUS_BG}|g" /tmp/index.html
-          sed -i "s|TESTPASSEDPCT|${PASSED_PCT}|g" /tmp/index.html
-          sed -i "s|TESTFAILEDPCT|${FAILED_PCT}|g" /tmp/index.html
-          sed -i "s|TESTSKIPPEDPCT|${SKIPPED_PCT}|g" /tmp/index.html
-          sed -i "s|TESTSPASSED|${TESTS_PASSED}|g" /tmp/index.html
-          sed -i "s|TESTSTOTAL|${TESTS_TOTAL}|g" /tmp/index.html
-          sed -i "s|DURATION|${DURATION}|g" /tmp/index.html
-          sed -i "s|COVERAGE|${COVERAGE}|g" /tmp/index.html
+          uv run ../scripts/generate-quality-dashboard.py \
+            --output /tmp/index.html \
+            --commit-sha ${{ github.sha }} \
+            --run-id ${{ github.run_id }} \
+            --allure-dir allure-report \
+            --coverage-json coverage.json
 
       - name: Upload to S3
         run: |
@@ -181,6 +106,11 @@ jobs:
 
       - name: Summary
         run: |
+          cd backend
+          PASSED=$(python3 -c "import json; print(json.load(open('allure-report/widgets/summary.json'))['statistic']['passed'])")
+          TOTAL=$(python3 -c "import json; print(json.load(open('allure-report/widgets/summary.json'))['statistic']['total'])")
+          COVERAGE=$(python3 -c "import json; print(f\"{json.load(open('coverage.json'))['totals']['percent_covered']:.1f}\")" 2>/dev/null || echo "N/A")
+
           echo "### Quality Reports Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Dashboard:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
@@ -189,5 +119,5 @@ jobs:
           echo "- [Allure Report](https://quality.missingtable.com/latest/missing-table/prod/allure/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Coverage:** ${{ steps.coverage.outputs.percentage }}%" >> $GITHUB_STEP_SUMMARY
-          echo "**Tests:** ${{ steps.test-counts.outputs.passed }} passed / ${{ steps.test-counts.outputs.total }} total" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage:** ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+          echo "**Tests:** ${PASSED} passed / ${TOTAL} total" >> $GITHUB_STEP_SUMMARY
