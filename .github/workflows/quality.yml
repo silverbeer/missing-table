@@ -107,8 +107,17 @@ jobs:
             --delete \
             --cache-control "max-age=300"
 
+          # Upload Vitest HTML report (excluding .gz files first)
           aws s3 sync frontend/html-report/ s3://${S3_BUCKET}/latest/missing-table/prod/frontend-vitest/ \
             --delete \
+            --exclude "*.gz" \
+            --cache-control "max-age=300"
+
+          # Upload .gz files with proper Content-Encoding header
+          aws s3 cp frontend/html-report/html.meta.json.gz \
+            s3://${S3_BUCKET}/latest/missing-table/prod/frontend-vitest/html.meta.json.gz \
+            --content-encoding gzip \
+            --content-type "application/json" \
             --cache-control "max-age=300"
 
           aws s3 cp /tmp/index.html s3://${S3_BUCKET}/index.html \
@@ -124,6 +133,12 @@ jobs:
           aws s3 sync frontend/coverage/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/frontend-unit/ \
             --cache-control "max-age=31536000"
           aws s3 sync frontend/html-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/frontend-vitest/ \
+            --exclude "*.gz" \
+            --cache-control "max-age=31536000"
+          aws s3 cp frontend/html-report/html.meta.json.gz \
+            s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/frontend-vitest/html.meta.json.gz \
+            --content-encoding gzip \
+            --content-type "application/json" \
             --cache-control "max-age=31536000"
 
       - name: Invalidate CloudFront
