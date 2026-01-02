@@ -82,11 +82,12 @@ class TestMetrics(BaseModel):
 
     name: str
     label: str
+    tool: str = ""  # e.g., "pytest + Allure", "Vitest"
     statistic: TestStatistic = Field(default_factory=TestStatistic)
     duration_ms: int = 0
     coverage_percent: Optional[float] = None
     coverage_report_url: Optional[str] = None
-    allure_report_url: Optional[str] = None
+    test_report_url: Optional[str] = None
 
     @computed_field
     @property
@@ -245,11 +246,12 @@ def build_backend_metrics(
     return TestMetrics(
         name="backend",
         label="Backend Unit",
+        tool="pytest + Allure",
         statistic=statistic,
         duration_ms=duration_ms,
         coverage_percent=coverage_percent,
         coverage_report_url="latest/missing-table/prod/backend-unit/index.html",
-        allure_report_url="latest/missing-table/prod/allure/index.html",
+        test_report_url="latest/missing-table/prod/allure/index.html",
     )
 
 
@@ -271,10 +273,12 @@ def build_frontend_metrics(
     return TestMetrics(
         name="frontend",
         label="Frontend Unit",
+        tool="Vitest",
         statistic=statistic,
         duration_ms=duration_ms,
         coverage_percent=coverage_percent,
         coverage_report_url="latest/missing-table/prod/frontend-unit/index.html",
+        test_report_url="latest/missing-table/prod/frontend-vitest/index.html",
     )
 
 
@@ -307,12 +311,14 @@ def generate_test_suite_card(m: TestMetrics) -> str:
     """Generate HTML card for a single test suite."""
     icon, color, bg = generate_status_style(m.status)
     coverage_str = f"{m.coverage_percent:.1f}%" if m.coverage_percent is not None else "N/A"
+    tool_badge = f'<span class="tool-badge">{m.tool}</span>' if m.tool else ""
 
     return f'''
       <div class="suite-card">
         <div class="suite-header">
           <span class="suite-icon">{icon}</span>
           <h3>{m.label}</h3>
+          {tool_badge}
         </div>
         <div class="suite-stats">
           <div class="stat">
@@ -341,13 +347,21 @@ def generate_report_links(metrics_list: list[TestMetrics]) -> str:
     links = []
 
     for m in metrics_list:
-        if m.allure_report_url:
+        if m.test_report_url:
+            # Determine icon and description based on tool
+            if "Allure" in m.tool:
+                icon = "🎯"
+                desc = "Interactive test report with charts and history"
+            else:
+                icon = "🧪"
+                desc = "Interactive test results viewer"
+
             links.append(f'''
-        <a class="report-link" href="{m.allure_report_url}">
-          <span class="report-icon">🎯</span>
+        <a class="report-link" href="{m.test_report_url}">
+          <span class="report-icon">{icon}</span>
           <div class="report-info">
-            <h3>{m.label} Allure Report</h3>
-            <p>Interactive test report with charts and history</p>
+            <h3>{m.label} Tests ({m.tool})</h3>
+            <p>{desc}</p>
           </div>
         </a>''')
 
@@ -452,6 +466,7 @@ def generate_dashboard_html(
     }}
     .suite-icon {{ font-size: 1.25rem; }}
     .suite-header h3 {{ font-size: 1rem; font-weight: 600; color: #1f2937; }}
+    .tool-badge {{ font-size: 0.65rem; background: #e5e7eb; color: #4b5563; padding: 0.125rem 0.375rem; border-radius: 0.25rem; margin-left: auto; }}
     .suite-stats {{
       display: flex;
       justify-content: space-between;

@@ -77,6 +77,9 @@ jobs:
           # Inject into frontend coverage report (c8/v8 uses <body>)
           sed -i "s|<body>|<body>${BANNER}|" frontend/coverage/index.html
 
+          # Inject into frontend Vitest HTML report
+          sed -i "s|<body>|<body>${BANNER}|" frontend/html-report/index.html
+
       - name: Generate dashboard landing page
         run: |
           cd backend
@@ -104,6 +107,10 @@ jobs:
             --delete \
             --cache-control "max-age=300"
 
+          aws s3 sync frontend/html-report/ s3://${S3_BUCKET}/latest/missing-table/prod/frontend-vitest/ \
+            --delete \
+            --cache-control "max-age=300"
+
           aws s3 cp /tmp/index.html s3://${S3_BUCKET}/index.html \
             --cache-control "max-age=300" \
             --content-type "text/html"
@@ -115,6 +122,8 @@ jobs:
           aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/backend-unit/ \
             --cache-control "max-age=31536000"
           aws s3 sync frontend/coverage/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/frontend-unit/ \
+            --cache-control "max-age=31536000"
+          aws s3 sync frontend/html-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/frontend-vitest/ \
             --cache-control "max-age=31536000"
 
       - name: Invalidate CloudFront
@@ -140,9 +149,10 @@ jobs:
           echo "**Dashboard:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Reports:**" >> $GITHUB_STEP_SUMMARY
-          echo "- [Backend Allure Report](https://quality.missingtable.com/latest/missing-table/prod/allure/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Backend Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Frontend Coverage Report](https://quality.missingtable.com/latest/missing-table/prod/frontend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Backend Tests (pytest + Allure)](https://quality.missingtable.com/latest/missing-table/prod/allure/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Backend Coverage](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Frontend Tests (Vitest)](https://quality.missingtable.com/latest/missing-table/prod/frontend-vitest/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Frontend Coverage](https://quality.missingtable.com/latest/missing-table/prod/frontend-unit/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Suite | Tests | Coverage |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|-------|----------|" >> $GITHUB_STEP_SUMMARY

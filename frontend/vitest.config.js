@@ -27,9 +27,12 @@ export default defineConfig({
     // Where to look for test files
     include: ['src/**/*.{test,spec}.{js,ts}'],
 
-    // Reporters: default (terminal) + JSON for quality dashboard
-    reporters: ['default', 'json'],
-    outputFile: './test-results.json',
+    // Reporters: default (terminal) + JSON for dashboard + HTML for browsing
+    reporters: [
+      'default',
+      ['json', { outputFile: './test-results.json' }],
+      ['html', { outputFile: './html-report/index.html' }],
+    ],
 
     // Coverage configuration (optional, for 'npm run test:coverage')
     coverage: {
