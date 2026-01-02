@@ -22,14 +22,51 @@ They can be manually cleaned up by an admin.
 Run: pytest tests/tsc/test_99_cleanup.py -v
 """
 
+import os
+
 import pytest
 
-from tests.fixtures.tsc import TSCClient, TSCConfig
 from api_client.exceptions import NotFoundError
+from tests.fixtures.tsc import TSCClient, TSCConfig
 
 
 class TestCleanup:
     """Phase 99: Clean up all test entities by name prefix."""
+
+    # Class-level auth state
+    _admin_credentials: tuple[str, str] | None = None
+    _is_authenticated: bool = False
+
+    def _ensure_authenticated(
+        self,
+        tsc_client: TSCClient,
+        existing_admin_credentials: tuple[str, str] | None = None,
+    ) -> None:
+        """
+        Ensure the client is authenticated.
+
+        Re-authenticates if needed. This handles cases where auth state
+        is lost between tests due to fixture lifecycle issues.
+        """
+        # Store credentials on first call
+        if existing_admin_credentials:
+            TestCleanup._admin_credentials = existing_admin_credentials
+
+        # Check if we have a valid token
+        if tsc_client.client._access_token:
+            return
+
+        # Need to re-authenticate
+        if TestCleanup._admin_credentials:
+            username, password = TestCleanup._admin_credentials
+            print(f"\n🔐 Re-authenticating as {username}...")
+            tsc_client.login(username, password)
+        else:
+            # Try environment variables as fallback
+            username = os.getenv("TSC_EXISTING_ADMIN_USERNAME", "tom")
+            password = os.getenv("TSC_EXISTING_ADMIN_PASSWORD", "tom123!")
+            print(f"\n🔐 Authenticating as {username} (from env)...")
+            tsc_client.login(username, password)
 
     def test_01_login_admin(
         self,
@@ -40,6 +77,10 @@ class TestCleanup:
         username, password = existing_admin_credentials
         result = tsc_client.login(username, password)
 
+        # Store credentials for re-auth if needed
+        TestCleanup._admin_credentials = existing_admin_credentials
+        TestCleanup._is_authenticated = True
+
         assert "access_token" in result or "session" in result
         print(f"Logged in as admin: {username}")
 
@@ -47,14 +88,16 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all matches involving tsc_a_ teams."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         # First find teams with our prefix
         print(f"\nFinding teams with prefix '{prefix}'...")
         all_teams = tsc_client.get_teams()
-        tsc_teams = [t for t in all_teams if t.get("name", "").startswith(prefix)]
+        tsc_teams = [t for t in all_teams if (t.get("name") or "").startswith(prefix)]
         team_ids = [t["id"] for t in tsc_teams]
 
         if not team_ids:
@@ -94,13 +137,15 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all teams with tsc_a_ prefix."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\nFinding teams with prefix '{prefix}'...")
         all_teams = tsc_client.get_teams()
-        tsc_teams = [t for t in all_teams if t.get("name", "").startswith(prefix)]
+        tsc_teams = [t for t in all_teams if (t.get("name") or "").startswith(prefix)]
 
         print(f"Found {len(tsc_teams)} teams to delete")
 
@@ -124,13 +169,15 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all clubs with tsc_a_ prefix."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\nFinding clubs with prefix '{prefix}'...")
         all_clubs = tsc_client.get_clubs()
-        tsc_clubs = [c for c in all_clubs if c.get("name", "").startswith(prefix)]
+        tsc_clubs = [c for c in all_clubs if (c.get("name") or "").startswith(prefix)]
 
         print(f"Found {len(tsc_clubs)} clubs to delete")
 
@@ -154,13 +201,15 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all divisions with tsc_a_ prefix."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\nFinding divisions with prefix '{prefix}'...")
         all_divisions = tsc_client.get_divisions()
-        tsc_divisions = [d for d in all_divisions if d.get("name", "").startswith(prefix)]
+        tsc_divisions = [d for d in all_divisions if (d.get("name") or "").startswith(prefix)]
 
         print(f"Found {len(tsc_divisions)} divisions to delete")
 
@@ -184,13 +233,15 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all leagues with tsc_a_ prefix."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\nFinding leagues with prefix '{prefix}'...")
         all_leagues = tsc_client.get_leagues()
-        tsc_leagues = [lg for lg in all_leagues if lg.get("name", "").startswith(prefix)]
+        tsc_leagues = [lg for lg in all_leagues if (lg.get("name") or "").startswith(prefix)]
 
         print(f"Found {len(tsc_leagues)} leagues to delete")
 
@@ -214,13 +265,15 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all age groups with tsc_a_ prefix."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\nFinding age groups with prefix '{prefix}'...")
         all_age_groups = tsc_client.get_age_groups()
-        tsc_age_groups = [ag for ag in all_age_groups if ag.get("name", "").startswith(prefix)]
+        tsc_age_groups = [ag for ag in all_age_groups if (ag.get("name") or "").startswith(prefix)]
 
         print(f"Found {len(tsc_age_groups)} age groups to delete")
 
@@ -244,13 +297,15 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all seasons with tsc_a_ prefix."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\nFinding seasons with prefix '{prefix}'...")
         all_seasons = tsc_client.get_seasons()
-        tsc_seasons = [s for s in all_seasons if s.get("name", "").startswith(prefix)]
+        tsc_seasons = [s for s in all_seasons if (s.get("name") or "").startswith(prefix)]
 
         print(f"Found {len(tsc_seasons)} seasons to delete")
 
@@ -274,28 +329,31 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Find and delete all users with tsc_ prefix in username."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\nFinding users with prefix '{prefix}' in username...")
         all_users = tsc_client.get_users()
-        tsc_users = [u for u in all_users if u.get("username", "").startswith(prefix)]
+        tsc_users = [u for u in all_users if (u.get("username") or "").startswith(prefix)]
 
         print(f"Found {len(tsc_users)} users to delete")
 
         deleted = 0
         failed = 0
         for user in tsc_users:
+            username = user.get("username") or "unknown"
             try:
                 tsc_client.delete_user(user["id"])
                 deleted += 1
-                print(f"  Deleted user: {user.get('username', 'unknown')} (ID: {user['id']})")
+                print(f"  Deleted user: {username} (ID: {user['id']})")
             except NotFoundError:
-                print(f"  User {user.get('username')} not found (already deleted?)")
+                print(f"  User {username} not found (already deleted?)")
                 deleted += 1
             except Exception as e:
-                print(f"  Failed to delete user {user.get('username')}: {e}")
+                print(f"  Failed to delete user {username}: {e}")
                 failed += 1
 
         print(f"\nDeleted {deleted} users, {failed} failed")
@@ -304,8 +362,10 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        existing_admin_credentials: tuple[str, str],
     ):
         """Verify all entities with prefix were cleaned up."""
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
         prefix = tsc_config.prefix
 
         print(f"\n{'=' * 50}")
@@ -316,39 +376,39 @@ class TestCleanup:
         # Check each entity type
         issues = []
 
-        teams = [t for t in tsc_client.get_teams() if t.get("name", "").startswith(prefix)]
+        teams = [t for t in tsc_client.get_teams() if (t.get("name") or "").startswith(prefix)]
         if teams:
-            issues.append(f"Teams remaining: {[t['name'] for t in teams]}")
+            issues.append(f"Teams remaining: {[t.get('name') for t in teams]}")
         print(f"Teams with prefix: {len(teams)}")
 
-        clubs = [c for c in tsc_client.get_clubs() if c.get("name", "").startswith(prefix)]
+        clubs = [c for c in tsc_client.get_clubs() if (c.get("name") or "").startswith(prefix)]
         if clubs:
-            issues.append(f"Clubs remaining: {[c['name'] for c in clubs]}")
+            issues.append(f"Clubs remaining: {[c.get('name') for c in clubs]}")
         print(f"Clubs with prefix: {len(clubs)}")
 
-        divisions = [d for d in tsc_client.get_divisions() if d.get("name", "").startswith(prefix)]
+        divisions = [d for d in tsc_client.get_divisions() if (d.get("name") or "").startswith(prefix)]
         if divisions:
-            issues.append(f"Divisions remaining: {[d['name'] for d in divisions]}")
+            issues.append(f"Divisions remaining: {[d.get('name') for d in divisions]}")
         print(f"Divisions with prefix: {len(divisions)}")
 
-        leagues = [lg for lg in tsc_client.get_leagues() if lg.get("name", "").startswith(prefix)]
+        leagues = [lg for lg in tsc_client.get_leagues() if (lg.get("name") or "").startswith(prefix)]
         if leagues:
-            issues.append(f"Leagues remaining: {[lg['name'] for lg in leagues]}")
+            issues.append(f"Leagues remaining: {[lg.get('name') for lg in leagues]}")
         print(f"Leagues with prefix: {len(leagues)}")
 
-        age_groups = [ag for ag in tsc_client.get_age_groups() if ag.get("name", "").startswith(prefix)]
+        age_groups = [ag for ag in tsc_client.get_age_groups() if (ag.get("name") or "").startswith(prefix)]
         if age_groups:
-            issues.append(f"Age groups remaining: {[ag['name'] for ag in age_groups]}")
+            issues.append(f"Age groups remaining: {[ag.get('name') for ag in age_groups]}")
         print(f"Age groups with prefix: {len(age_groups)}")
 
-        seasons = [s for s in tsc_client.get_seasons() if s.get("name", "").startswith(prefix)]
+        seasons = [s for s in tsc_client.get_seasons() if (s.get("name") or "").startswith(prefix)]
         if seasons:
-            issues.append(f"Seasons remaining: {[s['name'] for s in seasons]}")
+            issues.append(f"Seasons remaining: {[s.get('name') for s in seasons]}")
         print(f"Seasons with prefix: {len(seasons)}")
 
-        users = [u for u in tsc_client.get_users() if u.get("username", "").startswith(prefix)]
+        users = [u for u in tsc_client.get_users() if (u.get("username") or "").startswith(prefix)]
         if users:
-            issues.append(f"Users remaining: {[u['username'] for u in users]}")
+            issues.append(f"Users remaining: {[u.get('username') for u in users]}")
         print(f"Users with prefix: {len(users)}")
 
         if issues:
