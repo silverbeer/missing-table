@@ -20,6 +20,7 @@ jobs:
   journey-tests:
     name: Run User Journey Tests
     runs-on: [self-hosted, quality-runner]
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
