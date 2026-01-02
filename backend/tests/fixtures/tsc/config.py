@@ -126,3 +126,7 @@ PYTEST_CONFIG = TSCConfig(prefix="tsc_a_")
 
 # Configuration for Bruno (tsc_b_ prefix)
 BRUNO_CONFIG = TSCConfig(prefix="tsc_b_")
+
+# Configuration for CI/Production tests (tsc_ci_ prefix)
+# Used by GitHub Actions workflow to run against production
+CI_CONFIG = TSCConfig(prefix="tsc_ci_")

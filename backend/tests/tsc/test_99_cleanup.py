@@ -270,6 +270,36 @@ class TestCleanup:
 
         print(f"\nDeleted {deleted} seasons, {failed} failed")
 
+    def test_08b_find_and_delete_users(
+        self,
+        tsc_client: TSCClient,
+        tsc_config: TSCConfig,
+    ):
+        """Find and delete all users with tsc_ prefix in username."""
+        prefix = tsc_config.prefix
+
+        print(f"\nFinding users with prefix '{prefix}' in username...")
+        all_users = tsc_client.get_users()
+        tsc_users = [u for u in all_users if u.get("username", "").startswith(prefix)]
+
+        print(f"Found {len(tsc_users)} users to delete")
+
+        deleted = 0
+        failed = 0
+        for user in tsc_users:
+            try:
+                tsc_client.delete_user(user["id"])
+                deleted += 1
+                print(f"  Deleted user: {user.get('username', 'unknown')} (ID: {user['id']})")
+            except NotFoundError:
+                print(f"  User {user.get('username')} not found (already deleted?)")
+                deleted += 1
+            except Exception as e:
+                print(f"  Failed to delete user {user.get('username')}: {e}")
+                failed += 1
+
+        print(f"\nDeleted {deleted} users, {failed} failed")
+
     def test_09_verify_cleanup(
         self,
         tsc_client: TSCClient,
@@ -316,6 +346,11 @@ class TestCleanup:
             issues.append(f"Seasons remaining: {[s['name'] for s in seasons]}")
         print(f"Seasons with prefix: {len(seasons)}")
 
+        users = [u for u in tsc_client.get_users() if u.get("username", "").startswith(prefix)]
+        if users:
+            issues.append(f"Users remaining: {[u['username'] for u in users]}")
+        print(f"Users with prefix: {len(users)}")
+
         if issues:
             print(f"\n⚠️  Some entities were not cleaned up:")
             for issue in issues:
@@ -323,8 +358,6 @@ class TestCleanup:
             pytest.fail(f"Cleanup incomplete: {len(issues)} entity types still have data")
 
         print(f"\n✅ All {prefix}* entities cleaned up successfully!")
-        print("\nNote: Users created via invites are NOT automatically deleted.")
-        print("To clean up users, use the admin panel or database directly.")
 
     def test_10_clear_registry_file(self):
         """Clear the persisted registry file for current environment."""

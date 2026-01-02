@@ -666,3 +666,13 @@ class TSCClient:
     def delete_league(self, league_id: int) -> dict[str, Any]:
         """Delete a league."""
         return self._client.delete_league(league_id)
+
+    # User management (admin only)
+
+    def get_users(self) -> list[dict[str, Any]]:
+        """Get all users (admin only)."""
+        return self._client.get_users()
+
+    def delete_user(self, user_id: str) -> dict[str, Any]:
+        """Delete a user (admin only)."""
+        return self._client.delete_user(user_id)
