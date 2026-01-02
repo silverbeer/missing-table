@@ -632,6 +632,8 @@ def main() -> None:
 
     # Journey test inputs
     parser.add_argument("--journey-allure-dir", help="Path to user journey Allure report directory")
+    parser.add_argument("--include-journey", action="store_true",
+                        help="Always show journey card (even without local allure data)")
 
     # Legacy single-suite arguments (for backwards compatibility)
     parser.add_argument("--allure-dir", help="(deprecated) Use --backend-allure-dir")
@@ -675,11 +677,14 @@ def main() -> None:
 
     journey_allure = Path(args.journey_allure_dir) if args.journey_allure_dir else None
 
-    if journey_allure:
+    if journey_allure or args.include_journey:
         journey = build_journey_metrics(allure_dir=journey_allure)
         metrics_list.append(journey)
-        print(f"Journey: {journey.statistic.passed}/{journey.statistic.total} tests, "
-              f"{journey.duration_sec}s duration")
+        if journey.statistic.total > 0:
+            print(f"Journey: {journey.statistic.passed}/{journey.statistic.total} tests, "
+                  f"{journey.duration_sec}s duration")
+        else:
+            print("Journey: card added (run journey tests to see stats)")
 
     if not metrics_list:
         print("Error: No test results provided", file=sys.stderr)

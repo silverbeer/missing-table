@@ -90,7 +90,8 @@ jobs:
             --backend-allure-dir allure-report \
             --backend-coverage-json coverage.json \
             --frontend-results-json ../frontend/test-results.json \
-            --frontend-coverage-json ../frontend/coverage/coverage-final.json
+            --frontend-coverage-json ../frontend/coverage/coverage-final.json \
+            --include-journey
 
       - name: Upload to S3
         run: |
@@ -168,6 +169,7 @@ jobs:
           echo "- [Backend Coverage](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Tests (Vitest)](https://quality.missingtable.com/latest/missing-table/prod/frontend-vitest/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Coverage](https://quality.missingtable.com/latest/missing-table/prod/frontend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [User Journey Tests](https://quality.missingtable.com/latest/missing-table/prod/journey/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Suite | Tests | Coverage |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|-------|----------|" >> $GITHUB_STEP_SUMMARY
