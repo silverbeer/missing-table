@@ -50,11 +50,13 @@ ingress:
   hosts:
     - missingtable.com
     - www.missingtable.com
+    - api.missingtable.com
   tls:
     - secretName: missing-table-tls  #pragma: allowlist secret
       hosts:
         - missingtable.com
         - www.missingtable.com
+        - api.missingtable.com
 
 # Image pull credentials - secret created by External Secrets Operator
 # Keep registry/username so imagePullSecrets reference is added to deployments
