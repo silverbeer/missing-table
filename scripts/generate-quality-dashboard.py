@@ -3,7 +3,7 @@
 Generate Quality Dashboard HTML from test results.
 
 This script reads backend (Allure) and frontend (Vitest JSON) test reports
-and generates a unified quality dashboard showing both test suites.
+and generates a unified quality dashboard showing all test suites.
 
 Usage:
     python scripts/generate-quality-dashboard.py \
@@ -13,7 +13,8 @@ Usage:
         --backend-allure-dir backend/allure-report \
         --backend-coverage-json backend/coverage.json \
         --frontend-results-json frontend/test-results.json \
-        --frontend-coverage-json frontend/coverage/coverage-final.json
+        --frontend-coverage-json frontend/coverage/coverage-final.json \
+        --journey-allure-dir backend/journey-allure-report
 """
 
 import argparse
@@ -279,6 +280,30 @@ def build_frontend_metrics(
         coverage_percent=coverage_percent,
         coverage_report_url="latest/missing-table/prod/frontend-unit/index.html",
         test_report_url="latest/missing-table/prod/frontend-vitest/index.html",
+    )
+
+
+def build_journey_metrics(
+    allure_dir: Optional[Path] = None,
+) -> TestMetrics:
+    """Build TestMetrics for user journey tests."""
+    if allure_dir:
+        allure = load_allure_summary(allure_dir)
+        statistic = allure.statistic
+        duration_ms = allure.time.duration
+    else:
+        statistic = TestStatistic()
+        duration_ms = 0
+
+    return TestMetrics(
+        name="journey",
+        label="User Journey",
+        tool="pytest + Allure",
+        statistic=statistic,
+        duration_ms=duration_ms,
+        coverage_percent=None,  # Journey tests don't measure coverage
+        coverage_report_url=None,
+        test_report_url="latest/missing-table/prod/journey/index.html",
     )
 
 
@@ -605,6 +630,9 @@ def main() -> None:
     parser.add_argument("--frontend-results-json", help="Path to frontend test-results.json")
     parser.add_argument("--frontend-coverage-json", help="Path to frontend coverage-final.json")
 
+    # Journey test inputs
+    parser.add_argument("--journey-allure-dir", help="Path to user journey Allure report directory")
+
     # Legacy single-suite arguments (for backwards compatibility)
     parser.add_argument("--allure-dir", help="(deprecated) Use --backend-allure-dir")
     parser.add_argument("--coverage-json", help="(deprecated) Use --backend-coverage-json")
@@ -644,6 +672,14 @@ def main() -> None:
         print(f"Frontend: {frontend.statistic.passed}/{frontend.statistic.total} tests, "
               f"{frontend.coverage_percent:.1f}% coverage" if frontend.coverage_percent else
               f"Frontend: {frontend.statistic.passed}/{frontend.statistic.total} tests")
+
+    journey_allure = Path(args.journey_allure_dir) if args.journey_allure_dir else None
+
+    if journey_allure:
+        journey = build_journey_metrics(allure_dir=journey_allure)
+        metrics_list.append(journey)
+        print(f"Journey: {journey.statistic.passed}/{journey.statistic.total} tests, "
+              f"{journey.duration_sec}s duration")
 
     if not metrics_list:
         print("Error: No test results provided", file=sys.stderr)

@@ -1728,6 +1728,36 @@ async def update_user_profile(
         raise HTTPException(status_code=500, detail=f"Failed to update user profile: {e!s}")
 
 
+@app.delete("/api/auth/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """
+    Delete a user (admin only).
+
+    Deletes from both user_profiles table and auth.users.
+    The user_profiles deletion cascades automatically due to FK constraint.
+    """
+    try:
+        # First verify the user exists
+        profile = supabase.table("user_profiles").select("*").eq("id", user_id).execute()
+        if not profile.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Delete from auth.users (this will cascade to user_profiles)
+        auth_service_client.auth.admin.delete_user(user_id)
+
+        logger.info(f"User {user_id} deleted by admin {current_user.get('user_id')}")
+        return {"message": "User deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete user error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {e!s}")
+
+
 # === CSRF Token Endpoint ===
 
 

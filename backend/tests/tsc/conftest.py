@@ -86,10 +86,13 @@ def tsc_config() -> TSCConfig:
     """
     TSC configuration fixture.
 
-    Returns configuration with tsc_a_ prefix for pytest.
-    BASE_URL can be set via environment variable.
+    Returns configuration with configurable prefix (default: tsc_a_).
+    Environment variables:
+    - TSC_PREFIX: Override the test data prefix (e.g., tsc_ci_ for CI)
+    - BASE_URL: Override the API base URL
     """
-    return TSCConfig(prefix="tsc_a_")
+    prefix = os.getenv("TSC_PREFIX", "tsc_a_")
+    return TSCConfig(prefix=prefix)
 
 
 @pytest.fixture(scope="module")

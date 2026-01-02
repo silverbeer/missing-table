@@ -498,6 +498,11 @@ class MissingTableClient:
         response = self._request("PUT", "/api/auth/users/role", json_data=role_update.model_dump(exclude_none=True))
         return response.json()
 
+    def delete_user(self, user_id: str) -> dict[str, Any]:
+        """Delete a user by ID (admin only)."""
+        response = self._request("DELETE", f"/api/auth/users/{user_id}")
+        return response.json()
+
     # Utility endpoints
 
     def health_check(self) -> dict[str, Any]:
