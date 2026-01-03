@@ -48,6 +48,8 @@ jobs:
           mkdir -p allure-results
           uv run pytest tests/tsc/ \
             -v \
+            -n 0 \
+            --no-cov \
             --alluredir=allure-results \
             --ignore=tests/tsc/test_99_cleanup.py \
             || echo "TESTS_FAILED=true" >> $GITHUB_ENV
@@ -62,7 +64,7 @@ jobs:
           TSC_EXISTING_ADMIN_PASSWORD: ${{ secrets.TSC_ADMIN_PASSWORD }}
         run: |
           cd backend
-          uv run pytest tests/tsc/test_99_cleanup.py -v --alluredir=allure-results
+          uv run pytest tests/tsc/test_99_cleanup.py -v -n 0 --no-cov --alluredir=allure-results
 
       - name: Generate Allure Report
         if: always()
