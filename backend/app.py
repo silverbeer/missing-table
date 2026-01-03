@@ -1741,7 +1741,7 @@ async def delete_user(
     """
     try:
         # First verify the user exists
-        profile = supabase.table("user_profiles").select("*").eq("id", user_id).execute()
+        profile = auth_service_client.table("user_profiles").select("*").eq("id", user_id).execute()
         if not profile.data:
             raise HTTPException(status_code=404, detail="User not found")
 
