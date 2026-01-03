@@ -572,7 +572,7 @@ def generate_history_section(
         <button class="banner-toggle" onclick="toggleDiffDetails()">Show Details</button>
       </div>'''
 
-    # Generate history table rows
+    # Generate history table rows with checkboxes for comparison
     rows = []
     for i, run in enumerate(history.runs):
         is_current = (run.run_id == config.run_id)
@@ -605,10 +605,19 @@ def generate_history_section(
         passed = run.summary.get("passed", 0)
 
         timestamp_display = format_timestamp(run.timestamp)
+        timestamp_iso = run.timestamp
         commit_short = run.commit_sha[:7] if run.commit_sha else "unknown"
 
+        # Extract date from timestamp for metadata URL
+        try:
+            dt = datetime.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
+            date_str = dt.strftime("%Y-%m-%d")
+        except (ValueError, AttributeError):
+            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
         rows.append(f'''
-        <tr class="{row_class}">
+        <tr class="{row_class}" data-run-id="{run.run_id}" data-run-date="{date_str}">
+          <td><input type="checkbox" class="run-checkbox" value="{run.run_id}" onchange="updateCompareButton()"></td>
           <td><a href="{config.repo_url}/actions/runs/{run.run_id}" target="_blank">#{run.run_id[-6:]}</a></td>
           <td>{timestamp_display}</td>
           <td><code><a href="{config.repo_url}/commit/{run.commit_sha}" target="_blank">{commit_short}</a></code></td>
@@ -624,11 +633,18 @@ def generate_history_section(
     return f'''
     <div class="history-section">
       <h2>Test Run History (Last {len(history.runs)} Runs)</h2>
+      <div class="compare-controls">
+        <button id="compare-btn" class="compare-button" disabled onclick="compareSelectedRuns()">
+          Select 2 runs to compare
+        </button>
+        <span id="compare-status" class="compare-status"></span>
+      </div>
       {banner_html}
       <div class="history-table-wrapper">
         <table class="history-table">
           <thead>
             <tr>
+              <th class="checkbox-col">Compare</th>
               <th>Run</th>
               <th>Date</th>
               <th>Commit</th>
@@ -644,6 +660,13 @@ def generate_history_section(
           </tbody>
         </table>
       </div>
+    </div>
+    <div id="custom-compare-results" class="diff-section" style="display: none;">
+      <div class="compare-header">
+        <h3>Comparison Results</h3>
+        <button class="close-compare" onclick="closeCompareResults()">✕ Close</button>
+      </div>
+      <div id="compare-content"></div>
     </div>'''
 
 
@@ -1011,6 +1034,68 @@ def generate_dashboard_html(
     .duration-table tr.slowdown {{ color: #dc2626; }}
     .duration-table tr.speedup {{ color: #16a34a; }}
     .change-pct {{ font-weight: 600; text-align: right; }}
+
+    /* Compare controls */
+    .compare-controls {{
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }}
+    .compare-button {{
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }}
+    .compare-button:hover:not(:disabled) {{ background: #1d4ed8; }}
+    .compare-button:disabled {{
+      background: #9ca3af;
+      cursor: not-allowed;
+    }}
+    .compare-status {{ color: #6b7280; font-size: 0.875rem; }}
+    .checkbox-col {{ width: 60px; text-align: center; }}
+    .run-checkbox {{ width: 1rem; height: 1rem; cursor: pointer; }}
+    .compare-header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }}
+    .close-compare {{
+      background: transparent;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      color: #6b7280;
+    }}
+    .close-compare:hover {{ background: #f3f4f6; }}
+    .compare-loading {{ text-align: center; padding: 2rem; color: #6b7280; }}
+    .compare-error {{ color: #dc2626; padding: 1rem; background: #fef2f2; border-radius: 0.375rem; }}
+    .compare-summary {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }}
+    .compare-stat {{
+      background: #f9fafb;
+      border-radius: 0.375rem;
+      padding: 0.75rem;
+      text-align: center;
+    }}
+    .compare-stat-value {{ font-size: 1.5rem; font-weight: 700; }}
+    .compare-stat-value.new-fail {{ color: #dc2626; }}
+    .compare-stat-value.fixed {{ color: #16a34a; }}
+    .compare-stat-value.unchanged {{ color: #6b7280; }}
+    .compare-stat-label {{ font-size: 0.75rem; color: #6b7280; text-transform: uppercase; }}
   </style>
   <script>
     function toggleDiffDetails() {{
@@ -1023,6 +1108,178 @@ def generate_dashboard_html(
         diff.style.display = 'none';
         btn.textContent = 'Show Details';
       }}
+    }}
+
+    function updateCompareButton() {{
+      const checkboxes = document.querySelectorAll('.run-checkbox:checked');
+      const btn = document.getElementById('compare-btn');
+      const status = document.getElementById('compare-status');
+
+      if (checkboxes.length === 0) {{
+        btn.disabled = true;
+        btn.textContent = 'Select 2 runs to compare';
+        status.textContent = '';
+      }} else if (checkboxes.length === 1) {{
+        btn.disabled = true;
+        btn.textContent = 'Select 1 more run';
+        status.textContent = '1 run selected';
+      }} else if (checkboxes.length === 2) {{
+        btn.disabled = false;
+        btn.textContent = 'Compare Selected Runs';
+        status.textContent = '2 runs selected';
+      }} else {{
+        btn.disabled = true;
+        btn.textContent = 'Select only 2 runs';
+        status.textContent = checkboxes.length + ' runs selected (max 2)';
+      }}
+    }}
+
+    async function fetchMetadata(runId, runDate) {{
+      const url = `/runs/missing-table/prod/${{runDate}}/${{runId}}/metadata.json`;
+      const response = await fetch(url);
+      if (!response.ok) {{
+        throw new Error(`Failed to fetch metadata for run ${{runId}}`);
+      }}
+      return response.json();
+    }}
+
+    function compareTests(olderMeta, newerMeta) {{
+      const olderTests = {{}};
+      const newerTests = {{}};
+
+      // Build maps of test name -> status
+      (olderMeta.tests || []).forEach(t => {{
+        olderTests[t.full_name] = t;
+      }});
+      (newerMeta.tests || []).forEach(t => {{
+        newerTests[t.full_name] = t;
+      }});
+
+      const newFailures = [];
+      const fixed = [];
+      const stillFailing = [];
+      const newTests = [];
+
+      // Check all tests in newer run
+      Object.entries(newerTests).forEach(([name, test]) => {{
+        const oldTest = olderTests[name];
+        const isNewFail = test.status === 'failed' || test.status === 'broken';
+        const wasOldFail = oldTest && (oldTest.status === 'failed' || oldTest.status === 'broken');
+
+        if (!oldTest) {{
+          newTests.push(test);
+        }} else if (isNewFail && !wasOldFail) {{
+          newFailures.push({{ ...test, previous_status: oldTest.status }});
+        }} else if (!isNewFail && wasOldFail) {{
+          fixed.push({{ ...test, previous_status: oldTest.status }});
+        }} else if (isNewFail && wasOldFail) {{
+          stillFailing.push(test);
+        }}
+      }});
+
+      return {{ newFailures, fixed, stillFailing, newTests }};
+    }}
+
+    function renderCompareResults(olderMeta, newerMeta, comparison) {{
+      const {{ newFailures, fixed, stillFailing, newTests }} = comparison;
+
+      let html = `
+        <div class="compare-summary">
+          <div class="compare-stat">
+            <div class="compare-stat-value new-fail">${{newFailures.length}}</div>
+            <div class="compare-stat-label">New Failures</div>
+          </div>
+          <div class="compare-stat">
+            <div class="compare-stat-value fixed">${{fixed.length}}</div>
+            <div class="compare-stat-label">Fixed</div>
+          </div>
+          <div class="compare-stat">
+            <div class="compare-stat-value unchanged">${{stillFailing.length}}</div>
+            <div class="compare-stat-label">Still Failing</div>
+          </div>
+          <div class="compare-stat">
+            <div class="compare-stat-value unchanged">${{newTests.length}}</div>
+            <div class="compare-stat-label">New Tests</div>
+          </div>
+        </div>
+        <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 1rem;">
+          Comparing run #${{olderMeta.run_id.slice(-6)}} → #${{newerMeta.run_id.slice(-6)}}
+        </p>
+      `;
+
+      if (newFailures.length > 0) {{
+        html += `<div class="diff-category new-failures"><h4>🔴 New Failures (${{newFailures.length}})</h4><ul>`;
+        newFailures.forEach(t => {{
+          html += `<li><span class="test-name">${{t.name}}</span><span class="suite-tag">${{t.suite}}</span></li>`;
+        }});
+        html += `</ul></div>`;
+      }}
+
+      if (fixed.length > 0) {{
+        html += `<div class="diff-category fixed"><h4>🟢 Fixed (${{fixed.length}})</h4><ul>`;
+        fixed.forEach(t => {{
+          html += `<li><span class="test-name">${{t.name}}</span><span class="suite-tag">${{t.suite}}</span></li>`;
+        }});
+        html += `</ul></div>`;
+      }}
+
+      if (stillFailing.length > 0) {{
+        html += `<div class="diff-category still-failing"><h4>🟡 Still Failing (${{stillFailing.length}})</h4><ul>`;
+        stillFailing.forEach(t => {{
+          html += `<li><span class="test-name">${{t.name}}</span><span class="suite-tag">${{t.suite}}</span></li>`;
+        }});
+        html += `</ul></div>`;
+      }}
+
+      if (newFailures.length === 0 && fixed.length === 0 && stillFailing.length === 0) {{
+        html += `<p style="text-align: center; color: #16a34a; padding: 2rem;">✓ No test status changes between these runs</p>`;
+      }}
+
+      return html;
+    }}
+
+    async function compareSelectedRuns() {{
+      const checkboxes = document.querySelectorAll('.run-checkbox:checked');
+      if (checkboxes.length !== 2) return;
+
+      const resultsDiv = document.getElementById('custom-compare-results');
+      const contentDiv = document.getElementById('compare-content');
+
+      // Get run info from table rows
+      const runs = Array.from(checkboxes).map(cb => {{
+        const row = cb.closest('tr');
+        return {{
+          id: row.dataset.runId,
+          date: row.dataset.runDate
+        }};
+      }});
+
+      // Sort by run ID to determine older vs newer
+      runs.sort((a, b) => a.id.localeCompare(b.id));
+      const [older, newer] = runs;
+
+      // Show loading state
+      resultsDiv.style.display = 'block';
+      contentDiv.innerHTML = '<div class="compare-loading">Loading run metadata...</div>';
+
+      try {{
+        const [olderMeta, newerMeta] = await Promise.all([
+          fetchMetadata(older.id, older.date),
+          fetchMetadata(newer.id, newer.date)
+        ]);
+
+        const comparison = compareTests(olderMeta, newerMeta);
+        contentDiv.innerHTML = renderCompareResults(olderMeta, newerMeta, comparison);
+
+        // Scroll to results
+        resultsDiv.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+      }} catch (error) {{
+        contentDiv.innerHTML = `<div class="compare-error">Error: ${{error.message}}</div>`;
+      }}
+    }}
+
+    function closeCompareResults() {{
+      document.getElementById('custom-compare-results').style.display = 'none';
     }}
   </script>
 </head>
