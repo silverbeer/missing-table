@@ -47,6 +47,7 @@ class RunSummary(BaseModel):
     commit_sha: str
     timestamp: str
     status: str  # "passed", "failed", "unknown"
+    workflow: str = "unit"  # "unit" or "journey"
     summary: dict  # {total, passed, failed, skipped}
     suites: dict[str, SuiteSummary] = Field(default_factory=dict)
     report_url: str = ""
@@ -135,6 +136,7 @@ def create_run_summary(metadata: dict) -> RunSummary:
         commit_sha=metadata.get("commit_sha", "unknown"),
         timestamp=timestamp,
         status=status,
+        workflow=metadata.get("workflow", "unit"),
         summary={
             "total": total,
             "passed": passed,

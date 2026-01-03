@@ -86,6 +86,7 @@ jobs:
             --run-id ${{ github.run_id }} \
             --commit-sha ${{ github.sha }} \
             --trigger ${{ github.event_name }} \
+            --workflow journey \
             --journey-allure-dir allure-report \
             --output /tmp/journey-metadata.json
 

@@ -70,6 +70,7 @@ class RunMetadata(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
     trigger: str = "workflow_dispatch"
+    workflow: str = "unit"  # "unit" or "journey"
     suites: dict[str, SuiteStats] = Field(default_factory=dict)
     tests: list[TestResult] = Field(default_factory=list)
 
@@ -277,6 +278,9 @@ def main() -> None:
     parser.add_argument("--commit-sha", required=True, help="Git commit SHA")
     parser.add_argument("--trigger", default="workflow_dispatch",
                         help="Workflow trigger type (push, workflow_dispatch, schedule)")
+    parser.add_argument("--workflow", default="unit",
+                        choices=["unit", "journey"],
+                        help="Workflow type: unit (quality.yml) or journey (quality-journey.yml)")
     parser.add_argument("--output", "-o", required=True, help="Output JSON file path")
 
     # Backend inputs
@@ -297,6 +301,7 @@ def main() -> None:
         run_id=args.run_id,
         commit_sha=args.commit_sha,
         trigger=args.trigger,
+        workflow=args.workflow,
     )
 
     # Process backend tests

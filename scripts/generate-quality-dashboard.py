@@ -176,6 +176,7 @@ class HistoryRun(BaseModel):
     commit_sha: str
     timestamp: str
     status: str  # "passed", "failed", "unknown"
+    workflow: str = "unit"  # "unit" or "journey"
     summary: dict  # {total, passed, failed, skipped}
     suites: dict[str, HistorySuiteSummary] = Field(default_factory=dict)
     report_url: str = ""
@@ -538,14 +539,50 @@ def generate_history_section(
     history: Optional[HistoryIndex],
     comparison: Optional[ComparisonResult],
     config: DashboardConfig,
+    workflow_filter: Optional[str] = None,
+    section_id: str = "history",
 ) -> str:
-    """Generate HTML for history section."""
+    """Generate HTML for history section.
+
+    Args:
+        history: History index with runs
+        comparison: Comparison result (only shown for main/unit section)
+        config: Dashboard configuration
+        workflow_filter: Filter to specific workflow ("unit" or "journey"), None for all
+        section_id: HTML ID prefix for this section (for multiple tables)
+    """
     if not history or not history.runs:
         return ""
 
-    # Generate comparison banner if we have comparison data
+    # Filter runs by workflow if specified
+    if workflow_filter:
+        filtered_runs = [r for r in history.runs if r.workflow == workflow_filter]
+    else:
+        filtered_runs = history.runs
+
+    if not filtered_runs:
+        return ""
+
+    # Determine section title and columns based on workflow
+    if workflow_filter == "unit":
+        section_title = "Unit Test History"
+        show_backend = True
+        show_frontend = True
+        show_journey = False
+    elif workflow_filter == "journey":
+        section_title = "Journey Test History"
+        show_backend = False
+        show_frontend = False
+        show_journey = True
+    else:
+        section_title = "Test Run History"
+        show_backend = True
+        show_frontend = True
+        show_journey = True
+
+    # Generate comparison banner if we have comparison data (only for main section)
     banner_html = ""
-    if comparison and comparison.status_change != "first_run":
+    if comparison and comparison.status_change != "first_run" and section_id == "history":
         if comparison.status_change == "regression":
             banner_class = "regression"
             banner_icon = "⚠️"
@@ -574,7 +611,7 @@ def generate_history_section(
 
     # Generate history table rows with checkboxes for comparison
     rows = []
-    for i, run in enumerate(history.runs):
+    for i, run in enumerate(filtered_runs):
         is_current = (run.run_id == config.run_id)
         row_class = "current-run" if is_current else ""
 
@@ -597,10 +634,6 @@ def generate_history_section(
             css_class = "passed" if suite.failed == 0 else "failed"
             return f'<td class="suite-cell {css_class}">{suite.passed}/{suite.total}</td>'
 
-        backend_cell = suite_cell(backend)
-        frontend_cell = suite_cell(frontend)
-        journey_cell = suite_cell(journey)
-
         total = run.summary.get("total", 0)
         passed = run.summary.get("passed", 0)
 
@@ -608,36 +641,65 @@ def generate_history_section(
         timestamp_iso = run.timestamp
         commit_short = run.commit_sha[:7] if run.commit_sha else "unknown"
 
-        # Extract date from timestamp for metadata URL
+        # Extract date from timestamp for report URLs
         try:
             dt = datetime.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
             date_str = dt.strftime("%Y-%m-%d")
         except (ValueError, AttributeError):
             date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+        # Build report links based on workflow
+        report_base = f"/runs/missing-table/prod/{date_str}/{run.run_id}"
+        if run.workflow == "journey":
+            report_links = f'<a href="{report_base}/journey/" title="Journey Allure Report">🎯</a>'
+        else:
+            report_links = (
+                f'<a href="{report_base}/allure/" title="Backend Allure Report">🎯</a> '
+                f'<a href="{report_base}/backend-unit/" title="Backend Coverage">📊</a> '
+                f'<a href="{report_base}/frontend-vitest/" title="Frontend Vitest Report">🧪</a> '
+                f'<a href="{report_base}/frontend-unit/" title="Frontend Coverage">📈</a>'
+            )
+
+        # Build suite columns
+        suite_cells = ""
+        if show_backend:
+            suite_cells += suite_cell(backend)
+        if show_frontend:
+            suite_cells += suite_cell(frontend)
+        if show_journey:
+            suite_cells += suite_cell(journey)
+
         rows.append(f'''
-        <tr class="{row_class}" data-run-id="{run.run_id}" data-run-date="{date_str}">
-          <td><input type="checkbox" class="run-checkbox" value="{run.run_id}" onchange="updateCompareButton()"></td>
+        <tr class="{row_class}" data-run-id="{run.run_id}" data-run-date="{date_str}" data-workflow="{run.workflow}">
+          <td><input type="checkbox" class="run-checkbox {section_id}-checkbox" value="{run.run_id}" onchange="updateCompareButton('{section_id}')"></td>
           <td><a href="{config.repo_url}/actions/runs/{run.run_id}" target="_blank">#{run.run_id[-6:]}</a></td>
           <td>{timestamp_display}</td>
           <td><code><a href="{config.repo_url}/commit/{run.commit_sha}" target="_blank">{commit_short}</a></code></td>
-          {backend_cell}
-          {frontend_cell}
-          {journey_cell}
+          {suite_cells}
           <td>{passed}/{total}</td>
+          <td class="report-links">{report_links}</td>
           <td>{status_icon}</td>
         </tr>''')
 
     rows_html = "\n".join(rows)
 
+    # Build header columns
+    header_cols = ""
+    if show_backend:
+        header_cols += "<th>Backend</th>"
+    if show_frontend:
+        header_cols += "<th>Frontend</th>"
+    if show_journey:
+        header_cols += "<th>Journey</th>"
+
     return f'''
-    <div class="history-section">
-      <h2>Test Run History (Last {len(history.runs)} Runs)</h2>
+    <div class="history-section" id="{section_id}-section">
+      <h2>{section_title} (Last {len(filtered_runs)} Runs)</h2>
       <div class="compare-controls">
-        <button id="compare-btn" class="compare-button" disabled onclick="compareSelectedRuns()">
+        <button id="{section_id}-compare-btn" class="compare-button" disabled onclick="compareSelectedRuns('{section_id}')">
           Select 2 runs to compare
         </button>
-        <span id="compare-status" class="compare-status"></span>
+        <span id="{section_id}-compare-status" class="compare-status"></span>
       </div>
       {banner_html}
       <div class="history-table-wrapper">
@@ -648,10 +710,9 @@ def generate_history_section(
               <th>Run</th>
               <th>Date</th>
               <th>Commit</th>
-              <th>Backend</th>
-              <th>Frontend</th>
-              <th>Journey</th>
+              {header_cols}
               <th>Total</th>
+              <th>Reports</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -661,12 +722,12 @@ def generate_history_section(
         </table>
       </div>
     </div>
-    <div id="custom-compare-results" class="diff-section" style="display: none;">
+    <div id="{section_id}-compare-results" class="diff-section" style="display: none;">
       <div class="compare-header">
         <h3>Comparison Results</h3>
-        <button class="close-compare" onclick="closeCompareResults()">✕ Close</button>
+        <button class="close-compare" onclick="closeCompareResults('{section_id}')">✕ Close</button>
       </div>
-      <div id="compare-content"></div>
+      <div id="{section_id}-compare-content"></div>
     </div>'''
 
 
@@ -801,7 +862,18 @@ def generate_dashboard_html(
 
     suite_cards = "\n".join(generate_test_suite_card(m) for m in metrics_list)
     report_links = generate_report_links(metrics_list)
-    history_section = generate_history_section(history, comparison, config)
+
+    # Generate separate history sections for each workflow
+    unit_history = generate_history_section(
+        history, comparison, config,
+        workflow_filter="unit", section_id="unit-history"
+    )
+    journey_history = generate_history_section(
+        history, None, config,  # No comparison banner for journey
+        workflow_filter="journey", section_id="journey-history"
+    )
+    history_section = unit_history + journey_history
+
     diff_section = generate_diff_section(comparison)
 
     return f'''<!DOCTYPE html>
@@ -1060,6 +1132,15 @@ def generate_dashboard_html(
     }}
     .compare-status {{ color: #6b7280; font-size: 0.875rem; }}
     .checkbox-col {{ width: 60px; text-align: center; }}
+    .report-links {{ white-space: nowrap; }}
+    .report-links a {{
+      display: inline-block;
+      text-decoration: none;
+      padding: 0.125rem;
+      border-radius: 0.25rem;
+      transition: background 0.15s;
+    }}
+    .report-links a:hover {{ background: #e5e7eb; }}
     .run-checkbox {{ width: 1rem; height: 1rem; cursor: pointer; }}
     .compare-header {{
       display: flex;
@@ -1110,10 +1191,12 @@ def generate_dashboard_html(
       }}
     }}
 
-    function updateCompareButton() {{
-      const checkboxes = document.querySelectorAll('.run-checkbox:checked');
-      const btn = document.getElementById('compare-btn');
-      const status = document.getElementById('compare-status');
+    function updateCompareButton(sectionId) {{
+      const checkboxes = document.querySelectorAll('.' + sectionId + '-checkbox:checked');
+      const btn = document.getElementById(sectionId + '-compare-btn');
+      const status = document.getElementById(sectionId + '-compare-status');
+
+      if (!btn || !status) return;
 
       if (checkboxes.length === 0) {{
         btn.disabled = true;
@@ -1238,12 +1321,14 @@ def generate_dashboard_html(
       return html;
     }}
 
-    async function compareSelectedRuns() {{
-      const checkboxes = document.querySelectorAll('.run-checkbox:checked');
+    async function compareSelectedRuns(sectionId) {{
+      const checkboxes = document.querySelectorAll('.' + sectionId + '-checkbox:checked');
       if (checkboxes.length !== 2) return;
 
-      const resultsDiv = document.getElementById('custom-compare-results');
-      const contentDiv = document.getElementById('compare-content');
+      const resultsDiv = document.getElementById(sectionId + '-compare-results');
+      const contentDiv = document.getElementById(sectionId + '-compare-content');
+
+      if (!resultsDiv || !contentDiv) return;
 
       // Get run info from table rows
       const runs = Array.from(checkboxes).map(cb => {{
@@ -1278,8 +1363,9 @@ def generate_dashboard_html(
       }}
     }}
 
-    function closeCompareResults() {{
-      document.getElementById('custom-compare-results').style.display = 'none';
+    function closeCompareResults(sectionId) {{
+      const resultsDiv = document.getElementById(sectionId + '-compare-results');
+      if (resultsDiv) resultsDiv.style.display = 'none';
     }}
   </script>
 </head>
