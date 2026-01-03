@@ -5,6 +5,13 @@ Generate Quality Dashboard HTML from test results.
 This script reads backend (Allure) and frontend (Vitest JSON) test reports
 and generates a unified quality dashboard showing all test suites.
 
+Features:
+- Test suite summary cards with pass/fail/coverage stats
+- Test run history (last 10 runs)
+- Regression detection (new failures, fixed tests)
+- Flaky test identification
+- Duration change tracking
+
 Usage:
     python scripts/generate-quality-dashboard.py \
         --output /tmp/index.html \
@@ -14,7 +21,9 @@ Usage:
         --backend-coverage-json backend/coverage.json \
         --frontend-results-json frontend/test-results.json \
         --frontend-coverage-json frontend/coverage/coverage-final.json \
-        --journey-allure-dir backend/journey-allure-report
+        --journey-allure-dir backend/journey-allure-report \
+        --history-json /tmp/history.json \
+        --comparison-json /tmp/comparison.json
 """
 
 import argparse
@@ -147,6 +156,89 @@ class DashboardConfig(BaseModel):
     @property
     def commit_short(self) -> str:
         return self.commit_sha[:7]
+
+
+# History and Comparison Models
+class HistorySuiteSummary(BaseModel):
+    """Suite summary from history."""
+
+    total: int = 0
+    passed: int = 0
+    failed: int = 0
+    skipped: int = 0
+    coverage_pct: Optional[float] = None
+
+
+class HistoryRun(BaseModel):
+    """A run from history index."""
+
+    run_id: str
+    commit_sha: str
+    timestamp: str
+    status: str  # "passed", "failed", "unknown"
+    summary: dict  # {total, passed, failed, skipped}
+    suites: dict[str, HistorySuiteSummary] = Field(default_factory=dict)
+    report_url: str = ""
+
+
+class HistoryIndex(BaseModel):
+    """History index containing recent runs."""
+
+    updated_at: str = ""
+    runs: list[HistoryRun] = Field(default_factory=list)
+
+
+class TestChange(BaseModel):
+    """A test that changed status."""
+
+    suite: str
+    name: str
+    full_name: str = ""
+    previous_status: str = ""
+    current_status: str = ""
+    duration_ms: int = 0
+
+
+class FlakyTest(BaseModel):
+    """A flaky test."""
+
+    suite: str
+    name: str
+    full_name: str = ""
+    flip_count: int = 0
+    recent_statuses: list[str] = Field(default_factory=list)
+
+
+class DurationChange(BaseModel):
+    """A test with duration change."""
+
+    suite: str = ""
+    name: str
+    previous_ms: int = 0
+    current_ms: int = 0
+    change_pct: float = 0.0
+
+
+class ComparisonResult(BaseModel):
+    """Comparison between runs."""
+
+    current_run_id: str = ""
+    previous_run_id: Optional[str] = None
+    status_change: str = "first_run"  # regression, improvement, stable, mixed, first_run
+    summary: dict = Field(default_factory=lambda: {
+        "new_failures": 0,
+        "fixed": 0,
+        "still_failing": 0,
+        "flaky": 0,
+    })
+    new_failures: list[TestChange] = Field(default_factory=list)
+    fixed: list[TestChange] = Field(default_factory=list)
+    still_failing: list[TestChange] = Field(default_factory=list)
+    flaky_tests: list[FlakyTest] = Field(default_factory=list)
+    duration_changes: dict = Field(default_factory=lambda: {
+        "significant_slowdowns": [],
+        "significant_speedups": [],
+    })
 
 
 # =============================================================================
@@ -307,6 +399,36 @@ def build_journey_metrics(
     )
 
 
+def load_history(history_json: Path) -> Optional[HistoryIndex]:
+    """Load history index from JSON file."""
+    if not history_json.exists():
+        print(f"Warning: {history_json} not found", file=sys.stderr)
+        return None
+
+    try:
+        with open(history_json) as f:
+            data = json.load(f)
+        return HistoryIndex.model_validate(data)
+    except Exception as e:
+        print(f"Warning: Could not parse history: {e}", file=sys.stderr)
+        return None
+
+
+def load_comparison(comparison_json: Path) -> Optional[ComparisonResult]:
+    """Load comparison result from JSON file."""
+    if not comparison_json.exists():
+        print(f"Warning: {comparison_json} not found", file=sys.stderr)
+        return None
+
+    try:
+        with open(comparison_json) as f:
+            data = json.load(f)
+        return ComparisonResult.model_validate(data)
+    except Exception as e:
+        print(f"Warning: Could not parse comparison: {e}", file=sys.stderr)
+        return None
+
+
 # =============================================================================
 # HTML Generation
 # =============================================================================
@@ -403,9 +525,248 @@ def generate_report_links(metrics_list: list[TestMetrics]) -> str:
     return "\n".join(links)
 
 
+def format_timestamp(iso_timestamp: str) -> str:
+    """Format ISO timestamp for display."""
+    try:
+        dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+        return dt.strftime("%b %d, %H:%M")
+    except (ValueError, AttributeError):
+        return "Unknown"
+
+
+def generate_history_section(
+    history: Optional[HistoryIndex],
+    comparison: Optional[ComparisonResult],
+    config: DashboardConfig,
+) -> str:
+    """Generate HTML for history section."""
+    if not history or not history.runs:
+        return ""
+
+    # Generate comparison banner if we have comparison data
+    banner_html = ""
+    if comparison and comparison.status_change != "first_run":
+        if comparison.status_change == "regression":
+            banner_class = "regression"
+            banner_icon = "⚠️"
+            banner_text = f"{comparison.summary.get('new_failures', 0)} new test failure(s) since last run"
+        elif comparison.status_change == "improvement":
+            banner_class = "improvement"
+            banner_icon = "✅"
+            banner_text = f"{comparison.summary.get('fixed', 0)} test(s) fixed since last run"
+        elif comparison.status_change == "mixed":
+            banner_class = "mixed"
+            banner_icon = "🔄"
+            new_fails = comparison.summary.get('new_failures', 0)
+            fixed = comparison.summary.get('fixed', 0)
+            banner_text = f"{new_fails} new failure(s), {fixed} fixed since last run"
+        else:
+            banner_class = "stable"
+            banner_icon = "✓"
+            banner_text = "No changes since last run"
+
+        banner_html = f'''
+      <div class="comparison-banner {banner_class}">
+        <span class="banner-icon">{banner_icon}</span>
+        <span class="banner-text">{banner_text}</span>
+        <button class="banner-toggle" onclick="toggleDiffDetails()">Show Details</button>
+      </div>'''
+
+    # Generate history table rows
+    rows = []
+    for i, run in enumerate(history.runs):
+        is_current = (run.run_id == config.run_id)
+        row_class = "current-run" if is_current else ""
+
+        # Status icon
+        if run.status == "passed":
+            status_icon = "🟢"
+        elif run.status == "failed":
+            status_icon = "🔴"
+        else:
+            status_icon = "⚪"
+
+        # Format suite columns
+        backend = run.suites.get("backend")
+        frontend = run.suites.get("frontend")
+        journey = run.suites.get("journey")
+
+        def suite_cell(suite: Optional[HistorySuiteSummary]) -> str:
+            if not suite or suite.total == 0:
+                return '<td class="suite-cell na">-</td>'
+            css_class = "passed" if suite.failed == 0 else "failed"
+            return f'<td class="suite-cell {css_class}">{suite.passed}/{suite.total}</td>'
+
+        backend_cell = suite_cell(backend)
+        frontend_cell = suite_cell(frontend)
+        journey_cell = suite_cell(journey)
+
+        total = run.summary.get("total", 0)
+        passed = run.summary.get("passed", 0)
+
+        timestamp_display = format_timestamp(run.timestamp)
+        commit_short = run.commit_sha[:7] if run.commit_sha else "unknown"
+
+        rows.append(f'''
+        <tr class="{row_class}">
+          <td><a href="{config.repo_url}/actions/runs/{run.run_id}" target="_blank">#{run.run_id[-6:]}</a></td>
+          <td>{timestamp_display}</td>
+          <td><code><a href="{config.repo_url}/commit/{run.commit_sha}" target="_blank">{commit_short}</a></code></td>
+          {backend_cell}
+          {frontend_cell}
+          {journey_cell}
+          <td>{passed}/{total}</td>
+          <td>{status_icon}</td>
+        </tr>''')
+
+    rows_html = "\n".join(rows)
+
+    return f'''
+    <div class="history-section">
+      <h2>Test Run History (Last {len(history.runs)} Runs)</h2>
+      {banner_html}
+      <div class="history-table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th>Date</th>
+              <th>Commit</th>
+              <th>Backend</th>
+              <th>Frontend</th>
+              <th>Journey</th>
+              <th>Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows_html}
+          </tbody>
+        </table>
+      </div>
+    </div>'''
+
+
+def generate_diff_section(comparison: Optional[ComparisonResult]) -> str:
+    """Generate HTML for diff/comparison details section."""
+    if not comparison or comparison.status_change == "first_run":
+        return ""
+
+    sections = []
+
+    # New failures
+    if comparison.new_failures:
+        items = "\n".join(f'''
+          <li>
+            <span class="test-name">{t.name}</span>
+            <span class="suite-tag">{t.suite}</span>
+            <span class="duration">{t.duration_ms / 1000:.1f}s</span>
+          </li>''' for t in comparison.new_failures)
+
+        sections.append(f'''
+      <div class="diff-category new-failures">
+        <h4>🔴 New Failures ({len(comparison.new_failures)})</h4>
+        <ul>{items}</ul>
+      </div>''')
+
+    # Fixed tests
+    if comparison.fixed:
+        items = "\n".join(f'''
+          <li>
+            <span class="test-name">{t.name}</span>
+            <span class="suite-tag">{t.suite}</span>
+          </li>''' for t in comparison.fixed)
+
+        sections.append(f'''
+      <div class="diff-category fixed">
+        <h4>🟢 Fixed ({len(comparison.fixed)})</h4>
+        <ul>{items}</ul>
+      </div>''')
+
+    # Still failing
+    if comparison.still_failing:
+        items = "\n".join(f'''
+          <li>
+            <span class="test-name">{t.name}</span>
+            <span class="suite-tag">{t.suite}</span>
+          </li>''' for t in comparison.still_failing)
+
+        sections.append(f'''
+      <div class="diff-category still-failing">
+        <h4>🟡 Still Failing ({len(comparison.still_failing)})</h4>
+        <ul>{items}</ul>
+      </div>''')
+
+    # Flaky tests
+    if comparison.flaky_tests:
+        items = "\n".join(f'''
+          <li>
+            <span class="test-name">{t.name}</span>
+            <span class="suite-tag">{t.suite}</span>
+            <span class="flaky-indicator">⟳ {t.flip_count} flips</span>
+          </li>''' for t in comparison.flaky_tests)
+
+        sections.append(f'''
+      <div class="diff-category flaky">
+        <h4>⚠️ Flaky Tests ({len(comparison.flaky_tests)})</h4>
+        <ul>{items}</ul>
+      </div>''')
+
+    # Duration changes
+    slowdowns = comparison.duration_changes.get("significant_slowdowns", [])
+    speedups = comparison.duration_changes.get("significant_speedups", [])
+
+    if slowdowns or speedups:
+        duration_items = []
+
+        for s in slowdowns:
+            name = s.get("name", "unknown")
+            prev = s.get("previous_ms", 0) / 1000
+            curr = s.get("current_ms", 0) / 1000
+            pct = s.get("change_pct", 0)
+            duration_items.append(f'''
+            <tr class="slowdown">
+              <td>{name}</td>
+              <td>{prev:.1f}s → {curr:.1f}s</td>
+              <td class="change-pct">+{pct:.0f}%</td>
+            </tr>''')
+
+        for s in speedups:
+            name = s.get("name", "unknown")
+            prev = s.get("previous_ms", 0) / 1000
+            curr = s.get("current_ms", 0) / 1000
+            pct = s.get("change_pct", 0)
+            duration_items.append(f'''
+            <tr class="speedup">
+              <td>{name}</td>
+              <td>{prev:.1f}s → {curr:.1f}s</td>
+              <td class="change-pct">{pct:.0f}%</td>
+            </tr>''')
+
+        if duration_items:
+            sections.append(f'''
+      <div class="diff-category duration">
+        <h4>⏱️ Significant Duration Changes</h4>
+        <table class="duration-table">
+          {"".join(duration_items)}
+        </table>
+      </div>''')
+
+    if not sections:
+        return ""
+
+    return f'''
+    <div class="diff-section" id="diff-details" style="display: none;">
+      <h3>Changes from Previous Run</h3>
+      {"".join(sections)}
+    </div>'''
+
+
 def generate_dashboard_html(
     metrics_list: list[TestMetrics],
     config: DashboardConfig,
+    history: Optional[HistoryIndex] = None,
+    comparison: Optional[ComparisonResult] = None,
 ) -> str:
     """Generate the complete dashboard HTML."""
     status = overall_status(metrics_list)
@@ -417,6 +778,8 @@ def generate_dashboard_html(
 
     suite_cards = "\n".join(generate_test_suite_card(m) for m in metrics_list)
     report_links = generate_report_links(metrics_list)
+    history_section = generate_history_section(history, comparison, config)
+    diff_section = generate_diff_section(comparison)
 
     return f'''<!DOCTYPE html>
 <html lang="en">
@@ -555,7 +918,113 @@ def generate_dashboard_html(
     .meta-section p {{ font-size: 0.875rem; color: #4b5563; }}
     .meta-section a {{ color: #2563eb; text-decoration: none; }}
     .meta-section a:hover {{ text-decoration: underline; }}
+
+    /* History section */
+    .history-section {{
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }}
+    .history-section h2 {{ font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 1rem; }}
+    .history-table-wrapper {{ overflow-x: auto; }}
+    .history-table {{ width: 100%; border-collapse: collapse; font-size: 0.875rem; }}
+    .history-table th, .history-table td {{ padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }}
+    .history-table th {{ background: #f9fafb; font-weight: 600; color: #4b5563; font-size: 0.75rem; text-transform: uppercase; }}
+    .history-table tr:hover {{ background: #f9fafb; }}
+    .history-table tr.current-run {{ background: #eff6ff; }}
+    .history-table tr.current-run:hover {{ background: #dbeafe; }}
+    .history-table a {{ color: #2563eb; text-decoration: none; }}
+    .history-table a:hover {{ text-decoration: underline; }}
+    .history-table code {{ background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.75rem; }}
+    .suite-cell.passed {{ color: #22863a; }}
+    .suite-cell.failed {{ color: #cb2431; }}
+    .suite-cell.na {{ color: #9ca3af; }}
+
+    /* Comparison banner */
+    .comparison-banner {{
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }}
+    .comparison-banner.regression {{ background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }}
+    .comparison-banner.improvement {{ background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }}
+    .comparison-banner.mixed {{ background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }}
+    .comparison-banner.stable {{ background: #f9fafb; border: 1px solid #e5e7eb; color: #4b5563; }}
+    .banner-icon {{ font-size: 1rem; }}
+    .banner-text {{ flex: 1; }}
+    .banner-toggle {{
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      color: inherit;
+    }}
+    .banner-toggle:hover {{ background: rgba(0,0,0,0.05); }}
+
+    /* Diff section */
+    .diff-section {{
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }}
+    .diff-section h3 {{ font-size: 1rem; font-weight: 600; color: #1f2937; margin-bottom: 1rem; }}
+    .diff-category {{ margin-bottom: 1rem; }}
+    .diff-category:last-child {{ margin-bottom: 0; }}
+    .diff-category h4 {{ font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; }}
+    .diff-category ul {{ list-style: none; padding: 0; margin: 0; }}
+    .diff-category li {{
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 0.8125rem;
+    }}
+    .diff-category li:last-child {{ border-bottom: none; }}
+    .test-name {{ flex: 1; font-family: monospace; }}
+    .suite-tag {{
+      background: #e5e7eb;
+      color: #4b5563;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+    }}
+    .duration {{ color: #6b7280; font-size: 0.75rem; }}
+    .flaky-indicator {{ color: #d97706; font-size: 0.75rem; }}
+    .new-failures h4 {{ color: #dc2626; }}
+    .fixed h4 {{ color: #16a34a; }}
+    .still-failing h4 {{ color: #ca8a04; }}
+    .flaky h4 {{ color: #d97706; }}
+    .duration-table {{ width: 100%; font-size: 0.8125rem; }}
+    .duration-table td {{ padding: 0.375rem 0.5rem; }}
+    .duration-table tr.slowdown {{ color: #dc2626; }}
+    .duration-table tr.speedup {{ color: #16a34a; }}
+    .change-pct {{ font-weight: 600; text-align: right; }}
   </style>
+  <script>
+    function toggleDiffDetails() {{
+      const diff = document.getElementById('diff-details');
+      const btn = document.querySelector('.banner-toggle');
+      if (diff.style.display === 'none') {{
+        diff.style.display = 'block';
+        btn.textContent = 'Hide Details';
+      }} else {{
+        diff.style.display = 'none';
+        btn.textContent = 'Show Details';
+      }}
+    }}
+  </script>
 </head>
 <body>
   <div class="container">
@@ -601,6 +1070,9 @@ def generate_dashboard_html(
       </div>
     </div>
 
+{history_section}
+{diff_section}
+
     <div class="meta-section">
       <p><strong>Generated:</strong> {config.timestamp}</p>
       <p><strong>Commit:</strong> <a href="{config.repo_url}/commit/{config.commit_sha}">{config.commit_short}</a></p>
@@ -634,6 +1106,10 @@ def main() -> None:
     parser.add_argument("--journey-allure-dir", help="Path to user journey Allure report directory")
     parser.add_argument("--include-journey", action="store_true",
                         help="Always show journey card (even without local allure data)")
+
+    # History and comparison inputs
+    parser.add_argument("--history-json", help="Path to history.json for run history display")
+    parser.add_argument("--comparison-json", help="Path to comparison.json for regression detection")
 
     # Legacy single-suite arguments (for backwards compatibility)
     parser.add_argument("--allure-dir", help="(deprecated) Use --backend-allure-dir")
@@ -690,6 +1166,22 @@ def main() -> None:
         print("Error: No test results provided", file=sys.stderr)
         sys.exit(1)
 
+    # Load history and comparison data if provided
+    history = None
+    comparison = None
+
+    if args.history_json:
+        history = load_history(Path(args.history_json))
+        if history:
+            print(f"History: {len(history.runs)} runs loaded")
+
+    if args.comparison_json:
+        comparison = load_comparison(Path(args.comparison_json))
+        if comparison:
+            print(f"Comparison: {comparison.status_change} "
+                  f"({comparison.summary.get('new_failures', 0)} new failures, "
+                  f"{comparison.summary.get('fixed', 0)} fixed)")
+
     # Build config
     config = DashboardConfig(
         commit_sha=args.commit_sha,
@@ -697,7 +1189,7 @@ def main() -> None:
     )
 
     # Generate HTML
-    html = generate_dashboard_html(metrics_list, config)
+    html = generate_dashboard_html(metrics_list, config, history, comparison)
 
     # Write output
     output_path = Path(args.output)

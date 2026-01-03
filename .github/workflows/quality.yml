@@ -80,6 +80,57 @@ jobs:
           # Inject into frontend Vitest HTML report
           sed -i "s|<body>|<body>${BANNER}|" frontend/html-report/index.html
 
+      - name: Extract run metadata
+        run: |
+          cd backend
+          uv run ../scripts/extract-run-metadata.py \
+            --run-id ${{ github.run_id }} \
+            --commit-sha ${{ github.sha }} \
+            --trigger ${{ github.event_name }} \
+            --backend-allure-dir allure-report \
+            --backend-coverage-json coverage.json \
+            --frontend-results-json ../frontend/test-results.json \
+            --frontend-coverage-json ../frontend/coverage/coverage-final.json \
+            --output /tmp/run-metadata.json
+
+      - name: Download history and compare runs
+        run: |
+          # Download existing history
+          aws s3 cp s3://${S3_BUCKET}/data/history.json /tmp/history.json || echo '{"runs":[]}' > /tmp/history.json
+
+          # Download previous run metadata for detailed comparison (if exists)
+          if [ -f /tmp/history.json ]; then
+            PREV_RUN_ID=$(python3 -c "import json; h=json.load(open('/tmp/history.json')); print(h['runs'][0]['run_id'] if h.get('runs') else '')" 2>/dev/null || echo "")
+            if [ -n "$PREV_RUN_ID" ]; then
+              PREV_DATE=$(python3 -c "import json; from datetime import datetime; h=json.load(open('/tmp/history.json')); ts=h['runs'][0].get('timestamp',''); print(datetime.fromisoformat(ts.replace('Z','+00:00')).strftime('%Y-%m-%d') if ts else '')" 2>/dev/null || echo "")
+              if [ -n "$PREV_DATE" ]; then
+                aws s3 cp s3://${S3_BUCKET}/runs/missing-table/prod/${PREV_DATE}/${PREV_RUN_ID}/metadata.json /tmp/prev-metadata.json || true
+              fi
+            fi
+          fi
+
+          # Compare runs
+          cd backend
+          if [ -f /tmp/prev-metadata.json ]; then
+            uv run ../scripts/compare-runs.py \
+              --current /tmp/run-metadata.json \
+              --history /tmp/history.json \
+              --previous-metadata /tmp/prev-metadata.json \
+              --output /tmp/comparison.json
+          else
+            uv run ../scripts/compare-runs.py \
+              --current /tmp/run-metadata.json \
+              --history /tmp/history.json \
+              --output /tmp/comparison.json
+          fi
+
+          # Update history index
+          uv run ../scripts/update-history-index.py \
+            --current-run /tmp/run-metadata.json \
+            --history /tmp/history.json \
+            --output /tmp/history.json \
+            --max-runs 10
+
       - name: Generate dashboard landing page
         run: |
           cd backend
@@ -91,7 +142,9 @@ jobs:
             --backend-coverage-json coverage.json \
             --frontend-results-json ../frontend/test-results.json \
             --frontend-coverage-json ../frontend/coverage/coverage-final.json \
-            --include-journey
+            --include-journey \
+            --history-json /tmp/history.json \
+            --comparison-json /tmp/comparison.json
 
       - name: Upload to S3
         run: |
@@ -133,6 +186,10 @@ jobs:
           aws s3 cp frontend/coverage/coverage-final.json s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-coverage.json \
             --cache-control "max-age=300"
 
+          # Upload history index
+          aws s3 cp /tmp/history.json s3://${S3_BUCKET}/data/history.json \
+            --cache-control "max-age=300"
+
           # Archive run reports
           RUN_DATE=$(date -u +"%Y-%m-%d")
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/allure/ \
@@ -148,6 +205,11 @@ jobs:
             s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/frontend-vitest/html.meta.json.gz \
             --content-encoding gzip \
             --content-type "application/json" \
+            --cache-control "max-age=31536000"
+
+          # Archive run metadata for future comparisons
+          aws s3 cp /tmp/run-metadata.json \
+            s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/metadata.json \
             --cache-control "max-age=31536000"
 
       - name: Invalidate CloudFront
