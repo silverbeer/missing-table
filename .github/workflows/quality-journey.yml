@@ -95,10 +95,11 @@ jobs:
         if: always()
         run: |
           # Download existing unit test summaries to include in dashboard
-          mkdir -p /tmp/backend-allure /tmp/frontend-results
+          mkdir -p /tmp/backend-allure/widgets /tmp/data
           aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/allure/widgets/summary.json /tmp/backend-allure/widgets/summary.json || true
-          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/backend-unit/coverage.json /tmp/backend-coverage.json || true
-          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/frontend-vitest/test-results.json /tmp/frontend-results.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/backend-coverage.json /tmp/data/backend-coverage.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-results.json /tmp/data/frontend-results.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-coverage.json /tmp/data/frontend-coverage.json || true
 
       - name: Update dashboard with journey stats
         if: always()
@@ -109,8 +110,9 @@ jobs:
             --commit-sha ${{ github.sha }} \
             --run-id ${{ github.run_id }} \
             --backend-allure-dir /tmp/backend-allure \
-            --backend-coverage-json /tmp/backend-coverage.json \
-            --frontend-results-json /tmp/frontend-results.json \
+            --backend-coverage-json /tmp/data/backend-coverage.json \
+            --frontend-results-json /tmp/data/frontend-results.json \
+            --frontend-coverage-json /tmp/data/frontend-coverage.json \
             --journey-allure-dir allure-report
 
           aws s3 cp /tmp/index.html s3://${S3_BUCKET}/index.html \

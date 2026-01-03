@@ -125,6 +125,14 @@ jobs:
             --cache-control "max-age=300" \
             --content-type "text/html"
 
+          # Upload raw JSON files for cross-workflow dashboard generation
+          aws s3 cp backend/coverage.json s3://${S3_BUCKET}/latest/missing-table/prod/data/backend-coverage.json \
+            --cache-control "max-age=300"
+          aws s3 cp frontend/test-results.json s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-results.json \
+            --cache-control "max-age=300"
+          aws s3 cp frontend/coverage/coverage-final.json s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-coverage.json \
+            --cache-control "max-age=300"
+
           # Archive run reports
           RUN_DATE=$(date -u +"%Y-%m-%d")
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/allure/ \
