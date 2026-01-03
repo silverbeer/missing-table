@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/component: backend
 spec:
   replicas: {{ .Values.backend.replicaCount }}
+  revisionHistoryLimit: {{ .Values.backend.revisionHistoryLimit | default 3 }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "missing-table.name" . }}
