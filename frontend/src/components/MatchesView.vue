@@ -10,12 +10,14 @@
     <!-- Matches List View -->
     <div v-else>
       <!-- Loading State -->
-      <div v-if="loading" class="text-center py-4">
+      <div v-if="loading" class="text-center py-4" data-testid="loading-state">
         Loading teams and matches...
       </div>
 
       <!-- Error State -->
-      <div v-if="error" class="text-red-600 p-4 mb-4">Error: {{ error }}</div>
+      <div v-if="error" class="text-red-600 p-4 mb-4" data-testid="error-state">
+        Error: {{ error }}
+      </div>
 
       <div v-else>
         <!-- View Tabs: All Matches vs My Club -->
@@ -23,6 +25,7 @@
           <nav class="flex space-x-4" aria-label="Match view tabs">
             <button
               @click="selectedViewTab = 'all'"
+              data-testid="all-matches-tab"
               :class="[
                 'py-3 px-4 text-sm font-medium border-b-2 transition-colors',
                 selectedViewTab === 'all'
@@ -34,6 +37,7 @@
             </button>
             <button
               @click="selectedViewTab = 'myclub'"
+              data-testid="my-club-tab"
               :class="[
                 'py-3 px-4 text-sm font-medium border-b-2 transition-colors',
                 selectedViewTab === 'myclub'
@@ -85,6 +89,7 @@
                 >
                 <select
                   v-model="selectedClubId"
+                  data-testid="club-selector"
                   class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option :value="null">-- Select a club --</option>
@@ -102,6 +107,7 @@
                 <select
                   v-model="selectedTeam"
                   @change="onTeamChange"
+                  data-testid="team-selector"
                   class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">-- Select a team --</option>
@@ -134,6 +140,7 @@
                   v-for="ageGroup in filteredAgeGroups"
                   :key="ageGroup.id"
                   @click="selectedAgeGroupId = ageGroup.id"
+                  :data-testid="`age-group-${ageGroup.id}`"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedAgeGroupId === ageGroup.id
@@ -151,6 +158,7 @@
               <h3 class="text-sm font-medium text-gray-700 mb-2">Season</h3>
               <select
                 v-model="selectedSeasonId"
+                data-testid="season-selector"
                 class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option
@@ -171,6 +179,7 @@
               >
                 <button
                   @click="selectedMatchTypeId = 1"
+                  data-testid="match-type-1"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 1
@@ -182,6 +191,7 @@
                 </button>
                 <button
                   @click="selectedMatchTypeId = 3"
+                  data-testid="match-type-3"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 3
@@ -193,6 +203,7 @@
                 </button>
                 <button
                   @click="selectedMatchTypeId = 2"
+                  data-testid="match-type-2"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 2
@@ -204,6 +215,7 @@
                 </button>
                 <button
                   @click="selectedMatchTypeId = 4"
+                  data-testid="match-type-4"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 4
@@ -215,6 +227,7 @@
                 </button>
                 <button
                   @click="selectedMatchTypeId = null"
+                  data-testid="match-type-all"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === null
@@ -235,12 +248,14 @@
               <div class="grid grid-cols-3 gap-2">
                 <button
                   @click="weekOffset--"
+                  data-testid="week-prev"
                   class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-gray-100 text-gray-700 active:bg-gray-300 hover:bg-gray-200"
                 >
                   ← Previous
                 </button>
                 <button
                   @click="weekOffset = 0"
+                  data-testid="week-current"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     weekOffset === 0
@@ -252,6 +267,7 @@
                 </button>
                 <button
                   @click="weekOffset++"
+                  data-testid="week-next"
                   class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-gray-100 text-gray-700 active:bg-gray-300 hover:bg-gray-200"
                 >
                   Next →
@@ -266,7 +282,9 @@
           <div class="mb-4">
             <!-- All Matches: Show week range -->
             <div v-if="selectedViewTab === 'all'">
-              <h3 class="text-lg font-semibold mb-2">{{ weekRangeDisplay }}</h3>
+              <h3 class="text-lg font-semibold mb-2" data-testid="week-range">
+                {{ weekRangeDisplay }}
+              </h3>
             </div>
 
             <!-- My Club: Show team name and league info -->
@@ -296,6 +314,7 @@
           <div
             v-if="selectedViewTab === 'myclub' && selectedTeam"
             class="mb-4 space-y-3"
+            data-testid="season-stats"
           >
             <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h4 class="font-medium text-gray-700 mb-3">Season Summary</h4>
@@ -1315,7 +1334,7 @@
             </div>
           </div>
         </div>
-        <div v-else>
+        <div v-else data-testid="empty-state">
           <p class="text-center text-gray-500 py-8">
             No matches found for the selected team.
           </p>

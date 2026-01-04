@@ -1,5 +1,10 @@
 <template>
-  <div v-if="show" class="modal-overlay" @click="$emit('close')">
+  <div
+    v-if="show"
+    class="modal-overlay"
+    @click="$emit('close')"
+    data-testid="edit-modal"
+  >
     <div class="modal-content" @click.stop>
       <div class="p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Match</h3>
@@ -49,6 +54,7 @@
                 v-model="formData.match_date"
                 type="date"
                 required
+                data-testid="date-input"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -59,6 +65,7 @@
               <select
                 v-model="formData.match_type_id"
                 required
+                data-testid="match-type-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option
@@ -80,6 +87,7 @@
               <select
                 v-model="formData.home_team_id"
                 required
+                data-testid="home-team-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option v-for="team in teams" :key="team.id" :value="team.id">
@@ -94,6 +102,7 @@
               <select
                 v-model="formData.away_team_id"
                 required
+                data-testid="away-team-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option v-for="team in teams" :key="team.id" :value="team.id">
@@ -176,6 +185,7 @@
             <select
               v-model="formData.match_status"
               required
+              data-testid="status-select"
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="scheduled">Scheduled</option>
@@ -193,6 +203,7 @@
           <div
             v-if="error"
             class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm"
+            data-testid="error-message"
           >
             {{ error }}
           </div>
@@ -201,6 +212,7 @@
             <button
               type="button"
               @click="$emit('close')"
+              data-testid="cancel-button"
               class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
             >
               Cancel
@@ -208,6 +220,7 @@
             <button
               type="submit"
               :disabled="loading"
+              data-testid="submit-button"
               class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
             >
               {{ loading ? 'Updating...' : 'Update Match' }}
