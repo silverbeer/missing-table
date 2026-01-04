@@ -25,6 +25,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for git describe
+
+      - name: Extract build info
+        id: build-info
+        run: |
+          # Get version from git describe (e.g., v1.0.1-252-ga9d9d36 -> 1.0.1.252)
+          GIT_DESCRIBE=$(git describe --tags --always 2>/dev/null || echo "0.0.0-0-g${GITHUB_SHA:0:7}")
+          if [[ "$GIT_DESCRIBE" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)-g ]]; then
+            VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+          elif [[ "$GIT_DESCRIBE" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}.0"
+          else
+            VERSION="0.0.0.0"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "Build version: $VERSION"
+          echo "Branch: ${{ github.ref_name }}"
 
       - name: Verify Allure CLI
         run: |
@@ -64,9 +83,14 @@ jobs:
         continue-on-error: true
 
       - name: Add dashboard navigation to reports
+        env:
+          BUILD_VERSION: ${{ steps.build-info.outputs.version }}
+          BUILD_BRANCH: ${{ steps.build-info.outputs.branch }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
-          # Banner HTML to inject
-          BANNER='<div style="background:#2563eb;color:white;padding:8px 16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;gap:8px;"><a href="https://quality.missingtable.com" style="color:white;text-decoration:none;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">←</span> Back to Quality Dashboard</a></div><div style="height:40px;"></div>'
+          # Banner HTML with build info
+          COMMIT_SHORT="${COMMIT_SHA:0:7}"
+          BANNER="<div style=\"background:#2563eb;color:white;padding:8px 16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;justify-content:space-between;\"><a href=\"https://quality.missingtable.com\" style=\"color:white;text-decoration:none;display:flex;align-items:center;gap:8px;\"><span style=\"font-size:18px;\">←</span> Back to Quality Dashboard</a><span style=\"opacity:0.9;\">Build ${BUILD_VERSION} · ${BUILD_BRANCH} · ${COMMIT_SHORT}</span></div><div style=\"height:40px;\"></div>"
 
           # Inject into backend Allure report
           sed -i "s|<body>|<body>${BANNER}|" backend/allure-report/index.html
@@ -88,6 +112,8 @@ jobs:
             --commit-sha ${{ github.sha }} \
             --trigger ${{ github.event_name }} \
             --workflow unit \
+            --version "${{ steps.build-info.outputs.version }}" \
+            --branch "${{ steps.build-info.outputs.branch }}" \
             --backend-allure-dir allure-report \
             --backend-coverage-json coverage.json \
             --frontend-results-json ../frontend/test-results.json \

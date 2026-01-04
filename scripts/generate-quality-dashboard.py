@@ -177,6 +177,8 @@ class HistoryRun(BaseModel):
     timestamp: str
     status: str  # "passed", "failed", "unknown"
     workflow: str = "unit"  # "unit" or "journey"
+    version: str = ""  # Build version (e.g., "1.0.1.252")
+    branch: str = ""  # Git branch name
     summary: dict  # {total, passed, failed, skipped}
     suites: dict[str, HistorySuiteSummary] = Field(default_factory=dict)
     report_url: str = ""
@@ -669,11 +671,17 @@ def generate_history_section(
         if show_journey:
             suite_cells += suite_cell(journey)
 
+        # Build info cell
+        version_display = run.version if run.version else "-"
+        branch_display = run.branch if run.branch else "-"
+        build_cell = f'<span class="build-version">{version_display}</span><br><span class="build-branch">{branch_display}</span>' if run.version or run.branch else "-"
+
         rows.append(f'''
         <tr class="{row_class}" data-run-id="{run.run_id}" data-run-date="{date_str}" data-workflow="{run.workflow}">
           <td><input type="checkbox" class="run-checkbox {section_id}-checkbox" value="{run.run_id}" onchange="updateCompareButton('{section_id}')"></td>
           <td><a href="{config.repo_url}/actions/runs/{run.run_id}" target="_blank">#{run.run_id[-6:]}</a></td>
           <td>{timestamp_display}</td>
+          <td class="build-cell">{build_cell}</td>
           <td><code><a href="{config.repo_url}/commit/{run.commit_sha}" target="_blank">{commit_short}</a></code></td>
           {suite_cells}
           <td>{passed}/{total}</td>
@@ -709,6 +717,7 @@ def generate_history_section(
               <th class="checkbox-col">Compare</th>
               <th>Run</th>
               <th>Date</th>
+              <th>Build</th>
               <th>Commit</th>
               {header_cols}
               <th>Total</th>
@@ -1141,6 +1150,9 @@ def generate_dashboard_html(
       transition: background 0.15s;
     }}
     .report-links a:hover {{ background: #e5e7eb; }}
+    .build-cell {{ font-size: 0.75rem; line-height: 1.3; white-space: nowrap; }}
+    .build-version {{ font-weight: 600; color: #1f2937; }}
+    .build-branch {{ color: #6b7280; }}
     .run-checkbox {{ width: 1rem; height: 1rem; cursor: pointer; }}
     .compare-header {{
       display: flex;

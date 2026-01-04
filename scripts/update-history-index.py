@@ -48,6 +48,8 @@ class RunSummary(BaseModel):
     timestamp: str
     status: str  # "passed", "failed", "unknown"
     workflow: str = "unit"  # "unit" or "journey"
+    version: str = ""  # Build version (e.g., "1.0.1.252")
+    branch: str = ""  # Git branch name
     summary: dict  # {total, passed, failed, skipped}
     suites: dict[str, SuiteSummary] = Field(default_factory=dict)
     report_url: str = ""
@@ -137,6 +139,8 @@ def create_run_summary(metadata: dict) -> RunSummary:
         timestamp=timestamp,
         status=status,
         workflow=metadata.get("workflow", "unit"),
+        version=metadata.get("version", ""),
+        branch=metadata.get("branch", ""),
         summary={
             "total": total,
             "passed": passed,

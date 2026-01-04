@@ -71,6 +71,8 @@ class RunMetadata(BaseModel):
     )
     trigger: str = "workflow_dispatch"
     workflow: str = "unit"  # "unit" or "journey"
+    version: str = ""  # Build version (e.g., "1.0.1.252")
+    branch: str = ""  # Git branch name
     suites: dict[str, SuiteStats] = Field(default_factory=dict)
     tests: list[TestResult] = Field(default_factory=list)
 
@@ -281,6 +283,10 @@ def main() -> None:
     parser.add_argument("--workflow", default="unit",
                         choices=["unit", "journey"],
                         help="Workflow type: unit (quality.yml) or journey (quality-journey.yml)")
+    parser.add_argument("--version", default="",
+                        help="Build version (e.g., 1.0.1.252)")
+    parser.add_argument("--branch", default="",
+                        help="Git branch name")
     parser.add_argument("--output", "-o", required=True, help="Output JSON file path")
 
     # Backend inputs
@@ -302,6 +308,8 @@ def main() -> None:
         commit_sha=args.commit_sha,
         trigger=args.trigger,
         workflow=args.workflow,
+        version=args.version,
+        branch=args.branch,
     )
 
     # Process backend tests
