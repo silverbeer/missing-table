@@ -1,0 +1,100 @@
+# Hex Color Validation Test Specification
+# Business Rule: Colors must be valid 6-digit hex codes with # prefix
+# Source: backend/models/auth.py - PlayerCustomization.validate_color
+#
+# For qualityplaybook.dev: Regex validation testing with clear edge cases.
+
+model: PlayerCustomization
+field: primary_color
+validator: validate_color
+description: |
+  Validates hex color format for player customization.
+  - Must start with #
+  - Must have exactly 6 hex digits (0-9, A-F, a-f)
+  - Case insensitive
+
+valid_cases:
+  - input: "#3B82F6"
+    expected: "#3B82F6"
+    description: "Standard hex color (blue)"
+
+  - input: "#FFFFFF"
+    expected: "#FFFFFF"
+    description: "White"
+
+  - input: "#000000"
+    expected: "#000000"
+    description: "Black"
+
+  - input: "#1D4ED8"
+    expected: "#1D4ED8"
+    description: "Default accent color"
+
+  - input: "#abcdef"
+    expected: "#abcdef"
+    description: "Lowercase hex digits"
+
+  - input: "#AbCdEf"
+    expected: "#AbCdEf"
+    description: "Mixed case hex digits"
+
+  - input: "#123456"
+    expected: "#123456"
+    description: "All numeric hex"
+
+  - input: "#FF0000"
+    expected: "#FF0000"
+    description: "Pure red"
+
+  - input: "#00FF00"
+    expected: "#00FF00"
+    description: "Pure green"
+
+  - input: "#0000FF"
+    expected: "#0000FF"
+    description: "Pure blue"
+
+  - input: null
+    expected: null
+    description: "None is allowed (optional field)"
+
+invalid_cases:
+  - input: "3B82F6"
+    error_contains: "valid hex color"
+    description: "Missing # prefix"
+
+  - input: "#3B82F"
+    error_contains: "valid hex color"
+    description: "Only 5 hex digits"
+
+  - input: "#3B82F6A"
+    error_contains: "valid hex color"
+    description: "7 hex digits (too long)"
+
+  - input: "#GGG000"
+    error_contains: "valid hex color"
+    description: "Invalid hex character G"
+
+  - input: "blue"
+    error_contains: "valid hex color"
+    description: "Color name not allowed"
+
+  - input: "rgb(59, 130, 246)"
+    error_contains: "valid hex color"
+    description: "RGB format not allowed"
+
+  - input: "#FFF"
+    error_contains: "valid hex color"
+    description: "3-digit shorthand not allowed"
+
+  - input: "##3B82F6"
+    error_contains: "valid hex color"
+    description: "Double # prefix"
+
+  - input: "#3B82F "
+    error_contains: "valid hex color"
+    description: "Trailing space"
+
+  - input: " #3B82F6"
+    error_contains: "valid hex color"
+    description: "Leading space"

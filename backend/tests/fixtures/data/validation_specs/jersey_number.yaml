@@ -1,0 +1,68 @@
+# Jersey Number Validation Test Specification
+# Business Rule: Jersey numbers must be 1-99
+# Source: backend/models/auth.py - Multiple models use this validator
+#
+# For qualityplaybook.dev: Same validation rule across multiple models -
+# DRY testing through shared YAML specs.
+
+model: PlayerHistoryCreate
+field: jersey_number
+validator: validate_jersey_number
+description: |
+  Validates jersey number for player assignments.
+  - Range: 1 to 99 (inclusive)
+  - None is allowed (optional field)
+
+valid_cases:
+  - input: 1
+    expected: 1
+    description: "Minimum valid number"
+
+  - input: 99
+    expected: 99
+    description: "Maximum valid number"
+
+  - input: 10
+    expected: 10
+    description: "Common single digit jersey"
+
+  - input: 23
+    expected: 23
+    description: "Famous jersey number (Jordan, Beckham)"
+
+  - input: 50
+    expected: 50
+    description: "Middle of range"
+
+  - input: 7
+    expected: 7
+    description: "Classic number 7"
+
+  - input: 9
+    expected: 9
+    description: "Striker's number"
+
+  - input: null
+    expected: null
+    description: "None is allowed (no jersey assigned)"
+
+invalid_cases:
+  - input: 0
+    error_contains: "between 1 and 99"
+    description: "Zero is not valid"
+
+  - input: 100
+    error_contains: "between 1 and 99"
+    description: "100 exceeds maximum"
+
+  - input: -1
+    error_contains: "between 1 and 99"
+    description: "Negative numbers not allowed"
+
+  - input: 999
+    error_contains: "between 1 and 99"
+    description: "Three-digit number not allowed"
+
+  - input: -99
+    error_contains: "between 1 and 99"
+    description: "Negative version of max not allowed"

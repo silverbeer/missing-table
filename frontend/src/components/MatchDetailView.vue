@@ -3,6 +3,7 @@
     <!-- Back button -->
     <button
       @click="$emit('back')"
+      data-testid="back-button"
       class="flex items-center gap-1.5 px-2 py-1 text-gray-600 hover:text-gray-900 font-medium text-xs mb-2 rounded hover:bg-gray-100 transition-colors"
     >
       <svg
@@ -23,7 +24,11 @@
     </button>
 
     <!-- Loading state -->
-    <div v-if="loading" class="flex flex-col items-center justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex flex-col items-center justify-center py-12"
+      data-testid="loading-state"
+    >
       <div
         class="w-8 h-8 border-3 border-gray-300 border-t-blue-500 rounded-full animate-spin mb-3"
       ></div>
@@ -34,15 +39,19 @@
     <div
       v-else-if="error"
       class="flex flex-col items-center justify-center py-12 text-center"
+      data-testid="error-state"
     >
       <div
         class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-500 text-xl font-bold mb-3"
       >
         !
       </div>
-      <p class="text-gray-500 mb-3 text-sm">{{ error }}</p>
+      <p class="text-gray-500 mb-3 text-sm" data-testid="error-message">
+        {{ error }}
+      </p>
       <button
         @click="fetchMatch"
+        data-testid="retry-button"
         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
       >
         Try Again
@@ -50,9 +59,13 @@
     </div>
 
     <!-- Match content -->
-    <div v-else-if="match" class="max-w-sm mx-auto">
+    <div v-else-if="match" class="max-w-sm mx-auto" data-testid="match-content">
       <!-- Capture container for share -->
-      <div ref="scoreboardRef" class="bg-slate-800 rounded-lg p-2">
+      <div
+        ref="scoreboardRef"
+        class="bg-slate-800 rounded-lg p-2"
+        data-testid="scoreboard"
+      >
         <!-- Stadium Scoreboard -->
         <div
           class="scoreboard bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 rounded-lg p-3 mb-2"
@@ -64,6 +77,7 @@
           >
             <div
               class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600 text-white font-bold uppercase tracking-wider text-xs animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.7)]"
+              data-testid="status-badge"
             >
               <span
                 class="w-1.5 h-1.5 rounded-full bg-white animate-ping"
@@ -77,6 +91,7 @@
             <div
               class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider"
               :class="statusBadgeClass"
+              data-testid="status-badge"
             >
               {{ match.match_status || 'scheduled' }}
             </div>
@@ -115,6 +130,7 @@
             <div class="flex items-center gap-2 lg:gap-3 pt-4 lg:pt-5">
               <span
                 class="score-number text-3xl lg:text-5xl font-bold text-white"
+                data-testid="home-score"
               >
                 {{ match.home_score ?? '-' }}
               </span>
@@ -123,6 +139,7 @@
               >
               <span
                 class="score-number text-3xl lg:text-5xl font-bold text-white"
+                data-testid="away-score"
               >
                 {{ match.away_score ?? '-' }}
               </span>
@@ -219,6 +236,7 @@
         <button
           @click="shareScoreboard"
           :disabled="shareStatus === 'copying'"
+          data-testid="share-button"
           class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
           :class="{
             'bg-green-600 text-white': shareStatus === 'success',

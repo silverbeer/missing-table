@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-lg shadow p-4">
+  <div class="bg-white rounded-lg shadow p-4" data-testid="match-form">
     <!-- Form Type Selection -->
     <div class="mb-4">
       <label class="block text-sm font-medium text-gray-700 mb-2"
@@ -12,6 +12,7 @@
             v-model="formType"
             value="schedule"
             class="form-radio text-blue-600"
+            data-testid="form-type-schedule"
           />
           <span class="ml-2">Schedule New Match</span>
         </label>
@@ -21,6 +22,7 @@
             v-model="formType"
             value="score"
             class="form-radio text-blue-600"
+            data-testid="form-type-score"
           />
           <span class="ml-2">Score Match</span>
         </label>
@@ -37,6 +39,7 @@
           <select
             v-model="selectedSeason"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            data-testid="season-select"
           >
             <option
               v-for="season in activeSeasons"
@@ -54,6 +57,7 @@
           <select
             v-model="selectedAgeGroup"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            data-testid="age-group-select"
           >
             <option
               v-for="ageGroup in ageGroups"
@@ -71,6 +75,7 @@
           <select
             v-model="selectedMatchType"
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            data-testid="match-type-select"
           >
             <option
               v-for="matchType in matchTypes"
@@ -87,6 +92,7 @@
       <div
         v-if="isLeagueMatch"
         class="p-3 bg-blue-50 rounded-md border border-blue-200"
+        data-testid="division-section"
       >
         <div class="grid grid-cols-1 gap-3">
           <div>
@@ -97,6 +103,7 @@
               v-model="selectedDivision"
               class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
               required
+              data-testid="division-select"
             >
               <option value="">Select Division</option>
               <option
@@ -116,7 +123,10 @@
       </div>
 
       <!-- Game Status Row -->
-      <div class="p-3 bg-green-50 rounded-md border border-green-200">
+      <div
+        class="p-3 bg-green-50 rounded-md border border-green-200"
+        data-testid="status-section"
+      >
         <div class="grid grid-cols-1 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1"
@@ -126,6 +136,7 @@
               v-model="selectedStatus"
               class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
               required
+              data-testid="status-select"
             >
               <option value="scheduled">Scheduled</option>
               <option value="completed">Completed</option>
@@ -152,6 +163,7 @@
             id="match_date"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            data-testid="date-input"
           />
         </div>
 
@@ -164,6 +176,7 @@
             id="home_team"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            data-testid="home-team-select"
           >
             <option value="">Select Team</option>
             <option v-for="team in teams" :key="team.id" :value="team.id">
@@ -181,6 +194,7 @@
             id="away_team"
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            data-testid="away-team-select"
           >
             <option value="">Select Team</option>
             <option v-for="team in teams" :key="team.id" :value="team.id">
@@ -194,6 +208,7 @@
       <div
         v-if="formType === 'score'"
         class="flex items-center justify-center space-x-4 py-2"
+        data-testid="score-section"
       >
         <div class="text-center">
           <label class="block text-xs font-medium text-gray-700 mb-1"
@@ -206,6 +221,7 @@
             required
             min="0"
             class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
+            data-testid="home-score-input"
           />
         </div>
 
@@ -222,6 +238,7 @@
             required
             min="0"
             class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
+            data-testid="away-score-input"
           />
         </div>
       </div>
@@ -231,6 +248,7 @@
         <button
           type="submit"
           class="bg-blue-500 text-white px-4 py-1.5 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
+          data-testid="submit-button"
         >
           {{ formType === 'schedule' ? 'Schedule Game' : 'Submit Score' }}
         </button>
@@ -245,6 +263,7 @@
         'bg-green-100 text-green-700': !error,
         'bg-red-100 text-red-700': error,
       }"
+      data-testid="message"
     >
       {{ message }}
     </div>

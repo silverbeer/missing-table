@@ -1,0 +1,102 @@
+# Username Validation Test Specification
+# Business Rule: Username must be 3-50 chars, alphanumeric and underscores only
+# Source: backend/models/auth.py - UserSignup.validate_username
+#
+# For qualityplaybook.dev: Demonstrates YAML-driven testing where QA can add
+# test cases without writing Python code.
+
+model: UserSignup
+field: username
+validator: validate_username
+description: |
+  Validates username format for user registration.
+  - 3-50 characters
+  - Letters, numbers, and underscores only
+  - Automatically lowercased
+
+valid_cases:
+  # Minimum length cases
+  - input: "abc"
+    expected: "abc"
+    description: "Minimum 3 characters"
+
+  - input: "ABC"
+    expected: "abc"
+    description: "Uppercase is converted to lowercase"
+
+  # Maximum length cases
+  - input: "a1234567890123456789012345678901234567890123456789"
+    expected: "a1234567890123456789012345678901234567890123456789"
+    description: "Exactly 50 characters (maximum)"
+
+  # Character types
+  - input: "player_23"
+    expected: "player_23"
+    description: "Letters, numbers, and underscore"
+
+  - input: "gabe_ifa_35"
+    expected: "gabe_ifa_35"
+    description: "Typical player username format"
+
+  - input: "123456"
+    expected: "123456"
+    description: "All numbers is valid"
+
+  - input: "___"
+    expected: "___"
+    description: "All underscores is valid"
+
+  - input: "MixedCase_User99"
+    expected: "mixedcase_user99"
+    description: "Mixed case is lowercased"
+
+  - input: "abcdefghij"
+    expected: "abcdefghij"
+    description: "All lowercase letters"
+
+  - input: "user_name_with_multiple_underscores"
+    expected: "user_name_with_multiple_underscores"
+    description: "Multiple underscores allowed"
+
+invalid_cases:
+  # Length violations
+  - input: "ab"
+    error_contains: "3-50 characters"
+    description: "Too short (2 chars)"
+
+  - input: "a"
+    error_contains: "3-50 characters"
+    description: "Too short (1 char)"
+
+  - input: ""
+    error_contains: "3-50 characters"
+    description: "Empty string"
+
+  - input: "a12345678901234567890123456789012345678901234567890"
+    error_contains: "3-50 characters"
+    description: "Too long (51 chars)"
+
+  # Invalid characters
+  - input: "user@name"
+    error_contains: "letters, numbers, and underscores"
+    description: "@ symbol not allowed"
+
+  - input: "user name"
+    error_contains: "letters, numbers, and underscores"
+    description: "Spaces not allowed"
+
+  - input: "user-name"
+    error_contains: "letters, numbers, and underscores"
+    description: "Hyphens not allowed"
+
+  - input: "user.name"
+    error_contains: "letters, numbers, and underscores"
+    description: "Periods not allowed"
+
+  - input: "user#name"
+    error_contains: "letters, numbers, and underscores"
+    description: "Hash symbol not allowed"
+
+  - input: "user!name"
+    error_contains: "letters, numbers, and underscores"
+    description: "Exclamation mark not allowed"
