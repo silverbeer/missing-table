@@ -1,0 +1,67 @@
+# Overlay Style Validation Test Specification
+# Business Rule: Must be one of: badge, jersey, caption, none
+# Source: backend/models/auth.py - PlayerCustomization.validate_overlay_style
+#
+# For qualityplaybook.dev: Enum-style validation with exact value matching.
+
+model: PlayerCustomization
+field: overlay_style
+validator: validate_overlay_style
+description: |
+  Validates player profile overlay style.
+  Allowed values: badge, jersey, caption, none
+  Case-sensitive matching required.
+
+valid_cases:
+  - input: "badge"
+    expected: "badge"
+    description: "Badge style"
+
+  - input: "jersey"
+    expected: "jersey"
+    description: "Jersey style"
+
+  - input: "caption"
+    expected: "caption"
+    description: "Caption style"
+
+  - input: "none"
+    expected: "none"
+    description: "No overlay"
+
+  - input: null
+    expected: null
+    description: "None/null is allowed (uses default)"
+
+invalid_cases:
+  - input: "Banner"
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Unrecognized style"
+
+  - input: "BADGE"
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Case sensitive - uppercase not allowed"
+
+  - input: "Badge"
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Case sensitive - title case not allowed"
+
+  - input: ""
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Empty string not allowed"
+
+  - input: "badge "
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Trailing space makes it invalid"
+
+  - input: " badge"
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Leading space makes it invalid"
+
+  - input: "default"
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Default is not a valid value"
+
+  - input: "overlay"
+    error_contains: "'badge', 'jersey', 'caption', or 'none'"
+    description: "Generic overlay not valid"
