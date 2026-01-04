@@ -25,21 +25,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for git describe
 
       - name: Extract build info
         id: build-info
         run: |
-          # Get version from git describe (e.g., v1.0.1-252-ga9d9d36 -> 1.0.1.252)
-          GIT_DESCRIBE=$(git describe --tags --always 2>/dev/null || echo "0.0.0-0-g${GITHUB_SHA:0:7}")
-          if [[ "$GIT_DESCRIBE" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)-g ]]; then
-            VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
-          elif [[ "$GIT_DESCRIBE" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            VERSION="${BASH_REMATCH[1]}.0"
-          else
-            VERSION="0.0.0.0"
-          fi
+          # Read version from VERSION file (matches production app format)
+          APP_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+          # Use GitHub run number as build suffix (same as production CI/CD)
+          VERSION="${APP_VERSION}.${{ github.run_number }}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           echo "Build version: $VERSION"
