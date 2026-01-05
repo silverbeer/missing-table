@@ -261,6 +261,74 @@ cd backend && uv run ruff check .
 
 ---
 
+## 🧪 Writing Testable Code
+
+**CRITICAL**: Do NOT write tests for untestable code. Refactor first.
+
+### When Asked to Write Tests
+
+**STOP and communicate clearly** if you discover code that is not testable:
+
+1. **Identify the problem**: Explain WHY the code is untestable
+2. **Propose refactoring**: Describe what changes would make it testable
+3. **Wait for decision**: Get explicit approval to refactor before proceeding
+4. **Never write bad tests**: Do not create tests that work around untestable code
+
+**Example communication:**
+> "I found that `get_league_table()` mixes database queries with business logic (standings calculation). This makes it untestable without complex mocking that would create fragile tests.
+>
+> **Options:**
+> 1. Refactor: Extract the calculation logic into a pure function, then write simple unit tests
+> 2. Skip unit tests: Only write integration tests that use a real test database
+>
+> Which approach would you prefer?"
+
+### What Makes Code Untestable
+
+Code is **untestable** when business logic is tightly coupled with:
+- Database queries (Supabase, SQLite, etc.)
+- External API calls
+- File system operations
+- Other side effects
+
+### How to Make Code Testable
+
+**Extract pure functions** that contain business logic with no dependencies:
+
+```python
+# GOOD: Pure function - no dependencies, trivially testable
+def calculate_standings(matches: list[dict]) -> list[dict]:
+    """Pure calculation logic - easy to unit test."""
+    standings = defaultdict(...)
+    for match in matches:
+        # calculation logic
+        ...
+    return sorted_standings
+
+# GOOD: DAO method is thin, just orchestrates
+def get_league_table(self, season_id, division_id):
+    matches = self._fetch_matches(season_id, division_id)
+    return calculate_standings(matches)  # Call pure function
+```
+
+### Never Write These Anti-Pattern Tests
+
+- ❌ **Duplicate logic tests**: Re-implementing business logic in the test file
+- ❌ **Complex mock tests**: Extensive mocking to work around tight coupling
+- ❌ **Tests that test themselves**: Where test and implementation are the same logic
+
+### Testing Strategy
+
+| Code Type | Test Type | Approach |
+|-----------|-----------|----------|
+| Pure functions (calculations, transformations) | Unit tests | Direct testing, no mocks needed |
+| DAO methods (data access) | Integration tests | Real test database |
+| API endpoints | Integration tests | Test client with test database |
+
+**Remember**: If you can't test it simply, STOP and discuss refactoring first!
+
+---
+
 ## Project Overview
 
 This is a full-stack web application for managing MLS Next sports league standings and match schedules. It uses FastAPI (Python 3.13+) for the backend and Vue 3 for the frontend, with Supabase as the primary database.
