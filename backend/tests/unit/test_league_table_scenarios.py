@@ -1,659 +1,254 @@
 """
-League Table Calculation Scenario Tests
+League Table Calculation Tests - Testing Pure Functions
 
-This module tests the league table/standings calculation logic using
-scenario-based parameterization. Each scenario represents a real-world
-situation with documented business rules.
+Tests the pure functions in dao/standings.py using parameterized scenarios.
 
-For qualityplaybook.dev: Demonstrates how parameterized tests can serve as
-living documentation for complex business logic. Each scenario explicitly
-documents which business rules it validates.
-
-Business Rules Documented:
+Business Rules:
 1. Points: Win = 3 points, Draw = 1 point, Loss = 0 points
-2. Sorting: Points (desc) > Goal Difference (desc) > Goals For (desc)
+2. Sorting: By points, then goal difference, then goals scored
 3. Only completed matches count toward standings
-4. Matches without scores are excluded
-5. Cross-division matches are excluded when filtering by division
+4. Cross-division matches excluded when filtering by division
 
 Usage:
     pytest tests/unit/test_league_table_scenarios.py -v
-    pytest tests/unit/test_league_table_scenarios.py -k "tiebreaker" -v
-    pytest tests/unit/test_league_table_scenarios.py -k "exclude" -v
 """
 
 import pytest
-import allure
-from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
-from collections import defaultdict
+
+from dao.standings import (
+    calculate_standings,
+    filter_by_match_type,
+    filter_completed_matches,
+    filter_same_division_matches,
+)
 
 
-@dataclass
-class MatchData:
-    """Represents a match for test scenarios."""
-    home_team: str
-    away_team: str
-    home_score: Optional[int]
-    away_score: Optional[int]
-    match_status: str = "completed"
-    match_type_name: str = "League"
-    home_team_division_id: int = 1
-    away_team_division_id: int = 1
-
-
-@dataclass
-class ExpectedStanding:
-    """Expected standings result for a team."""
-    team: str
-    played: int
-    wins: int
-    draws: int
-    losses: int
-    goals_for: int
-    goals_against: int
-    goal_difference: int
-    points: int
-    position: int  # 1-based position in table
-
-
-@dataclass
-class LeagueTableScenario:
-    """Complete test scenario for league table calculation."""
-    id: str
-    description: str
-    matches: List[MatchData]
-    expected_standings: List[ExpectedStanding]
-    filter_division_id: Optional[int] = None
-    filter_match_type: str = "League"
-    business_rules_tested: List[str] = field(default_factory=list)
+def match(
+    home: str,
+    away: str,
+    home_score: int | None,
+    away_score: int | None,
+    status: str = "completed",
+    match_type: str = "League",
+    home_div: int = 1,
+    away_div: int = 1,
+) -> dict:
+    """Helper to create match dicts in DAO format."""
+    return {
+        "home_team": {"name": home, "division_id": home_div},
+        "away_team": {"name": away, "division_id": away_div},
+        "match_type": {"name": match_type},
+        "home_score": home_score,
+        "away_score": away_score,
+        "match_status": status,
+    }
 
 
 # ============================================================================
-# LEAGUE TABLE SCENARIOS
+# Test Scenarios - Each documents specific business rules
 # ============================================================================
 
-LEAGUE_TABLE_SCENARIOS = [
-    # Scenario 1: Basic standings calculation
-    LeagueTableScenario(
-        id="basic_standings",
-        description="Basic 3-team league with clear winner",
-        business_rules_tested=[
-            "3 points for win",
-            "0 points for loss",
-            "Goals for/against tracking",
-            "Correct position ordering"
+STANDINGS_SCENARIOS = [
+    {
+        "id": "basic_wins_losses",
+        "description": "Basic win/loss point allocation",
+        "matches": [
+            match("Team A", "Team B", 2, 1),  # A wins
+            match("Team A", "Team C", 3, 0),  # A wins
+            match("Team B", "Team C", 1, 0),  # B wins
         ],
-        matches=[
-            MatchData("Team A", "Team B", 2, 1),  # A wins
-            MatchData("Team A", "Team C", 3, 0),  # A wins
-            MatchData("Team B", "Team C", 1, 0),  # B wins
+        "expected": [
+            {"team": "Team A", "played": 2, "wins": 2, "draws": 0, "losses": 0, "goals_for": 5, "goals_against": 1, "goal_difference": 4, "points": 6},
+            {"team": "Team B", "played": 2, "wins": 1, "draws": 0, "losses": 1, "goals_for": 2, "goals_against": 2, "goal_difference": 0, "points": 3},
+            {"team": "Team C", "played": 2, "wins": 0, "draws": 0, "losses": 2, "goals_for": 0, "goals_against": 4, "goal_difference": -4, "points": 0},
         ],
-        expected_standings=[
-            ExpectedStanding("Team A", 2, 2, 0, 0, 5, 1, 4, 6, 1),
-            ExpectedStanding("Team B", 2, 1, 0, 1, 2, 2, 0, 3, 2),
-            ExpectedStanding("Team C", 2, 0, 0, 2, 0, 4, -4, 0, 3),
-        ]
-    ),
-
-    # Scenario 2: Draw handling
-    LeagueTableScenario(
-        id="draw_points",
-        description="Verify draws award 1 point to each team",
-        business_rules_tested=[
-            "1 point for draw",
-            "Draw increments both teams' draw count",
-            "Draw does not affect wins/losses",
-            "Goals scored tiebreaker applies to draws too"
+    },
+    {
+        "id": "draw_points",
+        "description": "Draw gives 1 point to each team",
+        "matches": [
+            match("Team A", "Team B", 1, 1),
+            match("Team A", "Team C", 2, 2),
+            match("Team B", "Team C", 0, 0),
         ],
-        matches=[
-            MatchData("Team A", "Team B", 1, 1),  # Draw
-            MatchData("Team A", "Team C", 2, 2),  # Draw
-            MatchData("Team B", "Team C", 0, 0),  # Draw
+        "expected": [
+            {"team": "Team A", "played": 2, "wins": 0, "draws": 2, "losses": 0, "goals_for": 3, "goals_against": 3, "goal_difference": 0, "points": 2},
+            {"team": "Team C", "played": 2, "wins": 0, "draws": 2, "losses": 0, "goals_for": 2, "goals_against": 2, "goal_difference": 0, "points": 2},
+            {"team": "Team B", "played": 2, "wins": 0, "draws": 2, "losses": 0, "goals_for": 1, "goals_against": 1, "goal_difference": 0, "points": 2},
         ],
-        # All teams have 2 pts, 0 GD, sorted by goals_for: A(3) > C(2) > B(1)
-        expected_standings=[
-            ExpectedStanding("Team A", 2, 0, 2, 0, 3, 3, 0, 2, 1),  # 3 GF
-            ExpectedStanding("Team C", 2, 0, 2, 0, 2, 2, 0, 2, 2),  # 2 GF
-            ExpectedStanding("Team B", 2, 0, 2, 0, 1, 1, 0, 2, 3),  # 1 GF
-        ]
-    ),
-
-    # Scenario 3: Goal difference tiebreaker
-    LeagueTableScenario(
-        id="goal_difference_tiebreaker",
-        description="Teams with equal points sorted by goal difference",
-        business_rules_tested=[
-            "Goal difference as primary tiebreaker",
-            "GD calculated as goals_for - goals_against",
-            "Higher GD ranks higher"
+    },
+    {
+        "id": "goal_difference_tiebreaker",
+        "description": "Equal points sorted by goal difference",
+        "matches": [
+            match("Team A", "Team B", 4, 0),  # A wins by 4
+            match("Team C", "Team D", 1, 0),  # C wins by 1
+            match("Team A", "Team C", 1, 1),  # Draw
+            match("Team B", "Team D", 1, 1),  # Draw
         ],
-        matches=[
-            MatchData("Team A", "Team B", 4, 0),  # A wins by 4
-            MatchData("Team C", "Team D", 1, 0),  # C wins by 1
-            MatchData("Team B", "Team C", 1, 1),  # Draw
-            MatchData("Team A", "Team D", 1, 1),  # Draw
+        "expected": [
+            {"team": "Team A", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 5, "goals_against": 1, "goal_difference": 4, "points": 4},
+            {"team": "Team C", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 2, "goals_against": 1, "goal_difference": 1, "points": 4},
+            {"team": "Team D", "played": 2, "wins": 0, "draws": 1, "losses": 1, "goals_for": 1, "goals_against": 2, "goal_difference": -1, "points": 1},
+            {"team": "Team B", "played": 2, "wins": 0, "draws": 1, "losses": 1, "goals_for": 1, "goals_against": 5, "goal_difference": -4, "points": 1},
         ],
-        expected_standings=[
-            ExpectedStanding("Team A", 2, 1, 1, 0, 5, 1, 4, 4, 1),
-            ExpectedStanding("Team C", 2, 1, 1, 0, 2, 1, 1, 4, 2),
-            ExpectedStanding("Team D", 2, 0, 1, 1, 1, 2, -1, 1, 3),
-            ExpectedStanding("Team B", 2, 0, 1, 1, 1, 5, -4, 1, 4),
-        ]
-    ),
-
-    # Scenario 4: Goals scored as secondary tiebreaker
-    LeagueTableScenario(
-        id="goals_scored_tiebreaker",
-        description="Equal points and GD, sorted by goals scored",
-        business_rules_tested=[
-            "Goals scored as secondary tiebreaker",
-            "Higher goals scored ranks higher when points and GD equal"
+    },
+    {
+        "id": "goals_scored_tiebreaker",
+        "description": "Equal points and GD, sorted by goals scored",
+        "matches": [
+            match("Team A", "Team B", 3, 2),  # A wins, scores 3
+            match("Team C", "Team D", 4, 3),  # C wins, scores 4
         ],
-        matches=[
-            MatchData("Team A", "Team B", 3, 2),  # A wins, scores 3
-            MatchData("Team C", "Team D", 4, 3),  # C wins, scores 4
+        "expected": [
+            {"team": "Team C", "played": 1, "wins": 1, "draws": 0, "losses": 0, "goals_for": 4, "goals_against": 3, "goal_difference": 1, "points": 3},
+            {"team": "Team A", "played": 1, "wins": 1, "draws": 0, "losses": 0, "goals_for": 3, "goals_against": 2, "goal_difference": 1, "points": 3},
+            {"team": "Team D", "played": 1, "wins": 0, "draws": 0, "losses": 1, "goals_for": 3, "goals_against": 4, "goal_difference": -1, "points": 0},
+            {"team": "Team B", "played": 1, "wins": 0, "draws": 0, "losses": 1, "goals_for": 2, "goals_against": 3, "goal_difference": -1, "points": 0},
         ],
-        expected_standings=[
-            ExpectedStanding("Team C", 1, 1, 0, 0, 4, 3, 1, 3, 1),
-            ExpectedStanding("Team A", 1, 1, 0, 0, 3, 2, 1, 3, 2),
-            ExpectedStanding("Team D", 1, 0, 0, 1, 3, 4, -1, 0, 3),
-            ExpectedStanding("Team B", 1, 0, 0, 1, 2, 3, -1, 0, 4),
-        ]
-    ),
-
-    # Scenario 5: Scheduled matches excluded
-    LeagueTableScenario(
-        id="exclude_scheduled",
-        description="Scheduled (future) matches don't count",
-        business_rules_tested=[
-            "Only completed matches count",
-            "Scheduled matches with scores are still excluded",
-            "match_status field is respected"
+    },
+    {
+        "id": "empty_table",
+        "description": "No matches returns empty table",
+        "matches": [],
+        "expected": [],
+    },
+    {
+        "id": "single_match",
+        "description": "One match creates two team entries",
+        "matches": [match("Team A", "Team B", 0, 0)],
+        "expected": [
+            {"team": "Team A", "played": 1, "wins": 0, "draws": 1, "losses": 0, "goals_for": 0, "goals_against": 0, "goal_difference": 0, "points": 1},
+            {"team": "Team B", "played": 1, "wins": 0, "draws": 1, "losses": 0, "goals_for": 0, "goals_against": 0, "goal_difference": 0, "points": 1},
         ],
-        matches=[
-            MatchData("Team A", "Team B", 2, 0, match_status="completed"),
-            MatchData("Team A", "Team C", 3, 0, match_status="scheduled"),
+    },
+    {
+        "id": "high_scoring",
+        "description": "Large scores handled correctly",
+        "matches": [
+            match("Team A", "Team B", 9, 0),
+            match("Team C", "Team B", 8, 0),
+            match("Team A", "Team C", 5, 5),
         ],
-        expected_standings=[
-            ExpectedStanding("Team A", 1, 1, 0, 0, 2, 0, 2, 3, 1),
-            ExpectedStanding("Team B", 1, 0, 0, 1, 0, 2, -2, 0, 2),
-        ]
-    ),
-
-    # Scenario 6: Postponed matches excluded
-    LeagueTableScenario(
-        id="exclude_postponed",
-        description="Postponed matches don't affect standings",
-        business_rules_tested=[
-            "Postponed status excludes match",
-            "Even with scores, postponed matches are excluded"
+        "expected": [
+            {"team": "Team A", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 14, "goals_against": 5, "goal_difference": 9, "points": 4},
+            {"team": "Team C", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 13, "goals_against": 5, "goal_difference": 8, "points": 4},
+            {"team": "Team B", "played": 2, "wins": 0, "draws": 0, "losses": 2, "goals_for": 0, "goals_against": 17, "goal_difference": -17, "points": 0},
         ],
-        matches=[
-            MatchData("Team A", "Team B", 1, 0, match_status="completed"),
-            MatchData("Team B", "Team C", 5, 0, match_status="postponed"),
+    },
+    {
+        "id": "skip_null_scores",
+        "description": "Matches without scores are excluded",
+        "matches": [
+            match("Team A", "Team B", 2, 1),
+            match("Team A", "Team C", None, None),  # No scores
+            match("Team B", "Team C", 1, None),  # Partial score
         ],
-        expected_standings=[
-            ExpectedStanding("Team A", 1, 1, 0, 0, 1, 0, 1, 3, 1),
-            ExpectedStanding("Team B", 1, 0, 0, 1, 0, 1, -1, 0, 2),
-        ]
-    ),
-
-    # Scenario 7: Matches without scores excluded
-    LeagueTableScenario(
-        id="exclude_no_scores",
-        description="Completed matches without scores are excluded",
-        business_rules_tested=[
-            "Null scores exclude match from calculation",
-            "Both scores must be present"
+        "expected": [
+            {"team": "Team A", "played": 1, "wins": 1, "draws": 0, "losses": 0, "goals_for": 2, "goals_against": 1, "goal_difference": 1, "points": 3},
+            {"team": "Team B", "played": 1, "wins": 0, "draws": 0, "losses": 1, "goals_for": 1, "goals_against": 2, "goal_difference": -1, "points": 0},
         ],
-        matches=[
-            MatchData("Team A", "Team B", 2, 1, match_status="completed"),
-            MatchData("Team A", "Team C", None, None, match_status="completed"),
-            MatchData("Team B", "Team C", 1, None, match_status="completed"),
-        ],
-        expected_standings=[
-            ExpectedStanding("Team A", 1, 1, 0, 0, 2, 1, 1, 3, 1),
-            ExpectedStanding("Team B", 1, 0, 0, 1, 1, 2, -1, 0, 2),
-        ]
-    ),
-
-    # Scenario 8: Empty table (no matches)
-    LeagueTableScenario(
-        id="empty_table",
-        description="League with no completed matches returns empty table",
-        business_rules_tested=[
-            "Empty input returns empty table",
-            "No errors on empty data"
-        ],
-        matches=[],
-        expected_standings=[]
-    ),
-
-    # Scenario 9: Single team, one match
-    LeagueTableScenario(
-        id="single_match",
-        description="Minimum case: one completed match",
-        business_rules_tested=[
-            "Handles minimum data correctly",
-            "Both teams appear in standings"
-        ],
-        matches=[
-            MatchData("Team A", "Team B", 0, 0),  # Draw
-        ],
-        expected_standings=[
-            ExpectedStanding("Team A", 1, 0, 1, 0, 0, 0, 0, 1, 1),
-            ExpectedStanding("Team B", 1, 0, 1, 0, 0, 0, 0, 1, 2),
-        ]
-    ),
-
-    # Scenario 10: Cross-division matches filtered
-    LeagueTableScenario(
-        id="cross_division_filter",
-        description="Cross-division matches excluded when filtering by division",
-        business_rules_tested=[
-            "Division filter excludes cross-division matches",
-            "Both teams must be in the same division"
-        ],
-        filter_division_id=1,
-        matches=[
-            MatchData("Team A", "Team B", 2, 0,
-                      home_team_division_id=1, away_team_division_id=1),
-            MatchData("Team A", "Team C", 3, 0,
-                      home_team_division_id=1, away_team_division_id=2),
-        ],
-        expected_standings=[
-            ExpectedStanding("Team A", 1, 1, 0, 0, 2, 0, 2, 3, 1),
-            ExpectedStanding("Team B", 1, 0, 0, 1, 0, 2, -2, 0, 2),
-        ]
-    ),
-
-    # Scenario 11: High-scoring thriller
-    LeagueTableScenario(
-        id="high_scoring",
-        description="High-scoring matches calculated correctly",
-        business_rules_tested=[
-            "Large scores handled correctly",
-            "Goal difference can be large positive or negative"
-        ],
-        matches=[
-            MatchData("Team A", "Team B", 9, 0),
-            MatchData("Team B", "Team C", 0, 8),
-            MatchData("Team A", "Team C", 5, 5),  # Draw
-        ],
-        expected_standings=[
-            ExpectedStanding("Team A", 2, 1, 1, 0, 14, 5, 9, 4, 1),
-            ExpectedStanding("Team C", 2, 1, 1, 0, 13, 5, 8, 4, 2),
-            ExpectedStanding("Team B", 2, 0, 0, 2, 0, 17, -17, 0, 3),
-        ]
-    ),
-
-    # Scenario 12: Perfect season
-    LeagueTableScenario(
-        id="perfect_season",
-        description="Team wins all matches (invincible)",
-        business_rules_tested=[
-            "Maximum points per match is 3",
-            "Perfect record tracking"
-        ],
-        matches=[
-            MatchData("Team A", "Team B", 1, 0),
-            MatchData("Team A", "Team C", 1, 0),
-            MatchData("Team A", "Team D", 1, 0),
-        ],
-        expected_standings=[
-            ExpectedStanding("Team A", 3, 3, 0, 0, 3, 0, 3, 9, 1),
-            ExpectedStanding("Team B", 1, 0, 0, 1, 0, 1, -1, 0, 2),
-            ExpectedStanding("Team C", 1, 0, 0, 1, 0, 1, -1, 0, 3),
-            ExpectedStanding("Team D", 1, 0, 0, 1, 0, 1, -1, 0, 4),
-        ]
-    ),
+    },
 ]
 
 
-def calculate_league_table(
-    matches: List[MatchData],
-    filter_division_id: Optional[int] = None,
-    filter_match_type: str = "League"
-) -> List[Dict[str, Any]]:
-    """
-    Calculate league table from match data.
-
-    This is a standalone implementation matching the logic in
-    backend/dao/match_dao.py get_league_table() for unit testing.
-
-    Args:
-        matches: List of match data
-        filter_division_id: Optional division filter
-        filter_match_type: Match type to include (default: League)
-
-    Returns:
-        Sorted list of team standings
-    """
-    standings = defaultdict(lambda: {
-        "played": 0,
-        "wins": 0,
-        "draws": 0,
-        "losses": 0,
-        "goals_for": 0,
-        "goals_against": 0,
-        "goal_difference": 0,
-        "points": 0,
-    })
-
-    for match in matches:
-        # Filter by match type
-        if match.match_type_name != filter_match_type:
-            continue
-
-        # Filter by status (only completed)
-        if match.match_status != "completed":
-            continue
-
-        # Filter by division (both teams must be in division)
-        if filter_division_id is not None:
-            if (match.home_team_division_id != filter_division_id or
-                    match.away_team_division_id != filter_division_id):
-                continue
-
-        # Skip matches without scores
-        if match.home_score is None or match.away_score is None:
-            continue
-
-        home_team = match.home_team
-        away_team = match.away_team
-        home_score = match.home_score
-        away_score = match.away_score
-
-        # Update played count
-        standings[home_team]["played"] += 1
-        standings[away_team]["played"] += 1
-
-        # Update goals
-        standings[home_team]["goals_for"] += home_score
-        standings[home_team]["goals_against"] += away_score
-        standings[away_team]["goals_for"] += away_score
-        standings[away_team]["goals_against"] += home_score
-
-        # Update wins/draws/losses and points
-        if home_score > away_score:
-            # Home win
-            standings[home_team]["wins"] += 1
-            standings[home_team]["points"] += 3
-            standings[away_team]["losses"] += 1
-        elif away_score > home_score:
-            # Away win
-            standings[away_team]["wins"] += 1
-            standings[away_team]["points"] += 3
-            standings[home_team]["losses"] += 1
-        else:
-            # Draw
-            standings[home_team]["draws"] += 1
-            standings[away_team]["draws"] += 1
-            standings[home_team]["points"] += 1
-            standings[away_team]["points"] += 1
-
-    # Convert to list and calculate goal difference
-    table = []
-    for team, stats in standings.items():
-        stats["goal_difference"] = stats["goals_for"] - stats["goals_against"]
-        stats["team"] = team
-        table.append(stats)
-
-    # Sort by points, goal difference, goals scored (all descending)
-    table.sort(
-        key=lambda x: (x["points"], x["goal_difference"], x["goals_for"]),
-        reverse=True
-    )
-
-    return table
-
-
 @pytest.mark.unit
-@pytest.mark.standings
-@pytest.mark.data_driven
-@allure.suite("Parameterized Tests")
-@allure.sub_suite("League Table Scenarios")
-@allure.feature("Business Logic")
-@allure.story("Standings Calculation")
-class TestLeagueTableScenarios:
-    """
-    Scenario-based league table calculation tests.
+class TestCalculateStandings:
+    """Test calculate_standings() pure function."""
 
-    Each scenario documents specific business rules through
-    real-world examples. The scenario descriptions serve as
-    living documentation of the standings calculation logic.
+    @pytest.mark.parametrize("scenario", STANDINGS_SCENARIOS, ids=lambda s: s["id"])
+    def test_standings_scenario(self, scenario: dict):
+        """Test standings calculation for various scenarios."""
+        result = calculate_standings(scenario["matches"])
 
-    For qualityplaybook.dev: This pattern makes business rules
-    explicit and testable. Stakeholders can understand the logic
-    by reading the scenario descriptions.
-    """
-
-    @pytest.mark.parametrize(
-        "scenario",
-        LEAGUE_TABLE_SCENARIOS,
-        ids=lambda s: s.id
-    )
-    @allure.severity(allure.severity_level.CRITICAL)
-    def test_league_table_scenario(self, scenario: LeagueTableScenario):
-        """
-        Test league table calculation against expected standings.
-
-        This test covers 12 scenarios including:
-        - Basic point calculation
-        - Tiebreaker logic (GD, goals scored)
-        - Match status filtering (completed, scheduled, postponed)
-        - Division filtering
-        - Edge cases (empty, single match, high scores)
-        """
-        # Act
-        result = calculate_league_table(
-            matches=scenario.matches,
-            filter_division_id=scenario.filter_division_id,
-            filter_match_type=scenario.filter_match_type
+        assert len(result) == len(scenario["expected"]), (
+            f"FAILED: {scenario['id']} - {scenario['description']}\n"
+            f"Expected {len(scenario['expected'])} teams, got {len(result)}"
         )
 
-        # Assert - verify table structure
-        assert len(result) == len(scenario.expected_standings), (
-            f"\n{'='*60}\n"
-            f"SCENARIO: {scenario.id}\n"
-            f"{'='*60}\n"
-            f"Description: {scenario.description}\n"
-            f"Business Rules: {scenario.business_rules_tested}\n"
-            f"\nExpected {len(scenario.expected_standings)} teams in standings\n"
-            f"Got {len(result)} teams\n"
-            f"\nActual result: {result}\n"
-            f"{'='*60}"
-        )
-
-        # Assert - verify each team's position and stats
-        for expected in scenario.expected_standings:
-            position = expected.position - 1  # 0-indexed
-
-            if position < len(result):
-                actual = result[position]
-
-                # Verify team is in correct position
-                assert actual["team"] == expected.team, (
-                    f"\n{'='*60}\n"
-                    f"SCENARIO: {scenario.id}\n"
-                    f"{'='*60}\n"
-                    f"Wrong team at position {expected.position}\n"
-                    f"Expected: {expected.team}\n"
-                    f"Got: {actual['team']}\n"
-                    f"\nFull table:\n"
-                    + "\n".join(f"  {i+1}. {t['team']} - {t['points']} pts"
-                                for i, t in enumerate(result))
-                    + f"\n{'='*60}"
+        for i, expected in enumerate(scenario["expected"]):
+            actual = result[i]
+            assert actual["team"] == expected["team"], (
+                f"Wrong team at position {i + 1}: expected {expected['team']}, got {actual['team']}"
+            )
+            for key in ["played", "wins", "draws", "losses", "goals_for", "goals_against", "goal_difference", "points"]:
+                assert actual[key] == expected[key], (
+                    f"Team {expected['team']}, {key}: expected {expected[key]}, got {actual[key]}"
                 )
 
-                # Verify all stats match
-                stats_to_check = [
-                    "played", "wins", "draws", "losses",
-                    "goals_for", "goals_against", "goal_difference", "points"
-                ]
-
-                for stat in stats_to_check:
-                    expected_value = getattr(expected, stat)
-                    actual_value = actual[stat]
-                    assert actual_value == expected_value, (
-                        f"\n{'='*60}\n"
-                        f"SCENARIO: {scenario.id}\n"
-                        f"{'='*60}\n"
-                        f"Team: {expected.team}\n"
-                        f"Stat: {stat}\n"
-                        f"Expected: {expected_value}\n"
-                        f"Actual: {actual_value}\n"
-                        f"\nBusiness Rules: {scenario.business_rules_tested}\n"
-                        f"{'='*60}"
-                    )
-
 
 @pytest.mark.unit
-@pytest.mark.standings
-@allure.suite("Parameterized Tests")
-@allure.sub_suite("League Table Scenarios")
-@allure.feature("Test Quality")
-@allure.story("Business Rule Coverage")
-class TestBusinessRuleCoverage:
-    """Meta-tests to verify business rule coverage."""
+class TestFilterCompletedMatches:
+    """Test filter_completed_matches() pure function."""
 
-    @allure.severity(allure.severity_level.MINOR)
-    def test_all_scenarios_have_business_rules(self):
-        """Every scenario should document which rules it tests."""
-        for scenario in LEAGUE_TABLE_SCENARIOS:
-            assert len(scenario.business_rules_tested) > 0, (
-                f"Scenario '{scenario.id}' must document business rules tested"
-            )
-
-    def test_core_business_rules_covered(self):
-        """Verify core business rules are tested."""
-        all_rules = []
-        for scenario in LEAGUE_TABLE_SCENARIOS:
-            all_rules.extend(scenario.business_rules_tested)
-
-        all_rules_text = " ".join(all_rules).lower()
-
-        # Core rules that must be tested
-        core_rules = [
-            "3 points for win",
-            "1 point for draw",
-            "goal difference",
-            "completed",
-        ]
-
-        for rule in core_rules:
-            assert rule.lower() in all_rules_text, (
-                f"Core business rule not covered: {rule}\n"
-                f"Covered rules: {all_rules}"
-            )
-
-    def test_scenario_coverage_summary(self):
-        """Print scenario coverage summary."""
-        print(f"\n{'='*60}")
-        print("LEAGUE TABLE SCENARIO COVERAGE")
-        print(f"{'='*60}")
-        print(f"Total scenarios: {len(LEAGUE_TABLE_SCENARIOS)}")
-
-        # Count business rules
-        all_rules = []
-        for scenario in LEAGUE_TABLE_SCENARIOS:
-            all_rules.extend(scenario.business_rules_tested)
-
-        unique_rules = set(all_rules)
-        print(f"Unique business rules tested: {len(unique_rules)}")
-
-        print("\nScenarios:")
-        for s in LEAGUE_TABLE_SCENARIOS:
-            print(f"  [{s.id}] {s.description}")
-            for rule in s.business_rules_tested:
-                print(f"    - {rule}")
-
-        print(f"{'='*60}")
-
-        # This test always passes - it's for documentation
-        assert True
-
-
-@pytest.mark.unit
-@pytest.mark.standings
-@allure.suite("Parameterized Tests")
-@allure.sub_suite("League Table Scenarios")
-@allure.feature("Business Logic")
-@allure.story("Edge Cases")
-class TestEdgeCases:
-    """Additional edge case tests not covered by scenarios."""
-
-    @allure.severity(allure.severity_level.NORMAL)
-    def test_team_appears_in_multiple_matches(self):
-        """Team stats accumulate correctly across multiple matches."""
+    def test_filters_completed_only(self):
+        """Only completed matches are included."""
         matches = [
-            MatchData("Team A", "Team B", 2, 1),
-            MatchData("Team A", "Team C", 1, 0),
-            MatchData("Team B", "Team A", 0, 3),  # A plays as away team
+            match("A", "B", 1, 0, status="completed"),
+            match("A", "C", 2, 0, status="scheduled"),
+            match("B", "C", 3, 0, status="postponed"),
+            match("A", "D", 1, 1, status="completed"),
         ]
-
-        result = calculate_league_table(matches)
-
-        # Find Team A
-        team_a = next(t for t in result if t["team"] == "Team A")
-
-        assert team_a["played"] == 3
-        assert team_a["wins"] == 3
-        assert team_a["goals_for"] == 6  # 2 + 1 + 3
-        assert team_a["goals_against"] == 1  # 1 + 0 + 0
-        assert team_a["points"] == 9
-
-    def test_all_zeros_match(self):
-        """0-0 draw is handled correctly."""
-        matches = [MatchData("Team A", "Team B", 0, 0)]
-        result = calculate_league_table(matches)
-
+        result = filter_completed_matches(matches)
         assert len(result) == 2
-        for team in result:
-            assert team["points"] == 1
-            assert team["draws"] == 1
-            assert team["goals_for"] == 0
-            assert team["goals_against"] == 0
+        assert all(m["match_status"] == "completed" for m in result)
 
-    def test_cancelled_matches_excluded(self):
-        """Cancelled matches don't count."""
+    def test_excludes_cancelled(self):
+        """Cancelled matches are excluded."""
         matches = [
-            MatchData("Team A", "Team B", 2, 0, match_status="completed"),
-            MatchData("Team A", "Team C", 5, 0, match_status="cancelled"),
+            match("A", "B", 1, 0, status="completed"),
+            match("A", "C", 5, 0, status="cancelled"),
         ]
+        result = filter_completed_matches(matches)
+        assert len(result) == 1
 
-        result = calculate_league_table(matches)
 
+@pytest.mark.unit
+class TestFilterSameDivisionMatches:
+    """Test filter_same_division_matches() pure function."""
+
+    def test_filters_cross_division(self):
+        """Cross-division matches are excluded."""
+        matches = [
+            match("A", "B", 1, 0, home_div=1, away_div=1),
+            match("A", "C", 2, 0, home_div=1, away_div=2),  # Cross-division
+            match("C", "D", 1, 1, home_div=2, away_div=2),
+        ]
+        result = filter_same_division_matches(matches, division_id=1)
+        assert len(result) == 1
+        assert result[0]["home_team"]["name"] == "A"
+        assert result[0]["away_team"]["name"] == "B"
+
+
+@pytest.mark.unit
+class TestFilterByMatchType:
+    """Test filter_by_match_type() pure function."""
+
+    def test_filters_by_match_type(self):
+        """Only matches with specified type are included."""
+        matches = [
+            match("A", "B", 1, 0, match_type="League"),
+            match("A", "C", 2, 0, match_type="Cup"),
+            match("B", "C", 1, 1, match_type="League"),
+        ]
+        result = filter_by_match_type(matches, "League")
+        assert len(result) == 2
+        assert all(m["match_type"]["name"] == "League" for m in result)
+
+
+@pytest.mark.unit
+class TestEdgeCases:
+    """Test edge cases."""
+
+    def test_home_and_away_aggregated(self):
+        """Stats aggregated across home and away matches."""
+        matches = [
+            match("Team A", "Team B", 3, 0),
+            match("Team B", "Team A", 0, 3),
+        ]
+        result = calculate_standings(matches)
         team_a = next(t for t in result if t["team"] == "Team A")
-        assert team_a["played"] == 1
-        assert team_a["goals_for"] == 2  # Only from completed match
-
-
-# ============================================================================
-# Documentation Helper
-# ============================================================================
-
-def print_scenarios():
-    """Print all scenarios for documentation."""
-    print("\n" + "=" * 80)
-    print("LEAGUE TABLE CALCULATION SCENARIOS")
-    print("=" * 80)
-
-    for s in LEAGUE_TABLE_SCENARIOS:
-        print(f"\n[{s.id}] {s.description}")
-        print(f"  Business Rules Tested:")
-        for rule in s.business_rules_tested:
-            print(f"    - {rule}")
-        print(f"  Matches: {len(s.matches)}")
-        print(f"  Expected Teams: {len(s.expected_standings)}")
-
-        if s.expected_standings:
-            print("  Expected Standings:")
-            for standing in s.expected_standings:
-                print(f"    {standing.position}. {standing.team}: "
-                      f"{standing.points} pts, GD {standing.goal_difference:+d}")
-
-
-if __name__ == "__main__":
-    print_scenarios()
+        assert team_a["played"] == 2
+        assert team_a["wins"] == 2
+        assert team_a["goals_for"] == 6
+        assert team_a["points"] == 6

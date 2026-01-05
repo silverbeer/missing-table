@@ -12,6 +12,13 @@ import httpx
 from dotenv import load_dotenv
 from supabase import create_client
 
+from dao.standings import (
+    calculate_standings,
+    filter_by_match_type,
+    filter_completed_matches,
+    filter_same_division_matches,
+)
+
 logger = structlog.get_logger()
 
 # Load environment variables with environment-specific support
@@ -1388,125 +1395,75 @@ class MatchDAO:
         division_id: int | None = None,
         match_type: str = "League",
     ) -> list[dict]:
-        """Generate league table with optional filters."""
+        """
+        Generate league table with optional filters.
+
+        This method fetches matches from the database and delegates
+        the standings calculation to pure functions in dao/standings.py.
+
+        Args:
+            season_id: Filter by season
+            age_group_id: Filter by age group
+            division_id: Filter by division
+            match_type: Filter by match type name (default: "League")
+
+        Returns:
+            List of team standings sorted by points, goal difference, goals scored
+        """
         try:
-            # Build query - include team division_id to filter cross-division matches
-            query = self.client.table("matches").select("""
-                *,
-                home_team:teams!matches_home_team_id_fkey(id, name, division_id),
-                away_team:teams!matches_away_team_id_fkey(id, name, division_id),
-                match_type:match_types(id, name)
-            """)
+            # Fetch matches from database
+            matches = self._fetch_matches_for_standings(season_id, age_group_id, division_id)
 
-            # Apply filters
-            if season_id:
-                query = query.eq("season_id", season_id)
-            if age_group_id:
-                query = query.eq("age_group_id", age_group_id)
+            # Apply filters using pure functions
+            matches = filter_by_match_type(matches, match_type)
             if division_id:
-                query = query.eq("division_id", division_id)
+                matches = filter_same_division_matches(matches, division_id)
+            matches = filter_completed_matches(matches)
 
-            # Get matches
-            response = query.execute()
-
-            # Filter by match type name and status
-            matches = [m for m in response.data if m.get("match_type", {}).get("name") == match_type]
-
-            # Filter out cross-division matches for league standings
-            # Only include matches where BOTH teams belong to the requested division
-            if division_id:
-                same_division_matches = []
-                for match in matches:
-                    home_div_id = match.get("home_team", {}).get("division_id")
-                    away_div_id = match.get("away_team", {}).get("division_id")
-
-                    # Only include if both teams are in the requested division
-                    if home_div_id == division_id and away_div_id == division_id:
-                        same_division_matches.append(match)
-
-                matches = same_division_matches
-
-            # Filter to only include completed matches (exclude scheduled/postponed/cancelled)
-            # Use match_status field if available, otherwise fallback to date-based logic for backwards compatibility
-            played_matches = []
-            for match in matches:
-                match_status = match.get("match_status")
-                if match_status:
-                    # Use match_status field if available
-                    if match_status == "completed":
-                        played_matches.append(match)
-                else:
-                    # Fallback to date-based logic for backwards compatibility
-                    from datetime import date
-                    match_date = date.fromisoformat(match["match_date"])
-                    if match_date <= date.today():
-                        played_matches.append(match)
-
-            # Calculate standings
-            from collections import defaultdict
-
-            standings = defaultdict(
-                lambda: {
-                    "played": 0,
-                    "wins": 0,
-                    "draws": 0,
-                    "losses": 0,
-                    "goals_for": 0,
-                    "goals_against": 0,
-                    "goal_difference": 0,
-                    "points": 0,
-                }
-            )
-
-            for match in played_matches:
-                home_team = match["home_team"]["name"]
-                away_team = match["away_team"]["name"]
-                home_score = match["home_score"]
-                away_score = match["away_score"]
-
-                # Skip matches without scores
-                if home_score is None or away_score is None:
-                    continue
-
-                # Update stats
-                standings[home_team]["played"] += 1
-                standings[away_team]["played"] += 1
-                standings[home_team]["goals_for"] += home_score
-                standings[home_team]["goals_against"] += away_score
-                standings[away_team]["goals_for"] += away_score
-                standings[away_team]["goals_against"] += home_score
-
-                if home_score > away_score:
-                    standings[home_team]["wins"] += 1
-                    standings[home_team]["points"] += 3
-                    standings[away_team]["losses"] += 1
-                elif away_score > home_score:
-                    standings[away_team]["wins"] += 1
-                    standings[away_team]["points"] += 3
-                    standings[home_team]["losses"] += 1
-                else:
-                    standings[home_team]["draws"] += 1
-                    standings[away_team]["draws"] += 1
-                    standings[home_team]["points"] += 1
-                    standings[away_team]["points"] += 1
-
-            # Convert to list and calculate goal difference
-            table = []
-            for team, stats in standings.items():
-                stats["goal_difference"] = stats["goals_for"] - stats["goals_against"]
-                stats["team"] = team
-                table.append(stats)
-
-            # Sort by points, goal difference, goals scored
-            table.sort(
-                key=lambda x: (x["points"], x["goal_difference"], x["goals_for"]), reverse=True
-            )
-
-            return table
+            # Calculate standings using pure function
+            return calculate_standings(matches)
 
         except Exception as e:
             logger.exception("Error generating league table")
             return []
+
+    def _fetch_matches_for_standings(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+    ) -> list[dict]:
+        """
+        Fetch matches from database for standings calculation.
+
+        This is a thin data access method that only handles the query.
+        All business logic is in pure functions.
+
+        Args:
+            season_id: Filter by season
+            age_group_id: Filter by age group
+            division_id: Filter by division
+
+        Returns:
+            List of match dictionaries from database
+        """
+        query = self.client.table("matches").select("""
+            *,
+            home_team:teams!matches_home_team_id_fkey(id, name, division_id),
+            away_team:teams!matches_away_team_id_fkey(id, name, division_id),
+            match_type:match_types(id, name)
+        """)
+
+        # Apply database-level filters
+        if season_id:
+            query = query.eq("season_id", season_id)
+        if age_group_id:
+            query = query.eq("age_group_id", age_group_id)
+        if division_id:
+            query = query.eq("division_id", division_id)
+
+        response = query.execute()
+        return response.data
 
     # === Admin CRUD Methods ===
 
