@@ -16,15 +16,30 @@ env:
   S3_BUCKET: 'quality-missingtable-com'
   CLOUDFRONT_DISTRIBUTION_ID: 'E15AUGI7OKJ99L'
 
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
 jobs:
   journey-tests:
     name: Run User Journey Tests
-    runs-on: [self-hosted, quality-runner]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-quality
+          aws-region: us-east-1
+
+      - name: Install Allure CLI
+        run: |
+          curl -fsSL https://github.com/allure-framework/allure2/releases/download/2.30.0/allure-2.30.0.tgz | tar -xz
+          echo "$PWD/allure-2.30.0/bin" >> $GITHUB_PATH
 
       - name: Extract build info
         id: build-info
@@ -42,11 +57,20 @@ jobs:
         run: |
           allure --version
 
-      - name: Setup Python with uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
         run: |
           cd backend
-          uv python install 3.13
-          uv sync --python 3.13
+          uv sync
 
       - name: Run TSC Journey Tests
         id: journey-tests
