@@ -826,6 +826,7 @@ export default {
           city: formData.value.city,
           club_id: formData.value.parentClubId,
           age_group_ids: formData.value.ageGroupIds.map(id => parseInt(id)),
+          match_type_ids: formData.value.gameTypeIds.map(id => parseInt(id)),
           division_id: formData.value.divisionId
             ? parseInt(formData.value.divisionId)
             : null,

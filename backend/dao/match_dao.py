@@ -453,6 +453,7 @@ class MatchDAO:
         name: str,
         city: str,
         age_group_ids: list[int],
+        match_type_ids: list[int] | None = None,
         division_id: int | None = None,
         club_id: int | None = None,
         academy_team: bool = False,
@@ -468,6 +469,7 @@ class MatchDAO:
             name: Team name
             city: Team city
             age_group_ids: List of age group IDs (required, at least one)
+            match_type_ids: List of match type IDs (optional, game types team participates in)
             division_id: Division ID (optional, only required for league teams)
             club_id: Optional club ID
             academy_team: Whether this is an academy team
@@ -511,16 +513,29 @@ class MatchDAO:
 
             team_id = team_response.data[0]["id"]
 
-            # Add age group associations (only if division provided)
-            # Guest/tournament teams without divisions skip team_mappings
-            if division_id is not None:
-                for age_group_id in age_group_ids:
-                    data = {
-                        "team_id": team_id,
-                        "age_group_id": age_group_id,
-                        "division_id": division_id  # Same division for all age groups
-                    }
-                    self.client.table("team_mappings").insert(data).execute()
+            # Add age group associations
+            # For league teams: team_mappings with division_id
+            # For guest/tournament teams: team_mappings with null division_id
+            for age_group_id in age_group_ids:
+                data = {
+                    "team_id": team_id,
+                    "age_group_id": age_group_id,
+                    "division_id": division_id  # null for guest teams, set for league teams
+                }
+                self.client.table("team_mappings").insert(data).execute()
+
+            # Add game type participations
+            # Create team_match_types entries for each match_type + age_group combination
+            if match_type_ids:
+                for match_type_id in match_type_ids:
+                    for age_group_id in age_group_ids:
+                        match_type_data = {
+                            "team_id": team_id,
+                            "match_type_id": match_type_id,
+                            "age_group_id": age_group_id,
+                            "is_active": True
+                        }
+                        self.client.table("team_match_types").insert(match_type_data).execute()
 
             return True
 
