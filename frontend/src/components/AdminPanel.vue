@@ -1,9 +1,10 @@
 <template>
-  <div class="admin-panel">
+  <div class="admin-panel" data-testid="admin-panel">
     <!-- Admin Access Check -->
     <div
       v-if="!authStore.isAdmin.value && !authStore.isClubManager.value"
       class="text-center py-12"
+      data-testid="admin-access-denied"
     >
       <div class="max-w-md mx-auto">
         <div class="text-red-600 text-6xl mb-4">🚫</div>
@@ -22,7 +23,7 @@
       </div>
 
       <!-- Admin Navigation -->
-      <div class="mb-8">
+      <div class="mb-8" data-testid="admin-nav">
         <nav
           class="flex space-x-1 bg-gray-100 p-1 rounded-lg"
           aria-label="Admin sections"
@@ -31,6 +32,7 @@
             v-for="section in adminSections"
             :key="section.id"
             @click="currentSection = section.id"
+            :data-testid="`admin-tab-${section.id}`"
             :class="[
               currentSection === section.id
                 ? 'bg-white text-gray-900 shadow'
@@ -44,54 +46,97 @@
       </div>
 
       <!-- Section Content -->
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div
+        class="bg-white rounded-lg shadow-sm border border-gray-200"
+        data-testid="admin-content"
+      >
         <!-- Invite Requests Management -->
-        <div v-if="currentSection === 'invite-requests'" class="p-6">
+        <div
+          v-if="currentSection === 'invite-requests'"
+          class="p-6"
+          data-testid="admin-section-invite-requests"
+        >
           <AdminInviteRequests />
         </div>
 
         <!-- Age Groups Management -->
-        <div v-if="currentSection === 'age-groups'" class="p-6">
+        <div
+          v-if="currentSection === 'age-groups'"
+          class="p-6"
+          data-testid="admin-section-age-groups"
+        >
           <AdminAgeGroups />
         </div>
 
         <!-- Seasons Management -->
-        <div v-if="currentSection === 'seasons'" class="p-6">
+        <div
+          v-if="currentSection === 'seasons'"
+          class="p-6"
+          data-testid="admin-section-seasons"
+        >
           <AdminSeasons />
         </div>
 
         <!-- Leagues Management -->
-        <div v-if="currentSection === 'leagues'" class="p-6">
+        <div
+          v-if="currentSection === 'leagues'"
+          class="p-6"
+          data-testid="admin-section-leagues"
+        >
           <AdminLeagues />
         </div>
 
         <!-- Divisions Management -->
-        <div v-if="currentSection === 'divisions'" class="p-6">
+        <div
+          v-if="currentSection === 'divisions'"
+          class="p-6"
+          data-testid="admin-section-divisions"
+        >
           <AdminDivisions />
         </div>
 
         <!-- Clubs Management -->
-        <div v-if="currentSection === 'clubs'" class="p-6">
+        <div
+          v-if="currentSection === 'clubs'"
+          class="p-6"
+          data-testid="admin-section-clubs"
+        >
           <AdminClubs />
         </div>
 
         <!-- Teams Management -->
-        <div v-if="currentSection === 'teams'" class="p-6">
+        <div
+          v-if="currentSection === 'teams'"
+          class="p-6"
+          data-testid="admin-section-teams"
+        >
           <AdminTeams />
         </div>
 
         <!-- Players Management -->
-        <div v-if="currentSection === 'players'" class="p-6">
+        <div
+          v-if="currentSection === 'players'"
+          class="p-6"
+          data-testid="admin-section-players"
+        >
           <AdminPlayers />
         </div>
 
         <!-- Matches Management -->
-        <div v-if="currentSection === 'matches'" class="p-6">
+        <div
+          v-if="currentSection === 'matches'"
+          class="p-6"
+          data-testid="admin-section-matches"
+        >
           <AdminMatches />
         </div>
 
         <!-- Invites Management -->
-        <div v-if="currentSection === 'invites'" class="p-6">
+        <div
+          v-if="currentSection === 'invites'"
+          class="p-6"
+          data-testid="admin-section-invites"
+        >
           <AdminInvites />
         </div>
       </div>
