@@ -6,11 +6,10 @@ and related soccer/futbol data using Supabase.
 """
 
 import os
-import structlog
 
 import httpx
+import structlog
 from dotenv import load_dotenv
-from supabase import create_client
 
 from dao.standings import (
     calculate_standings,
@@ -18,6 +17,7 @@ from dao.standings import (
     filter_completed_matches,
     filter_same_division_matches,
 )
+from supabase import create_client
 
 logger = structlog.get_logger()
 
@@ -60,7 +60,7 @@ class SupabaseConnection:
         key_type = 'SERVICE_KEY' if service_key and self.key == service_key else 'ANON_KEY'
         logger.debug("Connecting to Supabase", url=self.url, key_type=key_type,
                      service_key_present=bool(service_key), anon_key_present=bool(anon_key))
-        
+
         try:
             # Try with custom httpx client
             transport = httpx.HTTPTransport(retries=3)
@@ -100,7 +100,7 @@ class MatchDAO:
         try:
             response = self.client.table("age_groups").select("*").order("name").execute()
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying age groups")
             return []
 
@@ -111,7 +111,7 @@ class MatchDAO:
                 self.client.table("seasons").select("*").order("start_date", desc=True).execute()
             )
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying seasons")
             return []
 
@@ -152,7 +152,7 @@ class MatchDAO:
             )
 
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying active seasons")
             return []
 
@@ -161,7 +161,7 @@ class MatchDAO:
         try:
             response = self.client.table("match_types").select("*").order("name").execute()
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying match types")
             return []
 
@@ -170,7 +170,7 @@ class MatchDAO:
         try:
             response = self.client.table("match_types").select("*").eq("id", match_type_id).execute()
             return response.data[0] if response.data else None
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying match type")
             return None
 
@@ -181,7 +181,7 @@ class MatchDAO:
         try:
             response = self.client.table("leagues").select("*").order("name").execute()
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying leagues")
             return []
 
@@ -195,7 +195,7 @@ class MatchDAO:
                 .execute()
             )
             return response.data[0] if response.data else None
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying league", league_id=league_id)
             return None
 
@@ -204,7 +204,7 @@ class MatchDAO:
         try:
             response = self.client.table("leagues").insert(league_data).execute()
             return response.data[0]
-        except Exception as e:
+        except Exception:
             logger.exception("Error creating league")
             raise
 
@@ -218,7 +218,7 @@ class MatchDAO:
                 .execute()
             )
             return response.data[0] if response.data else None
-        except Exception as e:
+        except Exception:
             logger.exception("Error updating league", league_id=league_id)
             raise
 
@@ -227,7 +227,7 @@ class MatchDAO:
         try:
             self.client.table("leagues").delete().eq("id", league_id).execute()
             return True
-        except Exception as e:
+        except Exception:
             logger.exception("Error deleting league", league_id=league_id)
             raise
 
@@ -243,7 +243,7 @@ class MatchDAO:
                 .execute()
             )
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying divisions")
             return []
 
@@ -258,7 +258,7 @@ class MatchDAO:
                 .execute()
             )
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying divisions for league", league_id=league_id)
             return []
 
@@ -299,7 +299,7 @@ class MatchDAO:
             teams = []
             for team in response.data:
                 # Extract league_name from the joined leagues table
-                if "leagues" in team and team["leagues"]:
+                if team.get("leagues"):
                     team["league_name"] = team["leagues"]["name"]
 
                 age_groups = []
@@ -320,7 +320,7 @@ class MatchDAO:
                 teams.append(team)
 
             return teams
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying teams")
             return []
 
@@ -413,7 +413,7 @@ class MatchDAO:
                 teams.append(team)
 
             return teams
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying teams by match type and age group")
             return []
 
@@ -431,7 +431,7 @@ class MatchDAO:
                 }
             ).execute()
             return True
-        except Exception as e:
+        except Exception:
             logger.exception("Error adding team match type participation")
             return False
 
@@ -444,7 +444,7 @@ class MatchDAO:
                 "team_id", team_id
             ).eq("match_type_id", match_type_id).eq("age_group_id", age_group_id).execute()
             return True
-        except Exception as e:
+        except Exception:
             logger.exception("Error removing team match type participation")
             return False
 
@@ -453,7 +453,8 @@ class MatchDAO:
         name: str,
         city: str,
         age_group_ids: list[int],
-        division_id: int,
+        match_type_ids: list[int] | None = None,
+        division_id: int | None = None,
         club_id: int | None = None,
         academy_team: bool = False,
         client_ip: str | None = None,
@@ -462,12 +463,14 @@ class MatchDAO:
 
         Division represents location (e.g., Northeast Division for Homegrown,
         New England Conference for Academy). All age groups share the same division.
+        For guest/tournament teams, division_id can be None.
 
         Args:
             name: Team name
             city: Team city
             age_group_ids: List of age group IDs (required, at least one)
-            division_id: Division ID (required, applies to all age groups)
+            match_type_ids: List of match type IDs (optional, game types team participates in)
+            division_id: Division ID (optional, only required for league teams)
             club_id: Optional club ID
             academy_team: Whether this is an academy team
             client_ip: Client IP address for security monitoring (optional)
@@ -477,16 +480,18 @@ class MatchDAO:
             if not age_group_ids or len(age_group_ids) == 0:
                 raise ValueError("Team must have at least one age group")
 
-            # Get league_id from division
-            division_response = (
-                self.client.table("divisions")
-                .select("league_id")
-                .eq("id", division_id)
-                .execute()
-            )
-            if not division_response.data:
-                raise ValueError(f"Division {division_id} not found")
-            league_id = division_response.data[0]["league_id"]
+            # Get league_id from division (if division provided)
+            league_id = None
+            if division_id is not None:
+                division_response = (
+                    self.client.table("divisions")
+                    .select("league_id")
+                    .eq("id", division_id)
+                    .execute()
+                )
+                if not division_response.data:
+                    raise ValueError(f"Division {division_id} not found")
+                league_id = division_response.data[0]["league_id"]
 
             # Insert team with club, league, and division
             team_data = {
@@ -508,14 +513,29 @@ class MatchDAO:
 
             team_id = team_response.data[0]["id"]
 
-            # Add age group associations with the same division for all
+            # Add age group associations
+            # For league teams: team_mappings with division_id
+            # For guest/tournament teams: team_mappings with null division_id
             for age_group_id in age_group_ids:
                 data = {
                     "team_id": team_id,
                     "age_group_id": age_group_id,
-                    "division_id": division_id  # Same division for all age groups
+                    "division_id": division_id  # null for guest teams, set for league teams
                 }
                 self.client.table("team_mappings").insert(data).execute()
+
+            # Add game type participations
+            # Create team_match_types entries for each match_type + age_group combination
+            if match_type_ids:
+                for match_type_id in match_type_ids:
+                    for age_group_id in age_group_ids:
+                        match_type_data = {
+                            "team_id": team_id,
+                            "match_type_id": match_type_id,
+                            "age_group_id": age_group_id,
+                            "is_active": True
+                        }
+                        self.client.table("team_match_types").insert(match_type_data).execute()
 
             return True
 
@@ -542,7 +562,7 @@ class MatchDAO:
 
             return bool(response.data)
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error updating team division")
             return False
 
@@ -565,7 +585,7 @@ class MatchDAO:
                 return response.data[0]
             return None
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error getting team by name", team_name=name)
             return None
 
@@ -664,7 +684,7 @@ class MatchDAO:
                 return response.data[0]
             return None
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error getting age group by name", age_group_name=name)
             return None
 
@@ -687,7 +707,7 @@ class MatchDAO:
                 return response.data[0]
             return None
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error getting division by name", division_name=name)
             return None
 
@@ -748,7 +768,7 @@ class MatchDAO:
                 return flat_match
             return None
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error getting match by external ID", external_match_id=external_match_id)
             return None
 
@@ -827,7 +847,7 @@ class MatchDAO:
                 return flat_match
             return None
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error getting match by teams and date")
             return None
 
@@ -860,7 +880,7 @@ class MatchDAO:
                 return True
             return False
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error updating match external_id")
             return False
 
@@ -957,7 +977,7 @@ class MatchDAO:
                 return response.data[0]["id"]
             return None
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error creating match")
             return None
 
@@ -1075,7 +1095,7 @@ class MatchDAO:
 
             return matches
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying matches")
             return []
 
@@ -1147,7 +1167,7 @@ class MatchDAO:
 
             return matches
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying matches by team")
             return []
 
@@ -1195,7 +1215,7 @@ class MatchDAO:
 
             return bool(response.data)
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error adding match")
             return False
 
@@ -1296,7 +1316,7 @@ class MatchDAO:
             # Get the updated match to return with full relations
             return self.get_match_by_id(match_id)
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error updating match")
             return None
 
@@ -1373,7 +1393,7 @@ class MatchDAO:
             else:
                 return None
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error retrieving match by ID")
             return None
 
@@ -1384,7 +1404,7 @@ class MatchDAO:
 
             return True  # Supabase delete returns empty data even on success
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error deleting match")
             return False
 
@@ -1423,7 +1443,7 @@ class MatchDAO:
             # Calculate standings using pure function
             return calculate_standings(matches)
 
-        except Exception as e:
+        except Exception:
             logger.exception("Error generating league table")
             return []
 
@@ -1719,7 +1739,7 @@ class MatchDAO:
             # Get all teams that could be parent clubs (no club_id)
             response = self.client.table("teams").select("*").is_("club_id", "null").execute()
             return response.data
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying parent club entities")
             return []
 
@@ -1752,7 +1772,7 @@ class MatchDAO:
                 club["team_count"] = team_counts.get(club["id"], 0)
 
             return clubs
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying clubs")
             return []
 
@@ -1875,7 +1895,7 @@ class MatchDAO:
                 teams.append(team_data)
 
             return teams
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying club teams")
             return []
 
@@ -1901,7 +1921,7 @@ class MatchDAO:
             # Get the club details
             club_response = self.client.table("clubs").select("*").eq("id", club_id).execute()
             return club_response.data[0] if club_response.data and len(club_response.data) > 0 else None
-        except Exception as e:
+        except Exception:
             logger.exception("Error querying club for team")
             return None
 
@@ -2074,7 +2094,7 @@ class MatchDAO:
 
             # Convert RPC result to dictionary
             return {row['team_id']: row['game_count'] for row in response.data}
-        except Exception as e:
+        except Exception:
             logger.exception("Error getting team game counts")
             # Return empty dict on error - teams will show 0 games
             return {}

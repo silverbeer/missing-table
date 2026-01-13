@@ -1988,6 +1988,7 @@ async def add_team(
             name=team.name,
             city=team.city,
             age_group_ids=team.age_group_ids,
+            match_type_ids=team.match_type_ids,
             division_id=team.division_id,
             club_id=team.club_id,
             academy_team=team.academy_team

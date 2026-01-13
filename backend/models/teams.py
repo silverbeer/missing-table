@@ -9,7 +9,8 @@ class Team(BaseModel):
     name: str
     city: str
     age_group_ids: list[int]  # Required: at least one age group
-    division_id: int  # Required: single division for all age groups (based on location)
+    match_type_ids: list[int] | None = None  # Optional: game types team participates in
+    division_id: int | None = None  # Optional: required for league teams only
     club_id: int | None = None  # FK to clubs table
     academy_team: bool | None = False
 
