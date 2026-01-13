@@ -1,16 +1,23 @@
 <template>
-  <div class="p-4 sm:p-6">
+  <div class="p-4 sm:p-6" data-testid="admin-invites">
     <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
       Invite Management
     </h2>
 
     <!-- Create Invite Section -->
-    <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-4 sm:mb-6">
+    <div
+      class="bg-white rounded-lg shadow p-4 sm:p-6 mb-4 sm:mb-6"
+      data-testid="create-invite-section"
+    >
       <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
         Create New Invite
       </h3>
 
-      <form @submit.prevent="createInvite" class="space-y-4">
+      <form
+        @submit.prevent="createInvite"
+        class="space-y-4"
+        data-testid="create-invite-form"
+      >
         <!-- Invite Type Selection -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2"
@@ -19,6 +26,7 @@
           <select
             v-model="newInvite.inviteType"
             required
+            data-testid="invite-type-select"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select type...</option>
@@ -42,6 +50,7 @@
           <select
             v-model="newInvite.clubId"
             required
+            data-testid="invite-club-select"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select club...</option>
@@ -65,6 +74,7 @@
           <select
             v-model="newInvite.teamId"
             required
+            data-testid="invite-team-select"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select team...</option>
@@ -88,6 +98,7 @@
           <select
             v-model="newInvite.ageGroupId"
             required
+            data-testid="invite-age-group-select"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select age group...</option>
@@ -110,6 +121,7 @@
             v-model="newInvite.email"
             type="email"
             placeholder="Pre-fill email for recipient"
+            data-testid="invite-email-input"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -118,6 +130,7 @@
         <button
           type="submit"
           :disabled="loading"
+          data-testid="create-invite-submit"
           class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
         >
           {{ loading ? 'Creating...' : 'Create Invite' }}
@@ -128,6 +141,7 @@
       <div
         v-if="createdInvite"
         class="mt-4 p-4 bg-green-50 border border-green-200 rounded-md"
+        data-testid="invite-success-message"
       >
         <h4 class="font-semibold text-green-800 mb-2">
           Invite Created Successfully!
@@ -165,6 +179,7 @@
             >
             <button
               @click="copyInviteMessage"
+              data-testid="copy-invite-message-button"
               class="text-sm bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded flex items-center gap-1"
             >
               <svg
@@ -193,6 +208,7 @@
         <!-- Copy Link Only Button -->
         <button
           @click="copyInviteLink(createdInvite.invite_code)"
+          data-testid="copy-invite-link-button"
           class="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
         >
           Copy Link Only
@@ -201,7 +217,10 @@
     </div>
 
     <!-- Existing Invites -->
-    <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+    <div
+      class="bg-white rounded-lg shadow p-4 sm:p-6"
+      data-testid="existing-invites-section"
+    >
       <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
         Existing Invites
       </h3>
@@ -211,6 +230,7 @@
         <select
           v-model="statusFilter"
           @change="fetchInvites"
+          data-testid="invite-status-filter"
           class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Invites</option>
@@ -275,8 +295,14 @@
       </div>
 
       <!-- Desktop Table View -->
-      <div class="hidden sm:block overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+      <div
+        class="hidden sm:block overflow-x-auto"
+        data-testid="invites-table-container"
+      >
+        <table
+          class="min-w-full divide-y divide-gray-200"
+          data-testid="invites-table"
+        >
           <thead class="bg-gray-50">
             <tr>
               <th
@@ -311,9 +337,20 @@
               </th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="invite in invites" :key="invite.id">
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-mono">
+          <tbody
+            class="bg-white divide-y divide-gray-200"
+            data-testid="invites-tbody"
+          >
+            <tr
+              v-for="invite in invites"
+              :key="invite.id"
+              :data-testid="`invite-row-${invite.id}`"
+              data-invite-row
+            >
+              <td
+                class="px-6 py-4 whitespace-nowrap text-sm font-mono"
+                data-testid="invite-code"
+              >
                 {{ invite.invite_code }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -347,6 +384,7 @@
                 <button
                   v-if="invite.status === 'pending'"
                   @click="cancelInvite(invite.id)"
+                  data-testid="cancel-invite-button"
                   class="text-red-600 hover:text-red-900"
                 >
                   Cancel

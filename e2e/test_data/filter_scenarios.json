@@ -1,0 +1,45 @@
+[
+  {
+    "id": "filter_by_season",
+    "description": "Filter standings by season",
+    "filters": {
+      "season": "2024-2025"
+    },
+    "expected_result": "filtered_data"
+  },
+  {
+    "id": "filter_by_age_group",
+    "description": "Filter standings by age group",
+    "filters": {
+      "age_group": "U14"
+    },
+    "expected_result": "filtered_data"
+  },
+  {
+    "id": "filter_by_division",
+    "description": "Filter standings by division",
+    "filters": {
+      "division": "Division 1"
+    },
+    "expected_result": "filtered_data"
+  },
+  {
+    "id": "filter_combination",
+    "description": "Filter with multiple criteria",
+    "filters": {
+      "season": "2024-2025",
+      "age_group": "U14",
+      "division": "Division 1"
+    },
+    "expected_result": "filtered_data"
+  },
+  {
+    "id": "no_results_filter",
+    "description": "Filter combination that returns no results",
+    "filters": {
+      "season": "2020-2021",
+      "age_group": "U19"
+    },
+    "expected_result": "empty"
+  }
+]

@@ -1,9 +1,10 @@
 <template>
-  <div>
+  <div data-testid="admin-teams">
     <div class="flex justify-between items-center mb-6">
       <h3 class="text-lg font-semibold text-gray-900">Teams Management</h3>
       <button
         @click="showAddModal = true"
+        data-testid="add-team-button"
         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add Team
@@ -11,7 +12,11 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="flex justify-center py-8">
+    <div
+      v-if="loading"
+      class="flex justify-center py-8"
+      data-testid="teams-loading"
+    >
       <div
         class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
       ></div>
@@ -21,6 +26,7 @@
     <div
       v-if="error"
       class="bg-red-50 border border-red-200 rounded-md p-4 mb-4"
+      data-testid="teams-error"
     >
       <div class="text-red-800">{{ error }}</div>
     </div>
@@ -29,8 +35,12 @@
     <div
       v-else
       class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
+      data-testid="teams-table-container"
     >
-      <table class="min-w-full divide-y divide-gray-300">
+      <table
+        class="min-w-full divide-y divide-gray-300"
+        data-testid="teams-table"
+      >
         <thead class="bg-gray-50">
           <tr>
             <th
@@ -60,10 +70,19 @@
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="team in teams" :key="team.id">
+        <tbody
+          class="bg-white divide-y divide-gray-200"
+          data-testid="teams-tbody"
+        >
+          <tr
+            v-for="team in teams"
+            :key="team.id"
+            :data-testid="`team-row-${team.id}`"
+            data-team-row
+          >
             <td
               class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+              data-testid="team-name"
             >
               {{ team.name }}
             </td>
@@ -113,18 +132,21 @@
               <button
                 @click="editTeam(team)"
                 class="text-blue-600 hover:text-blue-900 mr-3"
+                data-testid="edit-team-button"
               >
                 Edit
               </button>
               <button
                 @click="manageTeamMappings(team)"
                 class="text-green-600 hover:text-green-900 mr-3"
+                data-testid="manage-leagues-button"
               >
                 Leagues
               </button>
               <button
                 @click="deleteTeam(team)"
                 class="text-red-600 hover:text-red-900"
+                data-testid="delete-team-button"
               >
                 Delete
               </button>
@@ -139,14 +161,21 @@
       v-if="showAddModal || showEditModal"
       class="modal-overlay"
       @click="closeModals"
+      data-testid="team-modal-overlay"
     >
-      <div class="modal-content" @click.stop>
+      <div class="modal-content" @click.stop data-testid="team-modal">
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <h3
+            class="text-lg font-medium text-gray-900 mb-4"
+            data-testid="team-modal-title"
+          >
             {{ showEditModal ? 'Edit Team' : 'Add New Team' }}
           </h3>
 
-          <form @submit.prevent="showEditModal ? updateTeam() : createTeam()">
+          <form
+            @submit.prevent="showEditModal ? updateTeam() : createTeam()"
+            data-testid="team-form"
+          >
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Team Name</label
@@ -155,6 +184,7 @@
                 v-model="formData.name"
                 type="text"
                 required
+                data-testid="team-name-input"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., New York City FC, Boston United..."
               />
@@ -167,6 +197,7 @@
               <input
                 v-model="formData.city"
                 type="text"
+                data-testid="team-city-input"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., New York, Boston..."
               />
@@ -179,6 +210,7 @@
               <select
                 v-model="formData.parentClubId"
                 :disabled="isClubManager()"
+                data-testid="team-club-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option v-if="!isClubManager()" :value="null">
@@ -207,6 +239,7 @@
                 v-model="formData.leagueId"
                 @change="formData.divisionId = null"
                 required
+                data-testid="team-league-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option :value="null">Select League</option>
@@ -230,6 +263,7 @@
               <select
                 v-model="formData.divisionId"
                 required
+                data-testid="team-division-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option :value="null">Select Division</option>
@@ -255,6 +289,7 @@
                 v-model="formData.teamType"
                 @change="onTeamTypeChange"
                 :required="!showEditModal"
+                data-testid="team-type-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Team Type</option>
@@ -367,6 +402,7 @@
               <button
                 type="button"
                 @click="closeModals"
+                data-testid="team-modal-cancel"
                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
               >
                 Cancel
@@ -374,6 +410,7 @@
               <button
                 type="submit"
                 :disabled="formLoading"
+                data-testid="team-modal-submit"
                 class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
               >
                 {{
