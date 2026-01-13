@@ -230,8 +230,36 @@
               </p>
             </div>
 
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Team Type<span v-if="!showEditModal" class="text-red-500"
+                  >*</span
+                ></label
+              >
+              <select
+                v-model="formData.teamType"
+                @change="onTeamTypeChange"
+                :required="!showEditModal"
+                data-testid="team-type-select"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Team Type</option>
+                <option value="league">League Team</option>
+                <option value="guest">Guest Team</option>
+                <option value="tournament">Tournament Team</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">
+                League teams can play in all game types. Guest teams are for
+                friendlies only. Tournament teams can play in tournaments and
+                friendlies.
+              </p>
+            </div>
+
             <!-- League and Division Selection (only for Add, not Edit) -->
-            <div v-if="!showEditModal" class="mb-4">
+            <div
+              v-if="!showEditModal && formData.teamType === 'league'"
+              class="mb-4"
+            >
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >League <span class="text-red-500">*</span></label
               >
@@ -256,7 +284,14 @@
               </p>
             </div>
 
-            <div v-if="!showEditModal && formData.leagueId" class="mb-4">
+            <div
+              v-if="
+                !showEditModal &&
+                formData.teamType === 'league' &&
+                formData.leagueId
+              "
+              class="mb-4"
+            >
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Division <span class="text-red-500">*</span></label
               >
@@ -278,29 +313,6 @@
               <p class="text-xs text-gray-500 mt-1">
                 Select the division within the league (e.g., Northeast, Bracket
                 A)
-              </p>
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Team Type</label
-              >
-              <select
-                v-model="formData.teamType"
-                @change="onTeamTypeChange"
-                :required="!showEditModal"
-                data-testid="team-type-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Team Type</option>
-                <option value="league">League Team</option>
-                <option value="guest">Guest Team</option>
-                <option value="tournament">Tournament Team</option>
-              </select>
-              <p class="text-xs text-gray-500 mt-1">
-                League teams can play in all game types. Guest teams are for
-                friendlies only. Tournament teams can play in tournaments and
-                friendlies.
               </p>
             </div>
 
@@ -799,8 +811,11 @@ export default {
           return;
         }
 
-        // Validate that a division is selected
-        if (!formData.value.divisionId) {
+        // Validate that a division is selected (only for league teams)
+        if (
+          formData.value.teamType === 'league' &&
+          !formData.value.divisionId
+        ) {
           error.value = 'Please select a league and division';
           return;
         }
@@ -811,7 +826,9 @@ export default {
           city: formData.value.city,
           club_id: formData.value.parentClubId,
           age_group_ids: formData.value.ageGroupIds.map(id => parseInt(id)),
-          division_id: parseInt(formData.value.divisionId),
+          division_id: formData.value.divisionId
+            ? parseInt(formData.value.divisionId)
+            : null,
           academy_team: formData.value.academyTeam,
         };
 
