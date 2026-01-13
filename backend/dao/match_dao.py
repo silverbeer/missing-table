@@ -475,14 +475,28 @@ class MatchDAO:
             academy_team: Whether this is an academy team
             client_ip: Client IP address for security monitoring (optional)
         """
+        logger.info(
+            "Creating team",
+            team_name=name,
+            city=city,
+            age_group_count=len(age_group_ids),
+            match_type_count=len(match_type_ids) if match_type_ids else 0,
+            division_id=division_id,
+            club_id=club_id,
+            academy_team=academy_team,
+            client_ip=client_ip
+        )
+
         try:
             # Validate required fields
             if not age_group_ids or len(age_group_ids) == 0:
+                logger.warning("Team creation failed - no age groups provided", team_name=name)
                 raise ValueError("Team must have at least one age group")
 
             # Get league_id from division (if division provided)
             league_id = None
             if division_id is not None:
+                logger.debug("Looking up league for division", division_id=division_id, team_name=name)
                 division_response = (
                     self.client.table("divisions")
                     .select("league_id")
@@ -490,10 +504,15 @@ class MatchDAO:
                     .execute()
                 )
                 if not division_response.data:
+                    logger.error("Division not found", division_id=division_id, team_name=name)
                     raise ValueError(f"Division {division_id} not found")
                 league_id = division_response.data[0]["league_id"]
+                logger.debug("Found league for division", league_id=league_id, division_id=division_id)
+            else:
+                logger.debug("No division specified - creating guest/tournament team", team_name=name)
 
             # Insert team with club, league, and division
+            logger.debug("Inserting team record", team_name=name)
             team_data = {
                 "name": name,
                 "city": city,
@@ -509,13 +528,22 @@ class MatchDAO:
             )
 
             if not team_response.data:
+                logger.error("Team insert returned no data", team_name=name, team_data=team_data)
                 return False
 
             team_id = team_response.data[0]["id"]
+            logger.info("Team record created", team_id=team_id, team_name=name)
 
             # Add age group associations
             # For league teams: team_mappings with division_id
             # For guest/tournament teams: team_mappings with null division_id
+            logger.debug(
+                "Creating team_mappings",
+                team_id=team_id,
+                team_name=name,
+                age_group_count=len(age_group_ids),
+                division_id=division_id
+            )
             for age_group_id in age_group_ids:
                 data = {
                     "team_id": team_id,
@@ -523,10 +551,25 @@ class MatchDAO:
                     "division_id": division_id  # null for guest teams, set for league teams
                 }
                 self.client.table("team_mappings").insert(data).execute()
+            logger.info(
+                "Team mappings created",
+                team_id=team_id,
+                team_name=name,
+                mappings_created=len(age_group_ids)
+            )
 
             # Add game type participations
             # Create team_match_types entries for each match_type + age_group combination
             if match_type_ids:
+                total_entries = len(match_type_ids) * len(age_group_ids)
+                logger.debug(
+                    "Creating team_match_types",
+                    team_id=team_id,
+                    team_name=name,
+                    match_type_count=len(match_type_ids),
+                    age_group_count=len(age_group_ids),
+                    total_entries=total_entries
+                )
                 for match_type_id in match_type_ids:
                     for age_group_id in age_group_ids:
                         match_type_data = {
@@ -536,15 +579,50 @@ class MatchDAO:
                             "is_active": True
                         }
                         self.client.table("team_match_types").insert(match_type_data).execute()
+                logger.info(
+                    "Team match types created",
+                    team_id=team_id,
+                    team_name=name,
+                    entries_created=total_entries
+                )
+            else:
+                logger.warning(
+                    "No match types provided for team - team will not appear in match scheduling",
+                    team_id=team_id,
+                    team_name=name
+                )
 
+            logger.info(
+                "Team creation completed successfully",
+                team_id=team_id,
+                team_name=name,
+                age_groups=len(age_group_ids),
+                match_types=len(match_type_ids) if match_type_ids else 0
+            )
             return True
 
         except Exception as e:
             error_str = str(e)
-            logger.exception("Error adding team")
+            logger.exception(
+                "Error adding team",
+                team_name=name,
+                city=city,
+                division_id=division_id,
+                club_id=club_id,
+                age_group_count=len(age_group_ids),
+                match_type_count=len(match_type_ids) if match_type_ids else 0,
+                error_type=type(e).__name__,
+                error_message=error_str
+            )
 
             # Re-raise duplicate key errors so API can handle them properly
             if "teams_name_division_unique" in error_str or "teams_name_academy_unique" in error_str or "duplicate key value" in error_str.lower():
+                logger.warning(
+                    "Duplicate team detected",
+                    team_name=name,
+                    division_id=division_id,
+                    error=error_str
+                )
                 raise
 
             return False
