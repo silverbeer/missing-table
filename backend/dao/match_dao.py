@@ -1821,7 +1821,7 @@ class MatchDAO:
             logger.exception("Error querying parent club entities")
             return []
 
-    def get_all_clubs(self) -> list[dict]:
+    def get_all_clubs(self, include_team_counts: bool = True) -> list[dict]:
         """Get all clubs with their associated teams count.
 
         Returns list of clubs from the clubs table.
@@ -1832,22 +1832,25 @@ class MatchDAO:
             response = self.client.table("clubs").select("*").order("name").execute()
             clubs = response.data
 
-            # Enrich with team counts (optimized - single query instead of N+1)
-            # Get all teams with club_id in one query
-            teams_response = (
-                self.client.table("teams")
-                .select("club_id")
-                .not_.is_("club_id", "null")
-                .execute()
-            )
+            if include_team_counts:
+                # Enrich with team counts (optimized - single query instead of N+1)
+                # Get all teams with club_id in one query
+                teams_response = (
+                    self.client.table("teams")
+                    .select("club_id")
+                    .not_.is_("club_id", "null")
+                    .execute()
+                )
 
-            # Count teams per club
-            from collections import Counter
-            team_counts = Counter(team["club_id"] for team in teams_response.data if team.get("club_id"))
+                # Count teams per club
+                from collections import Counter
+                team_counts = Counter(
+                    team["club_id"] for team in teams_response.data if team.get("club_id")
+                )
 
-            # Enrich clubs with counts
-            for club in clubs:
-                club["team_count"] = team_counts.get(club["id"], 0)
+                # Enrich clubs with counts
+                for club in clubs:
+                    club["team_count"] = team_counts.get(club["id"], 0)
 
             return clubs
         except Exception:

@@ -59,6 +59,7 @@ DISABLE_SECURITY = os.getenv('DISABLE_SECURITY', 'false').lower() == 'true'
 
 from dao.match_dao import MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
+from dao.team_dao import TeamDAO
 
 
 # Load environment variables with environment-specific support
@@ -161,10 +162,12 @@ if 'localhost' in supabase_url or '127.0.0.1' in supabase_url:
     # Use the regular connection for Supabase CLI
     db_conn_holder_obj = DbConnectionHolder()
     match_dao = MatchDAO(db_conn_holder_obj)
+    team_dao = TeamDAO(db_conn_holder_obj)
 else:
     logger.info("Using enhanced Supabase connection")
     db_conn_holder_obj = DbConnectionHolder()
     match_dao = MatchDAO(db_conn_holder_obj)
+    team_dao = TeamDAO(db_conn_holder_obj)
 
 # Initialize Authentication Manager with a dedicated service client
 # This prevents login operations from modifying the client used for profile lookups
@@ -1895,13 +1898,13 @@ async def get_teams(
 
         # Get teams based on filters
         if match_type_id and age_group_id:
-            teams = match_dao.get_teams_by_match_type_and_age_group(
+            teams = team_dao.get_teams_by_match_type_and_age_group(
                 match_type_id, age_group_id, division_id=division_id
             )
         elif club_id:
-            teams = match_dao.get_club_teams(club_id)
+            teams = team_dao.get_club_teams(club_id)
         else:
-            teams = match_dao.get_all_teams()
+            teams = team_dao.get_all_teams()
 
         # Enrich teams with additional data if requested
         if include_parent or include_game_count:
@@ -1910,7 +1913,7 @@ async def get_teams(
             # Get game counts for all teams in one query (performance optimization)
             game_counts = {}
             if include_game_count:
-                game_counts = match_dao.get_team_game_counts()
+                game_counts = team_dao.get_team_game_counts()
 
             for team in teams:
                 team_data = {**team}
@@ -1983,7 +1986,7 @@ async def add_team(
         client_ip = get_client_ip(request)
 
         # Call add_team with keyword arguments for SecureDAO compatibility
-        success = match_dao.add_team(
+        success = team_dao.add_team(
             client_ip=client_ip,
             name=team.name,
             city=team.city,
@@ -2046,7 +2049,7 @@ async def get_matches(
 
         if user_role == 'club_manager' and user_club_id:
             # Get the team IDs for this club
-            club_teams = match_dao.get_club_teams(user_club_id)
+            club_teams = team_dao.get_club_teams(user_club_id)
             club_team_ids = {team['id'] for team in club_teams}
 
             # Filter matches to only those involving club's teams
@@ -2628,7 +2631,7 @@ async def update_team(
     try:
         client_ip = get_client_ip(request)
         logger.info(f"Updating team {team_id}: name={team.name}, club_id={team.club_id}")
-        result = match_dao.update_team(
+        result = team_dao.update_team(
             team_id, team.name, team.city, team.academy_team, team.club_id, client_ip=client_ip
         )
         if not result:
@@ -2645,7 +2648,7 @@ async def update_team(
 async def delete_team(team_id: int, current_user: dict[str, Any] = Depends(require_admin)):
     """Delete a team (admin only)."""
     try:
-        result = match_dao.delete_team(team_id)
+        result = team_dao.delete_team(team_id)
         if not result:
             raise HTTPException(status_code=404, detail="Team not found")
         return {"message": "Team deleted successfully"}
@@ -2664,7 +2667,7 @@ async def add_team_match_type_participation(
 ):
     """Add a team's participation in a specific match type and age group (admin only)."""
     try:
-        success = match_dao.add_team_match_type_participation(
+        success = team_dao.add_team_match_type_participation(
             team_id, mapping.match_type_id, mapping.age_group_id
         )
         if success:
@@ -2721,22 +2724,31 @@ async def get_clubs(
         List of clubs with optional team details
     """
     try:
-        # Get all clubs from clubs table (already includes team_count)
-        clubs = match_dao.get_all_clubs()
+        # Get all clubs from clubs table
+        clubs = match_dao.get_all_clubs(include_team_counts=not include_teams)
         logger.info(f"/api/clubs: Fetched {len(clubs)} clubs")
 
         if not include_teams:
             # Return clubs without team details (faster for dropdowns)
             return clubs
 
-        # Enrich with team details if requested
+        # Enrich with team details if requested (batched)
+        club_ids = [club["id"] for club in clubs]
+        teams = team_dao.get_teams_by_club_ids(club_ids)
+        teams_by_club_id: dict[int, list[dict]] = {}
+        for team in teams:
+            club_id = team.get("club_id")
+            if club_id is None:
+                continue
+            teams_by_club_id.setdefault(club_id, []).append(team)
+
         enriched_clubs = []
         for club in clubs:
-            club_teams = match_dao.get_club_teams(club['id'])
+            club_teams = teams_by_club_id.get(club["id"], [])
             enriched_club = {
                 **club,
-                'teams': club_teams,
-                'team_count': len(club_teams)  # Overwrite with actual count
+                "teams": club_teams,
+                "team_count": len(club_teams),
             }
             enriched_clubs.append(enriched_club)
             logger.debug(f"Club '{club.get('name')}' has {len(club_teams)} teams")
@@ -2767,11 +2779,17 @@ async def get_club(
 
 @app.get("/api/clubs/{club_id}/teams")
 async def get_club_teams(
-    club_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)
+    club_id: int,
+    include_stats: bool = True,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Get all teams for a specific club."""
     try:
-        teams = match_dao.get_club_teams(club_id)
+        teams = (
+            team_dao.get_club_teams(club_id)
+            if include_stats
+            else team_dao.get_club_teams_basic(club_id)
+        )
         if not teams:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
 
@@ -2955,11 +2973,11 @@ async def create_team_mapping(
 
         # Club managers can only add mappings to their own club's teams
         if user_role == 'club_manager':
-            team = match_dao.get_team_by_id(mapping.team_id)
+            team = team_dao.get_team_by_id(mapping.team_id)
             if not team or team.get('club_id') != user_club_id:
                 raise HTTPException(status_code=403, detail="You can only manage teams in your club")
 
-        result = match_dao.create_team_mapping(
+        result = team_dao.create_team_mapping(
             mapping.team_id, mapping.age_group_id, mapping.division_id
         )
         return result
@@ -2984,11 +3002,11 @@ async def delete_team_mapping(
 
         # Club managers can only delete mappings from their own club's teams
         if user_role == 'club_manager':
-            team = match_dao.get_team_by_id(team_id)
+            team = team_dao.get_team_by_id(team_id)
             if not team or team.get('club_id') != user_club_id:
                 raise HTTPException(status_code=403, detail="You can only manage teams in your club")
 
-        result = match_dao.delete_team_mapping(team_id, age_group_id, division_id)
+        result = team_dao.delete_team_mapping(team_id, age_group_id, division_id)
         if not result:
             raise HTTPException(status_code=404, detail="Team mapping not found")
         return {"message": "Team mapping deleted successfully"}
@@ -3275,7 +3293,7 @@ async def get_team_players(
     """
     try:
         # Get the requested team's club_id
-        requested_team = match_dao.get_team_by_id(team_id)
+        requested_team = team_dao.get_team_by_id(team_id)
         if not requested_team:
             raise HTTPException(status_code=404, detail="Team not found")
         requested_club_id = requested_team.get('club_id')
@@ -3299,7 +3317,7 @@ async def get_team_players(
             )
 
         # Get team info with relationships
-        team = match_dao.get_team_with_details(team_id)
+        team = team_dao.get_team_with_details(team_id)
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
 
