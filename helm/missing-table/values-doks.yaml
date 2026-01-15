@@ -22,6 +22,12 @@ backend:
     environment: "production"
     logLevel: "info"
     disableSecurity: "false"
+    extra:
+      CACHE_ENABLED: "true"
+
+# Redis for caching (deployed by this Helm chart)
+redis:
+  enabled: true
 
 frontend:
   replicaCount: 1
