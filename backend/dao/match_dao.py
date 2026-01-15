@@ -11,6 +11,7 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 
+from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
 from dao.standings import (
     calculate_standings,
     filter_by_match_type,
@@ -20,6 +21,9 @@ from dao.standings import (
 from supabase import create_client
 
 logger = structlog.get_logger()
+
+# Cache patterns for invalidation
+MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
 
 # Load environment variables with environment-specific support
 def load_environment():
@@ -83,15 +87,8 @@ class SupabaseConnection:
         return self.client
 
 
-class MatchDAO:
+class MatchDAO(BaseDAO):
     """Data Access Object for match and league data using normalized schema."""
-
-    def __init__(self, connection_holder):
-        """Initialize with a SupabaseConnection."""
-        if not isinstance(connection_holder, SupabaseConnection):
-            raise TypeError("connection_holder must be a SupabaseConnection instance")
-        self.connection_holder = connection_holder
-        self.client = connection_holder.get_client()
 
     # Reference data methods moved to:
     # - SeasonDAO (seasons, age_groups)
@@ -240,6 +237,7 @@ class MatchDAO:
             logger.exception("Error getting match by teams and date")
             return None
 
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
     def update_match_external_id(self, match_id: int, external_match_id: str) -> bool:
         """Update only the external match_id field on an existing match.
 
@@ -273,6 +271,7 @@ class MatchDAO:
             logger.exception("Error updating match external_id")
             return False
 
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
     def create_match(
         self,
         home_team_id: int,
@@ -560,6 +559,7 @@ class MatchDAO:
             logger.exception("Error querying matches by team")
             return []
 
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
     def add_match(
         self,
         home_team_id: int,
@@ -608,6 +608,7 @@ class MatchDAO:
             logger.exception("Error adding match")
             return False
 
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
     def add_match_with_external_id(
         self,
         home_team_id: int,
@@ -643,6 +644,7 @@ class MatchDAO:
             external_match_id=external_match_id,
         )
 
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
     def update_match(
         self,
         match_id: int,
@@ -709,6 +711,7 @@ class MatchDAO:
             logger.exception("Error updating match")
             return None
 
+    @dao_cache("matches:by_id:{match_id}")
     def get_match_by_id(self, match_id: int) -> dict | None:
         """Get a single match by ID with all related data."""
         try:
@@ -786,6 +789,7 @@ class MatchDAO:
             logger.exception("Error retrieving match by ID")
             return None
 
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
     def delete_match(self, match_id: int) -> bool:
         """Delete a match."""
         try:
