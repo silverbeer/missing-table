@@ -199,30 +199,23 @@ class AuthManager:
         self, credentials: HTTPAuthorizationCredentials = Depends(security)
     ) -> dict[str, Any]:
         """FastAPI dependency to get current authenticated user or service account."""
-        import logging
-        logger = logging.getLogger(__name__)
-
-        logger.info(f"Auth attempt - Credentials present: {credentials is not None}")
-
         if not credentials:
-            logger.warning("Auth failed - No credentials provided")
+            logger.warning("auth_failed", reason="no_credentials")
             raise HTTPException(status_code=401, detail="Authentication required")
-
-        logger.info(f"Auth attempt - Token prefix: {credentials.credentials[:20] if len(credentials.credentials) > 20 else credentials.credentials}...")
 
         # Try regular user token first
         user_data = self.verify_token(credentials.credentials)
         if user_data:
-            logger.info(f"Auth success - Regular user: {user_data.get('username', 'unknown')}")
+            logger.debug("auth_success", type="user", username=user_data.get("username"))
             return user_data
 
         # Try service account token
         service_data = self.verify_service_account_token(credentials.credentials)
         if service_data:
-            logger.info(f"Auth success - Service account: {service_data.get('service_name', 'unknown')}")
+            logger.debug("auth_success", type="service", name=service_data.get("service_name"))
             return service_data
 
-        logger.warning("Auth failed - Invalid or expired token")
+        logger.warning("auth_failed", reason="invalid_token")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     def require_role(self, required_roles: list):

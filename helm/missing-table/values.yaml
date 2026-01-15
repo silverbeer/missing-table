@@ -29,9 +29,10 @@ limitRange:
     memory: "128Mi"
 
 # Redis configuration
-# Disabled: Redis runs on local K3s cluster, not in GKE
+# For local K3s development, set enabled: true to enable caching
+# See also: backend.env.extra.CACHE_ENABLED to enable the caching layer
 redis:
-  enabled: false
+  enabled: false  # Set to true for local K3s with caching
   replicaCount: 1
   
   image:
@@ -73,7 +74,10 @@ backend:
     environment: "development"
     logLevel: "info"
     disableSecurity: "true"
-    extra: {}  # Additional environment variables
+    # Additional environment variables
+    # To enable Redis caching (requires redis.enabled: true):
+    #   CACHE_ENABLED: "true"
+    extra: {}
   
   command:
     - "uv"

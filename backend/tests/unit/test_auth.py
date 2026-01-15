@@ -90,8 +90,9 @@ class TestAuthManager:
         # Assert
         assert result is None
 
+    @patch('backend.auth.logger')
     @patch('backend.auth.AuthManager.verify_token')
-    def test_get_current_user_valid_token(self, mock_verify_token):
+    def test_get_current_user_valid_token(self, mock_verify_token, mock_logger):
         '''Verify that valid token returns correct user data'''
         # Arrange
         mock_verify_token.return_value = {'sub': 'user123', 'username': 'testuser', 'role': 'user'}
@@ -513,9 +514,10 @@ class TestVerifyServiceAccountTokenEdgeCases:
 class TestGetCurrentUserServiceAccount:
     '''Tests for get_current_user with service accounts'''
 
+    @patch('backend.auth.logger')
     @patch('backend.auth.AuthManager.verify_token', return_value=None)
     @patch('backend.auth.AuthManager.verify_service_account_token')
-    def test_falls_back_to_service_account(self, mock_verify_service, mock_verify_token):
+    def test_falls_back_to_service_account(self, mock_verify_service, mock_verify_token, mock_logger):
         '''Verify fallback to service account when user token fails'''
         # Arrange
         mock_verify_service.return_value = {
@@ -536,9 +538,10 @@ class TestGetCurrentUserServiceAccount:
         assert result['is_service_account'] is True
         assert result['service_name'] == 'scraper'
 
+    @patch('backend.auth.logger')
     @patch('backend.auth.AuthManager.verify_token', return_value=None)
     @patch('backend.auth.AuthManager.verify_service_account_token', return_value=None)
-    def test_raises_when_both_fail(self, mock_verify_service, mock_verify_token):
+    def test_raises_when_both_fail(self, mock_verify_service, mock_verify_token, mock_logger):
         '''Verify HTTPException when both token types fail'''
         # Arrange
         auth_manager = AuthManager(supabase_client=Mock())

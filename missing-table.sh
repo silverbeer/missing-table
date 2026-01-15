@@ -124,9 +124,11 @@ start_backend() {
     current_env="${APP_ENV:-local}"
     echo "Using environment: $current_env"
 
-    # Set INFO log level for cleaner output during development
+    # Set environment variables for backend
     export LOG_LEVEL=info
     export APP_ENV="$current_env"
+    export CACHE_ENABLED=true
+    echo "Redis caching: ENABLED"
 
     cd backend
 

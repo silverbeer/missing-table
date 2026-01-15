@@ -1,20 +1,19 @@
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
-from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from api.invites import router as invites_router
 from api.invite_requests import router as invite_requests_router
+from api.invites import router as invites_router
 from auth import (
     AuthManager,
     get_current_user_required,
     require_admin,
-    require_admin_or_service_account,
     require_match_management_permission,
     require_team_manager_or_admin,
 )
@@ -26,11 +25,9 @@ from models import (
     AgeGroupCreate,
     AgeGroupUpdate,
     Club,
-    ClubWithTeams,
     DivisionCreate,
     DivisionUpdate,
     EnhancedMatch,
-    League,
     LeagueCreate,
     LeagueUpdate,
     MatchPatch,
@@ -57,6 +54,7 @@ from services import InviteService
 # Legacy flag kept for backwards compatibility so existing envs keep working.
 DISABLE_SECURITY = os.getenv('DISABLE_SECURITY', 'false').lower() == 'true'
 
+from dao.club_dao import ClubDAO
 from dao.match_dao import MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.team_dao import TeamDAO
@@ -134,11 +132,12 @@ def get_cors_origins():
     # All production domains point to the same namespace (missing-table-dev)
     all_cloud_origins = production_origins
 
+    # In production, only allow production origins (security best practice)
+    # In development/dev, allow both local and cloud origins for flexibility
     if environment == 'production':
-        # In production, allow both local (for development) and all cloud origins
-        return local_origins + all_cloud_origins + extra_origins
+        return all_cloud_origins + extra_origins
     else:
-        # In development/dev environment, also allow all cloud origins (consolidated architecture)
+        # Development/dev environment: allow local origins + cloud origins (consolidated architecture)
         return local_origins + all_cloud_origins + extra_origins
 
 origins = get_cors_origins()
@@ -163,15 +162,20 @@ if 'localhost' in supabase_url or '127.0.0.1' in supabase_url:
     db_conn_holder_obj = DbConnectionHolder()
     match_dao = MatchDAO(db_conn_holder_obj)
     team_dao = TeamDAO(db_conn_holder_obj)
+    club_dao = ClubDAO(db_conn_holder_obj)
 else:
     logger.info("Using enhanced Supabase connection")
     db_conn_holder_obj = DbConnectionHolder()
     match_dao = MatchDAO(db_conn_holder_obj)
     team_dao = TeamDAO(db_conn_holder_obj)
+    club_dao = ClubDAO(db_conn_holder_obj)
 
+
+# === Simple Redis Caching ===
 # Initialize Authentication Manager with a dedicated service client
 # This prevents login operations from modifying the client used for profile lookups
 from supabase import create_client
+
 auth_service_client = create_client(
     os.getenv('SUPABASE_URL', ''),
     os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_ANON_KEY', '')
@@ -888,8 +892,8 @@ async def update_profile(
             update_data["role"] = profile_data.role
 
         if update_data:
-            from datetime import datetime, timezone
-            update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            from datetime import datetime
+            update_data["updated_at"] = datetime.now(UTC).isoformat()
             match_dao.update_user_profile(current_user["user_id"], update_data)
 
         return {"message": "Profile updated successfully"}
@@ -1015,9 +1019,9 @@ async def upload_player_photo(
         public_url = storage_helper.get_public_url("player-photos", file_path)
 
         # Update user profile with the photo URL
-        from datetime import datetime, timezone
+        from datetime import datetime
         photo_column = f"photo_{slot}_url"
-        update_data = {photo_column: public_url, "updated_at": datetime.now(timezone.utc).isoformat()}
+        update_data = {photo_column: public_url, "updated_at": datetime.now(UTC).isoformat()}
 
         # If no profile photo is set, set this as the profile photo
         profile = match_dao.get_user_profile_with_relationships(user_id)
@@ -1072,8 +1076,8 @@ async def delete_player_photo(
                 pass  # File might not exist with this extension
 
         # Update profile to remove URL
-        from datetime import datetime, timezone
-        update_data = {photo_column: None, "updated_at": datetime.now(timezone.utc).isoformat()}
+        from datetime import datetime
+        update_data = {photo_column: None, "updated_at": datetime.now(UTC).isoformat()}
 
         # If this was the profile photo, find next available
         if profile.get("profile_photo_slot") == slot:
@@ -1124,10 +1128,10 @@ async def set_profile_photo_slot(
             )
 
         # Update profile photo slot
-        from datetime import datetime, timezone
+        from datetime import datetime
         match_dao.update_user_profile(user_id, {
             "profile_photo_slot": slot,
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(UTC).isoformat()
         })
 
         # Return updated profile
@@ -1157,8 +1161,8 @@ async def update_player_customization(
     user_id = current_user["user_id"]
 
     try:
-        from datetime import datetime, timezone
-        update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+        from datetime import datetime
+        update_data = {"updated_at": datetime.now(UTC).isoformat()}
 
         # Personal info
         if customization.first_name is not None:
@@ -1639,8 +1643,8 @@ async def update_user_role(
 ):
     """Update user role (admin only)."""
     try:
-        from datetime import datetime, timezone
-        update_data = {"role": role_data.role, "updated_at": datetime.now(timezone.utc).isoformat()}
+        from datetime import datetime
+        update_data = {"role": role_data.role, "updated_at": datetime.now(UTC).isoformat()}
 
         if role_data.team_id:
             update_data["team_id"] = role_data.team_id
@@ -1915,19 +1919,19 @@ async def get_teams(
             if include_game_count:
                 game_counts = team_dao.get_team_game_counts()
 
+            # Pre-fetch clubs once (not inside loop!) for parent club lookup
+            clubs_by_id = {}
+            if include_parent:
+                clubs = club_dao.get_all_clubs()
+                clubs_by_id = {c['id']: c for c in clubs}
+
             for team in teams:
                 team_data = {**team}
 
                 # Add parent club info if requested
                 if include_parent:
                     if team.get('club_id'):
-                        # Fetch the club directly using the club_id
-                        try:
-                            clubs = match_dao.get_all_clubs()
-                            parent_club = next((c for c in clubs if c['id'] == team['club_id']), None)
-                            team_data['parent_club'] = parent_club
-                        except Exception:
-                            team_data['parent_club'] = None
+                        team_data['parent_club'] = clubs_by_id.get(team['club_id'])
                     else:
                         team_data['parent_club'] = None
 
@@ -2725,7 +2729,8 @@ async def get_clubs(
     """
     try:
         # Get all clubs from clubs table
-        clubs = match_dao.get_all_clubs(include_team_counts=not include_teams)
+        logger.info(f"/api/clubs: Calling get_all_clubs DAO with include_team_counts: {not include_teams}")
+        clubs = club_dao.get_all_clubs(include_team_counts=not include_teams)
         logger.info(f"/api/clubs: Fetched {len(clubs)} clubs")
 
         if not include_teams:
@@ -2765,7 +2770,7 @@ async def get_club(
 ):
     """Get a single club by ID."""
     try:
-        clubs = match_dao.get_all_clubs()
+        clubs = club_dao.get_all_clubs()
         club = next((c for c in clubs if c['id'] == club_id), None)
         if not club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
@@ -2807,7 +2812,7 @@ async def create_club(
 ):
     """Create a new club (admin only)."""
     try:
-        new_club = match_dao.create_club(
+        new_club = club_dao.create_club(
             name=club.name,
             city=club.city,
             website=club.website,
@@ -2845,7 +2850,7 @@ async def update_club(
 ):
     """Update a club (admin only)."""
     try:
-        updated_club = match_dao.update_club(
+        updated_club = club_dao.update_club(
             club_id=club_id,
             name=club.name,
             city=club.city,
@@ -2915,7 +2920,7 @@ async def upload_club_logo(
         public_url = storage.from_("club-logos").get_public_url(file_path)
 
         # Update the club with the new logo URL
-        updated_club = match_dao.update_club(club_id=club_id, logo_url=public_url)
+        updated_club = club_dao.update_club(club_id=club_id, logo_url=public_url)
 
         if not updated_club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
@@ -2927,7 +2932,7 @@ async def upload_club_logo(
         raise
     except Exception as e:
         logger.error(f"Error uploading club logo: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {e!s}")
 
 
 @app.delete("/api/clubs/{club_id}")
@@ -2939,7 +2944,7 @@ async def delete_club(
     Note: This will fail if there are teams still associated with this club.
     """
     try:
-        success = match_dao.delete_club(club_id)
+        success = club_dao.delete_club(club_id)
         if success:
             logger.info(f"Deleted club with id {club_id}")
             return {"message": "Club deleted successfully"}
