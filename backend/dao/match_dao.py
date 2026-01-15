@@ -801,6 +801,7 @@ class MatchDAO(BaseDAO):
             logger.exception("Error deleting match")
             return False
 
+    @dao_cache("matches:table:{season_id}:{age_group_id}:{division_id}:{match_type}")
     def get_league_table(
         self,
         season_id: int | None = None,
@@ -824,6 +825,8 @@ class MatchDAO(BaseDAO):
             List of team standings sorted by points, goal difference, goals scored
         """
         try:
+            logger.info("generating league table from database", season_id=season_id, age_group_id=age_group_id, 
+            division_id=division_id, match_type=match_type)
             # Fetch matches from database
             matches = self._fetch_matches_for_standings(season_id, age_group_id, division_id)
 
@@ -860,6 +863,8 @@ class MatchDAO(BaseDAO):
         Returns:
             List of match dictionaries from database
         """
+        logger.info("fetching matches for standings calculation from database", season_id=season_id, age_group_id=age_group_id, 
+        division_id=division_id)
         query = self.client.table("matches").select("""
             *,
             home_team:teams!matches_home_team_id_fkey(id, name, division_id),

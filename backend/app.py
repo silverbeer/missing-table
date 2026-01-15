@@ -2347,30 +2347,16 @@ async def get_table(
 ):
     """Get league table with enhanced filtering."""
     try:
-        # If no season specified, use current/default season
+        # If no season specified, use current season (or most recent as fallback)
         if not season_id:
             current_season = season_dao.get_current_season()
             if current_season:
                 season_id = current_season["id"]
             else:
-                # Default to 2024-2025 season
+                # Fallback to most recent season (sorted by start_date desc)
                 seasons = season_dao.get_all_seasons()
-                default_season = next(
-                    (s for s in seasons if s["name"] == "2024-2025"),
-                    seasons[0] if seasons else None,
-                )
-                if default_season:
-                    season_id = default_season["id"]
-
-        # If no age group specified, use U13
-        if not age_group_id:
-            age_groups = season_dao.get_all_age_groups()
-            u13_age_group = next(
-                (ag for ag in age_groups if ag["name"] == "U13"),
-                age_groups[0] if age_groups else None,
-            )
-            if u13_age_group:
-                age_group_id = u13_age_group["id"]
+                if seasons:
+                    season_id = seasons[0]["id"]
 
         table = match_dao.get_league_table(
             season_id=season_id,
