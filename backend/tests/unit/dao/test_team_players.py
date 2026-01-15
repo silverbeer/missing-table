@@ -8,16 +8,17 @@ from unittest.mock import Mock, patch
 
 
 def create_mock_dao(mock_client):
-    """Create a MatchDAO with mocked SupabaseConnection."""
-    from backend.dao.match_dao import MatchDAO, SupabaseConnection
+    """Create a PlayerDAO with mocked SupabaseConnection."""
+    from backend.dao.match_dao import SupabaseConnection
+    from backend.dao.player_dao import PlayerDAO
 
     # Create mock SupabaseConnection
     mock_connection = Mock(spec=SupabaseConnection)
     mock_connection.get_client.return_value = mock_client
 
     # Patch the isinstance check to allow our mock
-    with patch.object(MatchDAO, '__init__', lambda self, conn: None):
-        dao = MatchDAO(mock_connection)
+    with patch.object(PlayerDAO, '__init__', lambda self, conn: None):
+        dao = PlayerDAO(mock_connection)
         dao.connection_holder = mock_connection
         dao.client = mock_client
 

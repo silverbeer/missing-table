@@ -55,8 +55,12 @@ from services import InviteService
 DISABLE_SECURITY = os.getenv('DISABLE_SECURITY', 'false').lower() == 'true'
 
 from dao.club_dao import ClubDAO
+from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
+from dao.match_type_dao import MatchTypeDAO
+from dao.player_dao import PlayerDAO
+from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
 
 
@@ -158,17 +162,18 @@ supabase_url = os.getenv('SUPABASE_URL', '')
 logger.debug("Supabase URL configuration", url=supabase_url, is_local='localhost' in supabase_url or '127.0.0.1' in supabase_url)
 if 'localhost' in supabase_url or '127.0.0.1' in supabase_url:
     logger.info("Using Supabase CLI local development", url=supabase_url)
-    # Use the regular connection for Supabase CLI
-    db_conn_holder_obj = DbConnectionHolder()
-    match_dao = MatchDAO(db_conn_holder_obj)
-    team_dao = TeamDAO(db_conn_holder_obj)
-    club_dao = ClubDAO(db_conn_holder_obj)
 else:
     logger.info("Using enhanced Supabase connection")
-    db_conn_holder_obj = DbConnectionHolder()
-    match_dao = MatchDAO(db_conn_holder_obj)
-    team_dao = TeamDAO(db_conn_holder_obj)
-    club_dao = ClubDAO(db_conn_holder_obj)
+
+# Initialize all DAOs with shared connection
+db_conn_holder_obj = DbConnectionHolder()
+match_dao = MatchDAO(db_conn_holder_obj)
+team_dao = TeamDAO(db_conn_holder_obj)
+club_dao = ClubDAO(db_conn_holder_obj)
+player_dao = PlayerDAO(db_conn_holder_obj)
+season_dao = SeasonDAO(db_conn_holder_obj)
+league_dao = LeagueDAO(db_conn_holder_obj)
+match_type_dao = MatchTypeDAO(db_conn_holder_obj)
 
 
 # === Simple Redis Caching ===
@@ -224,7 +229,7 @@ async def _update_existing_user_role(user_data, invite_info, audit_logger):
         logger.info(f"Updating existing user {user_data.username} role via invite code")
 
         # Get the user's ID from user_profiles
-        existing_profile = match_dao.get_user_profile_by_username(user_data.username)
+        existing_profile = player_dao.get_user_profile_by_username(user_data.username)
         if not existing_profile:
             # Try to find by internal email in auth.users
             internal_email = username_to_internal_email(user_data.username)
@@ -261,7 +266,7 @@ async def _update_existing_user_role(user_data, invite_info, audit_logger):
             'team_id': invite_info.get('team_id'),
             'club_id': invite_info.get('club_id')
         }
-        match_dao.update_user_profile(user_id, update_data)
+        player_dao.update_user_profile(user_id, update_data)
 
         # Redeem the invitation
         invite_service = InviteService(db_conn_holder_obj.client)
@@ -371,7 +376,7 @@ async def signup(request: Request, user_data: UserSignup):
                     profile_data['club_id'] = invite_info.get('club_id')
 
                 # Insert user profile
-                match_dao.create_or_update_user_profile(profile_data)
+                player_dao.create_or_update_user_profile(profile_data)
 
                 # Redeem invitation if used
                 if invite_info:
@@ -439,7 +444,7 @@ async def signup(request: Request, user_data: UserSignup):
                         'team_id': invite_info.get('team_id'),
                         'club_id': invite_info.get('club_id')
                     }
-                    match_dao.update_user_profile(existing_user.id, update_data)
+                    player_dao.update_user_profile(existing_user.id, update_data)
 
                     # Redeem the invitation
                     invite_service = InviteService(db_conn_holder_obj.client)
@@ -480,7 +485,7 @@ async def login(request: Request, user_data: UserLogin):
 
         if response.user and response.session:
             # Get user profile with username, team, AND club info
-            profile = match_dao.get_user_profile_with_relationships(response.user.id)
+            profile = player_dao.get_user_profile_with_relationships(response.user.id)
             if not profile:
                 profile = {'username': user_data.username}  # Fallback
 
@@ -798,7 +803,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get current user's profile."""
     try:
-        profile = match_dao.get_user_profile_with_relationships(current_user["user_id"])
+        profile = player_dao.get_user_profile_with_relationships(current_user["user_id"])
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
 
@@ -860,7 +865,7 @@ async def update_profile(
 
             # Check for email uniqueness (if not empty)
             if profile_data.email.strip():
-                existing = match_dao.get_user_profile_by_email(profile_data.email, exclude_user_id=current_user["user_id"])
+                existing = player_dao.get_user_profile_by_email(profile_data.email, exclude_user_id=current_user["user_id"])
                 if existing:
                     raise HTTPException(status_code=409, detail="Email already in use")
 
@@ -894,7 +899,7 @@ async def update_profile(
         if update_data:
             from datetime import datetime
             update_data["updated_at"] = datetime.now(UTC).isoformat()
-            match_dao.update_user_profile(current_user["user_id"], update_data)
+            player_dao.update_user_profile(current_user["user_id"], update_data)
 
         return {"message": "Profile updated successfully"}
 
@@ -1024,14 +1029,14 @@ async def upload_player_photo(
         update_data = {photo_column: public_url, "updated_at": datetime.now(UTC).isoformat()}
 
         # If no profile photo is set, set this as the profile photo
-        profile = match_dao.get_user_profile_with_relationships(user_id)
+        profile = player_dao.get_user_profile_with_relationships(user_id)
         if not profile.get("profile_photo_slot"):
             update_data["profile_photo_slot"] = slot
 
-        match_dao.update_user_profile(user_id, update_data)
+        player_dao.update_user_profile(user_id, update_data)
 
         # Return updated profile
-        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        updated_profile = player_dao.get_user_profile_with_relationships(user_id)
         return {
             "message": f"Photo uploaded to slot {slot}",
             "photo_url": public_url,
@@ -1060,7 +1065,7 @@ async def delete_player_photo(
 
     try:
         # Get current profile
-        profile = match_dao.get_user_profile_with_relationships(user_id)
+        profile = player_dao.get_user_profile_with_relationships(user_id)
         photo_column = f"photo_{slot}_url"
         current_url = profile.get(photo_column)
 
@@ -1088,10 +1093,10 @@ async def delete_player_photo(
                     break
             update_data["profile_photo_slot"] = new_profile_slot
 
-        match_dao.update_user_profile(user_id, update_data)
+        player_dao.update_user_profile(user_id, update_data)
 
         # Return updated profile
-        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        updated_profile = player_dao.get_user_profile_with_relationships(user_id)
         return {
             "message": f"Photo deleted from slot {slot}",
             "profile": updated_profile
@@ -1118,7 +1123,7 @@ async def set_profile_photo_slot(
 
     try:
         # Get current profile
-        profile = match_dao.get_user_profile_with_relationships(user_id)
+        profile = player_dao.get_user_profile_with_relationships(user_id)
         photo_url = profile.get(f"photo_{slot}_url")
 
         if not photo_url:
@@ -1129,13 +1134,13 @@ async def set_profile_photo_slot(
 
         # Update profile photo slot
         from datetime import datetime
-        match_dao.update_user_profile(user_id, {
+        player_dao.update_user_profile(user_id, {
             "profile_photo_slot": slot,
             "updated_at": datetime.now(UTC).isoformat()
         })
 
         # Return updated profile
-        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        updated_profile = player_dao.get_user_profile_with_relationships(user_id)
         return {
             "message": f"Profile photo set to slot {slot}",
             "profile": updated_profile
@@ -1193,10 +1198,10 @@ async def update_player_customization(
             update_data["tiktok_handle"] = customization.tiktok_handle
 
         if len(update_data) > 1:  # More than just updated_at
-            match_dao.update_user_profile(user_id, update_data)
+            player_dao.update_user_profile(user_id, update_data)
 
         # Return updated profile
-        updated_profile = match_dao.get_user_profile_with_relationships(user_id)
+        updated_profile = player_dao.get_user_profile_with_relationships(user_id)
         return {
             "message": "Customization updated",
             "profile": updated_profile
@@ -1222,7 +1227,7 @@ async def get_player_history(
     user_id = current_user["user_id"]
 
     try:
-        history = match_dao.get_player_team_history(user_id)
+        history = player_dao.get_player_team_history(user_id)
         return {
             "success": True,
             "history": history
@@ -1244,7 +1249,7 @@ async def get_current_team_assignment(
     user_id = current_user["user_id"]
 
     try:
-        current = match_dao.get_current_player_team_assignment(user_id)
+        current = player_dao.get_current_player_team_assignment(user_id)
         return {
             "success": True,
             "current": current
@@ -1270,7 +1275,7 @@ async def get_all_current_teams(
     user_id = current_user["user_id"]
 
     try:
-        teams = match_dao.get_all_current_player_teams(user_id)
+        teams = player_dao.get_all_current_player_teams(user_id)
         return {
             "success": True,
             "teams": teams
@@ -1294,7 +1299,7 @@ async def create_player_history(
     user_id = current_user["user_id"]
 
     try:
-        entry = match_dao.create_player_history_entry(
+        entry = player_dao.create_player_history_entry(
             player_id=user_id,
             team_id=history_data.team_id,
             season_id=history_data.season_id,
@@ -1331,13 +1336,13 @@ async def update_player_history(
 
     try:
         # Verify this entry belongs to the user
-        existing = match_dao.get_player_history_entry_by_id(history_id)
+        existing = player_dao.get_player_history_entry_by_id(history_id)
         if not existing:
             raise HTTPException(status_code=404, detail="History entry not found")
         if existing.get("player_id") != user_id:
             raise HTTPException(status_code=403, detail="Not authorized to update this entry")
 
-        entry = match_dao.update_player_history_entry(
+        entry = player_dao.update_player_history_entry(
             history_id=history_id,
             jersey_number=history_data.jersey_number,
             positions=history_data.positions,
@@ -1373,13 +1378,13 @@ async def delete_player_history(
 
     try:
         # Verify this entry belongs to the user
-        existing = match_dao.get_player_history_entry_by_id(history_id)
+        existing = player_dao.get_player_history_entry_by_id(history_id)
         if not existing:
             raise HTTPException(status_code=404, detail="History entry not found")
         if existing.get("player_id") != user_id:
             raise HTTPException(status_code=403, detail="Not authorized to delete this entry")
 
-        success = match_dao.delete_player_history_entry(history_id)
+        success = player_dao.delete_player_history_entry(history_id)
 
         if success:
             return {
@@ -1414,7 +1419,7 @@ async def get_admin_players(
     Returns paginated results with current team assignments.
     """
     try:
-        result = match_dao.get_all_players_admin(
+        result = player_dao.get_all_players_admin(
             search=search,
             club_id=club_id,
             team_id=team_id,
@@ -1439,7 +1444,7 @@ async def update_admin_player(
     Allows updating display_name, player_number, and positions.
     """
     try:
-        result = match_dao.update_player_admin(
+        result = player_dao.update_player_admin(
             player_id=player_id,
             display_name=data.display_name,
             player_number=data.player_number,
@@ -1470,7 +1475,7 @@ async def add_admin_player_team(
     """
     try:
         # Use the existing create_player_history_entry method
-        entry = match_dao.create_player_history_entry(
+        entry = player_dao.create_player_history_entry(
             player_id=player_id,
             team_id=data.team_id,
             season_id=data.season_id,
@@ -1500,7 +1505,7 @@ async def end_admin_player_team(
     Sets is_current=false on the player_team_history entry.
     """
     try:
-        result = match_dao.end_player_team_assignment(history_id=history_id)
+        result = player_dao.end_player_team_assignment(history_id=history_id)
 
         if result:
             return {"success": True, "assignment": result}
@@ -1518,7 +1523,7 @@ async def end_admin_player_team(
 async def get_users(current_user: dict[str, Any] = Depends(require_admin)):
     """Get all users (admin only)."""
     try:
-        return match_dao.get_all_user_profiles()
+        return player_dao.get_all_user_profiles()
 
     except Exception as e:
         logger.error(f"Get users error: {e}", exc_info=True)
@@ -1558,7 +1563,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
     """Get current user info for frontend auth state."""
     try:
         # Get fresh profile data with team AND club info
-        profile = match_dao.get_user_profile_with_relationships(current_user['user_id']) or {}
+        profile = player_dao.get_user_profile_with_relationships(current_user['user_id']) or {}
 
         return {
             "success": True,
@@ -1649,7 +1654,7 @@ async def update_user_role(
         if role_data.team_id:
             update_data["team_id"] = role_data.team_id
 
-        match_dao.update_user_profile(role_data.user_id, update_data)
+        player_dao.update_user_profile(role_data.user_id, update_data)
 
         return {"message": "User role updated successfully"}
 
@@ -1682,7 +1687,7 @@ async def update_user_profile(
 
             # Check if username is already taken by another user
             if username:
-                existing = match_dao.get_user_profile_by_username(username, exclude_user_id=profile_data.user_id)
+                existing = player_dao.get_user_profile_by_username(username, exclude_user_id=profile_data.user_id)
                 if existing:
                     raise HTTPException(
                         status_code=409, detail=f"Username '{username}' is already taken"
@@ -1724,7 +1729,7 @@ async def update_user_profile(
             raise HTTPException(status_code=400, detail="No fields to update")
 
         # Update user_profiles
-        match_dao.update_user_profile(profile_data.user_id, update_data)
+        player_dao.update_user_profile(profile_data.user_id, update_data)
 
         return {"message": "User profile updated successfully"}
 
@@ -1784,7 +1789,7 @@ async def get_age_groups(
     """Get all age groups."""
     try:
         logger.info(f"age-groups endpoint - current_user: {current_user}")
-        age_groups = match_dao.get_all_age_groups()
+        age_groups = season_dao.get_all_age_groups()
         logger.info(f"age-groups endpoint - returning {len(age_groups)} groups")
         return age_groups
     except Exception as e:
@@ -1798,7 +1803,7 @@ async def get_age_groups(
 async def get_seasons(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get all seasons."""
     try:
-        seasons = match_dao.get_all_seasons()
+        seasons = season_dao.get_all_seasons()
         return seasons
     except Exception as e:
         logger.error(f"Error retrieving seasons: {e!s}", exc_info=True)
@@ -1811,10 +1816,10 @@ async def get_seasons(current_user: dict[str, Any] = Depends(get_current_user_re
 async def get_current_season(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get the current active season."""
     try:
-        current_season = match_dao.get_current_season()
+        current_season = season_dao.get_current_season()
         if not current_season:
             # Default to 2024-2025 season if no current season found
-            seasons = match_dao.get_all_seasons()
+            seasons = season_dao.get_all_seasons()
             current_season = next(
                 (s for s in seasons if s["name"] == "2024-2025"), seasons[0] if seasons else None
             )
@@ -1828,7 +1833,7 @@ async def get_current_season(current_user: dict[str, Any] = Depends(get_current_
 async def get_active_seasons(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get active seasons (current and future) for scheduling new matches."""
     try:
-        active_seasons = match_dao.get_active_seasons()
+        active_seasons = season_dao.get_active_seasons()
         return active_seasons
     except Exception as e:
         logger.error(f"Error retrieving active seasons: {e!s}", exc_info=True)
@@ -1839,7 +1844,7 @@ async def get_active_seasons(current_user: dict[str, Any] = Depends(get_current_
 async def get_match_types(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get all match types."""
     try:
-        match_types = match_dao.get_all_match_types()
+        match_types = match_type_dao.get_all_match_types()
         return match_types
     except Exception as e:
         logger.error(f"Error retrieving match types: {e!s}", exc_info=True)
@@ -1854,9 +1859,9 @@ async def get_divisions(
     """Get all divisions, optionally filtered by league."""
     try:
         if league_id:
-            divisions = match_dao.get_divisions_by_league(league_id)
+            divisions = league_dao.get_divisions_by_league(league_id)
         else:
-            divisions = match_dao.get_all_divisions()
+            divisions = league_dao.get_all_divisions()
         return divisions
     except Exception as e:
         logger.error(f"Error retrieving divisions: {e!s}", exc_info=True)
@@ -1936,8 +1941,8 @@ async def get_teams(
                         team_data['parent_club'] = None
 
                     # Check if this team is itself a parent club
-                    if hasattr(match_dao, 'is_parent_club'):
-                        team_data['is_parent_club'] = match_dao.is_parent_club(team['id'])
+                    if hasattr(team_dao, 'is_parent_club'):
+                        team_data['is_parent_club'] = team_dao.is_parent_club(team['id'])
                     else:
                         team_data['is_parent_club'] = False
 
@@ -2128,7 +2133,7 @@ async def add_match(request: Request, match: EnhancedMatch, current_user: dict[s
         logger.info(f"POST /api/matches - Match data: {match.model_dump()}")
 
         # Validate division_id for League matches
-        match_type = match_dao.get_match_type_by_id(match.match_type_id)
+        match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
         if match_type and match_type.get('name') == 'League' and match.division_id is None:
             raise HTTPException(
                 status_code=422,
@@ -2175,7 +2180,7 @@ async def update_match(
             raise HTTPException(status_code=403, detail="You don't have permission to edit this match")
 
         # Validate division_id for League matches
-        match_type = match_dao.get_match_type_by_id(match.match_type_id)
+        match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
         if match_type and match_type.get('name') == 'League' and match.division_id is None:
             raise HTTPException(
                 status_code=422,
@@ -2262,7 +2267,7 @@ async def patch_match(
         # Validate division_id for League matches (after building final update data)
         final_match_type_id = update_data['match_type_id']
         final_division_id = update_data['division_id']
-        match_type = match_dao.get_match_type_by_id(final_match_type_id)
+        match_type = match_type_dao.get_match_type_by_id(final_match_type_id)
         if match_type and match_type.get('name') == 'League' and final_division_id is None:
             raise HTTPException(
                 status_code=422,
@@ -2342,30 +2347,16 @@ async def get_table(
 ):
     """Get league table with enhanced filtering."""
     try:
-        # If no season specified, use current/default season
+        # If no season specified, use current season (or most recent as fallback)
         if not season_id:
-            current_season = match_dao.get_current_season()
+            current_season = season_dao.get_current_season()
             if current_season:
                 season_id = current_season["id"]
             else:
-                # Default to 2024-2025 season
-                seasons = match_dao.get_all_seasons()
-                default_season = next(
-                    (s for s in seasons if s["name"] == "2024-2025"),
-                    seasons[0] if seasons else None,
-                )
-                if default_season:
-                    season_id = default_season["id"]
-
-        # If no age group specified, use U13
-        if not age_group_id:
-            age_groups = match_dao.get_all_age_groups()
-            u13_age_group = next(
-                (ag for ag in age_groups if ag["name"] == "U13"),
-                age_groups[0] if age_groups else None,
-            )
-            if u13_age_group:
-                age_group_id = u13_age_group["id"]
+                # Fallback to most recent season (sorted by start_date desc)
+                seasons = season_dao.get_all_seasons()
+                if seasons:
+                    season_id = seasons[0]["id"]
 
         table = match_dao.get_league_table(
             season_id=season_id,
@@ -2399,7 +2390,7 @@ async def create_age_group(
 ):
     """Create a new age group (admin only)."""
     try:
-        result = match_dao.create_age_group(age_group.name)
+        result = season_dao.create_age_group(age_group.name)
         return result
     except Exception as e:
         logger.error(f"Error creating age group: {e!s}", exc_info=True)
@@ -2414,7 +2405,7 @@ async def update_age_group(
 ):
     """Update an age group (admin only)."""
     try:
-        result = match_dao.update_age_group(age_group_id, age_group.name)
+        result = season_dao.update_age_group(age_group_id, age_group.name)
         if not result:
             raise HTTPException(status_code=404, detail="Age group not found")
         return result
@@ -2431,7 +2422,7 @@ async def delete_age_group(
 ):
     """Delete an age group (admin only)."""
     try:
-        result = match_dao.delete_age_group(age_group_id)
+        result = season_dao.delete_age_group(age_group_id)
         if not result:
             raise HTTPException(status_code=404, detail="Age group not found")
         return {"message": "Age group deleted successfully"}
@@ -2449,7 +2440,7 @@ async def create_season(
 ):
     """Create a new season (admin only)."""
     try:
-        result = match_dao.create_season(season.name, season.start_date, season.end_date)
+        result = season_dao.create_season(season.name, season.start_date, season.end_date)
         return result
     except Exception as e:
         logger.error(f"Error creating season: {e!s}", exc_info=True)
@@ -2462,7 +2453,7 @@ async def update_season(
 ):
     """Update a season (admin only)."""
     try:
-        result = match_dao.update_season(
+        result = season_dao.update_season(
             season_id, season.name, season.start_date, season.end_date
         )
         if not result:
@@ -2479,7 +2470,7 @@ async def update_season(
 async def delete_season(season_id: int, current_user: dict[str, Any] = Depends(require_admin)):
     """Delete a season (admin only)."""
     try:
-        result = match_dao.delete_season(season_id)
+        result = season_dao.delete_season(season_id)
         if not result:
             raise HTTPException(status_code=404, detail="Season not found")
         return {"message": "Season deleted successfully"}
@@ -2495,7 +2486,7 @@ async def delete_season(season_id: int, current_user: dict[str, Any] = Depends(r
 async def get_leagues():
     """Get all leagues (public access)."""
     try:
-        leagues = match_dao.get_all_leagues()
+        leagues = league_dao.get_all_leagues()
         return leagues
     except Exception as e:
         logger.error(f"Error fetching leagues: {e!s}", exc_info=True)
@@ -2506,7 +2497,7 @@ async def get_leagues():
 async def get_league(league_id: int):
     """Get league by ID (public access)."""
     try:
-        league = match_dao.get_league_by_id(league_id)
+        league = league_dao.get_league_by_id(league_id)
         if not league:
             raise HTTPException(status_code=404, detail="League not found")
         return league
@@ -2524,7 +2515,7 @@ async def create_league(
     """Create a new league (admin only)."""
     try:
         league_data = league.model_dump()
-        result = match_dao.create_league(league_data)
+        result = league_dao.create_league(league_data)
         return result
     except Exception as e:
         logger.error(f"Error creating league: {e!s}", exc_info=True)
@@ -2541,7 +2532,7 @@ async def update_league(
     try:
         # Only include fields that were actually provided
         league_data = league.model_dump(exclude_unset=True)
-        result = match_dao.update_league(league_id, league_data)
+        result = league_dao.update_league(league_id, league_data)
         if not result:
             raise HTTPException(status_code=404, detail="League not found")
         return result
@@ -2558,7 +2549,7 @@ async def delete_league(
 ):
     """Delete a league (admin only). Will fail if divisions exist."""
     try:
-        match_dao.delete_league(league_id)
+        league_dao.delete_league(league_id)
         return {"message": "League deleted successfully"}
     except Exception as e:
         logger.error(f"Error deleting league: {e!s}", exc_info=True)
@@ -2579,7 +2570,7 @@ async def create_division(
     """Create a new division (admin only)."""
     try:
         division_data = division.model_dump()
-        result = match_dao.create_division(division_data)
+        result = league_dao.create_division(division_data)
         return result
     except Exception as e:
         logger.error(f"Error creating division: {e!s}", exc_info=True)
@@ -2595,9 +2586,8 @@ async def update_division(
 ):
     """Update a division (admin only)."""
     try:
-        client_ip = get_client_ip(request)
         division_data = division.model_dump(exclude_unset=True)
-        result = match_dao.update_division(division_id, division_data, client_ip=client_ip)
+        result = league_dao.update_division(division_id, division_data)
         if not result:
             raise HTTPException(status_code=404, detail="Division not found")
         return result
@@ -2612,7 +2602,7 @@ async def update_division(
 async def delete_division(division_id: int, current_user: dict[str, Any] = Depends(require_admin)):
     """Delete a division (admin only)."""
     try:
-        result = match_dao.delete_division(division_id)
+        result = league_dao.delete_division(division_id)
         if not result:
             raise HTTPException(status_code=404, detail="Division not found")
         return {"message": "Division deleted successfully"}
@@ -2696,7 +2686,7 @@ async def remove_team_match_type_participation(
 ):
     """Remove a team's participation in a specific match type and age group (admin only)."""
     try:
-        success = match_dao.remove_team_match_type_participation(
+        success = team_dao.remove_team_match_type_participation(
             team_id, match_type_id, age_group_id
         )
         if success:
@@ -3130,7 +3120,7 @@ async def add_or_update_scraped_match(
         logger.info(f"POST /api/match-scraper/matches - Match data: {match.model_dump()}")
 
         # Validate division_id for League matches
-        match_type = match_dao.get_match_type_by_id(match.match_type_id)
+        match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
         if match_type and match_type.get('name') == 'League' and match.division_id is None:
             raise HTTPException(
                 status_code=422,
@@ -3304,7 +3294,7 @@ async def get_team_players(
         requested_club_id = requested_team.get('club_id')
 
         # Get all current teams for the user
-        user_teams = match_dao.get_all_current_player_teams(current_user['user_id'])
+        user_teams = player_dao.get_all_current_player_teams(current_user['user_id'])
 
         # Check if user belongs to any team in the same club
         user_club_ids = set()
@@ -3327,7 +3317,7 @@ async def get_team_players(
             raise HTTPException(status_code=404, detail="Team not found")
 
         # Get players
-        players = match_dao.get_team_players(team_id)
+        players = player_dao.get_team_players(team_id)
 
         return {
             "success": True,
@@ -3362,7 +3352,7 @@ async def get_player_profile(
     """
     try:
         # Get the target player's profile first
-        target_profile = match_dao.get_user_profile_with_relationships(user_id)
+        target_profile = player_dao.get_user_profile_with_relationships(user_id)
         if not target_profile:
             raise HTTPException(status_code=404, detail="Player not found")
 
@@ -3371,7 +3361,7 @@ async def get_player_profile(
             pass  # No authorization check needed
         else:
             # Get target player's teams and club IDs
-            target_teams = match_dao.get_all_current_player_teams(user_id)
+            target_teams = player_dao.get_all_current_player_teams(user_id)
             target_club_ids = set()
             for team_entry in target_teams:
                 team_data = team_entry.get('team', {})
@@ -3380,7 +3370,7 @@ async def get_player_profile(
                     target_club_ids.add(club_data['id'])
 
             # Get current user's teams and club IDs
-            user_teams = match_dao.get_all_current_player_teams(current_user['user_id'])
+            user_teams = player_dao.get_all_current_player_teams(current_user['user_id'])
             user_club_ids = set()
             for team_entry in user_teams:
                 team_data = team_entry.get('team', {})
@@ -3480,7 +3470,7 @@ async def full_health_check():
     # Check database connectivity
     try:
         # Simple database connectivity test
-        test_response = match_dao.get_all_age_groups()
+        test_response = season_dao.get_all_age_groups()
         if isinstance(test_response, list):
             health_status["checks"]["database"] = {
                 "status": "healthy",
@@ -3499,8 +3489,8 @@ async def full_health_check():
 
     # Check reference data availability
     try:
-        seasons = match_dao.get_all_seasons()
-        match_types = match_dao.get_all_match_types()
+        seasons = season_dao.get_all_seasons()
+        match_types = match_type_dao.get_all_match_types()
 
         health_status["checks"]["reference_data"] = {
             "status": "healthy",
