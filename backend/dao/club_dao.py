@@ -234,3 +234,17 @@ class ClubDAO(BaseDAO):
         if not result.data or len(result.data) == 0:
             raise ValueError(f"Failed to update club for team {team_id}")
         return result.data[0]
+
+    def get_all_parent_club_entities(self) -> list[dict]:
+        """Get all parent club entities (teams with no club_id).
+
+        This includes clubs that don't have children yet.
+        Used for dropdowns where users need to select a parent club.
+        """
+        try:
+            # Get all teams that could be parent clubs (no club_id)
+            response = self.client.table("teams").select("*").is_("club_id", "null").execute()
+            return response.data
+        except Exception:
+            logger.exception("Error querying parent club entities")
+            return []

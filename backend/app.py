@@ -2696,7 +2696,7 @@ async def remove_team_match_type_participation(
 ):
     """Remove a team's participation in a specific match type and age group (admin only)."""
     try:
-        success = match_dao.remove_team_match_type_participation(
+        success = team_dao.remove_team_match_type_participation(
             team_id, match_type_id, age_group_id
         )
         if success:
