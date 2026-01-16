@@ -1,13 +1,25 @@
 <template>
   <div class="scoreboard">
-    <!-- Team Names -->
+    <!-- Team Names with Logos -->
     <div class="teams">
       <div class="team home">
+        <img
+          v-if="matchState.home_team_logo"
+          :src="matchState.home_team_logo"
+          :alt="matchState.home_team_name"
+          class="team-logo"
+        />
         <span class="team-name">{{ matchState.home_team_name }}</span>
       </div>
       <div class="vs">vs</div>
       <div class="team away">
         <span class="team-name">{{ matchState.away_team_name }}</span>
+        <img
+          v-if="matchState.away_team_logo"
+          :src="matchState.away_team_logo"
+          :alt="matchState.away_team_name"
+          class="team-logo"
+        />
       </div>
     </div>
 
@@ -130,20 +142,38 @@ function formatMinute(goal) {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 16px;
+  padding: 0 8px;
 }
 
 .team {
   flex: 1;
-  max-width: 140px;
+  max-width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team.home {
+  justify-content: flex-end;
+}
+
+.team.away {
+  justify-content: flex-start;
+}
+
+.team-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .team-name {
   font-size: 14px;
   font-weight: 600;
   color: #e0e0e0;
-  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -152,6 +182,7 @@ function formatMinute(goal) {
 .vs {
   color: #666;
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 /* Score */
@@ -179,14 +210,14 @@ function formatMinute(goal) {
 .scorers-container {
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 16px;
   padding: 0 8px;
 }
 
 .scorers {
   flex: 1;
-  max-width: 140px;
+  max-width: 180px;
 }
 
 .home-scorers {
@@ -201,15 +232,18 @@ function formatMinute(goal) {
   width: 1px;
   background: #444;
   min-height: 16px;
+  flex-shrink: 0;
 }
 
 .scorer {
-  font-size: 11px;
+  font-size: 12px;
   color: #aaa;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.5;
+}
+
+.scorer-minute {
+  color: #888;
+  margin-left: 4px;
 }
 
 /* Clock */
@@ -254,8 +288,25 @@ function formatMinute(goal) {
 
 /* Responsive */
 @media (min-width: 640px) {
+  .team {
+    max-width: 220px;
+  }
+
+  .team-logo {
+    width: 40px;
+    height: 40px;
+  }
+
   .team-name {
     font-size: 18px;
+  }
+
+  .scorers {
+    max-width: 220px;
+  }
+
+  .scorer {
+    font-size: 13px;
   }
 
   .score {
