@@ -781,6 +781,12 @@ class MatchDAO(BaseDAO):
                     "match_id": match.get("match_id"),  # External match identifier
                     "created_at": match["created_at"],
                     "updated_at": match["updated_at"],
+                    # Live match clock fields
+                    "kickoff_time": match.get("kickoff_time"),
+                    "halftime_start": match.get("halftime_start"),
+                    "second_half_start": match.get("second_half_start"),
+                    "match_end_time": match.get("match_end_time"),
+                    "half_duration": match.get("half_duration", 45),
                 }
                 return flat_match
             else:
@@ -937,8 +943,8 @@ class MatchDAO(BaseDAO):
                 self.client.table("matches")
                 .select("""
                     *,
-                    home_team:teams!matches_home_team_id_fkey(id, name),
-                    away_team:teams!matches_away_team_id_fkey(id, name),
+                    home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, logo_url)),
+                    away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, logo_url)),
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
                     division:divisions(id, name)
@@ -952,6 +958,12 @@ class MatchDAO(BaseDAO):
                 return None
 
             match = response.data
+            # Extract club logo URLs from nested team -> club relationships
+            home_team = match.get("home_team") or {}
+            away_team = match.get("away_team") or {}
+            home_club = home_team.get("club") or {}
+            away_club = away_team.get("club") or {}
+
             return {
                 "match_id": match["id"],
                 "match_status": match.get("match_status"),
@@ -964,9 +976,11 @@ class MatchDAO(BaseDAO):
                 "match_end_time": match.get("match_end_time"),
                 "half_duration": match.get("half_duration", 45),
                 "home_team_id": match["home_team_id"],
-                "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                "home_team_name": home_team.get("name", "Unknown"),
+                "home_team_logo": home_club.get("logo_url"),
                 "away_team_id": match["away_team_id"],
-                "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                "away_team_name": away_team.get("name", "Unknown"),
+                "away_team_logo": away_club.get("logo_url"),
                 "age_group_name": match["age_group"]["name"] if match.get("age_group") else None,
                 "match_type_name": match["match_type"]["name"] if match.get("match_type") else None,
                 "division_name": match["division"]["name"] if match.get("division") else None,
