@@ -15,8 +15,9 @@ from backend.auth import (
 class TestAuthManager:
     '''Unit tests for AuthManager class'''
 
+    @patch('backend.auth.jwt.get_unverified_header', return_value={'alg': 'HS256'})
     @patch('backend.auth.jwt.decode')
-    def test_verify_token_valid_jwt(self, mock_jwt_decode):
+    def test_verify_token_valid_jwt(self, mock_jwt_decode, mock_get_header):
         '''Verify that valid JWT token is decoded correctly'''
         # Arrange
         mock_jwt_decode.return_value = {'sub': 'user123', 'role': 'admin'}
@@ -397,8 +398,9 @@ class TestAuthManagerInit:
 class TestVerifyTokenEdgeCases:
     '''Additional edge case tests for verify_token'''
 
+    @patch('backend.auth.jwt.get_unverified_header', return_value={'alg': 'HS256'})
     @patch('backend.auth.jwt.decode')
-    def test_verify_token_no_sub_in_payload(self, mock_jwt_decode):
+    def test_verify_token_no_sub_in_payload(self, mock_jwt_decode, mock_get_header):
         '''Verify token without sub claim returns None'''
         # Arrange
         mock_jwt_decode.return_value = {'email': 'user@example.com'}  # No 'sub'
@@ -410,8 +412,9 @@ class TestVerifyTokenEdgeCases:
         # Assert
         assert result is None
 
+    @patch('backend.auth.jwt.get_unverified_header', return_value={'alg': 'HS256'})
     @patch('backend.auth.jwt.decode')
-    def test_verify_token_multiple_profiles_uses_first(self, mock_jwt_decode):
+    def test_verify_token_multiple_profiles_uses_first(self, mock_jwt_decode, mock_get_header):
         '''Verify that multiple profiles logs warning and uses first'''
         # Arrange
         mock_jwt_decode.return_value = {'sub': 'user123', 'email': 'user@missingtable.local'}
@@ -431,8 +434,9 @@ class TestVerifyTokenEdgeCases:
         assert result['username'] == 'firstuser'
         assert result['role'] == 'admin'
 
+    @patch('backend.auth.jwt.get_unverified_header', return_value={'alg': 'HS256'})
     @patch('backend.auth.jwt.decode')
-    def test_verify_token_internal_email_extracts_username(self, mock_jwt_decode):
+    def test_verify_token_internal_email_extracts_username(self, mock_jwt_decode, mock_get_header):
         '''Verify internal email format extracts username correctly'''
         # Arrange
         mock_jwt_decode.return_value = {'sub': 'user123', 'email': 'testuser@missingtable.local'}
@@ -449,8 +453,9 @@ class TestVerifyTokenEdgeCases:
         assert result['username'] == 'testuser'
         assert result['email'] == 'real@email.com'
 
+    @patch('backend.auth.jwt.get_unverified_header', return_value={'alg': 'HS256'})
     @patch('backend.auth.jwt.decode')
-    def test_verify_token_legacy_user_with_real_email(self, mock_jwt_decode):
+    def test_verify_token_legacy_user_with_real_email(self, mock_jwt_decode, mock_get_header):
         '''Verify legacy user with real email in JWT'''
         # Arrange
         mock_jwt_decode.return_value = {'sub': 'user123', 'email': 'legacy@example.com'}

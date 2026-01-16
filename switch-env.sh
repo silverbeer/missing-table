@@ -3,6 +3,9 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Config file to persist environment choice
+ENV_CONFIG_FILE="$SCRIPT_DIR/.current-env"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -33,14 +36,13 @@ show_help() {
     echo ""
     echo "Environments:"
     echo "  local    Use local Supabase (requires 'npx supabase start')"
-    echo "  dev      Use cloud Supabase development environment"
-    echo "  prod     Use cloud Supabase production environment"
+    echo "  prod     Use cloud Supabase production (missingtable.com)"
     echo "  status   Show current environment configuration"
     echo "  help     Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 local     # Switch to local development"
-    echo "  $0 dev       # Switch to cloud development"
+    echo "  $0 prod      # Switch to production (cloud)"
     echo "  $0 status    # Show current environment"
     echo ""
     echo "What this script does:"
@@ -50,16 +52,27 @@ show_help() {
     echo ""
 }
 
+get_current_env() {
+    # Priority: 1) .current-env file (set by switch-env.sh), 2) APP_ENV env var, 3) default to local
+    if [ -f "$ENV_CONFIG_FILE" ]; then
+        cat "$ENV_CONFIG_FILE"
+    elif [ -n "$APP_ENV" ]; then
+        echo "$APP_ENV"
+    else
+        echo "local"
+    fi
+}
+
 show_status() {
     print_header "Current Environment Status"
 
-    current_env="${APP_ENV:-local}"
+    current_env=$(get_current_env)
     echo "Current APP_ENV: $current_env"
 
     # Check which files exist
     echo ""
     echo "Available environment files:"
-    for env in local dev prod; do
+    for env in local prod; do
         backend_file="$SCRIPT_DIR/backend/.env.$env"
         frontend_file="$SCRIPT_DIR/frontend/.env.$env"
 
@@ -83,8 +96,8 @@ show_status() {
     # Check if Supabase is running for local env
     if [ "$current_env" = "local" ]; then
         echo ""
-        if curl -s http://127.0.0.1:54321/health > /dev/null 2>&1; then
-            print_success "Local Supabase is running"
+        if curl -s http://127.0.0.1:54331/health > /dev/null 2>&1; then
+            print_success "Local Supabase is running on port 54331"
         else
             print_warning "Local Supabase is not running. Run 'npx supabase start' to start it."
         fi
@@ -95,9 +108,9 @@ switch_environment() {
     local target_env="$1"
 
     # Validate environment
-    if [ "$target_env" != "local" ] && [ "$target_env" != "dev" ] && [ "$target_env" != "prod" ]; then
+    if [ "$target_env" != "local" ] && [ "$target_env" != "prod" ]; then
         print_error "Invalid environment: $target_env"
-        echo "Valid environments: local, dev, prod"
+        echo "Valid environments: local, prod"
         exit 1
     fi
 
@@ -116,6 +129,10 @@ switch_environment() {
     fi
 
     print_header "Switching to $target_env environment"
+
+    # Write to config file (persists across sessions without needing to source anything)
+    echo "$target_env" > "$ENV_CONFIG_FILE"
+    print_success "Saved environment to .current-env"
 
     # Update shell configuration
     update_shell_config "$target_env"
@@ -146,11 +163,9 @@ switch_environment() {
         echo "  1. Restart services: ./missing-table.sh restart"
         echo "  2. Start local Supabase (if needed): npx supabase start"
         echo "  3. Restore data (if needed): ./scripts/db_tools.sh restore"
-    elif [ "$target_env" = "dev" ]; then
-        echo "  1. Restart services: ./missing-table.sh restart"
-        echo "  2. Verify cloud connection works"
     elif [ "$target_env" = "prod" ]; then
         echo "  1. Restart services: ./missing-table.sh restart"
+        echo "  2. Verify cloud connection works"
         print_warning "Production environment - use with caution!"
     fi
 
@@ -193,7 +208,7 @@ update_shell_config() {
 
 # Main script logic
 case "${1:-help}" in
-    local|dev|prod)
+    local|prod)
         switch_environment "$1"
         ;;
     status)

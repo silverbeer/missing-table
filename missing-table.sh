@@ -21,24 +21,40 @@ LOG_DIR="$PID_DIR/logs"
 # Create directories if they don't exist
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
+# Config file for persistent environment (shared with switch-env.sh)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_CONFIG_FILE="$SCRIPT_DIR/.current-env"
+
+# Get current environment from config file or env var
+get_current_env() {
+    # Priority: 1) .current-env file (set by switch-env.sh), 2) APP_ENV env var, 3) default to local
+    if [ -f "$ENV_CONFIG_FILE" ]; then
+        cat "$ENV_CONFIG_FILE"
+    elif [ -n "$APP_ENV" ]; then
+        echo "$APP_ENV"
+    else
+        echo "local"
+    fi
+}
+
 # Function to print usage
 usage() {
     echo -e "${BLUE}Missing Table Service Manager${NC}"
     echo ""
-    echo -e "${YELLOW}Usage:${NC} $0 {start|dev|stop|restart|status|logs|tail}"
+    echo -e "${YELLOW}Usage:${NC} $0 {start|stop|restart|status|logs|tail}"
     echo ""
     echo -e "${YELLOW}Commands:${NC}"
-    echo "  start    - Start both backend and frontend services"
-    echo "  dev      - Start services in development mode with auto-reload"
-    echo "  stop     - Stop all running services"
-    echo "  restart  - Stop and start all services"
-    echo "  status   - Show status of all services"
-    echo "  logs     - Show recent logs from services"
-    echo "  tail     - Follow logs in real-time (Ctrl+C to stop)"
+    echo "  start [--watch]    - Start both backend and frontend services"
+    echo "  stop               - Stop all running services"
+    echo "  restart [--watch]  - Stop and start all services"
+    echo "                       --watch: Enable auto-reload on code changes"
+    echo "  status             - Show status of all services"
+    echo "  logs               - Show recent logs from services"
+    echo "  tail               - Follow logs in real-time (Ctrl+C to stop)"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo "  $0 dev       # Development mode with auto-reload"
-    echo "  $0 start     # Production mode"
+    echo "  $0 start --watch   # With auto-reload for development"
+    echo "  $0 start           # Without auto-reload"
     echo "  $0 status"
     echo "  $0 tail"
     echo ""
@@ -121,7 +137,7 @@ start_backend() {
     fi
 
     # Show current environment
-    current_env="${APP_ENV:-local}"
+    current_env="$(get_current_env)"
     echo "Using environment: $current_env"
 
     # Set environment variables for backend
@@ -191,7 +207,7 @@ start_frontend() {
     fi
 
     # Get current environment
-    current_env="${APP_ENV:-local}"
+    current_env="$(get_current_env)"
     export APP_ENV="$current_env"
 
     cd frontend
@@ -302,16 +318,16 @@ show_status() {
     echo "================================"
 
     # Show current environment/database
-    local current_env="${APP_ENV:-local}"
+    local current_env="$(get_current_env)"
     echo -e "\n${YELLOW}Environment:${NC}"
     echo -e "  Current: ${GREEN}$current_env${NC}"
 
     # Determine database connection based on environment
     if [ "$current_env" = "local" ]; then
         # Check if Supabase is running locally
-        if command -v npx &> /dev/null && npx supabase status 2>/dev/null | grep -q "API URL"; then
-            local supabase_url=$(npx supabase status 2>/dev/null | grep "API URL" | awk '{print $3}')
-            local studio_url=$(npx supabase status 2>/dev/null | grep "Studio URL" | awk '{print $3}')
+        if curl -s http://127.0.0.1:54331/health > /dev/null 2>&1; then
+            local supabase_url="http://127.0.0.1:54331"
+            local studio_url="http://127.0.0.1:54333"
             echo -e "  Database: ${GREEN}Local Supabase${NC} ($supabase_url)"
             echo -e "  Studio UI: ${GREEN}$studio_url${NC}"
         else
@@ -478,10 +494,12 @@ tail_logs() {
 # Main script logic
 case "$1" in
     start)
-        start_services false
-        ;;
-    dev)
-        start_services true
+        # Check for --watch flag
+        if [ "$2" = "--watch" ]; then
+            start_services true
+        else
+            start_services false
+        fi
         ;;
     stop)
         stop_services
@@ -489,7 +507,12 @@ case "$1" in
     restart)
         stop_services
         sleep 2
-        start_services false
+        # Check for --watch flag
+        if [ "$2" = "--watch" ]; then
+            start_services true
+        else
+            start_services false
+        fi
         ;;
     status)
         show_status
