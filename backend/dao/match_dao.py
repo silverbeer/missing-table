@@ -6,6 +6,7 @@ and related soccer/futbol data using Supabase.
 """
 
 import os
+from datetime import UTC
 
 import httpx
 import structlog
@@ -825,7 +826,7 @@ class MatchDAO(BaseDAO):
             List of team standings sorted by points, goal difference, goals scored
         """
         try:
-            logger.info("generating league table from database", season_id=season_id, age_group_id=age_group_id, 
+            logger.info("generating league table from database", season_id=season_id, age_group_id=age_group_id,
             division_id=division_id, match_type=match_type)
             # Fetch matches from database
             matches = self._fetch_matches_for_standings(season_id, age_group_id, division_id)
@@ -863,7 +864,7 @@ class MatchDAO(BaseDAO):
         Returns:
             List of match dictionaries from database
         """
-        logger.info("fetching matches for standings calculation from database", season_id=season_id, age_group_id=age_group_id, 
+        logger.info("fetching matches for standings calculation from database", season_id=season_id, age_group_id=age_group_id,
         division_id=division_id)
         query = self.client.table("matches").select("""
             *,
@@ -882,6 +883,220 @@ class MatchDAO(BaseDAO):
 
         response = query.execute()
         return response.data
+
+    # === Live Match Methods ===
+
+    def get_live_matches(self) -> list[dict]:
+        """Get all matches with status 'live'.
+
+        Returns minimal data for the LIVE tab polling.
+        """
+        try:
+            response = (
+                self.client.table("matches")
+                .select("""
+                    id,
+                    match_status,
+                    match_date,
+                    home_score,
+                    away_score,
+                    kickoff_time,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name)
+                """)
+                .eq("match_status", "live")
+                .execute()
+            )
+
+            # Flatten the response
+            result = []
+            for match in response.data or []:
+                result.append({
+                    "match_id": match["id"],
+                    "match_status": match["match_status"],
+                    "match_date": match["match_date"],
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "kickoff_time": match.get("kickoff_time"),
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                })
+            return result
+
+        except Exception:
+            logger.exception("Error getting live matches")
+            return []
+
+    def get_live_match_state(self, match_id: int) -> dict | None:
+        """Get full live match state including clock timestamps.
+
+        Returns match data with clock fields for the live match view.
+        """
+        try:
+            response = (
+                self.client.table("matches")
+                .select("""
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name),
+                    away_team:teams!matches_away_team_id_fkey(id, name),
+                    age_group:age_groups(id, name),
+                    match_type:match_types(id, name),
+                    division:divisions(id, name)
+                """)
+                .eq("id", match_id)
+                .single()
+                .execute()
+            )
+
+            if not response.data:
+                return None
+
+            match = response.data
+            return {
+                "match_id": match["id"],
+                "match_status": match.get("match_status"),
+                "match_date": match["match_date"],
+                "home_score": match["home_score"],
+                "away_score": match["away_score"],
+                "kickoff_time": match.get("kickoff_time"),
+                "halftime_start": match.get("halftime_start"),
+                "second_half_start": match.get("second_half_start"),
+                "match_end_time": match.get("match_end_time"),
+                "half_duration": match.get("half_duration", 45),
+                "home_team_id": match["home_team_id"],
+                "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                "away_team_id": match["away_team_id"],
+                "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                "age_group_name": match["age_group"]["name"] if match.get("age_group") else None,
+                "match_type_name": match["match_type"]["name"] if match.get("match_type") else None,
+                "division_name": match["division"]["name"] if match.get("division") else None,
+            }
+
+        except Exception:
+            logger.exception("Error getting live match state", match_id=match_id)
+            return None
+
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    def update_match_clock(
+        self,
+        match_id: int,
+        action: str,
+        updated_by: str | None = None,
+        half_duration: int | None = None,
+    ) -> dict | None:
+        """Update match clock based on action.
+
+        Args:
+            match_id: The match to update
+            action: Clock action - 'start_first_half', 'start_halftime',
+                    'start_second_half', 'end_match'
+            updated_by: UUID of user performing the action
+            half_duration: Duration of each half in minutes (only for start_first_half)
+
+        Returns:
+            Updated match state or None on error
+        """
+        from datetime import datetime
+
+        try:
+            now = datetime.now(UTC).isoformat()
+            data: dict = {"updated_by": updated_by} if updated_by else {}
+
+            if action == "start_first_half":
+                # Start the match - set kickoff time and status to live
+                data["kickoff_time"] = now
+                data["match_status"] = "live"
+                # Set half duration if provided (default is 45)
+                if half_duration:
+                    data["half_duration"] = half_duration
+            elif action == "start_halftime":
+                # Mark halftime started
+                data["halftime_start"] = now
+            elif action == "start_second_half":
+                # Start second half
+                data["second_half_start"] = now
+            elif action == "end_match":
+                # End the match
+                data["match_end_time"] = now
+                data["match_status"] = "completed"
+            else:
+                logger.warning("Invalid clock action", action=action)
+                return None
+
+            response = (
+                self.client.table("matches")
+                .update(data)
+                .eq("id", match_id)
+                .execute()
+            )
+
+            if not response.data:
+                logger.warning("Clock update failed - no rows affected", match_id=match_id)
+                return None
+
+            logger.info(
+                "match_clock_updated",
+                match_id=match_id,
+                action=action,
+            )
+
+            # Return updated state
+            return self.get_live_match_state(match_id)
+
+        except Exception:
+            logger.exception("Error updating match clock", match_id=match_id, action=action)
+            return None
+
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    def update_match_score(
+        self,
+        match_id: int,
+        home_score: int,
+        away_score: int,
+        updated_by: str | None = None,
+    ) -> dict | None:
+        """Update match score (used when posting a goal).
+
+        Args:
+            match_id: The match to update
+            home_score: New home team score
+            away_score: New away team score
+            updated_by: UUID of user performing the action
+
+        Returns:
+            Updated match state or None on error
+        """
+        try:
+            data = {
+                "home_score": home_score,
+                "away_score": away_score,
+            }
+            if updated_by:
+                data["updated_by"] = updated_by
+
+            response = (
+                self.client.table("matches")
+                .update(data)
+                .eq("id", match_id)
+                .execute()
+            )
+
+            if not response.data:
+                logger.warning("Score update failed - no rows affected", match_id=match_id)
+                return None
+
+            logger.info(
+                "match_score_updated",
+                match_id=match_id,
+                home_score=home_score,
+                away_score=away_score,
+            )
+
+            return self.get_live_match_state(match_id)
+
+        except Exception:
+            logger.exception("Error updating match score", match_id=match_id)
+            return None
 
     # Admin CRUD methods for reference data have been moved to:
     # - SeasonDAO (seasons, age_groups)

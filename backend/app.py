@@ -28,10 +28,13 @@ from models import (
     DivisionCreate,
     DivisionUpdate,
     EnhancedMatch,
+    GoalEvent,
     LeagueCreate,
     LeagueUpdate,
+    LiveMatchClock,
     MatchPatch,
     MatchSubmissionData,
+    MessageEvent,
     PlayerCustomization,
     PlayerHistoryCreate,
     PlayerHistoryUpdate,
@@ -58,6 +61,7 @@ from dao.club_dao import ClubDAO
 from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
+from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
 from dao.player_dao import PlayerDAO
 from dao.season_dao import SeasonDAO
@@ -168,6 +172,7 @@ else:
 # Initialize all DAOs with shared connection
 db_conn_holder_obj = DbConnectionHolder()
 match_dao = MatchDAO(db_conn_holder_obj)
+match_event_dao = MatchEventDAO(db_conn_holder_obj)
 team_dao = TeamDAO(db_conn_holder_obj)
 club_dao = ClubDAO(db_conn_holder_obj)
 player_dao = PlayerDAO(db_conn_holder_obj)
@@ -2075,6 +2080,23 @@ async def get_matches(
         )
 
 
+@app.get("/api/matches/live")
+async def get_live_matches(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Get all currently live matches.
+
+    Used for the LIVE tab to check if there are active live matches.
+    Returns minimal data for efficient polling.
+    """
+    try:
+        live_matches = match_dao.get_live_matches()
+        return live_matches
+    except Exception as e:
+        logger.error(f"Error getting live matches: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/matches/{match_id}")
 async def get_match(
     request: Request,
@@ -2331,6 +2353,359 @@ async def get_matches_by_team(
         return matches if matches else []
     except Exception as e:
         logger.error(f"Error retrieving matches for team '{team_id}': {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# === Live Match Endpoints ===
+
+
+def calculate_match_minute(match: dict) -> tuple[int | None, int | None]:
+    """Calculate the current match minute based on timestamps.
+
+    Args:
+        match: Match dict with kickoff_time, halftime_start, second_half_start, half_duration
+
+    Returns:
+        Tuple of (match_minute, extra_time) where:
+        - match_minute: The base minute (1-45 for first half, 46-90 for second half)
+        - extra_time: Stoppage time minutes if applicable (e.g., 5 for "45+5")
+    """
+    from datetime import datetime
+
+    kickoff_time = match.get("kickoff_time")
+    halftime_start = match.get("halftime_start")
+    second_half_start = match.get("second_half_start")
+    half_duration = match.get("half_duration") or 45
+
+    if not kickoff_time:
+        return None, None
+
+    now = datetime.now(UTC)
+
+    # Parse kickoff time
+    if isinstance(kickoff_time, str):
+        kickoff_time = datetime.fromisoformat(kickoff_time.replace("Z", "+00:00"))
+
+    # In second half
+    if second_half_start:
+        if isinstance(second_half_start, str):
+            second_half_start = datetime.fromisoformat(
+                second_half_start.replace("Z", "+00:00")
+            )
+        elapsed_seconds = (now - second_half_start).total_seconds()
+        elapsed_minutes = int(elapsed_seconds / 60) + 1  # Round up to current minute
+        total_minute = half_duration + elapsed_minutes
+
+        # Check for stoppage time (beyond 90 for 45-min halves)
+        full_time = half_duration * 2
+        if total_minute > full_time:
+            return full_time, total_minute - full_time
+        return total_minute, None
+
+    # At halftime - return end of first half
+    if halftime_start:
+        return half_duration, None
+
+    # In first half
+    elapsed_seconds = (now - kickoff_time).total_seconds()
+    elapsed_minutes = int(elapsed_seconds / 60) + 1  # Round up to current minute
+
+    # Check for stoppage time (beyond 45 for 45-min halves)
+    if elapsed_minutes > half_duration:
+        return half_duration, elapsed_minutes - half_duration
+    return elapsed_minutes, None
+
+
+@app.get("/api/matches/{match_id}/live")
+async def get_live_match_state(
+    match_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Get full live match state including clock timestamps and recent events.
+
+    Returns match data with clock fields for the live match view.
+    """
+    try:
+        match_state = match_dao.get_live_match_state(match_id)
+        if not match_state:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # Get recent events
+        events = match_event_dao.get_events(match_id, limit=50)
+        match_state["recent_events"] = events
+
+        return match_state
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting live match state: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/matches/{match_id}/live/clock")
+async def update_match_clock(
+    match_id: int,
+    clock: LiveMatchClock,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Update match clock (start match, halftime, second half, end match).
+
+    Only accessible by admins, club managers, and team managers who can edit this match.
+    """
+    try:
+        # Get current match to check permissions
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # Check if user can edit this match
+        if not auth_manager.can_edit_match(
+            current_user, current_match["home_team_id"], current_match["away_team_id"]
+        ):
+            raise HTTPException(
+                status_code=403, detail="You don't have permission to manage this match"
+            )
+
+        # Validate action
+        valid_actions = [
+            "start_first_half",
+            "start_halftime",
+            "start_second_half",
+            "end_match",
+        ]
+        if clock.action not in valid_actions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid action. Must be one of: {', '.join(valid_actions)}",
+            )
+
+        # Update the clock
+        user_id = current_user.get("user_id") or current_user.get("id")
+        result = match_dao.update_match_clock(
+            match_id, clock.action, updated_by=user_id, half_duration=clock.half_duration
+        )
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to update match clock")
+
+        # Create status change event
+        action_messages = {
+            "start_first_half": "Match kicked off",
+            "start_halftime": "Halftime",
+            "start_second_half": "Second half started",
+            "end_match": "Full time",
+        }
+        match_event_dao.create_event(
+            match_id=match_id,
+            event_type="status_change",
+            message=action_messages.get(clock.action, clock.action),
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+        )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating match clock: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/matches/{match_id}/live/goal")
+async def post_goal(
+    match_id: int,
+    goal: GoalEvent,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Post a goal event and update the match score.
+
+    Only accessible by admins, club managers, and team managers who can edit this match.
+    """
+    try:
+        # Get current match to check permissions and current scores
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # Check if user can edit this match
+        if not auth_manager.can_edit_match(
+            current_user, current_match["home_team_id"], current_match["away_team_id"]
+        ):
+            raise HTTPException(
+                status_code=403, detail="You don't have permission to manage this match"
+            )
+
+        # Validate team_id is one of the match teams
+        if goal.team_id not in [
+            current_match["home_team_id"],
+            current_match["away_team_id"],
+        ]:
+            raise HTTPException(
+                status_code=400, detail="Team must be one of the match participants"
+            )
+
+        # Calculate new scores
+        home_score = current_match.get("home_score") or 0
+        away_score = current_match.get("away_score") or 0
+
+        if goal.team_id == current_match["home_team_id"]:
+            home_score += 1
+            team_name = current_match.get("home_team_name", "Home")
+        else:
+            away_score += 1
+            team_name = current_match.get("away_team_name", "Away")
+
+        # Update the score
+        user_id = current_user.get("user_id") or current_user.get("id")
+        result = match_dao.update_match_score(
+            match_id, home_score, away_score, updated_by=user_id
+        )
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to update match score")
+
+        # Calculate match minute for the goal
+        match_minute, extra_time = calculate_match_minute(current_match)
+
+        # Create goal event
+        goal_message = f"GOAL! {team_name} - {goal.player_name}"
+        if goal.message:
+            goal_message += f" ({goal.message})"
+
+        match_event_dao.create_event(
+            match_id=match_id,
+            event_type="goal",
+            message=goal_message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+            team_id=goal.team_id,
+            player_name=goal.player_name,
+            match_minute=match_minute,
+            extra_time=extra_time,
+        )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error posting goal: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/matches/{match_id}/live/message")
+async def post_message(
+    match_id: int,
+    message: MessageEvent,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Post a chat message to the live match stream.
+
+    Any authenticated user can post messages.
+    """
+    try:
+        # Verify match exists
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # Create message event
+        user_id = current_user.get("user_id") or current_user.get("id")
+        event = match_event_dao.create_event(
+            match_id=match_id,
+            event_type="message",
+            message=message.message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+        )
+
+        if not event:
+            raise HTTPException(status_code=500, detail="Failed to post message")
+
+        return event
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error posting message: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/matches/{match_id}/live/events/{event_id}")
+async def delete_event(
+    match_id: int,
+    event_id: int,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Soft delete a match event (for moderation).
+
+    Only accessible by admins, club managers, and team managers who can edit this match.
+    """
+    try:
+        # Get current match to check permissions
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # Check if user can edit this match
+        if not auth_manager.can_edit_match(
+            current_user, current_match["home_team_id"], current_match["away_team_id"]
+        ):
+            raise HTTPException(
+                status_code=403, detail="You don't have permission to moderate this match"
+            )
+
+        # Verify the event belongs to this match
+        event = match_event_dao.get_event_by_id(event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        if event.get("match_id") != match_id:
+            raise HTTPException(
+                status_code=400, detail="Event does not belong to this match"
+            )
+
+        # Soft delete the event
+        user_id = current_user.get("user_id") or current_user.get("id")
+        success = match_event_dao.soft_delete_event(event_id, deleted_by=user_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete event")
+
+        # If it was a goal, decrement the score
+        if event.get("event_type") == "goal":
+            team_id = event.get("team_id")
+            home_score = current_match.get("home_score") or 0
+            away_score = current_match.get("away_score") or 0
+
+            if team_id == current_match["home_team_id"] and home_score > 0:
+                home_score -= 1
+            elif team_id == current_match["away_team_id"] and away_score > 0:
+                away_score -= 1
+
+            match_dao.update_match_score(
+                match_id, home_score, away_score, updated_by=user_id
+            )
+
+        return {"message": "Event deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting event: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/matches/{match_id}/live/events")
+async def get_match_events(
+    match_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+    limit: int = Query(50, le=100, description="Maximum events to return"),
+    before_id: int | None = Query(None, description="Return events before this ID"),
+):
+    """Get paginated events for a match.
+
+    Used for loading more events in the activity stream.
+    """
+    try:
+        events = match_event_dao.get_events(match_id, limit=limit, before_id=before_id)
+        return events
+    except Exception as e:
+        logger.error(f"Error getting match events: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

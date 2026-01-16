@@ -205,14 +205,19 @@
             <button
               v-for="tab in availableTabs"
               :key="tab.id"
-              @click="currentTab = tab.id"
+              @click="
+                tab.id === 'live' ? handleLiveTabClick() : (currentTab = tab.id)
+              "
               :class="[
                 currentTab === tab.id
                   ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-500 hover:text-gray-700',
+                  : tab.isLive
+                    ? 'bg-red-100 text-red-700 live-tab-pulse'
+                    : 'text-gray-500 hover:text-gray-700',
                 'px-3 py-2 font-medium text-sm rounded-md',
               ]"
             >
+              <span v-if="tab.isLive" class="live-dot"></span>
               {{ tab.name }}
             </button>
           </nav>
@@ -271,6 +276,55 @@
           <div v-if="currentTab === 'admin'" class="p-4">
             <AdminPanel />
           </div>
+
+          <!-- Live Match -->
+          <div v-if="currentTab === 'live'" class="live-tab-content">
+            <!-- Match Picker (if multiple live matches and none selected) -->
+            <div
+              v-if="liveMatches.length > 1 && !selectedLiveMatchId"
+              class="p-4"
+            >
+              <h2 class="text-xl font-bold mb-4">Live Matches</h2>
+              <div class="space-y-3">
+                <button
+                  v-for="match in liveMatches"
+                  :key="match.match_id"
+                  @click="selectLiveMatch(match.match_id)"
+                  class="w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-left border border-gray-200"
+                >
+                  <div class="flex justify-between items-center">
+                    <div>
+                      <span class="font-semibold">{{
+                        match.home_team_name
+                      }}</span>
+                      <span class="text-gray-500 mx-2">vs</span>
+                      <span class="font-semibold">{{
+                        match.away_team_name
+                      }}</span>
+                    </div>
+                    <div class="text-lg font-bold">
+                      {{ match.home_score ?? 0 }} - {{ match.away_score ?? 0 }}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Match View -->
+            <LiveMatchView
+              v-else-if="selectedLiveMatchId"
+              :match-id="selectedLiveMatchId"
+              @back="handleLiveMatchBack"
+            />
+
+            <!-- No live matches fallback -->
+            <div
+              v-else-if="liveMatches.length === 0"
+              class="p-8 text-center text-gray-500"
+            >
+              <p>No live matches at the moment.</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -281,7 +335,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useAuthStore } from './stores/auth';
 import { getApiBaseUrl } from './config/api';
 import { recordPageView, recordInviteRequest } from './faro';
@@ -294,6 +348,7 @@ import ProfileRouter from './components/ProfileRouter.vue';
 import TeamRosterRouter from './components/profiles/TeamRosterRouter.vue';
 import AdminPanel from './components/AdminPanel.vue';
 import VersionFooter from './components/VersionFooter.vue';
+import { LiveMatchView } from './components/live';
 
 export default {
   name: 'App',
@@ -307,6 +362,7 @@ export default {
     TeamRosterRouter,
     AdminPanel,
     VersionFooter,
+    LiveMatchView,
   },
   setup() {
     const authStore = useAuthStore();
@@ -335,6 +391,47 @@ export default {
     const inviteRequestSubmitting = ref(false);
     const inviteRequestMessage = ref('');
     const inviteRequestSuccess = ref(false);
+
+    // Live match state
+    const liveMatches = ref([]);
+    const selectedLiveMatchId = ref(null);
+    let liveMatchPollInterval = null;
+
+    // Fetch live matches for the LIVE tab
+    const fetchLiveMatches = async () => {
+      if (!authStore.isAuthenticated.value) {
+        liveMatches.value = [];
+        return;
+      }
+
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/matches/live`
+        );
+        if (Array.isArray(response)) {
+          liveMatches.value = response;
+        }
+      } catch (error) {
+        console.error('Error fetching live matches:', error);
+      }
+    };
+
+    // Start/stop live match polling
+    const startLiveMatchPolling = () => {
+      if (liveMatchPollInterval) return;
+      fetchLiveMatches(); // Fetch immediately
+      liveMatchPollInterval = setInterval(fetchLiveMatches, 30000); // Poll every 30s
+    };
+
+    const stopLiveMatchPolling = () => {
+      if (liveMatchPollInterval) {
+        clearInterval(liveMatchPollInterval);
+        liveMatchPollInterval = null;
+      }
+    };
+
+    // Computed: has live matches
+    const hasLiveMatches = computed(() => liveMatches.value.length > 0);
 
     // Define all possible tabs
     const allTabs = [
@@ -365,7 +462,7 @@ export default {
     const availableTabs = computed(() => {
       const userRole = authStore.userRole.value;
 
-      return allTabs
+      let tabs = allTabs
         .filter(tab => {
           // Always show public tabs
           if (!tab.requiresAuth) return true;
@@ -387,6 +484,13 @@ export default {
           }
           return tab;
         });
+
+      // Add LIVE tab at the beginning if there are live matches
+      if (hasLiveMatches.value && authStore.isAuthenticated.value) {
+        tabs = [{ id: 'live', name: 'LIVE', isLive: true }, ...tabs];
+      }
+
+      return tabs;
     });
 
     const closeModal = () => {
@@ -521,7 +625,59 @@ export default {
       if (inviteCode && !authStore.isAuthenticated.value) {
         showLoginModal.value = true;
       }
+
+      // Start live match polling if authenticated
+      if (authStore.isAuthenticated.value) {
+        startLiveMatchPolling();
+      }
     });
+
+    // Watch for auth changes to start/stop live match polling
+    watch(
+      () => authStore.isAuthenticated.value,
+      isAuth => {
+        if (isAuth) {
+          startLiveMatchPolling();
+        } else {
+          stopLiveMatchPolling();
+          liveMatches.value = [];
+          selectedLiveMatchId.value = null;
+        }
+      }
+    );
+
+    // Cleanup on unmount
+    onUnmounted(() => {
+      stopLiveMatchPolling();
+    });
+
+    // Handle clicking on LIVE tab
+    const handleLiveTabClick = () => {
+      if (liveMatches.value.length === 1) {
+        // Single live match - go directly to it
+        selectedLiveMatchId.value = liveMatches.value[0].match_id;
+      } else if (liveMatches.value.length > 1) {
+        // Multiple live matches - show picker (just switch tab, picker shown in template)
+        selectedLiveMatchId.value = null;
+      }
+      currentTab.value = 'live';
+    };
+
+    // Handle selecting a live match from picker
+    const selectLiveMatch = matchId => {
+      selectedLiveMatchId.value = matchId;
+    };
+
+    // Handle going back from live match view
+    const handleLiveMatchBack = () => {
+      if (liveMatches.value.length > 1) {
+        // Go back to match picker
+        selectedLiveMatchId.value = null;
+      } else {
+        // Go back to previous tab
+        currentTab.value = 'scores';
+      }
+    };
 
     return {
       authStore,
@@ -540,6 +696,13 @@ export default {
       handleLogout,
       handleSwitchTab,
       submitInviteRequest,
+      // Live match
+      liveMatches,
+      selectedLiveMatchId,
+      hasLiveMatches,
+      handleLiveTabClick,
+      selectLiveMatch,
+      handleLiveMatchBack,
     };
   },
 };
@@ -655,5 +818,44 @@ export default {
 
 .login-prompt-btn:hover {
   background-color: #0056b3;
+}
+
+/* Live Tab Styles */
+.live-tab-pulse {
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%,
+  100% {
+    background-color: #fee2e2;
+  }
+  50% {
+    background-color: #fecaca;
+  }
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #dc2626;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: liveDotPulse 1s ease-in-out infinite;
+}
+
+@keyframes liveDotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.live-tab-content {
+  min-height: 400px;
 }
 </style>

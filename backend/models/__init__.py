@@ -21,12 +21,6 @@ from .auth import (
     UserSignup,
 )
 
-# Match models
-from .matches import EnhancedMatch, MatchPatch, MatchSubmissionData
-
-# Team models
-from .teams import Team, TeamMappingCreate, TeamMatchTypeMapping, TeamUpdate
-
 # Club models
 from .clubs import Club, ClubData, ClubWithTeams, TeamData, load_clubs_from_json
 
@@ -39,8 +33,24 @@ from .leagues import (
     LeagueUpdate,
 )
 
+# Live match models
+from .live_match import (
+    GoalEvent,
+    LiveMatchClock,
+    LiveMatchState,
+    LiveMatchSummary,
+    MatchEventResponse,
+    MessageEvent,
+)
+
+# Match models
+from .matches import EnhancedMatch, MatchPatch, MatchSubmissionData
+
 # Season/AgeGroup models
 from .seasons import AgeGroupCreate, AgeGroupUpdate, SeasonCreate, SeasonUpdate
+
+# Team models
+from .teams import Team, TeamMappingCreate, TeamMatchTypeMapping, TeamUpdate
 
 # Note: MatchData has Pydantic compatibility issues, import directly if needed
 # from .match_data import MatchData
@@ -64,6 +74,13 @@ __all__ = [
     "EnhancedMatch",
     "MatchPatch",
     "MatchSubmissionData",
+    # Live Match
+    "LiveMatchClock",
+    "GoalEvent",
+    "MessageEvent",
+    "MatchEventResponse",
+    "LiveMatchState",
+    "LiveMatchSummary",
     # Teams
     "Team",
     "TeamUpdate",

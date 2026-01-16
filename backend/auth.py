@@ -5,7 +5,7 @@ Authentication and authorization utilities for the sports league backend.
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from typing import Any
 
@@ -13,9 +13,14 @@ import jwt
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
+
 from supabase import Client
 
 load_dotenv()
+
+# JWKS client for ES256 token verification (cached)
+_jwks_client: PyJWKClient | None = None
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
@@ -83,11 +88,35 @@ class AuthManager:
 
     def verify_token(self, token: str) -> dict[str, Any] | None:
         """Verify JWT token and return user data."""
+        global _jwks_client
         try:
-            # Decode JWT token
-            payload = jwt.decode(
-                token, self.jwt_secret, algorithms=["HS256"], audience="authenticated"
-            )
+            # Check token header to determine algorithm
+            unverified_header = jwt.get_unverified_header(token)
+            alg = unverified_header.get("alg", "HS256")
+
+            if alg == "ES256":
+                # Use JWKS for ES256 tokens (new Supabase CLI)
+                supabase_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54331")
+                jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
+
+                if _jwks_client is None:
+                    _jwks_client = PyJWKClient(jwks_url)
+
+                signing_key = _jwks_client.get_signing_key_from_jwt(token)
+                payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["ES256"],
+                    audience="authenticated",
+                )
+            else:
+                # Use symmetric secret for HS256 tokens (legacy/cloud)
+                payload = jwt.decode(
+                    token,
+                    self.jwt_secret,
+                    algorithms=["HS256"],
+                    audience="authenticated",
+                )
 
             user_id = payload.get("sub")
             if not user_id:
@@ -147,14 +176,14 @@ class AuthManager:
 
     def create_service_account_token(self, service_name: str, permissions: list[str], expires_days: int = 365) -> str:
         """Create a service account JWT token for automated systems."""
-        expiration = datetime.now(timezone.utc) + timedelta(days=expires_days)
+        expiration = datetime.now(UTC) + timedelta(days=expires_days)
 
         payload = {
             "sub": f"service-{service_name}",
             "iss": "missing-table",
             "aud": "service-account",
             "exp": int(expiration.timestamp()),
-            "iat": int(datetime.now(timezone.utc).timestamp()),
+            "iat": int(datetime.now(UTC).timestamp()),
             "service_name": service_name,
             "permissions": permissions,
             "role": "service_account"
@@ -206,13 +235,13 @@ class AuthManager:
         # Try regular user token first
         user_data = self.verify_token(credentials.credentials)
         if user_data:
-            logger.debug("auth_success", type="user", username=user_data.get("username"))
+            logger.debug(f"auth_success: user={user_data.get('username')}")
             return user_data
 
         # Try service account token
         service_data = self.verify_service_account_token(credentials.credentials)
         if service_data:
-            logger.debug("auth_success", type="service", name=service_data.get("service_name"))
+            logger.debug(f"auth_success: service={service_data.get('service_name')}")
             return service_data
 
         logger.warning("auth_failed", reason="invalid_token")
