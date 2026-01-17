@@ -229,7 +229,7 @@ class AuthManager:
     ) -> dict[str, Any]:
         """FastAPI dependency to get current authenticated user or service account."""
         if not credentials:
-            logger.warning("auth_failed", reason="no_credentials")
+            logger.warning("auth_failed: no_credentials")
             raise HTTPException(status_code=401, detail="Authentication required")
 
         # Try regular user token first
@@ -244,7 +244,7 @@ class AuthManager:
             logger.debug(f"auth_success: service={service_data.get('service_name')}")
             return service_data
 
-        logger.warning("auth_failed", reason="invalid_token")
+        logger.warning("auth_failed: invalid_token")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     def require_role(self, required_roles: list):
