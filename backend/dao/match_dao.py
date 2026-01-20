@@ -63,8 +63,7 @@ class SupabaseConnection:
 
         # Debug output - check what keys are actually set
         key_type = 'SERVICE_KEY' if service_key and self.key == service_key else 'ANON_KEY'
-        logger.debug("Connecting to Supabase", url=self.url, key_type=key_type,
-                     service_key_present=bool(service_key), anon_key_present=bool(anon_key))
+        logger.info(f"DEBUG SupabaseConnection: key_type={key_type}, service_key_present={bool(service_key)}")
 
         try:
             # Try with custom httpx client
@@ -374,7 +373,6 @@ class MatchDAO(BaseDAO):
 
     def get_all_matches(
         self,
-        client_ip: str | None = None,
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
@@ -386,7 +384,6 @@ class MatchDAO(BaseDAO):
         """Get all matches with optional filters.
 
         Args:
-            client_ip: Client IP address for logging/security (unused in query)
             season_id: Filter by season ID
             age_group_id: Filter by age group ID
             division_id: Filter by division ID
@@ -975,6 +972,7 @@ class MatchDAO(BaseDAO):
                 "second_half_start": match.get("second_half_start"),
                 "match_end_time": match.get("match_end_time"),
                 "half_duration": match.get("half_duration", 45),
+                "season_id": match.get("season_id"),
                 "home_team_id": match["home_team_id"],
                 "home_team_name": home_team.get("name", "Unknown"),
                 "home_team_logo": home_club.get("logo_url"),

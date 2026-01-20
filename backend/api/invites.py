@@ -4,20 +4,19 @@ Invite API endpoints for Missing Table
 
 import os
 import sys
+from datetime import datetime
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Optional, List
 from pydantic import BaseModel, Field
-from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = structlog.get_logger(__name__)
 
 from auth import get_current_user_required
-from services import InviteService, TeamManagerService
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
+from services import InviteService, TeamManagerService
 from supabase import create_client
 
 # Initialize database connection with service role for admin operations
@@ -39,19 +38,21 @@ class CreateInviteRequest(BaseModel):
     invite_type: str = Field(..., pattern="^(team_manager|team_player|team_fan)$")
     team_id: int
     age_group_id: int
-    email: Optional[str] = None
+    email: str | None = None
+    player_id: int | None = None  # Links to existing roster entry (for team_player invites)
+    jersey_number: int | None = Field(None, ge=1, le=99)  # Creates roster entry on redemption
 
 class CreateClubManagerInviteRequest(BaseModel):
     club_id: int
-    email: Optional[str] = None
+    email: str | None = None
 
 class ClubManagerInviteResponse(BaseModel):
     id: str
     invite_code: str
     invite_type: str
     club_id: int
-    club_name: Optional[str]
-    email: Optional[str]
+    club_name: str | None
+    email: str | None
     status: str
     expires_at: datetime
     created_at: datetime
@@ -64,10 +65,10 @@ class InviteResponse(BaseModel):
     invite_code: str
     invite_type: str
     team_id: int
-    team_name: Optional[str]
+    team_name: str | None
     age_group_id: int
-    age_group_name: Optional[str]
-    email: Optional[str]
+    age_group_name: str | None
+    email: str | None
     status: str
     expires_at: datetime
     created_at: datetime
@@ -78,12 +79,12 @@ async def validate_invite_code(invite_code: str):
     """Validate an invite code without authentication"""
     # Use service client for validation to read any invite code
     invite_service = InviteService(service_client)
-    
+
     validation = invite_service.validate_invite_code(invite_code)
-    
+
     if not validation:
         raise HTTPException(status_code=404, detail="Invalid or expired invite code")
-    
+
     return validation
 
 # Admin endpoints
@@ -126,18 +127,18 @@ async def create_team_manager_invite(
     """Create a team manager invitation (admin only)"""
     if current_user['role'] != 'admin':
         raise HTTPException(status_code=403, detail="Only admins can create team manager invites")
-    
+
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
-    
+
     try:
         logger.debug("Creating invite", current_user=current_user, team_id=request.team_id, age_group_id=request.age_group_id, email=request.email)
-        
+
         # Handle different user ID field names
         user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
         if not user_id:
             raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
-        
+
         invitation = invite_service.create_invitation(
             invited_by_user_id=user_id,
             invite_type='team_manager',
@@ -145,9 +146,9 @@ async def create_team_manager_invite(
             age_group_id=request.age_group_id,
             email=request.email
         )
-        
+
         return invitation
-        
+
     except Exception as e:
         logger.exception("Invite creation error")
         raise HTTPException(status_code=400, detail=str(e))
@@ -219,29 +220,36 @@ async def create_team_player_invite_admin(
     request: CreateInviteRequest,
     current_user=Depends(get_current_user_required)
 ):
-    """Create a team player invitation (admin)"""
+    """Create a team player invitation (admin).
+
+    If player_id is provided, the invitation will be linked to an existing roster entry.
+    If jersey_number is provided (without player_id), a roster entry will be created
+    when the player accepts the invite.
+    """
     if current_user['role'] != 'admin':
         raise HTTPException(status_code=403, detail="Unauthorized")
-    
+
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
-    
+
     try:
         # Handle different user ID field names
         user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
         if not user_id:
             raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
-        
+
         invitation = invite_service.create_invitation(
             invited_by_user_id=user_id,
             invite_type='team_player',
             team_id=request.team_id,
             age_group_id=request.age_group_id,
-            email=request.email
+            email=request.email,
+            player_id=request.player_id,
+            jersey_number=request.jersey_number
         )
-        
+
         return invitation
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -295,15 +303,15 @@ async def create_team_fan_invite(
     """Create a team fan invitation (team manager) - DEPRECATED: Use club-fan instead"""
     if current_user['role'] not in ['admin', 'team-manager', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
-    
+
     supabase = service_client
     team_manager_service = TeamManagerService(supabase)
-    
+
     # Handle different user ID field names
     user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
     if not user_id:
         raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
-    
+
     # Check if team manager can manage this team
     if current_user['role'] in ['team_manager', 'team-manager']:
         can_manage = team_manager_service.can_manage_team(
@@ -328,9 +336,9 @@ async def create_team_fan_invite(
             age_group_id=request.age_group_id,
             email=request.email
         )
-        
+
         return invitation
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -339,18 +347,23 @@ async def create_team_player_invite(
     request: CreateInviteRequest,
     current_user=Depends(get_current_user_required)
 ):
-    """Create a team player invitation (team manager)"""
+    """Create a team player invitation (team manager).
+
+    If player_id is provided, the invitation will be linked to an existing roster entry.
+    If jersey_number is provided (without player_id), a roster entry will be created
+    when the player accepts the invite.
+    """
     if current_user['role'] not in ['admin', 'team-manager', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
-    
+
     supabase = service_client
     team_manager_service = TeamManagerService(supabase)
-    
+
     # Handle different user ID field names
     user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
     if not user_id:
         raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
-    
+
     # Check if team manager can manage this team
     if current_user['role'] in ['team_manager', 'team-manager']:
         can_manage = team_manager_service.can_manage_team(
@@ -373,11 +386,13 @@ async def create_team_player_invite(
             invite_type='team_player',
             team_id=request.team_id,
             age_group_id=request.age_group_id,
-            email=request.email
+            email=request.email,
+            player_id=request.player_id,
+            jersey_number=request.jersey_number
         )
-        
+
         return invitation
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -385,23 +400,23 @@ async def create_team_player_invite(
 @router.get("/my-invites", )
 async def get_my_invitations(
     current_user=Depends(get_current_user_required),
-    status: Optional[str] = Query(None, pattern="^(pending|used|expired)$")
+    status: str | None = Query(None, pattern="^(pending|used|expired)$")
 ):
     """Get all invitations created by the current user"""
     supabase = service_client
     invite_service = InviteService(supabase)
-    
+
     # Handle different user ID field names
     user_id = current_user.get('id') or current_user.get('user_id') or current_user.get('sub')
     if not user_id:
         raise HTTPException(status_code=400, detail=f"User ID not found in current_user: {current_user}")
-    
+
     invitations = invite_service.get_user_invitations(user_id)
-    
+
     # Filter by status if provided
     if status:
         invitations = [inv for inv in invitations if inv['status'] == status]
-    
+
     return invitations
 
 # Cancel invitation
@@ -434,10 +449,10 @@ async def get_team_manager_assignments(current_user=Depends(get_current_user_req
     """Get team assignments for the current user"""
     if current_user['role'] not in ['admin', 'team-manager', 'team_manager']:
         raise HTTPException(status_code=403, detail="Unauthorized")
-    
+
     supabase = service_client
     team_manager_service = TeamManagerService(supabase)
-    
+
     assignments = team_manager_service.get_user_team_assignments(current_user['id'])
-    
+
     return assignments

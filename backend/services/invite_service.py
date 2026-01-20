@@ -3,49 +3,51 @@ Invite Service for Missing Table
 Handles invite code generation, validation, and management
 """
 
-import secrets
-import string
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, List
-from supabase import Client
 import logging
+import secrets
+from datetime import UTC, datetime, timedelta
+
+from dao.base_dao import clear_cache
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
 class InviteService:
     """Service for managing invitations"""
-    
+
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
         # Characters for invite codes (avoiding ambiguous characters)
         self.code_chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    
+
     def generate_invite_code(self) -> str:
         """Generate a unique 12-character invite code"""
         max_attempts = 100
-        
+
         for _ in range(max_attempts):
             # Generate random code
             code = ''.join(secrets.choice(self.code_chars) for _ in range(12))
-            
+
             # Check if code already exists
             response = self.supabase.table('invitations').select('id').eq('invite_code', code).execute()
-            
+
             if not response.data:
                 return code
-        
+
         raise Exception("Could not generate unique invite code after 100 attempts")
-    
+
     def create_invitation(
         self,
         invited_by_user_id: str,
         invite_type: str,
-        team_id: Optional[int] = None,
-        age_group_id: Optional[int] = None,
-        club_id: Optional[int] = None,
-        email: Optional[str] = None,
+        team_id: int | None = None,
+        age_group_id: int | None = None,
+        club_id: int | None = None,
+        email: str | None = None,
+        player_id: int | None = None,
+        jersey_number: int | None = None,
         expires_in_days: int = 7
-    ) -> Dict:
+    ) -> dict:
         """
         Create a new invitation
 
@@ -56,6 +58,8 @@ class InviteService:
             age_group_id: ID of the age group (required for team-level invite types)
             club_id: ID of the club (required for club_manager and club_fan invite types)
             email: Optional email to pre-fill during registration
+            player_id: Optional roster entry ID (for team_player invites - links account to existing roster)
+            jersey_number: Optional jersey number (for team_player invites - creates roster on redemption)
             expires_in_days: Number of days until invite expires
 
         Returns:
@@ -69,6 +73,8 @@ class InviteService:
                 # Club-level invites don't need team_id or age_group_id
                 team_id = None
                 age_group_id = None
+                player_id = None  # No roster linking for club-level invites
+                jersey_number = None
             else:
                 if not team_id:
                     raise ValueError("team_id is required for team-level invites")
@@ -80,7 +86,7 @@ class InviteService:
             invite_code = self.generate_invite_code()
 
             # Calculate expiration date
-            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+            expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
 
             # Create invitation record
             invitation_data = {
@@ -91,6 +97,8 @@ class InviteService:
                 'age_group_id': age_group_id,
                 'club_id': club_id,
                 'email': email,
+                'player_id': player_id,
+                'jersey_number': jersey_number,
                 'status': 'pending',
                 'expires_at': expires_at.isoformat()
             }
@@ -98,7 +106,12 @@ class InviteService:
             response = self.supabase.table('invitations').insert(invitation_data).execute()
 
             if response.data:
-                logger.info(f"Created {invite_type} invitation: {invite_code}")
+                log_msg = f"Created {invite_type} invitation: {invite_code}"
+                if player_id:
+                    log_msg += f" linked to player {player_id}"
+                elif jersey_number:
+                    log_msg += f" with jersey #{jersey_number}"
+                logger.info(log_msg)
                 return response.data[0]
             else:
                 raise Exception("Failed to create invitation")
@@ -106,8 +119,8 @@ class InviteService:
         except Exception as e:
             logger.error(f"Error creating invitation: {e}")
             raise
-    
-    def validate_invite_code(self, code: str) -> Optional[Dict]:
+
+    def validate_invite_code(self, code: str) -> dict | None:
         """
         Validate an invite code
 
@@ -120,9 +133,9 @@ class InviteService:
         try:
             logger.info(f"Validating invite code: {code}")
 
-            # Get invitation by code (use .execute() without .single() to avoid exception on no results)
+            # Get invitation by code with related data including player roster entry
             response = self.supabase.table('invitations')\
-                .select('*, teams(name), age_groups(name), clubs(name)')\
+                .select('*, teams(name), age_groups(name), clubs(name), players(id, jersey_number, first_name, last_name)')\
                 .eq('invite_code', code)\
                 .execute()
 
@@ -145,7 +158,7 @@ class InviteService:
             expires_at = datetime.fromisoformat(expires_at_str)
 
             # Make current time timezone-aware for comparison
-            current_time = datetime.now(timezone.utc)
+            current_time = datetime.now(UTC)
 
             logger.info(f"Invite code {code}: expires_at={expires_at}, current_time={current_time}, is_expired={expires_at < current_time}")
 
@@ -157,6 +170,17 @@ class InviteService:
                     .execute()
                 logger.warning(f"Invite code {code} expired at {expires_at}")
                 return None
+
+            # Build player info if linked to roster
+            player_info = None
+            if invitation.get('players'):
+                player = invitation['players']
+                player_info = {
+                    'id': player['id'],
+                    'jersey_number': player['jersey_number'],
+                    'first_name': player.get('first_name'),
+                    'last_name': player.get('last_name')
+                }
 
             logger.info(f"Invite code {code} is valid!")
             return {
@@ -170,13 +194,16 @@ class InviteService:
                 'club_id': invitation.get('club_id'),
                 'club_name': invitation['clubs']['name'] if invitation.get('clubs') else None,
                 'email': invitation['email'],
-                'invited_by_user_id': invitation.get('invited_by_user_id')
+                'invited_by_user_id': invitation.get('invited_by_user_id'),
+                'player_id': invitation.get('player_id'),
+                'jersey_number': invitation.get('jersey_number'),
+                'player': player_info
             }
 
         except Exception as e:
             logger.error(f"Error validating invite code {code}: {e}", exc_info=True)
             return None
-    
+
     def redeem_invitation(self, code: str, user_id: str) -> bool:
         """
         Redeem an invitation code
@@ -198,7 +225,7 @@ class InviteService:
             response = self.supabase.table('invitations')\
                 .update({
                     'status': 'used',
-                    'used_at': datetime.now(timezone.utc).isoformat(),
+                    'used_at': datetime.now(UTC).isoformat(),
                     'used_by_user_id': user_id
                 })\
                 .eq('invite_code', code)\
@@ -217,12 +244,169 @@ class InviteService:
                         assigned_by_user_id=invitation.get('invited_by_user_id')
                     )
 
+                # Handle player roster linking for team_player invites
+                if invitation.get('invite_type') == 'team_player':
+                    logger.info(
+                        f"Processing team_player invite: player_id={invitation.get('player_id')}, "
+                        f"jersey_number={invitation.get('jersey_number')}, team_id={invitation.get('team_id')}"
+                    )
+                    if invitation.get('player_id'):
+                        # Link user to existing roster entry
+                        self._link_user_to_roster_entry(
+                            user_id=user_id,
+                            player_id=invitation.get('player_id')
+                        )
+                    elif invitation.get('jersey_number'):
+                        # Create new roster entry with jersey number and link user
+                        logger.info(f"Calling _create_and_link_roster_entry for jersey #{invitation.get('jersey_number')}")
+                        self._create_and_link_roster_entry(
+                            user_id=user_id,
+                            team_id=invitation.get('team_id'),
+                            jersey_number=invitation.get('jersey_number'),
+                            invited_by_user_id=invitation.get('invited_by_user_id')
+                        )
+                    else:
+                        logger.info("No player_id or jersey_number on invite - skipping roster linking")
+
                 return True
 
             return False
 
         except Exception as e:
             logger.error(f"Error redeeming invitation {code}: {e}")
+            return False
+
+    def _link_user_to_roster_entry(
+        self,
+        user_id: str,
+        player_id: int
+    ) -> bool:
+        """
+        Link a user account to a roster entry in the players table.
+
+        Called when a player accepts an invitation that was tied to a roster entry.
+
+        Args:
+            user_id: The user ID to link
+            player_id: The roster entry ID to link to
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Update the players table to link user_profile_id
+            response = self.supabase.table('players')\
+                .update({'user_profile_id': user_id})\
+                .eq('id', player_id)\
+                .execute()
+
+            if response.data:
+                logger.info(f"Linked user {user_id} to roster entry {player_id}")
+                # Invalidate roster cache so API returns updated data
+                clear_cache("mt:dao:roster:*")
+                return True
+
+            logger.warning(f"Failed to link user {user_id} to roster entry {player_id}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error linking user to roster entry: {e}")
+            return False
+
+    def _create_and_link_roster_entry(
+        self,
+        user_id: str,
+        team_id: int,
+        jersey_number: int,
+        invited_by_user_id: str | None = None
+    ) -> bool:
+        """
+        Create a new roster entry and link a user account to it, or link to
+        an existing roster entry if one already exists with that jersey number.
+
+        Called when a player accepts an invitation that included a jersey number
+        but no existing player_id.
+
+        Args:
+            user_id: The user ID to link
+            team_id: The team ID for the roster entry
+            jersey_number: The jersey number for the roster entry
+            invited_by_user_id: The user who created the invite (for created_by field)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get the current season (based on today's date being within start_date and end_date)
+            from datetime import date
+            today = date.today().isoformat()
+
+            season_response = self.supabase.table('seasons')\
+                .select('id')\
+                .lte('start_date', today)\
+                .gte('end_date', today)\
+                .limit(1)\
+                .execute()
+
+            if not season_response.data:
+                logger.error("No current season found - cannot create roster entry")
+                return False
+
+            season_id = season_response.data[0]['id']
+
+            # Check if a player with this jersey number already exists
+            existing_response = self.supabase.table('players')\
+                .select('id, user_profile_id')\
+                .eq('team_id', team_id)\
+                .eq('season_id', season_id)\
+                .eq('jersey_number', jersey_number)\
+                .limit(1)\
+                .execute()
+
+            if existing_response.data:
+                # Player exists - link user to existing roster entry
+                existing_player = existing_response.data[0]
+                player_id = existing_player['id']
+
+                if existing_player.get('user_profile_id'):
+                    logger.warning(
+                        f"Roster entry {player_id} (jersey #{jersey_number}) "
+                        f"already linked to user {existing_player['user_profile_id']}"
+                    )
+                    return False
+
+                # Link user to existing roster entry
+                return self._link_user_to_roster_entry(user_id, player_id)
+
+            # Create new roster entry with user already linked
+            player_data = {
+                'team_id': team_id,
+                'season_id': season_id,
+                'jersey_number': jersey_number,
+                'user_profile_id': user_id,
+                'is_active': True,
+            }
+
+            if invited_by_user_id:
+                player_data['created_by'] = invited_by_user_id
+
+            response = self.supabase.table('players').insert(player_data).execute()
+
+            if response.data:
+                player_id = response.data[0]['id']
+                logger.info(
+                    f"Created roster entry {player_id} with jersey #{jersey_number} "
+                    f"for user {user_id} on team {team_id}"
+                )
+                # Invalidate roster cache
+                clear_cache("mt:dao:roster:*")
+                return True
+
+            logger.warning(f"Failed to create roster entry for user {user_id}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error creating and linking roster entry: {e}")
             return False
 
     def _create_team_manager_assignment(
@@ -238,37 +422,34 @@ class InviteService:
         Args:
             user_id: The user being granted management rights
             team_id: The team they can manage
-            age_group_id: The age group they can manage
-            assigned_by_user_id: The user who created the invite
+            age_group_id: The age group (not stored - table doesn't have this column)
+            assigned_by_user_id: The user who created the invite (not stored)
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Check if assignment already exists
+            # Check if assignment already exists (table has unique constraint on user_id, team_id)
             existing = self.supabase.table('team_manager_assignments')\
                 .select('id')\
                 .eq('user_id', user_id)\
                 .eq('team_id', team_id)\
-                .eq('age_group_id', age_group_id)\
                 .execute()
 
             if existing.data:
-                logger.info(f"Team manager assignment already exists for user {user_id}, team {team_id}, age_group {age_group_id}")
+                logger.info(f"Team manager assignment already exists for user {user_id}, team {team_id}")
                 return True
 
-            # Create new assignment
+            # Create new assignment (table schema: id, user_id, team_id, created_at)
             response = self.supabase.table('team_manager_assignments')\
                 .insert({
                     'user_id': user_id,
                     'team_id': team_id,
-                    'age_group_id': age_group_id,
-                    'assigned_by_user_id': assigned_by_user_id
                 })\
                 .execute()
 
             if response.data:
-                logger.info(f"Created team manager assignment: user {user_id} -> team {team_id}, age_group {age_group_id}")
+                logger.info(f"Created team manager assignment: user {user_id} -> team {team_id}")
                 return True
 
             logger.warning(f"Failed to create team manager assignment for user {user_id}")
@@ -277,8 +458,8 @@ class InviteService:
         except Exception as e:
             logger.error(f"Error creating team manager assignment: {e}")
             return False
-    
-    def get_user_invitations(self, user_id: str) -> List[Dict]:
+
+    def get_user_invitations(self, user_id: str) -> list[dict]:
         """
         Get all invitations created by a user
         
@@ -294,13 +475,13 @@ class InviteService:
                 .eq('invited_by_user_id', user_id)\
                 .order('created_at', desc=True)\
                 .execute()
-            
+
             return response.data if response.data else []
-            
+
         except Exception as e:
             logger.error(f"Error getting user invitations: {e}")
             return []
-    
+
     def cancel_invitation(self, invite_id: str, user_id: str) -> bool:
         """
         Cancel a pending invitation
@@ -319,32 +500,32 @@ class InviteService:
                 .eq('id', invite_id)\
                 .single()\
                 .execute()
-            
+
             if not response.data:
                 return False
-            
+
             invitation = response.data
-            
+
             # Only pending invitations can be cancelled
             if invitation['status'] != 'pending':
                 return False
-            
+
             # Update status to expired
             response = self.supabase.table('invitations')\
                 .update({'status': 'expired'})\
                 .eq('id', invite_id)\
                 .execute()
-            
+
             if response.data:
                 logger.info(f"Invitation {invite_id} cancelled by user {user_id}")
                 return True
-            
+
             return False
-            
+
         except Exception as e:
             logger.error(f"Error cancelling invitation {invite_id}: {e}")
             return False
-    
+
     def expire_old_invitations(self) -> int:
         """
         Expire all old pending invitations
@@ -357,23 +538,23 @@ class InviteService:
             response = self.supabase.table('invitations')\
                 .select('id')\
                 .eq('status', 'pending')\
-                .lt('expires_at', datetime.now(timezone.utc).isoformat())\
+                .lt('expires_at', datetime.now(UTC).isoformat())\
                 .execute()
-            
+
             if not response.data:
                 return 0
-            
+
             # Update all to expired
             expired_ids = [inv['id'] for inv in response.data]
-            
+
             self.supabase.table('invitations')\
                 .update({'status': 'expired'})\
                 .in_('id', expired_ids)\
                 .execute()
-            
+
             logger.info(f"Expired {len(expired_ids)} old invitations")
             return len(expired_ids)
-            
+
         except Exception as e:
             logger.error(f"Error expiring old invitations: {e}")
             return 0

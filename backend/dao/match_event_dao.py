@@ -29,6 +29,7 @@ class MatchEventDAO(BaseDAO):
         created_by_username: str | None = None,
         team_id: int | None = None,
         player_name: str | None = None,
+        player_id: int | None = None,
         match_minute: int | None = None,
         extra_time: int | None = None,
     ) -> dict | None:
@@ -42,6 +43,7 @@ class MatchEventDAO(BaseDAO):
             created_by_username: Username of creator (denormalized for display)
             team_id: Team ID (for goal events)
             player_name: Player name (for goal events)
+            player_id: Player ID from roster (for goal events)
             match_minute: Minute when event occurred (e.g., 22 for 22nd minute)
             extra_time: Stoppage/injury time minutes (e.g., 5 for 90+5)
 
@@ -62,6 +64,8 @@ class MatchEventDAO(BaseDAO):
                 data["team_id"] = team_id
             if player_name is not None:
                 data["player_name"] = player_name
+            if player_id is not None:
+                data["player_id"] = player_id
             if match_minute is not None:
                 data["match_minute"] = match_minute
             if extra_time is not None:

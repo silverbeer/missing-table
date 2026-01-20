@@ -24,11 +24,14 @@ from models import (
     AdminPlayerUpdate,
     AgeGroupCreate,
     AgeGroupUpdate,
+    BulkRenumberRequest,
+    BulkRosterCreate,
     Club,
     DivisionCreate,
     DivisionUpdate,
     EnhancedMatch,
     GoalEvent,
+    JerseyNumberUpdate,
     LeagueCreate,
     LeagueUpdate,
     LiveMatchClock,
@@ -41,6 +44,8 @@ from models import (
     ProfilePhotoSlot,
     RefreshTokenRequest,
     RoleUpdate,
+    RosterPlayerCreate,
+    RosterPlayerUpdate,
     SeasonCreate,
     SeasonUpdate,
     Team,
@@ -64,6 +69,8 @@ from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
 from dao.player_dao import PlayerDAO
+from dao.player_stats_dao import PlayerStatsDAO
+from dao.roster_dao import RosterDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
 
@@ -176,6 +183,8 @@ match_event_dao = MatchEventDAO(db_conn_holder_obj)
 team_dao = TeamDAO(db_conn_holder_obj)
 club_dao = ClubDAO(db_conn_holder_obj)
 player_dao = PlayerDAO(db_conn_holder_obj)
+roster_dao = RosterDAO(db_conn_holder_obj)
+player_stats_dao = PlayerStatsDAO(db_conn_holder_obj)
 season_dao = SeasonDAO(db_conn_holder_obj)
 league_dao = LeagueDAO(db_conn_holder_obj)
 match_type_dao = MatchTypeDAO(db_conn_holder_obj)
@@ -1997,18 +2006,16 @@ async def add_team(
                 raise HTTPException(status_code=403, detail="Can only create teams for your assigned club")
             # Auto-assign club_id if not provided
             team.club_id = user_club_id
-        client_ip = get_client_ip(request)
 
-        # Call add_team with keyword arguments for SecureDAO compatibility
+        # Call add_team with keyword arguments
         success = team_dao.add_team(
-            client_ip=client_ip,
             name=team.name,
             city=team.city,
             age_group_ids=team.age_group_ids,
             match_type_ids=team.match_type_ids,
             division_id=team.division_id,
             club_id=team.club_id,
-            academy_team=team.academy_team
+            academy_team=team.academy_team,
         )
         if success:
             return {"message": "Team added successfully"}
@@ -2045,16 +2052,14 @@ async def get_matches(
     Note: Club managers only see matches involving their club's teams.
     """
     try:
-        client_ip = get_client_ip(request)
         matches = match_dao.get_all_matches(
-            client_ip=client_ip,
             season_id=season_id,
             age_group_id=age_group_id,
             division_id=division_id,
             team_id=team_id,
             match_type=match_type,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
         )
 
         # Club managers only see matches involving their club's teams
@@ -2519,6 +2524,9 @@ async def post_goal(
     """Post a goal event and update the match score.
 
     Only accessible by admins, club managers, and team managers who can edit this match.
+
+    Accepts either player_id (preferred, from roster) or player_name (legacy).
+    When player_id is provided, the goal is tracked in player_match_stats.
     """
     try:
         # Get current match to check permissions and current scores
@@ -2541,6 +2549,28 @@ async def post_goal(
         ]:
             raise HTTPException(
                 status_code=400, detail="Team must be one of the match participants"
+            )
+
+        # Resolve player name - either from player_id or from the request
+        player_name = goal.player_name
+        player_id = goal.player_id
+
+        if player_id:
+            # Validate player exists and is on the scoring team
+            player = roster_dao.get_player_by_id(player_id)
+            if not player:
+                raise HTTPException(status_code=400, detail="Player not found")
+            if player["team_id"] != goal.team_id:
+                raise HTTPException(
+                    status_code=400, detail="Player must be on the scoring team"
+                )
+            # Use player display name from roster
+            player_name = player.get("display_name", f"#{player['jersey_number']}")
+
+        # Require at least one identifier
+        if not player_name and not player_id:
+            raise HTTPException(
+                status_code=400, detail="Either player_id or player_name is required"
             )
 
         # Calculate new scores
@@ -2566,7 +2596,7 @@ async def post_goal(
         match_minute, extra_time = calculate_match_minute(current_match)
 
         # Create goal event
-        goal_message = f"GOAL! {team_name} - {goal.player_name}"
+        goal_message = f"GOAL! {team_name} - {player_name}"
         if goal.message:
             goal_message += f" ({goal.message})"
 
@@ -2577,10 +2607,15 @@ async def post_goal(
             created_by=user_id,
             created_by_username=current_user.get("username"),
             team_id=goal.team_id,
-            player_name=goal.player_name,
+            player_name=player_name,
+            player_id=player_id,
             match_minute=match_minute,
             extra_time=extra_time,
         )
+
+        # Update player stats if player_id is provided
+        if player_id:
+            player_stats_dao.increment_goals(player_id, match_id)
 
         return result
     except HTTPException:
@@ -2998,10 +3033,9 @@ async def update_team(
 ):
     """Update a team (admin only)."""
     try:
-        client_ip = get_client_ip(request)
         logger.info(f"Updating team {team_id}: name={team.name}, club_id={team.club_id}")
         result = team_dao.update_team(
-            team_id, team.name, team.city, team.academy_team, team.club_id, client_ip=client_ip
+            team_id, team.name, team.city, team.academy_team, team.club_id
         )
         if not result:
             raise HTTPException(status_code=404, detail="Team not found")
@@ -3668,16 +3702,18 @@ async def get_team_players(
             raise HTTPException(status_code=404, detail="Team not found")
         requested_club_id = requested_team.get('club_id')
 
-        # Get all current teams for the user
-        user_teams = player_dao.get_all_current_player_teams(current_user['user_id'])
-
-        # Check if user belongs to any team in the same club
+        # Get user's club_id from their profile's team_id or club_id
         user_club_ids = set()
-        for team_entry in user_teams:
-            team_data = team_entry.get('team', {})
-            club_data = team_data.get('club', {})
-            if club_data and club_data.get('id'):
-                user_club_ids.add(club_data['id'])
+
+        # Check user's direct club_id (for club managers/fans)
+        if current_user.get('club_id'):
+            user_club_ids.add(current_user['club_id'])
+
+        # Check user's team's club_id (for team players/managers/fans)
+        if current_user.get('team_id'):
+            user_team = team_dao.get_team_by_id(current_user['team_id'])
+            if user_team and user_team.get('club_id'):
+                user_club_ids.add(user_team['club_id'])
 
         # Authorization: user must belong to a team in the same club
         if requested_club_id not in user_club_ids:
@@ -3705,6 +3741,473 @@ async def get_team_players(
     except Exception as e:
         logger.error(f"Error getting team players: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get team players")
+
+
+# === Roster Management Endpoints (new players table) ===
+
+
+@app.get("/api/teams/{team_id}/roster")
+async def get_team_roster(
+    team_id: int,
+    season_id: int = Query(..., description="Season ID"),
+    current_user: dict[str, Any] = Depends(get_current_user_required)
+):
+    """
+    Get team roster from the players table.
+
+    Returns roster entries with jersey numbers, names, and account status.
+    Managers can view any team's roster for stat entry purposes.
+    """
+    try:
+        # Verify team exists
+        team = team_dao.get_team_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Get roster from players table
+        roster = roster_dao.get_team_roster(team_id, season_id)
+
+        return {
+            "success": True,
+            "team_id": team_id,
+            "season_id": season_id,
+            "roster": roster
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting team roster: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get team roster")
+
+
+@app.post("/api/teams/{team_id}/roster")
+async def create_roster_entry(
+    team_id: int,
+    player: RosterPlayerCreate,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+):
+    """
+    Add a single player to the team roster.
+
+    Requires admin or team_manager role.
+    Jersey number must be unique within the team/season.
+    """
+    try:
+        # Verify team exists
+        team = team_dao.get_team_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Check if jersey number is already taken
+        existing = roster_dao.get_player_by_jersey(
+            team_id, player.season_id, player.jersey_number
+        )
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Jersey number {player.jersey_number} is already taken"
+            )
+
+        # Create roster entry
+        created = roster_dao.create_player(
+            team_id=team_id,
+            season_id=player.season_id,
+            jersey_number=player.jersey_number,
+            first_name=player.first_name,
+            last_name=player.last_name,
+            positions=player.positions,
+            created_by=current_user['user_id']
+        )
+
+        if not created:
+            raise HTTPException(status_code=500, detail="Failed to create roster entry")
+
+        return {"success": True, "player": created}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating roster entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create roster entry")
+
+
+@app.post("/api/teams/{team_id}/roster/bulk")
+async def bulk_create_roster(
+    team_id: int,
+    data: BulkRosterCreate,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+):
+    """
+    Bulk create roster entries.
+
+    Requires admin or team_manager role.
+    Skips duplicates (existing jersey numbers).
+    """
+    try:
+        # Verify team exists
+        team = team_dao.get_team_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Get existing roster to filter duplicates
+        existing_roster = roster_dao.get_team_roster(team_id, data.season_id)
+        existing_numbers = {p['jersey_number'] for p in existing_roster}
+
+        # Filter out duplicates
+        new_players = [
+            p.model_dump() for p in data.players
+            if p.jersey_number not in existing_numbers
+        ]
+
+        if not new_players:
+            return {
+                "success": True,
+                "created": [],
+                "skipped": len(data.players),
+                "message": "All jersey numbers already exist"
+            }
+
+        # Bulk create
+        created = roster_dao.bulk_create_players(
+            team_id=team_id,
+            season_id=data.season_id,
+            players=new_players,
+            created_by=current_user['user_id']
+        )
+
+        return {
+            "success": True,
+            "created": created,
+            "created_count": len(created),
+            "skipped_count": len(data.players) - len(new_players)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error bulk creating roster: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to bulk create roster")
+
+
+@app.put("/api/teams/{team_id}/roster/{player_id}")
+async def update_roster_entry(
+    team_id: int,
+    player_id: int,
+    data: RosterPlayerUpdate,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+):
+    """
+    Update a roster entry's name or positions.
+
+    Requires admin or team_manager role.
+    """
+    try:
+        # Verify player exists and belongs to team
+        player = roster_dao.get_player_by_id(player_id)
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+        if player['team_id'] != team_id:
+            raise HTTPException(status_code=404, detail="Player not on this team")
+
+        # Update
+        updated = roster_dao.update_player(
+            player_id=player_id,
+            first_name=data.first_name,
+            last_name=data.last_name,
+            positions=data.positions
+        )
+
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to update roster entry")
+
+        return {"success": True, "player": updated}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating roster entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update roster entry")
+
+
+@app.put("/api/teams/{team_id}/roster/{player_id}/number")
+async def update_jersey_number(
+    team_id: int,
+    player_id: int,
+    data: JerseyNumberUpdate,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+):
+    """
+    Change a player's jersey number.
+
+    Requires admin or team_manager role.
+    New number must not already be taken.
+    """
+    try:
+        # Verify player exists and belongs to team
+        player = roster_dao.get_player_by_id(player_id)
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+        if player['team_id'] != team_id:
+            raise HTTPException(status_code=404, detail="Player not on this team")
+
+        # Check if new number is available
+        existing = roster_dao.get_player_by_jersey(
+            team_id, player['season_id'], data.new_number
+        )
+        if existing and existing['id'] != player_id:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Jersey number {data.new_number} is already taken"
+            )
+
+        # Update number
+        updated = roster_dao.update_jersey_number(player_id, data.new_number)
+
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to update jersey number")
+
+        return {"success": True, "player": updated}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating jersey number: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update jersey number")
+
+
+@app.post("/api/teams/{team_id}/roster/renumber")
+async def bulk_renumber_roster(
+    team_id: int,
+    data: BulkRenumberRequest,
+    season_id: int = Query(..., description="Season ID"),
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+):
+    """
+    Bulk renumber players (for roster reshuffles).
+
+    Requires admin or team_manager role.
+    Handles swaps without constraint violations.
+    """
+    try:
+        # Verify team exists
+        team = team_dao.get_team_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Verify all players exist and belong to team
+        for change in data.changes:
+            player = roster_dao.get_player_by_id(change.player_id)
+            if not player:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Player {change.player_id} not found"
+                )
+            if player['team_id'] != team_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Player {change.player_id} not on this team"
+                )
+
+        # Perform bulk renumber
+        success = roster_dao.bulk_renumber(
+            team_id=team_id,
+            season_id=season_id,
+            changes=[c.model_dump() for c in data.changes]
+        )
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to renumber roster")
+
+        # Return updated roster
+        roster = roster_dao.get_team_roster(team_id, season_id)
+
+        return {"success": True, "roster": roster}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error renumbering roster: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to renumber roster")
+
+
+@app.delete("/api/teams/{team_id}/roster/{player_id}")
+async def delete_roster_entry(
+    team_id: int,
+    player_id: int,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+):
+    """
+    Remove a player from the roster (soft delete).
+
+    Requires admin or team_manager role.
+    """
+    try:
+        # Verify player exists and belongs to team
+        player = roster_dao.get_player_by_id(player_id)
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+        if player['team_id'] != team_id:
+            raise HTTPException(status_code=404, detail="Player not on this team")
+
+        # Soft delete
+        success = roster_dao.delete_player(player_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete roster entry")
+
+        return {"success": True, "message": "Player removed from roster"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting roster entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to delete roster entry")
+
+
+# =============================================================================
+# Player Stats Endpoints
+# =============================================================================
+
+
+@app.get("/api/roster/{player_id}/stats")
+async def get_player_stats(
+    player_id: int,
+    season_id: int = Query(..., description="Season ID for stats"),
+):
+    """
+    Get aggregated stats for a roster player in a season.
+
+    Returns games_played, games_started, total_minutes, total_goals.
+    Public endpoint - stats are visible to everyone.
+    """
+    try:
+        # Verify player exists
+        player = roster_dao.get_player_by_id(player_id)
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        # Get season stats
+        stats = player_stats_dao.get_player_season_stats(player_id, season_id)
+
+        return {
+            "player_id": player_id,
+            "jersey_number": player.get("jersey_number"),
+            "display_name": player.get("display_name"),
+            "season_id": season_id,
+            "stats": stats or {
+                "games_played": 0,
+                "games_started": 0,
+                "total_minutes": 0,
+                "total_goals": 0,
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting player stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get player stats")
+
+
+@app.get("/api/teams/{team_id}/stats")
+async def get_team_stats(
+    team_id: int,
+    season_id: int = Query(..., description="Season ID for stats"),
+):
+    """
+    Get aggregated stats for all players on a team in a season.
+
+    Returns list of players with their stats, sorted by goals (descending).
+    Public endpoint - stats are visible to everyone.
+    """
+    try:
+        # Verify team exists
+        team = team_dao.get_team_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Get team stats
+        stats = player_stats_dao.get_team_stats(team_id, season_id)
+
+        return {
+            "team_id": team_id,
+            "team_name": team.get("name"),
+            "season_id": season_id,
+            "players": stats
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting team stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get team stats")
+
+
+@app.get("/api/me/player-stats")
+async def get_my_player_stats(
+    season_id: int = Query(..., description="Season ID for stats"),
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """
+    Get the current user's individual player stats for a season.
+
+    Looks up the player record linked to the user's profile
+    and returns their aggregated stats for the specified season.
+
+    Returns:
+        - player_id: The roster entry ID
+        - jersey_number: Player's jersey number
+        - season_id: The season these stats are for
+        - stats: games_played, games_started, total_minutes, total_goals
+        - linked: Whether the user has a linked player record
+    """
+    try:
+        user_id = current_user['user_id']
+
+        # Find player record linked to this user
+        player = roster_dao.get_player_by_user_profile_id(user_id)
+
+        if not player:
+            # User has no linked player record - return empty stats
+            return {
+                "player_id": None,
+                "jersey_number": None,
+                "display_name": None,
+                "season_id": season_id,
+                "stats": {
+                    "games_played": 0,
+                    "games_started": 0,
+                    "total_minutes": 0,
+                    "total_goals": 0,
+                },
+                "linked": False,
+            }
+
+        player_id = player['id']
+
+        # Get season stats
+        stats = player_stats_dao.get_player_season_stats(player_id, season_id)
+
+        return {
+            "player_id": player_id,
+            "jersey_number": player.get("jersey_number"),
+            "display_name": player.get("display_name"),
+            "season_id": season_id,
+            "stats": stats or {
+                "games_played": 0,
+                "games_started": 0,
+                "total_minutes": 0,
+                "total_goals": 0,
+            },
+            "linked": True,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting my player stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get player stats")
 
 
 @app.get("/api/players/{user_id}/profile")

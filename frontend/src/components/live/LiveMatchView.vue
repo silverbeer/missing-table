@@ -41,6 +41,7 @@
         v-if="canManage"
         :match-state="matchState"
         :match-period="matchPeriod"
+        :fetch-rosters="fetchTeamRosters"
         @update-clock="handleUpdateClock"
         @post-goal="handlePostGoal"
       />
@@ -92,6 +93,7 @@ const {
   deleteEvent,
   loadMoreEvents,
   fetchMatchState,
+  fetchTeamRosters,
 } = useLiveMatch(props.matchId);
 
 const isSending = ref(false);
@@ -103,8 +105,8 @@ async function handleUpdateClock(action) {
   }
 }
 
-async function handlePostGoal({ teamId, playerName, message }) {
-  const result = await postGoal(teamId, playerName, message);
+async function handlePostGoal({ teamId, playerName, message, playerId }) {
+  const result = await postGoal(teamId, playerName, message, playerId);
   if (!result.success) {
     alert(result.error || 'Failed to post goal');
   }

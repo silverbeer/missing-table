@@ -308,9 +308,54 @@
       </div>
     </div>
 
-    <!-- Season Stats -->
+    <!-- Individual Player Stats -->
+    <div
+      v-if="authStore.state.profile?.team"
+      class="stats-section individual-stats"
+    >
+      <h3>My Stats</h3>
+      <div v-if="loadingStats" class="loading">Loading stats...</div>
+      <div
+        v-else-if="individualStats && individualStats.linked"
+        class="stats-row four-col"
+      >
+        <div class="stat-item">
+          <div class="stat-value">
+            {{ individualStats.stats?.games_played || 0 }}
+          </div>
+          <div class="stat-label">Games Played</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">
+            {{ individualStats.stats?.games_started || 0 }}
+          </div>
+          <div class="stat-label">Games Started</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">
+            {{ individualStats.stats?.total_minutes || 0 }}
+          </div>
+          <div class="stat-label">Minutes</div>
+        </div>
+        <div class="stat-item highlight">
+          <div class="stat-value">
+            {{ individualStats.stats?.total_goals || 0 }}
+          </div>
+          <div class="stat-label">Goals</div>
+        </div>
+      </div>
+      <div v-else class="no-stats">
+        <p>No individual stats available yet.</p>
+        <p class="hint">
+          Stats are tracked when you're on the team roster and participate in
+          matches.
+        </p>
+      </div>
+    </div>
+
+    <!-- Team Season Stats -->
     <div v-if="authStore.state.profile?.team" class="stats-section">
-      <h3>Season Statistics</h3>
+      <h3>Team Season Record</h3>
       <div class="stats-row">
         <div class="stat-item">
           <div class="stat-value">{{ totalGames }}</div>
@@ -375,6 +420,8 @@ export default {
     const editableLastName = ref('');
     const editableHometown = ref('');
     const editableDisplayName = ref('');
+    const individualStats = ref(null);
+    const loadingStats = ref(false);
 
     const profilePhotoUrl = computed(() => {
       const profile = authStore.state.profile;
@@ -751,6 +798,23 @@ export default {
       }
     };
 
+    const fetchIndividualStats = async seasonId => {
+      if (!seasonId) return;
+      try {
+        loadingStats.value = true;
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/me/player-stats?season_id=${seasonId}`,
+          { method: 'GET' }
+        );
+        individualStats.value = response;
+      } catch (error) {
+        console.error('Error fetching individual stats:', error);
+        individualStats.value = null;
+      } finally {
+        loadingStats.value = false;
+      }
+    };
+
     const isMyTeam = teamId => teamId === authStore.state.profile?.team?.id;
 
     const formatGameDate = dateString => {
@@ -792,12 +856,15 @@ export default {
       { deep: true }
     );
 
-    // Refetch games when player history changes (to get correct age group filter)
+    // Refetch games and individual stats when player history changes
     watch(
       () => currentHistoryEntry.value,
       async entry => {
         if (entry && authStore.state.profile?.team) {
           await fetchTeamGames();
+          if (entry.season_id) {
+            await fetchIndividualStats(entry.season_id);
+          }
         }
       }
     );
@@ -830,13 +897,16 @@ export default {
       currentPhotoIndex,
       nextPhoto,
       prevPhoto,
-      // Stats
+      // Team Stats
       totalGames,
       wins,
       draws,
       losses,
       winPercentage,
       goalsFor,
+      // Individual Stats
+      individualStats,
+      loadingStats,
       isMyTeam,
       formatGameDate,
       getGameResult,
@@ -1314,6 +1384,31 @@ export default {
   text-transform: uppercase;
 }
 
+.stats-row.four-col {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.individual-stats {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+}
+
+.no-stats {
+  text-align: center;
+  color: #6b7280;
+  padding: 20px;
+}
+
+.no-stats p {
+  margin: 0;
+}
+
+.no-stats .hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 8px;
+}
+
 /* No Team Card */
 .no-team-card {
   background: #fef2f2;
@@ -1495,10 +1590,18 @@ export default {
   .stats-row {
     grid-template-columns: repeat(3, 1fr);
   }
+
+  .stats-row.four-col {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 480px) {
   .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stats-row.four-col {
     grid-template-columns: repeat(2, 1fr);
   }
 
