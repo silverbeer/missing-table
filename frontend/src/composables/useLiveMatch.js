@@ -280,17 +280,25 @@ export function useLiveMatch(matchId) {
     }
   }
 
-  async function postGoal(teamId, playerName, message = null) {
+  async function postGoal(teamId, playerName, message = null, playerId = null) {
     try {
+      const goalData = {
+        team_id: teamId,
+        message,
+      };
+
+      // Prefer player_id (from roster) over player_name (legacy free-text)
+      if (playerId) {
+        goalData.player_id = playerId;
+      } else if (playerName) {
+        goalData.player_name = playerName;
+      }
+
       const response = await authStore.apiRequest(
         `${getApiBaseUrl()}/api/matches/${matchId}/live/goal`,
         {
           method: 'POST',
-          body: JSON.stringify({
-            team_id: teamId,
-            player_name: playerName,
-            message,
-          }),
+          body: JSON.stringify(goalData),
         }
       );
       if (response) {
@@ -380,6 +388,33 @@ export function useLiveMatch(matchId) {
     }
   );
 
+  // Fetch rosters for both teams (used for goal scorer selection)
+  async function fetchTeamRosters() {
+    if (!matchState.value) return { home: [], away: [] };
+
+    const { home_team_id, away_team_id, season_id } = matchState.value;
+    if (!season_id) return { home: [], away: [] };
+
+    try {
+      const [homeResponse, awayResponse] = await Promise.all([
+        authStore.apiRequest(
+          `${getApiBaseUrl()}/api/teams/${home_team_id}/roster?season_id=${season_id}`
+        ),
+        authStore.apiRequest(
+          `${getApiBaseUrl()}/api/teams/${away_team_id}/roster?season_id=${season_id}`
+        ),
+      ]);
+
+      return {
+        home: homeResponse?.roster || [],
+        away: awayResponse?.roster || [],
+      };
+    } catch (err) {
+      console.error('Error fetching rosters:', err);
+      return { home: [], away: [] };
+    }
+  }
+
   // Auto-initialize
   initialize();
 
@@ -404,5 +439,6 @@ export function useLiveMatch(matchId) {
     deleteEvent,
     loadMoreEvents,
     fetchMatchState,
+    fetchTeamRosters,
   };
 }

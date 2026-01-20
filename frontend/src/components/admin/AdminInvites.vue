@@ -112,6 +112,26 @@
           </select>
         </div>
 
+        <!-- Jersey Number (for team_player invites) -->
+        <div v-if="newInvite.inviteType === 'team_player'">
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Jersey Number (Optional)</label
+          >
+          <input
+            v-model.number="newInvite.jerseyNumber"
+            type="number"
+            min="1"
+            max="99"
+            placeholder="e.g., 10"
+            data-testid="invite-jersey-number-input"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            If provided, a roster entry will be created when the invite is
+            accepted.
+          </p>
+        </div>
+
         <!-- Email (Optional) -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2"
@@ -164,6 +184,10 @@
           <p v-if="createdInvite.age_group_id">
             <span class="font-medium">Age Group:</span>
             {{ getAgeGroupName(createdInvite.age_group_id) }}
+          </p>
+          <p v-if="createdInvite.jersey_number">
+            <span class="font-medium">Jersey Number:</span>
+            #{{ createdInvite.jersey_number }}
           </p>
           <p>
             <span class="font-medium">Expires:</span>
@@ -455,9 +479,14 @@ const generatedInviteMessage = computed(() => {
     day: 'numeric',
   });
 
+  // Add jersey number info if present
+  const jerseyInfo = invite.jersey_number
+    ? `\n\n🏃 Your jersey number #${invite.jersey_number} has been reserved for you!`
+    : '';
+
   return `🎉 You're Invited!
 
-You've been invited to join Missing Table as a ${roleDescription}${orgName ? ` for ${orgName}` : ''}!
+You've been invited to join Missing Table as a ${roleDescription}${orgName ? ` for ${orgName}` : ''}!${jerseyInfo}
 
 📋 To get started:
 
@@ -486,6 +515,7 @@ const newInvite = ref({
   teamId: '',
   ageGroupId: '',
   email: '',
+  jerseyNumber: null,
 });
 
 // Fetch teams, age groups, and clubs
@@ -569,12 +599,20 @@ const createInvite = async () => {
       } else if (newInvite.value.inviteType === 'team_player') {
         endpoint += 'team-player';
       }
-      body = JSON.stringify({
+      const requestBody = {
         invite_type: newInvite.value.inviteType,
         team_id: parseInt(newInvite.value.teamId),
         age_group_id: parseInt(newInvite.value.ageGroupId),
         email: newInvite.value.email || null,
-      });
+      };
+      // Add jersey_number for team_player invites
+      if (
+        newInvite.value.inviteType === 'team_player' &&
+        newInvite.value.jerseyNumber
+      ) {
+        requestBody.jersey_number = newInvite.value.jerseyNumber;
+      }
+      body = JSON.stringify(requestBody);
     }
 
     const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
@@ -597,6 +635,7 @@ const createInvite = async () => {
       teamId: '',
       ageGroupId: '',
       email: '',
+      jerseyNumber: null,
     };
 
     // Refresh invites list

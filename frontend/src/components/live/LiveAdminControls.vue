@@ -49,7 +49,7 @@
     <div
       v-if="showGoalModal"
       class="modal-overlay"
-      @click.self="showGoalModal = false"
+      @click.self="closeGoalModal"
     >
       <div class="modal-content">
         <h3 class="modal-title">Record Goal</h3>
@@ -58,7 +58,7 @@
           <label>Team</label>
           <div class="team-selector">
             <button
-              @click="goalTeamId = matchState.home_team_id"
+              @click="selectTeam(matchState.home_team_id)"
               :class="[
                 'team-button',
                 { selected: goalTeamId === matchState.home_team_id },
@@ -67,7 +67,7 @@
               {{ matchState.home_team_name }}
             </button>
             <button
-              @click="goalTeamId = matchState.away_team_id"
+              @click="selectTeam(matchState.away_team_id)"
               :class="[
                 'team-button',
                 { selected: goalTeamId === matchState.away_team_id },
@@ -79,13 +79,36 @@
         </div>
 
         <div class="form-group">
-          <label for="player-name">Player Name</label>
+          <label for="player-select">Goal Scorer</label>
+          <div v-if="rostersLoading" class="roster-loading">
+            Loading roster...
+          </div>
+          <select
+            v-else-if="currentTeamRoster.length > 0"
+            id="player-select"
+            v-model="selectedPlayerId"
+            class="player-select"
+          >
+            <option :value="null">Select player...</option>
+            <option
+              v-for="player in currentTeamRoster"
+              :key="player.id"
+              :value="player.id"
+            >
+              #{{ player.jersey_number }} {{ player.display_name }}
+            </option>
+            <option value="other">Other (type name)</option>
+          </select>
+          <div v-else class="no-roster-message">No roster available</div>
+          <!-- Fallback text input when "Other" is selected or no roster -->
           <input
-            id="player-name"
+            v-if="
+              selectedPlayerId === 'other' || currentTeamRoster.length === 0
+            "
             v-model="goalPlayerName"
             type="text"
             placeholder="Enter player name"
-            class="text-input"
+            class="text-input mt-2"
           />
         </div>
 
@@ -101,12 +124,10 @@
         </div>
 
         <div class="modal-actions">
-          <button @click="showGoalModal = false" class="cancel-button">
-            Cancel
-          </button>
+          <button @click="closeGoalModal" class="cancel-button">Cancel</button>
           <button
             @click="submitGoal"
-            :disabled="!goalTeamId || !goalPlayerName.trim()"
+            :disabled="!canSubmitGoal"
             class="submit-button"
           >
             Record Goal
@@ -189,16 +210,48 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  fetchRosters: {
+    type: Function,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['update-clock', 'post-goal']);
 
+// Goal modal state
 const showGoalModal = ref(false);
 const goalTeamId = ref(null);
 const goalPlayerName = ref('');
 const goalMessage = ref('');
+const selectedPlayerId = ref(null);
 
+// Roster state
+const homeRoster = ref([]);
+const awayRoster = ref([]);
+const rostersLoading = ref(false);
+const rostersLoaded = ref(false);
+
+// Start match modal state
 const showStartModal = ref(false);
+
+// Compute current team roster based on selected team
+const currentTeamRoster = computed(() => {
+  if (!goalTeamId.value) return [];
+  if (goalTeamId.value === props.matchState.home_team_id) {
+    return homeRoster.value;
+  }
+  return awayRoster.value;
+});
+
+// Compute whether goal can be submitted
+const canSubmitGoal = computed(() => {
+  if (!goalTeamId.value) return false;
+  // If a player is selected from roster
+  if (selectedPlayerId.value && selectedPlayerId.value !== 'other') return true;
+  // If "Other" or no roster, need a player name
+  if (goalPlayerName.value.trim()) return true;
+  return false;
+});
 
 // Compute default duration based on age group
 const defaultDuration = computed(() => {
@@ -219,6 +272,40 @@ watch(showStartModal, newVal => {
   }
 });
 
+// Load rosters when goal modal opens
+watch(showGoalModal, async newVal => {
+  if (newVal && props.fetchRosters && !rostersLoaded.value) {
+    rostersLoading.value = true;
+    try {
+      const rosters = await props.fetchRosters();
+      homeRoster.value = rosters.home || [];
+      awayRoster.value = rosters.away || [];
+      rostersLoaded.value = true;
+    } catch (err) {
+      console.error('Failed to load rosters:', err);
+    } finally {
+      rostersLoading.value = false;
+    }
+  }
+});
+
+// Handle team selection
+function selectTeam(teamId) {
+  goalTeamId.value = teamId;
+  // Reset player selection when team changes
+  selectedPlayerId.value = null;
+  goalPlayerName.value = '';
+}
+
+// Close goal modal and reset state
+function closeGoalModal() {
+  showGoalModal.value = false;
+  goalTeamId.value = null;
+  selectedPlayerId.value = null;
+  goalPlayerName.value = '';
+  goalMessage.value = '';
+}
+
 function startMatch() {
   emit('update-clock', {
     action: 'start_first_half',
@@ -228,19 +315,31 @@ function startMatch() {
 }
 
 function submitGoal() {
-  if (!goalTeamId.value || !goalPlayerName.value.trim()) return;
+  if (!canSubmitGoal.value) return;
+
+  // Determine player info to send
+  let playerId = null;
+  let playerName = null;
+
+  if (selectedPlayerId.value && selectedPlayerId.value !== 'other') {
+    // Player selected from roster
+    playerId = selectedPlayerId.value;
+    // Find player name for display
+    const player = currentTeamRoster.value.find(p => p.id === playerId);
+    playerName = player?.display_name || `#${player?.jersey_number}`;
+  } else {
+    // Manual entry
+    playerName = goalPlayerName.value.trim();
+  }
 
   emit('post-goal', {
     teamId: goalTeamId.value,
-    playerName: goalPlayerName.value.trim(),
+    playerName,
+    playerId,
     message: goalMessage.value.trim() || null,
   });
 
-  // Reset form
-  showGoalModal.value = false;
-  goalTeamId.value = null;
-  goalPlayerName.value = '';
-  goalMessage.value = '';
+  closeGoalModal();
 }
 </script>
 
@@ -485,5 +584,50 @@ function submitGoal() {
 .submit-button:disabled {
   background: #666;
   cursor: not-allowed;
+}
+
+/* Player selection styles */
+.player-select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  background: #16213e;
+  color: white;
+  font-size: 16px;
+  min-height: 48px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.player-select:focus {
+  outline: none;
+  border-color: #2196f3;
+}
+
+.player-select option {
+  background: #16213e;
+  color: white;
+  padding: 8px;
+}
+
+.roster-loading {
+  color: #aaa;
+  font-size: 14px;
+  padding: 12px;
+  text-align: center;
+}
+
+.no-roster-message {
+  color: #888;
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.mt-2 {
+  margin-top: 8px;
 }
 </style>

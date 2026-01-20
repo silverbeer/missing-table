@@ -52,6 +52,18 @@ from .seasons import AgeGroupCreate, AgeGroupUpdate, SeasonCreate, SeasonUpdate
 # Team models
 from .teams import Team, TeamMappingCreate, TeamMatchTypeMapping, TeamUpdate
 
+# Roster models
+from .roster import (
+    BulkRenumberRequest,
+    BulkRosterCreate,
+    BulkRosterPlayer,
+    JerseyNumberUpdate,
+    RenumberEntry,
+    RosterPlayerCreate,
+    RosterPlayerResponse,
+    RosterPlayerUpdate,
+)
+
 # Note: MatchData has Pydantic compatibility issues, import directly if needed
 # from .match_data import MatchData
 
@@ -103,4 +115,13 @@ __all__ = [
     "SeasonUpdate",
     "AgeGroupCreate",
     "AgeGroupUpdate",
+    # Roster
+    "RosterPlayerCreate",
+    "RosterPlayerUpdate",
+    "JerseyNumberUpdate",
+    "BulkRosterPlayer",
+    "BulkRosterCreate",
+    "RenumberEntry",
+    "BulkRenumberRequest",
+    "RosterPlayerResponse",
 ]

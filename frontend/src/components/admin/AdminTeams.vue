@@ -144,6 +144,13 @@
                 Leagues
               </button>
               <button
+                @click="manageRoster(team)"
+                class="text-purple-600 hover:text-purple-900 mr-3"
+                data-testid="manage-roster-button"
+              >
+                Roster
+              </button>
+              <button
                 @click="deleteTeam(team)"
                 class="text-red-600 hover:text-red-900"
                 data-testid="delete-team-button"
@@ -587,6 +594,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Roster Manager Modal -->
+    <RosterManager
+      v-if="showRosterModal && selectedTeamForRoster"
+      :team-id="selectedTeamForRoster.id"
+      :team-name="selectedTeamForRoster.name"
+      :season-id="currentSeasonId"
+      :age-group-id="selectedTeamForRoster.age_groups?.[0]?.id"
+      @close="closeRosterModal"
+    />
   </div>
 </template>
 
@@ -594,9 +611,13 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import RosterManager from '@/components/roster/RosterManager.vue';
 
 export default {
   name: 'AdminTeams',
+  components: {
+    RosterManager,
+  },
   setup() {
     const authStore = useAuthStore();
     const teams = ref([]);
@@ -612,8 +633,12 @@ export default {
     const showAddModal = ref(false);
     const showEditModal = ref(false);
     const showMappingsModal = ref(false);
+    const showRosterModal = ref(false);
     const editingTeam = ref(null);
     const selectedTeam = ref(null);
+    const selectedTeamForRoster = ref(null);
+    const seasons = ref([]);
+    const currentSeasonId = ref(null);
 
     const formData = ref({
       name: '',
@@ -761,6 +786,24 @@ export default {
         gameTypes.value = response;
       } catch (err) {
         console.error('Error fetching game types:', err);
+      }
+    };
+
+    const fetchSeasons = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/seasons`,
+          {
+            method: 'GET',
+          }
+        );
+        seasons.value = response;
+        // Set current season to the most recent one (first in list, assuming sorted desc)
+        if (response.length > 0) {
+          currentSeasonId.value = response[0].id;
+        }
+      } catch (err) {
+        console.error('Error fetching seasons:', err);
       }
     };
 
@@ -1048,6 +1091,16 @@ export default {
       mappingForm.value = { league_id: '', age_group_id: '', division_id: '' };
     };
 
+    const manageRoster = team => {
+      selectedTeamForRoster.value = team;
+      showRosterModal.value = true;
+    };
+
+    const closeRosterModal = () => {
+      showRosterModal.value = false;
+      selectedTeamForRoster.value = null;
+    };
+
     const resetForm = () => {
       formData.value = {
         name: '',
@@ -1072,6 +1125,7 @@ export default {
         fetchDivisions(),
         fetchLeagues(),
         fetchGameTypes(),
+        fetchSeasons(),
       ]);
     });
 
@@ -1084,6 +1138,8 @@ export default {
       filteredDivisions,
       formFilteredDivisions,
       gameTypes,
+      seasons,
+      currentSeasonId,
       loading,
       formLoading,
       mappingLoading,
@@ -1091,7 +1147,9 @@ export default {
       showAddModal,
       showEditModal,
       showMappingsModal,
+      showRosterModal,
       selectedTeam,
+      selectedTeamForRoster,
       editingTeam,
       formData,
       mappingForm,
@@ -1101,10 +1159,12 @@ export default {
       updateTeam,
       deleteTeam,
       manageTeamMappings,
+      manageRoster,
       addTeamMapping,
       removeTeamMapping,
       closeModals,
       closeMappingsModal,
+      closeRosterModal,
       isClubManager,
     };
   },
