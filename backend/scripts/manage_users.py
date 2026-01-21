@@ -846,6 +846,334 @@ def teams_command():
         raise typer.Exit(1)
 
 
+def add_to_roster(supabase, user_identifier, team_id, season_id, jersey_number, first_name=None, last_name=None, positions=None):
+    """Add a user to a team roster."""
+    try:
+        console.print(f"[cyan]🔍 Looking up user: {user_identifier}[/cyan]")
+
+        # Try to find user by UUID, username, or email
+        user_id = None
+        profile_data = None
+
+        # Check if it's a UUID format
+        if len(user_identifier) == 36 and user_identifier.count('-') == 4:
+            # Looks like a UUID - check if user exists
+            profile_response = supabase.table('user_profiles').select('id, username, first_name, last_name, display_name').eq('id', user_identifier).execute()
+            if profile_response.data:
+                user_id = user_identifier
+                profile_data = profile_response.data[0]
+        else:
+            # Try by username or email
+            found_id, found_identifier, id_type = find_user_by_identifier(supabase, user_identifier)
+            if found_id:
+                user_id = found_id
+                profile_response = supabase.table('user_profiles').select('id, username, first_name, last_name, display_name').eq('id', user_id).execute()
+                if profile_response.data:
+                    profile_data = profile_response.data[0]
+
+        if not user_id:
+            console.print(f"[red]❌ User '{user_identifier}' not found[/red]")
+            return False
+
+        console.print(f"[green]✓ Found user: {profile_data.get('username') or profile_data.get('display_name', user_id[:8])}[/green]")
+
+        # Verify team exists
+        team_response = supabase.table('teams').select('id, name').eq('id', team_id).execute()
+        if not team_response.data:
+            console.print(f"[red]❌ Team ID {team_id} not found[/red]")
+            return False
+        team_name = team_response.data[0]['name']
+        console.print(f"[green]✓ Found team: {team_name}[/green]")
+
+        # Verify season exists
+        season_response = supabase.table('seasons').select('id, name').eq('id', season_id).execute()
+        if not season_response.data:
+            console.print(f"[red]❌ Season ID {season_id} not found[/red]")
+            return False
+        season_name = season_response.data[0]['name']
+        console.print(f"[green]✓ Found season: {season_name}[/green]")
+
+        # Check if player already exists on this roster
+        existing = supabase.table('players').select('id, jersey_number').eq('team_id', team_id).eq('season_id', season_id).eq('user_profile_id', user_id).execute()
+        if existing.data:
+            console.print(f"[yellow]⚠️  User already on roster with jersey #{existing.data[0]['jersey_number']}[/yellow]")
+            return False
+
+        # Check if jersey number is taken
+        jersey_check = supabase.table('players').select('id, first_name, last_name').eq('team_id', team_id).eq('season_id', season_id).eq('jersey_number', jersey_number).execute()
+        if jersey_check.data:
+            existing_player = jersey_check.data[0]
+            console.print(f"[red]❌ Jersey #{jersey_number} already taken by {existing_player.get('first_name', '')} {existing_player.get('last_name', '')}[/red]")
+            return False
+
+        # Use profile names if not provided
+        if not first_name:
+            first_name = profile_data.get('first_name') or profile_data.get('display_name', '').split()[0] if profile_data.get('display_name') else None
+        if not last_name:
+            last_name = profile_data.get('last_name') or (profile_data.get('display_name', '').split()[-1] if profile_data.get('display_name') and len(profile_data.get('display_name', '').split()) > 1 else None)
+
+        # Create roster entry
+        player_data = {
+            'team_id': team_id,
+            'season_id': season_id,
+            'jersey_number': jersey_number,
+            'user_profile_id': user_id,
+            'first_name': first_name,
+            'last_name': last_name,
+            'is_active': True
+        }
+
+        if positions:
+            player_data['positions'] = positions
+
+        insert_response = supabase.table('players').insert(player_data).execute()
+
+        if insert_response.data:
+            player_id = insert_response.data[0]['id']
+            console.print(f"\n[bold green]✅ Added to roster successfully![/bold green]")
+            console.print(f"  Player ID: [cyan]{player_id}[/cyan]")
+            console.print(f"  Name: [yellow]{first_name or 'N/A'} {last_name or 'N/A'}[/yellow]")
+            console.print(f"  Jersey: [bold]#{jersey_number}[/bold]")
+            console.print(f"  Team: [green]{team_name}[/green]")
+            console.print(f"  Season: [blue]{season_name}[/blue]")
+            console.print(f"  Linked User: [dim]{user_id[:8]}...[/dim]")
+            return True
+        else:
+            console.print("[red]❌ Failed to add to roster[/red]")
+            return False
+
+    except Exception as e:
+        console.print(f"[red]❌ Error adding to roster: {e}[/red]")
+        return False
+
+
+def list_roster(supabase, team_id, season_id=None):
+    """List roster for a team."""
+    try:
+        # Get team info
+        team_response = supabase.table('teams').select('id, name').eq('id', team_id).execute()
+        if not team_response.data:
+            console.print(f"[red]❌ Team ID {team_id} not found[/red]")
+            return False
+        team_name = team_response.data[0]['name']
+
+        # Build query
+        query = supabase.table('players').select('id, jersey_number, first_name, last_name, user_profile_id, positions, is_active, seasons(name)').eq('team_id', team_id)
+
+        if season_id:
+            query = query.eq('season_id', season_id)
+
+        query = query.order('jersey_number')
+        roster_response = query.execute()
+
+        if not roster_response.data:
+            console.print(f"[yellow]No players found for {team_name}[/yellow]")
+            return True
+
+        console.print(f"\n[bold cyan]🏆 Roster for {team_name}[/bold cyan]")
+        if season_id:
+            season_response = supabase.table('seasons').select('name').eq('id', season_id).execute()
+            if season_response.data:
+                console.print(f"[dim]Season: {season_response.data[0]['name']}[/dim]")
+
+        console.print(f"[dim]Total players: {len(roster_response.data)}[/dim]\n")
+
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            show_lines=True,
+            box=box.ROUNDED,
+        )
+        table.add_column("#", style="bold cyan", no_wrap=True, width=4)
+        table.add_column("Name", style="green", width=25)
+        table.add_column("Season", style="blue", width=12)
+        table.add_column("Positions", style="yellow", width=15)
+        table.add_column("Linked User", style="dim", width=10)
+        table.add_column("Active", style="cyan", width=6)
+
+        for player in roster_response.data:
+            jersey = str(player['jersey_number'])
+            name = f"{player.get('first_name', '') or ''} {player.get('last_name', '') or ''}".strip() or "N/A"
+            season = player.get('seasons', {}).get('name', 'N/A') if player.get('seasons') else 'N/A'
+            positions = ', '.join(player.get('positions', [])) if player.get('positions') else 'N/A'
+            linked = player['user_profile_id'][:8] + '...' if player.get('user_profile_id') else '[dim]None[/dim]'
+            active = "[green]✓[/green]" if player.get('is_active') else "[red]✗[/red]"
+
+            table.add_row(jersey, name, season, positions, linked, active)
+
+        console.print(table)
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ Error listing roster: {e}[/red]")
+        return False
+
+
+def remove_from_roster(supabase, player_id):
+    """Remove a player from roster (or deactivate)."""
+    try:
+        # Get player info
+        player_response = supabase.table('players').select('*, teams(name), seasons(name)').eq('id', player_id).execute()
+
+        if not player_response.data:
+            console.print(f"[red]❌ Player ID {player_id} not found[/red]")
+            return False
+
+        player = player_response.data[0]
+        console.print(f"[yellow]⚠️  Player to remove:[/yellow]")
+        console.print(f"  #{player['jersey_number']} {player.get('first_name', '')} {player.get('last_name', '')}")
+        console.print(f"  Team: {player.get('teams', {}).get('name', 'N/A')}")
+        console.print(f"  Season: {player.get('seasons', {}).get('name', 'N/A')}")
+
+        # Deactivate instead of delete to preserve history
+        update_response = supabase.table('players').update({'is_active': False}).eq('id', player_id).execute()
+
+        if update_response.data:
+            console.print(f"\n[bold green]✅ Player deactivated from roster[/bold green]")
+            return True
+        else:
+            console.print("[red]❌ Failed to remove from roster[/red]")
+            return False
+
+    except Exception as e:
+        console.print(f"[red]❌ Error removing from roster: {e}[/red]")
+        return False
+
+
+def list_seasons(supabase):
+    """List all seasons."""
+    try:
+        response = supabase.table('seasons').select('id, name, start_date, end_date').order('start_date', desc=True).execute()
+
+        if not response.data:
+            console.print("[yellow]No seasons found[/yellow]")
+            return True
+
+        console.print(f"\n[bold cyan]📅 Available Seasons[/bold cyan]\n")
+
+        table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Name", style="green")
+        table.add_column("Start", style="blue")
+        table.add_column("End", style="blue")
+
+        for season in response.data:
+            table.add_row(
+                str(season['id']),
+                season['name'],
+                str(season.get('start_date', 'N/A'))[:10],
+                str(season.get('end_date', 'N/A'))[:10]
+            )
+
+        console.print(table)
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ Error listing seasons: {e}[/red]")
+        return False
+
+
+@app.command("roster")
+def roster_command(
+    action: str = typer.Argument(..., help="Action: add, list, remove"),
+    user: Optional[str] = typer.Option(None, "--user", "-u", help="User UUID, username, or email (for add)"),
+    team_id: Optional[int] = typer.Option(None, "--team-id", "-t", help="Team ID"),
+    season_id: Optional[int] = typer.Option(None, "--season-id", "-s", help="Season ID (default: current season)"),
+    jersey: Optional[int] = typer.Option(None, "--jersey", "-j", help="Jersey number (1-99)"),
+    first_name: Optional[str] = typer.Option(None, "--first-name", "-f", help="First name (optional, uses profile if not set)"),
+    last_name: Optional[str] = typer.Option(None, "--last-name", "-l", help="Last name (optional, uses profile if not set)"),
+    positions: Optional[str] = typer.Option(None, "--positions", "-p", help="Positions (comma-separated, e.g., 'GK,CB')"),
+    player_id: Optional[int] = typer.Option(None, "--player-id", "-i", help="Player ID (for remove)"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts")
+):
+    """Manage team rosters - add users to rosters, list rosters, remove players."""
+    console.print("[bold cyan]⚽ Roster Management Tool[/bold cyan]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    action = action.lower()
+
+    if action == "add":
+        if not user:
+            console.print("[red]❌ --user is required for add action[/red]")
+            raise typer.Exit(1)
+        if not team_id:
+            console.print("[red]❌ --team-id is required for add action[/red]")
+            raise typer.Exit(1)
+        if not jersey:
+            console.print("[red]❌ --jersey is required for add action[/red]")
+            raise typer.Exit(1)
+
+        # Default to current season (ID 3 = 2025-2026)
+        if not season_id:
+            season_id = 3
+            console.print(f"[dim]Using current season (ID: {season_id})[/dim]")
+
+        # Parse positions
+        pos_list = [p.strip().upper() for p in positions.split(',')] if positions else None
+
+        if not confirm:
+            if not Confirm.ask(f"⚠️  Add user to roster (Team {team_id}, Jersey #{jersey})?"):
+                console.print("[yellow]❌ Cancelled[/yellow]")
+                raise typer.Exit(0)
+
+        success = add_to_roster(supabase, user, team_id, season_id, jersey, first_name, last_name, pos_list)
+
+    elif action == "list":
+        if not team_id:
+            console.print("[red]❌ --team-id is required for list action[/red]")
+            raise typer.Exit(1)
+        success = list_roster(supabase, team_id, season_id)
+
+    elif action == "remove":
+        if not player_id:
+            console.print("[red]❌ --player-id is required for remove action[/red]")
+            raise typer.Exit(1)
+
+        if not confirm:
+            if not Confirm.ask(f"⚠️  Remove player ID {player_id} from roster?"):
+                console.print("[yellow]❌ Cancelled[/yellow]")
+                raise typer.Exit(0)
+
+        success = remove_from_roster(supabase, player_id)
+
+    else:
+        console.print(f"[red]❌ Unknown action: {action}[/red]")
+        console.print("[yellow]Valid actions: add, list, remove[/yellow]")
+        raise typer.Exit(1)
+
+    if success:
+        console.print("\n[green]🎉 Operation completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Operation failed![/red]")
+        raise typer.Exit(1)
+
+
+@app.command("seasons")
+def seasons_command():
+    """List all seasons in the system."""
+    console.print("[bold cyan]📅 Season Management Tool[/bold cyan]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    success = list_seasons(supabase)
+    if success:
+        console.print("\n[green]🎉 Operation completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Operation failed![/red]")
+        raise typer.Exit(1)
+
+
 @app.command("env")
 def env_command():
     """Show current environment configuration."""

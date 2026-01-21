@@ -63,6 +63,13 @@ class EntityRegistry:
     # User IDs created via invites (for reference, not auto-deleted)
     user_ids: list[str] = field(default_factory=list)
 
+    # Roster entries for player stats feature
+    roster_entries: list[dict[str, Any]] = field(default_factory=list)
+    # Format: {"id": int, "team_id": int, "jersey_number": int}
+
+    # Track player linked via invite (for verification after signup)
+    linked_player_id: int | None = None
+
     def add_match(self, match_id: int) -> None:
         """Track a created match."""
         if match_id not in self.match_ids:
@@ -86,6 +93,14 @@ class EntityRegistry:
         """Track a user created via invite."""
         if user_id not in self.user_ids:
             self.user_ids.append(user_id)
+
+    def add_roster_entry(self, player_id: int, team_id: int, jersey_number: int) -> None:
+        """Track a roster entry for cleanup."""
+        self.roster_entries.append({
+            "id": player_id,
+            "team_id": team_id,
+            "jersey_number": jersey_number,
+        })
 
     def get_all_team_ids(self) -> list[int]:
         """Get all team IDs in deletion order."""
@@ -116,6 +131,8 @@ class EntityRegistry:
             "match_ids": self.match_ids,
             "invites": self.invites,
             "user_ids": self.user_ids,
+            "roster_entries": self.roster_entries,
+            "linked_player_id": self.linked_player_id,
         }
 
     @classmethod
@@ -134,4 +151,6 @@ class EntityRegistry:
         registry.match_ids = data.get("match_ids", [])
         registry.invites = data.get("invites", [])
         registry.user_ids = data.get("user_ids", [])
+        registry.roster_entries = data.get("roster_entries", [])
+        registry.linked_player_id = data.get("linked_player_id")
         return registry

@@ -11,7 +11,6 @@ This phase tests the player user experience:
 Run: pytest tests/tsc/test_03_player.py -v
 """
 
-import pytest
 
 from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig
 
@@ -19,12 +18,12 @@ from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig
 class TestPlayerJourney:
     """Phase 3: Player signs up and views team info."""
 
-    def test_01_validate_player_invite(
+    def test_01_validate_player_invite_with_roster_info(
         self,
         tsc_client: TSCClient,
         entity_registry: EntityRegistry,
     ):
-        """Validate the player invite code."""
+        """Validate invite and check roster info is included."""
         # Find player invite
         player_invites = [
             inv for inv in entity_registry.invites
@@ -37,6 +36,14 @@ class TestPlayerJourney:
 
         assert result is not None
         assert result.get("invite_type") == "team_player" or "team_id" in result
+
+        # If invite was linked to roster, player info should be included
+        if result.get("player_id"):
+            assert result.get("player") is not None
+            print(f"Invite linked to roster: #{result['player']['jersey_number']}")
+        else:
+            print("Invite not linked to roster (legacy)")
+
         print(f"Validated player invite: {invite_code}")
 
     def test_02_signup_player(
@@ -65,6 +72,34 @@ class TestPlayerJourney:
 
         # Mark invite as used
         player_invites[0]["status"] = "used"
+
+    def test_02a_verify_account_linked_to_roster(
+        self,
+        tsc_client: TSCClient,
+        tsc_config: TSCConfig,
+        entity_registry: EntityRegistry,
+    ):
+        """Verify player account is linked to roster entry after signup."""
+        tsc_client.login_player()
+
+        if entity_registry.linked_player_id:
+            # Get roster and find the linked entry
+            roster = tsc_client.get_roster(entity_registry.premier_team_id)
+            linked_entry = next(
+                (p for p in roster if p["id"] == entity_registry.linked_player_id),
+                None,
+            )
+
+            if linked_entry:
+                assert linked_entry.get("has_account") is True
+                print(
+                    f"Account linked to roster: #{linked_entry['jersey_number']} "
+                    f"→ {linked_entry['display_name']}"
+                )
+            else:
+                print("Could not verify roster linking (entry not found)")
+        else:
+            print("Skipping roster link verification (no linked_player_id)")
 
     def test_03_login_player(
         self,
@@ -124,7 +159,21 @@ class TestPlayerJourney:
         assert len(result) >= 4, "Should have at least 4 matches"
         print(f"Found {len(result)} total matches")
 
-    def test_09_verify_player_journey(
+    def test_09a_view_player_stats(
+        self,
+        tsc_client: TSCClient,
+        entity_registry: EntityRegistry,
+    ):
+        """Player can view their stats."""
+        if entity_registry.linked_player_id:
+            stats = tsc_client.get_player_stats(entity_registry.linked_player_id)
+
+            assert "stats" in stats or "total_goals" in stats.get("stats", stats)
+            print(f"Player stats: {stats.get('stats', stats)}")
+        else:
+            print("Skipping stats view (no linked_player_id)")
+
+    def test_10_verify_player_journey(
         self,
         tsc_client: TSCClient,
         entity_registry: EntityRegistry,
@@ -132,3 +181,7 @@ class TestPlayerJourney:
         """Verify player journey completed successfully."""
         print("\n=== Phase 3 Complete ===")
         print("Player signed up, logged in, and viewed schedule")
+        if entity_registry.linked_player_id:
+            print(f"Account linked to roster entry: player_id={entity_registry.linked_player_id}")
+        else:
+            print("No roster linking configured")

@@ -389,7 +389,6 @@ class TeamDAO(BaseDAO):
         division_id: int | None = None,
         club_id: int | None = None,
         academy_team: bool = False,
-        _client_ip: str | None = None,
     ) -> bool:
         """Add a new team with age groups, division, and optional club.
 
@@ -485,7 +484,6 @@ class TeamDAO(BaseDAO):
         city: str,
         academy_team: bool = False,
         club_id: int | None = None,
-        _client_ip: str | None = None,
     ) -> dict | None:
         """Update a team."""
         update_data = {

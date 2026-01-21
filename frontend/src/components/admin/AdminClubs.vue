@@ -102,7 +102,9 @@
               Loading teams...
             </div>
             <div
-              v-else-if="teamsByClubId[club.id] && teamsByClubId[club.id].length"
+              v-else-if="
+                teamsByClubId[club.id] && teamsByClubId[club.id].length
+              "
               class="space-y-2"
             >
               <div

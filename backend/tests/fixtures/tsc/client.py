@@ -64,6 +64,18 @@ class TSCClient:
         """Access the underlying API client."""
         return self._client
 
+    # Raw HTTP helpers (for endpoints not in MissingTableClient)
+
+    def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        """Make a GET request and return JSON response."""
+        response = self._client._request("GET", path, params=params)
+        return response.json()
+
+    def _post(self, path: str, json_data: dict[str, Any] | None = None) -> Any:
+        """Make a POST request and return JSON response."""
+        response = self._client._request("POST", path, json_data=json_data)
+        return response.json()
+
     # Authentication
 
     def login(self, username: str, password: str) -> dict[str, Any]:
@@ -580,6 +592,122 @@ class TSCClient:
     def validate_invite(self, invite_code: str) -> dict[str, Any]:
         """Validate an invite code."""
         return self._client.validate_invite(invite_code)
+
+    # Roster Management (with tracking)
+
+    def create_roster_entry(
+        self,
+        team_id: int,
+        jersey_number: int,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        season_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Create a roster entry and track it."""
+        sid = season_id or self.registry.season_id
+        if not sid:
+            raise ValueError("Season ID required - create a season first")
+        result = self._post(
+            f"/api/teams/{team_id}/roster",
+            json_data={
+                "jersey_number": jersey_number,
+                "first_name": first_name,
+                "last_name": last_name,
+                "season_id": sid,
+            },
+        )
+        # API returns {"success": True, "player": {...}}
+        player = result.get("player", result)
+        self.registry.add_roster_entry(player["id"], team_id, jersey_number)
+        logger.info(f"Created roster entry: #{jersey_number} on team {team_id}")
+        return player
+
+    def bulk_create_roster(
+        self,
+        team_id: int,
+        players: list[dict[str, Any]],
+        season_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Bulk create roster entries and track them."""
+        sid = season_id or self.registry.season_id
+        if not sid:
+            raise ValueError("Season ID required - create a season first")
+        result = self._post(
+            f"/api/teams/{team_id}/roster/bulk",
+            json_data={"season_id": sid, "players": players},
+        )
+        for entry in result.get("players", []):
+            self.registry.add_roster_entry(entry["id"], team_id, entry["jersey_number"])
+        logger.info(f"Bulk created {len(result.get('players', []))} roster entries on team {team_id}")
+        return result
+
+    def get_roster(self, team_id: int, season_id: int | None = None) -> list[dict[str, Any]]:
+        """Get team roster for a season."""
+        sid = season_id or self.registry.season_id
+        if not sid:
+            raise ValueError("Season ID required - create a season first")
+        result = self._get(f"/api/teams/{team_id}/roster", params={"season_id": sid})
+        # API returns {"success": True, "roster": [...]}
+        return result.get("roster", result)
+
+    def create_team_player_invite_with_roster(
+        self,
+        team_id: int,
+        player_id: int,
+        email: str | None = None,
+    ) -> dict[str, Any]:
+        """Create player invite linked to roster entry."""
+        if not self.registry.age_group_id:
+            raise ValueError("Age group must be created first")
+        json_data = {
+            "invite_type": "team_player",
+            "team_id": team_id,
+            "age_group_id": self.registry.age_group_id,
+            "player_id": player_id,
+            "email": email,
+        }
+        logger.info(f"Creating team_player invite with: {json_data}")
+        result = self._post(
+            "/api/invites/team-manager/team-player",
+            json_data=json_data,
+        )
+        logger.info(f"Created invite result: team_id={result.get('team_id')}, player_id={result.get('player_id')}")
+        self.registry.add_invite(result["id"], result["invite_code"], "team_player")
+        logger.info(f"Created roster-linked invite for player {player_id}")
+        return result
+
+    # Player Stats
+
+    def get_player_stats(self, player_id: int, season_id: int | None = None) -> dict[str, Any]:
+        """Get player stats for a season."""
+        sid = season_id or self.registry.season_id
+        if not sid:
+            raise ValueError("Season ID required - create a season first")
+        return self._get(f"/api/roster/{player_id}/stats", params={"season_id": sid})
+
+    def get_team_stats(self, team_id: int, season_id: int | None = None) -> dict[str, Any]:
+        """Get team stats for a season."""
+        sid = season_id or self.registry.season_id
+        if not sid:
+            raise ValueError("Season ID required - create a season first")
+        return self._get(f"/api/teams/{team_id}/stats", params={"season_id": sid})
+
+    def post_goal_with_player(
+        self,
+        match_id: int,
+        team_id: int,
+        player_id: int,
+        message: str | None = None,
+    ) -> dict[str, Any]:
+        """Post a goal with player_id (updates player stats)."""
+        return self._post(
+            f"/api/matches/{match_id}/live/goal",
+            json_data={
+                "team_id": team_id,
+                "player_id": player_id,
+                "message": message,
+            },
+        )
 
     # Read Operations (no tracking needed)
 
