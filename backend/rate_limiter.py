@@ -69,7 +69,7 @@ RATE_LIMITS = {
 }
 
 
-def get_endpoint_limit(path: str, method: str, user_role: str = None) -> str:
+def get_endpoint_limit(path: str, method: str, user_role: str | None = None) -> str:
     """Determine rate limit based on endpoint and user role."""
 
     # Auth endpoints

@@ -1,12 +1,15 @@
 """
 League and division-related Pydantic models.
 """
+
 from datetime import datetime
+
 from pydantic import BaseModel
 
 
 class League(BaseModel):
     """Model for league data."""
+
     id: int
     name: str
     description: str | None = None
@@ -17,6 +20,7 @@ class League(BaseModel):
 
 class LeagueCreate(BaseModel):
     """Model for creating a new league."""
+
     name: str
     description: str | None = None
     is_active: bool = True
@@ -24,6 +28,7 @@ class LeagueCreate(BaseModel):
 
 class LeagueUpdate(BaseModel):
     """Model for updating league information."""
+
     name: str | None = None
     description: str | None = None
     is_active: bool | None = None
@@ -31,6 +36,7 @@ class LeagueUpdate(BaseModel):
 
 class DivisionCreate(BaseModel):
     """Model for creating a new division."""
+
     name: str
     description: str | None = None
     league_id: int  # Required: divisions must belong to a league
@@ -38,7 +44,7 @@ class DivisionCreate(BaseModel):
 
 class DivisionUpdate(BaseModel):
     """Model for updating division information."""
+
     name: str | None = None
     description: str | None = None
     league_id: int | None = None  # Optional for updates
-

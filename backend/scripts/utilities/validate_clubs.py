@@ -3,18 +3,19 @@
 Validate clubs.json structure using Pydantic models.
 Shows exactly what data is present or missing for each team.
 """
+
 import json
+
+# Add backend root directory to path for imports (scripts/utilities/ -> backend/)
+import sys
 from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
 
-# Add backend root directory to path for imports (scripts/utilities/ -> backend/)
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from models.clubs import ClubData, load_clubs_from_json
+from models.clubs import load_clubs_from_json
 
 console = Console()
 
@@ -24,7 +25,7 @@ def validate_clubs_json():
     # Path from scripts/utilities/ -> backend/ -> clubs.json
     clubs_json_path = Path(__file__).parent.parent.parent / "clubs.json"
 
-    console.print(f"[bold cyan]📋 Validating clubs.json[/bold cyan]")
+    console.print("[bold cyan]📋 Validating clubs.json[/bold cyan]")
     console.print(f"File: {clubs_json_path}\n")
 
     # Load and parse JSON
@@ -72,7 +73,7 @@ def validate_clubs_json():
                 team.league,
                 f"[{div_conf_style}]{div_conf}[/{div_conf_style}]",
                 f"[{age_groups_style}]{age_groups_str}[/{age_groups_style}]",
-                f"[{status_style}]{status}[/{status_style}]"
+                f"[{status_style}]{status}[/{status_style}]",
             )
 
     console.print(table)
@@ -80,11 +81,7 @@ def validate_clubs_json():
     # Summary
     console.print("\n[bold]Summary:[/bold]")
     total_teams = sum(len(club.teams) for club in clubs)
-    complete_teams = sum(
-        1 for club in clubs
-        for team in club.teams
-        if team.is_complete
-    )
+    complete_teams = sum(1 for club in clubs for team in club.teams if team.is_complete)
     incomplete_teams = total_teams - complete_teams
 
     console.print(f"  Total teams: {total_teams}")

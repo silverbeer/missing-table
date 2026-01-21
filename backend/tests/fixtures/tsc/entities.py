@@ -82,12 +82,14 @@ class EntityRegistry:
 
     def add_invite(self, invite_id: str, invite_code: str, invite_type: str, status: str = "pending") -> None:
         """Track a created invite."""
-        self.invites.append({
-            "id": invite_id,
-            "code": invite_code,
-            "type": invite_type,
-            "status": status,
-        })
+        self.invites.append(
+            {
+                "id": invite_id,
+                "code": invite_code,
+                "type": invite_type,
+                "status": status,
+            }
+        )
 
     def add_user(self, user_id: str) -> None:
         """Track a user created via invite."""
@@ -96,11 +98,13 @@ class EntityRegistry:
 
     def add_roster_entry(self, player_id: int, team_id: int, jersey_number: int) -> None:
         """Track a roster entry for cleanup."""
-        self.roster_entries.append({
-            "id": player_id,
-            "team_id": team_id,
-            "jersey_number": jersey_number,
-        })
+        self.roster_entries.append(
+            {
+                "id": player_id,
+                "team_id": team_id,
+                "jersey_number": jersey_number,
+            }
+        )
 
     def get_all_team_ids(self) -> list[int]:
         """Get all team IDs in deletion order."""

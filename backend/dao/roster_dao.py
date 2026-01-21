@@ -37,24 +37,27 @@ class RosterDAO(BaseDAO):
         """
         try:
             # Use explicit FK relationship to avoid ambiguity with created_by FK
-            response = self.client.table('players').select('''
+            response = (
+                self.client.table("players")
+                .select("""
                 *,
                 user_profile:user_profiles!players_user_profile_id_fkey(
                     id, display_name, first_name, last_name,
                     photo_1_url, photo_2_url, photo_3_url, profile_photo_slot)
-            ''').eq('team_id', team_id).eq('season_id', season_id).eq(
-                'is_active', True
-            ).order('jersey_number').execute()
+            """)
+                .eq("team_id", team_id)
+                .eq("season_id", season_id)
+                .eq("is_active", True)
+                .order("jersey_number")
+                .execute()
+            )
 
             players = response.data or []
             # Add computed display_name to each player
             return [self._add_display_name(p) for p in players]
 
         except Exception as e:
-            logger.error(
-                "roster_get_team_error",
-                team_id=team_id, season_id=season_id, error=str(e)
-            )
+            logger.error("roster_get_team_error", team_id=team_id, season_id=season_id, error=str(e))
             return []
 
     def get_player_by_id(self, player_id: int) -> dict | None:
@@ -68,12 +71,17 @@ class RosterDAO(BaseDAO):
             Player dict with computed display_name, or None if not found
         """
         try:
-            response = self.client.table('players').select('''
+            response = (
+                self.client.table("players")
+                .select("""
                 *,
                 user_profile:user_profiles!players_user_profile_id_fkey(
                     id, display_name, first_name, last_name,
                     photo_1_url, photo_2_url, photo_3_url, profile_photo_slot)
-            ''').eq('id', player_id).execute()
+            """)
+                .eq("id", player_id)
+                .execute()
+            )
 
             if response.data and len(response.data) > 0:
                 return self._add_display_name(response.data[0])
@@ -83,9 +91,7 @@ class RosterDAO(BaseDAO):
             logger.error("roster_get_player_error", player_id=player_id, error=str(e))
             return None
 
-    def get_player_by_jersey(
-        self, team_id: int, season_id: int, jersey_number: int
-    ) -> dict | None:
+    def get_player_by_jersey(self, team_id: int, season_id: int, jersey_number: int) -> dict | None:
         """
         Get roster entry by jersey number (unique within team/season).
 
@@ -98,14 +104,19 @@ class RosterDAO(BaseDAO):
             Player dict with computed display_name, or None if not found
         """
         try:
-            response = self.client.table('players').select('''
+            response = (
+                self.client.table("players")
+                .select("""
                 *,
                 user_profile:user_profiles!players_user_profile_id_fkey(
                     id, display_name, first_name, last_name,
                     photo_1_url, photo_2_url, photo_3_url, profile_photo_slot)
-            ''').eq('team_id', team_id).eq('season_id', season_id).eq(
-                'jersey_number', jersey_number
-            ).execute()
+            """)
+                .eq("team_id", team_id)
+                .eq("season_id", season_id)
+                .eq("jersey_number", jersey_number)
+                .execute()
+            )
 
             if response.data and len(response.data) > 0:
                 return self._add_display_name(response.data[0])
@@ -114,8 +125,10 @@ class RosterDAO(BaseDAO):
         except Exception as e:
             logger.error(
                 "roster_get_by_jersey_error",
-                team_id=team_id, season_id=season_id,
-                jersey_number=jersey_number, error=str(e)
+                team_id=team_id,
+                season_id=season_id,
+                jersey_number=jersey_number,
+                error=str(e),
             )
             return None
 
@@ -141,20 +154,25 @@ class RosterDAO(BaseDAO):
             Player dict with computed display_name, or None if not found
         """
         try:
-            query = self.client.table('players').select('''
+            query = (
+                self.client.table("players")
+                .select("""
                 *,
                 user_profile:user_profiles!players_user_profile_id_fkey(
                     id, display_name, first_name, last_name,
                     photo_1_url, photo_2_url, photo_3_url, profile_photo_slot)
-            ''').eq('user_profile_id', user_profile_id).eq('is_active', True)
+            """)
+                .eq("user_profile_id", user_profile_id)
+                .eq("is_active", True)
+            )
 
             if team_id is not None:
-                query = query.eq('team_id', team_id)
+                query = query.eq("team_id", team_id)
             if season_id is not None:
-                query = query.eq('season_id', season_id)
+                query = query.eq("season_id", season_id)
 
             # Order by created_at descending to get most recent
-            response = query.order('created_at', desc=True).limit(1).execute()
+            response = query.order("created_at", desc=True).limit(1).execute()
 
             if response.data and len(response.data) > 0:
                 return self._add_display_name(response.data[0])
@@ -164,7 +182,9 @@ class RosterDAO(BaseDAO):
             logger.error(
                 "roster_get_by_user_profile_error",
                 user_profile_id=user_profile_id,
-                team_id=team_id, season_id=season_id, error=str(e)
+                team_id=team_id,
+                season_id=season_id,
+                error=str(e),
             )
             return None
 
@@ -198,37 +218,34 @@ class RosterDAO(BaseDAO):
         """
         try:
             data = {
-                'team_id': team_id,
-                'season_id': season_id,
-                'jersey_number': jersey_number,
-                'is_active': True,
+                "team_id": team_id,
+                "season_id": season_id,
+                "jersey_number": jersey_number,
+                "is_active": True,
             }
             if first_name:
-                data['first_name'] = first_name
+                data["first_name"] = first_name
             if last_name:
-                data['last_name'] = last_name
+                data["last_name"] = last_name
             if positions:
-                data['positions'] = positions
+                data["positions"] = positions
             if created_by:
-                data['created_by'] = created_by
+                data["created_by"] = created_by
 
-            response = self.client.table('players').insert(data).execute()
+            response = self.client.table("players").insert(data).execute()
 
             if response.data and len(response.data) > 0:
                 logger.info(
                     "roster_player_created",
-                    player_id=response.data[0]['id'],
+                    player_id=response.data[0]["id"],
                     team_id=team_id,
-                    jersey_number=jersey_number
+                    jersey_number=jersey_number,
                 )
                 return self._add_display_name(response.data[0])
             return None
 
         except Exception as e:
-            logger.error(
-                "roster_create_error",
-                team_id=team_id, jersey_number=jersey_number, error=str(e)
-            )
+            logger.error("roster_create_error", team_id=team_id, jersey_number=jersey_number, error=str(e))
             return None
 
     @invalidates_cache(ROSTER_CACHE_PATTERN)
@@ -255,36 +272,29 @@ class RosterDAO(BaseDAO):
             data = []
             for p in players:
                 entry = {
-                    'team_id': team_id,
-                    'season_id': season_id,
-                    'jersey_number': p['jersey_number'],
-                    'is_active': True,
+                    "team_id": team_id,
+                    "season_id": season_id,
+                    "jersey_number": p["jersey_number"],
+                    "is_active": True,
                 }
-                if p.get('first_name'):
-                    entry['first_name'] = p['first_name']
-                if p.get('last_name'):
-                    entry['last_name'] = p['last_name']
-                if p.get('positions'):
-                    entry['positions'] = p['positions']
+                if p.get("first_name"):
+                    entry["first_name"] = p["first_name"]
+                if p.get("last_name"):
+                    entry["last_name"] = p["last_name"]
+                if p.get("positions"):
+                    entry["positions"] = p["positions"]
                 if created_by:
-                    entry['created_by'] = created_by
+                    entry["created_by"] = created_by
                 data.append(entry)
 
-            response = self.client.table('players').insert(data).execute()
+            response = self.client.table("players").insert(data).execute()
 
             created = response.data or []
-            logger.info(
-                "roster_bulk_created",
-                team_id=team_id,
-                count=len(created)
-            )
+            logger.info("roster_bulk_created", team_id=team_id, count=len(created))
             return [self._add_display_name(p) for p in created]
 
         except Exception as e:
-            logger.error(
-                "roster_bulk_create_error",
-                team_id=team_id, count=len(players), error=str(e)
-            )
+            logger.error("roster_bulk_create_error", team_id=team_id, count=len(players), error=str(e))
             return []
 
     # === Update Operations ===
@@ -312,19 +322,17 @@ class RosterDAO(BaseDAO):
         try:
             data = {}
             if first_name is not None:
-                data['first_name'] = first_name or None
+                data["first_name"] = first_name or None
             if last_name is not None:
-                data['last_name'] = last_name or None
+                data["last_name"] = last_name or None
             if positions is not None:
-                data['positions'] = positions or []
+                data["positions"] = positions or []
 
             if not data:
                 # Nothing to update
                 return self.get_player_by_id(player_id)
 
-            response = self.client.table('players').update(data).eq(
-                'id', player_id
-            ).execute()
+            response = self.client.table("players").update(data).eq("id", player_id).execute()
 
             if response.data and len(response.data) > 0:
                 logger.info("roster_player_updated", player_id=player_id)
@@ -352,23 +360,19 @@ class RosterDAO(BaseDAO):
             Updated player dict, or None on error (e.g., number already taken)
         """
         try:
-            response = self.client.table('players').update({
-                'jersey_number': new_number
-            }).eq('id', player_id).execute()
+            response = self.client.table("players").update({"jersey_number": new_number}).eq("id", player_id).execute()
 
             if response.data and len(response.data) > 0:
-                logger.info(
-                    "roster_number_updated",
-                    player_id=player_id,
-                    new_number=new_number
-                )
+                logger.info("roster_number_updated", player_id=player_id, new_number=new_number)
                 return self._add_display_name(response.data[0])
             return None
 
         except Exception as e:
             logger.error(
                 "roster_number_update_error",
-                player_id=player_id, new_number=new_number, error=str(e)
+                player_id=player_id,
+                new_number=new_number,
+                error=str(e),
             )
             return None
 
@@ -396,32 +400,23 @@ class RosterDAO(BaseDAO):
         try:
             # Step 1: Set all affected players to negative numbers (temporary)
             for i, change in enumerate(changes):
-                self.client.table('players').update({
-                    'jersey_number': -(i + 1000)  # Negative temp value
-                }).eq('id', change['player_id']).eq('team_id', team_id).eq(
-                    'season_id', season_id
-                ).execute()
+                self.client.table("players").update(
+                    {
+                        "jersey_number": -(i + 1000)  # Negative temp value
+                    }
+                ).eq("id", change["player_id"]).eq("team_id", team_id).eq("season_id", season_id).execute()
 
             # Step 2: Set final numbers
             for change in changes:
-                self.client.table('players').update({
-                    'jersey_number': change['new_number']
-                }).eq('id', change['player_id']).eq('team_id', team_id).eq(
-                    'season_id', season_id
-                ).execute()
+                self.client.table("players").update({"jersey_number": change["new_number"]}).eq(
+                    "id", change["player_id"]
+                ).eq("team_id", team_id).eq("season_id", season_id).execute()
 
-            logger.info(
-                "roster_bulk_renumbered",
-                team_id=team_id,
-                count=len(changes)
-            )
+            logger.info("roster_bulk_renumbered", team_id=team_id, count=len(changes))
             return True
 
         except Exception as e:
-            logger.error(
-                "roster_bulk_renumber_error",
-                team_id=team_id, error=str(e)
-            )
+            logger.error("roster_bulk_renumber_error", team_id=team_id, error=str(e))
             return False
 
     @invalidates_cache(ROSTER_CACHE_PATTERN)
@@ -443,16 +438,12 @@ class RosterDAO(BaseDAO):
             Updated player dict, or None on error
         """
         try:
-            response = self.client.table('players').update({
-                'user_profile_id': user_profile_id
-            }).eq('id', player_id).execute()
+            response = (
+                self.client.table("players").update({"user_profile_id": user_profile_id}).eq("id", player_id).execute()
+            )
 
             if response.data and len(response.data) > 0:
-                logger.info(
-                    "roster_user_linked",
-                    player_id=player_id,
-                    user_profile_id=user_profile_id
-                )
+                logger.info("roster_user_linked", player_id=player_id, user_profile_id=user_profile_id)
                 # Fetch full player with user_profile data
                 return self.get_player_by_id(player_id)
             return None
@@ -462,7 +453,7 @@ class RosterDAO(BaseDAO):
                 "roster_link_user_error",
                 player_id=player_id,
                 user_profile_id=user_profile_id,
-                error=str(e)
+                error=str(e),
             )
             return None
 
@@ -480,9 +471,7 @@ class RosterDAO(BaseDAO):
             True if successful, False on error
         """
         try:
-            response = self.client.table('players').update({
-                'is_active': False
-            }).eq('id', player_id).execute()
+            response = self.client.table("players").update({"is_active": False}).eq("id", player_id).execute()
 
             if response.data and len(response.data) > 0:
                 logger.info("roster_player_deleted", player_id=player_id)
@@ -507,9 +496,7 @@ class RosterDAO(BaseDAO):
             True if successful, False on error
         """
         try:
-            self.client.table('players').delete().eq(
-                'id', player_id
-            ).execute()
+            self.client.table("players").delete().eq("id", player_id).execute()
 
             logger.info("roster_player_hard_deleted", player_id=player_id)
             return True
@@ -535,32 +522,32 @@ class RosterDAO(BaseDAO):
         Returns:
             Player dict with display_name and has_account added
         """
-        user_profile = player.get('user_profile')
-        has_account = user_profile is not None and user_profile.get('id') is not None
+        user_profile = player.get("user_profile")
+        has_account = user_profile is not None and user_profile.get("id") is not None
 
         display_name = None
 
         # Try linked user's name first
         if has_account:
-            if user_profile.get('display_name'):
-                display_name = user_profile['display_name']
-            elif user_profile.get('first_name') or user_profile.get('last_name'):
-                first = user_profile.get('first_name', '')
-                last = user_profile.get('last_name', '')
+            if user_profile.get("display_name"):
+                display_name = user_profile["display_name"]
+            elif user_profile.get("first_name") or user_profile.get("last_name"):
+                first = user_profile.get("first_name", "")
+                last = user_profile.get("last_name", "")
                 display_name = f"{first} {last}".strip()
 
         # Fall back to roster entry's name
-        if not display_name and (player.get('first_name') or player.get('last_name')):
-            first = player.get('first_name', '')
-            last = player.get('last_name', '')
+        if not display_name and (player.get("first_name") or player.get("last_name")):
+            first = player.get("first_name", "")
+            last = player.get("last_name", "")
             display_name = f"{first} {last}".strip()
 
         # Final fallback: jersey number only
         if not display_name:
             display_name = f"#{player['jersey_number']}"
 
-        player['display_name'] = display_name
-        player['has_account'] = has_account
+        player["display_name"] = display_name
+        player["has_account"] = has_account
 
         return player
 
@@ -577,11 +564,11 @@ class RosterDAO(BaseDAO):
         Returns:
             Display name string
         """
-        if player.get('display_name'):
-            return player['display_name']
+        if player.get("display_name"):
+            return player["display_name"]
 
         # Try roster entry name
-        if player.get('first_name') or player.get('last_name'):
+        if player.get("first_name") or player.get("last_name"):
             return f"{player.get('first_name', '')} {player.get('last_name', '')}".strip()
 
         # Jersey number only

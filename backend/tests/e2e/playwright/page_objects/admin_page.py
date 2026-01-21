@@ -25,19 +25,19 @@ logger = logging.getLogger(__name__)
 class AdminPage(BasePage):
     """
     Page Object for the Admin Panel.
-    
+
     This page requires admin authentication.
-    
+
     Usage:
         def test_admin_access(admin_page, authenticated_admin):
             admin_page.navigate()
             assert admin_page.is_dashboard_visible()
     """
-    
+
     URL_PATH = "/admin"
     PAGE_TITLE = "Admin"
     LOAD_INDICATOR = ".admin-dashboard, [data-testid='admin-panel']"
-    
+
     # Navigation tabs
     TAB_DASHBOARD = "text=Dashboard, [data-testid='tab-dashboard']"
     TAB_TEAMS = "text=Teams, [data-testid='tab-teams']"
@@ -45,36 +45,36 @@ class AdminPage(BasePage):
     TAB_USERS = "text=Users, [data-testid='tab-users']"
     TAB_INVITES = "text=Invites, [data-testid='tab-invites']"
     TAB_SETTINGS = "text=Settings, [data-testid='tab-settings']"
-    
+
     # Dashboard elements
     DASHBOARD = ".admin-dashboard, [data-testid='admin-dashboard']"
     STATS_CARDS = ".stats-card, [data-testid='stats-card']"
-    
+
     # Team management
     TEAMS_LIST = ".teams-list, [data-testid='teams-list']"
     ADD_TEAM_BUTTON = "button:has-text('Add Team'), [data-testid='add-team']"
     TEAM_ROWS = ".team-row, [data-testid='team-row']"
-    
+
     # Match management
     MATCHES_LIST = ".matches-list, [data-testid='matches-list']"
     ADD_MATCH_BUTTON = "button:has-text('Add Match'), [data-testid='add-match']"
     MATCH_ROWS = ".match-row, [data-testid='match-row']"
-    
+
     # User management
     USERS_LIST = ".users-list, [data-testid='users-list']"
     USER_ROWS = ".user-row, [data-testid='user-row']"
-    
+
     # Invite management
     INVITES_LIST = ".invites-list, [data-testid='invites-list']"
     CREATE_INVITE_BUTTON = "button:has-text('Create Invite'), [data-testid='create-invite']"
     INVITE_ROWS = ".invite-row, [data-testid='invite-row']"
-    
+
     # Modal/Dialog
     MODAL = ".modal, [role='dialog'], [data-testid='modal']"
     MODAL_CLOSE = ".modal-close, [data-testid='modal-close'], button:has-text('Close')"
     MODAL_SUBMIT = ".modal-submit, [data-testid='modal-submit'], button[type='submit']"
     MODAL_CANCEL = ".modal-cancel, [data-testid='modal-cancel'], button:has-text('Cancel')"
-    
+
     # Messages
     SUCCESS_MESSAGE = ".success, [data-testid='success-message'], .text-green-500"
     ERROR_MESSAGE = ".error, [data-testid='error-message'], .text-red-500"
@@ -340,7 +340,7 @@ class AdminPage(BasePage):
         age_group: str,
         division: str | None = None,
         coach: str | None = None,
-        email: str | None = None
+        email: str | None = None,
     ) -> AdminPage:
         """Complete workflow to create a new team."""
         logger.info(f"Creating team: {name}")
@@ -357,12 +357,7 @@ class AdminPage(BasePage):
         self.submit_modal()
         return self
 
-    def create_invite(
-        self,
-        email: str,
-        invite_type: str = "team_manager",
-        team: str | None = None
-    ) -> str:
+    def create_invite(self, email: str, invite_type: str = "team_manager", team: str | None = None) -> str:
         """Complete workflow to create a new invite and return the code."""
         logger.info(f"Creating {invite_type} invite for: {email}")
         self.go_to_invites()
@@ -372,7 +367,7 @@ class AdminPage(BasePage):
         if team:
             self.select_modal_option("team", team)
         self.submit_modal()
-        
+
         # Wait for invite to appear and get code
         self.page.wait_for_timeout(1000)
         codes = self.get_invite_codes()

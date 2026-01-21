@@ -19,12 +19,12 @@ All tests use markers to enable selective test execution:
 import asyncio
 import os
 import time
+from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
-from fastapi.testclient import TestClient
-from unittest.mock import patch
 from faker import Faker
+from fastapi.testclient import TestClient
 
 # Load environment variables - prioritize test environment
 # Priority: .env.test > .env
@@ -43,6 +43,7 @@ def event_loop():
 # ============================================================================
 # Base URL Configuration Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def base_api_url():
@@ -78,6 +79,7 @@ def supabase_service_key():
 # Test Data Generation Fixtures (Faker)
 # ============================================================================
 
+
 @pytest.fixture(scope="session")
 def faker_instance():
     """Shared Faker instance for generating realistic test data.
@@ -104,17 +106,20 @@ def faker_factory():
             fake = faker_factory()
             random_email = fake.email()
     """
+
     def _create_faker(seed=None):
         fake = Faker()
         if seed is not None:
             Faker.seed(seed)
         return fake
+
     return _create_faker
 
 
 # ============================================================================
 # FastAPI Test Client Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def test_client():
@@ -124,12 +129,12 @@ def test_client():
     # Ensure we're using the e2e Supabase instance for tests
     e2e_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
     e2e_service_key = os.getenv("SUPABASE_SERVICE_KEY", "")
-    
+
     # Validate we're in test mode (check for TEST_MODE environment variable)
     test_mode = os.getenv("TEST_MODE", "false").lower()
     if test_mode != "true":
         pytest.skip("Tests must run in TEST_MODE=true environment. Ensure .env.e2e is loaded.")
-    
+
     os.environ["SUPABASE_URL"] = e2e_url
     os.environ["SUPABASE_SERVICE_KEY"] = e2e_service_key
 
@@ -140,6 +145,7 @@ def test_client():
 # ============================================================================
 # Database Client Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def supabase_client():
@@ -174,6 +180,7 @@ def enhanced_dao():
 # ============================================================================
 # Sample Test Data Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="function")
 def sample_team_data():
@@ -210,17 +217,17 @@ def sample_user_data():
     return {
         "email": "test@example.com",
         "password": "TestPassword123!",
-        "display_name": "Test User"
+        "display_name": "Test User",
     }
 
 
-@pytest.fixture(scope="function") 
+@pytest.fixture(scope="function")
 def sample_admin_data():
     """Sample admin user data for testing."""
     return {
         "email": "admin@example.com",
         "password": "AdminPassword123!",
-        "display_name": "Admin User"
+        "display_name": "Admin User",
     }
 
 
@@ -229,16 +236,12 @@ def test_database_populated(supabase_client):
     """Ensure test database has basic reference data."""
     try:
         # Check if we have basic reference data
-        age_groups = supabase_client.table('age_groups').select('*').execute()
-        seasons = supabase_client.table('seasons').select('*').execute()
-        game_types = supabase_client.table('game_types').select('*').execute()
-        
-        has_data = (
-            len(age_groups.data) > 0 and 
-            len(seasons.data) > 0 and 
-            len(game_types.data) > 0
-        )
-        
+        age_groups = supabase_client.table("age_groups").select("*").execute()
+        seasons = supabase_client.table("seasons").select("*").execute()
+        game_types = supabase_client.table("game_types").select("*").execute()
+
+        has_data = len(age_groups.data) > 0 and len(seasons.data) > 0 and len(game_types.data) > 0
+
         return has_data
     except Exception:
         return False
@@ -248,18 +251,17 @@ def test_database_populated(supabase_client):
 # Authentication & Authorization Fixtures
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
 def auth_headers():
     """Mock authentication headers for testing."""
-    return {
-        "Authorization": "Bearer mock_token_for_testing"
-    }
+    return {"Authorization": "Bearer mock_token_for_testing"}
 
 
 @pytest.fixture(scope="function")
 def mock_security_disabled():
     """Mock environment with security disabled."""
-    with patch.dict(os.environ, {'DISABLE_SECURITY': 'true'}):
+    with patch.dict(os.environ, {"DISABLE_SECURITY": "true"}):
         yield
 
 
@@ -276,25 +278,27 @@ def clean_test_data():
 # Pytest Hooks & Configuration
 # ============================================================================
 
+
 def pytest_runtest_setup(item):
     """Check if Supabase is required and available before running specific tests."""
     # Check if test is marked as integration or e2e
     if item.get_closest_marker("integration") or item.get_closest_marker("e2e"):
-        import httpx
         import inspect
+
+        import httpx
 
         # Check if test uses TestClient (in-memory) - these don't need Supabase
         # Tests that use TestClient typically don't need a real database connection
         test_func = item.function
-        if hasattr(test_func, '__code__'):
+        if hasattr(test_func, "__code__"):
             # Check if test uses test_client fixture (which uses TestClient)
             sig = inspect.signature(test_func)
-            if 'test_client' in sig.parameters:
+            if "test_client" in sig.parameters:
                 # Test uses TestClient, skip Supabase check
                 return
 
         url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
-        
+
         # Validate we're in test mode
         test_mode = os.getenv("TEST_MODE", "false").lower()
         if test_mode != "true":
@@ -315,7 +319,7 @@ def admin_user_data():
         "id": "admin-test-id",
         "email": "admin@example.com",
         "display_name": "Test Admin",
-        "role": "admin"
+        "role": "admin",
     }
 
 
@@ -326,7 +330,7 @@ def team_manager_user_data():
         "id": "manager-test-id",
         "email": "manager@example.com",
         "display_name": "Test Manager",
-        "role": "team_manager"
+        "role": "team_manager",
     }
 
 
@@ -335,9 +339,9 @@ def regular_user_data():
     """Sample regular user data for testing."""
     return {
         "id": "user-test-id",
-        "email": "user@example.com", 
+        "email": "user@example.com",
         "display_name": "Test User",
-        "role": "user"
+        "role": "user",
     }
 
 
@@ -350,11 +354,11 @@ def valid_team_data():
         "age_group_id": 1,
         "season_id": 1,
         "coach": "Test Coach",
-        "contact_email": "coach@example.com"
+        "contact_email": "coach@example.com",
     }
 
 
-@pytest.fixture(scope="function") 
+@pytest.fixture(scope="function")
 def valid_game_data():
     """Valid game data for testing game creation."""
     return {
@@ -367,7 +371,7 @@ def valid_game_data():
         "age_group_id": 1,
         "game_type_id": 1,
         "venue": "Test Stadium",
-        "scheduled_time": "15:00"
+        "scheduled_time": "15:00",
     }
 
 
@@ -377,13 +381,14 @@ def mock_auth_headers():
     return {
         "admin": {"Authorization": "Bearer mock_admin_token"},
         "team_manager": {"Authorization": "Bearer mock_manager_token"},
-        "user": {"Authorization": "Bearer mock_user_token"}
+        "user": {"Authorization": "Bearer mock_user_token"},
     }
 
 
 # ============================================================================
 # Test Cleanup & Database Utilities
 # ============================================================================
+
 
 @pytest.fixture(scope="function")
 def database_cleanup():

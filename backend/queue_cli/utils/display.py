@@ -9,7 +9,6 @@ from rich.console import Console
 from rich.json import JSON
 from rich.panel import Panel
 from rich.table import Table
-from rich.tree import Tree
 
 console = Console()
 
@@ -88,9 +87,7 @@ def print_publish_info(
     print_info(f"Active Consumers: {consumer_count}")
 
 
-def print_validation_result(
-    is_valid: bool, errors: list[str], warnings: list[str]
-) -> None:
+def print_validation_result(is_valid: bool, errors: list[str], warnings: list[str]) -> None:
     """Print validation results."""
     print_section("Message Validation", "📋")
 
@@ -120,10 +117,8 @@ def print_next_steps(task_id: str, queue: str) -> None:
     console.print()
     console.print("[bold]🔍 Next Steps:[/bold]")
     console.print(f"  • Check task status: [cyan]uv run python queue_cli.py status {task_id}[/cyan]")
-    console.print(
-        f"  • View queue: [cyan]uv run python queue_cli.py queues --name {queue}[/cyan]"
-    )
-    console.print(f"  • View workers: [cyan]uv run python queue_cli.py workers[/cyan]")
+    console.print(f"  • View queue: [cyan]uv run python queue_cli.py queues --name {queue}[/cyan]")
+    console.print("  • View workers: [cyan]uv run python queue_cli.py workers[/cyan]")
     console.print()
 
 

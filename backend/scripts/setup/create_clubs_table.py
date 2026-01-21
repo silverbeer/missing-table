@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Apply clubs table migration directly to database"""
+
 import os
-from supabase import create_client
+
 from dotenv import load_dotenv
-import requests
 
-os.environ['APP_ENV'] = 'local'
-load_dotenv('.env.local')
+from supabase import create_client
 
-url = os.getenv('SUPABASE_URL')
-key = os.getenv('SUPABASE_SERVICE_KEY')
+os.environ["APP_ENV"] = "local"
+load_dotenv(".env.local")
+
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_SERVICE_KEY")
 
 # SQL to create clubs table
 sql = """
@@ -69,14 +71,13 @@ ALTER TABLE teams ADD COLUMN IF NOT EXISTS parent_club_id INTEGER REFERENCES clu
 CREATE INDEX IF NOT EXISTS idx_teams_parent_club ON teams(parent_club_id);
 """
 
-print("🔧 Creating clubs table...")
 
 # Use PostgREST query endpoint directly
 headers = {
-    'apikey': key,
-    'Authorization': f'Bearer {key}',
-    'Content-Type': 'application/json',
-    'Prefer': 'return=minimal'
+    "apikey": key,
+    "Authorization": f"Bearer {key}",
+    "Content-Type": "application/json",
+    "Prefer": "return=minimal",
 }
 
 # Try to create the table using the query endpoint
@@ -97,35 +98,16 @@ try:
 
     # We can't execute this either...
     # Let's just try to insert a test record to see if table exists
-    test_club = {
-        "name": "Test Club",
-        "city": "Test City",
-        "website": "https://test.com"
-    }
+    test_club = {"name": "Test Club", "city": "Test City", "website": "https://test.com"}
 
     result = client.table("clubs").insert(test_club).execute()
-    print("✅ Clubs table already exists!")
 
     # Delete the test record
     client.table("clubs").delete().eq("name", "Test Club").execute()
-    print("✅ Cleaned up test record")
 
 except Exception as e:
     error_str = str(e)
     if "Could not find the table" in error_str or "PGRST205" in error_str:
-        print("❌ Clubs table does NOT exist")
-        print("\n" + "="*70)
-        print("MANUAL ACTION REQUIRED:")
-        print("="*70)
-        print("\n1. Open Supabase Studio: http://127.0.0.1:54323")
-        print("2. Click 'SQL Editor' in the left sidebar")
-        print("3. Click 'New query'")
-        print("4. Copy and paste the SQL below:")
-        print("\n" + "-"*70)
-        print(sql)
-        print("-"*70)
-        print("\n5. Click 'Run' or press Cmd+Enter")
-        print("\n6. Then re-run: export APP_ENV=local && uv run python manage_clubs.py sync")
-        print("="*70)
+        pass
     else:
-        print(f"❌ Unexpected error: {e}")
+        pass

@@ -46,12 +46,6 @@ from .live_match import (
 # Match models
 from .matches import EnhancedMatch, MatchPatch, MatchSubmissionData
 
-# Season/AgeGroup models
-from .seasons import AgeGroupCreate, AgeGroupUpdate, SeasonCreate, SeasonUpdate
-
-# Team models
-from .teams import Team, TeamMappingCreate, TeamMatchTypeMapping, TeamUpdate
-
 # Roster models
 from .roster import (
     BulkRenumberRequest,
@@ -64,64 +58,70 @@ from .roster import (
     RosterPlayerUpdate,
 )
 
+# Season/AgeGroup models
+from .seasons import AgeGroupCreate, AgeGroupUpdate, SeasonCreate, SeasonUpdate
+
+# Team models
+from .teams import Team, TeamMappingCreate, TeamMatchTypeMapping, TeamUpdate
+
 # Note: MatchData has Pydantic compatibility issues, import directly if needed
 # from .match_data import MatchData
 
 __all__ = [
-    # Auth
-    "UserSignup",
-    "UserLogin",
-    "UserProfile",
-    "RoleUpdate",
-    "UserProfileUpdate",
-    "RefreshTokenRequest",
-    "ProfilePhotoSlot",
-    "PlayerCustomization",
-    "PlayerHistoryCreate",
-    "PlayerHistoryUpdate",
-    "AdminPlayerUpdate",
     "AdminPlayerTeamAssignment",
     "AdminPlayerTeamEnd",
-    # Matches
-    "EnhancedMatch",
-    "MatchPatch",
-    "MatchSubmissionData",
-    # Live Match
-    "LiveMatchClock",
-    "GoalEvent",
-    "MessageEvent",
-    "MatchEventResponse",
-    "LiveMatchState",
-    "LiveMatchSummary",
-    # Teams
-    "Team",
-    "TeamUpdate",
-    "TeamMatchTypeMapping",
-    "TeamMappingCreate",
+    "AdminPlayerUpdate",
+    "AgeGroupCreate",
+    "AgeGroupUpdate",
+    "BulkRenumberRequest",
+    "BulkRosterCreate",
+    "BulkRosterPlayer",
     # Clubs
     "Club",
-    "ClubWithTeams",
     "ClubData",
-    "TeamData",
-    "load_clubs_from_json",
+    "ClubWithTeams",
+    "DivisionCreate",
+    "DivisionUpdate",
+    # Matches
+    "EnhancedMatch",
+    "GoalEvent",
+    "JerseyNumberUpdate",
     # Leagues
     "League",
     "LeagueCreate",
     "LeagueUpdate",
-    "DivisionCreate",
-    "DivisionUpdate",
+    # Live Match
+    "LiveMatchClock",
+    "LiveMatchState",
+    "LiveMatchSummary",
+    "MatchEventResponse",
+    "MatchPatch",
+    "MatchSubmissionData",
+    "MessageEvent",
+    "PlayerCustomization",
+    "PlayerHistoryCreate",
+    "PlayerHistoryUpdate",
+    "ProfilePhotoSlot",
+    "RefreshTokenRequest",
+    "RenumberEntry",
+    "RoleUpdate",
+    # Roster
+    "RosterPlayerCreate",
+    "RosterPlayerResponse",
+    "RosterPlayerUpdate",
     # Seasons
     "SeasonCreate",
     "SeasonUpdate",
-    "AgeGroupCreate",
-    "AgeGroupUpdate",
-    # Roster
-    "RosterPlayerCreate",
-    "RosterPlayerUpdate",
-    "JerseyNumberUpdate",
-    "BulkRosterPlayer",
-    "BulkRosterCreate",
-    "RenumberEntry",
-    "BulkRenumberRequest",
-    "RosterPlayerResponse",
+    # Teams
+    "Team",
+    "TeamData",
+    "TeamMappingCreate",
+    "TeamMatchTypeMapping",
+    "TeamUpdate",
+    "UserLogin",
+    "UserProfile",
+    "UserProfileUpdate",
+    # Auth
+    "UserSignup",
+    "load_clubs_from_json",
 ]

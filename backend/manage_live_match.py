@@ -53,10 +53,9 @@ def load_env():
     if env_file.exists():
         with open(env_file) as f:
             for line in f:
-                if line.strip() and not line.startswith("#"):
-                    if "=" in line:
-                        key, value = line.strip().split("=", 1)
-                        os.environ.setdefault(key, value)
+                if line.strip() and not line.startswith("#") and "=" in line:
+                    key, value = line.strip().split("=", 1)
+                    os.environ.setdefault(key, value)
 
 
 # Load environment on module import
@@ -119,9 +118,7 @@ def list_live(
 
     if all_ or status:
         # Build query for matches
-        query = (
-            conn.client.table("matches")
-            .select("""
+        query = conn.client.table("matches").select("""
                 id,
                 match_status,
                 match_date,
@@ -131,7 +128,6 @@ def list_live(
                 home_team:teams!matches_home_team_id_fkey(id, name),
                 away_team:teams!matches_away_team_id_fkey(id, name)
             """)
-        )
 
         if status:
             # Filter by specific status
@@ -147,16 +143,18 @@ def list_live(
         # Flatten the response
         matches = []
         for match in response.data or []:
-            matches.append({
-                "match_id": match["id"],
-                "match_status": match["match_status"],
-                "match_date": match["match_date"],
-                "home_score": match["home_score"],
-                "away_score": match["away_score"],
-                "kickoff_time": match["kickoff_time"],
-                "home_team_name": match["home_team"]["name"] if match.get("home_team") else "N/A",
-                "away_team_name": match["away_team"]["name"] if match.get("away_team") else "N/A",
-            })
+            matches.append(
+                {
+                    "match_id": match["id"],
+                    "match_status": match["match_status"],
+                    "match_date": match["match_date"],
+                    "home_score": match["home_score"],
+                    "away_score": match["away_score"],
+                    "kickoff_time": match["kickoff_time"],
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "N/A",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "N/A",
+                }
+            )
     else:
         # Get only currently live matches
         matches = match_dao.get_live_matches()
@@ -221,24 +219,18 @@ def clear_events(
     console.print(f"[cyan]Match:[/cyan] {match.get('home_team_name')} vs {match.get('away_team_name')}")
     console.print(f"[cyan]Events to delete:[/cyan] {event_count}")
 
-    if not force:
-        if not Confirm.ask("Are you sure you want to delete all events?"):
-            console.print("[yellow]Cancelled[/yellow]")
-            return
+    if not force and not Confirm.ask("Are you sure you want to delete all events?"):
+        console.print("[yellow]Cancelled[/yellow]")
+        return
 
     # Delete all events for this match (hard delete for testing)
     try:
-        response = (
-            event_dao.client.table("match_events")
-            .delete()
-            .eq("match_id", match_id)
-            .execute()
-        )
+        response = event_dao.client.table("match_events").delete().eq("match_id", match_id).execute()
         deleted = len(response.data) if response.data else 0
         console.print(f"[green]✓ Deleted {deleted} events[/green]")
     except Exception as e:
         console.print(f"[red]❌ Error deleting events: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
@@ -270,40 +262,36 @@ def reset(
     console.print("  - Clear all clock timestamps")
     console.print("  - Set match status to 'scheduled'")
 
-    if not force:
-        if not Confirm.ask("Are you sure you want to reset this match?"):
-            console.print("[yellow]Cancelled[/yellow]")
-            return
+    if not force and not Confirm.ask("Are you sure you want to reset this match?"):
+        console.print("[yellow]Cancelled[/yellow]")
+        return
 
     # Delete all events
     try:
         if event_count > 0:
-            response = (
-                event_dao.client.table("match_events")
-                .delete()
-                .eq("match_id", match_id)
-                .execute()
-            )
+            response = event_dao.client.table("match_events").delete().eq("match_id", match_id).execute()
             deleted = len(response.data) if response.data else 0
             console.print(f"[green]✓ Deleted {deleted} events[/green]")
     except Exception as e:
         console.print(f"[red]❌ Error deleting events: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     # Reset match fields
     try:
         response = (
             match_dao.client.table("matches")
-            .update({
-                "match_status": "scheduled",
-                "home_score": None,
-                "away_score": None,
-                "kickoff_time": None,
-                "halftime_start": None,
-                "second_half_start": None,
-                "match_end_time": None,
-                "half_duration": 45,  # Reset to default
-            })
+            .update(
+                {
+                    "match_status": "scheduled",
+                    "home_score": None,
+                    "away_score": None,
+                    "kickoff_time": None,
+                    "halftime_start": None,
+                    "second_half_start": None,
+                    "match_end_time": None,
+                    "half_duration": 45,  # Reset to default
+                }
+            )
             .eq("id", match_id)
             .execute()
         )
@@ -317,7 +305,7 @@ def reset(
 
     except Exception as e:
         console.print(f"[red]❌ Error resetting match: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command("set-live")
@@ -339,12 +327,7 @@ def set_live(
         return
 
     try:
-        response = (
-            match_dao.client.table("matches")
-            .update({"match_status": "live"})
-            .eq("id", match_id)
-            .execute()
-        )
+        response = match_dao.client.table("matches").update({"match_status": "live"}).eq("id", match_id).execute()
 
         if response.data:
             console.print(f"[green]✓ Match {match_id} set to live[/green]")
@@ -354,7 +337,7 @@ def set_live(
 
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command("find-with-events")
@@ -365,11 +348,7 @@ def find_with_events():
     # Direct query to find matches with events
     try:
         # Get distinct match_ids from match_events
-        events_response = (
-            conn.client.table("match_events")
-            .select("match_id")
-            .execute()
-        )
+        events_response = conn.client.table("match_events").select("match_id").execute()
 
         if not events_response.data:
             console.print("[yellow]No matches with events found[/yellow]")
@@ -377,6 +356,7 @@ def find_with_events():
 
         # Get unique match IDs and count events
         from collections import Counter
+
         match_counts = Counter(e["match_id"] for e in events_response.data)
 
         if not match_counts:
@@ -421,7 +401,7 @@ def find_with_events():
 
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":

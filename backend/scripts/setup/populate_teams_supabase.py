@@ -5,6 +5,7 @@ import csv
 import os
 
 from dotenv import load_dotenv
+
 from supabase import Client, create_client
 
 # Load environment variables
@@ -14,8 +15,6 @@ load_dotenv(".env.local", override=True)
 url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_SERVICE_KEY")
 
-print(f"URL: {url}")
-print(f"Key: {key[:20]}..." if key else "Key: None")
 
 if not url or not key:
     raise Exception("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY")
@@ -43,8 +42,6 @@ def populate_teams():
                         }
                     )
     except FileNotFoundError:
-        print(f"CSV file not found at {csv_path}")
-        print("Creating some sample teams instead...")
         teams = [
             {"name": "IFA", "city": "New York", "academy_team": False},
             {"name": "NYRB", "city": "Harrison", "academy_team": True},
@@ -53,50 +50,45 @@ def populate_teams():
             {"name": "Queens United", "city": "Queens", "academy_team": False},
         ]
 
-    print(f"Found {len(teams)} teams to insert")
-
     # Insert teams
     inserted_teams = []
     try:
         result = supabase.table("teams").insert(teams).execute()
         inserted_teams = result.data
-        print(f"Inserted {len(inserted_teams)} teams")
 
-        for team in inserted_teams:
-            print(f"  - {team['name']} ({team['city']}) - ID: {team['id']}")
+        for _team in inserted_teams:
+            pass
 
-    except Exception as e:
-        print(f"Error inserting teams: {e}")
+    except Exception:
         return
 
     # Get Homegrown league and default division
-    print("\n🔍 Looking up Homegrown league...")
     try:
         homegrown_league = supabase.table("leagues").select("id").eq("name", "Homegrown").execute()
         if not homegrown_league.data:
-            print("❌ Error: Homegrown league not found")
             return
 
         league_id = homegrown_league.data[0]["id"]
-        print(f"✅ Found Homegrown league (ID: {league_id})")
 
         # Get or create default division for Homegrown league
         divisions = supabase.table("divisions").select("id").eq("name", "Default").eq("league_id", league_id).execute()
         if divisions.data:
             division_id = divisions.data[0]["id"]
-            print(f"✅ Using existing Default division (ID: {division_id})")
         else:
             # Create default division if it doesn't exist
-            print("Creating Default division for Homegrown league...")
-            new_div = supabase.table("divisions").insert({
-                "name": "Default",
-                "description": "Default division for Homegrown league",
-                "league_id": league_id
-            }).execute()
+            new_div = (
+                supabase.table("divisions")
+                .insert(
+                    {
+                        "name": "Default",
+                        "description": "Default division for Homegrown league",
+                        "league_id": league_id,
+                    }
+                )
+                .execute()
+            )
             division_id = new_div.data[0]["id"]
-            print(f"✅ Created Default division (ID: {division_id})")
-    except Exception as e:
-        print(f"❌ Error setting up division: {e}")
+    except Exception:
         return
 
     # Add team mappings and game type participations
@@ -130,29 +122,23 @@ def populate_teams():
     try:
         if team_mappings:
             result = supabase.table("team_mappings").insert(team_mappings).execute()
-            print(f"Inserted {len(result.data)} team mappings")
-    except Exception as e:
-        print(f"Error inserting team mappings: {e}")
+    except Exception:
+        pass
 
     # Insert team-game type participations
     try:
         if team_game_types:
             result = supabase.table("team_game_types").insert(team_game_types).execute()
-            print(f"Inserted {len(result.data)} team-game type mappings")
-    except Exception as e:
-        print(f"Error inserting team-game type mappings: {e}")
+    except Exception:
+        pass
 
     # Verify the data
     try:
-        teams_count = supabase.table("teams").select("id").execute()
-        mappings_count = supabase.table("team_game_types").select("id").execute()
+        supabase.table("teams").select("id").execute()
+        supabase.table("team_game_types").select("id").execute()
 
-        print("\nVerification:")
-        print(f"Total teams in database: {len(teams_count.data)}")
-        print(f"Total team-game type mappings: {len(mappings_count.data)}")
-
-    except Exception as e:
-        print(f"Error during verification: {e}")
+    except Exception:
+        pass
 
 
 def populate_seasons():
@@ -164,11 +150,10 @@ def populate_seasons():
 
     try:
         result = supabase.table("seasons").insert(seasons).execute()
-        print(f"Inserted {len(result.data)} seasons")
-        for season in result.data:
-            print(f"  - {season['name']}")
-    except Exception as e:
-        print(f"Error inserting seasons: {e}")
+        for _season in result.data:
+            pass
+    except Exception:
+        pass
 
 
 def make_user_admin(email: str):
@@ -178,38 +163,29 @@ def make_user_admin(email: str):
         auth_users = supabase.table("auth.users").select("id").eq("email", email).execute()
 
         if not auth_users.data:
-            print(f"User {email} not found in auth.users")
             return
 
         user_id = auth_users.data[0]["id"]
 
         # Update user role to admin in user_profiles
-        result = (
-            supabase.table("user_profiles").update({"role": "admin"}).eq("id", user_id).execute()
-        )
+        result = supabase.table("user_profiles").update({"role": "admin"}).eq("id", user_id).execute()
 
         if result.data:
-            print(f"Made {email} an admin (ID: {user_id})")
+            pass
         else:
-            print(f"Failed to update {email}")
+            pass
 
-    except Exception as e:
-        print(f"Error making user admin: {e}")
-        print("Note: You may need to create the user account first by signing up")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
     try:
-        print("=== Populating Teams ===")
         populate_teams()
 
-        print("\n=== Populating Seasons ===")
         populate_seasons()
 
-        print("\n=== Making tdrake13@gmail.com Admin ===")
         make_user_admin("tdrake13@gmail.com")
 
-        print("\n=== Population Complete ===")
-
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception:
+        pass

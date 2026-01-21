@@ -9,12 +9,8 @@ import psycopg2
 def populate_sample_data():
     """Populate sample teams and games."""
     try:
-        conn = psycopg2.connect(
-            host="localhost", port=5432, user="postgres", password="postgres", database="postgres"
-        )
+        conn = psycopg2.connect(host="localhost", port=5432, user="postgres", password="postgres", database="postgres")
         cursor = conn.cursor()
-
-        print("🏈 Adding sample teams...")
 
         # Sample teams for U13 league
         teams = [
@@ -31,9 +27,7 @@ def populate_sample_data():
         # Insert teams
         team_ids = []
         for name, city in teams:
-            cursor.execute(
-                "INSERT INTO teams (name, city) VALUES (%s, %s) RETURNING id", (name, city)
-            )
+            cursor.execute("INSERT INTO teams (name, city) VALUES (%s, %s) RETURNING id", (name, city))
             team_id = cursor.fetchone()[0]
             team_ids.append(team_id)
 
@@ -42,10 +36,6 @@ def populate_sample_data():
                 "INSERT INTO team_mappings (team_id, age_group_id) VALUES (%s, %s)",
                 (team_id, 1),  # U13 age group
             )
-
-        print(f"✅ Added {len(teams)} teams")
-
-        print("🏆 Adding sample games...")
 
         # Add some sample games for current season (2024-2025, id=2)
         games = [
@@ -63,26 +53,20 @@ def populate_sample_data():
             cursor.execute(
                 """
                 INSERT INTO games (
-                    game_date, home_team_id, away_team_id, 
+                    game_date, home_team_id, away_team_id,
                     home_score, away_score, season_id, age_group_id, game_type_id
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
                 (game_date, home_id, away_id, home_score, away_score, 2, 1, 1),
             )  # Season 2024-2025, U13, League
 
-        print(f"✅ Added {len(games)} games")
-
         conn.commit()
         cursor.close()
         conn.close()
 
-        print("\n🎉 Sample data populated successfully!")
-        print("📊 You can now view teams and games in your frontend")
-
         return True
 
-    except Exception as e:
-        print(f"❌ Error populating sample data: {e}")
+    except Exception:
         return False
 
 

@@ -4,9 +4,11 @@ Populate reference data for the new schema.
 Run this after the schema changes to set up age groups, seasons, and game types.
 """
 
+import contextlib
 import os
 
 from dotenv import load_dotenv
+
 from supabase import create_client
 
 load_dotenv()
@@ -20,8 +22,6 @@ def populate_reference_data():
     service_key = os.getenv("SUPABASE_SERVICE_KEY")
     supabase = create_client(url, service_key)
 
-    print("🌱 Populating reference data...")
-
     # 1. Age Groups
     age_groups = [
         {"name": "U13"},
@@ -34,11 +34,8 @@ def populate_reference_data():
         {"name": "Open"},
     ]
 
-    try:
-        result = supabase.table("age_groups").insert(age_groups).execute()
-        print(f"✅ Inserted {len(age_groups)} age groups")
-    except Exception as e:
-        print(f"⚠️  Age groups may already exist: {e}")
+    with contextlib.suppress(Exception):
+        supabase.table("age_groups").insert(age_groups).execute()
 
     # 2. Seasons
     seasons = [
@@ -47,11 +44,8 @@ def populate_reference_data():
         {"name": "2025-2026", "start_date": "2025-09-01", "end_date": "2026-06-30"},
     ]
 
-    try:
-        result = supabase.table("seasons").insert(seasons).execute()
-        print(f"✅ Inserted {len(seasons)} seasons")
-    except Exception as e:
-        print(f"⚠️  Seasons may already exist: {e}")
+    with contextlib.suppress(Exception):
+        supabase.table("seasons").insert(seasons).execute()
 
     # 3. Game Types
     game_types = [
@@ -61,28 +55,19 @@ def populate_reference_data():
         {"name": "Playoff"},
     ]
 
-    try:
-        result = supabase.table("game_types").insert(game_types).execute()
-        print(f"✅ Inserted {len(game_types)} game types")
-    except Exception as e:
-        print(f"⚠️  Game types may already exist: {e}")
-
-    print("\n🎉 Reference data population complete!")
+    with contextlib.suppress(Exception):
+        supabase.table("game_types").insert(game_types).execute()
 
     # Show what was created
-    print("\n📊 Current reference data:")
 
     # Age groups
-    age_groups_result = supabase.table("age_groups").select("*").execute()
-    print(f"Age Groups: {[ag['name'] for ag in age_groups_result.data]}")
+    supabase.table("age_groups").select("*").execute()
 
     # Seasons
-    seasons_result = supabase.table("seasons").select("*").execute()
-    print(f"Seasons: {[s['name'] for s in seasons_result.data]}")
+    supabase.table("seasons").select("*").execute()
 
     # Game types
-    game_types_result = supabase.table("game_types").select("*").execute()
-    print(f"Game Types: {[gt['name'] for gt in game_types_result.data]}")
+    supabase.table("game_types").select("*").execute()
 
 
 if __name__ == "__main__":

@@ -137,13 +137,7 @@ class MatchEventDAO(BaseDAO):
             Event record or None if not found
         """
         try:
-            response = (
-                self.client.table("match_events")
-                .select("*")
-                .eq("id", event_id)
-                .single()
-                .execute()
-            )
+            response = self.client.table("match_events").select("*").eq("id", event_id).single().execute()
             return response.data
         except Exception:
             logger.exception("Error getting match event", event_id=event_id)
@@ -162,11 +156,13 @@ class MatchEventDAO(BaseDAO):
         try:
             response = (
                 self.client.table("match_events")
-                .update({
-                    "is_deleted": True,
-                    "deleted_by": deleted_by,
-                    "deleted_at": datetime.now(UTC).isoformat(),
-                })
+                .update(
+                    {
+                        "is_deleted": True,
+                        "deleted_by": deleted_by,
+                        "deleted_at": datetime.now(UTC).isoformat(),
+                    }
+                )
                 .eq("id", event_id)
                 .execute()
             )

@@ -6,9 +6,8 @@ Creates JWT tokens for service accounts like match-scraper to authenticate API r
 """
 
 import argparse
-import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -28,18 +27,10 @@ def main():
         "--permissions",
         nargs="+",
         default=["manage_matches"],
-        help="Permissions to grant (default: manage_matches)"
+        help="Permissions to grant (default: manage_matches)",
     )
-    parser.add_argument(
-        "--expires-days",
-        type=int,
-        default=365,
-        help="Token expiration in days (default: 365)"
-    )
-    parser.add_argument(
-        "--output-file",
-        help="Save token to file instead of printing to console"
-    )
+    parser.add_argument("--expires-days", type=int, default=365, help="Token expiration in days (default: 365)")
+    parser.add_argument("--output-file", help="Save token to file instead of printing to console")
 
     args = parser.parse_args()
 
@@ -55,7 +46,7 @@ def main():
             return self
 
         def execute(self):
-            return type('obj', (object,), {'data': []})
+            return type("obj", (object,), {"data": []})
 
     auth_manager = AuthManager(MockSupabase())
 
@@ -63,18 +54,18 @@ def main():
         token = auth_manager.create_service_account_token(
             service_name=args.service_name,
             permissions=args.permissions,
-            expires_days=args.expires_days
+            expires_days=args.expires_days,
         )
 
         # Calculate expiration date for display
-        expiration = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        expiration = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         # Output information
-        info = f"""
+        f"""
 Service Account Token Generated Successfully!
 
 Service Name: {args.service_name}
-Permissions: {', '.join(args.permissions)}
+Permissions: {", ".join(args.permissions)}
 Expires: {expiration} (+{args.expires_days} days)
 
 Token:
@@ -102,15 +93,12 @@ SECURITY NOTES:
 """
 
         if args.output_file:
-            with open(args.output_file, 'w') as f:
+            with open(args.output_file, "w") as f:
                 f.write(token)
-            print(f"Token saved to: {args.output_file}")
-            print(info.replace(f"Token:\n{token}\n", "Token: [saved to file]\n"))
         else:
-            print(info)
+            pass
 
-    except Exception as e:
-        print(f"Error generating token: {e}", file=sys.stderr)
+    except Exception:
         sys.exit(1)
 
 

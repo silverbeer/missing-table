@@ -71,7 +71,7 @@ class LoginPage(BasePage):
         self.password = page.locator(self.PASSWORD_INPUT).first
         self.submit = page.locator(self.SUBMIT_BUTTON).first
 
-    def navigate(self) -> "LoginPage":
+    def navigate(self) -> LoginPage:
         """Navigate to main page and show login form."""
         super().navigate()
         # Click the login button in nav to show the form

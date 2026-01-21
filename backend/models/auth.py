@@ -1,12 +1,15 @@
 """
 Authentication and user-related Pydantic models.
 """
+
 import re
+
 from pydantic import BaseModel, field_validator
 
 
 class UserSignup(BaseModel):
     """Model for user signup requests."""
+
     username: str  # Primary login credential (e.g., gabe_ifa_35)
     password: str
     email: str | None = None  # Optional for notifications
@@ -14,34 +17,33 @@ class UserSignup(BaseModel):
     display_name: str | None = None
     invite_code: str | None = None
 
-    @field_validator('username')
+    @field_validator("username")
     @classmethod
     def validate_username(cls, v):
         """Validate username format: 3-50 chars, alphanumeric and underscores only."""
-        if not re.match(r'^[a-zA-Z0-9_]{3,50}$', v):
-            raise ValueError(
-                'Username must be 3-50 characters long and contain only letters, numbers, and underscores'
-            )
+        if not re.match(r"^[a-zA-Z0-9_]{3,50}$", v):
+            raise ValueError("Username must be 3-50 characters long and contain only letters, numbers, and underscores")
         return v.lower()  # Store usernames in lowercase for consistency
 
-    @field_validator('email')
+    @field_validator("email")
     @classmethod
     def validate_email(cls, v):
         """Validate email format if provided."""
         # Convert empty string to None
-        if v == '':
+        if v == "":
             return None
-        if v is not None and '@' not in v:
-            raise ValueError('Invalid email format')
+        if v is not None and "@" not in v:
+            raise ValueError("Invalid email format")
         return v
 
 
 class UserLogin(BaseModel):
     """Model for user login requests."""
+
     username: str  # Changed from email
     password: str
 
-    @field_validator('username')
+    @field_validator("username")
     @classmethod
     def validate_username(cls, v):
         """Ensure username is lowercase for lookup."""
@@ -50,6 +52,7 @@ class UserLogin(BaseModel):
 
 class UserProfile(BaseModel):
     """Model for user profile data."""
+
     display_name: str | None = None
     email: str | None = None
     role: str | None = None
@@ -62,14 +65,15 @@ class UserProfile(BaseModel):
     photo_3_url: str | None = None
     profile_photo_slot: int | None = None
     # Customization fields
-    overlay_style: str = 'badge'
-    primary_color: str = '#3B82F6'
-    text_color: str = '#FFFFFF'
-    accent_color: str = '#1D4ED8'
+    overlay_style: str = "badge"
+    primary_color: str = "#3B82F6"
+    text_color: str = "#FFFFFF"
+    accent_color: str = "#1D4ED8"
 
 
 class RoleUpdate(BaseModel):
     """Model for updating user roles."""
+
     user_id: str
     role: str
     team_id: int | None = None
@@ -77,6 +81,7 @@ class RoleUpdate(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     """Model for updating user profile information."""
+
     user_id: str
     username: str | None = None
     display_name: str | None = None
@@ -85,24 +90,27 @@ class UserProfileUpdate(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     """Model for refresh token requests."""
+
     refresh_token: str
 
 
 class ProfilePhotoSlot(BaseModel):
     """Model for setting which photo slot is the profile picture."""
+
     slot: int
 
-    @field_validator('slot')
+    @field_validator("slot")
     @classmethod
     def validate_slot(cls, v):
         """Validate slot is 1, 2, or 3."""
         if v not in (1, 2, 3):
-            raise ValueError('Slot must be 1, 2, or 3')
+            raise ValueError("Slot must be 1, 2, or 3")
         return v
 
 
 class PlayerCustomization(BaseModel):
     """Model for player profile customization (colors, style, number, position, social media)."""
+
     # Personal info
     first_name: str | None = None
     last_name: str | None = None
@@ -119,40 +127,40 @@ class PlayerCustomization(BaseModel):
     snapchat_handle: str | None = None
     tiktok_handle: str | None = None
 
-    @field_validator('instagram_handle', 'snapchat_handle', 'tiktok_handle')
+    @field_validator("instagram_handle", "snapchat_handle", "tiktok_handle")
     @classmethod
     def validate_social_handle(cls, v):
         """Validate social media handle format."""
         if v is not None:
             # Remove @ if present
-            v = v.lstrip('@')
+            v = v.lstrip("@")
             # Basic validation: alphanumeric, underscores, periods, max 30 chars
             if len(v) > 30:
-                raise ValueError('Handle must be 30 characters or less')
-            if v and not re.match(r'^[a-zA-Z0-9_.]+$', v):
-                raise ValueError('Handle can only contain letters, numbers, underscores, and periods')
+                raise ValueError("Handle must be 30 characters or less")
+            if v and not re.match(r"^[a-zA-Z0-9_.]+$", v):
+                raise ValueError("Handle can only contain letters, numbers, underscores, and periods")
         return v
 
-    @field_validator('overlay_style')
+    @field_validator("overlay_style")
     @classmethod
     def validate_overlay_style(cls, v):
         """Validate overlay style."""
-        if v is not None and v not in ('badge', 'jersey', 'caption', 'none'):
+        if v is not None and v not in ("badge", "jersey", "caption", "none"):
             raise ValueError("overlay_style must be 'badge', 'jersey', 'caption', or 'none'")
         return v
 
-    @field_validator('primary_color', 'text_color', 'accent_color')
+    @field_validator("primary_color", "text_color", "accent_color")
     @classmethod
     def validate_color(cls, v):
         """Validate hex color format."""
-        if v is not None:
-            if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
-                raise ValueError('Color must be a valid hex color (e.g., #3B82F6)')
+        if v is not None and not re.match(r"^#[0-9A-Fa-f]{6}$", v):
+            raise ValueError("Color must be a valid hex color (e.g., #3B82F6)")
         return v
 
 
 class PlayerHistoryCreate(BaseModel):
     """Model for creating a player team history entry."""
+
     team_id: int
     season_id: int
     jersey_number: int | None = None
@@ -160,64 +168,67 @@ class PlayerHistoryCreate(BaseModel):
     notes: str | None = None
     is_current: bool = False
 
-    @field_validator('jersey_number')
+    @field_validator("jersey_number")
     @classmethod
     def validate_jersey_number(cls, v):
         """Validate jersey number is 1-99."""
         if v is not None and (v < 1 or v > 99):
-            raise ValueError('Jersey number must be between 1 and 99')
+            raise ValueError("Jersey number must be between 1 and 99")
         return v
 
 
 class PlayerHistoryUpdate(BaseModel):
     """Model for updating a player team history entry."""
+
     jersey_number: int | None = None
     positions: list[str] | None = None
     notes: str | None = None
     is_current: bool | None = None
 
-    @field_validator('jersey_number')
+    @field_validator("jersey_number")
     @classmethod
     def validate_jersey_number(cls, v):
         """Validate jersey number is 1-99."""
         if v is not None and (v < 1 or v > 99):
-            raise ValueError('Jersey number must be between 1 and 99')
+            raise ValueError("Jersey number must be between 1 and 99")
         return v
 
 
 class AdminPlayerUpdate(BaseModel):
     """Model for admin updating a player's profile info."""
+
     display_name: str | None = None
     player_number: int | None = None
     positions: list[str] | None = None
 
-    @field_validator('player_number')
+    @field_validator("player_number")
     @classmethod
     def validate_player_number(cls, v):
         """Validate player number is 1-99."""
         if v is not None and (v < 1 or v > 99):
-            raise ValueError('Player number must be between 1 and 99')
+            raise ValueError("Player number must be between 1 and 99")
         return v
 
 
 class AdminPlayerTeamAssignment(BaseModel):
     """Model for admin assigning a player to a team."""
+
     team_id: int
     season_id: int
     jersey_number: int | None = None
     start_date: str | None = None
     is_current: bool = True
 
-    @field_validator('jersey_number')
+    @field_validator("jersey_number")
     @classmethod
     def validate_jersey_number(cls, v):
         """Validate jersey number is 1-99."""
         if v is not None and (v < 1 or v > 99):
-            raise ValueError('Jersey number must be between 1 and 99')
+            raise ValueError("Jersey number must be between 1 and 99")
         return v
 
 
 class AdminPlayerTeamEnd(BaseModel):
     """Model for ending a player's team assignment."""
-    end_date: str
 
+    end_date: str

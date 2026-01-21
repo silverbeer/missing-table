@@ -44,15 +44,11 @@ console = Console()
 
 @app.command("send")
 def send(
-    template: str = typer.Option(
-        None, "--template", "-t", help="Template name to use"
-    ),
+    template: str = typer.Option(None, "--template", "-t", help="Template name to use"),
     file: str = typer.Option(None, "--file", "-f", help="JSON file to send"),
     json_str: str = typer.Option(None, "--json", "-j", help="JSON string to send"),
     queue: str = typer.Option(None, "--queue", "-q", help="Target queue name"),
-    use_celery: bool = typer.Option(
-        True, "--celery/--rabbitmq", help="Use Celery task vs direct RabbitMQ publish"
-    ),
+    use_celery: bool = typer.Option(True, "--celery/--rabbitmq", help="Use Celery task vs direct RabbitMQ publish"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug output"),
 ) -> None:
     """

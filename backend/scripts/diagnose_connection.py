@@ -6,19 +6,18 @@ Diagnoses connection issues with Supabase environments.
 Validates URL format, tests connectivity, and checks credentials format.
 """
 
-import os
-import sys
 import socket
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import typer
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich import box
-import typer
 
 app = typer.Typer()
 console = Console()
@@ -36,8 +35,8 @@ def load_env_file(env: str) -> dict:
     with open(env_file) as f:
         for line in f:
             line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
                 value = value.strip().strip('"').strip("'")
                 env_vars[key.strip()] = value
 
@@ -61,7 +60,7 @@ def validate_url(url: str) -> tuple[bool, str]:
         parsed = urlparse(url)
 
         # Check scheme
-        if parsed.scheme not in ['http', 'https']:
+        if parsed.scheme not in ["http", "https"]:
             return False, f"Invalid scheme: {parsed.scheme} (should be https)"
 
         # Check if hostname exists
@@ -69,17 +68,17 @@ def validate_url(url: str) -> tuple[bool, str]:
             return False, "No hostname found in URL"
 
         # Supabase URLs should be HTTPS
-        if parsed.scheme != 'https':
+        if parsed.scheme != "https":
             return False, "Supabase URLs should use HTTPS"
 
         # Check if it looks like a Supabase URL
-        if 'supabase' not in parsed.netloc.lower():
+        if "supabase" not in parsed.netloc.lower():
             return False, f"URL doesn't look like Supabase: {parsed.netloc}"
 
         return True, f"Valid format: {parsed.scheme}://{parsed.netloc}"
 
     except Exception as e:
-        return False, f"Parse error: {str(e)}"
+        return False, f"Parse error: {e!s}"
 
 
 def test_dns_resolution(url: str) -> tuple[bool, str]:
@@ -89,17 +88,17 @@ def test_dns_resolution(url: str) -> tuple[bool, str]:
         hostname = parsed.netloc
 
         # Remove port if present
-        if ':' in hostname:
-            hostname = hostname.split(':')[0]
+        if ":" in hostname:
+            hostname = hostname.split(":")[0]
 
         # Try to resolve hostname
         ip_address = socket.gethostbyname(hostname)
         return True, f"Resolves to: {ip_address}"
 
     except socket.gaierror as e:
-        return False, f"DNS resolution failed: {str(e)}"
+        return False, f"DNS resolution failed: {e!s}"
     except Exception as e:
-        return False, f"Error: {str(e)}"
+        return False, f"Error: {e!s}"
 
 
 def test_connectivity(url: str, timeout: int = 5) -> tuple[bool, str]:
@@ -107,7 +106,7 @@ def test_connectivity(url: str, timeout: int = 5) -> tuple[bool, str]:
     try:
         import urllib.request
 
-        request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         response = urllib.request.urlopen(request, timeout=timeout)
 
         return True, f"HTTP {response.status} - {response.reason}"
@@ -116,22 +115,19 @@ def test_connectivity(url: str, timeout: int = 5) -> tuple[bool, str]:
         # HTTP errors mean we connected (good), just got an error response
         return True, f"Connected but got HTTP {e.code}"
     except urllib.error.URLError as e:
-        return False, f"Connection failed: {str(e.reason)}"
+        return False, f"Connection failed: {e.reason!s}"
     except Exception as e:
-        return False, f"Error: {str(e)}"
+        return False, f"Error: {e!s}"
 
 
 @app.command()
 def diagnose(
     env: str = typer.Argument("prod", help="Environment to diagnose (local, dev, prod)"),
-    test_connection: bool = typer.Option(True, "--test/--no-test", help="Test actual connectivity")
+    test_connection: bool = typer.Option(True, "--test/--no-test", help="Test actual connectivity"),
 ):
     """Diagnose connection issues with Supabase environment."""
 
-    console.print(Panel.fit(
-        f"[bold cyan]Connection Diagnostic: {env.upper()}[/bold cyan]",
-        box=box.DOUBLE
-    ))
+    console.print(Panel.fit(f"[bold cyan]Connection Diagnostic: {env.upper()}[/bold cyan]", box=box.DOUBLE))
 
     # Load environment variables
     console.print(f"\n[bold]Loading {env} environment...[/bold]")
@@ -143,9 +139,11 @@ def diagnose(
 
     # Get credentials
     supabase_url = env_vars.get("SUPABASE_URL", "")
-    supabase_key = (env_vars.get("SUPABASE_SERVICE_ROLE_KEY") or
-                   env_vars.get("SUPABASE_SERVICE_KEY") or
-                   env_vars.get("SUPABASE_KEY"))
+    supabase_key = (
+        env_vars.get("SUPABASE_SERVICE_ROLE_KEY")
+        or env_vars.get("SUPABASE_SERVICE_KEY")
+        or env_vars.get("SUPABASE_KEY")
+    )
 
     # Create results table
     table = Table(show_header=True, header_style="bold cyan", box=box.ROUNDED)
@@ -155,49 +153,25 @@ def diagnose(
 
     # Check 1: URL exists
     if supabase_url:
-        table.add_row(
-            "SUPABASE_URL present",
-            "[green]✓[/green]",
-            mask_credential(supabase_url, 20)
-        )
+        table.add_row("SUPABASE_URL present", "[green]✓[/green]", mask_credential(supabase_url, 20))
     else:
-        table.add_row(
-            "SUPABASE_URL present",
-            "[red]✗[/red]",
-            "Missing or empty"
-        )
+        table.add_row("SUPABASE_URL present", "[red]✗[/red]", "Missing or empty")
 
     # Check 2: Key exists
     if supabase_key:
-        table.add_row(
-            "Service key present",
-            "[green]✓[/green]",
-            mask_credential(supabase_key, 8)
-        )
+        table.add_row("Service key present", "[green]✓[/green]", mask_credential(supabase_key, 8))
     else:
-        table.add_row(
-            "Service key present",
-            "[red]✗[/red]",
-            "Missing or empty"
-        )
+        table.add_row("Service key present", "[red]✗[/red]", "Missing or empty")
 
     # Check 3: URL format validation
     if supabase_url:
         valid, message = validate_url(supabase_url)
-        table.add_row(
-            "URL format valid",
-            "[green]✓[/green]" if valid else "[red]✗[/red]",
-            message
-        )
+        table.add_row("URL format valid", "[green]✓[/green]" if valid else "[red]✗[/red]", message)
 
         # Check 4: DNS resolution
         if valid:
             can_resolve, resolve_msg = test_dns_resolution(supabase_url)
-            table.add_row(
-                "DNS resolution",
-                "[green]✓[/green]" if can_resolve else "[red]✗[/red]",
-                resolve_msg
-            )
+            table.add_row("DNS resolution", "[green]✓[/green]" if can_resolve else "[red]✗[/red]", resolve_msg)
 
             # Check 5: Connectivity test (optional)
             if test_connection and can_resolve:
@@ -209,7 +183,7 @@ def diagnose(
                 table.add_row(
                     "HTTP connectivity",
                     "[green]✓[/green]" if can_connect else "[red]✗[/red]",
-                    connect_msg
+                    connect_msg,
                 )
 
     console.print(table)
@@ -246,13 +220,13 @@ def diagnose(
     console.print("\n[bold]Manual Testing:[/bold]")
     if supabase_url:
         parsed = urlparse(supabase_url)
-        hostname = parsed.netloc.split(':')[0] if ':' in parsed.netloc else parsed.netloc
+        hostname = parsed.netloc.split(":")[0] if ":" in parsed.netloc else parsed.netloc
 
-        console.print(f"Test DNS resolution:")
+        console.print("Test DNS resolution:")
         console.print(f"  [cyan]nslookup {hostname}[/cyan]")
-        console.print(f"\nTest connectivity:")
+        console.print("\nTest connectivity:")
         console.print(f"  [cyan]curl -I {supabase_url}[/cyan]")
-        console.print(f"\nTest with Python:")
+        console.print("\nTest with Python:")
         console.print(f"  [cyan]python3 -c \"import socket; print(socket.gethostbyname('{hostname}'))\"[/cyan]")
 
 

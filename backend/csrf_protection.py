@@ -65,11 +65,7 @@ class CSRFProtection:
             return True
 
         # Check prefixes (for paths with parameters)
-        for exempt_path in CSRF_EXEMPT_PATHS:
-            if path.startswith(exempt_path):
-                return True
-
-        return False
+        return any(path.startswith(exempt_path) for exempt_path in CSRF_EXEMPT_PATHS)
 
     def set_csrf_cookie(self, response: Response, token: str):
         """Set CSRF token cookie in response."""

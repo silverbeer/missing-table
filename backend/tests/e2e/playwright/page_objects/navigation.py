@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 class NavigationBar(Component):
     """
     Reusable navigation bar component.
-    
+
     Handles:
     - Main menu navigation links
     - User authentication status
     - User dropdown menu
     - Mobile responsive menu
     """
-    
+
     # Selectors - using data-testid for stability
     NAV_CONTAINER = "[data-testid='main-nav'], nav.auth-nav"
 
@@ -43,7 +43,7 @@ class NavigationBar(Component):
     DROPDOWN_MENU = "[data-testid='dropdown-menu']"
     LOGOUT_BUTTON = "[data-testid='logout-button']"
     LOADING_BAR = "[data-testid='loading-bar']"
-    
+
     def __init__(self, page: Page) -> None:
         super().__init__(page)
         self.container = page.locator(self.NAV_CONTAINER)
@@ -117,8 +117,7 @@ class NavigationBar(Component):
     def is_logged_in(self) -> bool:
         """Check if user is logged in (user menu visible)."""
         # Try to find user menu or logout indicators
-        return self.page.locator(self.USER_MENU).is_visible() or \
-               self.page.locator(self.LOGOUT_BUTTON).is_visible()
+        return self.page.locator(self.USER_MENU).is_visible() or self.page.locator(self.LOGOUT_BUTTON).is_visible()
 
     def is_admin_visible(self) -> bool:
         """Check if Admin link is visible (admin user logged in)."""

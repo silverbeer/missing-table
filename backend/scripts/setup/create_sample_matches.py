@@ -7,9 +7,10 @@ from pathlib import Path
 # Add backend root directory to path for imports (scripts/setup/ -> backend/)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from dao.match_dao import MatchDAO, SupabaseConnection
-from datetime import datetime, timedelta
 import random
+from datetime import datetime, timedelta
+
+from dao.match_dao import MatchDAO, SupabaseConnection
 
 
 def create_sample_matches():
@@ -20,15 +21,9 @@ def create_sample_matches():
     # Get current data
     teams = dao.get_all_teams()
     seasons = dao.get_all_seasons()
-    age_groups = dao.get_all_age_groups()
+    dao.get_all_age_groups()
     divisions = dao.get_all_divisions()
     match_types = dao.get_all_match_types()
-
-    print(f"Found {len(teams)} teams")
-    print(f"Found {len(seasons)} seasons")
-    print(f"Found {len(age_groups)} age groups")
-    print(f"Found {len(divisions)} divisions")
-    print(f"Found {len(match_types)} match types")
 
     # Create some sample matches
     if teams and seasons and divisions and match_types:
@@ -37,8 +32,6 @@ def create_sample_matches():
 
         # Get teams that have mappings
         teams_with_mappings = [t for t in teams if t.get("age_groups")]
-
-        print(f"\nCreating matches for {len(teams_with_mappings)} teams...")
 
         matches_created = 0
         for i in range(0, len(teams_with_mappings), 2):
@@ -71,15 +64,11 @@ def create_sample_matches():
                     result = dao.create_match(**match_data)
                     if result:
                         matches_created += 1
-                        print(
-                            f'  ✓ Created match: {home_team["name"]} vs {away_team["name"]}'
-                        )
-                except Exception as e:
-                    print(f"  ✗ Error creating match: {e}")
+                except Exception:
+                    pass
 
-        print(f"\n✅ Created {matches_created} matches")
     else:
-        print("Missing required data to create matches")
+        pass
 
 
 if __name__ == "__main__":

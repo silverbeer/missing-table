@@ -30,12 +30,11 @@ from dotenv import load_dotenv
 
 from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig, get_env_key
 
-
 # Load .env.tsc if it exists (check multiple locations)
 ENV_FILES = [
-    Path(__file__).parent / ".env.tsc",                    # tests/tsc/.env.tsc
-    Path(__file__).parent.parent / ".env.tsc",             # tests/.env.tsc
-    Path(__file__).parent.parent.parent / ".env.tsc",      # backend/.env.tsc
+    Path(__file__).parent / ".env.tsc",  # tests/tsc/.env.tsc
+    Path(__file__).parent.parent / ".env.tsc",  # tests/.env.tsc
+    Path(__file__).parent.parent.parent / ".env.tsc",  # backend/.env.tsc
 ]
 
 for env_file in ENV_FILES:
@@ -121,25 +120,18 @@ def entity_registry() -> EntityRegistry:
                 # Option B: Validate base_url matches
                 stored_url = registry.base_url
                 if stored_url and stored_url != base_url:
-                    print(f"\n⚠️  Environment mismatch detected!")
-                    print(f"   Registry was created for: {stored_url}")
-                    print(f"   Current environment:      {base_url}")
-                    print(f"   Starting fresh registry for {base_url}")
                     registry = EntityRegistry(base_url=base_url)
                 elif not stored_url:
                     # Upgrade old registry without base_url
                     registry.base_url = base_url
-                    print(f"   Upgraded registry to track base_url: {base_url}")
 
                 return registry
-        except Exception as e:
-            print(f"⚠️  Failed to load registry: {e}")
+        except Exception:
+            pass
 
     # Check for legacy registry and warn
     if LEGACY_REGISTRY_FILE.exists():
-        print(f"\n⚠️  Found legacy registry file: {LEGACY_REGISTRY_FILE}")
-        print(f"   This file is no longer used. Delete it if no longer needed.")
-        print(f"   New registry: {registry_file}")
+        pass
 
     return EntityRegistry(base_url=base_url)
 
@@ -161,7 +153,6 @@ def tsc_client(tsc_config: TSCConfig, entity_registry: EntityRegistry) -> TSCCli
     registry_file = get_registry_file()
     with open(registry_file, "w") as f:
         json.dump(entity_registry.to_dict(), f, indent=2)
-    print(f"\n📁 Registry saved to: {registry_file.name}")
 
 
 @pytest.fixture(scope="function")
@@ -201,14 +192,11 @@ def load_entity_registry() -> EntityRegistry:
 
                 # Validate environment matches
                 if registry.base_url and registry.base_url != base_url:
-                    print(f"⚠️  Registry environment mismatch!")
-                    print(f"   Registry: {registry.base_url}")
-                    print(f"   Current:  {base_url}")
                     return EntityRegistry(base_url=base_url)
 
                 return registry
-        except Exception as e:
-            print(f"⚠️  Failed to load registry: {e}")
+        except Exception:
+            pass
 
     return EntityRegistry(base_url=base_url)
 
@@ -222,7 +210,6 @@ def clear_entity_registry() -> None:
     registry_file = get_registry_file()
     if registry_file.exists():
         registry_file.unlink()
-        print(f"🗑️  Cleared registry: {registry_file.name}")
 
 
 def clear_all_registries() -> None:
@@ -230,9 +217,7 @@ def clear_all_registries() -> None:
     registry_dir = Path(__file__).parent
     for registry_file in registry_dir.glob(".entity_registry.*.json"):
         registry_file.unlink()
-        print(f"🗑️  Cleared: {registry_file.name}")
 
     # Also clear legacy file
     if LEGACY_REGISTRY_FILE.exists():
         LEGACY_REGISTRY_FILE.unlink()
-        print(f"🗑️  Cleared legacy: {LEGACY_REGISTRY_FILE.name}")

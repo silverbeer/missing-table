@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -60,7 +61,7 @@ from models import (
 from services import InviteService
 
 # Legacy flag kept for backwards compatibility so existing envs keep working.
-DISABLE_SECURITY = os.getenv('DISABLE_SECURITY', 'false').lower() == 'true'
+DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
 
 from dao.club_dao import ClubDAO
 from dao.league_dao import LeagueDAO
@@ -82,19 +83,17 @@ def load_environment():
     load_dotenv()
 
     # Determine which environment to use
-    app_env = os.getenv('APP_ENV', 'local')  # Default to local
+    app_env = os.getenv("APP_ENV", "local")  # Default to local
 
     # Load environment-specific file
     env_file = f".env.{app_env}"
     if os.path.exists(env_file):
-        print(f"Loading environment: {app_env} from {env_file}")
         load_dotenv(env_file, override=True)
     else:
-        print(f"Environment file {env_file} not found, using default configuration")
         # Fallback to .env.local for backwards compatibility
         if os.path.exists(".env.local"):
-            print("Falling back to .env.local")
             load_dotenv(".env.local", override=True)
+
 
 load_environment()
 
@@ -120,6 +119,7 @@ logger.info("prometheus_metrics_enabled", endpoint="/metrics")
 # TODO: Fix middleware order issue
 # app.middleware("http")(csrf_middleware)
 
+
 # Configure CORS
 def get_cors_origins():
     """Get CORS origins based on environment"""
@@ -138,22 +138,23 @@ def get_cors_origins():
     ]
 
     # Allow additional CORS origins from environment variable
-    extra_origins_str = os.getenv('CORS_ORIGINS', '')
-    extra_origins = [origin.strip() for origin in extra_origins_str.split(',') if origin.strip()]
+    extra_origins_str = os.getenv("CORS_ORIGINS", "")
+    extra_origins = [origin.strip() for origin in extra_origins_str.split(",") if origin.strip()]
 
     # Get environment-specific origins
-    environment = os.getenv('ENVIRONMENT', 'development')
+    environment = os.getenv("ENVIRONMENT", "development")
 
     # All production domains point to the same namespace (missing-table-dev)
     all_cloud_origins = production_origins
 
     # In production, only allow production origins (security best practice)
     # In development/dev, allow both local and cloud origins for flexibility
-    if environment == 'production':
+    if environment == "production":
         return all_cloud_origins + extra_origins
     else:
         # Development/dev environment: allow local origins + cloud origins (consolidated architecture)
         return local_origins + all_cloud_origins + extra_origins
+
 
 origins = get_cors_origins()
 
@@ -169,9 +170,13 @@ app.add_middleware(
 app.add_middleware(TraceMiddleware)
 
 # Initialize Supabase connection - use CLI for local development
-supabase_url = os.getenv('SUPABASE_URL', '')
-logger.debug("Supabase URL configuration", url=supabase_url, is_local='localhost' in supabase_url or '127.0.0.1' in supabase_url)
-if 'localhost' in supabase_url or '127.0.0.1' in supabase_url:
+supabase_url = os.getenv("SUPABASE_URL", "")
+logger.debug(
+    "Supabase URL configuration",
+    url=supabase_url,
+    is_local="localhost" in supabase_url or "127.0.0.1" in supabase_url,
+)
+if "localhost" in supabase_url or "127.0.0.1" in supabase_url:
     logger.info("Using Supabase CLI local development", url=supabase_url)
 else:
     logger.info("Using enhanced Supabase connection")
@@ -196,16 +201,16 @@ match_type_dao = MatchTypeDAO(db_conn_holder_obj)
 from supabase import create_client
 
 auth_service_client = create_client(
-    os.getenv('SUPABASE_URL', ''),
-    os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_ANON_KEY', '')
+    os.getenv("SUPABASE_URL", ""),
+    os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY", ""),
 )
 auth_manager = AuthManager(auth_service_client)
 
 # Create a separate client for auth operations (login/signup/logout)
 # This prevents auth operations from modifying the client used by match_dao
 auth_ops_client = create_client(
-    os.getenv('SUPABASE_URL', ''),
-    os.getenv('SUPABASE_ANON_KEY', '')  # Auth operations use anon key
+    os.getenv("SUPABASE_URL", ""),
+    os.getenv("SUPABASE_ANON_KEY", ""),  # Auth operations use anon key
 )
 
 
@@ -224,6 +229,8 @@ app.include_router(invites_router)
 app.include_router(invite_requests_router)
 
 # Version endpoint
+import contextlib
+
 from endpoints.version import router as version_router
 
 app.include_router(version_router)
@@ -255,30 +262,27 @@ async def _update_existing_user_role(user_data, invite_info, audit_logger):
                     break
 
             if not existing_user:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"User {user_data.username} not found"
-                )
+                raise HTTPException(status_code=400, detail=f"User {user_data.username} not found")
             user_id = existing_user.id
         else:
-            user_id = existing_profile['id']
+            user_id = existing_profile["id"]
 
         # Map invite type to user role
         role_mapping = {
-            'club_manager': 'club_manager',
-            'club_fan': 'club-fan',
-            'team_manager': 'team-manager',
-            'team_player': 'team-player',
-            'team_fan': 'team-fan'
+            "club_manager": "club_manager",
+            "club_fan": "club-fan",
+            "team_manager": "team-manager",
+            "team_player": "team-player",
+            "team_fan": "team-fan",
         }
-        new_role = role_mapping.get(invite_info['invite_type'], 'team-fan')
+        new_role = role_mapping.get(invite_info["invite_type"], "team-fan")
 
         # Update user profile with new role and invite info
         update_data = {
-            'username': user_data.username.lower(),
-            'role': new_role,
-            'team_id': invite_info.get('team_id'),
-            'club_id': invite_info.get('club_id')
+            "username": user_data.username.lower(),
+            "role": new_role,
+            "team_id": invite_info.get("team_id"),
+            "club_id": invite_info.get("club_id"),
         }
         player_dao.update_user_profile(user_id, update_data)
 
@@ -289,16 +293,17 @@ async def _update_existing_user_role(user_data, invite_info, audit_logger):
         logger.info(f"Updated existing user {user_id} role to {new_role} via invite code")
         audit_logger.info("auth_role_update_success", user_id=user_id, new_role=new_role)
 
+        role_display = invite_info["invite_type"].replace("_", " ")
         return {
-            "message": f"Welcome back, {user_data.username}! Your role has been updated to {invite_info['invite_type'].replace('_', ' ')}.",
+            "message": f"Welcome back, {user_data.username}! Your role has been updated to {role_display}.",
             "user_id": user_id,
-            "username": user_data.username
+            "username": user_data.username,
         }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to update existing user role: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.post("/api/auth/signup")
@@ -311,114 +316,106 @@ async def signup(request: Request, user_data: UserSignup):
     audit_logger = logger.bind(flow="auth_signup", username=user_data.username, client_ip=client_ip)
 
     try:
-            # Validate invite code if provided (do this FIRST)
-            invite_info = None
-            if user_data.invite_code:
-                invite_service = InviteService(db_conn_holder_obj.client)
-                invite_info = invite_service.validate_invite_code(user_data.invite_code)
-                if not invite_info:
-                    raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+        # Validate invite code if provided (do this FIRST)
+        invite_info = None
+        if user_data.invite_code:
+            invite_service = InviteService(db_conn_holder_obj.client)
+            invite_info = invite_service.validate_invite_code(user_data.invite_code)
+            if not invite_info:
+                raise HTTPException(status_code=400, detail="Invalid or expired invite code")
 
-                # If invite has email specified, verify it matches (if user provided email)
-                if invite_info.get('email') and user_data.email:
-                    if invite_info['email'] != user_data.email:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"This invite code is for {invite_info['email']}. Please use that email address."
-                        )
+            # If invite has email specified, verify it matches (if user provided email)
+            if invite_info.get("email") and user_data.email:
+                if invite_info["email"] != user_data.email:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"This invite code is for {invite_info['email']}. Please use that email address.",
+                    )
 
-            # Validate username availability
-            username_available = await check_username_available(
-                db_conn_holder_obj.client,
-                user_data.username
-            )
-            if not username_available:
-                # If user has invite code, allow them to "re-signup" to update their role
-                if invite_info:
-                    logger.info(f"User {user_data.username} exists but has invite code - will update role")
-                    # Redirect to the role update flow
-                    return await _update_existing_user_role(user_data, invite_info, audit_logger)
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Username '{user_data.username}' is already taken"
-                )
-
+        # Validate username availability
+        username_available = await check_username_available(db_conn_holder_obj.client, user_data.username)
+        if not username_available:
+            # If user has invite code, allow them to "re-signup" to update their role
             if invite_info:
-                logger.info(f"Valid invite code for {invite_info['invite_type']}: {user_data.invite_code}")
+                logger.info(f"User {user_data.username} exists but has invite code - will update role")
+                # Redirect to the role update flow
+                return await _update_existing_user_role(user_data, invite_info, audit_logger)
+            raise HTTPException(status_code=400, detail=f"Username '{user_data.username}' is already taken")
 
-            # Convert username to internal email for Supabase Auth
-            internal_email = username_to_internal_email(user_data.username)
+        if invite_info:
+            logger.info(f"Valid invite code for {invite_info['invite_type']}: {user_data.invite_code}")
 
-            # Create Supabase Auth user with internal email
-            # Use auth_ops_client to avoid modifying the match_dao client
-            response = auth_ops_client.auth.sign_up({
+        # Convert username to internal email for Supabase Auth
+        internal_email = username_to_internal_email(user_data.username)
+
+        # Create Supabase Auth user with internal email
+        # Use auth_ops_client to avoid modifying the match_dao client
+        response = auth_ops_client.auth.sign_up(
+            {
                 "email": internal_email,
                 "password": user_data.password,
                 "options": {
                     "data": {
                         "username": user_data.username,
                         "display_name": user_data.display_name or user_data.username,
-                        "is_username_auth": True
+                        "is_username_auth": True,
                     }
+                },
+            }
+        )
+
+        if response.user:
+            # Create/update user profile with username and optional contact info
+            # Convert empty strings to None for optional fields
+            profile_data = {
+                "id": response.user.id,
+                "username": user_data.username,
+                "email": user_data.email if user_data.email else None,  # Optional real email
+                "phone_number": user_data.phone_number if user_data.phone_number else None,  # Optional phone
+                "display_name": user_data.display_name or user_data.username,
+                "role": "team-fan",  # Default role
+            }
+
+            # If signup with invite code, override role and team
+            if invite_info:
+                # Map invite type to user role
+                role_mapping = {
+                    "club_manager": "club_manager",
+                    "club_fan": "club-fan",
+                    "team_manager": "team-manager",
+                    "team_player": "team-player",
+                    "team_fan": "team-fan",
                 }
-            })
+                profile_data["role"] = role_mapping.get(invite_info["invite_type"], "team-fan")
+                profile_data["team_id"] = invite_info.get("team_id")
+                profile_data["club_id"] = invite_info.get("club_id")
 
-            if response.user:
-                # Create/update user profile with username and optional contact info
-                # Convert empty strings to None for optional fields
-                profile_data = {
-                    'id': response.user.id,
-                    'username': user_data.username,
-                    'email': user_data.email if user_data.email else None,  # Optional real email
-                    'phone_number': user_data.phone_number if user_data.phone_number else None,  # Optional phone
-                    'display_name': user_data.display_name or user_data.username,
-                    'role': 'team-fan'  # Default role
-                }
+            # Insert user profile
+            player_dao.create_or_update_user_profile(profile_data)
 
-                # If signup with invite code, override role and team
-                if invite_info:
-                    # Map invite type to user role
-                    role_mapping = {
-                        'club_manager': 'club_manager',
-                        'club_fan': 'club-fan',
-                        'team_manager': 'team-manager',
-                        'team_player': 'team-player',
-                        'team_fan': 'team-fan'
-                    }
-                    profile_data['role'] = role_mapping.get(invite_info['invite_type'], 'team-fan')
-                    profile_data['team_id'] = invite_info.get('team_id')
-                    profile_data['club_id'] = invite_info.get('club_id')
+            # Redeem invitation if used
+            if invite_info:
+                invite_service.redeem_invitation(user_data.invite_code, response.user.id)
+                logger.info(f"User {response.user.id} assigned role {profile_data['role']} via invite code")
 
-                # Insert user profile
-                player_dao.create_or_update_user_profile(profile_data)
+            audit_logger.info(
+                "auth_signup_success",
+                user_id=response.user.id,
+                used_invite=bool(user_data.invite_code),
+            )
 
-                # Redeem invitation if used
-                if invite_info:
-                    invite_service.redeem_invitation(user_data.invite_code, response.user.id)
-                    logger.info(f"User {response.user.id} assigned role {profile_data['role']} via invite code")
+            message = f"Account created successfully! Welcome, {user_data.username}!"
+            if invite_info:
+                invite_type_display = invite_info["invite_type"].replace("_", " ")
+                if invite_info.get("club_name"):
+                    message += f" You have been assigned to {invite_info['club_name']} as a {invite_type_display}."
+                elif invite_info.get("team_name"):
+                    message += f" You have been assigned to {invite_info['team_name']} as a {invite_type_display}."
 
-                audit_logger.info(
-                    "auth_signup_success",
-                    user_id=response.user.id,
-                    used_invite=bool(user_data.invite_code)
-                )
-
-                message = f"Account created successfully! Welcome, {user_data.username}!"
-                if invite_info:
-                    invite_type_display = invite_info['invite_type'].replace('_', ' ')
-                    if invite_info.get('club_name'):
-                        message += f" You have been assigned to {invite_info['club_name']} as a {invite_type_display}."
-                    elif invite_info.get('team_name'):
-                        message += f" You have been assigned to {invite_info['team_name']} as a {invite_type_display}."
-
-                return {
-                    "message": message,
-                    "user_id": response.user.id,
-                    "username": user_data.username
-                }
-            else:
-                audit_logger.warning("auth_signup_failed", reason="supabase_user_missing")
-                raise HTTPException(status_code=400, detail="Failed to create user")
+            return {"message": message, "user_id": response.user.id, "username": user_data.username}
+        else:
+            audit_logger.warning("auth_signup_failed", reason="supabase_user_missing")
+            raise HTTPException(status_code=400, detail="Failed to create user")
 
     except HTTPException:
         raise
@@ -431,6 +428,7 @@ async def signup(request: Request, user_data: UserSignup):
                 logger.info(f"Attempting to update existing user {user_data.username} role via invite")
                 # Get existing user by internal email from auth.users
                 from auth import username_to_internal_email
+
                 internal_email = username_to_internal_email(user_data.username)
                 # Query auth.users to get user_id
                 auth_response = auth_service_client.auth.admin.list_users()
@@ -443,20 +441,20 @@ async def signup(request: Request, user_data: UserSignup):
                 if existing_user:
                     # Map invite type to user role
                     role_mapping = {
-                        'club_manager': 'club_manager',
-                        'club_fan': 'club-fan',
-                        'team_manager': 'team-manager',
-                        'team_player': 'team-player',
-                        'team_fan': 'team-fan'
+                        "club_manager": "club_manager",
+                        "club_fan": "club-fan",
+                        "team_manager": "team-manager",
+                        "team_player": "team-player",
+                        "team_fan": "team-fan",
                     }
-                    new_role = role_mapping.get(invite_info['invite_type'], 'team-fan')
+                    new_role = role_mapping.get(invite_info["invite_type"], "team-fan")
 
                     # Update user profile with new role, username, and invite info
                     update_data = {
-                        'username': user_data.username.lower(),  # Fix missing username
-                        'role': new_role,
-                        'team_id': invite_info.get('team_id'),
-                        'club_id': invite_info.get('club_id')
+                        "username": user_data.username.lower(),  # Fix missing username
+                        "role": new_role,
+                        "team_id": invite_info.get("team_id"),
+                        "club_id": invite_info.get("club_id"),
                     }
                     player_dao.update_user_profile(existing_user.id, update_data)
 
@@ -465,17 +463,19 @@ async def signup(request: Request, user_data: UserSignup):
                     invite_service.redeem_invitation(user_data.invite_code, existing_user.id)
 
                     logger.info(f"Updated existing user {existing_user.id} role to {new_role} via invite code")
+                    role_display = invite_info["invite_type"].replace("_", " ")
                     return {
-                        "message": f"Welcome back! Your role has been updated to {invite_info['invite_type'].replace('_', ' ')}.",
+                        "message": f"Welcome back! Your role has been updated to {role_display}.",
                         "user_id": existing_user.id,
-                        "username": user_data.username
+                        "username": user_data.username,
                     }
             except Exception as update_error:
                 logger.error(f"Failed to update existing user role: {update_error}", exc_info=True)
 
         audit_logger.error("auth_signup_error", error=error_msg, email=user_data.email)
         logger.error(f"Signup error: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=error_msg)
+        raise HTTPException(status_code=400, detail=error_msg) from e
+
 
 @app.post("/api/auth/login")
 # @rate_limit("5 per minute")
@@ -492,16 +492,13 @@ async def login(request: Request, user_data: UserLogin):
 
         # Authenticate with Supabase using internal email
         # Use auth_ops_client to avoid modifying the match_dao client
-        response = auth_ops_client.auth.sign_in_with_password({
-            "email": internal_email,
-            "password": user_data.password
-        })
+        response = auth_ops_client.auth.sign_in_with_password({"email": internal_email, "password": user_data.password})
 
         if response.user and response.session:
             # Get user profile with username, team, AND club info
             profile = player_dao.get_user_profile_with_relationships(response.user.id)
             if not profile:
-                profile = {'username': user_data.username}  # Fallback
+                profile = {"username": user_data.username}  # Fallback
 
             auth_logger.info("auth_login_success", user_id=response.user.id)
 
@@ -510,17 +507,17 @@ async def login(request: Request, user_data: UserLogin):
                 "refresh_token": response.session.refresh_token,
                 "user": {
                     "id": response.user.id,
-                    "username": profile.get('username'),
-                    "email": profile.get('email'),  # Real email if provided
-                    "display_name": profile.get('display_name'),
-                    "role": profile.get('role'),
-                    "team_id": profile.get('team_id'),
-                    "club_id": profile.get('club_id'),
-                    "team": profile.get('team'),
-                    "club": profile.get('club'),
-                    "created_at": profile.get('created_at'),
-                    "updated_at": profile.get('updated_at')
-                }
+                    "username": profile.get("username"),
+                    "email": profile.get("email"),  # Real email if provided
+                    "display_name": profile.get("display_name"),
+                    "role": profile.get("role"),
+                    "team_id": profile.get("team_id"),
+                    "club_id": profile.get("club_id"),
+                    "team": profile.get("team"),
+                    "club": profile.get("club"),
+                    "created_at": profile.get("created_at"),
+                    "updated_at": profile.get("updated_at"),
+                },
             }
         else:
             auth_logger.warning("auth_login_failed", reason="invalid_credentials")
@@ -531,7 +528,7 @@ async def login(request: Request, user_data: UserLogin):
     except Exception as e:
         auth_logger.error("auth_login_error", error=str(e))
         logger.error(f"Login error: {e}", exc_info=True)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid credentials") from e
 
 
 @app.get("/api/auth/username-available/{username}")
@@ -549,23 +546,21 @@ async def check_username_availability(username: str):
 
     try:
         # Validate username format
-        if not re.match(r'^[a-zA-Z0-9_]{3,50}$', username):
+        if not re.match(r"^[a-zA-Z0-9_]{3,50}$", username):
             return {
                 "available": False,
-                "message": "Username must be 3-50 characters (letters, numbers, underscores only)"
+                "message": "Username must be 3-50 characters (letters, numbers, underscores only)",
             }
 
         # Check availability
         available = await check_username_available(db_conn_holder_obj.client, username)
 
         if available:
-            return {
-                "available": True,
-                "message": f"Username '{username}' is available!"
-            }
+            return {"available": True, "message": f"Username '{username}' is available!"}
         else:
             # Generate suggestions
             import hashlib
+
             hash_suffix = int(hashlib.md5(username.encode()).hexdigest(), 16) % 100
             suggestions = [
                 f"{username}_1",
@@ -576,12 +571,12 @@ async def check_username_availability(username: str):
             return {
                 "available": False,
                 "message": f"Username '{username}' is taken",
-                "suggestions": suggestions
+                "suggestions": suggestions,
             }
 
     except Exception as e:
         logger.error(f"Error checking username: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error checking username availability")
+        raise HTTPException(status_code=500, detail="Error checking username availability") from e
 
 
 @app.post("/api/auth/logout")
@@ -590,20 +585,18 @@ async def logout(current_user: dict[str, Any] = Depends(get_current_user_require
     try:
         # Use auth_ops_client to avoid modifying the match_dao client
         auth_ops_client.auth.sign_out()
-        return {
-            "success": True,
-            "message": "Logged out successfully"
-        }
+        return {"success": True, "message": "Logged out successfully"}
     except Exception as e:
         logger.error(f"Logout error: {e}", exc_info=True)
         return {
             "success": True,  # Return success even on error since logout should be client-side primarily
-            "message": "Logged out successfully"
+            "message": "Logged out successfully",
         }
 
 
 class OAuthCallbackData(BaseModel):
     """OAuth callback data from frontend."""
+
     access_token: str
     refresh_token: str | None = None
     provider: str = "google"
@@ -631,7 +624,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
         flow="auth_oauth_callback",
         provider=callback_data.provider,
         client_ip=client_ip,
-        is_login_flow=is_login_flow
+        is_login_flow=is_login_flow,
     )
 
     try:
@@ -639,10 +632,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
         # This is needed for both login and signup flows
         from supabase import create_client
 
-        temp_client = create_client(
-            os.getenv("SUPABASE_URL", ""),
-            os.getenv("SUPABASE_ANON_KEY", "")
-        )
+        temp_client = create_client(os.getenv("SUPABASE_URL", ""), os.getenv("SUPABASE_ANON_KEY", ""))
         temp_client.auth.set_session(callback_data.access_token, callback_data.refresh_token or "")
         user_response = temp_client.auth.get_user()
 
@@ -658,7 +648,9 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
         oauth_logger = oauth_logger.bind(user_id=user_id, email=email)
 
         # Check if user profile exists by email or user_id
-        email_profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("email", email).execute()
+        email_profile_response = (
+            db_conn_holder_obj.client.table("user_profiles").select("*").eq("email", email).execute()
+        )
         existing_by_email = email_profile_response.data[0] if email_profile_response.data else None
 
         profile_response = db_conn_holder_obj.client.table("user_profiles").select("*").eq("id", user_id).execute()
@@ -666,9 +658,9 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 
         # Check if it's a trigger stub (incomplete profile)
         is_trigger_stub = (
-            existing_by_id and
-            existing_by_id.get("username") is None and
-            existing_by_id.get("auth_provider") == "password"
+            existing_by_id
+            and existing_by_id.get("username") is None
+            and existing_by_id.get("auth_provider") == "password"
         )
 
         # Determine existing profile (prefer email match, then id match)
@@ -679,32 +671,25 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
             if not existing_profile:
                 oauth_logger.warning("oauth_login_failed", reason="no_account")
                 # Sign out of Supabase to clean up the session
-                try:
+                with contextlib.suppress(Exception):
                     await asyncio.to_thread(temp_client.auth.sign_out)
-                except Exception:
-                    pass
                 raise HTTPException(
                     status_code=400,
-                    detail="No account found with this Google account. Please sign up with an invite code first."
+                    detail="No account found with this Google account. Please sign up with an invite code first.",
                 )
 
             # Verify auth_provider is google (not password user trying to use OAuth)
             if existing_profile.get("auth_provider") == "password":
                 oauth_logger.warning("oauth_login_failed", reason="wrong_auth_provider")
-                try:
+                with contextlib.suppress(Exception):
                     await asyncio.to_thread(temp_client.auth.sign_out)
-                except Exception:
-                    pass
                 raise HTTPException(
                     status_code=400,
-                    detail="This account was created with username/password. Please use the login form instead."
+                    detail="This account was created with username/password. Please use the login form instead.",
                 )
 
             oauth_logger.info("oauth_login_success", username=existing_profile.get("username"))
-            return {
-                "message": "Login successful",
-                "user": existing_profile
-            }
+            return {"message": "Login successful", "user": existing_profile}
 
         # ===== SIGNUP FLOW (with invite code) =====
         # Validate the invite code
@@ -728,10 +713,15 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 
         # For signup, reject if account already exists
         if existing_profile:
-            oauth_logger.warning("oauth_callback_failed", reason="email_already_exists", existing_username=existing_profile.get("username"))
+            oauth_logger.warning(
+                "oauth_callback_failed",
+                reason="email_already_exists",
+                existing_username=existing_profile.get("username"),
+            )
+            username = existing_profile.get("username")
             raise HTTPException(
                 status_code=400,
-                detail=f"An account with this email already exists (username: {existing_profile.get('username')}). Please login instead of signing up."
+                detail=f"An account with this email already exists (username: {username}). Please login instead.",
             )
 
         # Either new user OR trigger-created stub that needs to be completed
@@ -751,6 +741,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
 
         # Check if username exists and make unique if needed
         from auth import check_username_available
+
         counter = 1
         while not await check_username_available(db_conn_holder_obj.client, username):
             username = f"{base_username}_{counter}"
@@ -758,6 +749,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
             if counter > 100:
                 # Fallback to UUID suffix
                 import uuid
+
                 username = f"{base_username}_{str(uuid.uuid4())[:8]}"
                 break
 
@@ -802,7 +794,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
                 "profile_photo_url": avatar_url,
                 "auth_provider": callback_data.provider,
                 "is_new_user": True,
-            }
+            },
         }
 
     except HTTPException:
@@ -810,7 +802,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
     except Exception as e:
         oauth_logger.error("oauth_callback_error", error=str(e))
         logger.error(f"OAuth callback error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="OAuth authentication failed")
+        raise HTTPException(status_code=500, detail="OAuth authentication failed") from e
 
 
 @app.get("/api/auth/profile")
@@ -856,13 +848,11 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
 
     except Exception as e:
         logger.error(f"Get profile error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get profile")
+        raise HTTPException(status_code=500, detail="Failed to get profile") from e
 
 
 @app.put("/api/auth/profile")
-async def update_profile(
-    profile_data: UserProfile, current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def update_profile(profile_data: UserProfile, current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Update current user's profile."""
     try:
         update_data = {}
@@ -873,13 +863,16 @@ async def update_profile(
         if profile_data.email is not None:
             # Basic email format validation
             import re
-            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+            email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
             if profile_data.email.strip() and not re.match(email_pattern, profile_data.email):
                 raise HTTPException(status_code=400, detail="Invalid email format")
 
             # Check for email uniqueness (if not empty)
             if profile_data.email.strip():
-                existing = player_dao.get_user_profile_by_email(profile_data.email, exclude_user_id=current_user["user_id"])
+                existing = player_dao.get_user_profile_by_email(
+                    profile_data.email, exclude_user_id=current_user["user_id"]
+                )
                 if existing:
                     raise HTTPException(status_code=409, detail="Email already in use")
 
@@ -894,7 +887,7 @@ async def update_profile(
 
         # Customization fields (overlay style and colors)
         if profile_data.overlay_style is not None:
-            if profile_data.overlay_style not in ('badge', 'jersey', 'caption', 'none'):
+            if profile_data.overlay_style not in ("badge", "jersey", "caption", "none"):
                 raise HTTPException(status_code=400, detail="Invalid overlay_style")
             update_data["overlay_style"] = profile_data.overlay_style
         if profile_data.primary_color is not None:
@@ -912,6 +905,7 @@ async def update_profile(
 
         if update_data:
             from datetime import datetime
+
             update_data["updated_at"] = datetime.now(UTC).isoformat()
             player_dao.update_user_profile(current_user["user_id"], update_data)
 
@@ -919,7 +913,7 @@ async def update_profile(
 
     except Exception as e:
         logger.error(f"Update profile error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to update profile")
+        raise HTTPException(status_code=500, detail="Failed to update profile") from e
 
 
 # =============================================================================
@@ -943,13 +937,13 @@ class StorageHelper:
             "apikey": self.service_key,
             "Authorization": f"Bearer {self.service_key}",
             "Content-Type": content_type,
-            "x-upsert": "true"
+            "x-upsert": "true",
         }
         response = httpx.post(
             f"{self.url}/storage/v1/object/{bucket}/{file_path}",
             content=content,
             headers=headers,
-            timeout=30.0
+            timeout=30.0,
         )
         if response.status_code not in (200, 201):
             raise Exception(f"Storage upload failed: {response.text}")
@@ -960,13 +954,13 @@ class StorageHelper:
         headers = {
             "apikey": self.service_key,
             "Authorization": f"Bearer {self.service_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         response = httpx.delete(
             f"{self.url}/storage/v1/object/{bucket}",
             json={"prefixes": file_paths},
             headers=headers,
-            timeout=30.0
+            timeout=30.0,
         )
         if response.status_code not in (200, 204):
             # Ignore 404s - file might already be gone
@@ -985,10 +979,7 @@ storage_helper = StorageHelper()
 def require_player_role(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Dependency that requires team-player role."""
     if current_user.get("role") != "team-player":
-        raise HTTPException(
-            status_code=403,
-            detail="This feature is only available for players"
-        )
+        raise HTTPException(status_code=403, detail="This feature is only available for players")
     return current_user
 
 
@@ -996,7 +987,7 @@ def require_player_role(current_user: dict[str, Any] = Depends(get_current_user_
 async def upload_player_photo(
     slot: int,
     file: UploadFile = File(...),
-    current_user: dict[str, Any] = Depends(require_player_role)
+    current_user: dict[str, Any] = Depends(require_player_role),
 ):
     """Upload a profile photo to a slot (1, 2, or 3). Players only.
 
@@ -1011,7 +1002,7 @@ async def upload_player_photo(
     if file.content_type not in ALLOWED_PHOTO_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed: JPG, PNG, WebP. Got: {file.content_type}"
+            detail=f"Invalid file type. Allowed: JPG, PNG, WebP. Got: {file.content_type}",
         )
 
     # Read file content
@@ -1021,7 +1012,7 @@ async def upload_player_photo(
     if len(content) > MAX_PHOTO_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size is 500KB. Got: {len(content) / 1024:.1f}KB"
+            detail=f"File too large. Maximum size is 500KB. Got: {len(content) / 1024:.1f}KB",
         )
 
     # Determine file extension
@@ -1039,6 +1030,7 @@ async def upload_player_photo(
 
         # Update user profile with the photo URL
         from datetime import datetime
+
         photo_column = f"photo_{slot}_url"
         update_data = {photo_column: public_url, "updated_at": datetime.now(UTC).isoformat()}
 
@@ -1054,19 +1046,16 @@ async def upload_player_photo(
         return {
             "message": f"Photo uploaded to slot {slot}",
             "photo_url": public_url,
-            "profile": updated_profile
+            "profile": updated_profile,
         }
 
     except Exception as e:
         logger.error(f"Error uploading player photo: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/auth/profile/photo/{slot}")
-async def delete_player_photo(
-    slot: int,
-    current_user: dict[str, Any] = Depends(require_player_role)
-):
+async def delete_player_photo(slot: int, current_user: dict[str, Any] = Depends(require_player_role)):
     """Delete a profile photo from a slot (1, 2, or 3). Players only.
 
     If this was the profile photo, auto-selects the next available photo.
@@ -1096,6 +1085,7 @@ async def delete_player_photo(
 
         # Update profile to remove URL
         from datetime import datetime
+
         update_data = {photo_column: None, "updated_at": datetime.now(UTC).isoformat()}
 
         # If this was the profile photo, find next available
@@ -1111,22 +1101,18 @@ async def delete_player_photo(
 
         # Return updated profile
         updated_profile = player_dao.get_user_profile_with_relationships(user_id)
-        return {
-            "message": f"Photo deleted from slot {slot}",
-            "profile": updated_profile
-        }
+        return {"message": f"Photo deleted from slot {slot}", "profile": updated_profile}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting player photo: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/auth/profile/photo/profile-slot")
 async def set_profile_photo_slot(
-    slot_data: ProfilePhotoSlot,
-    current_user: dict[str, Any] = Depends(require_player_role)
+    slot_data: ProfilePhotoSlot, current_user: dict[str, Any] = Depends(require_player_role)
 ):
     """Set which photo slot is the profile picture. Players only.
 
@@ -1141,36 +1127,29 @@ async def set_profile_photo_slot(
         photo_url = profile.get(f"photo_{slot}_url")
 
         if not photo_url:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No photo in slot {slot}. Upload a photo first."
-            )
+            raise HTTPException(status_code=400, detail=f"No photo in slot {slot}. Upload a photo first.")
 
         # Update profile photo slot
         from datetime import datetime
-        player_dao.update_user_profile(user_id, {
-            "profile_photo_slot": slot,
-            "updated_at": datetime.now(UTC).isoformat()
-        })
+
+        player_dao.update_user_profile(
+            user_id, {"profile_photo_slot": slot, "updated_at": datetime.now(UTC).isoformat()}
+        )
 
         # Return updated profile
         updated_profile = player_dao.get_user_profile_with_relationships(user_id)
-        return {
-            "message": f"Profile photo set to slot {slot}",
-            "profile": updated_profile
-        }
+        return {"message": f"Profile photo set to slot {slot}", "profile": updated_profile}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error setting profile photo slot: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/auth/profile/customization")
 async def update_player_customization(
-    customization: PlayerCustomization,
-    current_user: dict[str, Any] = Depends(require_player_role)
+    customization: PlayerCustomization, current_user: dict[str, Any] = Depends(require_player_role)
 ):
     """Update player profile customization (colors, style). Players only.
 
@@ -1181,6 +1160,7 @@ async def update_player_customization(
 
     try:
         from datetime import datetime
+
         update_data = {"updated_at": datetime.now(UTC).isoformat()}
 
         # Personal info
@@ -1216,23 +1196,18 @@ async def update_player_customization(
 
         # Return updated profile
         updated_profile = player_dao.get_user_profile_with_relationships(user_id)
-        return {
-            "message": "Customization updated",
-            "profile": updated_profile
-        }
+        return {"message": "Customization updated", "profile": updated_profile}
 
     except Exception as e:
         logger.error(f"Error updating player customization: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Player Team History Endpoints ===
 
 
 @app.get("/api/auth/profile/history")
-async def get_player_history(
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def get_player_history(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get player's team history across all seasons.
 
     Returns history entries ordered by season (most recent first),
@@ -1242,18 +1217,15 @@ async def get_player_history(
 
     try:
         history = player_dao.get_player_team_history(user_id)
-        return {
-            "success": True,
-            "history": history
-        }
+        return {"success": True, "history": history}
     except Exception as e:
         logger.error(f"Error getting player history: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/auth/profile/history/current")
 async def get_current_team_assignment(
-    current_user: dict[str, Any] = Depends(get_current_user_required)
+    current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Get player's current team assignment (is_current=true).
 
@@ -1264,19 +1236,14 @@ async def get_current_team_assignment(
 
     try:
         current = player_dao.get_current_player_team_assignment(user_id)
-        return {
-            "success": True,
-            "current": current
-        }
+        return {"success": True, "current": current}
     except Exception as e:
         logger.error(f"Error getting current team assignment: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/auth/profile/teams/current")
-async def get_all_current_teams(
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def get_all_current_teams(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get ALL current team assignments for a player.
 
     Returns all team assignments where is_current=true.
@@ -1290,19 +1257,16 @@ async def get_all_current_teams(
 
     try:
         teams = player_dao.get_all_current_player_teams(user_id)
-        return {
-            "success": True,
-            "teams": teams
-        }
+        return {"success": True, "teams": teams}
     except Exception as e:
         logger.error(f"Error getting all current teams: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/auth/profile/history")
 async def create_player_history(
     history_data: PlayerHistoryCreate,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
+    current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Create a new player team history entry.
 
@@ -1320,27 +1284,24 @@ async def create_player_history(
             jersey_number=history_data.jersey_number,
             positions=history_data.positions,
             notes=history_data.notes,
-            is_current=history_data.is_current
+            is_current=history_data.is_current,
         )
 
         if entry:
-            return {
-                "success": True,
-                "entry": entry
-            }
+            return {"success": True, "entry": entry}
         else:
             raise HTTPException(status_code=500, detail="Failed to create history entry")
 
     except Exception as e:
         logger.error(f"Error creating player history entry: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/auth/profile/history/{history_id}")
 async def update_player_history(
     history_id: int,
     history_data: PlayerHistoryUpdate,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
+    current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Update a player team history entry.
 
@@ -1361,14 +1322,11 @@ async def update_player_history(
             jersey_number=history_data.jersey_number,
             positions=history_data.positions,
             notes=history_data.notes,
-            is_current=history_data.is_current
+            is_current=history_data.is_current,
         )
 
         if entry:
-            return {
-                "success": True,
-                "entry": entry
-            }
+            return {"success": True, "entry": entry}
         else:
             raise HTTPException(status_code=500, detail="Failed to update history entry")
 
@@ -1376,14 +1334,11 @@ async def update_player_history(
         raise
     except Exception as e:
         logger.error(f"Error updating player history entry: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/auth/profile/history/{history_id}")
-async def delete_player_history(
-    history_id: int,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def delete_player_history(history_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Delete a player team history entry.
 
     Players can only delete their own history entries.
@@ -1401,10 +1356,7 @@ async def delete_player_history(
         success = player_dao.delete_player_history_entry(history_id)
 
         if success:
-            return {
-                "success": True,
-                "message": "History entry deleted"
-            }
+            return {"success": True, "message": "History entry deleted"}
         else:
             raise HTTPException(status_code=500, detail="Failed to delete history entry")
 
@@ -1412,7 +1364,7 @@ async def delete_player_history(
         raise
     except Exception as e:
         logger.error(f"Error deleting player history entry: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Admin Player Management Endpoints ===
@@ -1434,17 +1386,13 @@ async def get_admin_players(
     """
     try:
         result = player_dao.get_all_players_admin(
-            search=search,
-            club_id=club_id,
-            team_id=team_id,
-            limit=limit,
-            offset=offset
+            search=search, club_id=club_id, team_id=team_id, limit=limit, offset=offset
         )
         return result
 
     except Exception as e:
         logger.error(f"Error getting admin players: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/admin/players/{player_id}")
@@ -1462,7 +1410,7 @@ async def update_admin_player(
             player_id=player_id,
             display_name=data.display_name,
             player_number=data.player_number,
-            positions=data.positions
+            positions=data.positions,
         )
 
         if result:
@@ -1474,7 +1422,7 @@ async def update_admin_player(
         raise
     except Exception as e:
         logger.error(f"Error updating admin player: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/admin/players/{player_id}/teams")
@@ -1494,7 +1442,7 @@ async def add_admin_player_team(
             team_id=data.team_id,
             season_id=data.season_id,
             jersey_number=data.jersey_number,
-            is_current=data.is_current
+            is_current=data.is_current,
         )
 
         if entry:
@@ -1506,7 +1454,7 @@ async def add_admin_player_team(
         raise
     except Exception as e:
         logger.error(f"Error adding admin player team: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/admin/players/teams/{history_id}/end")
@@ -1530,7 +1478,7 @@ async def end_admin_player_team(
         raise
     except Exception as e:
         logger.error(f"Error ending admin player team: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/auth/users")
@@ -1541,7 +1489,7 @@ async def get_users(current_user: dict[str, Any] = Depends(require_admin)):
 
     except Exception as e:
         logger.error(f"Get users error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get users")
+        raise HTTPException(status_code=500, detail="Failed to get users") from e
 
 
 @app.post("/api/auth/refresh")
@@ -1560,8 +1508,8 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
                     "access_token": response.session.access_token,
                     "refresh_token": response.session.refresh_token,
                     "expires_at": response.session.expires_at,
-                    "token_type": "bearer"
-                }
+                    "token_type": "bearer",
+                },
             }
         else:
             refresh_logger.warning("auth_refresh_failed", reason="no_session")
@@ -1570,58 +1518,60 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
     except Exception as e:
         refresh_logger.error("auth_refresh_error", error=str(e))
         logger.error(f"Token refresh error: {e}", exc_info=True)
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(status_code=401, detail="Invalid refresh token") from e
+
 
 @app.get("/api/auth/me")
 async def get_current_user_info(current_user: dict = Depends(get_current_user_required)):
     """Get current user info for frontend auth state."""
     try:
         # Get fresh profile data with team AND club info
-        profile = player_dao.get_user_profile_with_relationships(current_user['user_id']) or {}
+        profile = player_dao.get_user_profile_with_relationships(current_user["user_id"]) or {}
 
         return {
             "success": True,
             "user": {
-                "id": current_user['user_id'],
-                "email": current_user['email'],
+                "id": current_user["user_id"],
+                "email": current_user["email"],
                 "profile": {
-                    "username": profile.get('username'),
-                    "email": profile.get('email'),
-                    "role": profile.get('role', 'team-fan'),
-                    "team_id": profile.get('team_id'),
-                    "club_id": profile.get('club_id'),
-                    "display_name": profile.get('display_name'),
-                    "name": profile.get('name'),
-                    "player_number": profile.get('player_number'),
-                    "positions": profile.get('positions'),
-                    "team": profile.get('team'),
-                    "club": profile.get('club'),
-                    "created_at": profile.get('created_at'),
-                    "updated_at": profile.get('updated_at'),
+                    "username": profile.get("username"),
+                    "email": profile.get("email"),
+                    "role": profile.get("role", "team-fan"),
+                    "team_id": profile.get("team_id"),
+                    "club_id": profile.get("club_id"),
+                    "display_name": profile.get("display_name"),
+                    "name": profile.get("name"),
+                    "player_number": profile.get("player_number"),
+                    "positions": profile.get("positions"),
+                    "team": profile.get("team"),
+                    "club": profile.get("club"),
+                    "created_at": profile.get("created_at"),
+                    "updated_at": profile.get("updated_at"),
                     # Photo fields
-                    "photo_1_url": profile.get('photo_1_url'),
-                    "photo_2_url": profile.get('photo_2_url'),
-                    "photo_3_url": profile.get('photo_3_url'),
-                    "profile_photo_slot": profile.get('profile_photo_slot'),
-                    "overlay_style": profile.get('overlay_style'),
-                    "primary_color": profile.get('primary_color'),
-                    "text_color": profile.get('text_color'),
-                    "accent_color": profile.get('accent_color'),
+                    "photo_1_url": profile.get("photo_1_url"),
+                    "photo_2_url": profile.get("photo_2_url"),
+                    "photo_3_url": profile.get("photo_3_url"),
+                    "profile_photo_slot": profile.get("profile_photo_slot"),
+                    "overlay_style": profile.get("overlay_style"),
+                    "primary_color": profile.get("primary_color"),
+                    "text_color": profile.get("text_color"),
+                    "accent_color": profile.get("accent_color"),
                     # Social media handles
-                    "instagram_handle": profile.get('instagram_handle'),
-                    "snapchat_handle": profile.get('snapchat_handle'),
-                    "tiktok_handle": profile.get('tiktok_handle'),
+                    "instagram_handle": profile.get("instagram_handle"),
+                    "snapchat_handle": profile.get("snapchat_handle"),
+                    "tiktok_handle": profile.get("tiktok_handle"),
                     # Personal info
-                    "first_name": profile.get('first_name'),
-                    "last_name": profile.get('last_name'),
-                    "hometown": profile.get('hometown'),
-                }
-            }
+                    "first_name": profile.get("first_name"),
+                    "last_name": profile.get("last_name"),
+                    "hometown": profile.get("hometown"),
+                },
+            },
         }
 
     except Exception as e:
         logger.error(f"Get user info error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get user info")
+        raise HTTPException(status_code=500, detail="Failed to get user info") from e
+
 
 @app.get("/api/positions")
 async def get_positions(current_user: dict[str, Any] = Depends(get_current_user_required)):
@@ -1657,12 +1607,11 @@ async def get_positions(current_user: dict[str, Any] = Depends(get_current_user_
 
 
 @app.put("/api/auth/users/role")
-async def update_user_role(
-    role_data: RoleUpdate, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def update_user_role(role_data: RoleUpdate, current_user: dict[str, Any] = Depends(require_admin)):
     """Update user role (admin only)."""
     try:
         from datetime import datetime
+
         update_data = {"role": role_data.role, "updated_at": datetime.now(UTC).isoformat()}
 
         if role_data.team_id:
@@ -1674,7 +1623,7 @@ async def update_user_role(
 
     except Exception as e:
         logger.error(f"Update user role error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to update user role")
+        raise HTTPException(status_code=500, detail="Failed to update user role") from e
 
 
 @app.put("/api/auth/users/profile")
@@ -1703,9 +1652,7 @@ async def update_user_profile(
             if username:
                 existing = player_dao.get_user_profile_by_username(username, exclude_user_id=profile_data.user_id)
                 if existing:
-                    raise HTTPException(
-                        status_code=409, detail=f"Username '{username}' is already taken"
-                    )
+                    raise HTTPException(status_code=409, detail=f"Username '{username}' is already taken")
 
                 update_data["username"] = username.lower()
 
@@ -1751,7 +1698,7 @@ async def update_user_profile(
         raise
     except Exception as e:
         logger.error(f"Update user profile error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to update user profile: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Failed to update user profile: {e!s}") from e
 
 
 @app.delete("/api/auth/users/{user_id}")
@@ -1781,7 +1728,7 @@ async def delete_user(
         raise
     except Exception as e:
         logger.error(f"Delete user error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to delete user: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {e!s}") from e
 
 
 # === CSRF Token Endpoint ===
@@ -1797,9 +1744,7 @@ async def get_csrf_token_endpoint(request: Request, response: Response):
 
 
 @app.get("/api/age-groups")
-async def get_age_groups(
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def get_age_groups(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get all age groups."""
     try:
         logger.info(f"age-groups endpoint - current_user: {current_user}")
@@ -1810,7 +1755,7 @@ async def get_age_groups(
         logger.error(f"Error retrieving age groups: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
-        )
+        ) from e
 
 
 @app.get("/api/seasons")
@@ -1823,7 +1768,7 @@ async def get_seasons(current_user: dict[str, Any] = Depends(get_current_user_re
         logger.error(f"Error retrieving seasons: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
-        )
+        ) from e
 
 
 @app.get("/api/current-season")
@@ -1834,13 +1779,11 @@ async def get_current_season(current_user: dict[str, Any] = Depends(get_current_
         if not current_season:
             # Default to 2024-2025 season if no current season found
             seasons = season_dao.get_all_seasons()
-            current_season = next(
-                (s for s in seasons if s["name"] == "2024-2025"), seasons[0] if seasons else None
-            )
+            current_season = next((s for s in seasons if s["name"] == "2024-2025"), seasons[0] if seasons else None)
         return current_season
     except Exception as e:
         logger.error(f"Error retrieving current season: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/active-seasons")
@@ -1851,7 +1794,7 @@ async def get_active_seasons(current_user: dict[str, Any] = Depends(get_current_
         return active_seasons
     except Exception as e:
         logger.error(f"Error retrieving active seasons: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/match-types")
@@ -1862,24 +1805,20 @@ async def get_match_types(current_user: dict[str, Any] = Depends(get_current_use
         return match_types
     except Exception as e:
         logger.error(f"Error retrieving match types: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/divisions")
 async def get_divisions(
-    current_user: dict[str, Any] = Depends(get_current_user_required),
-    league_id: int | None = None
+    current_user: dict[str, Any] = Depends(get_current_user_required), league_id: int | None = None
 ):
     """Get all divisions, optionally filtered by league."""
     try:
-        if league_id:
-            divisions = league_dao.get_divisions_by_league(league_id)
-        else:
-            divisions = league_dao.get_all_divisions()
+        divisions = league_dao.get_divisions_by_league(league_id) if league_id else league_dao.get_all_divisions()
         return divisions
     except Exception as e:
         logger.error(f"Error retrieving divisions: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Enhanced Team Endpoints ===
@@ -1894,7 +1833,7 @@ async def get_teams(
     include_parent: bool = False,
     include_game_count: bool = False,
     club_id: int | None = None,
-    for_match_edit: bool = False
+    for_match_edit: bool = False,
 ):
     """
     Get teams, optionally filtered by match type, age group, division, or club.
@@ -1912,18 +1851,16 @@ async def get_teams(
     """
     try:
         # Club managers should only see their club's teams (unless editing matches)
-        user_role = current_user.get('role')
-        user_club_id = current_user.get('club_id')
+        user_role = current_user.get("role")
+        user_club_id = current_user.get("club_id")
 
-        if user_role == 'club_manager' and user_club_id and not for_match_edit:
+        if user_role == "club_manager" and user_club_id and not for_match_edit:
             # Override any club_id filter - club managers only see their own club
             club_id = user_club_id
 
         # Get teams based on filters
         if match_type_id and age_group_id:
-            teams = team_dao.get_teams_by_match_type_and_age_group(
-                match_type_id, age_group_id, division_id=division_id
-            )
+            teams = team_dao.get_teams_by_match_type_and_age_group(match_type_id, age_group_id, division_id=division_id)
         elif club_id:
             teams = team_dao.get_club_teams(club_id)
         else:
@@ -1942,27 +1879,27 @@ async def get_teams(
             clubs_by_id = {}
             if include_parent:
                 clubs = club_dao.get_all_clubs()
-                clubs_by_id = {c['id']: c for c in clubs}
+                clubs_by_id = {c["id"]: c for c in clubs}
 
             for team in teams:
                 team_data = {**team}
 
                 # Add parent club info if requested
                 if include_parent:
-                    if team.get('club_id'):
-                        team_data['parent_club'] = clubs_by_id.get(team['club_id'])
+                    if team.get("club_id"):
+                        team_data["parent_club"] = clubs_by_id.get(team["club_id"])
                     else:
-                        team_data['parent_club'] = None
+                        team_data["parent_club"] = None
 
                     # Check if this team is itself a parent club
-                    if hasattr(team_dao, 'is_parent_club'):
-                        team_data['is_parent_club'] = team_dao.is_parent_club(team['id'])
+                    if hasattr(team_dao, "is_parent_club"):
+                        team_data["is_parent_club"] = team_dao.is_parent_club(team["id"])
                     else:
-                        team_data['is_parent_club'] = False
+                        team_data["is_parent_club"] = False
 
                 # Add game count if requested
                 if include_game_count:
-                    team_data['game_count'] = game_counts.get(team['id'], 0)
+                    team_data["game_count"] = game_counts.get(team["id"], 0)
 
                 enriched_teams.append(team_data)
 
@@ -1973,14 +1910,14 @@ async def get_teams(
         logger.error(f"Error retrieving teams: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
-        )
+        ) from e
 
 
 @app.post("/api/teams")
 async def add_team(
     request: Request,
     team: Team,
-    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """Add a new team with age groups, division, and optional parent club.
 
@@ -1990,15 +1927,15 @@ async def add_team(
     Club managers can only add teams to their assigned club.
     """
     try:
-        user_role = current_user.get('role')
-        user_club_id = current_user.get('club_id')
+        user_role = current_user.get("role")
+        user_club_id = current_user.get("club_id")
 
         # Team managers cannot create teams (only manage existing ones)
-        if user_role == 'team-manager':
+        if user_role == "team-manager":
             raise HTTPException(status_code=403, detail="Team managers cannot create teams")
 
         # Club managers can only add teams to their assigned club
-        if user_role == 'club_manager':
+        if user_role == "club_manager":
             if not user_club_id:
                 raise HTTPException(status_code=403, detail="Club manager must have a club assigned")
             # Force team to be created in the club manager's club
@@ -2026,10 +1963,14 @@ async def add_team(
         logger.error(f"Error adding team: {error_str}", exc_info=True)
 
         # Check for duplicate team constraint violation
-        if "teams_name_division_unique" in error_str or "teams_name_academy_unique" in error_str or "duplicate key value" in error_str.lower():
-            raise HTTPException(status_code=409, detail="Team with this name already exists in this division")
+        if (
+            "teams_name_division_unique" in error_str
+            or "teams_name_academy_unique" in error_str
+            or "duplicate key value" in error_str.lower()
+        ):
+            raise HTTPException(status_code=409, detail="Team with this name already exists in this division") from e
 
-        raise HTTPException(status_code=500, detail=error_str)
+        raise HTTPException(status_code=500, detail=error_str) from e
 
 
 # === Enhanced Match Endpoints ===
@@ -2045,7 +1986,7 @@ async def get_matches(
     team_id: int | None = Query(None, description="Filter by team ID (home or away)"),
     match_type: str | None = Query(None, description="Filter by match type name"),
     start_date: str | None = Query(None, description="Filter by start date (YYYY-MM-DD)"),
-    end_date: str | None = Query(None, description="Filter by end date (YYYY-MM-DD)")
+    end_date: str | None = Query(None, description="Filter by end date (YYYY-MM-DD)"),
 ):
     """Get all matches with optional filters (requires authentication).
 
@@ -2063,18 +2004,17 @@ async def get_matches(
         )
 
         # Club managers only see matches involving their club's teams
-        user_role = current_user.get('role')
-        user_club_id = current_user.get('club_id')
+        user_role = current_user.get("role")
+        user_club_id = current_user.get("club_id")
 
-        if user_role == 'club_manager' and user_club_id:
+        if user_role == "club_manager" and user_club_id:
             # Get the team IDs for this club
             club_teams = team_dao.get_club_teams(user_club_id)
-            club_team_ids = {team['id'] for team in club_teams}
+            club_team_ids = {team["id"] for team in club_teams}
 
             # Filter matches to only those involving club's teams
             matches = [
-                m for m in matches
-                if m.get('home_team_id') in club_team_ids or m.get('away_team_id') in club_team_ids
+                m for m in matches if m.get("home_team_id") in club_team_ids or m.get("away_team_id") in club_team_ids
             ]
 
         return matches
@@ -2082,7 +2022,7 @@ async def get_matches(
         logger.error(f"Error retrieving matches: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
-        )
+        ) from e
 
 
 @app.get("/api/matches/live")
@@ -2099,14 +2039,14 @@ async def get_live_matches(
         return live_matches
     except Exception as e:
         logger.error(f"Error getting live matches: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/matches/{match_id}")
 async def get_match(
     request: Request,
     match_id: int,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
+    current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Get a specific match by ID (requires authentication)."""
     try:
@@ -2123,49 +2063,26 @@ async def get_match(
         logger.error(f"Error retrieving match {match_id}: {e!s}", exc_info=True)
         raise HTTPException(
             status_code=503, detail="Database connection failed. Please check Supabase connection."
-        )
-
-
-@app.delete("/api/matches/{match_id}")
-async def delete_match(
-    request: Request,
-    match_id: int,
-    current_user: dict[str, Any] = Depends(require_admin)
-):
-    """Delete a match by ID (requires admin permission)."""
-    try:
-        result = match_dao.delete_match(match_id)
-
-        if result:
-            return {"message": f"Match {match_id} deleted successfully"}
-        else:
-            raise HTTPException(status_code=404, detail=f"Match with ID {match_id} not found")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting match {match_id}: {e!s}", exc_info=True)
-        raise HTTPException(
-            status_code=503, detail="Database connection failed. Please check Supabase connection."
-        )
+        ) from e
 
 
 @app.post("/api/matches")
-async def add_match(request: Request, match: EnhancedMatch, current_user: dict[str, Any] = Depends(require_match_management_permission)):
-    """Add a new match with enhanced schema (requires admin, team manager, or service account with manage_matches permission)."""
+async def add_match(
+    request: Request,
+    match: EnhancedMatch,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Add a new match (requires admin, team manager, or service account with manage_matches permission)."""
     try:
         # Use username for regular users, service_name for service accounts
-        user_identifier = current_user.get('username') or current_user.get('service_name', 'unknown')
+        user_identifier = current_user.get("username") or current_user.get("service_name", "unknown")
         logger.info(f"POST /api/matches - User: {user_identifier}, Role: {current_user.get('role', 'unknown')}")
         logger.info(f"POST /api/matches - Match data: {match.model_dump()}")
 
         # Validate division_id for League matches
         match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
-        if match_type and match_type.get('name') == 'League' and match.division_id is None:
-            raise HTTPException(
-                status_code=422,
-                detail="division_id is required for League matches"
-            )
+        if match_type and match_type.get("name") == "League" and match.division_id is None:
+            raise HTTPException(status_code=422, detail="division_id is required for League matches")
 
         success = match_dao.add_match(
             home_team_id=match.home_team_id,
@@ -2188,14 +2105,16 @@ async def add_match(request: Request, match: EnhancedMatch, current_user: dict[s
             raise HTTPException(status_code=500, detail="Failed to add match")
     except Exception as e:
         logger.error(f"Error adding match: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/matches/{match_id}")
 async def update_match(
-    match_id: int, match: EnhancedMatch, current_user: dict[str, Any] = Depends(require_match_management_permission)
+    match_id: int,
+    match: EnhancedMatch,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
-    """Update an existing match (admin, club_manager, team-manager, or service account with manage_matches permission)."""
+    """Update an existing match (requires admin, team manager, or service account with manage_matches)."""
     try:
         # Get current match to check permissions
         current_match = match_dao.get_match_by_id(match_id)
@@ -2203,16 +2122,13 @@ async def update_match(
             raise HTTPException(status_code=404, detail="Match not found")
 
         # Check if user can edit this match
-        if not auth_manager.can_edit_match(current_user, current_match['home_team_id'], current_match['away_team_id']):
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
             raise HTTPException(status_code=403, detail="You don't have permission to edit this match")
 
         # Validate division_id for League matches
         match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
-        if match_type and match_type.get('name') == 'League' and match.division_id is None:
-            raise HTTPException(
-                status_code=422,
-                detail="division_id is required for League matches"
-            )
+        if match_type and match_type.get("name") == "League" and match.division_id is None:
+            raise HTTPException(status_code=422, detail="division_id is required for League matches")
 
         updated_match = match_dao.update_match(
             match_id=match_id,
@@ -2235,14 +2151,14 @@ async def update_match(
             raise HTTPException(status_code=500, detail="Failed to update match")
     except Exception as e:
         logger.error(f"Error updating match: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.patch("/api/matches/{match_id}")
 async def patch_match(
     match_id: int,
     match_patch: MatchPatch,
-    current_user: dict[str, Any] = Depends(require_match_management_permission)
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Partially update a match (requires manage_matches permission).
 
@@ -2256,7 +2172,7 @@ async def patch_match(
             raise HTTPException(status_code=404, detail="Match not found")
 
         # Check if user can edit this match
-        if not auth_manager.can_edit_match(current_user, current_match['home_team_id'], current_match['away_team_id']):
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
             raise HTTPException(status_code=403, detail="You don't have permission to edit this match")
 
         # Validate scores if provided
@@ -2269,37 +2185,47 @@ async def patch_match(
         valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled"]
         status_to_check = match_patch.match_status or match_patch.status
         if status_to_check is not None and status_to_check not in valid_statuses:
-            raise HTTPException(
-                status_code=400,
-                detail=f"status must be one of: {', '.join(valid_statuses)}"
-            )
+            raise HTTPException(status_code=400, detail=f"status must be one of: {', '.join(valid_statuses)}")
 
         # Build update data, using existing values for fields not provided
         update_data = {
             "match_id": match_id,
-            "home_team_id": match_patch.home_team_id if match_patch.home_team_id is not None else current_match['home_team_id'],
-            "away_team_id": match_patch.away_team_id if match_patch.away_team_id is not None else current_match['away_team_id'],
-            "match_date": match_patch.match_date if match_patch.match_date is not None else current_match['match_date'],
-            "home_score": match_patch.home_score if match_patch.home_score is not None else current_match['home_score'],
-            "away_score": match_patch.away_score if match_patch.away_score is not None else current_match['away_score'],
-            "season_id": match_patch.season_id if match_patch.season_id is not None else current_match['season_id'],
-            "age_group_id": match_patch.age_group_id if match_patch.age_group_id is not None else current_match['age_group_id'],
-            "match_type_id": match_patch.match_type_id if match_patch.match_type_id is not None else current_match['match_type_id'],
-            "division_id": match_patch.division_id if match_patch.division_id is not None else current_match.get('division_id'),
-            "status": match_patch.match_status if match_patch.match_status is not None else (match_patch.status if match_patch.status is not None else current_match.get('match_status', 'scheduled')),
-            "external_match_id": match_patch.external_match_id if match_patch.external_match_id is not None else current_match.get('external_match_id'),
+            "home_team_id": match_patch.home_team_id
+            if match_patch.home_team_id is not None
+            else current_match["home_team_id"],
+            "away_team_id": match_patch.away_team_id
+            if match_patch.away_team_id is not None
+            else current_match["away_team_id"],
+            "match_date": match_patch.match_date if match_patch.match_date is not None else current_match["match_date"],
+            "home_score": match_patch.home_score if match_patch.home_score is not None else current_match["home_score"],
+            "away_score": match_patch.away_score if match_patch.away_score is not None else current_match["away_score"],
+            "season_id": match_patch.season_id if match_patch.season_id is not None else current_match["season_id"],
+            "age_group_id": match_patch.age_group_id
+            if match_patch.age_group_id is not None
+            else current_match["age_group_id"],
+            "match_type_id": match_patch.match_type_id
+            if match_patch.match_type_id is not None
+            else current_match["match_type_id"],
+            "division_id": match_patch.division_id
+            if match_patch.division_id is not None
+            else current_match.get("division_id"),
+            "status": match_patch.match_status
+            if match_patch.match_status is not None
+            else (
+                match_patch.status if match_patch.status is not None else current_match.get("match_status", "scheduled")
+            ),
+            "external_match_id": match_patch.external_match_id
+            if match_patch.external_match_id is not None
+            else current_match.get("external_match_id"),
             "updated_by": current_user.get("user_id"),
         }
 
         # Validate division_id for League matches (after building final update data)
-        final_match_type_id = update_data['match_type_id']
-        final_division_id = update_data['division_id']
+        final_match_type_id = update_data["match_type_id"]
+        final_division_id = update_data["division_id"]
         match_type = match_type_dao.get_match_type_by_id(final_match_type_id)
-        if match_type and match_type.get('name') == 'League' and final_division_id is None:
-            raise HTTPException(
-                status_code=422,
-                detail="division_id is required for League matches"
-            )
+        if match_type and match_type.get("name") == "League" and final_division_id is None:
+            raise HTTPException(status_code=422, detail="division_id is required for League matches")
 
         logger.info(f"PATCH /api/matches/{match_id} - Calling update_match with: {update_data}")
         updated_match = match_dao.update_match(**update_data)
@@ -2318,7 +2244,7 @@ async def patch_match(
         raise
     except Exception as e:
         logger.error(f"Error patching match: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/matches/{match_id}")
@@ -2331,7 +2257,7 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
             raise HTTPException(status_code=404, detail="Match not found")
 
         # Check if user can edit this match
-        if not auth_manager.can_edit_match(current_user, current_match['home_team_id'], current_match['away_team_id']):
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
             raise HTTPException(status_code=403, detail="You don't have permission to delete this match")
 
         success = match_dao.delete_match(match_id)
@@ -2341,7 +2267,7 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
             raise HTTPException(status_code=500, detail="Failed to delete match")
     except Exception as e:
         logger.error(f"Error deleting match: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/matches/team/{team_id}")
@@ -2349,7 +2275,7 @@ async def get_matches_by_team(
     team_id: int,
     current_user: dict[str, Any] = Depends(get_current_user_required),
     season_id: int | None = Query(None, description="Filter by season ID"),
-    age_group_id: int | None = Query(None, description="Filter by age group ID")
+    age_group_id: int | None = Query(None, description="Filter by age group ID"),
 ):
     """Get matches for a specific team."""
     try:
@@ -2358,7 +2284,7 @@ async def get_matches_by_team(
         return matches if matches else []
     except Exception as e:
         logger.error(f"Error retrieving matches for team '{team_id}': {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Live Match Endpoints ===
@@ -2394,9 +2320,7 @@ def calculate_match_minute(match: dict) -> tuple[int | None, int | None]:
     # In second half
     if second_half_start:
         if isinstance(second_half_start, str):
-            second_half_start = datetime.fromisoformat(
-                second_half_start.replace("Z", "+00:00")
-            )
+            second_half_start = datetime.fromisoformat(second_half_start.replace("Z", "+00:00"))
         elapsed_seconds = (now - second_half_start).total_seconds()
         elapsed_minutes = int(elapsed_seconds / 60) + 1  # Round up to current minute
         total_minute = half_duration + elapsed_minutes
@@ -2444,7 +2368,7 @@ async def get_live_match_state(
         raise
     except Exception as e:
         logger.error(f"Error getting live match state: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/matches/{match_id}/live/clock")
@@ -2464,12 +2388,8 @@ async def update_match_clock(
             raise HTTPException(status_code=404, detail="Match not found")
 
         # Check if user can edit this match
-        if not auth_manager.can_edit_match(
-            current_user, current_match["home_team_id"], current_match["away_team_id"]
-        ):
-            raise HTTPException(
-                status_code=403, detail="You don't have permission to manage this match"
-            )
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
 
         # Validate action
         valid_actions = [
@@ -2512,7 +2432,7 @@ async def update_match_clock(
         raise
     except Exception as e:
         logger.error(f"Error updating match clock: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/matches/{match_id}/live/goal")
@@ -2535,21 +2455,15 @@ async def post_goal(
             raise HTTPException(status_code=404, detail="Match not found")
 
         # Check if user can edit this match
-        if not auth_manager.can_edit_match(
-            current_user, current_match["home_team_id"], current_match["away_team_id"]
-        ):
-            raise HTTPException(
-                status_code=403, detail="You don't have permission to manage this match"
-            )
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
 
         # Validate team_id is one of the match teams
         if goal.team_id not in [
             current_match["home_team_id"],
             current_match["away_team_id"],
         ]:
-            raise HTTPException(
-                status_code=400, detail="Team must be one of the match participants"
-            )
+            raise HTTPException(status_code=400, detail="Team must be one of the match participants")
 
         # Resolve player name - either from player_id or from the request
         player_name = goal.player_name
@@ -2561,17 +2475,13 @@ async def post_goal(
             if not player:
                 raise HTTPException(status_code=400, detail="Player not found")
             if player["team_id"] != goal.team_id:
-                raise HTTPException(
-                    status_code=400, detail="Player must be on the scoring team"
-                )
+                raise HTTPException(status_code=400, detail="Player must be on the scoring team")
             # Use player display name from roster
             player_name = player.get("display_name", f"#{player['jersey_number']}")
 
         # Require at least one identifier
         if not player_name and not player_id:
-            raise HTTPException(
-                status_code=400, detail="Either player_id or player_name is required"
-            )
+            raise HTTPException(status_code=400, detail="Either player_id or player_name is required")
 
         # Calculate new scores
         home_score = current_match.get("home_score") or 0
@@ -2586,9 +2496,7 @@ async def post_goal(
 
         # Update the score
         user_id = current_user.get("user_id") or current_user.get("id")
-        result = match_dao.update_match_score(
-            match_id, home_score, away_score, updated_by=user_id
-        )
+        result = match_dao.update_match_score(match_id, home_score, away_score, updated_by=user_id)
         if not result:
             raise HTTPException(status_code=500, detail="Failed to update match score")
 
@@ -2622,7 +2530,7 @@ async def post_goal(
         raise
     except Exception as e:
         logger.error(f"Error posting goal: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/matches/{match_id}/live/message")
@@ -2659,7 +2567,7 @@ async def post_message(
         raise
     except Exception as e:
         logger.error(f"Error posting message: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/matches/{match_id}/live/events/{event_id}")
@@ -2679,21 +2587,15 @@ async def delete_event(
             raise HTTPException(status_code=404, detail="Match not found")
 
         # Check if user can edit this match
-        if not auth_manager.can_edit_match(
-            current_user, current_match["home_team_id"], current_match["away_team_id"]
-        ):
-            raise HTTPException(
-                status_code=403, detail="You don't have permission to moderate this match"
-            )
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+            raise HTTPException(status_code=403, detail="You don't have permission to moderate this match")
 
         # Verify the event belongs to this match
         event = match_event_dao.get_event_by_id(event_id)
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
         if event.get("match_id") != match_id:
-            raise HTTPException(
-                status_code=400, detail="Event does not belong to this match"
-            )
+            raise HTTPException(status_code=400, detail="Event does not belong to this match")
 
         # Soft delete the event
         user_id = current_user.get("user_id") or current_user.get("id")
@@ -2713,16 +2615,14 @@ async def delete_event(
             elif team_id == current_match["away_team_id"] and away_score > 0:
                 away_score -= 1
 
-            match_dao.update_match_score(
-                match_id, home_score, away_score, updated_by=user_id
-            )
+            match_dao.update_match_score(match_id, home_score, away_score, updated_by=user_id)
 
         return {"message": "Event deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting event: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/matches/{match_id}/live/events")
@@ -2741,7 +2641,7 @@ async def get_match_events(
         return events
     except Exception as e:
         logger.error(f"Error getting match events: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Enhanced League Table Endpoint ===
@@ -2787,7 +2687,7 @@ async def get_table(
         return table
     except Exception as e:
         logger.error(f"Error generating league table: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Admin CRUD Endpoints ===
@@ -2795,16 +2695,14 @@ async def get_table(
 
 # Age Groups CRUD
 @app.post("/api/age-groups")
-async def create_age_group(
-    age_group: AgeGroupCreate, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def create_age_group(age_group: AgeGroupCreate, current_user: dict[str, Any] = Depends(require_admin)):
     """Create a new age group (admin only)."""
     try:
         result = season_dao.create_age_group(age_group.name)
         return result
     except Exception as e:
         logger.error(f"Error creating age group: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/age-groups/{age_group_id}")
@@ -2823,13 +2721,11 @@ async def update_age_group(
         raise
     except Exception as e:
         logger.error(f"Error updating age group: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/age-groups/{age_group_id}")
-async def delete_age_group(
-    age_group_id: int, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def delete_age_group(age_group_id: int, current_user: dict[str, Any] = Depends(require_admin)):
     """Delete an age group (admin only)."""
     try:
         result = season_dao.delete_age_group(age_group_id)
@@ -2840,32 +2736,26 @@ async def delete_age_group(
         raise
     except Exception as e:
         logger.error(f"Error deleting age group: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # Seasons CRUD
 @app.post("/api/seasons")
-async def create_season(
-    season: SeasonCreate, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def create_season(season: SeasonCreate, current_user: dict[str, Any] = Depends(require_admin)):
     """Create a new season (admin only)."""
     try:
         result = season_dao.create_season(season.name, season.start_date, season.end_date)
         return result
     except Exception as e:
         logger.error(f"Error creating season: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.put("/api/seasons/{season_id}")
-async def update_season(
-    season_id: int, season: SeasonUpdate, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def update_season(season_id: int, season: SeasonUpdate, current_user: dict[str, Any] = Depends(require_admin)):
     """Update a season (admin only)."""
     try:
-        result = season_dao.update_season(
-            season_id, season.name, season.start_date, season.end_date
-        )
+        result = season_dao.update_season(season_id, season.name, season.start_date, season.end_date)
         if not result:
             raise HTTPException(status_code=404, detail="Season not found")
         return result
@@ -2873,7 +2763,7 @@ async def update_season(
         raise
     except Exception as e:
         logger.error(f"Error updating season: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/seasons/{season_id}")
@@ -2888,7 +2778,7 @@ async def delete_season(season_id: int, current_user: dict[str, Any] = Depends(r
         raise
     except Exception as e:
         logger.error(f"Error deleting season: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # Leagues CRUD
@@ -2900,7 +2790,7 @@ async def get_leagues():
         return leagues
     except Exception as e:
         logger.error(f"Error fetching leagues: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/leagues/{league_id}")
@@ -2915,13 +2805,11 @@ async def get_league(league_id: int):
         raise
     except Exception as e:
         logger.error(f"Error fetching league {league_id}: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/leagues")
-async def create_league(
-    league: LeagueCreate, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def create_league(league: LeagueCreate, current_user: dict[str, Any] = Depends(require_admin)):
     """Create a new league (admin only)."""
     try:
         league_data = league.model_dump()
@@ -2929,7 +2817,7 @@ async def create_league(
         return result
     except Exception as e:
         logger.error(f"Error creating league: {e!s}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.put("/api/leagues/{league_id}")
@@ -2950,13 +2838,11 @@ async def update_league(
         raise
     except Exception as e:
         logger.error(f"Error updating league: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/leagues/{league_id}")
-async def delete_league(
-    league_id: int, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def delete_league(league_id: int, current_user: dict[str, Any] = Depends(require_admin)):
     """Delete a league (admin only). Will fail if divisions exist."""
     try:
         league_dao.delete_league(league_id)
@@ -2967,16 +2853,13 @@ async def delete_league(
             raise HTTPException(
                 status_code=400,
                 detail="Cannot delete league with existing divisions. Delete divisions first.",
-            )
-        raise HTTPException(status_code=500, detail=str(e))
+            ) from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # Divisions CRUD
 @app.post("/api/divisions")
-async def create_division(
-    division: DivisionCreate,
-    current_user: dict[str, Any] = Depends(require_admin)
-):
+async def create_division(division: DivisionCreate, current_user: dict[str, Any] = Depends(require_admin)):
     """Create a new division (admin only)."""
     try:
         division_data = division.model_dump()
@@ -2984,7 +2867,7 @@ async def create_division(
         return result
     except Exception as e:
         logger.error(f"Error creating division: {e!s}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.put("/api/divisions/{division_id}")
@@ -3005,7 +2888,7 @@ async def update_division(
         raise
     except Exception as e:
         logger.error(f"Error updating division: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/divisions/{division_id}")
@@ -3020,7 +2903,7 @@ async def delete_division(division_id: int, current_user: dict[str, Any] = Depen
         raise
     except Exception as e:
         logger.error(f"Error deleting division: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # Teams CRUD (update existing)
@@ -3029,14 +2912,12 @@ async def update_team(
     request: Request,
     team_id: int,
     team: TeamUpdate,
-    current_user: dict[str, Any] = Depends(require_admin)
+    current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Update a team (admin only)."""
     try:
         logger.info(f"Updating team {team_id}: name={team.name}, club_id={team.club_id}")
-        result = team_dao.update_team(
-            team_id, team.name, team.city, team.academy_team, team.club_id
-        )
+        result = team_dao.update_team(team_id, team.name, team.city, team.academy_team, team.club_id)
         if not result:
             raise HTTPException(status_code=404, detail="Team not found")
         return result
@@ -3044,7 +2925,7 @@ async def update_team(
         raise
     except Exception as e:
         logger.error(f"Error updating team: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/teams/{team_id}")
@@ -3059,7 +2940,7 @@ async def delete_team(team_id: int, current_user: dict[str, Any] = Depends(requi
         raise
     except Exception as e:
         logger.error(f"Error deleting team: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/teams/{team_id}/match-types")
@@ -3070,20 +2951,16 @@ async def add_team_match_type_participation(
 ):
     """Add a team's participation in a specific match type and age group (admin only)."""
     try:
-        success = team_dao.add_team_match_type_participation(
-            team_id, mapping.match_type_id, mapping.age_group_id
-        )
+        success = team_dao.add_team_match_type_participation(team_id, mapping.match_type_id, mapping.age_group_id)
         if success:
             return {"message": "Team match type participation added successfully"}
         else:
-            raise HTTPException(
-                status_code=500, detail="Failed to add team match type participation"
-            )
+            raise HTTPException(status_code=500, detail="Failed to add team match type participation")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error adding team match type participation: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/teams/{team_id}/match-types/{match_type_id}/{age_group_id}")
@@ -3095,29 +2972,23 @@ async def remove_team_match_type_participation(
 ):
     """Remove a team's participation in a specific match type and age group (admin only)."""
     try:
-        success = team_dao.remove_team_match_type_participation(
-            team_id, match_type_id, age_group_id
-        )
+        success = team_dao.remove_team_match_type_participation(team_id, match_type_id, age_group_id)
         if success:
             return {"message": "Team match type participation removed successfully"}
         else:
-            raise HTTPException(
-                status_code=500, detail="Failed to remove team match type participation"
-            )
+            raise HTTPException(status_code=500, detail="Failed to remove team match type participation")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error removing team match type participation: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Club Endpoints ===
 
+
 @app.get("/api/clubs")
-async def get_clubs(
-    include_teams: bool = True,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def get_clubs(include_teams: bool = True, current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get all clubs.
 
     Args:
@@ -3160,17 +3031,15 @@ async def get_clubs(
         return enriched_clubs
     except Exception as e:
         logger.error(f"Error fetching clubs: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/clubs/{club_id}")
-async def get_club(
-    club_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def get_club(club_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get a single club by ID."""
     try:
         clubs = club_dao.get_all_clubs()
-        club = next((c for c in clubs if c['id'] == club_id), None)
+        club = next((c for c in clubs if c["id"] == club_id), None)
         if not club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
         return club
@@ -3178,7 +3047,7 @@ async def get_club(
         raise
     except Exception as e:
         logger.error(f"Error fetching club: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/clubs/{club_id}/teams")
@@ -3189,11 +3058,7 @@ async def get_club_teams(
 ):
     """Get all teams for a specific club."""
     try:
-        teams = (
-            team_dao.get_club_teams(club_id)
-            if include_stats
-            else team_dao.get_club_teams_basic(club_id)
-        )
+        teams = team_dao.get_club_teams(club_id) if include_stats else team_dao.get_club_teams_basic(club_id)
         if not teams:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
 
@@ -3202,13 +3067,11 @@ async def get_club_teams(
         raise
     except Exception as e:
         logger.error(f"Error fetching club teams: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/clubs")
-async def create_club(
-    club: Club, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def create_club(club: Club, current_user: dict[str, Any] = Depends(require_admin)):
     """Create a new club (admin only)."""
     try:
         new_club = club_dao.create_club(
@@ -3218,7 +3081,7 @@ async def create_club(
             description=club.description,
             logo_url=club.logo_url,
             primary_color=club.primary_color,
-            secondary_color=club.secondary_color
+            secondary_color=club.secondary_color,
         )
         logger.info(f"Created new club: {new_club['name']}")
         return new_club
@@ -3227,26 +3090,21 @@ async def create_club(
         logger.error(f"Error creating club: {error_str}", exc_info=True)
 
         # Check for duplicate key constraint violation
-        if 'duplicate key value violates unique constraint' in error_str.lower():
-            if 'clubs_name_unique' in error_str.lower() or 'clubs_name_key' in error_str.lower():
+        if "duplicate key value violates unique constraint" in error_str.lower():
+            if "clubs_name_unique" in error_str.lower() or "clubs_name_key" in error_str.lower():
                 raise HTTPException(
                     status_code=409,
-                    detail=f"A club with the name '{club.name}' already exists. Please use a different name."
-                )
+                    detail=f"A club with the name '{club.name}' already exists. Please use a different name.",
+                ) from e
             else:
-                raise HTTPException(
-                    status_code=409,
-                    detail="A club with this information already exists."
-                )
+                raise HTTPException(status_code=409, detail="A club with this information already exists.") from e
 
         # For any other unexpected errors, return 500
-        raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the club.")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the club.") from e
 
 
 @app.put("/api/clubs/{club_id}")
-async def update_club(
-    club_id: int, club: Club, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def update_club(club_id: int, club: Club, current_user: dict[str, Any] = Depends(require_admin)):
     """Update a club (admin only)."""
     try:
         updated_club = club_dao.update_club(
@@ -3257,7 +3115,7 @@ async def update_club(
             description=club.description,
             logo_url=club.logo_url,
             primary_color=club.primary_color,
-            secondary_color=club.secondary_color
+            secondary_color=club.secondary_color,
         )
         if not updated_club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
@@ -3267,14 +3125,14 @@ async def update_club(
         raise
     except Exception as e:
         logger.error(f"Error updating club: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/clubs/{club_id}/logo")
 async def upload_club_logo(
     club_id: int,
     file: UploadFile = File(...),
-    current_user: dict[str, Any] = Depends(require_admin)
+    current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Upload a logo image for a club (admin only).
 
@@ -3286,7 +3144,7 @@ async def upload_club_logo(
     if file.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed types: PNG, JPG. Got: {file.content_type}"
+            detail=f"Invalid file type. Allowed types: PNG, JPG. Got: {file.content_type}",
         )
 
     # Read file content
@@ -3297,7 +3155,7 @@ async def upload_club_logo(
     if len(content) > max_size:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size is 2MB. Got: {len(content) / 1024 / 1024:.2f}MB"
+            detail=f"File too large. Maximum size is 2MB. Got: {len(content) / 1024 / 1024:.2f}MB",
         )
 
     # Determine file extension
@@ -3309,10 +3167,8 @@ async def upload_club_logo(
         storage = match_dao.client.storage
 
         # Upload to club-logos bucket (upsert to overwrite existing)
-        result = storage.from_("club-logos").upload(
-            file_path,
-            content,
-            file_options={"content-type": file.content_type, "upsert": "true"}
+        storage.from_("club-logos").upload(
+            file_path, content, file_options={"content-type": file.content_type, "upsert": "true"}
         )
 
         # Get public URL
@@ -3331,13 +3187,11 @@ async def upload_club_logo(
         raise
     except Exception as e:
         logger.error(f"Error uploading club logo: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {e!s}") from e
 
 
 @app.delete("/api/clubs/{club_id}")
-async def delete_club(
-    club_id: int, current_user: dict[str, Any] = Depends(require_admin)
-):
+async def delete_club(club_id: int, current_user: dict[str, Any] = Depends(require_admin)):
     """Delete a club (admin only).
 
     Note: This will fail if there are teams still associated with this club.
@@ -3356,40 +3210,39 @@ async def delete_club(
         logger.error(f"Error deleting club: {error_str}", exc_info=True)
 
         # Check if it's a foreign key constraint violation
-        if 'foreign key constraint' in error_str.lower() or 'violates' in error_str.lower():
+        if "foreign key constraint" in error_str.lower() or "violates" in error_str.lower():
             raise HTTPException(
                 status_code=409,
-                detail="Cannot delete club because it has teams associated with it. Remove team associations first."
-            )
+                detail="Cannot delete club because it has teams associated with it. Remove team associations first.",
+            ) from e
 
-        raise HTTPException(status_code=500, detail="An unexpected error occurred while deleting the club.")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while deleting the club.") from e
 
 
 # Team Mappings CRUD
 @app.post("/api/team-mappings")
 async def create_team_mapping(
-    mapping: TeamMappingCreate, current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    mapping: TeamMappingCreate,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """Create a team mapping (admin or club_manager for their club's teams)."""
     try:
-        user_role = current_user.get('role')
-        user_club_id = current_user.get('club_id')
+        user_role = current_user.get("role")
+        user_club_id = current_user.get("club_id")
 
         # Club managers can only add mappings to their own club's teams
-        if user_role == 'club_manager':
+        if user_role == "club_manager":
             team = team_dao.get_team_by_id(mapping.team_id)
-            if not team or team.get('club_id') != user_club_id:
+            if not team or team.get("club_id") != user_club_id:
                 raise HTTPException(status_code=403, detail="You can only manage teams in your club")
 
-        result = team_dao.create_team_mapping(
-            mapping.team_id, mapping.age_group_id, mapping.division_id
-        )
+        result = team_dao.create_team_mapping(mapping.team_id, mapping.age_group_id, mapping.division_id)
         return result
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating team mapping: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.delete("/api/team-mappings/{team_id}/{age_group_id}/{division_id}")
@@ -3401,13 +3254,13 @@ async def delete_team_mapping(
 ):
     """Delete a team mapping (admin or club_manager for their club's teams)."""
     try:
-        user_role = current_user.get('role')
-        user_club_id = current_user.get('club_id')
+        user_role = current_user.get("role")
+        user_club_id = current_user.get("club_id")
 
         # Club managers can only delete mappings from their own club's teams
-        if user_role == 'club_manager':
+        if user_role == "club_manager":
             team = team_dao.get_team_by_id(team_id)
-            if not team or team.get('club_id') != user_club_id:
+            if not team or team.get("club_id") != user_club_id:
                 raise HTTPException(status_code=403, detail="You can only manage teams in your club")
 
         result = team_dao.delete_team_mapping(team_id, age_group_id, division_id)
@@ -3418,15 +3271,16 @@ async def delete_team_mapping(
         raise
     except Exception as e:
         logger.error(f"Error deleting team mapping: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Match-Scraper Integration Endpoints ===
 
+
 @app.post("/api/matches/submit")
 async def submit_match_async(
     match_data: MatchSubmissionData,
-    current_user: dict[str, Any] = Depends(require_match_management_permission)
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """
     Submit match data for async processing via Celery.
@@ -3446,7 +3300,7 @@ async def submit_match_async(
         from celery_tasks.match_tasks import process_match_data
 
         # Log the submission
-        user_identifier = current_user.get('username') or current_user.get('service_name', 'unknown')
+        user_identifier = current_user.get("username") or current_user.get("service_name", "unknown")
         logger.info(f"POST /api/matches/submit - User: {user_identifier}")
         logger.info(f"POST /api/matches/submit - Match: {match_data.home_team} vs {match_data.away_team}")
 
@@ -3466,20 +3320,17 @@ async def submit_match_async(
             "match": {
                 "home_team": match_data.home_team,
                 "away_team": match_data.away_team,
-                "match_date": match_data.match_date
-            }
+                "match_date": match_data.match_date,
+            },
         }
 
     except Exception as e:
         logger.error(f"Error submitting match for async processing: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to queue match: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Failed to queue match: {e!s}") from e
 
 
 @app.get("/api/matches/task/{task_id}")
-async def get_task_status(
-    task_id: str,
-    current_user: dict[str, Any] = Depends(require_match_management_permission)
-):
+async def get_task_status(task_id: str, current_user: dict[str, Any] = Depends(require_match_management_permission)):
     """
     Get the status of a queued match processing task.
 
@@ -3513,7 +3364,7 @@ async def get_task_status(
 
     except Exception as e:
         logger.error(f"Error retrieving task status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get task status: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Failed to get task status: {e!s}") from e
 
 
 @app.post("/api/match-scraper/matches")
@@ -3521,7 +3372,7 @@ async def add_or_update_scraped_match(
     request: Request,
     match: EnhancedMatch,
     external_match_id: str,
-    current_user: dict[str, Any] = Depends(require_match_management_permission)
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Add or update a match from match-scraper with intelligent duplicate handling."""
     try:
@@ -3530,11 +3381,8 @@ async def add_or_update_scraped_match(
 
         # Validate division_id for League matches
         match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
-        if match_type and match_type.get('name') == 'League' and match.division_id is None:
-            raise HTTPException(
-                status_code=422,
-                detail="division_id is required for League matches"
-            )
+        if match_type and match_type.get("name") == "League" and match.division_id is None:
+            raise HTTPException(status_code=422, detail="division_id is required for League matches")
 
         # Check if match already exists by external_match_id
         existing_match_response = await check_match(
@@ -3545,7 +3393,7 @@ async def add_or_update_scraped_match(
             age_group_id=match.age_group_id,
             match_type_id=match.match_type_id,
             division_id=match.division_id,
-            external_match_id=external_match_id
+            external_match_id=external_match_id,
         )
 
         if existing_match_response["exists"]:
@@ -3572,7 +3420,7 @@ async def add_or_update_scraped_match(
                     "message": "Match updated successfully",
                     "action": "updated",
                     "match_id": existing_match_id,
-                    "external_match_id": external_match_id
+                    "external_match_id": external_match_id,
                 }
             else:
                 raise HTTPException(status_code=500, detail="Failed to update match")
@@ -3599,14 +3447,14 @@ async def add_or_update_scraped_match(
                 return {
                     "message": "Match created successfully",
                     "action": "created",
-                    "external_match_id": external_match_id
+                    "external_match_id": external_match_id,
                 }
             else:
                 raise HTTPException(status_code=500, detail="Failed to create match")
 
     except Exception as e:
         logger.error(f"Error in match-scraper match endpoint: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Backward Compatibility Endpoints ===
@@ -3622,7 +3470,7 @@ async def check_match(
     age_group_id: int | None = None,
     match_type_id: int | None = None,
     division_id: int | None = None,
-    external_match_id: str | None = None
+    external_match_id: str | None = None,
 ):
     """Enhanced match existence check with comprehensive duplicate detection."""
     try:
@@ -3635,7 +3483,7 @@ async def check_match(
                         "exists": True,
                         "match_id": match.get("id"),
                         "match": match,
-                        "match_type": "external_match_id"
+                        "match_type": "external_match_id",
                     }
 
         # Check for duplicate based on comprehensive match context
@@ -3666,23 +3514,20 @@ async def check_match(
                     "match_id": match.get("id"),
                     "match": match,
                     "match_type": "enhanced_context" if enhanced_match else "basic_context",
-                    "enhanced_match": enhanced_match
+                    "enhanced_match": enhanced_match,
                 }
 
         return {"exists": False}
     except Exception as e:
         logger.error(f"Error checking match: {e!s}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # === Team Roster & Player Profile Endpoints ===
 
 
 @app.get("/api/teams/{team_id}/players")
-async def get_team_players(
-    team_id: int,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def get_team_players(team_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)):
     """
     Get all players on a team for the team roster page.
 
@@ -3700,27 +3545,24 @@ async def get_team_players(
         requested_team = team_dao.get_team_by_id(team_id)
         if not requested_team:
             raise HTTPException(status_code=404, detail="Team not found")
-        requested_club_id = requested_team.get('club_id')
+        requested_club_id = requested_team.get("club_id")
 
         # Get user's club_id from their profile's team_id or club_id
         user_club_ids = set()
 
         # Check user's direct club_id (for club managers/fans)
-        if current_user.get('club_id'):
-            user_club_ids.add(current_user['club_id'])
+        if current_user.get("club_id"):
+            user_club_ids.add(current_user["club_id"])
 
         # Check user's team's club_id (for team players/managers/fans)
-        if current_user.get('team_id'):
-            user_team = team_dao.get_team_by_id(current_user['team_id'])
-            if user_team and user_team.get('club_id'):
-                user_club_ids.add(user_team['club_id'])
+        if current_user.get("team_id"):
+            user_team = team_dao.get_team_by_id(current_user["team_id"])
+            if user_team and user_team.get("club_id"):
+                user_club_ids.add(user_team["club_id"])
 
         # Authorization: user must belong to a team in the same club
         if requested_club_id not in user_club_ids:
-            raise HTTPException(
-                status_code=403,
-                detail="You can only view rosters for teams in your club"
-            )
+            raise HTTPException(status_code=403, detail="You can only view rosters for teams in your club")
 
         # Get team info with relationships
         team = team_dao.get_team_with_details(team_id)
@@ -3730,17 +3572,13 @@ async def get_team_players(
         # Get players
         players = player_dao.get_team_players(team_id)
 
-        return {
-            "success": True,
-            "team": team,
-            "players": players
-        }
+        return {"success": True, "team": team, "players": players}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting team players: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get team players")
+        raise HTTPException(status_code=500, detail="Failed to get team players") from e
 
 
 # === Roster Management Endpoints (new players table) ===
@@ -3750,7 +3588,7 @@ async def get_team_players(
 async def get_team_roster(
     team_id: int,
     season_id: int = Query(..., description="Season ID"),
-    current_user: dict[str, Any] = Depends(get_current_user_required)
+    current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """
     Get team roster from the players table.
@@ -3767,25 +3605,20 @@ async def get_team_roster(
         # Get roster from players table
         roster = roster_dao.get_team_roster(team_id, season_id)
 
-        return {
-            "success": True,
-            "team_id": team_id,
-            "season_id": season_id,
-            "roster": roster
-        }
+        return {"success": True, "team_id": team_id, "season_id": season_id, "roster": roster}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting team roster: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get team roster")
+        raise HTTPException(status_code=500, detail="Failed to get team roster") from e
 
 
 @app.post("/api/teams/{team_id}/roster")
 async def create_roster_entry(
     team_id: int,
     player: RosterPlayerCreate,
-    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """
     Add a single player to the team roster.
@@ -3800,14 +3633,9 @@ async def create_roster_entry(
             raise HTTPException(status_code=404, detail="Team not found")
 
         # Check if jersey number is already taken
-        existing = roster_dao.get_player_by_jersey(
-            team_id, player.season_id, player.jersey_number
-        )
+        existing = roster_dao.get_player_by_jersey(team_id, player.season_id, player.jersey_number)
         if existing:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Jersey number {player.jersey_number} is already taken"
-            )
+            raise HTTPException(status_code=409, detail=f"Jersey number {player.jersey_number} is already taken")
 
         # Create roster entry
         created = roster_dao.create_player(
@@ -3817,7 +3645,7 @@ async def create_roster_entry(
             first_name=player.first_name,
             last_name=player.last_name,
             positions=player.positions,
-            created_by=current_user['user_id']
+            created_by=current_user["user_id"],
         )
 
         if not created:
@@ -3829,14 +3657,14 @@ async def create_roster_entry(
         raise
     except Exception as e:
         logger.error(f"Error creating roster entry: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to create roster entry")
+        raise HTTPException(status_code=500, detail="Failed to create roster entry") from e
 
 
 @app.post("/api/teams/{team_id}/roster/bulk")
 async def bulk_create_roster(
     team_id: int,
     data: BulkRosterCreate,
-    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """
     Bulk create roster entries.
@@ -3852,20 +3680,17 @@ async def bulk_create_roster(
 
         # Get existing roster to filter duplicates
         existing_roster = roster_dao.get_team_roster(team_id, data.season_id)
-        existing_numbers = {p['jersey_number'] for p in existing_roster}
+        existing_numbers = {p["jersey_number"] for p in existing_roster}
 
         # Filter out duplicates
-        new_players = [
-            p.model_dump() for p in data.players
-            if p.jersey_number not in existing_numbers
-        ]
+        new_players = [p.model_dump() for p in data.players if p.jersey_number not in existing_numbers]
 
         if not new_players:
             return {
                 "success": True,
                 "created": [],
                 "skipped": len(data.players),
-                "message": "All jersey numbers already exist"
+                "message": "All jersey numbers already exist",
             }
 
         # Bulk create
@@ -3873,21 +3698,21 @@ async def bulk_create_roster(
             team_id=team_id,
             season_id=data.season_id,
             players=new_players,
-            created_by=current_user['user_id']
+            created_by=current_user["user_id"],
         )
 
         return {
             "success": True,
             "created": created,
             "created_count": len(created),
-            "skipped_count": len(data.players) - len(new_players)
+            "skipped_count": len(data.players) - len(new_players),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error bulk creating roster: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to bulk create roster")
+        raise HTTPException(status_code=500, detail="Failed to bulk create roster") from e
 
 
 @app.put("/api/teams/{team_id}/roster/{player_id}")
@@ -3895,7 +3720,7 @@ async def update_roster_entry(
     team_id: int,
     player_id: int,
     data: RosterPlayerUpdate,
-    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """
     Update a roster entry's name or positions.
@@ -3907,7 +3732,7 @@ async def update_roster_entry(
         player = roster_dao.get_player_by_id(player_id)
         if not player:
             raise HTTPException(status_code=404, detail="Player not found")
-        if player['team_id'] != team_id:
+        if player["team_id"] != team_id:
             raise HTTPException(status_code=404, detail="Player not on this team")
 
         # Update
@@ -3915,7 +3740,7 @@ async def update_roster_entry(
             player_id=player_id,
             first_name=data.first_name,
             last_name=data.last_name,
-            positions=data.positions
+            positions=data.positions,
         )
 
         if not updated:
@@ -3927,7 +3752,7 @@ async def update_roster_entry(
         raise
     except Exception as e:
         logger.error(f"Error updating roster entry: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to update roster entry")
+        raise HTTPException(status_code=500, detail="Failed to update roster entry") from e
 
 
 @app.put("/api/teams/{team_id}/roster/{player_id}/number")
@@ -3935,7 +3760,7 @@ async def update_jersey_number(
     team_id: int,
     player_id: int,
     data: JerseyNumberUpdate,
-    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """
     Change a player's jersey number.
@@ -3948,18 +3773,13 @@ async def update_jersey_number(
         player = roster_dao.get_player_by_id(player_id)
         if not player:
             raise HTTPException(status_code=404, detail="Player not found")
-        if player['team_id'] != team_id:
+        if player["team_id"] != team_id:
             raise HTTPException(status_code=404, detail="Player not on this team")
 
         # Check if new number is available
-        existing = roster_dao.get_player_by_jersey(
-            team_id, player['season_id'], data.new_number
-        )
-        if existing and existing['id'] != player_id:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Jersey number {data.new_number} is already taken"
-            )
+        existing = roster_dao.get_player_by_jersey(team_id, player["season_id"], data.new_number)
+        if existing and existing["id"] != player_id:
+            raise HTTPException(status_code=409, detail=f"Jersey number {data.new_number} is already taken")
 
         # Update number
         updated = roster_dao.update_jersey_number(player_id, data.new_number)
@@ -3973,7 +3793,7 @@ async def update_jersey_number(
         raise
     except Exception as e:
         logger.error(f"Error updating jersey number: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to update jersey number")
+        raise HTTPException(status_code=500, detail="Failed to update jersey number") from e
 
 
 @app.post("/api/teams/{team_id}/roster/renumber")
@@ -3981,7 +3801,7 @@ async def bulk_renumber_roster(
     team_id: int,
     data: BulkRenumberRequest,
     season_id: int = Query(..., description="Season ID"),
-    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """
     Bulk renumber players (for roster reshuffles).
@@ -3999,21 +3819,13 @@ async def bulk_renumber_roster(
         for change in data.changes:
             player = roster_dao.get_player_by_id(change.player_id)
             if not player:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Player {change.player_id} not found"
-                )
-            if player['team_id'] != team_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Player {change.player_id} not on this team"
-                )
+                raise HTTPException(status_code=404, detail=f"Player {change.player_id} not found")
+            if player["team_id"] != team_id:
+                raise HTTPException(status_code=400, detail=f"Player {change.player_id} not on this team")
 
         # Perform bulk renumber
         success = roster_dao.bulk_renumber(
-            team_id=team_id,
-            season_id=season_id,
-            changes=[c.model_dump() for c in data.changes]
+            team_id=team_id, season_id=season_id, changes=[c.model_dump() for c in data.changes]
         )
 
         if not success:
@@ -4028,14 +3840,14 @@ async def bulk_renumber_roster(
         raise
     except Exception as e:
         logger.error(f"Error renumbering roster: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to renumber roster")
+        raise HTTPException(status_code=500, detail="Failed to renumber roster") from e
 
 
 @app.delete("/api/teams/{team_id}/roster/{player_id}")
 async def delete_roster_entry(
     team_id: int,
     player_id: int,
-    current_user: dict[str, Any] = Depends(require_team_manager_or_admin)
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """
     Remove a player from the roster (soft delete).
@@ -4047,7 +3859,7 @@ async def delete_roster_entry(
         player = roster_dao.get_player_by_id(player_id)
         if not player:
             raise HTTPException(status_code=404, detail="Player not found")
-        if player['team_id'] != team_id:
+        if player["team_id"] != team_id:
             raise HTTPException(status_code=404, detail="Player not on this team")
 
         # Soft delete
@@ -4062,7 +3874,7 @@ async def delete_roster_entry(
         raise
     except Exception as e:
         logger.error(f"Error deleting roster entry: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to delete roster entry")
+        raise HTTPException(status_code=500, detail="Failed to delete roster entry") from e
 
 
 # =============================================================================
@@ -4095,19 +3907,20 @@ async def get_player_stats(
             "jersey_number": player.get("jersey_number"),
             "display_name": player.get("display_name"),
             "season_id": season_id,
-            "stats": stats or {
+            "stats": stats
+            or {
                 "games_played": 0,
                 "games_started": 0,
                 "total_minutes": 0,
                 "total_goals": 0,
-            }
+            },
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting player stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get player stats")
+        raise HTTPException(status_code=500, detail="Failed to get player stats") from e
 
 
 @app.get("/api/teams/{team_id}/stats")
@@ -4134,14 +3947,14 @@ async def get_team_stats(
             "team_id": team_id,
             "team_name": team.get("name"),
             "season_id": season_id,
-            "players": stats
+            "players": stats,
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting team stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get team stats")
+        raise HTTPException(status_code=500, detail="Failed to get team stats") from e
 
 
 @app.get("/api/me/player-stats")
@@ -4163,7 +3976,7 @@ async def get_my_player_stats(
         - linked: Whether the user has a linked player record
     """
     try:
-        user_id = current_user['user_id']
+        user_id = current_user["user_id"]
 
         # Find player record linked to this user
         player = roster_dao.get_player_by_user_profile_id(user_id)
@@ -4184,7 +3997,7 @@ async def get_my_player_stats(
                 "linked": False,
             }
 
-        player_id = player['id']
+        player_id = player["id"]
 
         # Get season stats
         stats = player_stats_dao.get_player_season_stats(player_id, season_id)
@@ -4194,7 +4007,8 @@ async def get_my_player_stats(
             "jersey_number": player.get("jersey_number"),
             "display_name": player.get("display_name"),
             "season_id": season_id,
-            "stats": stats or {
+            "stats": stats
+            or {
                 "games_played": 0,
                 "games_started": 0,
                 "total_minutes": 0,
@@ -4207,14 +4021,11 @@ async def get_my_player_stats(
         raise
     except Exception as e:
         logger.error(f"Error getting my player stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get player stats")
+        raise HTTPException(status_code=500, detail="Failed to get player stats") from e
 
 
 @app.get("/api/players/{user_id}/profile")
-async def get_player_profile(
-    user_id: str,
-    current_user: dict[str, Any] = Depends(get_current_user_required)
-):
+async def get_player_profile(user_id: str, current_user: dict[str, Any] = Depends(get_current_user_required)):
     """
     Get a specific player's full profile for the player detail view.
 
@@ -4235,35 +4046,32 @@ async def get_player_profile(
             raise HTTPException(status_code=404, detail="Player not found")
 
         # Allow viewing own profile
-        if user_id == current_user['user_id']:
+        if user_id == current_user["user_id"]:
             pass  # No authorization check needed
         else:
             # Get target player's teams and club IDs
             target_teams = player_dao.get_all_current_player_teams(user_id)
             target_club_ids = set()
             for team_entry in target_teams:
-                team_data = team_entry.get('team', {})
-                club_data = team_data.get('club', {})
-                if club_data and club_data.get('id'):
-                    target_club_ids.add(club_data['id'])
+                team_data = team_entry.get("team", {})
+                club_data = team_data.get("club", {})
+                if club_data and club_data.get("id"):
+                    target_club_ids.add(club_data["id"])
 
             # Get current user's teams and club IDs
-            user_teams = player_dao.get_all_current_player_teams(current_user['user_id'])
+            user_teams = player_dao.get_all_current_player_teams(current_user["user_id"])
             user_club_ids = set()
             for team_entry in user_teams:
-                team_data = team_entry.get('team', {})
-                club_data = team_data.get('club', {})
-                if club_data and club_data.get('id'):
-                    user_club_ids.add(club_data['id'])
+                team_data = team_entry.get("team", {})
+                club_data = team_data.get("club", {})
+                if club_data and club_data.get("id"):
+                    user_club_ids.add(club_data["id"])
 
             # Authorization: must share at least one club
             if not (user_club_ids & target_club_ids):
-                raise HTTPException(
-                    status_code=403,
-                    detail="You can only view profiles of players in your club"
-                )
+                raise HTTPException(status_code=403, detail="You can only view profiles of players in your club")
 
-        target_team_id = target_profile.get('team_id')
+        target_team_id = target_profile.get("team_id")
 
         # Get recent games for the player's team (if they have a team)
         recent_games = []
@@ -4272,15 +4080,17 @@ async def get_player_profile(
                 # Get matches for the team (already sorted by date desc, take first 5)
                 matches = match_dao.get_matches_by_team(target_team_id)[:5]
                 for match in matches:
-                    recent_games.append({
-                        "id": match.get("id"),
-                        "match_date": match.get("match_date"),
-                        "home_team": match.get("home_team"),
-                        "away_team": match.get("away_team"),
-                        "home_score": match.get("home_score"),
-                        "away_score": match.get("away_score"),
-                        "status": match.get("status")
-                    })
+                    recent_games.append(
+                        {
+                            "id": match.get("id"),
+                            "match_date": match.get("match_date"),
+                            "home_team": match.get("home_team"),
+                            "away_team": match.get("away_team"),
+                            "home_score": match.get("home_score"),
+                            "away_score": match.get("away_score"),
+                            "status": match.get("status"),
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"Could not fetch recent games: {e}")
 
@@ -4307,16 +4117,16 @@ async def get_player_profile(
                 "tiktok_handle": target_profile.get("tiktok_handle"),
                 # Team info
                 "team": target_profile.get("team"),
-                "club": target_profile.get("club")
+                "club": target_profile.get("club"),
             },
-            "recent_games": recent_games
+            "recent_games": recent_games,
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting player profile: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get player profile")
+        raise HTTPException(status_code=500, detail="Failed to get player profile") from e
 
 
 # Health check
@@ -4334,16 +4144,13 @@ async def full_health_check():
         "version": "2.0.0",
         "schema": "enhanced",
         "timestamp": datetime.utcnow().isoformat(),
-        "checks": {}
+        "checks": {},
     }
 
     overall_healthy = True
 
     # Check basic API
-    health_status["checks"]["api"] = {
-        "status": "healthy",
-        "message": "API is responding"
-    }
+    health_status["checks"]["api"] = {"status": "healthy", "message": "API is responding"}
 
     # Check database connectivity
     try:
@@ -4353,7 +4160,7 @@ async def full_health_check():
             health_status["checks"]["database"] = {
                 "status": "healthy",
                 "message": "Database connection successful",
-                "age_groups_count": len(test_response)
+                "age_groups_count": len(test_response),
             }
         else:
             raise Exception("Unexpected response from database")
@@ -4362,7 +4169,7 @@ async def full_health_check():
         overall_healthy = False
         health_status["checks"]["database"] = {
             "status": "unhealthy",
-            "message": f"Database connection failed: {e!s}"
+            "message": f"Database connection failed: {e!s}",
         }
 
     # Check reference data availability
@@ -4374,7 +4181,7 @@ async def full_health_check():
             "status": "healthy",
             "message": "Reference data available",
             "seasons_count": len(seasons) if isinstance(seasons, list) else 0,
-            "match_types_count": len(match_types) if isinstance(match_types, list) else 0
+            "match_types_count": len(match_types) if isinstance(match_types, list) else 0,
         }
 
         # Check if we have essential reference data
@@ -4385,25 +4192,25 @@ async def full_health_check():
     except Exception as e:
         health_status["checks"]["reference_data"] = {
             "status": "unhealthy",
-            "message": f"Reference data check failed: {e!s}"
+            "message": f"Reference data check failed: {e!s}",
         }
 
     # Check authentication system
     try:
-        if auth_manager and hasattr(auth_manager, 'supabase'):
+        if auth_manager and hasattr(auth_manager, "supabase"):
             health_status["checks"]["auth"] = {
                 "status": "healthy",
-                "message": "Authentication system operational"
+                "message": "Authentication system operational",
             }
         else:
             health_status["checks"]["auth"] = {
                 "status": "warning",
-                "message": "Authentication manager not properly initialized"
+                "message": "Authentication manager not properly initialized",
             }
     except Exception as e:
         health_status["checks"]["auth"] = {
             "status": "unhealthy",
-            "message": f"Authentication system error: {e!s}"
+            "message": f"Authentication system error: {e!s}",
         }
 
     # Set overall status
@@ -4419,8 +4226,9 @@ async def full_health_check():
     logger.info(
         "health_check_performed",
         status=health_status["status"],
-        database_healthy="database" in health_status["checks"] and health_status["checks"]["database"]["status"] == "healthy",
-        auth_healthy="auth" in health_status["checks"] and health_status["checks"]["auth"]["status"] == "healthy"
+        database_healthy="database" in health_status["checks"]
+        and health_status["checks"]["database"]["status"] == "healthy",
+        auth_healthy="auth" in health_status["checks"] and health_status["checks"]["auth"]["status"] == "healthy",
     )
 
     # Return appropriate HTTP status code
@@ -4428,7 +4236,9 @@ async def full_health_check():
         return health_status
     else:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=503, detail=health_status)
+
 
 if __name__ == "__main__":
     import uvicorn

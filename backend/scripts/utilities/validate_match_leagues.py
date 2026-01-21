@@ -21,24 +21,22 @@ Usage:
     python validate_match_leagues.py check --export mismatches.json
 """
 
+import json
 import os
 import sys
-import json
-from pathlib import Path
-from typing import Optional
 from datetime import datetime
+from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich import print as rprint
+from rich.table import Table
 
 # Add backend root directory to path for imports (scripts/utilities/ -> backend/)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import DAO layer
-from dao.match_dao import SupabaseConnection, MatchDAO
+from dao.match_dao import MatchDAO, SupabaseConnection
 
 app = typer.Typer(help="Match League Validation Tool - Find league assignment errors")
 console = Console()
@@ -59,7 +57,7 @@ def get_dao() -> MatchDAO:
         return dao
     except Exception as e:
         console.print(f"[red]Error connecting to database: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def get_match_league_name(match: dict) -> str:
@@ -74,10 +72,10 @@ def get_match_league_name(match: dict) -> str:
 
 @app.command()
 def check(
-    league: Optional[str] = typer.Option(None, "--league", "-l", help="Filter by specific league"),
-    season: Optional[str] = typer.Option(None, "--season", "-s", help="Filter by season"),
-    match_type: Optional[str] = typer.Option(None, "--match-type", "-m", help="Filter by match type"),
-    export: Optional[str] = typer.Option(None, "--export", "-e", help="Export results to JSON file"),
+    league: str | None = typer.Option(None, "--league", "-l", help="Filter by specific league"),
+    season: str | None = typer.Option(None, "--season", "-s", help="Filter by season"),
+    match_type: str | None = typer.Option(None, "--match-type", "-m", help="Filter by match type"),
+    export: str | None = typer.Option(None, "--export", "-e", help="Export results to JSON file"),
     show_valid: bool = typer.Option(False, "--show-valid", help="Also show valid matches"),
 ):
     """
@@ -164,7 +162,7 @@ def check(
             "away_team_id": away_team_id,
             "away_league": away_league,
             "score": f"{match.get('home_score', 'TBD')}-{match.get('away_score', 'TBD')}",
-            "is_valid": is_valid
+            "is_valid": is_valid,
         }
 
         if is_valid:
@@ -174,18 +172,16 @@ def check(
 
     # Display results
     if invalid_matches:
-        console.print(Panel(
-            f"[red bold]Found {len(invalid_matches)} matches with league mismatches![/red bold]",
-            border_style="red"
-        ))
+        console.print(
+            Panel(
+                f"[red bold]Found {len(invalid_matches)} matches with league mismatches![/red bold]",
+                border_style="red",
+            )
+        )
         console.print()
 
         # Create table for invalid matches
-        table = Table(
-            title="❌ Invalid League Assignments",
-            show_header=True,
-            header_style="bold red"
-        )
+        table = Table(title="❌ Invalid League Assignments", show_header=True, header_style="bold red")
 
         table.add_column("Match ID", style="cyan", width=8)
         table.add_column("MLS ID", style="dim", width=10)
@@ -207,25 +203,23 @@ def check(
                 f"{m['home_team']} ({m['home_team_id']})",
                 m["home_league"],
                 f"{m['away_team']} ({m['away_team_id']})",
-                m["away_league"]
+                m["away_league"],
             )
 
         console.print(table)
         console.print()
     else:
-        console.print(Panel(
-            f"[green bold]✓ All {len(matches)} matches have valid league assignments![/green bold]",
-            border_style="green"
-        ))
+        console.print(
+            Panel(
+                f"[green bold]✓ All {len(matches)} matches have valid league assignments![/green bold]",
+                border_style="green",
+            )
+        )
 
     # Show valid matches if requested
     if show_valid and valid_matches:
         console.print()
-        table = Table(
-            title="✓ Valid League Assignments",
-            show_header=True,
-            header_style="bold green"
-        )
+        table = Table(title="✓ Valid League Assignments", show_header=True, header_style="bold green")
 
         table.add_column("Match ID", style="cyan", width=8)
         table.add_column("Date", style="yellow", width=10)
@@ -245,7 +239,7 @@ def check(
                 f"{m['home_team']} ({m['home_team_id']})",
                 m["home_league"],
                 f"{m['away_team']} ({m['away_team_id']})",
-                m["away_league"]
+                m["away_league"],
             )
 
         console.print(table)
@@ -254,7 +248,7 @@ def check(
 
     # Summary
     console.print()
-    console.print(f"[bold]Summary:[/bold]")
+    console.print("[bold]Summary:[/bold]")
     console.print(f"  Total matches: {len(matches)}")
     console.print(f"  [green]Valid:[/green] {len(valid_matches)}")
     console.print(f"  [red]Invalid:[/red] {len(invalid_matches)}")
@@ -264,17 +258,13 @@ def check(
         export_data = {
             "generated_at": datetime.now().isoformat(),
             "environment": env,
-            "filters": {
-                "league": league,
-                "season": season,
-                "match_type": match_type
-            },
+            "filters": {"league": league, "season": season, "match_type": match_type},
             "summary": {
                 "total_matches": len(matches),
                 "valid_matches": len(valid_matches),
-                "invalid_matches": len(invalid_matches)
+                "invalid_matches": len(invalid_matches),
             },
-            "invalid_matches": invalid_matches
+            "invalid_matches": invalid_matches,
         }
 
         with open(export, "w") as f:

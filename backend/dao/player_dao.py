@@ -35,7 +35,9 @@ class PlayerDAO(BaseDAO):
             User profile dict with team, club, and age_group data, or None if not found
         """
         try:
-            response = self.client.table('user_profiles').select('''
+            response = (
+                self.client.table("user_profiles")
+                .select("""
                 *,
                 team:teams(id, name, city, club_id, league_id, division_id, age_group_id,
                     age_group:age_groups(id, name),
@@ -44,23 +46,22 @@ class PlayerDAO(BaseDAO):
                     club:clubs(id, name, city, logo_url, primary_color, secondary_color)
                 ),
                 club:clubs(id, name, city, logo_url, primary_color, secondary_color)
-            ''').eq('id', user_id).execute()
+            """)
+                .eq("id", user_id)
+                .execute()
+            )
 
             if response.data and len(response.data) > 0:
                 profile = response.data[0]
                 if len(response.data) > 1:
-                    logger.warning(
-                        f"Multiple profiles found for user {user_id}, using first one"
-                    )
+                    logger.warning(f"Multiple profiles found for user {user_id}, using first one")
                 return profile
             return None
         except Exception as e:
             logger.error(f"Error fetching user profile: {e}")
             return None
 
-    def get_user_profile_by_email(
-        self, email: str, exclude_user_id: str | None = None
-    ) -> dict | None:
+    def get_user_profile_by_email(self, email: str, exclude_user_id: str | None = None) -> dict | None:
         """
         Get user profile by email, optionally excluding a specific user ID.
 
@@ -75,9 +76,9 @@ class PlayerDAO(BaseDAO):
             User profile dict if found, None otherwise
         """
         try:
-            query = self.client.table('user_profiles').select('id').eq('email', email)
+            query = self.client.table("user_profiles").select("id").eq("email", email)
             if exclude_user_id:
-                query = query.neq('id', exclude_user_id)
+                query = query.neq("id", exclude_user_id)
             response = query.execute()
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -86,9 +87,7 @@ class PlayerDAO(BaseDAO):
             logger.error(f"Error checking user profile by email: {e}")
             return None
 
-    def get_user_profile_by_username(
-        self, username: str, exclude_user_id: str | None = None
-    ) -> dict | None:
+    def get_user_profile_by_username(self, username: str, exclude_user_id: str | None = None) -> dict | None:
         """
         Get user profile by username, optionally excluding a specific user ID.
 
@@ -103,11 +102,9 @@ class PlayerDAO(BaseDAO):
             User profile dict if found, None otherwise
         """
         try:
-            query = self.client.table('user_profiles').select('id').eq(
-                'username', username.lower()
-            )
+            query = self.client.table("user_profiles").select("id").eq("username", username.lower())
             if exclude_user_id:
-                query = query.neq('id', exclude_user_id)
+                query = query.neq("id", exclude_user_id)
             response = query.execute()
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -125,10 +122,15 @@ class PlayerDAO(BaseDAO):
             List of user profile dicts
         """
         try:
-            response = self.client.table('user_profiles').select('''
+            response = (
+                self.client.table("user_profiles")
+                .select("""
                 *,
                 team:teams(id, name, city)
-            ''').order('created_at', desc=True).execute()
+            """)
+                .order("created_at", desc=True)
+                .execute()
+            )
             return response.data or []
         except Exception as e:
             logger.error(f"Error fetching all user profiles: {e}")
@@ -148,7 +150,7 @@ class PlayerDAO(BaseDAO):
             Created/updated profile dict, or None on error
         """
         try:
-            response = self.client.table('user_profiles').upsert(profile_data).execute()
+            response = self.client.table("user_profiles").upsert(profile_data).execute()
             if response.data and len(response.data) > 0:
                 return response.data[0]
             return None
@@ -169,9 +171,7 @@ class PlayerDAO(BaseDAO):
             Updated profile dict, or None on error
         """
         try:
-            response = self.client.table('user_profiles').update(update_data).eq(
-                'id', user_id
-            ).execute()
+            response = self.client.table("user_profiles").update(update_data).eq("id", user_id).execute()
             if response.data and len(response.data) > 0:
                 return response.data[0]
             return None
@@ -202,7 +202,9 @@ class PlayerDAO(BaseDAO):
         """
         try:
             # Query player_team_history for current team members
-            response = self.client.table('player_team_history').select('''
+            response = (
+                self.client.table("player_team_history")
+                .select("""
                 player_id,
                 jersey_number,
                 positions,
@@ -223,24 +225,28 @@ class PlayerDAO(BaseDAO):
                     snapchat_handle,
                     tiktok_handle
                 )
-            ''').eq('team_id', team_id).eq('is_current', True).execute()
+            """)
+                .eq("team_id", team_id)
+                .eq("is_current", True)
+                .execute()
+            )
 
             # Flatten the results - extract user_profiles and merge with history data
             players = []
             for entry in response.data or []:
-                profile = entry.get('user_profiles')
+                profile = entry.get("user_profiles")
                 if profile:
                     # Use jersey_number from history if available, fallback to profile
                     player = {**profile}
-                    if entry.get('jersey_number') is not None:
-                        player['player_number'] = entry['jersey_number']
+                    if entry.get("jersey_number") is not None:
+                        player["player_number"] = entry["jersey_number"]
                     # Use positions from history if available, fallback to profile
-                    if entry.get('positions'):
-                        player['positions'] = entry['positions']
+                    if entry.get("positions"):
+                        player["positions"] = entry["positions"]
                     players.append(player)
 
             # Sort by player_number
-            players.sort(key=lambda p: p.get('player_number') or 999)
+            players.sort(key=lambda p: p.get("player_number") or 999)
             return players
         except Exception as e:
             logger.error(f"Error fetching team players for team {team_id}: {e}")
@@ -263,7 +269,9 @@ class PlayerDAO(BaseDAO):
             List of history entry dicts with related data
         """
         try:
-            response = self.client.table('player_team_history').select('''
+            response = (
+                self.client.table("player_team_history")
+                .select("""
                 *,
                 team:teams(id, name, city,
                     club:clubs(id, name, primary_color, secondary_color)
@@ -272,7 +280,11 @@ class PlayerDAO(BaseDAO):
                 age_group:age_groups(id, name),
                 league:leagues(id, name),
                 division:divisions(id, name)
-            ''').eq('player_id', player_id).order('season_id', desc=True).execute()
+            """)
+                .eq("player_id", player_id)
+                .order("season_id", desc=True)
+                .execute()
+            )
             return response.data or []
         except Exception as e:
             logger.error(f"Error fetching player team history: {e}")
@@ -291,7 +303,9 @@ class PlayerDAO(BaseDAO):
             Current history entry dict with related data, or None if not found
         """
         try:
-            response = self.client.table('player_team_history').select('''
+            response = (
+                self.client.table("player_team_history")
+                .select("""
                 *,
                 team:teams(id, name, city,
                     club:clubs(id, name, primary_color, secondary_color)
@@ -300,7 +314,12 @@ class PlayerDAO(BaseDAO):
                 age_group:age_groups(id, name),
                 league:leagues(id, name),
                 division:divisions(id, name)
-            ''').eq('player_id', player_id).eq('is_current', True).limit(1).execute()
+            """)
+                .eq("player_id", player_id)
+                .eq("is_current", True)
+                .limit(1)
+                .execute()
+            )
 
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -324,7 +343,9 @@ class PlayerDAO(BaseDAO):
             List of current history entries with related team and club data
         """
         try:
-            response = self.client.table('player_team_history').select('''
+            response = (
+                self.client.table("player_team_history")
+                .select("""
                 *,
                 team:teams(id, name, city,
                     club:clubs(id, name, logo_url, primary_color, secondary_color),
@@ -334,7 +355,11 @@ class PlayerDAO(BaseDAO):
                 ),
                 season:seasons(id, name, start_date, end_date),
                 age_group:age_groups(id, name)
-            ''').eq('player_id', player_id).eq('is_current', True).execute()
+            """)
+                .eq("player_id", player_id)
+                .eq("is_current", True)
+                .execute()
+            )
             return response.data or []
         except Exception as e:
             logger.error(f"Error fetching all current player teams: {e}")
@@ -349,7 +374,7 @@ class PlayerDAO(BaseDAO):
         jersey_number: int | None = None,
         positions: list[str] | None = None,
         notes: str | None = None,
-        is_current: bool = False
+        is_current: bool = False,
     ) -> dict | None:
         """
         Create a new player team history entry.
@@ -376,30 +401,28 @@ class PlayerDAO(BaseDAO):
             # players from being on multiple teams simultaneously (futsal use case)
 
             # Get team details for age_group_id, league_id, division_id
-            team_response = self.client.table('teams').select(
-                'age_group_id, league_id, division_id'
-            ).eq('id', team_id).execute()
+            team_response = (
+                self.client.table("teams").select("age_group_id, league_id, division_id").eq("id", team_id).execute()
+            )
 
             team_data = team_response.data[0] if team_response.data else {}
 
             insert_data = {
-                'player_id': player_id,
-                'team_id': team_id,
-                'season_id': season_id,
-                'age_group_id': team_data.get('age_group_id'),
-                'league_id': team_data.get('league_id'),
-                'division_id': team_data.get('division_id'),
-                'jersey_number': jersey_number,
-                'positions': positions,
-                'is_current': is_current,
-                'notes': notes
+                "player_id": player_id,
+                "team_id": team_id,
+                "season_id": season_id,
+                "age_group_id": team_data.get("age_group_id"),
+                "league_id": team_data.get("league_id"),
+                "division_id": team_data.get("division_id"),
+                "jersey_number": jersey_number,
+                "positions": positions,
+                "is_current": is_current,
+                "notes": notes,
             }
 
-            response = self.client.table('player_team_history').insert(
-                insert_data
-            ).execute()
+            response = self.client.table("player_team_history").insert(insert_data).execute()
             if response.data and len(response.data) > 0:
-                return self.get_player_history_entry_by_id(response.data[0]['id'])
+                return self.get_player_history_entry_by_id(response.data[0]["id"])
             return None
         except Exception as e:
             logger.error(f"Error creating player history entry: {e}")
@@ -416,7 +439,9 @@ class PlayerDAO(BaseDAO):
             History entry dict with related data, or None if not found
         """
         try:
-            response = self.client.table('player_team_history').select('''
+            response = (
+                self.client.table("player_team_history")
+                .select("""
                 *,
                 team:teams(id, name, city,
                     club:clubs(id, name, primary_color, secondary_color)
@@ -425,7 +450,10 @@ class PlayerDAO(BaseDAO):
                 age_group:age_groups(id, name),
                 league:leagues(id, name),
                 division:divisions(id, name)
-            ''').eq('id', history_id).execute()
+            """)
+                .eq("id", history_id)
+                .execute()
+            )
 
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -441,7 +469,7 @@ class PlayerDAO(BaseDAO):
         jersey_number: int | None = None,
         positions: list[str] | None = None,
         notes: str | None = None,
-        is_current: bool | None = None
+        is_current: bool | None = None,
     ) -> dict | None:
         """
         Update a player team history entry.
@@ -457,22 +485,20 @@ class PlayerDAO(BaseDAO):
             Updated history entry dict, or None on error
         """
         try:
-            update_data = {'updated_at': 'now()'}
+            update_data = {"updated_at": "now()"}
 
             if jersey_number is not None:
-                update_data['jersey_number'] = jersey_number
+                update_data["jersey_number"] = jersey_number
             if positions is not None:
-                update_data['positions'] = positions
+                update_data["positions"] = positions
             if notes is not None:
-                update_data['notes'] = notes
+                update_data["notes"] = notes
             if is_current is not None:
-                update_data['is_current'] = is_current
+                update_data["is_current"] = is_current
                 # Note: We allow multiple current teams (for futsal/multi-league players)
                 # So we don't automatically unset is_current on other entries
 
-            response = self.client.table('player_team_history').update(
-                update_data
-            ).eq('id', history_id).execute()
+            response = self.client.table("player_team_history").update(update_data).eq("id", history_id).execute()
 
             if response.data and len(response.data) > 0:
                 return self.get_player_history_entry_by_id(history_id)
@@ -493,9 +519,7 @@ class PlayerDAO(BaseDAO):
             True if deleted successfully, False otherwise
         """
         try:
-            self.client.table('player_team_history').delete().eq(
-                'id', history_id
-            ).execute()
+            self.client.table("player_team_history").delete().eq("id", history_id).execute()
             return True
         except Exception as e:
             logger.error(f"Error deleting player history entry: {e}")
@@ -509,7 +533,7 @@ class PlayerDAO(BaseDAO):
         club_id: int | None = None,
         team_id: int | None = None,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> dict:
         """
         Get all players with their current team assignments for admin management.
@@ -527,8 +551,10 @@ class PlayerDAO(BaseDAO):
         """
         try:
             # Build the base query for players (team-player role)
-            query = self.client.table('user_profiles').select(
-                '''
+            query = (
+                self.client.table("user_profiles")
+                .select(
+                    """
                 id,
                 email,
                 display_name,
@@ -539,31 +565,29 @@ class PlayerDAO(BaseDAO):
                 team_id,
                 created_at,
                 team:teams(id, name, club_id)
-                ''',
-                count='exact'
-            ).eq('role', 'team-player')
+                """,
+                    count="exact",
+                )
+                .eq("role", "team-player")
+            )
 
             # Apply text search filter
             if search:
-                query = query.or_(
-                    f"display_name.ilike.%{search}%,email.ilike.%{search}%"
-                )
+                query = query.or_(f"display_name.ilike.%{search}%,email.ilike.%{search}%")
 
             # Apply team filter
             if team_id:
-                query = query.eq('team_id', team_id)
+                query = query.eq("team_id", team_id)
             # Apply club filter (via team)
             elif club_id:
                 # Need to get team IDs for this club first
-                teams_response = self.client.table('teams').select('id').eq(
-                    'club_id', club_id
-                ).execute()
+                teams_response = self.client.table("teams").select("id").eq("club_id", club_id).execute()
                 if teams_response.data:
-                    team_ids = [t['id'] for t in teams_response.data]
-                    query = query.in_('team_id', team_ids)
+                    team_ids = [t["id"] for t in teams_response.data]
+                    query = query.in_("team_id", team_ids)
 
             # Apply pagination and ordering
-            query = query.order('display_name').range(offset, offset + limit - 1)
+            query = query.order("display_name").range(offset, offset + limit - 1)
 
             response = query.execute()
 
@@ -572,8 +596,10 @@ class PlayerDAO(BaseDAO):
 
             # Enrich with current team assignments from player_team_history
             for player in players:
-                history_response = self.client.table('player_team_history').select(
-                    '''
+                history_response = (
+                    self.client.table("player_team_history")
+                    .select(
+                        """
                     id,
                     team_id,
                     season_id,
@@ -582,15 +608,19 @@ class PlayerDAO(BaseDAO):
                     created_at,
                     team:teams(id, name, club:clubs(id, name)),
                     season:seasons(id, name)
-                    '''
-                ).eq('player_id', player['id']).eq('is_current', True).execute()
-                player['current_teams'] = history_response.data or []
+                    """
+                    )
+                    .eq("player_id", player["id"])
+                    .eq("is_current", True)
+                    .execute()
+                )
+                player["current_teams"] = history_response.data or []
 
-            return {'players': players, 'total': total}
+            return {"players": players, "total": total}
 
         except Exception as e:
             logger.error(f"Error fetching players for admin: {e}")
-            return {'players': [], 'total': 0}
+            return {"players": [], "total": 0}
 
     @invalidates_cache(PLAYERS_CACHE_PATTERN)
     def update_player_admin(
@@ -598,7 +628,7 @@ class PlayerDAO(BaseDAO):
         player_id: str,
         display_name: str | None = None,
         player_number: int | None = None,
-        positions: list[str] | None = None
+        positions: list[str] | None = None,
     ) -> dict | None:
         """
         Update player profile info (admin/manager operation).
@@ -613,18 +643,16 @@ class PlayerDAO(BaseDAO):
             Updated player profile dict, or None on error
         """
         try:
-            update_data = {'updated_at': 'now()'}
+            update_data = {"updated_at": "now()"}
 
             if display_name is not None:
-                update_data['display_name'] = display_name
+                update_data["display_name"] = display_name
             if player_number is not None:
-                update_data['player_number'] = player_number
+                update_data["player_number"] = player_number
             if positions is not None:
-                update_data['positions'] = positions
+                update_data["positions"] = positions
 
-            response = self.client.table('user_profiles').update(
-                update_data
-            ).eq('id', player_id).execute()
+            response = self.client.table("user_profiles").update(update_data).eq("id", player_id).execute()
 
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -646,14 +674,9 @@ class PlayerDAO(BaseDAO):
             Updated history entry dict, or None on error
         """
         try:
-            update_data = {
-                'is_current': False,
-                'updated_at': 'now()'
-            }
+            update_data = {"is_current": False, "updated_at": "now()"}
 
-            response = self.client.table('player_team_history').update(
-                update_data
-            ).eq('id', history_id).execute()
+            response = self.client.table("player_team_history").update(update_data).eq("id", history_id).execute()
 
             if response.data and len(response.data) > 0:
                 return self.get_player_history_entry_by_id(history_id)

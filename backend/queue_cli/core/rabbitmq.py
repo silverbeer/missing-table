@@ -4,7 +4,6 @@ RabbitMQ connection and message publishing.
 Uses kombu (the same library Celery uses) for educational consistency.
 """
 
-import json
 from typing import Any
 
 from celery import Celery
@@ -120,9 +119,7 @@ class RabbitMQClient:
         except Exception as e:
             return False, f"Publish failed: {e}", {}
 
-    def get_queue_stats(
-        self, queue_name: str | None = None
-    ) -> tuple[bool, dict[str, Any]]:
+    def get_queue_stats(self, queue_name: str | None = None) -> tuple[bool, dict[str, Any]]:
         """
         Get queue statistics.
 
@@ -139,9 +136,7 @@ class RabbitMQClient:
 
         try:
             exchange = Exchange(self.config.default_exchange, type="topic", durable=True)
-            queue = Queue(
-                queue_name, exchange=exchange, routing_key=self.config.default_routing_key
-            )
+            queue = Queue(queue_name, exchange=exchange, routing_key=self.config.default_routing_key)
 
             with self.connection.channel() as channel:
                 info = queue.queue_declare(passive=True, channel=channel)
@@ -180,9 +175,7 @@ class CeleryClient:
             config: Queue configuration
         """
         self.config = config
-        self.app = Celery(
-            "queue_cli", broker=config.broker_url, backend=config.result_backend
-        )
+        self.app = Celery("queue_cli", broker=config.broker_url, backend=config.result_backend)
         self.app.conf.update(
             task_serializer="json",
             accept_content=["json"],

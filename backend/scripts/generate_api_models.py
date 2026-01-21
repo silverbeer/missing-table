@@ -6,7 +6,6 @@ Usage:
     uv run python scripts/generate_api_models.py
 """
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -20,7 +19,6 @@ def main() -> None:
 
     # Ensure openapi.json exists
     if not openapi_file.exists():
-        print("❌ openapi.json not found. Generating...")
         subprocess.run(
             [
                 "uv",
@@ -33,10 +31,8 @@ def main() -> None:
             stdout=open(openapi_file, "w"),
             check=True,
         )
-        print(f"✅ Generated {openapi_file}")
 
     # Generate Pydantic models using datamodel-code-generator
-    print(f"📝 Generating Pydantic models from {openapi_file}...")
 
     try:
         subprocess.run(
@@ -63,10 +59,9 @@ def main() -> None:
             ],
             check=True,
         )
-        print(f"✅ Generated {output_file}")
 
         # Add header to models file
-        with open(output_file, "r") as f:
+        with open(output_file) as f:
             content = f.read()
 
         header = '''"""
@@ -80,11 +75,7 @@ Regenerate with: uv run python scripts/generate_api_models.py
         with open(output_file, "w") as f:
             f.write(header + content)
 
-        print("✅ Added header to models file")
-        print(f"\n🎉 Success! API models generated at {output_file}")
-
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Error generating models: {e}")
+    except subprocess.CalledProcessError:
         sys.exit(1)
 
 

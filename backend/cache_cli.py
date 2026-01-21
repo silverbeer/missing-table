@@ -179,7 +179,7 @@ def stats():
 
 
 @app.command()
-def get(  # noqa: C901
+def get(
     key: str = typer.Argument(..., help="Cache key to retrieve"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output raw JSON without formatting"),
 ):
@@ -267,11 +267,7 @@ def delete(
     """Delete cache keys matching a pattern."""
     r = get_redis_client()
 
-    keys = (
-        list(r.scan_iter(pattern))
-        if "*" in pattern
-        else ([pattern] if r.exists(pattern) else [])
-    )
+    keys = list(r.scan_iter(pattern)) if "*" in pattern else ([pattern] if r.exists(pattern) else [])
 
     if not keys:
         console.print(f"[yellow]No keys found matching:[/yellow] {pattern}")

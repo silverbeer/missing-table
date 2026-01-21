@@ -18,12 +18,12 @@ from .exceptions import (
 )
 
 __all__ = [
-    "MissingTableClient",
     "APIError",
     "AuthenticationError",
     "AuthorizationError",
+    "MissingTableClient",
     "NotFoundError",
-    "ValidationError",
     "RateLimitError",
     "ServerError",
+    "ValidationError",
 ]

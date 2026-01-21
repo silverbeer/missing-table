@@ -41,6 +41,7 @@ CLUBS_JSON_PATH = Path(__file__).parent.parent / "clubs.json"
 # Authentication & API Helper Functions
 # ============================================================================
 
+
 def get_auth_token() -> str:
     """Get authentication token for API requests."""
     # For local development, use admin credentials
@@ -58,7 +59,7 @@ def get_auth_token() -> str:
     response = requests.post(
         f"{API_URL}/api/auth/login",
         json={"username": username, "password": password},
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if response.status_code == 200:
@@ -69,17 +70,9 @@ def get_auth_token() -> str:
         raise typer.Exit(code=1)
 
 
-def api_request(
-    method: str,
-    endpoint: str,
-    token: str,
-    data: dict[str, Any] | None = None
-) -> requests.Response:
+def api_request(method: str, endpoint: str, token: str, data: dict[str, Any] | None = None) -> requests.Response:
     """Make an authenticated API request."""
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     url = f"{API_URL}{endpoint}"
 
@@ -101,6 +94,7 @@ def api_request(
 # Data Loading Functions
 # ============================================================================
 
+
 def load_clubs_json() -> list[ClubData]:
     """Load and validate clubs data from clubs.json file."""
     if not CLUBS_JSON_PATH.exists():
@@ -115,7 +109,7 @@ def load_clubs_json() -> list[ClubData]:
         return clubs
     except Exception as e:
         console.print(f"[red]❌ Error parsing clubs.json: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 def get_league_id_by_name(token: str, league_name: str) -> int | None:
@@ -131,11 +125,7 @@ def get_league_id_by_name(token: str, league_name: str) -> int | None:
     return None
 
 
-def get_division_id_by_name_and_league(
-    token: str,
-    division_name: str,
-    league_id: int
-) -> int | None:
+def get_division_id_by_name_and_league(token: str, division_name: str, league_id: int) -> int | None:
     """Get division ID by name within a specific league.
 
     Args:
@@ -157,10 +147,7 @@ def get_division_id_by_name_and_league(
     return None
 
 
-def get_age_group_ids_by_names(
-    token: str,
-    age_group_names: list[str]
-) -> list[int]:
+def get_age_group_ids_by_names(token: str, age_group_names: list[str]) -> list[int]:
     """Get age group IDs by names.
 
     Args:
@@ -195,6 +182,7 @@ def get_age_group_ids_by_names(
 # Club Management Functions
 # ============================================================================
 
+
 def get_all_clubs(token: str) -> list[dict[str, Any]]:
     """Fetch all clubs from the API."""
     # Note: include_teams may fail if teams.club_id column doesn't exist yet
@@ -206,16 +194,16 @@ def get_all_clubs(token: str) -> list[dict[str, Any]]:
         # Handle both list and dict responses
         if isinstance(clubs, dict):
             # If API returns a dict, it might be wrapped or have errors
-            if 'data' in clubs:
-                return clubs['data']
-            elif 'clubs' in clubs:
-                return clubs['clubs']
+            if "data" in clubs:
+                return clubs["data"]
+            elif "clubs" in clubs:
+                return clubs["clubs"]
             else:
                 # Log the unexpected format for debugging
                 console.print(f"[yellow]⚠️  Unexpected clubs response format: {type(clubs)}[/yellow]")
                 return []
         # Return clubs if it's a list, otherwise empty list
-        if type(clubs).__name__ == 'list':
+        if type(clubs).__name__ == "list":
             return clubs
         return []
     else:
@@ -239,7 +227,7 @@ def create_club(token: str, club: ClubData) -> dict[str, Any] | None:
         "city": club.location,
         "website": club.website,
         "description": f"Club based in {club.location}",
-        "is_active": True
+        "is_active": True,
     }
 
     response = api_request("POST", "/api/clubs", token, data=payload)
@@ -262,7 +250,7 @@ def update_club(token: str, club_id: int, club: ClubData) -> bool:
         "city": club.location,
         "website": club.website,
         "description": f"Club based in {club.location}",
-        "is_active": True
+        "is_active": True,
     }
 
     response = api_request("PUT", f"/api/clubs/{club_id}", token, data=payload)
@@ -278,6 +266,7 @@ def update_club(token: str, club_id: int, club: ClubData) -> bool:
 # Team Management Functions
 # ============================================================================
 
+
 def get_all_teams(token: str) -> list[dict[str, Any]]:
     """Fetch all teams from the API."""
     response = api_request("GET", "/api/teams?include_parent=true", token)
@@ -290,10 +279,7 @@ def get_all_teams(token: str) -> list[dict[str, Any]]:
 
 
 def find_team_by_name_and_division(
-    token: str,
-    team_name: str,
-    division_id: int,
-    club_id: int | None = None
+    token: str, team_name: str, division_id: int, club_id: int | None = None
 ) -> dict[str, Any] | None:
     """Find a team by name and division ID.
 
@@ -304,8 +290,7 @@ def find_team_by_name_and_division(
 
     for team in teams:
         # Match by team name and division_id
-        if (team["name"].lower() == team_name.lower() and
-            team.get("division_id") == division_id):
+        if team["name"].lower() == team_name.lower() and team.get("division_id") == division_id:
             # If club_id specified, also match on that
             if club_id is not None:
                 if team.get("club_id") == club_id:
@@ -316,12 +301,7 @@ def find_team_by_name_and_division(
     return None
 
 
-def create_team(
-    token: str,
-    team: TeamData,
-    club_id: int,
-    is_pro_academy: bool = False
-) -> dict[str, Any] | None:
+def create_team(token: str, team: TeamData, club_id: int, is_pro_academy: bool = False) -> dict[str, Any] | None:
     """Create a new team with league, division, and age groups.
 
     Args:
@@ -342,7 +322,9 @@ def create_team(
     # Look up division ID (required by API)
     division_name = team.division_or_conference
     if not division_name:
-        console.print(f"[yellow]⚠️  No division/conference specified for team: {team.team_name}. Skipping team creation.[/yellow]")
+        console.print(
+            f"[yellow]⚠️  No division/conference specified for team: {team.team_name}. Skipping team creation.[/yellow]"
+        )
         return None
 
     division_id = get_division_id_by_name_and_league(token, division_name, league_id)
@@ -352,12 +334,16 @@ def create_team(
 
     # Look up age group IDs (required by API - at least one)
     if not team.age_groups:
-        console.print(f"[yellow]⚠️  No age groups specified for team: {team.team_name}. Skipping team creation.[/yellow]")
+        console.print(
+            f"[yellow]⚠️  No age groups specified for team: {team.team_name}. Skipping team creation.[/yellow]"
+        )
         return None
 
     age_group_ids = get_age_group_ids_by_names(token, team.age_groups)
     if not age_group_ids:
-        console.print(f"[yellow]⚠️  No valid age groups found for team: {team.team_name}. Skipping team creation.[/yellow]")
+        console.print(
+            f"[yellow]⚠️  No valid age groups found for team: {team.team_name}. Skipping team creation.[/yellow]"
+        )
         return None
 
     # Build payload for team creation
@@ -367,7 +353,7 @@ def create_team(
         "age_group_ids": age_group_ids,
         "division_id": division_id,
         "club_id": club_id,  # Always set parent club - every team belongs to a club
-        "academy_team": is_pro_academy  # Inherited from club level - only true for Pro Academy clubs
+        "academy_team": is_pro_academy,  # Inherited from club level - only true for Pro Academy clubs
     }
 
     response = api_request("POST", "/api/teams", token, data=payload)
@@ -375,7 +361,9 @@ def create_team(
     if response.status_code == 200:
         result = response.json()
         return result
-    elif response.status_code == 409 or "already exists" in response.text.lower() or "duplicate" in response.text.lower():
+    elif (
+        response.status_code == 409 or "already exists" in response.text.lower() or "duplicate" in response.text.lower()
+    ):
         # Team already exists - this is OK for idempotent operation
         return {"name": team.team_name, "exists": True}
     else:
@@ -390,7 +378,7 @@ def update_team(
     team_name: str,
     league_name: str,
     club_id: int,
-    is_pro_academy: bool = False
+    is_pro_academy: bool = False,
 ) -> bool:
     """Update an existing team.
 
@@ -401,7 +389,7 @@ def update_team(
         "name": team_name,
         "city": "",  # Required field
         "club_id": club_id,
-        "academy_team": is_pro_academy  # Update to match club's is_pro_academy value
+        "academy_team": is_pro_academy,  # Update to match club's is_pro_academy value
     }
 
     response = api_request("PUT", f"/api/teams/{team_id}", token, data=payload)
@@ -417,9 +405,10 @@ def update_team(
 # Sync Command - Main Logic
 # ============================================================================
 
+
 @app.command()
 def sync(
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without making changes")
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without making changes"),
 ):
     """
     Sync clubs and teams from clubs.json to the database.
@@ -464,7 +453,9 @@ def sync(
         all_age_groups = age_groups_response.json() if age_groups_response.status_code == 200 else []
         age_group_lookup = {ag["name"].lower(): ag["id"] for ag in all_age_groups}
 
-    console.print(f"✅ Found {len(all_clubs)} clubs, {len(all_teams)} teams, {len(all_leagues)} leagues, {len(all_divisions)} divisions\n")
+    console.print(
+        f"✅ Found {len(all_clubs)} clubs, {len(all_teams)} teams, {len(all_leagues)} leagues, {len(all_divisions)} divisions\n"
+    )
 
     # Statistics
     stats = {
@@ -474,32 +465,23 @@ def sync(
         "teams_created": 0,
         "teams_updated": 0,
         "teams_unchanged": 0,
-        "errors": 0
+        "errors": 0,
     }
 
     # Process each club
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console
-    ) as progress:
-
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
         task = progress.add_task("[cyan]Processing clubs...", total=len(clubs_data))
 
         for club in clubs_data:
             progress.update(task, description=f"[cyan]Processing {club.club_name}...")
 
             # Check if club exists (search in-memory cache)
-            existing_club = next(
-                (c for c in all_clubs if c["name"].lower() == club.club_name.lower()),
-                None
-            )
+            existing_club = next((c for c in all_clubs if c["name"].lower() == club.club_name.lower()), None)
 
             if existing_club:
                 # Club exists - check if update needed
                 needs_update = (
-                    existing_club.get("city") != club.location or
-                    existing_club.get("website") != club.website
+                    existing_club.get("city") != club.location or existing_club.get("website") != club.website
                 )
 
                 if needs_update and not dry_run:
@@ -528,7 +510,7 @@ def sync(
                             # Find the club to get its ID for team processing (search in-memory cache)
                             found_club = next(
                                 (c for c in all_clubs if c["name"].lower() == club.club_name.lower()),
-                                None
+                                None,
                             )
                             club_id = found_club["id"] if found_club else None
                         else:
@@ -546,7 +528,6 @@ def sync(
 
             # Process teams for this club
             for team in club.teams:
-
                 if dry_run and club_id is None:
                     console.print(f"    [dim]→ Would create team: {team.team_name} ({team.league})[/dim]")
                     stats["teams_created"] += 1
@@ -555,7 +536,9 @@ def sync(
                 # Look up division_id for this team (use cached data)
                 league_id = league_lookup.get(team.league.lower())
                 if not league_id:
-                    console.print(f"[yellow]⚠️  League not found: {team.league}. Skipping team: {team.team_name}[/yellow]")
+                    console.print(
+                        f"[yellow]⚠️  League not found: {team.league}. Skipping team: {team.team_name}[/yellow]"
+                    )
                     stats["errors"] += 1
                     continue
 
@@ -573,15 +556,16 @@ def sync(
                         break
 
                 if not division_id:
-                    console.print(f"[yellow]⚠️  Division '{division_name}' not found in league '{team.league}'. Skipping team: {team.team_name}[/yellow]")
+                    console.print(
+                        f"[yellow]⚠️  Division '{division_name}' not found in league '{team.league}'. Skipping team: {team.team_name}[/yellow]"
+                    )
                     stats["errors"] += 1
                     continue
 
                 # Check if team exists (search in-memory cache using division_id)
                 existing_team = None
                 for t in all_teams:
-                    if (t["name"].lower() == team.team_name.lower() and
-                        t.get("division_id") == division_id):
+                    if t["name"].lower() == team.team_name.lower() and t.get("division_id") == division_id:
                         # If club_id specified, also match on that
                         if club_id is not None:
                             if t.get("club_id") == club_id:
@@ -594,12 +578,19 @@ def sync(
                 if existing_team:
                     # Team exists - check if update needed
                     needs_update = (
-                        existing_team.get("club_id") != club_id or
-                        existing_team.get("academy_team") != club.is_pro_academy
+                        existing_team.get("club_id") != club_id
+                        or existing_team.get("academy_team") != club.is_pro_academy
                     )
 
                     if needs_update and not dry_run:
-                        if update_team(token, existing_team["id"], team.team_name, team.league, club_id, club.is_pro_academy):
+                        if update_team(
+                            token,
+                            existing_team["id"],
+                            team.team_name,
+                            team.league,
+                            club_id,
+                            club.is_pro_academy,
+                        ):
                             console.print(f"    [blue]🔄 Updated team: {team.team_name} ({team.league})[/blue]")
                             stats["teams_updated"] += 1
                         else:
@@ -615,7 +606,9 @@ def sync(
                     if not dry_run:
                         # Look up age group IDs from cached data
                         if not team.age_groups:
-                            console.print(f"[yellow]⚠️  No age groups specified for team: {team.team_name}. Skipping team creation.[/yellow]")
+                            console.print(
+                                f"[yellow]⚠️  No age groups specified for team: {team.team_name}. Skipping team creation.[/yellow]"
+                            )
                             stats["errors"] += 1
                             continue
 
@@ -628,7 +621,9 @@ def sync(
                                 console.print(f"[yellow]⚠️  Age group not found: {ag_name}[/yellow]")
 
                         if not age_group_ids:
-                            console.print(f"[yellow]⚠️  No valid age groups found for team: {team.team_name}. Skipping team creation.[/yellow]")
+                            console.print(
+                                f"[yellow]⚠️  No valid age groups found for team: {team.team_name}. Skipping team creation.[/yellow]"
+                            )
                             stats["errors"] += 1
                             continue
 
@@ -639,15 +634,18 @@ def sync(
                             "age_group_ids": age_group_ids,
                             "division_id": division_id,
                             "club_id": club_id,
-                            "academy_team": club.is_pro_academy
+                            "academy_team": club.is_pro_academy,
                         }
 
                         response = api_request("POST", "/api/teams", token, data=payload)
                         new_team = response.json() if response.status_code == 200 else None
 
-                        if response.status_code == 200 or response.status_code == 409 or "already exists" in response.text.lower():
-                            if response.status_code == 409 or "already exists" in response.text.lower():
-                                new_team = {"exists": True}
+                        if (
+                            response.status_code == 200
+                            or response.status_code == 409
+                            or "already exists" in response.text.lower()
+                        ) and (response.status_code == 409 or "already exists" in response.text.lower()):
+                            new_team = {"exists": True}
 
                         if new_team:
                             if new_team.get("exists"):
@@ -658,13 +656,22 @@ def sync(
                                 # Find the existing team and update club_id if needed (search in-memory cache)
                                 existing = None
                                 for t in all_teams:
-                                    if (t["name"].lower() == team.team_name.lower() and
-                                        t.get("division_id") == division_id):
+                                    if (
+                                        t["name"].lower() == team.team_name.lower()
+                                        and t.get("division_id") == division_id
+                                    ):
                                         existing = t
                                         break
 
                                 if existing and existing.get("club_id") != club_id:
-                                    if update_team(token, existing["id"], team.team_name, team.league, club_id, club.is_pro_academy):
+                                    if update_team(
+                                        token,
+                                        existing["id"],
+                                        team.team_name,
+                                        team.league,
+                                        club_id,
+                                        club.is_pro_academy,
+                                    ):
                                         console.print("    [blue]  └─ Updated parent club link[/blue]")
                                         stats["teams_updated"] += 1
                                     else:
@@ -712,9 +719,10 @@ def sync(
 # List Command
 # ============================================================================
 
+
 @app.command()
 def list(
-    show_teams: bool = typer.Option(True, "--show-teams/--no-teams", help="Show teams under each club")
+    show_teams: bool = typer.Option(True, "--show-teams/--no-teams", help="Show teams under each club"),
 ):
     """List all clubs and their teams."""
     console.print("[bold cyan]📋 Clubs & Teams List[/bold cyan]\n")
@@ -759,12 +767,7 @@ def list(
                 leagues = [tm.get("league_name", "Unknown") for tm in team.get("team_mappings", [])]
                 league_str = ", ".join(leagues) if leagues else "N/A"
 
-                teams_table.add_row(
-                    str(team["id"]),
-                    team["name"],
-                    league_str,
-                    team_type
-                )
+                teams_table.add_row(str(team["id"]), team["name"], league_str, team_type)
 
             console.print(teams_table)
 
@@ -775,10 +778,11 @@ def list(
 # Delete Commands
 # ============================================================================
 
+
 @app.command()
 def delete_club(
     club_id: int = typer.Argument(..., help="Club ID to delete"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt")
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ):
     """Delete a club by ID."""
     console.print(f"[bold red]🗑️  Delete Club (ID: {club_id})[/bold red]\n")
@@ -801,10 +805,9 @@ def delete_club(
     console.print()
 
     # Confirm deletion
-    if not force:
-        if not Confirm.ask("Are you sure you want to delete this club?"):
-            console.print("[dim]Deletion cancelled[/dim]")
-            raise typer.Exit()
+    if not force and not Confirm.ask("Are you sure you want to delete this club?"):
+        console.print("[dim]Deletion cancelled[/dim]")
+        raise typer.Exit()
 
     # Delete club
     response = api_request("DELETE", f"/api/clubs/{club_id}", token)
@@ -819,7 +822,7 @@ def delete_club(
 @app.command()
 def delete_team(
     team_id: int = typer.Argument(..., help="Team ID to delete"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt")
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ):
     """Delete a team by ID."""
     console.print(f"[bold red]🗑️  Delete Team (ID: {team_id})[/bold red]\n")
@@ -841,10 +844,9 @@ def delete_team(
     console.print()
 
     # Confirm deletion
-    if not force:
-        if not Confirm.ask("Are you sure you want to delete this team?"):
-            console.print("[dim]Deletion cancelled[/dim]")
-            raise typer.Exit()
+    if not force and not Confirm.ask("Are you sure you want to delete this team?"):
+        console.print("[dim]Deletion cancelled[/dim]")
+        raise typer.Exit()
 
     # Delete team
     response = api_request("DELETE", f"/api/teams/{team_id}", token)

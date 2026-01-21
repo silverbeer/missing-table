@@ -15,45 +15,45 @@ Regenerate with: uv run python scripts/generate_api_models.py
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from pydantic import BaseModel, Field
 
 
 class AgeGroupCreate(BaseModel):
-    name: str = Field(..., title='Name')
+    name: str = Field(..., title="Name")
 
 
 class AgeGroupUpdate(BaseModel):
-    name: str = Field(..., title='Name')
+    name: str = Field(..., title="Name")
 
 
 class DivisionCreate(BaseModel):
-    name: str = Field(..., title='Name')
-    description: Optional[str] = Field(None, title='Description')
-    league_id: int = Field(..., title='League Id')  # MANUAL: Added for league layer support
+    name: str = Field(..., title="Name")
+    description: str | None = Field(None, title="Description")
+    league_id: int = Field(..., title="League Id")  # MANUAL: Added for league layer support
 
 
 class DivisionUpdate(BaseModel):
-    name: Optional[str] = Field(None, title='Name')
-    description: Optional[str] = Field(None, title='Description')
-    league_id: Optional[int] = Field(None, title='League Id')  # MANUAL: Added for league layer support
+    name: str | None = Field(None, title="Name")
+    description: str | None = Field(None, title="Description")
+    league_id: int | None = Field(None, title="League Id")  # MANUAL: Added for league layer support
 
 
 class EnhancedGame(BaseModel):
-    match_date: str = Field(..., title='Match Date')  # MANUAL: Fixed - backend expects match_date not game_date
-    home_team_id: int = Field(..., title='Home Team Id')
-    away_team_id: int = Field(..., title='Away Team Id')
-    home_score: int = Field(..., title='Home Score')
-    away_score: int = Field(..., title='Away Score')
-    season_id: int = Field(..., title='Season Id')
-    age_group_id: int = Field(..., title='Age Group Id')
-    match_type_id: int = Field(..., title='Match Type Id')  # MANUAL: Fixed - backend expects match_type_id not game_type_id
-    division_id: Optional[int] = Field(None, title='Division Id')
-    status: Optional[str] = Field('scheduled', title='Status')
-    created_by: Optional[str] = Field(None, title='Created By')
-    updated_by: Optional[str] = Field(None, title='Updated By')
-    source: str = Field('manual', title='Source')
+    match_date: str = Field(..., title="Match Date")  # MANUAL: Fixed - backend expects match_date not game_date
+    home_team_id: int = Field(..., title="Home Team Id")
+    away_team_id: int = Field(..., title="Away Team Id")
+    home_score: int = Field(..., title="Home Score")
+    away_score: int = Field(..., title="Away Score")
+    season_id: int = Field(..., title="Season Id")
+    age_group_id: int = Field(..., title="Age Group Id")
+    match_type_id: int = Field(
+        ..., title="Match Type Id"
+    )  # MANUAL: Fixed - backend expects match_type_id not game_type_id
+    division_id: int | None = Field(None, title="Division Id")
+    status: str | None = Field("scheduled", title="Status")
+    created_by: str | None = Field(None, title="Created By")
+    updated_by: str | None = Field(None, title="Updated By")
+    source: str = Field("manual", title="Source")
 
 
 class GamePatch(BaseModel):
@@ -61,91 +61,91 @@ class GamePatch(BaseModel):
     Model for partial game updates.
     """
 
-    home_score: Optional[int] = Field(None, title='Home Score')
-    away_score: Optional[int] = Field(None, title='Away Score')
-    match_status: Optional[str] = Field(None, title='Match Status')
-    game_date: Optional[str] = Field(None, title='Game Date')
-    home_team_id: Optional[int] = Field(None, title='Home Team Id')
-    away_team_id: Optional[int] = Field(None, title='Away Team Id')
-    season_id: Optional[int] = Field(None, title='Season Id')
-    age_group_id: Optional[int] = Field(None, title='Age Group Id')
-    game_type_id: Optional[int] = Field(None, title='Game Type Id')
-    division_id: Optional[int] = Field(None, title='Division Id')
-    status: Optional[str] = Field(None, title='Status')
+    home_score: int | None = Field(None, title="Home Score")
+    away_score: int | None = Field(None, title="Away Score")
+    match_status: str | None = Field(None, title="Match Status")
+    game_date: str | None = Field(None, title="Game Date")
+    home_team_id: int | None = Field(None, title="Home Team Id")
+    away_team_id: int | None = Field(None, title="Away Team Id")
+    season_id: int | None = Field(None, title="Season Id")
+    age_group_id: int | None = Field(None, title="Age Group Id")
+    game_type_id: int | None = Field(None, title="Game Type Id")
+    division_id: int | None = Field(None, title="Division Id")
+    status: str | None = Field(None, title="Status")
 
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Field(..., title='Refresh Token')
+    refresh_token: str = Field(..., title="Refresh Token")
 
 
 class RoleUpdate(BaseModel):
-    user_id: str = Field(..., title='User Id')
-    role: str = Field(..., title='Role')
-    team_id: Optional[int] = Field(None, title='Team Id')
+    user_id: str = Field(..., title="User Id")
+    role: str = Field(..., title="Role")
+    team_id: int | None = Field(None, title="Team Id")
 
 
 class SeasonCreate(BaseModel):
-    name: str = Field(..., title='Name')
-    start_date: str = Field(..., title='Start Date')
-    end_date: str = Field(..., title='End Date')
+    name: str = Field(..., title="Name")
+    start_date: str = Field(..., title="Start Date")
+    end_date: str = Field(..., title="End Date")
 
 
 class SeasonUpdate(BaseModel):
-    name: str = Field(..., title='Name')
-    start_date: str = Field(..., title='Start Date')
-    end_date: str = Field(..., title='End Date')
+    name: str = Field(..., title="Name")
+    start_date: str = Field(..., title="Start Date")
+    end_date: str = Field(..., title="End Date")
 
 
 class Team(BaseModel):
-    name: str = Field(..., title='Name')
-    city: str = Field(..., title='City')
-    age_group_ids: list[int] = Field(..., title='Age Group Ids')
-    division_id: int = Field(..., title='Division Id')  # MANUAL: Fixed - backend expects singular division_id
-    club_id: Optional[int] = Field(None, title='Club Id')
-    academy_team: Optional[bool] = Field(False, title='Academy Team')
+    name: str = Field(..., title="Name")
+    city: str = Field(..., title="City")
+    age_group_ids: list[int] = Field(..., title="Age Group Ids")
+    division_id: int = Field(..., title="Division Id")  # MANUAL: Fixed - backend expects singular division_id
+    club_id: int | None = Field(None, title="Club Id")
+    academy_team: bool | None = Field(False, title="Academy Team")
 
 
 class TeamGameTypeMapping(BaseModel):
-    game_type_id: int = Field(..., title='Game Type Id')
-    age_group_id: int = Field(..., title='Age Group Id')
+    game_type_id: int = Field(..., title="Game Type Id")
+    age_group_id: int = Field(..., title="Age Group Id")
 
 
 class TeamMappingCreate(BaseModel):
-    team_id: int = Field(..., title='Team Id')
-    age_group_id: int = Field(..., title='Age Group Id')
-    division_id: int = Field(..., title='Division Id')
+    team_id: int = Field(..., title="Team Id")
+    age_group_id: int = Field(..., title="Age Group Id")
+    division_id: int = Field(..., title="Division Id")
 
 
 class TeamUpdate(BaseModel):
-    name: str = Field(..., title='Name')
-    city: str = Field(..., title='City')
-    academy_team: Optional[bool] = Field(False, title='Academy Team')
+    name: str = Field(..., title="Name")
+    city: str = Field(..., title="City")
+    academy_team: bool | None = Field(False, title="Academy Team")
 
 
 class UserLogin(BaseModel):
-    email: str = Field(..., title='Email')
-    password: str = Field(..., title='Password')
+    email: str = Field(..., title="Email")
+    password: str = Field(..., title="Password")
 
 
 class UserProfile(BaseModel):
-    display_name: Optional[str] = Field(None, title='Display Name')
-    role: Optional[str] = Field(None, title='Role')
-    team_id: Optional[int] = Field(None, title='Team Id')
-    player_number: Optional[int] = Field(None, title='Player Number')
-    positions: Optional[list[str]] = Field(None, title='Positions')
+    display_name: str | None = Field(None, title="Display Name")
+    role: str | None = Field(None, title="Role")
+    team_id: int | None = Field(None, title="Team Id")
+    player_number: int | None = Field(None, title="Player Number")
+    positions: list[str] | None = Field(None, title="Positions")
 
 
 class UserSignup(BaseModel):
-    email: str = Field(..., title='Email')
-    password: str = Field(..., title='Password')
-    display_name: Optional[str] = Field(None, title='Display Name')
+    email: str = Field(..., title="Email")
+    password: str = Field(..., title="Password")
+    display_name: str | None = Field(None, title="Display Name")
 
 
 class ValidationError(BaseModel):
-    loc: list[Union[str, int]] = Field(..., title='Location')
-    msg: str = Field(..., title='Message')
-    type: str = Field(..., title='Error Type')
+    loc: list[str | int] = Field(..., title="Location")
+    msg: str = Field(..., title="Message")
+    type: str = Field(..., title="Error Type")
 
 
 class HTTPValidationError(BaseModel):
-    detail: Optional[list[ValidationError]] = Field(None, title='Detail')
+    detail: list[ValidationError] | None = Field(None, title="Detail")

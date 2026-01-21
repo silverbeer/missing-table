@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TeamStanding:
     """Data class representing a team's standing in the league table."""
+
     position: int
     team_name: str
     played: int
@@ -40,14 +41,14 @@ class TeamStanding:
 class StandingsPage(BasePage):
     """
     Page Object for the League Standings page.
-    
+
     Usage:
         def test_standings_load(standings_page):
             standings_page.navigate()
             standings = standings_page.get_standings()
             assert len(standings) > 0
     """
-    
+
     URL_PATH = "/"
     PAGE_TITLE = "Missing Table"
     LOAD_INDICATOR = "[data-testid='standings-table']"
@@ -120,11 +121,11 @@ class StandingsPage(BasePage):
         season: str | None = None,
         age_group: str | None = None,
         division: str | None = None,
-        match_type: str | None = None
+        match_type: str | None = None,
     ) -> StandingsPage:
         """Apply multiple filters at once."""
         logger.info(f"Applying filters: season={season}, age_group={age_group}, division={division}")
-        
+
         if season:
             self.select_season(season)
         if age_group:
@@ -133,7 +134,7 @@ class StandingsPage(BasePage):
             self.select_division(division)
         if match_type:
             self.select_match_type(match_type)
-        
+
         return self
 
     def wait_for_table_update(self) -> None:
@@ -179,16 +180,16 @@ class StandingsPage(BasePage):
     def get_standings(self) -> list[TeamStanding]:
         """
         Get all team standings from the table.
-        
+
         Returns:
             List of TeamStanding objects
         """
         logger.info("Getting standings data")
         standings = []
-        
+
         rows = self.page.locator(self.TABLE_ROWS)
         count = rows.count()
-        
+
         for i in range(count):
             row = rows.nth(i)
             try:
@@ -208,7 +209,7 @@ class StandingsPage(BasePage):
             except Exception as e:
                 logger.warning(f"Error parsing row {i}: {e}")
                 continue
-        
+
         return standings
 
     def get_team_count(self) -> int:
@@ -307,11 +308,8 @@ class StandingsPage(BasePage):
         standings = self.get_standings()
         if len(standings) < 2:
             return True
-        
-        for i in range(len(standings) - 1):
-            if standings[i].points < standings[i + 1].points:
-                return False
-        return True
+
+        return all(standings[i].points >= standings[i + 1].points for i in range(len(standings) - 1))
 
     def validate_point_calculations(self) -> bool:
         """Verify that points = wins * 3 + draws."""
@@ -320,8 +318,7 @@ class StandingsPage(BasePage):
             expected_points = standing.wins * 3 + standing.draws
             if standing.points != expected_points:
                 logger.error(
-                    f"Invalid points for {standing.team_name}: "
-                    f"got {standing.points}, expected {expected_points}"
+                    f"Invalid points for {standing.team_name}: got {standing.points}, expected {expected_points}"
                 )
                 return False
         return True
@@ -333,8 +330,7 @@ class StandingsPage(BasePage):
             expected_played = standing.wins + standing.draws + standing.losses
             if standing.played != expected_played:
                 logger.error(
-                    f"Invalid games played for {standing.team_name}: "
-                    f"got {standing.played}, expected {expected_played}"
+                    f"Invalid games played for {standing.team_name}: got {standing.played}, expected {expected_played}"
                 )
                 return False
         return True
@@ -346,8 +342,7 @@ class StandingsPage(BasePage):
             expected_gd = standing.goals_for - standing.goals_against
             if standing.goal_difference != expected_gd:
                 logger.error(
-                    f"Invalid GD for {standing.team_name}: "
-                    f"got {standing.goal_difference}, expected {expected_gd}"
+                    f"Invalid GD for {standing.team_name}: got {standing.goal_difference}, expected {expected_gd}"
                 )
                 return False
         return True

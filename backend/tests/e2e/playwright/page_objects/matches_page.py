@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
 from typing import TYPE_CHECKING
 
 from .base_page import BasePage
@@ -26,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Match:
     """Data class representing a match."""
+
     id: str | None
     date: str
     home_team: str
@@ -39,29 +39,29 @@ class Match:
 class MatchesPage(BasePage):
     """
     Page Object for the Matches page.
-    
+
     Usage:
         def test_matches_display(matches_page):
             matches_page.navigate()
             matches = matches_page.get_matches()
             assert len(matches) > 0
     """
-    
+
     URL_PATH = "/matches"
     PAGE_TITLE = "Matches"
     LOAD_INDICATOR = ".matches-list, [data-testid='matches-list'], .match-card"
-    
+
     # Filters
     SEASON_FILTER = "select[name='season'], #season-filter"
     AGE_GROUP_FILTER = "select[name='age_group'], #age-group-filter"
     TEAM_FILTER = "input[name='team'], #team-filter, [data-testid='team-search']"
     DATE_FROM = "input[name='date_from'], #date-from, [data-testid='date-from']"
     DATE_TO = "input[name='date_to'], #date-to, [data-testid='date-to']"
-    
+
     # Match list
     MATCH_LIST = ".matches-list, [data-testid='matches-list']"
     MATCH_CARDS = ".match-card, [data-testid='match-card'], .match-item"
-    
+
     # Match card elements
     MATCH_DATE = ".match-date, [data-testid='match-date']"
     HOME_TEAM = ".home-team, [data-testid='home-team']"
@@ -70,12 +70,12 @@ class MatchesPage(BasePage):
     AWAY_SCORE = ".away-score, [data-testid='away-score']"
     MATCH_VENUE = ".venue, [data-testid='venue']"
     MATCH_STATUS = ".status, [data-testid='match-status']"
-    
+
     # Pagination
     NEXT_PAGE = "button:has-text('Next'), [data-testid='next-page']"
     PREV_PAGE = "button:has-text('Previous'), [data-testid='prev-page']"
     PAGE_INFO = ".page-info, [data-testid='page-info']"
-    
+
     # Messages
     NO_MATCHES = "text=No matches, .empty-state"
     LOADING = ".loading, .spinner"
@@ -143,10 +143,10 @@ class MatchesPage(BasePage):
         """Get all matches displayed on current page."""
         logger.info("Getting matches data")
         matches = []
-        
+
         cards = self.page.locator(self.MATCH_CARDS)
         count = cards.count()
-        
+
         for i in range(count):
             card = cards.nth(i)
             try:
@@ -164,7 +164,7 @@ class MatchesPage(BasePage):
             except Exception as e:
                 logger.warning(f"Error parsing match {i}: {e}")
                 continue
-        
+
         return matches
 
     def get_match_count(self) -> int:
@@ -175,9 +175,7 @@ class MatchesPage(BasePage):
         """Get all matches involving a specific team."""
         matches = self.get_matches()
         return [
-            m for m in matches
-            if team_name.lower() in m.home_team.lower() 
-            or team_name.lower() in m.away_team.lower()
+            m for m in matches if team_name.lower() in m.home_team.lower() or team_name.lower() in m.away_team.lower()
         ]
 
     def get_upcoming_matches(self) -> list[Match]:
@@ -206,8 +204,7 @@ class MatchesPage(BasePage):
         logger.info(f"Clicking match: {home_team} vs {away_team}")
         matches = self.get_matches()
         for i, match in enumerate(matches):
-            if home_team.lower() in match.home_team.lower() and \
-               away_team.lower() in match.away_team.lower():
+            if home_team.lower() in match.home_team.lower() and away_team.lower() in match.away_team.lower():
                 self.click_match(i)
                 return
         raise ValueError(f"Match not found: {home_team} vs {away_team}")
@@ -269,7 +266,7 @@ class MatchesPage(BasePage):
         matches = self.get_matches()
         if len(matches) < 2:
             return True
-        
+
         dates = [m.date for m in matches]
         if ascending:
             return dates == sorted(dates)
@@ -280,8 +277,7 @@ class MatchesPage(BasePage):
         """Verify all displayed matches involve the specified team."""
         matches = self.get_matches()
         for match in matches:
-            if team_name.lower() not in match.home_team.lower() and \
-               team_name.lower() not in match.away_team.lower():
+            if team_name.lower() not in match.home_team.lower() and team_name.lower() not in match.away_team.lower():
                 return False
         return True
 
@@ -312,11 +308,11 @@ class MatchesPage(BasePage):
                 return "completed"
             elif "cancelled" in status_text:
                 return "cancelled"
-        
+
         # Check if scores are present
         home_score = self._parse_score(card, self.HOME_SCORE)
         away_score = self._parse_score(card, self.AWAY_SCORE)
-        
+
         if home_score is not None and away_score is not None:
             return "completed"
         return "scheduled"

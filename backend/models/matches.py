@@ -1,11 +1,13 @@
 """
 Match-related Pydantic models.
 """
+
 from pydantic import BaseModel
 
 
 class EnhancedMatch(BaseModel):
     """Model for creating or updating a match with full context."""
+
     match_date: str
     home_team_id: int
     away_team_id: int
@@ -24,6 +26,7 @@ class EnhancedMatch(BaseModel):
 
 class MatchPatch(BaseModel):
     """Model for partial match updates."""
+
     home_score: int | None = None
     away_score: int | None = None
     match_status: str | None = None
@@ -51,6 +54,7 @@ class MatchSubmissionData(BaseModel):
     Match data for async submission to Celery queue.
     This model accepts flexible data from match-scraper.
     """
+
     home_team: str  # Team name (will be looked up)
     away_team: str  # Team name (will be looked up)
     match_date: str  # ISO format date
@@ -63,4 +67,3 @@ class MatchSubmissionData(BaseModel):
     match_type: str | None = None
     location: str | None = None
     external_match_id: str | None = None  # External identifier for deduplication
-

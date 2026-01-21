@@ -7,6 +7,7 @@ Run this script to set up the PostgreSQL tables in Supabase.
 import os
 
 from dotenv import load_dotenv
+
 from supabase import create_client
 
 # Load environment variables
@@ -57,30 +58,18 @@ def create_schema(supabase):
         'CREATE POLICY "Allow all operations on games" ON games FOR ALL USING (true);',
     ]
 
-    print("🏗️  Creating database schema...")
-
-    for i, sql in enumerate(statements, 1):
+    for _i, sql in enumerate(statements, 1):
         try:
-            print(
-                f"   Step {i}/{len(statements)}: {sql.split()[0]} {sql.split()[1] if len(sql.split()) > 1 else ''}..."
-            )
-
             # Execute SQL using the rpc function
-            result = supabase.rpc("exec_sql", {"sql": sql}).execute()
+            supabase.rpc("exec_sql", {"sql": sql}).execute()
 
         except Exception as e:
             error_msg = str(e)
-            if "already exists" in error_msg.lower():
-                print("      ⚠️  Skipping (already exists)")
-                continue
-            elif "does not exist" in error_msg.lower() and "DROP" in sql:
-                print("      ⚠️  Skipping (nothing to drop)")
+            if "already exists" in error_msg.lower() or ("does not exist" in error_msg.lower() and "DROP" in sql):
                 continue
             else:
-                print(f"      ❌ Error: {e}")
                 return False
 
-    print("✅ Database schema created successfully!")
     return True
 
 
@@ -93,31 +82,22 @@ def test_connection():
         supabase = create_client(url, service_key)
 
         # Simple connection test - just create the client
-        print(f"✅ Connection successful! Connected to {url}")
         return True, supabase
 
-    except Exception as e:
-        print(f"❌ Connection failed: {e}")
+    except Exception:
         return False, None
 
 
 if __name__ == "__main__":
-    print("🚀 Setting up Supabase database schema...")
-    print(f"📡 Project URL: {os.getenv('SUPABASE_URL')}")
-
     # First test connection
     success, supabase = test_connection()
     if success:
-        print("✅ Connection test passed!")
+        pass
     else:
-        print("❌ Connection test failed. Please check your .env file.")
         exit(1)
 
     # Create schema
     if create_schema(supabase):
-        print("\n🎉 Schema setup complete!")
-        print("\nNext steps:")
-        print("1. Run the data migration script to import SQLite data")
-        print("2. Test the new Supabase implementation")
+        pass
     else:
-        print("\n⚠️  Schema creation failed. Please run the SQL manually in Supabase.")
+        pass

@@ -17,7 +17,6 @@ the actual business logic resides, so log callsites show meaningful filenames.
 
 import uuid
 from contextvars import ContextVar
-from typing import Optional, Tuple
 
 import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -25,8 +24,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 # Context variables for trace IDs - accessible throughout the request lifecycle
-_session_id: ContextVar[Optional[str]] = ContextVar("session_id", default=None)
-_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+_session_id: ContextVar[str | None] = ContextVar("session_id", default=None)
+_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
 def generate_request_id() -> str:
@@ -39,7 +38,7 @@ def generate_session_id() -> str:
     return f"mt-sess-{uuid.uuid4().hex[:8]}"
 
 
-def get_trace_context() -> Tuple[Optional[str], Optional[str]]:
+def get_trace_context() -> tuple[str | None, str | None]:
     """
     Get current trace context (session_id, request_id).
 
@@ -49,12 +48,12 @@ def get_trace_context() -> Tuple[Optional[str], Optional[str]]:
     return _session_id.get(), _request_id.get()
 
 
-def get_session_id() -> Optional[str]:
+def get_session_id() -> str | None:
     """Get current session ID from context."""
     return _session_id.get()
 
 
-def get_request_id() -> Optional[str]:
+def get_request_id() -> str | None:
     """Get current request ID from context."""
     return _request_id.get()
 

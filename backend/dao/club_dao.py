@@ -39,15 +39,8 @@ class ClubDAO(BaseDAO):
 
         if include_team_counts:
             # Enrich with team counts (single query instead of N+1)
-            teams_response = (
-                self.client.table("teams")
-                .select("club_id")
-                .not_.is_("club_id", "null")
-                .execute()
-            )
-            team_counts = Counter(
-                team["club_id"] for team in teams_response.data if team.get("club_id")
-            )
+            teams_response = self.client.table("teams").select("club_id").not_.is_("club_id", "null").execute()
+            team_counts = Counter(team["club_id"] for team in teams_response.data if team.get("club_id"))
             for club in clubs:
                 club["team_count"] = team_counts.get(club["id"], 0)
 
@@ -64,9 +57,7 @@ class ClubDAO(BaseDAO):
             Club dict if team belongs to a club, None otherwise
         """
         # Get the team to find its club_id
-        team_response = (
-            self.client.table("teams").select("club_id").eq("id", team_id).execute()
-        )
+        team_response = self.client.table("teams").select("club_id").eq("id", team_id).execute()
         if not team_response.data or len(team_response.data) == 0:
             return None
 
@@ -75,9 +66,7 @@ class ClubDAO(BaseDAO):
             return None
 
         # Get the club details
-        club_response = (
-            self.client.table("clubs").select("*").eq("id", club_id).execute()
-        )
+        club_response = self.client.table("clubs").select("*").eq("id", club_id).execute()
         if club_response.data and len(club_response.data) > 0:
             return club_response.data[0]
         return None
@@ -177,9 +166,7 @@ class ClubDAO(BaseDAO):
         if not update_data:
             return None
 
-        result = (
-            self.client.table("clubs").update(update_data).eq("id", club_id).execute()
-        )
+        result = self.client.table("clubs").update(update_data).eq("id", club_id).execute()
 
         if not result.data or len(result.data) == 0:
             return None
@@ -225,12 +212,7 @@ class ClubDAO(BaseDAO):
         Raises:
             ValueError: If team update fails
         """
-        result = (
-            self.client.table("teams")
-            .update({"club_id": club_id})
-            .eq("id", team_id)
-            .execute()
-        )
+        result = self.client.table("teams").update({"club_id": club_id}).eq("id", team_id).execute()
         if not result.data or len(result.data) == 0:
             raise ValueError(f"Failed to update club for team {team_id}")
         return result.data[0]

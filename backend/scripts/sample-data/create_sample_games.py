@@ -8,6 +8,7 @@ import random
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
+
 from supabase import create_client
 
 load_dotenv()
@@ -20,8 +21,6 @@ def create_sample_games():
     service_key = os.getenv("SUPABASE_SERVICE_KEY")
     supabase = create_client(url, service_key)
 
-    print("🎮 Creating sample games...")
-
     # Get reference data
     teams = supabase.table("teams").select("*").execute().data
     seasons = supabase.table("seasons").select("*").execute().data
@@ -32,18 +31,13 @@ def create_sample_games():
     current_season = next((s for s in seasons if s["name"] == "2024-2025"), seasons[0])
     u13_age_group = next((ag for ag in age_groups if ag["name"] == "U13"), age_groups[0])
     league_game_type = next((gt for gt in game_types if gt["name"] == "League"), game_types[0])
-    tournament_game_type = next(
-        (gt for gt in game_types if gt["name"] == "Tournament"), game_types[0]
-    )
-
-    print(f"Using season: {current_season['name']}")
-    print(f"Using age group: {u13_age_group['name']}")
+    tournament_game_type = next((gt for gt in game_types if gt["name"] == "Tournament"), game_types[0])
 
     # Create sample games
     sample_games = []
 
     # Generate 10 league games
-    for i in range(10):
+    for _i in range(10):
         home_team = random.choice(teams)
         away_team = random.choice([t for t in teams if t["id"] != home_team["id"]])
 
@@ -70,7 +64,7 @@ def create_sample_games():
         )
 
     # Generate 3 tournament games
-    for i in range(3):
+    for _i in range(3):
         home_team = random.choice(teams)
         away_team = random.choice([t for t in teams if t["id"] != home_team["id"]])
 
@@ -96,24 +90,19 @@ def create_sample_games():
 
     # Insert sample games
     try:
-        response = supabase.table("games").insert(sample_games).execute()
-        print(f"✅ Created {len(sample_games)} sample games")
+        supabase.table("games").insert(sample_games).execute()
 
         # Show some examples
-        print("\n📋 Sample games created:")
         for game in sample_games[:5]:
-            home_name = next(t["name"] for t in teams if t["id"] == game["home_team_id"])
-            away_name = next(t["name"] for t in teams if t["id"] == game["away_team_id"])
-            game_type = "League" if game["game_type_id"] == league_game_type["id"] else "Tournament"
-            print(
-                f"  - {game['game_date']}: {home_name} vs {away_name} ({game['home_score']}-{game['away_score']}) [{game_type}]"
-            )
+            next(t["name"] for t in teams if t["id"] == game["home_team_id"])
+            next(t["name"] for t in teams if t["id"] == game["away_team_id"])
+            "League" if game["game_type_id"] == league_game_type["id"] else "Tournament"
 
         if len(sample_games) > 5:
-            print(f"  ... and {len(sample_games) - 5} more")
+            pass
 
-    except Exception as e:
-        print(f"❌ Error creating sample games: {e}")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
