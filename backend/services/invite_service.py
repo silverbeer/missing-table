@@ -247,26 +247,36 @@ class InviteService:
                 # Handle player roster linking for team_player invites
                 if invitation.get('invite_type') == 'team_player':
                     logger.info(
-                        f"Processing team_player invite: player_id={invitation.get('player_id')}, "
-                        f"jersey_number={invitation.get('jersey_number')}, team_id={invitation.get('team_id')}"
+                        f"Processing team_player invite: "
+                        f"player_id={invitation.get('player_id')}, "
+                        f"jersey={invitation.get('jersey_number')}, "
+                        f"team={invitation.get('team_id')}, "
+                        f"age_group={invitation.get('age_group_id')}"
                     )
                     if invitation.get('player_id'):
-                        # Link user to existing roster entry
+                        # Link user to existing roster entry (also creates player_team_history)
                         self._link_user_to_roster_entry(
                             user_id=user_id,
-                            player_id=invitation.get('player_id')
+                            player_id=invitation.get('player_id'),
+                            team_id=invitation.get('team_id'),
+                            age_group_id=invitation.get('age_group_id')
                         )
                     elif invitation.get('jersey_number'):
                         # Create new roster entry with jersey number and link user
-                        logger.info(f"Calling _create_and_link_roster_entry for jersey #{invitation.get('jersey_number')}")
+                        # Also creates player_team_history entry
+                        jersey = invitation.get('jersey_number')
+                        logger.info(f"Creating roster entry for jersey #{jersey}")
                         self._create_and_link_roster_entry(
                             user_id=user_id,
                             team_id=invitation.get('team_id'),
                             jersey_number=invitation.get('jersey_number'),
+                            age_group_id=invitation.get('age_group_id'),
                             invited_by_user_id=invitation.get('invited_by_user_id')
                         )
                     else:
-                        logger.info("No player_id or jersey_number on invite - skipping roster linking")
+                        logger.info(
+                            "No player_id or jersey_number on invite - skipping roster"
+                        )
 
                 return True
 
@@ -279,21 +289,61 @@ class InviteService:
     def _link_user_to_roster_entry(
         self,
         user_id: str,
-        player_id: int
+        player_id: int,
+        team_id: int | None = None,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        league_id: int | None = None,
+        division_id: int | None = None,
+        jersey_number: int | None = None
     ) -> bool:
         """
         Link a user account to a roster entry in the players table.
+        Also creates a player_team_history entry for the UI roster view.
 
         Called when a player accepts an invitation that was tied to a roster entry.
 
         Args:
             user_id: The user ID to link
             player_id: The roster entry ID to link to
+            team_id: Team ID (optional, fetched from roster if not provided)
+            season_id: Season ID (optional, fetched from roster if not provided)
+            age_group_id: Age group ID from the invite
+            league_id: League ID (optional, fetched from team if not provided)
+            division_id: Division ID (optional, fetched from team if not provided)
+            jersey_number: Jersey number (optional, fetched from roster if not provided)
 
         Returns:
             True if successful, False otherwise
         """
         try:
+            # If we don't have the roster details, fetch them
+            if team_id is None or season_id is None or jersey_number is None:
+                roster_response = self.supabase.table('players')\
+                    .select('team_id, season_id, jersey_number')\
+                    .eq('id', player_id)\
+                    .limit(1)\
+                    .execute()
+
+                if roster_response.data:
+                    roster = roster_response.data[0]
+                    team_id = team_id or roster.get('team_id')
+                    season_id = season_id or roster.get('season_id')
+                    jersey_number = jersey_number or roster.get('jersey_number')
+
+            # If we don't have league/division, fetch from team
+            if team_id and (league_id is None or division_id is None):
+                team_response = self.supabase.table('teams')\
+                    .select('league_id, division_id')\
+                    .eq('id', team_id)\
+                    .limit(1)\
+                    .execute()
+
+                if team_response.data:
+                    team = team_response.data[0]
+                    league_id = league_id or team.get('league_id')
+                    division_id = division_id or team.get('division_id')
+
             # Update the players table to link user_profile_id
             response = self.supabase.table('players')\
                 .update({'user_profile_id': user_id})\
@@ -302,8 +352,22 @@ class InviteService:
 
             if response.data:
                 logger.info(f"Linked user {user_id} to roster entry {player_id}")
-                # Invalidate roster cache so API returns updated data
+
+                # Also create player_team_history entry for UI roster view
+                if team_id and season_id:
+                    self._create_player_team_history(
+                        user_id=user_id,
+                        team_id=team_id,
+                        season_id=season_id,
+                        age_group_id=age_group_id,
+                        league_id=league_id,
+                        division_id=division_id,
+                        jersey_number=jersey_number
+                    )
+
+                # Invalidate caches
                 clear_cache("mt:dao:roster:*")
+                clear_cache("mt:dao:players:*")
                 return True
 
             logger.warning(f"Failed to link user {user_id} to roster entry {player_id}")
@@ -318,11 +382,13 @@ class InviteService:
         user_id: str,
         team_id: int,
         jersey_number: int,
+        age_group_id: int | None = None,
         invited_by_user_id: str | None = None
     ) -> bool:
         """
         Create a new roster entry and link a user account to it, or link to
         an existing roster entry if one already exists with that jersey number.
+        Also creates a player_team_history entry for the UI roster view.
 
         Called when a player accepts an invitation that included a jersey number
         but no existing player_id.
@@ -331,6 +397,7 @@ class InviteService:
             user_id: The user ID to link
             team_id: The team ID for the roster entry
             jersey_number: The jersey number for the roster entry
+            age_group_id: The age group ID from the invite
             invited_by_user_id: The user who created the invite (for created_by field)
 
         Returns:
@@ -354,6 +421,19 @@ class InviteService:
 
             season_id = season_response.data[0]['id']
 
+            # Get team details for league_id and division_id
+            team_response = self.supabase.table('teams')\
+                .select('league_id, division_id')\
+                .eq('id', team_id)\
+                .limit(1)\
+                .execute()
+
+            league_id = None
+            division_id = None
+            if team_response.data:
+                league_id = team_response.data[0].get('league_id')
+                division_id = team_response.data[0].get('division_id')
+
             # Check if a player with this jersey number already exists
             existing_response = self.supabase.table('players')\
                 .select('id, user_profile_id')\
@@ -375,8 +455,17 @@ class InviteService:
                     )
                     return False
 
-                # Link user to existing roster entry
-                return self._link_user_to_roster_entry(user_id, player_id)
+                # Link user to existing roster entry (will also create player_team_history)
+                return self._link_user_to_roster_entry(
+                    user_id=user_id,
+                    player_id=player_id,
+                    team_id=team_id,
+                    season_id=season_id,
+                    age_group_id=age_group_id,
+                    league_id=league_id,
+                    division_id=division_id,
+                    jersey_number=jersey_number
+                )
 
             # Create new roster entry with user already linked
             player_data = {
@@ -398,8 +487,21 @@ class InviteService:
                     f"Created roster entry {player_id} with jersey #{jersey_number} "
                     f"for user {user_id} on team {team_id}"
                 )
-                # Invalidate roster cache
+
+                # Also create player_team_history entry for UI roster view
+                self._create_player_team_history(
+                    user_id=user_id,
+                    team_id=team_id,
+                    season_id=season_id,
+                    age_group_id=age_group_id,
+                    league_id=league_id,
+                    division_id=division_id,
+                    jersey_number=jersey_number
+                )
+
+                # Invalidate caches
                 clear_cache("mt:dao:roster:*")
+                clear_cache("mt:dao:players:*")
                 return True
 
             logger.warning(f"Failed to create roster entry for user {user_id}")
@@ -407,6 +509,89 @@ class InviteService:
 
         except Exception as e:
             logger.error(f"Error creating and linking roster entry: {e}")
+            return False
+
+    def _create_player_team_history(
+        self,
+        user_id: str,
+        team_id: int,
+        season_id: int,
+        age_group_id: int | None = None,
+        league_id: int | None = None,
+        division_id: int | None = None,
+        jersey_number: int | None = None,
+        positions: list[str] | None = None
+    ) -> bool:
+        """
+        Create a player_team_history entry for the UI roster view.
+
+        This is the primary table used by the UI to display team rosters.
+        Called when a player accepts an invitation.
+
+        Args:
+            user_id: The user ID (player_id in the table)
+            team_id: Team ID
+            season_id: Season ID
+            age_group_id: Age group ID
+            league_id: League ID
+            division_id: Division ID
+            jersey_number: Jersey number
+            positions: List of positions (e.g., ['MF', 'FW'])
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Check if entry already exists for this player/team/season
+            existing = self.supabase.table('player_team_history')\
+                .select('id')\
+                .eq('player_id', user_id)\
+                .eq('team_id', team_id)\
+                .eq('season_id', season_id)\
+                .limit(1)\
+                .execute()
+
+            if existing.data:
+                logger.info(
+                    f"player_team_history entry already exists for user {user_id}, "
+                    f"team {team_id}, season {season_id}"
+                )
+                return True
+
+            # Create new entry
+            history_data = {
+                'player_id': user_id,
+                'team_id': team_id,
+                'season_id': season_id,
+                'is_current': True,
+            }
+
+            if age_group_id is not None:
+                history_data['age_group_id'] = age_group_id
+            if league_id is not None:
+                history_data['league_id'] = league_id
+            if division_id is not None:
+                history_data['division_id'] = division_id
+            if jersey_number is not None:
+                history_data['jersey_number'] = jersey_number
+            if positions:
+                history_data['positions'] = positions
+
+            response = self.supabase.table('player_team_history').insert(history_data).execute()
+
+            if response.data:
+                history_id = response.data[0]['id']
+                logger.info(
+                    f"Created player_team_history entry {history_id} for user {user_id} "
+                    f"on team {team_id}, season {season_id}, jersey #{jersey_number}"
+                )
+                return True
+
+            logger.warning(f"Failed to create player_team_history for user {user_id}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error creating player_team_history: {e}")
             return False
 
     def _create_team_manager_assignment(

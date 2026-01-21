@@ -23,48 +23,48 @@ class TeamManagerService:
         assigned_by_user_id: str
     ) -> Optional[Dict]:
         """
-        Assign a user as team manager for a specific team and age group
-        
+        Assign a user as team manager for a specific team.
+
+        Note: age_group_id and assigned_by_user_id are accepted for API compatibility
+        but not stored. The table schema only has: id, user_id, team_id, created_at.
+
         Args:
             user_id: ID of the user to assign as team manager
             team_id: ID of the team
-            age_group_id: ID of the age group
-            assigned_by_user_id: ID of the admin making the assignment
-            
+            age_group_id: ID of the age group (not stored)
+            assigned_by_user_id: ID of the admin making the assignment (not stored)
+
         Returns:
             Assignment record if successful, None otherwise
         """
         try:
-            # Check if assignment already exists
+            # Check if assignment already exists (unique constraint on user_id, team_id)
             existing = self.supabase.table('team_manager_assignments')\
                 .select('id')\
                 .eq('user_id', user_id)\
                 .eq('team_id', team_id)\
-                .eq('age_group_id', age_group_id)\
                 .execute()
-            
+
             if existing.data:
                 logger.warning(f"Team manager assignment already exists for user {user_id}")
                 return existing.data[0]
-            
-            # Create assignment
+
+            # Create assignment (table schema: id, user_id, team_id, created_at)
             assignment_data = {
                 'user_id': user_id,
                 'team_id': team_id,
-                'age_group_id': age_group_id,
-                'assigned_by_user_id': assigned_by_user_id
             }
-            
+
             response = self.supabase.table('team_manager_assignments')\
                 .insert(assignment_data)\
                 .execute()
-            
+
             if response.data:
-                logger.info(f"Assigned user {user_id} as team manager for team {team_id}, age group {age_group_id}")
+                logger.info(f"Assigned user {user_id} as team manager for team {team_id}")
                 return response.data[0]
-            
+
             return None
-            
+
         except Exception as e:
             logger.error(f"Error assigning team manager: {e}")
             return None
@@ -93,13 +93,16 @@ class TeamManagerService:
     
     def can_manage_team(self, user_id: str, team_id: int, age_group_id: int) -> bool:
         """
-        Check if a user can manage a specific team and age group
-        
+        Check if a user can manage a specific team.
+
+        Note: age_group_id is accepted for API compatibility but not checked.
+        The team_manager_assignments table grants access to the entire team.
+
         Args:
             user_id: ID of the user
             team_id: ID of the team
-            age_group_id: ID of the age group
-            
+            age_group_id: ID of the age group (not used - kept for API compatibility)
+
         Returns:
             True if user can manage, False otherwise
         """
@@ -110,20 +113,19 @@ class TeamManagerService:
                 .eq('id', user_id)\
                 .single()\
                 .execute()
-            
+
             if user_response.data and user_response.data['role'] == 'admin':
                 return True
-            
-            # Check if user has team manager assignment
+
+            # Check if user has team manager assignment (by team_id only)
             response = self.supabase.table('team_manager_assignments')\
                 .select('id')\
                 .eq('user_id', user_id)\
                 .eq('team_id', team_id)\
-                .eq('age_group_id', age_group_id)\
                 .execute()
-            
+
             return bool(response.data)
-            
+
         except Exception as e:
             logger.error(f"Error checking team management permission: {e}")
             return False
@@ -135,13 +137,16 @@ class TeamManagerService:
         age_group_id: int
     ) -> bool:
         """
-        Remove a team manager assignment
-        
+        Remove a team manager assignment.
+
+        Note: age_group_id is accepted for API compatibility but not used.
+        Deletion is by user_id and team_id only.
+
         Args:
             user_id: ID of the user
             team_id: ID of the team
-            age_group_id: ID of the age group
-            
+            age_group_id: ID of the age group (not used)
+
         Returns:
             True if successful, False otherwise
         """
@@ -150,15 +155,14 @@ class TeamManagerService:
                 .delete()\
                 .eq('user_id', user_id)\
                 .eq('team_id', team_id)\
-                .eq('age_group_id', age_group_id)\
                 .execute()
-            
+
             if response.data:
                 logger.info(f"Removed team manager assignment for user {user_id}")
                 return True
-            
+
             return False
-            
+
         except Exception as e:
             logger.error(f"Error removing team manager: {e}")
             return False

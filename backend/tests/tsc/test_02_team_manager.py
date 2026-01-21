@@ -11,7 +11,6 @@ This phase tests the team manager user experience:
 Run: pytest tests/tsc/test_02_team_manager.py -v
 """
 
-import pytest
 
 from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig
 
@@ -170,7 +169,7 @@ class TestTeamManagerJourney:
         )
 
         assert result is not None
-        print(f"Updated match 5 score: 1-1")
+        print("Updated match 5 score: 1-1")
 
     def test_11_set_match_6_live(
         self,
@@ -185,20 +184,104 @@ class TestTeamManagerJourney:
         assert result is not None
         print(f"Set match 6 (ID: {match_6_id}) to LIVE")
 
-    def test_12_create_player_invite(
+    # === Roster Management Tests ===
+
+    def test_11a_create_roster_entries(
         self,
         tsc_client: TSCClient,
         entity_registry: EntityRegistry,
     ):
-        """Create invite for player (team manager creates for their team)."""
+        """Team manager creates roster for the team."""
+        # Re-login as team manager
+        tsc_client.login_team_manager()
+
+        # Create roster entries (jersey numbers 1, 7, 10, 11, 23)
+        for jersey in [1, 7, 10, 11, 23]:
+            result = tsc_client.create_roster_entry(
+                team_id=entity_registry.premier_team_id,
+                jersey_number=jersey,
+                first_name=f"Player{jersey}",
+                last_name="Test",
+            )
+            assert "id" in result
+            print(f"Created roster entry: #{jersey} - Player{jersey} Test")
+
+        # Verify roster
+        roster = tsc_client.get_roster(entity_registry.premier_team_id)
+        assert len(roster) >= 5
+        print(f"Team roster has {len(roster)} players")
+
+    def test_11b_verify_roster_display_names(
+        self,
+        tsc_client: TSCClient,
+        entity_registry: EntityRegistry,
+    ):
+        """Verify roster entries have correct display names."""
+        roster = tsc_client.get_roster(entity_registry.premier_team_id)
+
+        for player in roster:
+            # Players without accounts should show name from roster
+            assert "display_name" in player
+            assert player.get("has_account") is False  # No accounts linked yet
+            print(
+                f"#{player['jersey_number']}: {player['display_name']} "
+                f"(has_account={player.get('has_account')})"
+            )
+
+    def test_11c_record_goal_with_roster_player(
+        self,
+        tsc_client: TSCClient,
+        entity_registry: EntityRegistry,
+        existing_admin_credentials: tuple[str, str],
+    ):
+        """Record a goal using player_id from roster."""
+        # Login as admin for match management
+        username, password = existing_admin_credentials
+        tsc_client.login(username, password)
+
+        # Get roster
+        roster = tsc_client.get_roster(entity_registry.premier_team_id)
+        scorer = roster[0]  # First player scores
+
+        # Record goal on live match
+        live_match_id = entity_registry.match_ids[-1]
+        result = tsc_client.post_goal_with_player(
+            match_id=live_match_id,
+            team_id=entity_registry.premier_team_id,
+            player_id=scorer["id"],
+            message="Great strike!",
+        )
+
+        assert result is not None
+        print(f"Goal recorded: #{scorer['jersey_number']} scored!")
+
+        # Verify stats updated
+        stats = tsc_client.get_player_stats(scorer["id"])
+        assert stats.get("stats", {}).get("total_goals", 0) >= 1
+        print(f"Player stats: {stats.get('stats', {}).get('total_goals', 0)} goals")
+
+    def test_12_create_player_invite_with_roster(
+        self,
+        tsc_client: TSCClient,
+        entity_registry: EntityRegistry,
+    ):
+        """Create invite for player linked to roster entry."""
         # Re-login as team manager (may have been logged out by previous tests)
         tsc_client.login_team_manager()
 
-        result = tsc_client.create_team_player_invite(
-            team_id=entity_registry.premier_team_id
+        # Get first roster entry (jersey #1)
+        roster = tsc_client.get_roster(entity_registry.premier_team_id)
+        player_entry = next(p for p in roster if p["jersey_number"] == 1)
+
+        result = tsc_client.create_team_player_invite_with_roster(
+            team_id=entity_registry.premier_team_id,
+            player_id=player_entry["id"],
         )
         assert "invite_code" in result
-        print(f"Created player invite: {result['invite_code']}")
+        print(f"Created roster-linked invite: {result['invite_code']} → #{player_entry['jersey_number']}")
+
+        # Store roster entry ID for player journey verification
+        entity_registry.linked_player_id = player_entry["id"]
 
     def test_13_create_team_fan_invite(
         self,
@@ -237,9 +320,15 @@ class TestTeamManagerJourney:
         assert len(player_invites) > 0, "Player invite not created"
         assert len(fan_invites) > 0, "Fan invite not created"
 
+        # Check roster entries
+        assert len(entity_registry.roster_entries) >= 5, "Not enough roster entries created"
+        assert entity_registry.linked_player_id is not None, "Player not linked to invite"
+
         print("\n=== Phase 2 Complete ===")
-        print(f"Team manager signed up and logged in")
+        print("Team manager signed up and logged in")
         print(f"Total matches: {len(entity_registry.match_ids)}")
         print(f"Live match ID: {entity_registry.match_ids[-1]}")
         print(f"Player invites: {len(player_invites)}")
         print(f"Fan invites: {len(fan_invites)}")
+        print(f"Roster entries: {len(entity_registry.roster_entries)}")
+        print(f"Linked player ID: {entity_registry.linked_player_id}")

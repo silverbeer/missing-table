@@ -73,15 +73,21 @@ echo "  - Password: ${PASSWORD_TOM}"
 
 # Try to set role (this will create profile if user exists without one)
 echo -e "  ${YELLOW}Setting role to admin...${NC}"
-if uv run python manage_users.py role --user tom --role admin --confirm 2>&1 | grep -q "not found"; then
+if uv run python scripts/manage_users.py role --user tom --role admin --confirm 2>&1 | grep -q "not found"; then
     echo -e "  ${GREEN}User doesn't exist, creating...${NC}"
-    uv run python manage_users.py create \
+    uv run python scripts/manage_users.py create \
         --email tom@missingtable.local \
         --password "${PASSWORD_TOM}" \
         --role admin \
         --confirm
 else
     echo -e "  ${GREEN}Role updated (or profile created)${NC}"
+    # Reset password for existing user
+    echo -e "  ${YELLOW}Resetting password...${NC}"
+    uv run python scripts/manage_users.py password \
+        --email tom@missingtable.local \
+        --password "${PASSWORD_TOM}" \
+        --confirm
 fi
 
 echo -e "  ${GREEN}✓ tom (admin) ready${NC}"
@@ -99,24 +105,30 @@ echo "  - Team: IFA (will be assigned if team exists)"
 
 # Try to set role (this will create profile if user exists without one)
 echo -e "  ${YELLOW}Setting role to team-manager...${NC}"
-if uv run python manage_users.py role --user tom_ifa --role team-manager --confirm 2>&1 | grep -q "not found"; then
+if uv run python scripts/manage_users.py role --user tom_ifa --role team-manager --confirm 2>&1 | grep -q "not found"; then
     echo -e "  ${GREEN}User doesn't exist, creating...${NC}"
-    uv run python manage_users.py create \
+    uv run python scripts/manage_users.py create \
         --email tom_ifa@missingtable.local \
         --password "${PASSWORD_TOM_IFA}" \
         --role team-manager \
         --confirm
 else
     echo -e "  ${GREEN}Role updated (or profile created)${NC}"
+    # Reset password for existing user
+    echo -e "  ${YELLOW}Resetting password...${NC}"
+    uv run python scripts/manage_users.py password \
+        --email tom_ifa@missingtable.local \
+        --password "${PASSWORD_TOM_IFA}" \
+        --confirm
 fi
 
 # Try to assign to IFA team (get first IFA team found)
 echo -e "  ${YELLOW}Looking for IFA team...${NC}"
-IFA_TEAM_ID=$(uv run python manage_users.py teams 2>/dev/null | grep -i "IFA" | head -1 | awk '{print $2}' || echo "")
+IFA_TEAM_ID=$(uv run python scripts/manage_users.py teams 2>/dev/null | grep -i "IFA" | head -1 | awk '{print $2}' || echo "")
 
 if [ -n "$IFA_TEAM_ID" ]; then
     echo -e "  ${YELLOW}Assigning to IFA team (ID: ${IFA_TEAM_ID})...${NC}"
-    uv run python manage_users.py team --user tom_ifa --team-id "${IFA_TEAM_ID}" --confirm || echo -e "  ${YELLOW}Could not assign team (user may not be in auth.users yet)${NC}"
+    uv run python scripts/manage_users.py team --user tom_ifa --team-id "${IFA_TEAM_ID}" --confirm || echo -e "  ${YELLOW}Could not assign team (user may not be in auth.users yet)${NC}"
 else
     echo -e "  ${YELLOW}No IFA team found - user created but not assigned to team${NC}"
 fi
@@ -136,21 +148,27 @@ echo "  - Team: IFA (will be assigned if team exists)"
 
 # Try to set role (this will create profile if user exists without one)
 echo -e "  ${YELLOW}Setting role to team-fan...${NC}"
-if uv run python manage_users.py role --user tom_ifa_fan --role team-fan --confirm 2>&1 | grep -q "not found"; then
+if uv run python scripts/manage_users.py role --user tom_ifa_fan --role team-fan --confirm 2>&1 | grep -q "not found"; then
     echo -e "  ${GREEN}User doesn't exist, creating...${NC}"
-    uv run python manage_users.py create \
+    uv run python scripts/manage_users.py create \
         --email tom_ifa_fan@missingtable.local \
         --password "${PASSWORD_TOM_IFA_FAN}" \
         --role team-fan \
         --confirm
 else
     echo -e "  ${GREEN}Role updated (or profile created)${NC}"
+    # Reset password for existing user
+    echo -e "  ${YELLOW}Resetting password...${NC}"
+    uv run python scripts/manage_users.py password \
+        --email tom_ifa_fan@missingtable.local \
+        --password "${PASSWORD_TOM_IFA_FAN}" \
+        --confirm
 fi
 
 # Try to assign to IFA team (use same team ID as tom_ifa)
 if [ -n "$IFA_TEAM_ID" ]; then
     echo -e "  ${YELLOW}Assigning to IFA team (ID: ${IFA_TEAM_ID})...${NC}"
-    uv run python manage_users.py team --user tom_ifa_fan --team-id "${IFA_TEAM_ID}" --confirm || echo -e "  ${YELLOW}Could not assign team (user may not be in auth.users yet)${NC}"
+    uv run python scripts/manage_users.py team --user tom_ifa_fan --team-id "${IFA_TEAM_ID}" --confirm || echo -e "  ${YELLOW}Could not assign team (user may not be in auth.users yet)${NC}"
 else
     echo -e "  ${YELLOW}No IFA team found - user created but not assigned to team${NC}"
 fi
@@ -170,9 +188,9 @@ echo "  - Club: IFA Club (ID: 1)"
 
 # Try to set role (this will create profile if user exists without one)
 echo -e "  ${YELLOW}Setting role to club_manager...${NC}"
-if uv run python manage_users.py role --user tom_club --role club_manager --confirm 2>&1 | grep -q "not found"; then
+if uv run python scripts/manage_users.py role --user tom_club --role club_manager --confirm 2>&1 | grep -q "not found"; then
     echo -e "  ${GREEN}User doesn't exist, creating...${NC}"
-    uv run python manage_users.py create \
+    uv run python scripts/manage_users.py create \
         --email tom_club@missingtable.local \
         --password "${PASSWORD_TOM_CLUB}" \
         --role club_manager \
@@ -180,6 +198,12 @@ if uv run python manage_users.py role --user tom_club --role club_manager --conf
         --confirm
 else
     echo -e "  ${GREEN}Role updated (or profile created)${NC}"
+    # Reset password for existing user
+    echo -e "  ${YELLOW}Resetting password...${NC}"
+    uv run python scripts/manage_users.py password \
+        --email tom_club@missingtable.local \
+        --password "${PASSWORD_TOM_CLUB}" \
+        --confirm
 fi
 
 echo -e "  ${GREEN}✓ tom_club (club_manager) ready${NC}"
@@ -202,5 +226,5 @@ echo -e "${YELLOW}Note:${NC} If team assignments failed, users exist but aren't"
 echo "linked to teams yet. Sign in to the app first, then re-run this script."
 echo ""
 echo -e "${BLUE}Verify users:${NC}"
-echo "  APP_ENV=${ENVIRONMENT} uv run python backend/manage_users.py list"
+echo "  APP_ENV=${ENVIRONMENT} uv run python backend/scripts/manage_users.py list"
 echo ""

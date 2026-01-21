@@ -40,7 +40,7 @@ ENV_FILES = [
 
 for env_file in ENV_FILES:
     if env_file.exists():
-        load_dotenv(env_file)
+        load_dotenv(env_file, override=True)  # Override parent conftest values
         break
 
 
