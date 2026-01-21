@@ -13,10 +13,16 @@ NC='\033[0m' # No Color
 # Service configuration
 BACKEND_PORT=8000
 FRONTEND_PORT=8080
+REDIS_PORT=6379
 PID_DIR="$HOME/.missing-table"
 BACKEND_PID_FILE="$PID_DIR/backend.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
+REDIS_PF_PID_FILE="$PID_DIR/redis-portforward.pid"
 LOG_DIR="$PID_DIR/logs"
+
+# k3s/k8s configuration for Redis
+REDIS_NAMESPACE="missing-table"
+REDIS_SERVICE="missing-table-redis"
 
 # Create directories if they don't exist
 mkdir -p "$PID_DIR" "$LOG_DIR"
@@ -44,13 +50,17 @@ usage() {
     echo -e "${YELLOW}Usage:${NC} $0 {start|stop|restart|status|logs|tail}"
     echo ""
     echo -e "${YELLOW}Commands:${NC}"
-    echo "  start [--watch]    - Start both backend and frontend services"
-    echo "  stop               - Stop all running services"
+    echo "  start [--watch]    - Start backend, frontend, and Redis port-forward"
+    echo "  stop               - Stop all running services and Redis port-forward"
     echo "  restart [--watch]  - Stop and start all services"
     echo "                       --watch: Enable auto-reload on code changes"
-    echo "  status             - Show status of all services"
+    echo "  status             - Show status of all services (incl. Redis in k3s)"
     echo "  logs               - Show recent logs from services"
     echo "  tail               - Follow logs in real-time (Ctrl+C to stop)"
+    echo ""
+    echo -e "${YELLOW}Redis (k3s):${NC}"
+    echo "  Redis runs in k3s and is port-forwarded to localhost:6379"
+    echo "  If Redis is not deployed, caching will be disabled"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo "  $0 start --watch   # With auto-reload for development"
@@ -115,6 +125,87 @@ kill_process() {
     else
         return 1
     fi
+}
+
+# Function to check if Redis pod is running in k3s
+redis_pod_running() {
+    kubectl get pod -n "$REDIS_NAMESPACE" -l app.kubernetes.io/component=redis --field-selector=status.phase=Running -o name 2>/dev/null | grep -q .
+}
+
+# Function to check if Redis is accessible locally
+redis_accessible() {
+    nc -z localhost $REDIS_PORT 2>/dev/null
+}
+
+# Function to get Redis pod status
+get_redis_status() {
+    local pod_status=$(kubectl get pod -n "$REDIS_NAMESPACE" -l app.kubernetes.io/component=redis -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
+    if [ -z "$pod_status" ]; then
+        echo "NOT_DEPLOYED"
+    else
+        echo "$pod_status"
+    fi
+}
+
+# Function to start Redis port-forward
+start_redis_portforward() {
+    echo -e "${YELLOW}Starting Redis port-forward...${NC}"
+
+    # Check if Redis pod is running
+    if ! redis_pod_running; then
+        echo -e "${RED}Redis pod is not running in k3s${NC}"
+        echo -e "${BLUE}Tip:${NC} Deploy Redis with: helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
+        return 1
+    fi
+
+    # Check if already accessible
+    if redis_accessible; then
+        echo -e "${YELLOW}Redis already accessible on port $REDIS_PORT${NC}"
+        return 0
+    fi
+
+    # Start port-forward in background
+    local redis_pf_log="$LOG_DIR/redis-portforward.log"
+    nohup kubectl port-forward -n "$REDIS_NAMESPACE" "svc/$REDIS_SERVICE" "$REDIS_PORT:6379" > "$redis_pf_log" 2>&1 &
+    local pf_pid=$!
+    echo $pf_pid > "$REDIS_PF_PID_FILE"
+
+    # Wait for port-forward to establish
+    local count=0
+    while [ $count -lt 5 ]; do
+        if redis_accessible; then
+            echo -e "${GREEN}Redis port-forward started (PID: $pf_pid)${NC}"
+            return 0
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+
+    echo -e "${RED}Redis port-forward failed to start${NC}"
+    return 1
+}
+
+# Function to stop Redis port-forward
+stop_redis_portforward() {
+    # Check PID file
+    if [ -f "$REDIS_PF_PID_FILE" ]; then
+        local pf_pid=$(cat "$REDIS_PF_PID_FILE")
+        if [ -n "$pf_pid" ] && kill -0 "$pf_pid" 2>/dev/null; then
+            echo -e "${YELLOW}Stopping Redis port-forward (PID: $pf_pid)...${NC}"
+            kill "$pf_pid" 2>/dev/null
+            rm -f "$REDIS_PF_PID_FILE"
+            return 0
+        fi
+    fi
+
+    # Also kill any orphaned port-forwards
+    local pf_pids=$(pgrep -f "kubectl.*port-forward.*$REDIS_SERVICE" 2>/dev/null)
+    if [ -n "$pf_pids" ]; then
+        echo -e "${YELLOW}Stopping orphaned Redis port-forward processes...${NC}"
+        echo "$pf_pids" | xargs kill 2>/dev/null
+    fi
+
+    rm -f "$REDIS_PF_PID_FILE"
 }
 
 # Function to start backend
@@ -262,6 +353,16 @@ start_services() {
         return 1
     fi
 
+    # Start Redis port-forward if Redis is deployed in k3s
+    if redis_pod_running; then
+        start_redis_portforward
+    else
+        echo -e "${YELLOW}Redis not deployed in k3s - caching will be disabled${NC}"
+        echo -e "${BLUE}Tip:${NC} To enable caching, deploy Redis with:"
+        echo -e "  helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
+        echo ""
+    fi
+
     start_backend "$dev_mode"
     if [ $? -eq 0 ]; then
         start_frontend "$dev_mode"
@@ -301,6 +402,9 @@ stop_services() {
             fi
         done
     fi
+
+    # Stop Redis port-forward
+    stop_redis_portforward
 
     # Clean up PID files
     rm -f "$BACKEND_PID_FILE" "$FRONTEND_PID_FILE"
@@ -383,6 +487,37 @@ show_status() {
     else
         echo -e "  Status: ${RED}STOPPED${NC}"
     fi
+
+    # Redis status (k3s)
+    echo -e "\n${YELLOW}Redis (k3s - Port $REDIS_PORT):${NC}"
+    local redis_status=$(get_redis_status)
+    case "$redis_status" in
+        "Running")
+            echo -e "  k3s Pod: ${GREEN}RUNNING${NC} (namespace: $REDIS_NAMESPACE)"
+            if redis_accessible; then
+                local pf_pid=""
+                if [ -f "$REDIS_PF_PID_FILE" ]; then
+                    pf_pid=$(cat "$REDIS_PF_PID_FILE")
+                fi
+                if [ -n "$pf_pid" ] && kill -0 "$pf_pid" 2>/dev/null; then
+                    echo -e "  Port-Forward: ${GREEN}ACTIVE${NC} (PID: $pf_pid)"
+                else
+                    echo -e "  Port-Forward: ${GREEN}ACTIVE${NC}"
+                fi
+                echo "  URL: redis://localhost:$REDIS_PORT"
+            else
+                echo -e "  Port-Forward: ${RED}INACTIVE${NC}"
+                echo -e "  ${BLUE}Tip:${NC} Run '$0 start' to enable port-forwarding"
+            fi
+            ;;
+        "NOT_DEPLOYED")
+            echo -e "  k3s Pod: ${YELLOW}NOT DEPLOYED${NC}"
+            echo -e "  ${BLUE}Tip:${NC} Deploy with: helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
+            ;;
+        *)
+            echo -e "  k3s Pod: ${YELLOW}$redis_status${NC} (namespace: $REDIS_NAMESPACE)"
+            ;;
+    esac
 
     # Show all related processes
     local all_pids=$(get_missing_table_processes)
