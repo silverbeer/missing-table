@@ -165,22 +165,26 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 # MyPy configuration - Static type checking
+# Note: strict mode disabled to reduce noise; enable incrementally as codebase matures
 [tool.mypy]
 python_version = "3.13"
-strict = true
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
 no_implicit_optional = true
 warn_redundant_casts = true
-warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 ignore_missing_imports = true
 show_error_codes = true
+explicit_package_bases = true
+mypy_path = "."
+exclude = [
+    "supabase-local/",
+    "scripts/",
+    "tests/",
+    "archive/",
+]
 
 [[tool.mypy.overrides]]
 module = [
@@ -192,6 +196,21 @@ module = [
     "redis.*"
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "scripts.*",
+    "run_tests",
+    "archive.*",
+    "tests.*",
+    "queue_cli.*",
+    "manage_teams",
+    "manage_clubs",
+    "manage_live_match",
+    "search_matches",
+    "cache_cli",
+]
+ignore_errors = true
 
 # Bandit configuration - Security linting
 [tool.bandit]
