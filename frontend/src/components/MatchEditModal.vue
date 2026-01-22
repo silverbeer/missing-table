@@ -45,7 +45,7 @@
         </div>
 
         <form @submit.prevent="updateMatch()">
-          <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Date</label
@@ -55,6 +55,18 @@
                 type="date"
                 required
                 data-testid="date-input"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Kickoff Time
+                <span class="text-gray-400 text-xs">(optional)</span></label
+              >
+              <input
+                v-model="formData.kickoff_time"
+                type="time"
+                data-testid="kickoff-time-input"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -273,6 +285,7 @@ export default {
 
     const formData = ref({
       match_date: '',
+      kickoff_time: '',
       home_team_id: '',
       away_team_id: '',
       home_score: null,
@@ -284,6 +297,18 @@ export default {
       match_status: 'scheduled',
     });
 
+    // Extract local time from scheduled_kickoff (UTC ISO string)
+    const extractLocalTime = isoString => {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      // Format as HH:MM for time input
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    };
+
     // Watch for match prop changes to populate form
     watch(
       () => props.match,
@@ -291,6 +316,7 @@ export default {
         if (newMatch) {
           formData.value = {
             match_date: newMatch.match_date,
+            kickoff_time: extractLocalTime(newMatch.scheduled_kickoff),
             home_team_id: newMatch.home_team_id,
             away_team_id: newMatch.away_team_id,
             home_score: newMatch.home_score,
@@ -328,6 +354,14 @@ export default {
       return sourceMap[source] || source;
     };
 
+    // Convert local date + time to UTC ISO string for scheduled_kickoff
+    const toScheduledKickoffUTC = (date, time) => {
+      if (!date || !time) return null;
+      // Combine date and time into a local datetime, then convert to UTC
+      const localDateTime = new Date(`${date}T${time}`);
+      return localDateTime.toISOString();
+    };
+
     const updateMatch = async () => {
       if (!props.match) return;
 
@@ -338,7 +372,13 @@ export default {
         // Build match data for API
         const matchData = {
           ...formData.value,
+          scheduled_kickoff: toScheduledKickoffUTC(
+            formData.value.match_date,
+            formData.value.kickoff_time
+          ),
         };
+        // Remove kickoff_time as it's not a valid API field
+        delete matchData.kickoff_time;
 
         // Parse scores - treat null/undefined/empty string as "no score entered"
         // Note: 0 is a valid score (e.g., 3-0 match)

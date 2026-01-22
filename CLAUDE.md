@@ -35,6 +35,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **NEVER COMMIT DIRECTLY TO MAIN** - The `main` branch is **PROTECTED** and requires Pull Requests.
 
+### Before Starting Any New Feature
+
+**ALWAYS check your current branch status before beginning work:**
+
+```bash
+git status
+git branch --show-current
+```
+
+If you're on an old feature branch with uncommitted changes:
+1. Commit or stash those changes first
+2. Create a PR if needed
+3. Then create a fresh feature branch from main
+
+**Do NOT start new work on an existing feature branch** - this leads to mixed changes that are hard to separate.
+
+### Standard Workflow
+
 ```bash
 # 1. Create feature branch
 git checkout main && git pull origin main

@@ -131,6 +131,7 @@ class MatchDAO(BaseDAO):
                 flat_match = {
                     "id": match["id"],
                     "match_date": match["match_date"],
+                    "scheduled_kickoff": match.get("scheduled_kickoff"),
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
                     "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
@@ -206,6 +207,7 @@ class MatchDAO(BaseDAO):
                 flat_match = {
                     "id": match["id"],
                     "match_date": match["match_date"],
+                    "scheduled_kickoff": match.get("scheduled_kickoff"),
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
                     "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
@@ -442,6 +444,7 @@ class MatchDAO(BaseDAO):
                 flat_match = {
                     "id": match["id"],
                     "match_date": match["match_date"],
+                    "scheduled_kickoff": match.get("scheduled_kickoff"),
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
                     "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
@@ -510,6 +513,7 @@ class MatchDAO(BaseDAO):
                 flat_match = {
                     "id": match["id"],
                     "match_date": match["match_date"],
+                    "scheduled_kickoff": match.get("scheduled_kickoff"),
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
                     "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
@@ -557,6 +561,7 @@ class MatchDAO(BaseDAO):
         created_by: str | None = None,
         source: str = "manual",
         external_match_id: str | None = None,
+        scheduled_kickoff: str | None = None,
     ) -> bool:
         """Add a new match with audit trail and optional external match_id."""
         try:
@@ -581,6 +586,8 @@ class MatchDAO(BaseDAO):
                 data["created_by"] = created_by
             if external_match_id:
                 data["match_id"] = external_match_id
+            if scheduled_kickoff:
+                data["scheduled_kickoff"] = scheduled_kickoff
 
             response = self.client.table("matches").insert(data).execute()
 
@@ -642,6 +649,7 @@ class MatchDAO(BaseDAO):
         status: str | None = None,
         updated_by: str | None = None,
         external_match_id: str | None = None,
+        scheduled_kickoff: str | None = None,
     ) -> dict | None:
         """Update an existing match with audit trail and optional external match_id.
 
@@ -667,6 +675,8 @@ class MatchDAO(BaseDAO):
                 data["updated_by"] = updated_by
             if external_match_id is not None:  # Allow explicit None to clear match_id
                 data["match_id"] = external_match_id
+            if scheduled_kickoff is not None:  # Allow explicit None to clear scheduled_kickoff
+                data["scheduled_kickoff"] = scheduled_kickoff
 
             # Execute update
             response = self.client.table("matches").update(data).eq("id", match_id).execute()
@@ -720,6 +730,7 @@ class MatchDAO(BaseDAO):
                 flat_match = {
                     "id": match["id"],
                     "match_date": match["match_date"],
+                    "scheduled_kickoff": match.get("scheduled_kickoff"),
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
                     "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
@@ -942,6 +953,7 @@ class MatchDAO(BaseDAO):
                 "match_id": match["id"],
                 "match_status": match.get("match_status"),
                 "match_date": match["match_date"],
+                "scheduled_kickoff": match.get("scheduled_kickoff"),
                 "home_score": match["home_score"],
                 "away_score": match["away_score"],
                 "kickoff_time": match.get("kickoff_time"),

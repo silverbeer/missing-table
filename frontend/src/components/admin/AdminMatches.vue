@@ -87,6 +87,11 @@
               Date
             </th>
             <th
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
+            >
+              Time
+            </th>
+            <th
               class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Home Team
@@ -142,6 +147,12 @@
           <tr v-for="match in matches" :key="match.id">
             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
               {{ formatDate(match.match_date) }}
+            </td>
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+              <span v-if="formatLocalTime(match.scheduled_kickoff)">
+                {{ formatLocalTime(match.scheduled_kickoff) }}
+              </span>
+              <span v-else class="text-gray-400 italic">-</span>
             </td>
             <td
               class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
@@ -237,7 +248,7 @@
           <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Match</h3>
 
           <form @submit.prevent="updateMatch()">
-            <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-3 gap-4 mb-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2"
                   >Date</label
@@ -246,6 +257,17 @@
                   v-model="editFormData.match_date"
                   type="date"
                   required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Kickoff Time
+                  <span class="text-gray-400 text-xs">(optional)</span></label
+                >
+                <input
+                  v-model="editFormData.kickoff_time"
+                  type="time"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -431,6 +453,7 @@ export default {
 
     const editFormData = ref({
       match_date: '',
+      kickoff_time: '',
       home_team_id: '',
       away_team_id: '',
       home_score: null,
@@ -534,6 +557,35 @@ export default {
       return new Date(dateString).toLocaleDateString();
     };
 
+    // Format UTC datetime to local time display
+    const formatLocalTime = isoString => {
+      if (!isoString) return null;
+      const date = new Date(isoString);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    };
+
+    // Extract local time from scheduled_kickoff (UTC ISO string)
+    const extractLocalTime = isoString => {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    };
+
+    // Convert local date + time to UTC ISO string for scheduled_kickoff
+    const toScheduledKickoffUTC = (date, time) => {
+      if (!date || !time) return null;
+      const localDateTime = new Date(`${date}T${time}`);
+      return localDateTime.toISOString();
+    };
+
     const getMatchTypeClass = matchTypeName => {
       const classes = {
         League: 'bg-blue-100 text-blue-800',
@@ -576,6 +628,7 @@ export default {
       editingMatch.value = match;
       editFormData.value = {
         match_date: match.match_date,
+        kickoff_time: extractLocalTime(match.scheduled_kickoff),
         home_team_id: match.home_team_id,
         away_team_id: match.away_team_id,
         home_score: match.home_score,
@@ -598,7 +651,13 @@ export default {
           ...editFormData.value,
           home_score: editFormData.value.home_score || 0,
           away_score: editFormData.value.away_score || 0,
+          scheduled_kickoff: toScheduledKickoffUTC(
+            editFormData.value.match_date,
+            editFormData.value.kickoff_time
+          ),
         };
+        // Remove kickoff_time as it's not a valid API field
+        delete matchData.kickoff_time;
 
         await authStore.apiRequest(
           `${getApiBaseUrl()}/api/matches/${editingMatch.value.id}`,
@@ -665,6 +724,7 @@ export default {
       editingMatch.value = null;
       editFormData.value = {
         match_date: '',
+        kickoff_time: '',
         home_team_id: '',
         away_team_id: '',
         home_score: null,
@@ -673,6 +733,7 @@ export default {
         season_id: '',
         age_group_id: '',
         division_id: null,
+        match_id: '',
       };
     };
 
@@ -698,6 +759,7 @@ export default {
       filterAgeGroup,
       fetchMatches,
       formatDate,
+      formatLocalTime,
       getMatchTypeClass,
       getLeagueClass,
       getStatusClass,

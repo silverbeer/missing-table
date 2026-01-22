@@ -151,8 +151,8 @@
         </div>
       </div>
 
-      <!-- Date and Teams Row -->
-      <div class="grid grid-cols-3 gap-3">
+      <!-- Date, Time, and Teams Row -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1"
             >Date</label
@@ -164,6 +164,20 @@
             required
             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
             data-testid="date-input"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1"
+            >Kickoff Time
+            <span class="text-gray-400 text-[10px]">(optional)</span></label
+          >
+          <input
+            type="time"
+            v-model="matchData.kickoffTime"
+            id="kickoff_time"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            data-testid="kickoff-time-input"
           />
         </div>
 
@@ -285,6 +299,7 @@ export default {
     const formType = ref('schedule');
     const matchData = ref({
       date: '',
+      kickoffTime: '',
       homeTeam: '',
       awayTeam: '',
       homeScore: 0,
@@ -444,6 +459,14 @@ export default {
       }
     };
 
+    // Convert local date + time to UTC ISO string for scheduled_kickoff
+    const toScheduledKickoffUTC = (date, time) => {
+      if (!date || !time) return null;
+      // Combine date and time into a local datetime, then convert to UTC
+      const localDateTime = new Date(`${date}T${time}`);
+      return localDateTime.toISOString();
+    };
+
     const submitMatch = async () => {
       console.log('Submitting match...');
 
@@ -457,6 +480,10 @@ export default {
         age_group_id: selectedAgeGroup.value,
         match_type_id: selectedMatchType.value,
         status: selectedStatus.value,
+        scheduled_kickoff: toScheduledKickoffUTC(
+          matchData.value.date,
+          matchData.value.kickoffTime
+        ),
       };
 
       // Add division_id for League matches
@@ -543,6 +570,7 @@ export default {
           // Reset form
           matchData.value = {
             date: '',
+            kickoffTime: '',
             homeTeam: '',
             awayTeam: '',
             homeScore: 0,
