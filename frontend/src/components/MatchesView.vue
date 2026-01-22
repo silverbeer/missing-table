@@ -421,7 +421,8 @@
                 >
                   #
                 </th>
-                <th class="border-b text-center w-32">Date</th>
+                <th class="border-b text-center w-28">Date</th>
+                <th class="border-b text-center w-20">Kick Off</th>
                 <th class="border-b text-left px-2">Team</th>
                 <th class="border-b text-center w-24">Score</th>
                 <th
@@ -469,14 +470,9 @@
                   :key="`homegrown-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
                 >
-                  <td class="border-b text-center">
-                    <div>{{ match.match_date }}</div>
-                    <div
-                      v-if="formatLocalTime(match.scheduled_kickoff)"
-                      class="text-xs text-gray-500"
-                    >
-                      {{ formatLocalTime(match.scheduled_kickoff) }}
-                    </div>
+                  <td class="border-b text-center">{{ match.match_date }}</td>
+                  <td class="border-b text-center text-sm text-gray-600">
+                    {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                   </td>
                   <td
                     class="border-b text-left px-2"
@@ -577,14 +573,9 @@
                   :key="`academy-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
                 >
-                  <td class="border-b text-center">
-                    <div>{{ match.match_date }}</div>
-                    <div
-                      v-if="formatLocalTime(match.scheduled_kickoff)"
-                      class="text-xs text-gray-500"
-                    >
-                      {{ formatLocalTime(match.scheduled_kickoff) }}
-                    </div>
+                  <td class="border-b text-center">{{ match.match_date }}</td>
+                  <td class="border-b text-center text-sm text-gray-600">
+                    {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                   </td>
                   <td
                     class="border-b text-left px-2"
@@ -685,14 +676,9 @@
                   :key="`other-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
                 >
-                  <td class="border-b text-center">
-                    <div>{{ match.match_date }}</div>
-                    <div
-                      v-if="formatLocalTime(match.scheduled_kickoff)"
-                      class="text-xs text-gray-500"
-                    >
-                      {{ formatLocalTime(match.scheduled_kickoff) }}
-                    </div>
+                  <td class="border-b text-center">{{ match.match_date }}</td>
+                  <td class="border-b text-center text-sm text-gray-600">
+                    {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                   </td>
                   <td
                     class="border-b text-left px-2"
@@ -793,14 +779,9 @@
                 >
                   {{ index + 1 }}
                 </td>
-                <td class="border-b text-center">
-                  <div>{{ match.match_date }}</div>
-                  <div
-                    v-if="formatLocalTime(match.scheduled_kickoff)"
-                    class="text-xs text-gray-500"
-                  >
-                    {{ formatLocalTime(match.scheduled_kickoff) }}
-                  </div>
+                <td class="border-b text-center">{{ match.match_date }}</td>
+                <td class="border-b text-center text-sm text-gray-600">
+                  {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                 </td>
                 <td
                   class="border-b text-left px-2"
@@ -2200,10 +2181,10 @@ export default {
 
     // Calculate table column count for colspan (admin sees Match ID and Source columns)
     const tableColumnCount = computed(() => {
-      // Base columns: Date, Team, Score, Match Type, Status = 5
+      // Base columns: Date, Kick Off, Team, Score, Match Type, Status = 6
       // Admin-only columns: Match ID, Source = 2
       // Conditional: Actions column (authenticated users) = 1
-      const baseColumns = 5;
+      const baseColumns = 6;
       const adminColumns = authStore.isAdmin.value ? 2 : 0;
       const actionColumn = authStore.isAuthenticated.value ? 1 : 0;
       return baseColumns + adminColumns + actionColumn;
