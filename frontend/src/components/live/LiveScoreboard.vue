@@ -149,7 +149,7 @@ function formatMinute(goal) {
 
 .team {
   flex: 1;
-  max-width: 180px;
+  max-width: 240px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -174,9 +174,6 @@ function formatMinute(goal) {
   font-size: 14px;
   font-weight: 600;
   color: #e0e0e0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .vs {
@@ -289,7 +286,7 @@ function formatMinute(goal) {
 /* Responsive */
 @media (min-width: 640px) {
   .team {
-    max-width: 220px;
+    max-width: 280px;
   }
 
   .team-logo {
