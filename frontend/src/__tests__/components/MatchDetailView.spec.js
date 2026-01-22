@@ -55,6 +55,20 @@ const mountMatchDetailView = (options = {}) => {
   });
 };
 
+/**
+ * Helper to create a mock apiRequest that returns different data based on URL
+ * @param {Object} match - The match object to return for match requests
+ * @param {Array} events - The events array to return for events requests (default: [])
+ */
+const createMockApiRequestForMatch = (match, events = []) => {
+  return vi.fn(url => {
+    if (url.includes('/live/events')) {
+      return Promise.resolve(events);
+    }
+    return Promise.resolve(match);
+  });
+};
+
 // =============================================================================
 // TESTS: LOADING STATE
 // =============================================================================
@@ -199,7 +213,7 @@ describe('MatchDetailView', () => {
 
     it('shows scores for completed matches', async () => {
       const match = createCompletedMatch({ home_score: 3, away_score: 1 });
-      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve(match));
+      mockAuthStore.apiRequest = createMockApiRequestForMatch(match);
       const wrapper = mountMatchDetailView();
       await flushPromises();
 
@@ -227,9 +241,8 @@ describe('MatchDetailView', () => {
 
   describe('status badges', () => {
     it('shows LIVE badge for live matches', async () => {
-      mockAuthStore.apiRequest = vi.fn(() =>
-        Promise.resolve(createLiveMatch())
-      );
+      mockAuthStore.apiRequest =
+        createMockApiRequestForMatch(createLiveMatch());
       const wrapper = mountMatchDetailView();
       await flushPromises();
 
@@ -238,8 +251,8 @@ describe('MatchDetailView', () => {
     });
 
     it('shows completed status badge', async () => {
-      mockAuthStore.apiRequest = vi.fn(() =>
-        Promise.resolve(createCompletedMatch())
+      mockAuthStore.apiRequest = createMockApiRequestForMatch(
+        createCompletedMatch()
       );
       const wrapper = mountMatchDetailView();
       await flushPromises();
