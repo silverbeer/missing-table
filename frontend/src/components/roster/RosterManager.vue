@@ -544,6 +544,7 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
+import { POSITION_ABBREVIATIONS } from '@/constants/positions';
 
 export default {
   name: 'RosterManager',
@@ -603,7 +604,7 @@ export default {
     const invitePlayer = ref(null);
 
     // Available positions
-    const availablePositions = ['GK', 'DF', 'MF', 'FW'];
+    const availablePositions = POSITION_ABBREVIATIONS;
 
     // Fetch roster data
     const fetchRoster = async () => {

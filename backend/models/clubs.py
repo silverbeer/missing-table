@@ -2,6 +2,7 @@
 Pydantic models for clubs and teams data structure.
 Used for parsing and validating clubs.json and API requests.
 """
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -43,7 +44,8 @@ class ClubData(BaseModel):
     teams: list[TeamData]
     is_pro_academy: bool = Field(
         default=False,
-        description="True if this club is a professional academy (e.g., MLS Pro Academy). All teams in the club inherit this designation."
+        description="True if this club is a professional academy (e.g., MLS Pro Academy). "
+        "All teams in the club inherit this designation.",
     )
 
     @field_validator("website")
@@ -57,6 +59,7 @@ class ClubData(BaseModel):
 
 class Club(BaseModel):
     """Model for creating a new club via API."""
+
     name: str
     city: str
     website: str | None = None
@@ -68,6 +71,7 @@ class Club(BaseModel):
 
 class ClubWithTeams(BaseModel):
     """Model for returning a club with its teams."""
+
     id: int
     name: str
     city: str

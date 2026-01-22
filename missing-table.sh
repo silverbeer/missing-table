@@ -47,7 +47,7 @@ get_current_env() {
 usage() {
     echo -e "${BLUE}Missing Table Service Manager${NC}"
     echo ""
-    echo -e "${YELLOW}Usage:${NC} $0 {start|stop|restart|status|logs|tail}"
+    echo -e "${YELLOW}Usage:${NC} $0 {start|stop|restart|status|logs|tail|klogs}"
     echo ""
     echo -e "${YELLOW}Commands:${NC}"
     echo "  start [--watch]    - Start backend, frontend, and Redis port-forward"
@@ -57,6 +57,12 @@ usage() {
     echo "  status             - Show status of all services (incl. Redis in k3s)"
     echo "  logs               - Show recent logs from services"
     echo "  tail               - Follow logs in real-time (Ctrl+C to stop)"
+    echo ""
+    echo -e "${YELLOW}Kubernetes Log Commands:${NC}"
+    echo "  klogs [options]    - Tail backend logs from Kubernetes (pretty-printed)"
+    echo "                       --since=1h   : Show logs from last hour (default: 10m)"
+    echo "                       --tail=100   : Show last N lines first (default: 50)"
+    echo "                       --all        : Show all pods (default: backend only)"
     echo ""
     echo -e "${YELLOW}Redis (k3s):${NC}"
     echo "  Redis runs in k3s and is port-forwarded to localhost:6379"
@@ -556,6 +562,145 @@ show_logs() {
     echo ""
 }
 
+# Function to colorize JSON log output
+colorize_json_log() {
+    local line="$1"
+    local timestamp level message
+
+    # Try to parse JSON log line
+    if echo "$line" | jq -e . >/dev/null 2>&1; then
+        timestamp=$(echo "$line" | jq -r '.timestamp // .time // .ts // empty' 2>/dev/null)
+        level=$(echo "$line" | jq -r '.level // .levelname // .severity // empty' 2>/dev/null | tr '[:lower:]' '[:upper:]')
+        message=$(echo "$line" | jq -r '.message // .msg // empty' 2>/dev/null)
+
+        # Format timestamp (keep just time portion if it's a full timestamp)
+        if [ -n "$timestamp" ]; then
+            timestamp=$(echo "$timestamp" | sed 's/.*T\([0-9:]*\).*/\1/' | cut -c1-8)
+        else
+            timestamp=$(date '+%H:%M:%S')
+        fi
+
+        # Colorize based on level
+        case "$level" in
+            ERROR|CRITICAL|FATAL)
+                echo -e "${RED}[$timestamp] $level${NC} $message"
+                ;;
+            WARNING|WARN)
+                echo -e "${YELLOW}[$timestamp] $level${NC} $message"
+                ;;
+            INFO)
+                echo -e "${GREEN}[$timestamp] $level${NC} $message"
+                ;;
+            DEBUG|TRACE)
+                echo -e "${BLUE}[$timestamp] $level${NC} $message"
+                ;;
+            *)
+                echo -e "[$timestamp] $line"
+                ;;
+        esac
+    else
+        # Not JSON, output as-is with timestamp
+        echo -e "[$(date '+%H:%M:%S')] $line"
+    fi
+}
+
+# Function to tail Kubernetes logs (DOKS/cloud)
+tail_k8s_logs() {
+    local since="${1:-10m}"
+    local tail_lines="${2:-50}"
+    local show_all="${3:-false}"
+    local namespace="$REDIS_NAMESPACE"  # Same namespace as app
+
+    echo -e "${BLUE}Missing Table Kubernetes Logs${NC}"
+    echo "=============================="
+
+    # Check if kubectl is available
+    if ! command -v kubectl &> /dev/null; then
+        echo -e "${RED}kubectl not found. Please install kubectl first.${NC}"
+        return 1
+    fi
+
+    # Check if we can connect to the cluster
+    if ! kubectl cluster-info &>/dev/null; then
+        echo -e "${RED}Cannot connect to Kubernetes cluster.${NC}"
+        echo -e "${BLUE}Tip:${NC} Make sure your kubeconfig is set up correctly"
+        return 1
+    fi
+
+    # Determine pod selector
+    local pod_selector="app.kubernetes.io/name=missing-table-backend"
+    if [ "$show_all" = "true" ]; then
+        pod_selector="app.kubernetes.io/instance=missing-table"
+    fi
+
+    # Get current context for display
+    local context=$(kubectl config current-context 2>/dev/null)
+    echo -e "${YELLOW}Cluster:${NC} $context"
+    echo -e "${YELLOW}Namespace:${NC} $namespace"
+    echo -e "${YELLOW}Since:${NC} $since"
+    echo -e "${YELLOW}Initial lines:${NC} $tail_lines"
+    echo ""
+
+    # Check if stern is available (preferred)
+    if command -v stern &> /dev/null; then
+        echo -e "${GREEN}Using stern for log streaming...${NC}"
+        echo -e "${YELLOW}Press Ctrl+C to stop${NC}"
+        echo ""
+
+        if [ "$show_all" = "true" ]; then
+            # Match all missing-table pods
+            stern "missing-table" \
+                --namespace "$namespace" \
+                --since "$since" \
+                --tail "$tail_lines" \
+                --output short \
+                --color always \
+                --template '{{color .PodColor .PodName}} {{color .ContainerColor .ContainerName}} {{.Message}}{{"\n"}}'
+        else
+            # Match backend pods only
+            stern "missing-table-backend" \
+                --namespace "$namespace" \
+                --since "$since" \
+                --tail "$tail_lines" \
+                --output short \
+                --color always \
+                --template '{{color .PodColor .PodName}} {{.Message}}{{"\n"}}'
+        fi
+    else
+        # Fallback to kubectl with colorization
+        echo -e "${YELLOW}stern not found, using kubectl (install stern for better experience)${NC}"
+        echo -e "${BLUE}Tip:${NC} brew install stern"
+        echo ""
+
+        # Get backend pod name
+        local pod_name=$(kubectl get pods -n "$namespace" -l "$pod_selector" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+        if [ -z "$pod_name" ]; then
+            echo -e "${RED}No backend pods found in namespace $namespace${NC}"
+            echo -e "${BLUE}Tip:${NC} Check if the application is deployed with:"
+            echo "  kubectl get pods -n $namespace"
+            return 1
+        fi
+
+        echo -e "${GREEN}Tailing logs from pod: $pod_name${NC}"
+        echo -e "${YELLOW}Press Ctrl+C to stop${NC}"
+        echo ""
+        echo -e "${BLUE}─────────────────────────────────────────────────────${NC}"
+
+        # Check if jq is available for JSON parsing
+        if command -v jq &> /dev/null; then
+            kubectl logs -f "$pod_name" -n "$namespace" --since="$since" --tail="$tail_lines" 2>&1 | while IFS= read -r line; do
+                colorize_json_log "$line"
+            done
+        else
+            # No jq, just add timestamps
+            kubectl logs -f "$pod_name" -n "$namespace" --since="$since" --tail="$tail_lines" 2>&1 | while IFS= read -r line; do
+                echo "[$(date '+%H:%M:%S')] $line"
+            done
+        fi
+    fi
+}
+
 # Function to tail logs in real-time
 tail_logs() {
     echo -e "${BLUE}Missing Table Service Logs (Live)${NC}"
@@ -657,6 +802,53 @@ case "$1" in
         ;;
     tail)
         tail_logs
+        ;;
+    klogs)
+        # Parse klogs options
+        shift  # Remove 'klogs' from args
+        klogs_since="10m"
+        klogs_tail="50"
+        klogs_all="false"
+
+        for arg in "$@"; do
+            case "$arg" in
+                --since=*)
+                    klogs_since="${arg#*=}"
+                    ;;
+                --tail=*)
+                    klogs_tail="${arg#*=}"
+                    ;;
+                --all)
+                    klogs_all="true"
+                    ;;
+                --help|-h)
+                    echo -e "${BLUE}klogs - Tail Kubernetes logs with pretty formatting${NC}"
+                    echo ""
+                    echo "Usage: $0 klogs [options]"
+                    echo ""
+                    echo "Options:"
+                    echo "  --since=DURATION   Show logs since duration (default: 10m)"
+                    echo "                     Examples: 5s, 2m, 1h, 24h"
+                    echo "  --tail=N           Show last N lines initially (default: 50)"
+                    echo "  --all              Show logs from all pods, not just backend"
+                    echo "  --help, -h         Show this help message"
+                    echo ""
+                    echo "Examples:"
+                    echo "  $0 klogs                    # Last 10 min, 50 lines"
+                    echo "  $0 klogs --since=1h         # Last hour"
+                    echo "  $0 klogs --tail=100         # Start with 100 lines"
+                    echo "  $0 klogs --since=30m --all  # All pods, last 30 min"
+                    exit 0
+                    ;;
+                *)
+                    echo -e "${RED}Unknown option: $arg${NC}"
+                    echo "Use '$0 klogs --help' for usage"
+                    exit 1
+                    ;;
+            esac
+        done
+
+        tail_k8s_logs "$klogs_since" "$klogs_tail" "$klogs_all"
         ;;
     *)
         usage

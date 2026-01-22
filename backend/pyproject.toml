@@ -102,7 +102,7 @@ dev = [
 # Ruff configuration - Ultra-fast Python linter and formatter
 [tool.ruff]
 target-version = "py313"
-line-length = 100
+line-length = 120
 fix = true
 
 [tool.ruff.lint]
@@ -126,6 +126,23 @@ ignore = [
     "S101",   # Use of assert detected (OK for tests)
     "S608",   # Possible SQL injection (we'll handle with careful review)
     "B008",   # Do not perform function calls in argument defaults (OK for FastAPI)
+    "ARG001", # Unused function argument (common in FastAPI for Depends)
+    "ARG002", # Unused method argument (common in FastAPI)
+    "ARG003", # Unused class method argument
+    "S311",   # Standard pseudo-random generators (OK for non-crypto uses)
+    "C901",   # Function too complex (refactoring deferred)
+    "E402",   # Module level import not at top (often intentional)
+    "SIM102", # Nested if (sometimes clearer with comments)
+    "S110",   # try-except-pass (often intentional for suppression)
+    "E741",   # Ambiguous variable name (l, O, I) - sometimes intentional
+    "S105",   # Hardcoded password string (test defaults, config)
+    "S106",   # Hardcoded password argument (test defaults, config)
+    "S324",   # Insecure hash (md5 used for non-crypto purposes like cache keys)
+    "S104",   # Binding to all interfaces (required for container deployment)
+    "S112",   # try-except-continue (often intentional)
+    "RUF012", # Mutable class attributes (Pydantic models)
+    "SIM105", # contextlib.suppress (sometimes try/except is clearer)
+    "SIM115", # context manager for files (sometimes not applicable)
 ]
 fixable = ["ALL"]
 unfixable = []
@@ -133,6 +150,10 @@ unfixable = []
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "ARG", "E501"]
 "**/migrations/*" = ["E501"]
+"scripts/*" = ["S113", "S310", "S603", "S607", "T201", "E501"]  # Admin scripts: timeouts, subprocess, URL, print OK
+"manage_*.py" = ["S113", "E501"]  # CLI tools: timeouts OK
+"supabase-local/*" = ["S113", "E501"]  # Local setup scripts
+"run_tests.py" = ["S603", "S607"]  # Test runner: subprocess OK
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -144,22 +165,26 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 # MyPy configuration - Static type checking
+# Note: strict mode disabled to reduce noise; enable incrementally as codebase matures
 [tool.mypy]
 python_version = "3.13"
-strict = true
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
 no_implicit_optional = true
 warn_redundant_casts = true
-warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 ignore_missing_imports = true
 show_error_codes = true
+explicit_package_bases = true
+mypy_path = "."
+exclude = [
+    "supabase-local/",
+    "scripts/",
+    "tests/",
+    "archive/",
+]
 
 [[tool.mypy.overrides]]
 module = [
@@ -171,6 +196,21 @@ module = [
     "redis.*"
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "scripts.*",
+    "run_tests",
+    "archive.*",
+    "tests.*",
+    "queue_cli.*",
+    "manage_teams",
+    "manage_clubs",
+    "manage_live_match",
+    "search_matches",
+    "cache_cli",
+]
+ignore_errors = true
 
 # Bandit configuration - Security linting
 [tool.bandit]

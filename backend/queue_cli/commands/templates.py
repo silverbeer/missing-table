@@ -2,8 +2,6 @@
 Templates command - manage message templates.
 """
 
-from typing import Optional
-
 import typer
 
 from ..core.templates import TemplateManager
@@ -45,9 +43,7 @@ def show_template(name: str) -> None:
 
 
 def templates_command(
-    show: Optional[str] = typer.Option(
-        None, "--show", "-s", help="Show specific template"
-    ),
+    show: str | None = typer.Option(None, "--show", "-s", help="Show specific template"),
 ) -> None:
     """
     Manage message templates.

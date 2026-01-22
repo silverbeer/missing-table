@@ -30,6 +30,7 @@ security = HTTPBearer()
 # Username Authentication Helper Functions
 # ============================================================================
 
+
 def username_to_internal_email(username: str) -> str:
     """
     Convert username to internal email format for Supabase Auth.
@@ -46,14 +47,14 @@ def internal_email_to_username(email: str) -> str | None:
     Example: gabe_ifa_35@missingtable.local -> gabe_ifa_35
     Returns None if not an internal email.
     """
-    if email.endswith('@missingtable.local'):
-        return email.replace('@missingtable.local', '')
+    if email.endswith("@missingtable.local"):
+        return email.replace("@missingtable.local", "")
     return None
 
 
 def is_internal_email(email: str) -> bool:
     """Check if email is an internal format."""
-    return email.endswith('@missingtable.local')
+    return email.endswith("@missingtable.local")
 
 
 async def check_username_available(supabase_client: Client, username: str) -> bool:
@@ -63,10 +64,7 @@ async def check_username_available(supabase_client: Client, username: str) -> bo
     Returns True if username is available, False if taken.
     """
     try:
-        result = supabase_client.table('user_profiles')\
-            .select('id')\
-            .eq('username', username.lower())\
-            .execute()
+        result = supabase_client.table("user_profiles").select("id").eq("username", username.lower()).execute()
 
         return len(result.data) == 0
     except Exception as e:
@@ -81,10 +79,7 @@ class AuthManager:
         self.service_account_secret = os.getenv("SERVICE_ACCOUNT_SECRET", secrets.token_urlsafe(32))
 
         if not self.jwt_secret:
-            raise ValueError(
-                "SUPABASE_JWT_SECRET environment variable is required. "
-                "Please set it in your .env file."
-            )
+            raise ValueError("SUPABASE_JWT_SECRET environment variable is required. Please set it in your .env file.")
 
     def verify_token(self, token: str) -> dict[str, Any] | None:
         """Verify JWT token and return user data."""
@@ -124,9 +119,7 @@ class AuthManager:
 
             # Get user profile with role
             logger.debug(f"Querying user_profiles for user_id: {user_id}")
-            profile_response = (
-                self.supabase.table("user_profiles").select("*").eq("id", user_id).execute()
-            )
+            profile_response = self.supabase.table("user_profiles").select("*").eq("id", user_id).execute()
 
             if not profile_response.data or len(profile_response.data) == 0:
                 logger.warning(f"No profile found for user {user_id}")
@@ -186,7 +179,7 @@ class AuthManager:
             "iat": int(datetime.now(UTC).timestamp()),
             "service_name": service_name,
             "permissions": permissions,
-            "role": "service_account"
+            "role": "service_account",
         }
 
         return jwt.encode(payload, self.service_account_secret, algorithm="HS256")
@@ -194,11 +187,7 @@ class AuthManager:
     def verify_service_account_token(self, token: str) -> dict[str, Any] | None:
         """Verify service account JWT token and return service data."""
         try:
-            payload = jwt.decode(
-                token, self.service_account_secret,
-                algorithms=["HS256"],
-                audience="service-account"
-            )
+            payload = jwt.decode(token, self.service_account_secret, algorithms=["HS256"], audience="service-account")
 
             service_name = payload.get("service_name")
             permissions = payload.get("permissions", [])
@@ -211,7 +200,7 @@ class AuthManager:
                 "service_name": service_name,
                 "permissions": permissions,
                 "role": "service_account",
-                "is_service_account": True
+                "is_service_account": True,
             }
 
         except jwt.ExpiredSignatureError:
@@ -224,9 +213,7 @@ class AuthManager:
             logger.error(f"Error verifying service account token: {e}")
             return None
 
-    def get_current_user(
-        self, credentials: HTTPAuthorizationCredentials = Depends(security)
-    ) -> dict[str, Any]:
+    def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
         """FastAPI dependency to get current authenticated user or service account."""
         if not credentials:
             logger.warning("auth_failed: no_credentials")
@@ -255,7 +242,7 @@ class AuthManager:
             async def wrapper(*args, **kwargs):
                 # Get current user from kwargs (injected by FastAPI dependency)
                 current_user = None
-                for key, value in kwargs.items():
+                for _key, value in kwargs.items():
                     if isinstance(value, dict) and "role" in value:
                         current_user = value
                         break
@@ -265,9 +252,7 @@ class AuthManager:
 
                 user_role = current_user.get("role")
                 if user_role not in required_roles:
-                    raise HTTPException(
-                        status_code=403, detail=f"Access denied. Required roles: {required_roles}"
-                    )
+                    raise HTTPException(status_code=403, detail=f"Access denied. Required roles: {required_roles}")
 
                 return await func(*args, **kwargs)
 
@@ -308,9 +293,7 @@ class AuthManager:
             logger.error(f"Error getting team club_id: {e}")
             return None
 
-    def can_edit_match(
-        self, user_data: dict[str, Any], home_team_id: int, away_team_id: int
-    ) -> bool:
+    def can_edit_match(self, user_data: dict[str, Any], home_team_id: int, away_team_id: int) -> bool:
         """Check if user can edit a match between specific teams."""
         role = user_data.get("role")
         user_team_id = user_data.get("team_id")
@@ -399,10 +382,7 @@ def require_admin_or_service_account(
         if "manage_matches" in permissions:
             return current_user
         else:
-            raise HTTPException(
-                status_code=403,
-                detail="Service account requires 'manage_matches' permission"
-            )
+            raise HTTPException(status_code=403, detail="Service account requires 'manage_matches' permission")
 
     raise HTTPException(status_code=403, detail="Admin or authorized service account access required")
 
@@ -412,6 +392,7 @@ def require_match_management_permission(
 ) -> dict[str, Any]:
     """Require permission to manage matches (admin, club_manager, team-manager, or service account)."""
     import logging
+
     logger = logging.getLogger(__name__)
 
     role = current_user.get("role")
@@ -432,14 +413,14 @@ def require_match_management_permission(
             logger.info(f"Access granted - Service account {user_identifier} has manage_matches permission")
             return current_user
         else:
-            logger.warning(f"Access denied - Service account {user_identifier} missing manage_matches permission. Has: {permissions}")
-            raise HTTPException(
-                status_code=403,
-                detail="Service account requires 'manage_matches' permission"
+            logger.warning(
+                f"Access denied - Service account {user_identifier} missing manage_matches permission. "
+                f"Has: {permissions}"
             )
+            raise HTTPException(status_code=403, detail="Service account requires 'manage_matches' permission")
 
     logger.warning(f"Access denied - User {user_identifier} has insufficient role: {role}")
     raise HTTPException(
         status_code=403,
-        detail="Admin, club manager, team manager, or authorized service account access required"
+        detail="Admin, club manager, team manager, or authorized service account access required",
     )

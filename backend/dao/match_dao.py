@@ -26,6 +26,7 @@ logger = structlog.get_logger()
 # Cache patterns for invalidation
 MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
 
+
 # Load environment variables with environment-specific support
 def load_environment():
     """Load environment variables based on APP_ENV or default to local."""
@@ -33,7 +34,7 @@ def load_environment():
     load_dotenv()
 
     # Determine which environment to use
-    app_env = os.getenv('APP_ENV', 'local')  # Default to local
+    app_env = os.getenv("APP_ENV", "local")  # Default to local
 
     # Load environment-specific file
     env_file = f".env.{app_env}"
@@ -43,6 +44,7 @@ def load_environment():
         # Fallback to .env.local for backwards compatibility
         if os.path.exists(".env.local"):
             load_dotenv(".env.local", override=True)
+
 
 load_environment()
 
@@ -62,7 +64,7 @@ class SupabaseConnection:
             raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY (or SUPABASE_SERVICE_KEY) must be set in .env file")
 
         # Debug output - check what keys are actually set
-        key_type = 'SERVICE_KEY' if service_key and self.key == service_key else 'ANON_KEY'
+        key_type = "SERVICE_KEY" if service_key and self.key == service_key else "ANON_KEY"
         logger.info(f"DEBUG SupabaseConnection: key_type={key_type}, service_key_present={bool(service_key)}")
 
         try:
@@ -159,11 +161,7 @@ class MatchDAO(BaseDAO):
             return None
 
     def get_match_by_teams_and_date(
-        self,
-        home_team_id: int,
-        away_team_id: int,
-        match_date: str,
-        age_group_id: int | None = None
+        self, home_team_id: int, away_team_id: int, match_date: str, age_group_id: int | None = None
     ) -> dict | None:
         """Get a match by home/away teams, date, and optionally age group.
 
@@ -254,16 +252,22 @@ class MatchDAO(BaseDAO):
         try:
             response = (
                 self.client.table("matches")
-                .update({
-                    "match_id": external_match_id,
-                    "source": "match-scraper",  # Update source to indicate scraper now manages this
-                })
+                .update(
+                    {
+                        "match_id": external_match_id,
+                        "source": "match-scraper",  # Update source to indicate scraper now manages this
+                    }
+                )
                 .eq("id", match_id)
                 .execute()
             )
 
             if response.data:
-                logger.info("Updated match with external match_id", match_id=match_id, external_match_id=external_match_id)
+                logger.info(
+                    "Updated match with external match_id",
+                    match_id=match_id,
+                    external_match_id=external_match_id,
+                )
                 return True
             return False
 
@@ -312,14 +316,14 @@ class MatchDAO(BaseDAO):
         try:
             # Get current season as fallback
             current_season = self.get_current_season()
-            season_id = current_season['id'] if current_season else 1  # Fallback to ID 1
+            season_id = current_season["id"] if current_season else 1  # Fallback to ID 1
 
             # Look up age_group_id from age_group name
             age_group_id = 1  # Default fallback
             if age_group:
                 age_group_record = self.get_age_group_by_name(age_group)
                 if age_group_record:
-                    age_group_id = age_group_record['id']
+                    age_group_id = age_group_record["id"]
                     logger.debug(f"Mapped age_group '{age_group}' to ID {age_group_id}")
                 else:
                     logger.warning(f"Age group '{age_group}' not found in database, using default ID {age_group_id}")
@@ -329,12 +333,14 @@ class MatchDAO(BaseDAO):
             if division:
                 division_record = self.get_division_by_name(division)
                 if division_record:
-                    division_id = division_record['id']
+                    division_id = division_record["id"]
                     logger.debug(f"Mapped division '{division}' to ID {division_id}")
                 else:
                     logger.error(f"Division '{division}' not found in database")
                     if source == "match-scraper":
-                        raise ValueError(f"Division '{division}' is required for match-scraper but not found in database")
+                        raise ValueError(
+                            f"Division '{division}' is required for match-scraper but not found in database"
+                        )
             elif source == "match-scraper":
                 # Division is required for match-scraper sourced games
                 logger.error("Division is required for match-scraper sourced matches but was not provided")
@@ -427,9 +433,7 @@ class MatchDAO(BaseDAO):
             filtered_matches = response.data
             if match_type:
                 filtered_matches = [
-                    match
-                    for match in response.data
-                    if match.get("match_type", {}).get("name") == match_type
+                    match for match in response.data if match.get("match_type", {}).get("name") == match_type
                 ]
 
             # Flatten the response for easier use
@@ -440,31 +444,19 @@ class MatchDAO(BaseDAO):
                     "match_date": match["match_date"],
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
-                    "home_team_name": match["home_team"]["name"]
-                    if match.get("home_team")
-                    else "Unknown",
-                    "away_team_name": match["away_team"]["name"]
-                    if match.get("away_team")
-                    else "Unknown",
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "age_group_id": match["age_group_id"],
-                    "age_group_name": match["age_group"]["name"]
-                    if match.get("age_group")
-                    else "Unknown",
+                    "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
                     "match_type_id": match["match_type_id"],
-                    "match_type_name": match["match_type"]["name"]
-                    if match.get("match_type")
-                    else "Unknown",
+                    "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
-                    "division_name": match["division"]["name"]
-                    if match.get("division")
-                    else "Unknown",
-                    "league_id": match["division"]["league_id"]
-                    if match.get("division")
-                    else None,
+                    "division_name": match["division"]["name"] if match.get("division") else "Unknown",
+                    "league_id": match["division"]["league_id"] if match.get("division") else None,
                     "league_name": match["division"]["leagues"]["name"]
                     if match.get("division") and match["division"].get("leagues")
                     else "Unknown",
@@ -485,7 +477,9 @@ class MatchDAO(BaseDAO):
             logger.exception("Error querying matches")
             return []
 
-    def get_matches_by_team(self, team_id: int, season_id: int | None = None, age_group_id: int | None = None) -> list[dict]:
+    def get_matches_by_team(
+        self, team_id: int, season_id: int | None = None, age_group_id: int | None = None
+    ) -> list[dict]:
         """Get all matches for a specific team."""
         try:
             query = (
@@ -518,28 +512,18 @@ class MatchDAO(BaseDAO):
                     "match_date": match["match_date"],
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
-                    "home_team_name": match["home_team"]["name"]
-                    if match.get("home_team")
-                    else "Unknown",
-                    "away_team_name": match["away_team"]["name"]
-                    if match.get("away_team")
-                    else "Unknown",
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "age_group_id": match["age_group_id"],
-                    "age_group_name": match["age_group"]["name"]
-                    if match.get("age_group")
-                    else "Unknown",
+                    "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
                     "match_type_id": match["match_type_id"],
-                    "match_type_name": match["match_type"]["name"]
-                    if match.get("match_type")
-                    else "Unknown",
+                    "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
-                    "division_name": match["division"]["name"]
-                    if match.get("division")
-                    else "Unknown",
+                    "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
@@ -685,12 +669,7 @@ class MatchDAO(BaseDAO):
                 data["match_id"] = external_match_id
 
             # Execute update
-            response = (
-                self.client.table("matches")
-                .update(data)
-                .eq("id", match_id)
-                .execute()
-            )
+            response = self.client.table("matches").update(data).eq("id", match_id).execute()
 
             # Check if update actually affected any rows
             if not response.data or len(response.data) == 0:
@@ -700,6 +679,7 @@ class MatchDAO(BaseDAO):
 
             # Delay to allow Supabase cache to update (read-after-write consistency)
             import time
+
             time.sleep(0.3)  # 300ms delay - increased for reliable read-after-write
 
             # Get the updated match to return with full relations
@@ -742,34 +722,20 @@ class MatchDAO(BaseDAO):
                     "match_date": match["match_date"],
                     "home_team_id": match["home_team_id"],
                     "away_team_id": match["away_team_id"],
-                    "home_team_name": match["home_team"]["name"]
-                    if match.get("home_team")
-                    else "Unknown",
-                    "away_team_name": match["away_team"]["name"]
-                    if match.get("away_team")
-                    else "Unknown",
-                    "home_team_club": match["home_team"].get("club")
-                    if match.get("home_team")
-                    else None,
-                    "away_team_club": match["away_team"].get("club")
-                    if match.get("away_team")
-                    else None,
+                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                    "home_team_club": match["home_team"].get("club") if match.get("home_team") else None,
+                    "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "age_group_id": match["age_group_id"],
-                    "age_group_name": match["age_group"]["name"]
-                    if match.get("age_group")
-                    else "Unknown",
+                    "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
                     "match_type_id": match["match_type_id"],
-                    "match_type_name": match["match_type"]["name"]
-                    if match.get("match_type")
-                    else "Unknown",
+                    "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
-                    "division_name": match["division"]["name"]
-                    if match.get("division")
-                    else "Unknown",
+                    "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
@@ -797,7 +763,7 @@ class MatchDAO(BaseDAO):
     def delete_match(self, match_id: int) -> bool:
         """Delete a match."""
         try:
-            response = self.client.table("matches").delete().eq("id", match_id).execute()
+            self.client.table("matches").delete().eq("id", match_id).execute()
 
             return True  # Supabase delete returns empty data even on success
 
@@ -829,8 +795,13 @@ class MatchDAO(BaseDAO):
             List of team standings sorted by points, goal difference, goals scored
         """
         try:
-            logger.info("generating league table from database", season_id=season_id, age_group_id=age_group_id,
-            division_id=division_id, match_type=match_type)
+            logger.info(
+                "generating league table from database",
+                season_id=season_id,
+                age_group_id=age_group_id,
+                division_id=division_id,
+                match_type=match_type,
+            )
             # Fetch matches from database
             matches = self._fetch_matches_for_standings(season_id, age_group_id, division_id)
 
@@ -867,8 +838,12 @@ class MatchDAO(BaseDAO):
         Returns:
             List of match dictionaries from database
         """
-        logger.info("fetching matches for standings calculation from database", season_id=season_id, age_group_id=age_group_id,
-        division_id=division_id)
+        logger.info(
+            "fetching matches for standings calculation from database",
+            season_id=season_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+        )
         query = self.client.table("matches").select("""
             *,
             home_team:teams!matches_home_team_id_fkey(id, name, division_id),
@@ -914,16 +889,18 @@ class MatchDAO(BaseDAO):
             # Flatten the response
             result = []
             for match in response.data or []:
-                result.append({
-                    "match_id": match["id"],
-                    "match_status": match["match_status"],
-                    "match_date": match["match_date"],
-                    "home_score": match["home_score"],
-                    "away_score": match["away_score"],
-                    "kickoff_time": match.get("kickoff_time"),
-                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
-                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
-                })
+                result.append(
+                    {
+                        "match_id": match["id"],
+                        "match_status": match["match_status"],
+                        "match_date": match["match_date"],
+                        "home_score": match["home_score"],
+                        "away_score": match["away_score"],
+                        "kickoff_time": match.get("kickoff_time"),
+                        "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                        "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                    }
+                )
             return result
 
         except Exception:
@@ -1035,12 +1012,7 @@ class MatchDAO(BaseDAO):
                 logger.warning("Invalid clock action", action=action)
                 return None
 
-            response = (
-                self.client.table("matches")
-                .update(data)
-                .eq("id", match_id)
-                .execute()
-            )
+            response = self.client.table("matches").update(data).eq("id", match_id).execute()
 
             if not response.data:
                 logger.warning("Clock update failed - no rows affected", match_id=match_id)
@@ -1086,12 +1058,7 @@ class MatchDAO(BaseDAO):
             if updated_by:
                 data["updated_by"] = updated_by
 
-            response = (
-                self.client.table("matches")
-                .update(data)
-                .eq("id", match_id)
-                .execute()
-            )
+            response = self.client.table("matches").update(data).eq("id", match_id).execute()
 
             if not response.data:
                 logger.warning("Score update failed - no rows affected", match_id=match_id)

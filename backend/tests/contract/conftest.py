@@ -1,7 +1,6 @@
 """Pytest configuration for contract tests."""
 
 import os
-import sys
 
 import httpx
 import pytest

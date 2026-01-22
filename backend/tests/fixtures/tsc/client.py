@@ -159,7 +159,9 @@ class TSCClient:
                 return item
         return None
 
-    def create_season(self, name: str | None = None, start_date: str = "2025-01-01", end_date: str = "2025-12-31") -> dict[str, Any]:
+    def create_season(
+        self, name: str | None = None, start_date: str = "2025-01-01", end_date: str = "2025-12-31"
+    ) -> dict[str, Any]:
         """Create a season or return existing one if it exists (idempotent)."""
         season_name = name or self.config.full_season_name
 
@@ -240,7 +242,9 @@ class TSCClient:
                     return existing
             raise
 
-    def create_division(self, name: str | None = None, league_id: int | None = None, description: str | None = None) -> dict[str, Any]:
+    def create_division(
+        self, name: str | None = None, league_id: int | None = None, description: str | None = None
+    ) -> dict[str, Any]:
         """Create a division or return existing one if it exists (idempotent)."""
         div_name = name or self.config.full_division_name
         # Use tracked league_id if not provided
@@ -452,9 +456,11 @@ class TSCClient:
                 age_group_id=self.registry.age_group_id,
             )
             for match in matches:
-                if (match.get("home_team_id") == home_team_id and
-                    match.get("away_team_id") == away_team_id and
-                    match.get("match_date") == match_date):
+                if (
+                    match.get("home_team_id") == home_team_id
+                    and match.get("away_team_id") == away_team_id
+                    and match.get("match_date") == match_date
+                ):
                     return match
         except Exception:
             pass
@@ -506,7 +512,9 @@ class TSCClient:
             logger.warning(f"Created match but couldn't find it: {home_team_id} vs {away_team_id} on {game_date}")
             return result
 
-    def update_match_score(self, match_id: int, home_score: int, away_score: int, match_status: str = "completed") -> dict[str, Any]:
+    def update_match_score(
+        self, match_id: int, home_score: int, away_score: int, match_status: str = "completed"
+    ) -> dict[str, Any]:
         """Update match score and status."""
         patch = GamePatch(home_score=home_score, away_score=away_score, match_status=match_status)
         return self._client.patch_game(match_id, patch)

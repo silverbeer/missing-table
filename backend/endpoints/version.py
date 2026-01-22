@@ -1,16 +1,18 @@
 """
 Version endpoint for application versioning and build information.
 """
+
 import os
+
 from fastapi import APIRouter
 from pydantic import BaseModel
-from datetime import datetime
 
 router = APIRouter(prefix="/api", tags=["version"])
 
 
 class VersionInfo(BaseModel):
     """Version information response model."""
+
     version: str
     build_id: str | None = None
     environment: str
@@ -51,5 +53,5 @@ async def get_version():
         environment=environment,
         commit_sha=commit_sha,
         build_date=build_date,
-        status="healthy"
+        status="healthy",
     )

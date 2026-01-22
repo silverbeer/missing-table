@@ -19,19 +19,19 @@ Usage:
         assert standings_page.is_loaded()
 """
 
+from .admin_page import AdminPage
 from .base_page import BasePage, Component
 from .login_page import LoginPage
-from .standings_page import StandingsPage
 from .matches_page import MatchesPage
-from .admin_page import AdminPage
 from .navigation import NavigationBar
+from .standings_page import StandingsPage
 
 __all__ = [
+    "AdminPage",
     "BasePage",
     "Component",
     "LoginPage",
-    "StandingsPage",
     "MatchesPage",
-    "AdminPage",
     "NavigationBar",
+    "StandingsPage",
 ]

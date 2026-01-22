@@ -64,6 +64,7 @@ def get_redis_client():
 
     try:
         import redis
+
         url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         _redis_client = redis.from_url(url, decode_responses=True)
         _redis_client.ping()
@@ -172,6 +173,7 @@ def dao_cache(key_pattern: str, ttl: int = 86400):
         4. If found: returns cached data (method never runs)
         5. If not found: runs method, caches result, returns it
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -206,7 +208,9 @@ def dao_cache(key_pattern: str, ttl: int = 86400):
                 cache_set(cache_key, result, ttl)
 
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -231,6 +235,7 @@ def invalidates_cache(*patterns: str):
         2. If successful (no exception), clears all keys matching each pattern
         3. Returns the method's result
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -242,7 +247,9 @@ def invalidates_cache(*patterns: str):
                 clear_cache(pattern)
 
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -289,7 +296,7 @@ class BaseDAO:
                 f"Error during {operation_name}",
                 operation=operation_name,
                 error_type=type(e).__name__,
-                error_message=str(e)
+                error_message=str(e),
             )
             raise
 
@@ -317,7 +324,7 @@ class BaseDAO:
                 operation=operation_name,
                 error_type=type(e).__name__,
                 error_message=str(e),
-                returning_default=default
+                returning_default=default,
             )
             return default
 
@@ -344,7 +351,7 @@ class BaseDAO:
                 f"Error fetching record from {table}",
                 table=table,
                 record_id=record_id,
-                id_field=id_field
+                id_field=id_field,
             )
             raise
 
@@ -369,11 +376,7 @@ class BaseDAO:
             response = query.execute()
             return response.data
         except Exception:
-            logger.exception(
-                f"Error fetching all records from {table}",
-                table=table,
-                order_by=order_by
-            )
+            logger.exception(f"Error fetching all records from {table}", table=table, order_by=order_by)
             raise
 
     def exists(self, table: str, field: str, value) -> bool:
@@ -392,12 +395,7 @@ class BaseDAO:
             response = self.client.table(table).select("id").eq(field, value).limit(1).execute()
             return len(response.data) > 0
         except Exception:
-            logger.exception(
-                f"Error checking existence in {table}",
-                table=table,
-                field=field,
-                value=value
-            )
+            logger.exception(f"Error checking existence in {table}", table=table, field=field, value=value)
             return False
 
     def delete_by_id(self, table: str, record_id: int, id_field: str = "id") -> bool:
@@ -414,16 +412,8 @@ class BaseDAO:
         """
         try:
             self.client.table(table).delete().eq(id_field, record_id).execute()
-            logger.info(
-                f"Deleted record from {table}",
-                table=table,
-                record_id=record_id
-            )
+            logger.info(f"Deleted record from {table}", table=table, record_id=record_id)
             return True
         except Exception:
-            logger.exception(
-                f"Error deleting record from {table}",
-                table=table,
-                record_id=record_id
-            )
+            logger.exception(f"Error deleting record from {table}", table=table, record_id=record_id)
             return False

@@ -4,7 +4,7 @@ Send command - publishes messages to RabbitMQ queue.
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import typer
 
@@ -30,19 +30,11 @@ from ..utils.display import (
 
 
 def send_message(
-    template: Optional[str] = typer.Option(
-        None, "--template", "-t", help="Template name to use"
-    ),
-    file: Optional[Path] = typer.Option(None, "--file", "-f", help="JSON file to send"),
-    json_str: Optional[str] = typer.Option(
-        None, "--json", "-j", help="JSON string to send"
-    ),
-    queue: Optional[str] = typer.Option(
-        None, "--queue", "-q", help="Target queue name"
-    ),
-    use_celery: bool = typer.Option(
-        True, "--celery/--rabbitmq", help="Use Celery task vs direct RabbitMQ publish"
-    ),
+    template: str | None = typer.Option(None, "--template", "-t", help="Template name to use"),
+    file: Path | None = typer.Option(None, "--file", "-f", help="JSON file to send"),
+    json_str: str | None = typer.Option(None, "--json", "-j", help="JSON string to send"),
+    queue: str | None = typer.Option(None, "--queue", "-q", help="Target queue name"),
+    use_celery: bool = typer.Option(True, "--celery/--rabbitmq", help="Use Celery task vs direct RabbitMQ publish"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug output"),
 ) -> None:
     """
@@ -82,9 +74,7 @@ def send_message(
     # Load message data
     message_data = _load_message_data(template, file, json_str)
     if not message_data:
-        console.print(
-            "[red]❌ Error: Must provide --template, --file, or --json[/red]"
-        )
+        console.print("[red]❌ Error: Must provide --template, --file, or --json[/red]")
         raise typer.Exit(1)
 
     # Validate message
@@ -119,9 +109,7 @@ def send_message(
         print_next_steps("N/A", queue_name)
 
 
-def _load_message_data(
-    template: Optional[str], file: Optional[Path], json_str: Optional[str]
-) -> dict[str, Any] | None:
+def _load_message_data(template: str | None, file: Path | None, json_str: str | None) -> dict[str, Any] | None:
     """Load message data from various sources."""
     if template:
         template_mgr = TemplateManager()
@@ -144,14 +132,12 @@ def _load_message_data(
             return json.loads(json_str)
         except json.JSONDecodeError as e:
             console.print(f"[red]❌ Invalid JSON: {e}[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
     return None
 
 
-def _send_via_celery(
-    config: QueueConfig, message_data: dict[str, Any], debug: bool
-) -> None:
+def _send_via_celery(config: QueueConfig, message_data: dict[str, Any], debug: bool) -> None:
     """Send message via Celery task."""
     print_connection_info(config.get_sanitized_broker_url(), True)
 
@@ -163,9 +149,7 @@ def _send_via_celery(
         print_info(f"Task Name: {task_name}")
         print_info("Submitting task...")
 
-    success, task_id, task_info = celery_client.send_task(
-        task_name, kwargs={"match_data": message_data}
-    )
+    success, task_id, task_info = celery_client.send_task(task_name, kwargs={"match_data": message_data})
 
     if success:
         print_success("Task submitted successfully!")
@@ -177,9 +161,7 @@ def _send_via_celery(
         raise typer.Exit(1)
 
 
-def _send_via_rabbitmq(
-    config: QueueConfig, message_data: dict[str, Any], queue_name: str, debug: bool
-) -> None:
+def _send_via_rabbitmq(config: QueueConfig, message_data: dict[str, Any], queue_name: str, debug: bool) -> None:
     """Send message via direct RabbitMQ publish."""
     print_connection_info(config.get_sanitized_broker_url(), False)
 
@@ -192,9 +174,7 @@ def _send_via_rabbitmq(
                 print_info(f"Exchange: {config.default_exchange}")
                 print_info(f"Routing Key: {config.default_routing_key}")
 
-            success, message, publish_info = client.publish_message(
-                message_data, queue_name=queue_name
-            )
+            success, message, publish_info = client.publish_message(message_data, queue_name=queue_name)
 
             if success:
                 print_success(message)
@@ -211,4 +191,4 @@ def _send_via_rabbitmq(
 
     except Exception as e:
         print_error(f"Connection error: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e

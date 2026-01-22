@@ -4,9 +4,7 @@
 import psycopg2
 
 # Database connection
-conn = psycopg2.connect(
-    host="127.0.0.1", port="54322", database="postgres", user="postgres", password="postgres"
-)
+conn = psycopg2.connect(host="127.0.0.1", port="54322", database="postgres", user="postgres", password="postgres")
 
 
 def add_guest_teams():
@@ -26,8 +24,6 @@ def add_guest_teams():
     cursor.execute("SELECT id FROM game_types WHERE name = 'Friendly'")
     friendly_id = cursor.fetchone()[0]
 
-    print(f"Adding guest teams (Friendly game type ID: {friendly_id})")
-
     for name, city in guest_teams:
         # Insert team
         cursor.execute(
@@ -39,7 +35,6 @@ def add_guest_teams():
             (name, city),
         )
         team_id = cursor.fetchone()[0]
-        print(f"Created guest team: {name} (ID: {team_id})")
 
         # Add team mapping for U14 age group
         cursor.execute(
@@ -59,10 +54,7 @@ def add_guest_teams():
             (team_id, friendly_id),
         )
 
-        print(f"  Added Friendly-only game type participation for {name}")
-
     conn.commit()
-    print(f"\nSuccessfully added {len(guest_teams)} guest teams")
 
     # Verify the guest teams
     cursor.execute("""
@@ -74,9 +66,8 @@ def add_guest_teams():
         GROUP BY t.name
     """)
 
-    print("\nGuest teams verification:")
-    for row in cursor.fetchall():
-        print(f"  {row[0]}: {row[1]}")
+    for _row in cursor.fetchall():
+        pass
 
     cursor.close()
 
@@ -84,8 +75,7 @@ def add_guest_teams():
 if __name__ == "__main__":
     try:
         add_guest_teams()
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception:
         conn.rollback()
     finally:
         conn.close()

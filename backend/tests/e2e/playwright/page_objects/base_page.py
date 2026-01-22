@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING, Any
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Page, Locator, ElementHandle
+    from playwright.sync_api import Locator, Page
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +26,20 @@ logger = logging.getLogger(__name__)
 class Component:
     """
     Base class for reusable UI components.
-    
+
     Components are UI elements that appear on multiple pages,
     such as navigation bars, modals, data tables, etc.
-    
+
     Usage:
         class DataTable(Component):
             def __init__(self, page, container_selector):
                 super().__init__(page)
                 self.container = page.locator(container_selector)
-                
+
             def get_row_count(self):
                 return self.container.locator("tr").count()
     """
-    
+
     def __init__(self, page: Page) -> None:
         self.page = page
         self._timeout = 10000  # Default timeout in ms
@@ -57,30 +57,30 @@ class Component:
 class BasePage:
     """
     Base class for all Page Objects in the test framework.
-    
+
     Features:
     - Automatic URL validation
     - Smart waiting with configurable strategies
     - Screenshot capture utilities
     - Common interaction methods with error handling
     - Retry mechanisms for flaky elements
-    
+
     Usage:
         class LoginPage(BasePage):
             URL_PATH = "/login"
-            
+
             def __init__(self, page):
                 super().__init__(page)
                 self.email_input = page.locator("#email")
                 self.password_input = page.locator("#password")
                 self.submit_button = page.locator("button[type='submit']")
     """
-    
+
     # Override in subclasses
     URL_PATH: str = "/"
     PAGE_TITLE: str = ""
     LOAD_INDICATOR: str = ""  # Selector for element that indicates page is loaded
-    
+
     def __init__(self, page: Page, base_url: str = "http://localhost:8080") -> None:
         self.page = page
         self.base_url = base_url.rstrip("/")
@@ -137,33 +137,25 @@ class BasePage:
 
         # Wait for load indicator if specified
         if self.LOAD_INDICATOR:
-            self.page.wait_for_selector(
-                self.LOAD_INDICATOR,
-                state="visible",
-                timeout=self._timeout
-            )
+            self.page.wait_for_selector(self.LOAD_INDICATOR, state="visible", timeout=self._timeout)
 
         # Verify title if specified (using expect to avoid CSP eval issues)
         if self.PAGE_TITLE:
             from playwright.sync_api import expect
+
             expect(self.page).to_have_title(re.compile(self.PAGE_TITLE), timeout=self._timeout)
 
         return self
 
-    def wait_for_element(
-        self,
-        selector: str,
-        state: str = "visible",
-        timeout: int | None = None
-    ) -> Locator:
+    def wait_for_element(self, selector: str, state: str = "visible", timeout: int | None = None) -> Locator:
         """
         Wait for element with specified state.
-        
+
         Args:
             selector: CSS selector or text selector
             state: One of 'attached', 'detached', 'visible', 'hidden'
             timeout: Custom timeout in ms
-            
+
         Returns:
             Locator for the element
         """
@@ -185,18 +177,14 @@ class BasePage:
         timeout = timeout or self._timeout
         self.page.wait_for_load_state("networkidle", timeout=timeout)
 
-    def wait_for_api_response(
-        self,
-        url_pattern: str,
-        timeout: int | None = None
-    ) -> Any:
+    def wait_for_api_response(self, url_pattern: str, timeout: int | None = None) -> Any:
         """
         Wait for a specific API response.
-        
+
         Args:
             url_pattern: URL pattern to match (e.g., "**/api/standings")
             timeout: Custom timeout in ms
-            
+
         Returns:
             Response object
         """
@@ -296,17 +284,17 @@ class BasePage:
     def take_screenshot(self, name: str | None = None) -> Path:
         """
         Take a screenshot of the current page.
-        
+
         Args:
             name: Custom name for screenshot (without extension)
-            
+
         Returns:
             Path to saved screenshot
         """
         if not name:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             name = f"{self.__class__.__name__}_{timestamp}"
-        
+
         path = self._screenshot_dir / f"{name}.png"
         self.page.screenshot(path=str(path), full_page=True)
         logger.info(f"Screenshot saved: {path}")
@@ -317,7 +305,7 @@ class BasePage:
         if not name:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             name = f"{self.__class__.__name__}_element_{timestamp}"
-        
+
         path = self._screenshot_dir / f"{name}.png"
         self.page.locator(selector).screenshot(path=str(path))
         logger.info(f"Element screenshot saved: {path}")
@@ -373,24 +361,17 @@ class BasePage:
         except Exception as e:
             current_url = self.page.url
             self.take_screenshot("expect_url_failed")
-            raise AssertionError(
-                f"Expected URL matching '{url_pattern}', got '{current_url}'"
-            ) from e
+            raise AssertionError(f"Expected URL matching '{url_pattern}', got '{current_url}'") from e
 
     def expect_title(self, title: str, timeout: int | None = None) -> None:
         """Assert page title matches."""
         timeout = timeout or self._timeout
         try:
-            self.page.wait_for_function(
-                f"document.title === '{title}'",
-                timeout=timeout
-            )
+            self.page.wait_for_function(f"document.title === '{title}'", timeout=timeout)
         except Exception as e:
             actual_title = self.page.title()
             self.take_screenshot("expect_title_failed")
-            raise AssertionError(
-                f"Expected title '{title}', got '{actual_title}'"
-            ) from e
+            raise AssertionError(f"Expected title '{title}', got '{actual_title}'") from e
 
     # =========================================================================
     # Utilities

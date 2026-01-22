@@ -31,7 +31,6 @@
             cd backend
             uv sync            
         - name: Run Ruff (Python lint)
-          continue-on-error: true
           run: |
             cd backend
             uv run ruff check .

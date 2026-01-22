@@ -32,15 +32,9 @@ class GoalEvent(BaseModel):
     """Model for recording a goal event."""
 
     team_id: int = Field(..., description="ID of the team that scored")
-    player_name: str | None = Field(
-        None, max_length=200, description="Name of the goal scorer (legacy)"
-    )
-    player_id: int | None = Field(
-        None, description="ID of the goal scorer from roster (preferred)"
-    )
-    message: str | None = Field(
-        None, max_length=500, description="Optional description"
-    )
+    player_name: str | None = Field(None, max_length=200, description="Name of the goal scorer (legacy)")
+    player_id: int | None = Field(None, description="ID of the goal scorer from roster (preferred)")
+    message: str | None = Field(None, max_length=500, description="Optional description")
 
 
 class MessageEvent(BaseModel):

@@ -45,20 +45,17 @@ Usage:
 import os
 import sys
 from pathlib import Path
-from typing import Optional, List
-from datetime import datetime
 
 import typer
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich import print as rprint
+from rich.table import Table
 
 # Add backend root directory to path for imports (scripts/utilities/ -> backend/)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import DAO layer
-from dao.match_dao import SupabaseConnection, MatchDAO
+from dao.match_dao import MatchDAO, SupabaseConnection
 
 app = typer.Typer(help="Match Search Tool - Search matches with comprehensive filters")
 console = Console()
@@ -83,7 +80,7 @@ def get_dao() -> MatchDAO:
         return dao
     except Exception as e:
         console.print(f"[red]Error connecting to database: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def get_reference_data(dao: MatchDAO):
@@ -102,30 +99,26 @@ def get_reference_data(dao: MatchDAO):
             "age_groups": age_groups,
             "divisions": divisions,
             "leagues": leagues,
-            "teams": teams
+            "teams": teams,
         }
     except Exception as e:
         console.print(f"[red]Error loading reference data: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
 def search(
-    match_type: Optional[str] = typer.Option(
-        DEFAULT_MATCH_TYPE,
-        "--match-type", "-m",
-        help=f"Match type (default: {DEFAULT_MATCH_TYPE})"
+    match_type: str | None = typer.Option(
+        DEFAULT_MATCH_TYPE, "--match-type", "-m", help=f"Match type (default: {DEFAULT_MATCH_TYPE})"
     ),
-    season: Optional[str] = typer.Option(
-        DEFAULT_SEASON,
-        "--season", "-s",
-        help=f"Season (default: {DEFAULT_SEASON})"
+    season: str | None = typer.Option(DEFAULT_SEASON, "--season", "-s", help=f"Season (default: {DEFAULT_SEASON})"),
+    league: str | None = typer.Option(None, "--league", "-l", help="Filter by league"),
+    division: str | None = typer.Option(None, "--division", "-d", help="Filter by division/conference"),
+    age_group: str | None = typer.Option(None, "--age-group", "-a", help="Filter by age group (e.g., U14, U15)"),
+    team: str | None = typer.Option(None, "--team", "-t", help="Filter by team name (searches both home and away)"),
+    mls_id: str | None = typer.Option(
+        None, "--mls-id", help="Filter by MLS match ID (external identifier from mlssoccer.com)"
     ),
-    league: Optional[str] = typer.Option(None, "--league", "-l", help="Filter by league"),
-    division: Optional[str] = typer.Option(None, "--division", "-d", help="Filter by division/conference"),
-    age_group: Optional[str] = typer.Option(None, "--age-group", "-a", help="Filter by age group (e.g., U14, U15)"),
-    team: Optional[str] = typer.Option(None, "--team", "-t", help="Filter by team name (searches both home and away)"),
-    mls_id: Optional[str] = typer.Option(None, "--mls-id", help="Filter by MLS match ID (external identifier from mlssoccer.com)"),
     limit: int = typer.Option(100, "--limit", help="Maximum number of matches to show"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information"),
     show_filters: bool = typer.Option(True, "--show-filters/--no-filters", help="Show applied filters"),
@@ -186,7 +179,7 @@ def search(
         team_obj = dao.get_team_by_name(team)
         if not team_obj:
             console.print(f"[red]Error: Team '{team}' not found.[/red]")
-            console.print(f"[yellow]Tip: Use 'list-teams' command to see available teams[/yellow]")
+            console.print("[yellow]Tip: Use 'list-teams' command to see available teams[/yellow]")
             raise typer.Exit(1)
         team_id = team_obj["id"]
 
@@ -196,7 +189,7 @@ def search(
         age_group_id=ref_data["age_groups"].get(age_group) if age_group else None,
         division_id=ref_data["divisions"].get(division) if division else None,
         team_id=team_id,  # Exact team ID lookup
-        match_type=match_type  # DAO handles match_type by name
+        match_type=match_type,  # DAO handles match_type by name
     )
 
     # Apply client-side filters (league and mls_id not in DAO)
@@ -204,10 +197,7 @@ def search(
 
     # Filter by MLS ID if provided
     if mls_id:
-        matches_data = [
-            m for m in matches_data
-            if m.get("match_id") == mls_id
-        ]
+        matches_data = [m for m in matches_data if m.get("match_id") == mls_id]
 
     if league:
         if league not in ref_data["leagues"]:
@@ -224,10 +214,7 @@ def search(
                     return leagues_data.get("name")
             return None
 
-        matches_data = [
-            m for m in matches_data
-            if get_match_league(m) == league
-        ]
+        matches_data = [m for m in matches_data if get_match_league(m) == league]
 
     # Apply limit AFTER filtering
     matches_data = matches_data[:limit]
@@ -251,19 +238,17 @@ def search(
             filters_applied.append(f"MLS ID: [cyan]{mls_id}[/cyan]")
 
         if filters_applied:
-            console.print(Panel(
-                "\n".join(filters_applied),
-                title="[bold]Applied Filters[/bold]",
-                border_style="blue"
-            ))
+            console.print(
+                Panel(
+                    "\n".join(filters_applied),
+                    title="[bold]Applied Filters[/bold]",
+                    border_style="blue",
+                )
+            )
             console.print()
 
     # Create results table
-    table = Table(
-        title=f"Matches ({len(matches_data)} found)",
-        show_header=True,
-        header_style="bold magenta"
-    )
+    table = Table(title=f"Matches ({len(matches_data)} found)", show_header=True, header_style="bold magenta")
 
     table.add_column("ID", style="cyan", width=5)
     table.add_column("MLS ID", style="dim", width=12)
@@ -298,21 +283,18 @@ def search(
                 league_name = leagues_data.get("name", "-")
 
         # Format score
-        if home_score is not None and away_score is not None:
-            score = f"{home_score}-{away_score}"
-        else:
-            score = "TBD"
+        score = f"{home_score}-{away_score}" if home_score is not None and away_score is not None else "TBD"
 
         row = [
             str(match["id"]),  # Primary key
-            mls_match_id,      # External match ID from MLSNext website
+            mls_match_id,  # External match ID from MLSNext website
             match["match_date"],
             home_team,
             str(home_team_id),
             score,
             away_team,
             str(away_team_id),
-            league_name
+            league_name,
         ]
 
         if verbose:
@@ -375,9 +357,9 @@ def list_options():
 
 @app.command()
 def list_teams(
-    league: Optional[str] = typer.Option(None, "--league", "-l", help="Filter teams by league"),
-    age_group: Optional[str] = typer.Option(None, "--age-group", "-a", help="Filter teams by age group"),
-    search: Optional[str] = typer.Option(None, "--search", "-s", help="Search teams by name (partial match)"),
+    league: str | None = typer.Option(None, "--league", "-l", help="Filter teams by league"),
+    age_group: str | None = typer.Option(None, "--age-group", "-a", help="Filter teams by age group"),
+    search: str | None = typer.Option(None, "--search", "-s", help="Search teams by name (partial match)"),
 ):
     """List all teams with optional filtering"""
     load_environment()
@@ -414,11 +396,7 @@ def list_teams(
     # For now, skip age_group filtering
 
     # Display results
-    table = Table(
-        title=f"Teams ({len(teams)} found)",
-        show_header=True,
-        header_style="bold magenta"
-    )
+    table = Table(title=f"Teams ({len(teams)} found)", show_header=True, header_style="bold magenta")
 
     table.add_column("Name", style="green", width=40)
     table.add_column("City", style="yellow", width=20)
@@ -433,11 +411,7 @@ def list_teams(
                     league_name = l_name
                     break
 
-        table.add_row(
-            team["name"],
-            team.get("city", "-") or "-",
-            league_name
-        )
+        table.add_row(team["name"], team.get("city", "-") or "-", league_name)
 
     console.print(table)
 

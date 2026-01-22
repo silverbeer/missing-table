@@ -3,74 +3,65 @@
 Comprehensive test runner for the backend with different test categories and options.
 """
 
-import subprocess
-import sys
 import argparse
 import os
-from pathlib import Path
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 
 
 def run_command(cmd, description=""):
     """Run a command and return the result."""
-    print(f"\n{'='*60}")
     if description:
-        print(f"Running: {description}")
-    print(f"Command: {' '.join(cmd)}")
-    print(f"{'='*60}")
-    
+        pass
+
     start_time = datetime.now()
     result = subprocess.run(cmd, capture_output=False, text=True)
     end_time = datetime.now()
-    
-    duration = (end_time - start_time).total_seconds()
-    print(f"\nCompleted in {duration:.2f} seconds")
-    print(f"Exit code: {result.returncode}")
-    
+
+    (end_time - start_time).total_seconds()
+
     return result.returncode == 0
 
 
 def check_environment():
     """Check if the testing environment is properly set up."""
-    print("Checking test environment...")
-    
+
     # Check if uv is available
     try:
         result = subprocess.run(["uv", "--version"], capture_output=True, text=True)
         if result.returncode != 0:
-            print("ERROR: uv not found. Please install uv first.")
             return False
-        print(f"✓ uv found: {result.stdout.strip()}")
     except FileNotFoundError:
-        print("ERROR: uv not found. Please install uv first.")
         return False
-    
+
     # Check if we're in the right directory
     if not Path("pyproject.toml").exists():
-        print("ERROR: pyproject.toml not found. Run from backend directory.")
         return False
-    print("✓ Found pyproject.toml")
-    
+
     # Check if tests directory exists
     if not Path("tests").exists():
-        print("ERROR: tests directory not found.")
         return False
-    print("✓ Found tests directory")
-    
+
     # Check environment variables
-    supabase_url = os.getenv('SUPABASE_URL')
+    supabase_url = os.getenv("SUPABASE_URL")
     if supabase_url:
-        print(f"✓ SUPABASE_URL: {supabase_url}")
+        pass
     else:
-        print("⚠️  SUPABASE_URL not set (some tests may be skipped)")
-    
+        pass
+
     return True
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run backend tests with various options")
-    parser.add_argument("--category", choices=["unit", "integration", "contract", "e2e", "smoke", "slow", "all"],
-                       default="all", help="Test category to run")
+    parser.add_argument(
+        "--category",
+        choices=["unit", "integration", "contract", "e2e", "smoke", "slow", "all"],
+        default="all",
+        help="Test category to run",
+    )
     parser.add_argument("--coverage", action="store_true", help="Run with coverage")
     parser.add_argument("--html-coverage", action="store_true", help="Generate HTML coverage report")
     parser.add_argument("--xml-coverage", action="store_true", help="Generate XML coverage report")
@@ -99,7 +90,7 @@ def main():
         "contract": 90,
         "e2e": 50,
         "smoke": 100,
-        "all": 75
+        "all": 75,
     }
 
     # Add test category markers
@@ -118,7 +109,7 @@ def main():
     elif args.category == "all":
         # Run all tests
         pass
-    
+
     # Add coverage options
     if args.coverage or args.html_coverage or args.xml_coverage or args.json_coverage:
         cmd.extend(["--cov=."])
@@ -135,19 +126,19 @@ def main():
         # Add coverage threshold (use is not None to allow 0)
         fail_under = args.fail_under if args.fail_under is not None else coverage_thresholds.get(args.category, 75)
         cmd.extend(["--cov-fail-under", str(fail_under)])
-    
+
     # Add verbose output
     if args.verbose:
         cmd.append("-v")
-    
+
     # Add fail fast
     if args.fail_fast:
         cmd.append("-x")
-    
+
     # Add parallel execution
     if args.parallel:
         cmd.extend(["-n", "auto"])  # Requires pytest-xdist
-    
+
     # Add specific file or function
     if args.file:
         if args.function:
@@ -156,12 +147,11 @@ def main():
             cmd.append(args.file)
     elif args.function:
         cmd.extend(["-k", args.function])
-    
+
     # Show command if dry run
     if args.dry_run:
-        print(f"Would run: {' '.join(cmd)}")
         return
-    
+
     # Run the tests
     description = f"pytest tests ({args.category} category)"
     if args.coverage or args.html_coverage or args.xml_coverage or args.json_coverage:
@@ -172,29 +162,22 @@ def main():
 
     # Generate additional reports
     if args.html_coverage:
-        print(f"\n{'='*60}")
         if success:
-            print("✅ HTML coverage report generated in htmlcov/")
+            pass
         else:
-            print("⚠️  HTML coverage report generated in htmlcov/ (tests failed or coverage threshold not met)")
-        print("Open htmlcov/index.html in your browser to view the report")
-        print(f"{'='*60}")
+            pass
 
     if args.xml_coverage:
-        print(f"\n{'='*60}")
         if success:
-            print("✅ XML coverage report generated as coverage.xml")
+            pass
         else:
-            print("⚠️  XML coverage report generated as coverage.xml (tests failed or coverage threshold not met)")
-        print(f"{'='*60}")
+            pass
 
     if args.json_coverage:
-        print(f"\n{'='*60}")
         if success:
-            print("✅ JSON coverage report generated as coverage.json")
+            pass
         else:
-            print("⚠️  JSON coverage report generated as coverage.json (tests failed or coverage threshold not met)")
-        print(f"{'='*60}")
+            pass
 
     # Exit with appropriate code
     sys.exit(0 if success else 1)

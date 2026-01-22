@@ -184,7 +184,14 @@ class MissingTableClient:
             self._refresh_token = data.get("refresh_token")
             return data
 
-    def signup(self, username: str, password: str, display_name: str | None = None, email: str | None = None, invite_code: str | None = None) -> dict[str, Any]:
+    def signup(
+        self,
+        username: str,
+        password: str,
+        display_name: str | None = None,
+        email: str | None = None,
+        invite_code: str | None = None,
+    ) -> dict[str, Any]:
         """
         Sign up a new user with username authentication.
 
@@ -339,7 +346,9 @@ class MissingTableClient:
         response = self._request("GET", f"/api/matches/{game_id}")
         return response.json()
 
-    def get_games_by_team(self, team_id: int, season_id: int | None = None, age_group_id: int | None = None) -> list[dict[str, Any]]:
+    def get_games_by_team(
+        self, team_id: int, season_id: int | None = None, age_group_id: int | None = None
+    ) -> list[dict[str, Any]]:
         """Get all matches (games) for a specific team."""
         params = {}
         if season_id:
@@ -445,7 +454,9 @@ class MissingTableClient:
 
     def update_division(self, division_id: int, division: DivisionUpdate) -> dict[str, Any]:
         """Update a division (admin only)."""
-        response = self._request("PUT", f"/api/divisions/{division_id}", json_data=division.model_dump(exclude_none=True))
+        response = self._request(
+            "PUT", f"/api/divisions/{division_id}", json_data=division.model_dump(exclude_none=True)
+        )
         return response.json()
 
     def delete_division(self, division_id: int) -> dict[str, Any]:
@@ -548,7 +559,13 @@ class MissingTableClient:
         response = self._request("POST", "/api/clubs", json_data=payload)
         return response.json()
 
-    def update_club(self, club_id: int, name: str | None = None, city: str | None = None, description: str | None = None) -> dict[str, Any]:
+    def update_club(
+        self,
+        club_id: int,
+        name: str | None = None,
+        city: str | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
         """Update a club (admin only)."""
         payload = {}
         if name:
@@ -607,7 +624,9 @@ class MissingTableClient:
         response = self._request("POST", "/api/invites/admin/team-manager", json_data=payload)
         return response.json()
 
-    def create_team_player_invite_admin(self, team_id: int, age_group_id: int, email: str | None = None) -> dict[str, Any]:
+    def create_team_player_invite_admin(
+        self, team_id: int, age_group_id: int, email: str | None = None
+    ) -> dict[str, Any]:
         """Create a team player invite (admin only)."""
         payload = {
             "invite_type": "team_player",
@@ -700,7 +719,13 @@ class MissingTableClient:
         response = self._request("POST", "/api/leagues", json_data=payload)
         return response.json()
 
-    def update_league(self, league_id: int, name: str | None = None, description: str | None = None, is_active: bool | None = None) -> dict[str, Any]:
+    def update_league(
+        self,
+        league_id: int,
+        name: str | None = None,
+        description: str | None = None,
+        is_active: bool | None = None,
+    ) -> dict[str, Any]:
         """Update a league (admin only)."""
         payload = {}
         if name is not None:

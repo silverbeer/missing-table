@@ -6,9 +6,7 @@ import csv
 import psycopg2
 
 # Database connection
-conn = psycopg2.connect(
-    host="127.0.0.1", port="54322", database="postgres", user="postgres", password="postgres"
-)
+conn = psycopg2.connect(host="127.0.0.1", port="54322", database="postgres", user="postgres", password="postgres")
 
 
 def populate_teams():
@@ -17,17 +15,16 @@ def populate_teams():
 
     # Read teams from CSV (path relative to backend root)
     from pathlib import Path
+
     backend_root = Path(__file__).parent.parent.parent
     csv_path = backend_root / "mlsnext_u13_teams.csv"
-    
+
     teams = []
     with open(csv_path) as file:
         reader = csv.DictReader(file)
         for row in reader:
             if row["name"].strip():  # Skip empty rows
                 teams.append((row["name"].strip(), row["city"].strip()))
-
-    print(f"Found {len(teams)} teams to insert")
 
     # Insert teams
     for name, city in teams:
@@ -40,7 +37,6 @@ def populate_teams():
             (name, city),
         )
         team_id = cursor.fetchone()[0]
-        print(f"Inserted team: {name} (ID: {team_id})")
 
         # Add team mappings for U14 age group with default division
         cursor.execute(
@@ -61,21 +57,15 @@ def populate_teams():
                 (team_id, game_type_id),
             )
 
-        print(f"  Added mappings and game type participations for {name}")
-
     # Commit all changes
     conn.commit()
-    print(f"\nSuccessfully populated {len(teams)} teams with game type mappings")
 
     # Verify the data
     cursor.execute("SELECT COUNT(*) FROM teams")
-    team_count = cursor.fetchone()[0]
+    cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM team_game_types")
-    mapping_count = cursor.fetchone()[0]
-
-    print(f"Total teams in database: {team_count}")
-    print(f"Total team-game type mappings: {mapping_count}")
+    cursor.fetchone()[0]
 
     cursor.close()
 
@@ -83,8 +73,7 @@ def populate_teams():
 if __name__ == "__main__":
     try:
         populate_teams()
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception:
         conn.rollback()
     finally:
         conn.close()

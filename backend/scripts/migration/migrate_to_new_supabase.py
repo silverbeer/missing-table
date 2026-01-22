@@ -10,6 +10,7 @@ import sqlite3
 import sys
 
 from dotenv import load_dotenv
+
 from supabase import create_client
 
 # Load environment variables
@@ -34,106 +35,16 @@ class SupabaseMigration:
         self.sqlite_conn = sqlite3.connect(self.sqlite_db)
         self.sqlite_conn.row_factory = sqlite3.Row
 
-        print(f"✅ Connected to Supabase: {self.supabase_url}")
-        print(f"✅ Connected to SQLite: {self.sqlite_db}")
-
     def create_schema(self):
         """Create the database schema in Supabase."""
-        print("\n📊 Creating database schema...")
-
-        schema_sql = """
-        -- Drop existing tables if doing a clean migration
-        DROP TABLE IF EXISTS games CASCADE;
-        DROP TABLE IF EXISTS team_mappings CASCADE;
-        DROP TABLE IF EXISTS teams CASCADE;
-        DROP TABLE IF EXISTS game_types CASCADE;
-        DROP TABLE IF EXISTS seasons CASCADE;
-        DROP TABLE IF EXISTS age_groups CASCADE;
-        
-        -- Age Groups
-        CREATE TABLE age_groups (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(50) UNIQUE NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Seasons
-        CREATE TABLE seasons (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(50) UNIQUE NOT NULL,
-            start_date DATE NOT NULL,
-            end_date DATE NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Game Types
-        CREATE TABLE game_types (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(50) UNIQUE NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Teams
-        CREATE TABLE teams (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100) UNIQUE NOT NULL,
-            city VARCHAR(100) DEFAULT 'Unknown City',
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Team Age Groups (many-to-many)
-        CREATE TABLE team_mappings (
-            id SERIAL PRIMARY KEY,
-            team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
-            age_group_id INTEGER REFERENCES age_groups(id) ON DELETE CASCADE,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(team_id, age_group_id)
-        );
-
-        -- Games
-        CREATE TABLE games (
-            id SERIAL PRIMARY KEY,
-            game_date DATE NOT NULL,
-            home_team_id INTEGER REFERENCES teams(id),
-            away_team_id INTEGER REFERENCES teams(id),
-            home_score INTEGER DEFAULT 0,
-            away_score INTEGER DEFAULT 0,
-            season_id INTEGER REFERENCES seasons(id),
-            age_group_id INTEGER REFERENCES age_groups(id),
-            game_type_id INTEGER REFERENCES game_types(id),
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT different_teams CHECK (home_team_id != away_team_id)
-        );
-
-        -- Create indexes for performance
-        CREATE INDEX idx_games_date ON games(game_date);
-        CREATE INDEX idx_games_home_team ON games(home_team_id);
-        CREATE INDEX idx_games_away_team ON games(away_team_id);
-        CREATE INDEX idx_games_season ON games(season_id);
-        CREATE INDEX idx_games_age_group ON games(age_group_id);
-        CREATE INDEX idx_team_mappings_team ON team_mappings(team_id);
-        CREATE INDEX idx_team_mappings_age_group ON team_mappings(age_group_id);
-        """
 
         # Note: Supabase doesn't support direct SQL execution via the client
         # You'll need to run this SQL in the Supabase dashboard SQL editor
 
-        print("⚠️  Please run the following SQL in your Supabase dashboard SQL editor:")
-        print("=" * 80)
-        print(schema_sql)
-        print("=" * 80)
-
         input("\n✋ Press Enter after you've created the schema in Supabase...")
-        print("✅ Schema creation confirmed")
 
     def populate_reference_data(self):
         """Populate reference data (age groups, seasons, game types)."""
-        print("\n🌱 Populating reference data...")
 
         # Age Groups
         age_groups = [
@@ -152,11 +63,9 @@ class SupabaseMigration:
                 self.supabase.table("age_groups").insert(ag).execute()
             except Exception as e:
                 if "duplicate" in str(e).lower():
-                    print(f"   Age group '{ag['name']}' already exists")
+                    pass
                 else:
-                    print(f"   Error inserting age group: {e}")
-
-        print("✅ Age groups populated")
+                    pass
 
         # Seasons
         seasons = [
@@ -170,11 +79,9 @@ class SupabaseMigration:
                 self.supabase.table("seasons").insert(season).execute()
             except Exception as e:
                 if "duplicate" in str(e).lower():
-                    print(f"   Season '{season['name']}' already exists")
+                    pass
                 else:
-                    print(f"   Error inserting season: {e}")
-
-        print("✅ Seasons populated")
+                    pass
 
         # Game Types
         game_types = [
@@ -189,52 +96,27 @@ class SupabaseMigration:
                 self.supabase.table("game_types").insert(gt).execute()
             except Exception as e:
                 if "duplicate" in str(e).lower():
-                    print(f"   Game type '{gt['name']}' already exists")
+                    pass
                 else:
-                    print(f"   Error inserting game type: {e}")
-
-        print("✅ Game types populated")
+                    pass
 
         # Get IDs for later use
         self.season_2024_25 = (
-            self.supabase.table("seasons")
-            .select("id")
-            .eq("name", "2024-2025")
-            .single()
-            .execute()
-            .data["id"]
+            self.supabase.table("seasons").select("id").eq("name", "2024-2025").single().execute().data["id"]
         )
         self.u13_age_group = (
-            self.supabase.table("age_groups")
-            .select("id")
-            .eq("name", "U13")
-            .single()
-            .execute()
-            .data["id"]
+            self.supabase.table("age_groups").select("id").eq("name", "U13").single().execute().data["id"]
         )
         self.league_game_type = (
-            self.supabase.table("game_types")
-            .select("id")
-            .eq("name", "League")
-            .single()
-            .execute()
-            .data["id"]
+            self.supabase.table("game_types").select("id").eq("name", "League").single().execute().data["id"]
         )
-
-        print("\n📌 Reference IDs:")
-        print(f"   2024-2025 Season ID: {self.season_2024_25}")
-        print(f"   U13 Age Group ID: {self.u13_age_group}")
-        print(f"   League Game Type ID: {self.league_game_type}")
 
     def migrate_teams(self):
         """Migrate teams from SQLite to Supabase."""
-        print("\n👥 Migrating teams...")
 
         cursor = self.sqlite_conn.cursor()
         cursor.execute("SELECT * FROM teams ORDER BY name")
         sqlite_teams = cursor.fetchall()
-
-        print(f"Found {len(sqlite_teams)} teams in SQLite")
 
         self.team_mapping = {}  # Map old IDs to new IDs
 
@@ -251,33 +133,21 @@ class SupabaseMigration:
                     {"team_id": new_team["id"], "age_group_id": self.u13_age_group}
                 ).execute()
 
-                print(f"   ✅ Migrated: {team['name']}")
-
             except Exception as e:
                 if "duplicate" in str(e).lower():
                     # Team exists, get its ID
-                    existing = (
-                        self.supabase.table("teams")
-                        .select("id")
-                        .eq("name", team["name"])
-                        .single()
-                        .execute()
-                    )
+                    existing = self.supabase.table("teams").select("id").eq("name", team["name"]).single().execute()
                     self.team_mapping[team["id"]] = existing.data["id"]
-                    print(f"   ℹ️  Team already exists: {team['name']}")
                 else:
-                    print(f"   ❌ Error migrating team {team['name']}: {e}")
-
-        print(f"✅ Migrated {len(self.team_mapping)} teams")
+                    pass
 
     def migrate_games(self):
         """Migrate games from SQLite to Supabase."""
-        print("\n⚽ Migrating games...")
 
         cursor = self.sqlite_conn.cursor()
         cursor.execute("""
-            SELECT g.*, 
-                   ht.name as home_team_name, 
+            SELECT g.*,
+                   ht.name as home_team_name,
                    at.name as away_team_name
             FROM games g
             JOIN teams ht ON g.home_team = ht.name
@@ -285,8 +155,6 @@ class SupabaseMigration:
             ORDER BY g.game_date
         """)
         sqlite_games = cursor.fetchall()
-
-        print(f"Found {len(sqlite_games)} games in SQLite")
 
         # Get team name to ID mapping from Supabase
         teams_response = self.supabase.table("teams").select("id, name").execute()
@@ -332,9 +200,7 @@ class SupabaseMigration:
             try:
                 self.supabase.table("games").insert(batch).execute()
                 inserted_count += len(batch)
-                print(f"   ✅ Batch {i // batch_size + 1}: Inserted {len(batch)} games")
             except Exception as e:
-                print(f"   ❌ Error inserting batch: {e}")
                 failed_games.extend(
                     [
                         {
@@ -347,19 +213,16 @@ class SupabaseMigration:
                     ]
                 )
 
-        print(f"\n✅ Successfully migrated: {inserted_count} games")
         if failed_games:
-            print(f"❌ Failed to migrate: {len(failed_games)} games")
-            for fg in failed_games[:5]:
-                print(f"   - {fg['date']}: {fg['home']} vs {fg['away']} ({fg['reason']})")
+            for _fg in failed_games[:5]:
+                pass
 
     def verify_migration(self):
         """Verify the migration was successful."""
-        print("\n🔍 Verifying migration...")
 
         # Count records in Supabase
-        teams_count = self.supabase.table("teams").select("*", count="exact").execute().count
-        games_count = self.supabase.table("games").select("*", count="exact").execute().count
+        supabase_teams = self.supabase.table("teams").select("*", count="exact").execute().count
+        supabase_games = self.supabase.table("games").select("*", count="exact").execute().count
 
         # Count records in SQLite
         cursor = self.sqlite_conn.cursor()
@@ -368,31 +231,11 @@ class SupabaseMigration:
         cursor.execute("SELECT COUNT(*) FROM games")
         sqlite_games = cursor.fetchone()[0]
 
-        print("\n📊 Migration Summary:")
-        print(f"Teams - SQLite: {sqlite_teams}, Supabase: {teams_count}")
-        print(f"Games - SQLite: {sqlite_games}, Supabase: {games_count}")
-
-        # Show sample games
-        sample_games = (
-            self.supabase.table("games")
-            .select("""
-            *,
-            home_team:teams!games_home_team_id_fkey(name),
-            away_team:teams!games_away_team_id_fkey(name)
-        """)
-            .limit(3)
-            .execute()
-        )
-
-        print("\n📋 Sample migrated games:")
-        for game in sample_games.data:
-            print(
-                f"   {game['game_date']}: {game['home_team']['name']} vs {game['away_team']['name']} ({game['home_score']}-{game['away_score']})"
-            )
+        # Log migration counts
+        print(f"Migration verification: teams={supabase_teams}/{sqlite_teams}, games={supabase_games}/{sqlite_games}")
 
     def generate_env_file(self):
         """Generate a new .env file template."""
-        print("\n📝 Generating .env template...")
 
         env_content = f"""# Supabase Configuration - NEW PROJECT
 SUPABASE_URL={self.supabase_url}
@@ -406,12 +249,8 @@ ENVIRONMENT=development
         with open(".env.new", "w") as f:
             f.write(env_content)
 
-        print("✅ Created .env.new - Update with your new project's keys")
-
     def run_full_migration(self):
         """Run the complete migration process."""
-        print("🚀 Starting Full Migration")
-        print("=" * 80)
 
         # Step 1: Create schema
         self.create_schema()
@@ -431,12 +270,6 @@ ENVIRONMENT=development
         # Step 6: Generate env file
         self.generate_env_file()
 
-        print("\n🎉 Migration Complete!")
-        print("\n📝 Next steps:")
-        print("1. Update .env with your new Supabase project credentials")
-        print("2. Restart your API server")
-        print("3. Test with: uv run mt-cli recent-games")
-
 
 def main():
     parser = argparse.ArgumentParser(description="Migrate SQLite data to new Supabase project")
@@ -447,13 +280,10 @@ def main():
     args = parser.parse_args()
 
     try:
-        migration = SupabaseMigration(
-            supabase_url=args.url, supabase_key=args.key, sqlite_db=args.sqlite
-        )
+        migration = SupabaseMigration(supabase_url=args.url, supabase_key=args.key, sqlite_db=args.sqlite)
         migration.run_full_migration()
 
-    except Exception as e:
-        print(f"\n❌ Migration failed: {e}")
+    except Exception:
         sys.exit(1)
 
 

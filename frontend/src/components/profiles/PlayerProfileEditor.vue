@@ -244,6 +244,7 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { PLAYER_POSITIONS } from '@/constants/positions';
 import ColorInput from '../shared/ColorInput.vue';
 import PlayerPhotoOverlay from './PlayerPhotoOverlay.vue';
 import PlayerPhotoUpload from './PlayerPhotoUpload.vue';
@@ -261,7 +262,7 @@ export default {
     const saving = ref(false);
     const error = ref(null);
     const success = ref(null);
-    const availablePositions = ref([]);
+    const availablePositions = ref(PLAYER_POSITIONS);
 
     // Helper to parse positions (may be JSON string or array)
     const parsePositions = positions => {
@@ -393,19 +394,6 @@ export default {
       }
     };
 
-    // Fetch available positions
-    const fetchPositions = async () => {
-      try {
-        const positions = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/positions`,
-          { method: 'GET' }
-        );
-        availablePositions.value = positions;
-      } catch (err) {
-        console.error('Error fetching positions:', err);
-      }
-    };
-
     // Handle cancel
     const handleCancel = () => {
       if (hasChanges.value) {
@@ -478,7 +466,6 @@ export default {
     };
 
     onMounted(() => {
-      fetchPositions();
       window.addEventListener('beforeunload', handleBeforeUnload);
     });
 

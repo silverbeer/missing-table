@@ -75,12 +75,7 @@ class SeasonDAO(BaseDAO):
     def update_age_group(self, age_group_id: int, name: str) -> dict | None:
         """Update an age group."""
         try:
-            result = (
-                self.client.table("age_groups")
-                .update({"name": name})
-                .eq("id", age_group_id)
-                .execute()
-            )
+            result = self.client.table("age_groups").update({"name": name}).eq("id", age_group_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.exception("Error updating age group")
@@ -90,9 +85,7 @@ class SeasonDAO(BaseDAO):
     def delete_age_group(self, age_group_id: int) -> bool:
         """Delete an age group."""
         try:
-            result = self.client.table("age_groups").delete().eq(
-                "id", age_group_id
-            ).execute()
+            result = self.client.table("age_groups").delete().eq("id", age_group_id).execute()
             return len(result.data) > 0
         except Exception as e:
             logger.exception("Error deleting age group")
@@ -104,12 +97,7 @@ class SeasonDAO(BaseDAO):
     def get_all_seasons(self) -> list[dict]:
         """Get all seasons."""
         try:
-            response = (
-                self.client.table("seasons")
-                .select("*")
-                .order("start_date", desc=True)
-                .execute()
-            )
+            response = self.client.table("seasons").select("*").order("start_date", desc=True).execute()
             return response.data
         except Exception:
             logger.exception("Error querying seasons")
@@ -171,9 +159,7 @@ class SeasonDAO(BaseDAO):
             raise e
 
     @invalidates_cache(SEASONS_CACHE_PATTERN)
-    def update_season(
-        self, season_id: int, name: str, start_date: str, end_date: str
-    ) -> dict | None:
+    def update_season(self, season_id: int, name: str, start_date: str, end_date: str) -> dict | None:
         """Update a season."""
         try:
             result = (

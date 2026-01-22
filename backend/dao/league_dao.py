@@ -37,12 +37,7 @@ class LeagueDAO(BaseDAO):
     def get_league_by_id(self, league_id: int) -> dict | None:
         """Get league by ID."""
         try:
-            response = (
-                self.client.table("leagues")
-                .select("*")
-                .eq("id", league_id)
-                .execute()
-            )
+            response = self.client.table("leagues").select("*").eq("id", league_id).execute()
             return response.data[0] if response.data else None
         except Exception:
             logger.exception("Error querying league", league_id=league_id)
@@ -64,12 +59,7 @@ class LeagueDAO(BaseDAO):
     def update_league(self, league_id: int, league_data: dict) -> dict:
         """Update league."""
         try:
-            response = (
-                self.client.table("leagues")
-                .update(league_data)
-                .eq("id", league_id)
-                .execute()
-            )
+            response = self.client.table("leagues").update(league_data).eq("id", league_id).execute()
             return response.data[0] if response.data else None
         except Exception:
             logger.exception("Error updating league", league_id=league_id)
@@ -93,9 +83,7 @@ class LeagueDAO(BaseDAO):
         try:
             response = (
                 self.client.table("divisions")
-                .select(
-                    "*, leagues!divisions_league_id_fkey(id, name, description, is_active)"
-                )
+                .select("*, leagues!divisions_league_id_fkey(id, name, description, is_active)")
                 .order("name")
                 .execute()
             )
@@ -171,12 +159,7 @@ class LeagueDAO(BaseDAO):
             division_data: Dict with any of: name, description, league_id
         """
         try:
-            result = (
-                self.client.table("divisions")
-                .update(division_data)
-                .eq("id", division_id)
-                .execute()
-            )
+            result = self.client.table("divisions").update(division_data).eq("id", division_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.exception("Error updating division")
@@ -186,9 +169,7 @@ class LeagueDAO(BaseDAO):
     def delete_division(self, division_id: int) -> bool:
         """Delete a division."""
         try:
-            result = self.client.table("divisions").delete().eq(
-                "id", division_id
-            ).execute()
+            result = self.client.table("divisions").delete().eq("id", division_id).execute()
             return len(result.data) > 0
         except Exception as e:
             logger.exception("Error deleting division")

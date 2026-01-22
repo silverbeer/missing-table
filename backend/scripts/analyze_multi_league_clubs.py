@@ -11,20 +11,20 @@ Usage:
     python scripts/analyze_multi_league_clubs.py --env local --output report.json
 """
 
-import os
-import sys
 import json
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from supabase import create_client
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich import box
 import typer
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from supabase import create_client
 
 app = typer.Typer()
 console = Console()
@@ -41,8 +41,8 @@ def load_env_file(env: str) -> dict:
     with open(env_file) as f:
         for line in f:
             line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
                 value = value.strip().strip('"').strip("'")
                 env_vars[key.strip()] = value
 
@@ -54,9 +54,11 @@ def get_client(env: str):
     env_vars = load_env_file(env)
 
     supabase_url = env_vars.get("SUPABASE_URL")
-    supabase_key = (env_vars.get("SUPABASE_SERVICE_ROLE_KEY") or
-                   env_vars.get("SUPABASE_SERVICE_KEY") or
-                   env_vars.get("SUPABASE_KEY"))
+    supabase_key = (
+        env_vars.get("SUPABASE_SERVICE_ROLE_KEY")
+        or env_vars.get("SUPABASE_SERVICE_KEY")
+        or env_vars.get("SUPABASE_KEY")
+    )
 
     if not supabase_url or not supabase_key:
         return None
@@ -67,10 +69,7 @@ def get_client(env: str):
 def analyze_multi_league_clubs(client, env: str) -> dict:
     """Analyze database to find clubs in multiple leagues."""
 
-    console.print(Panel.fit(
-        f"[bold cyan]Multi-League Club Analysis: {env.upper()}[/bold cyan]",
-        box=box.DOUBLE
-    ))
+    console.print(Panel.fit(f"[bold cyan]Multi-League Club Analysis: {env.upper()}[/bold cyan]", box=box.DOUBLE))
 
     analysis = {
         "environment": env,
@@ -79,7 +78,7 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
         "teams": [],
         "multi_league_clubs": [],
         "standalone_teams": [],
-        "recommendations": []
+        "recommendations": [],
     }
 
     # Check if leagues table exists
@@ -108,16 +107,16 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
 
     if has_leagues:
         # Query with leagues
-        mappings_result = client.table("team_mappings").select(
-            "team_id, age_group_id, division_id, "
-            "divisions(id, name, league_id, leagues(id, name))"
-        ).execute()
+        mappings_result = (
+            client.table("team_mappings")
+            .select("team_id, age_group_id, division_id, divisions(id, name, league_id, leagues(id, name))")
+            .execute()
+        )
     else:
         # Query without leagues
-        mappings_result = client.table("team_mappings").select(
-            "team_id, age_group_id, division_id, "
-            "divisions(id, name)"
-        ).execute()
+        mappings_result = (
+            client.table("team_mappings").select("team_id, age_group_id, division_id, divisions(id, name)").execute()
+        )
 
     mappings = mappings_result.data
 
@@ -132,7 +131,7 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
             "academy_team": team.get("academy_team", False),
             "divisions": [],
             "leagues": set(),
-            "age_groups": set()
+            "age_groups": set(),
         }
 
     # Process mappings
@@ -152,15 +151,9 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
             if league:
                 league_name = league.get("name", "Unknown")
                 team_info[team_id]["leagues"].add(league_name)
-                team_info[team_id]["divisions"].append({
-                    "division": division_name,
-                    "league": league_name
-                })
+                team_info[team_id]["divisions"].append({"division": division_name, "league": league_name})
         else:
-            team_info[team_id]["divisions"].append({
-                "division": division_name,
-                "league": "N/A"
-            })
+            team_info[team_id]["divisions"].append({"division": division_name, "league": "N/A"})
 
         team_info[team_id]["age_groups"].add(mapping.get("age_group_id"))
 
@@ -170,7 +163,7 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
     multi_league = []
     standalone = []
 
-    for team_id, info in team_info.items():
+    for _team_id, info in team_info.items():
         info["leagues"] = list(info["leagues"])
         info["age_groups"] = list(info["age_groups"])
         info["league_count"] = len(info["leagues"]) if has_leagues else 0
@@ -185,7 +178,7 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
             standalone.append(info)
 
     # Display results
-    console.print(f"\n[bold]Results:[/bold]")
+    console.print("\n[bold]Results:[/bold]")
     console.print(f"Total teams: {len(teams)}")
     console.print(f"Multi-league clubs: [cyan]{len(multi_league)}[/cyan]")
     console.print(f"Standalone/single-league teams: {len(standalone)}")
@@ -212,7 +205,7 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
                 club["name"],
                 club["city"] or "N/A",
                 ", ".join(club["leagues"]),
-                str(len(club["divisions"]))
+                str(len(club["divisions"])),
             )
 
         console.print(table)
@@ -223,18 +216,18 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
             rec = f"Split '{club['name']}' into:"
             for league in club["leagues"]:
                 rec += f"\n  - {club['name']} {league}"
-            analysis["recommendations"].append({
-                "team_id": club["id"],
-                "team_name": club["name"],
-                "action": "split",
-                "suggested_names": [f"{club['name']} {league}" for league in club["leagues"]]
-            })
+            analysis["recommendations"].append(
+                {
+                    "team_id": club["id"],
+                    "team_name": club["name"],
+                    "action": "split",
+                    "suggested_names": [f"{club['name']} {league}" for league in club["leagues"]],
+                }
+            )
             console.print(f"  • {rec}")
     else:
         console.print("\n[green]✓ No clubs found in multiple leagues[/green]")
-        analysis["recommendations"].append({
-            "message": "No multi-league clubs found. No data migration needed."
-        })
+        analysis["recommendations"].append({"message": "No multi-league clubs found. No data migration needed."})
 
     # Show sample of teams
     console.print("\n[bold]Sample Teams:[/bold]")
@@ -256,7 +249,7 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
             team["name"],
             team["city"] or "N/A",
             "✓" if team["academy_team"] else "",
-            leagues_str
+            leagues_str,
         )
 
     console.print(sample_table)
@@ -268,7 +261,7 @@ def analyze_multi_league_clubs(client, env: str) -> dict:
 def analyze(
     env: str = typer.Option("local", "--env", "-e", help="Environment to analyze"),
     output: str = typer.Option(None, "--output", "-o", help="Save JSON report to file"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output")
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
 ):
     """Analyze database to identify clubs in multiple leagues."""
 
@@ -293,7 +286,7 @@ def analyze(
     console.print(f"Total teams: {analysis['summary']['total_teams']}")
     console.print(f"Multi-league clubs: {analysis['summary']['multi_league_count']}")
 
-    if analysis['summary']['multi_league_count'] > 0:
+    if analysis["summary"]["multi_league_count"] > 0:
         console.print("\n[yellow]⚠️  Migration required for multi-league clubs[/yellow]")
         console.print("Run the migration script to split these clubs into parent + child teams")
     else:

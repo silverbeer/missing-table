@@ -12,10 +12,11 @@ Usage:
     logger.info("event_occurred", user_id=123, action="login")
 """
 
-import os
 import logging
-import structlog
+import os
 from typing import Any
+
+import structlog
 
 
 def setup_logging(service_name: str = "missing-table") -> None:
@@ -25,7 +26,7 @@ def setup_logging(service_name: str = "missing-table") -> None:
     Args:
         service_name: Name of the service (backend, celery-worker, etc.)
     """
-    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 
     # Configure standard logging
     logging.basicConfig(
@@ -33,7 +34,7 @@ def setup_logging(service_name: str = "missing-table") -> None:
         level=getattr(logging, log_level, logging.INFO),
         handlers=[logging.StreamHandler()],
     )
-    
+
     # Suppress verbose httpcore/httpx debug logs (they're too noisy)
     # Only show warnings and errors from httpcore/httpx
     logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -78,12 +79,7 @@ def setup_logging(service_name: str = "missing-table") -> None:
 
     # Log initialization
     logger = structlog.get_logger()
-    logger.info(
-        "logging_initialized",
-        service=service_name,
-        log_level=log_level,
-        format="json"
-    )
+    logger.info("logging_initialized", service=service_name, log_level=log_level, format="json")
 
 
 def get_logger(name: str | None = None) -> Any:

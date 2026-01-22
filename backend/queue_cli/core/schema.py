@@ -35,10 +35,7 @@ class SchemaValidator:
         if schema_path is None:
             # Default to canonical schema in docs
             schema_path = str(
-                Path(__file__).parent.parent.parent.parent
-                / "docs"
-                / "08-integrations"
-                / "match-message-schema.json"
+                Path(__file__).parent.parent.parent.parent / "docs" / "08-integrations" / "match-message-schema.json"
             )
 
         with open(schema_path) as f:
@@ -66,10 +63,7 @@ class SchemaValidator:
         # Check for fields that need translation
         for canonical_field, internal_field in self.FIELD_MAPPINGS.items():
             if canonical_field in data and internal_field in data:
-                warnings.append(
-                    f"Both '{canonical_field}' and '{internal_field}' present. "
-                    f"Using '{internal_field}'."
-                )
+                warnings.append(f"Both '{canonical_field}' and '{internal_field}' present. Using '{internal_field}'.")
 
         return True, errors, warnings
 

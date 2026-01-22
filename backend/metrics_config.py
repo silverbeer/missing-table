@@ -16,7 +16,7 @@ Usage:
 import re
 
 from prometheus_fastapi_instrumentator import Instrumentator
-from prometheus_fastapi_instrumentator.metrics import default, latency, requests
+from prometheus_fastapi_instrumentator.metrics import latency, requests
 
 
 def normalize_path(path: str) -> str:
@@ -51,8 +51,8 @@ def setup_metrics(app):
     """
     instrumentator = Instrumentator(
         should_group_status_codes=False,  # Keep exact status codes (200, 201, 500, etc.)
-        should_ignore_untemplated=True,   # Ignore requests without route templates
-        should_respect_env_var=False,     # Always enable (don't check ENABLE_METRICS env)
+        should_ignore_untemplated=True,  # Ignore requests without route templates
+        should_respect_env_var=False,  # Always enable (don't check ENABLE_METRICS env)
         should_instrument_requests_inprogress=True,  # Track concurrent requests
         excluded_handlers=[
             "/health",
@@ -94,7 +94,7 @@ def setup_metrics(app):
         app,
         endpoint="/metrics",
         include_in_schema=False,  # Hide from OpenAPI docs
-        should_gzip=False,        # Prometheus prefers uncompressed
+        should_gzip=False,  # Prometheus prefers uncompressed
     )
 
     return instrumentator

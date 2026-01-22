@@ -30,12 +30,7 @@ class MatchTypeDAO(BaseDAO):
     def get_match_type_by_id(self, match_type_id: int) -> dict | None:
         """Get match type by ID."""
         try:
-            response = (
-                self.client.table("match_types")
-                .select("*")
-                .eq("id", match_type_id)
-                .execute()
-            )
+            response = self.client.table("match_types").select("*").eq("id", match_type_id).execute()
             return response.data[0] if response.data else None
         except Exception:
             logger.exception("Error querying match type")

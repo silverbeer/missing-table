@@ -13,21 +13,15 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 def wait_for_postgres(host="localhost", port=5432, max_retries=30):
     """Wait for PostgreSQL to be ready."""
-    print("⏳ Waiting for PostgreSQL to start...")
 
-    for i in range(max_retries):
+    for _i in range(max_retries):
         try:
-            conn = psycopg2.connect(
-                host=host, port=port, user="postgres", password="postgres", database="postgres"
-            )
+            conn = psycopg2.connect(host=host, port=port, user="postgres", password="postgres", database="postgres")
             conn.close()
-            print("✅ PostgreSQL is ready!")
             return True
-        except:
-            print(f"   Attempt {i + 1}/{max_retries}...")
+        except Exception:
             time.sleep(2)
 
-    print("❌ PostgreSQL failed to start")
     return False
 
 
@@ -105,23 +99,17 @@ def create_schema():
     CREATE INDEX IF NOT EXISTS idx_team_age_groups_age_group ON team_age_groups(age_group_id);
     """
 
-    print("📊 Creating database schema...")
-
     try:
-        conn = psycopg2.connect(
-            host="localhost", port=5432, user="postgres", password="postgres", database="postgres"
-        )
+        conn = psycopg2.connect(host="localhost", port=5432, user="postgres", password="postgres", database="postgres")
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
 
         cursor.execute(schema_sql)
-        print("✅ Schema created successfully!")
 
         cursor.close()
         conn.close()
 
-    except Exception as e:
-        print(f"❌ Error creating schema: {e}")
+    except Exception:
         return False
 
     return True
@@ -130,20 +118,14 @@ def create_schema():
 def populate_reference_data():
     """Populate reference data (age groups, seasons, game types)."""
 
-    print("🌱 Populating reference data...")
-
     try:
-        conn = psycopg2.connect(
-            host="localhost", port=5432, user="postgres", password="postgres", database="postgres"
-        )
+        conn = psycopg2.connect(host="localhost", port=5432, user="postgres", password="postgres", database="postgres")
         cursor = conn.cursor()
 
         # Age Groups
         age_groups = ["U13", "U14", "U15", "U16", "U17", "U18", "U19", "Open"]
         for ag in age_groups:
-            cursor.execute(
-                "INSERT INTO age_groups (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (ag,)
-            )
+            cursor.execute("INSERT INTO age_groups (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (ag,))
 
         # Seasons
         seasons = [
@@ -153,7 +135,7 @@ def populate_reference_data():
         ]
         for name, start, end in seasons:
             cursor.execute(
-                """INSERT INTO seasons (name, start_date, end_date) 
+                """INSERT INTO seasons (name, start_date, end_date)
                    VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING""",
                 (name, start, end),
             )
@@ -161,18 +143,14 @@ def populate_reference_data():
         # Game Types
         game_types = ["League", "Tournament", "Friendly", "Playoff"]
         for gt in game_types:
-            cursor.execute(
-                "INSERT INTO game_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (gt,)
-            )
+            cursor.execute("INSERT INTO game_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (gt,))
 
         conn.commit()
-        print("✅ Reference data populated!")
 
         cursor.close()
         conn.close()
 
-    except Exception as e:
-        print(f"❌ Error populating reference data: {e}")
+    except Exception:
         return False
 
     return True
@@ -192,39 +170,24 @@ SUPABASE_SERVICE_KEY=your-local-service-key-here
     with open(".env.local", "w") as f:
         f.write(env_content)
 
-    print("✅ Created .env.local file")
-
 
 def main():
     """Main setup function."""
-    print("🚀 Setting up Local Supabase")
-    print("=" * 50)
 
     # Wait for PostgreSQL
     if not wait_for_postgres():
-        print("❌ Setup failed: PostgreSQL not ready")
         sys.exit(1)
 
     # Create schema
     if not create_schema():
-        print("❌ Setup failed: Could not create schema")
         sys.exit(1)
 
     # Populate reference data
     if not populate_reference_data():
-        print("❌ Setup failed: Could not populate reference data")
         sys.exit(1)
 
     # Create .env.local
     create_env_local()
-
-    print("\n✅ Local Supabase setup complete!")
-    print("\n📝 To use local Supabase instead of production:")
-    print("1. Export the local environment: export $(cat .env.local | xargs)")
-    print("2. Or update your code to check for local/prod mode")
-    print("\n🌐 Local Supabase endpoints:")
-    print("   PostgreSQL: localhost:5432")
-    print("   REST API: http://localhost:54321")
 
 
 if __name__ == "__main__":

@@ -36,7 +36,7 @@ from rich.table import Table
 backend_path = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(backend_path))
 
-from api_client import MissingTableClient  # noqa: E402
+from api_client import MissingTableClient
 
 # Load environment from .env.tsc if it exists
 env_file = Path(__file__).parent.parent / ".env.tsc"
@@ -100,9 +100,7 @@ def find_entities(client: MissingTableClient, prefix: str, verbose: bool = False
         console.print("  [dim]Scanning age groups...[/dim]")
     try:
         age_groups = client.get_age_groups()
-        inventory.age_groups = [
-            ag for ag in age_groups if ag.get("name", "").startswith(prefix)
-        ]
+        inventory.age_groups = [ag for ag in age_groups if ag.get("name", "").startswith(prefix)]
     except Exception as e:
         if verbose:
             console.print(f"  [yellow]Warning: Could not fetch age groups: {e}[/yellow]")
@@ -120,9 +118,7 @@ def find_entities(client: MissingTableClient, prefix: str, verbose: bool = False
         console.print("  [dim]Scanning divisions...[/dim]")
     try:
         divisions = client.get_divisions()
-        inventory.divisions = [
-            d for d in divisions if d.get("name", "").startswith(prefix)
-        ]
+        inventory.divisions = [d for d in divisions if d.get("name", "").startswith(prefix)]
     except Exception as e:
         if verbose:
             console.print(f"  [yellow]Warning: Could not fetch divisions: {e}[/yellow]")
@@ -153,9 +149,7 @@ def find_entities(client: MissingTableClient, prefix: str, verbose: bool = False
         try:
             matches = client.get_games()
             inventory.matches = [
-                m
-                for m in matches
-                if m.get("home_team_id") in team_ids or m.get("away_team_id") in team_ids
+                m for m in matches if m.get("home_team_id") in team_ids or m.get("away_team_id") in team_ids
             ]
         except Exception as e:
             if verbose:
@@ -170,8 +164,7 @@ def find_entities(client: MissingTableClient, prefix: str, verbose: bool = False
         try:
             invites = client.get_my_invites()  # Get all invites created by admin
             inventory.invitations = [
-                inv for inv in invites
-                if inv.get("club_id") in club_ids or inv.get("team_id") in team_ids
+                inv for inv in invites if inv.get("club_id") in club_ids or inv.get("team_id") in team_ids
             ]
         except Exception as e:
             if verbose:
@@ -182,9 +175,7 @@ def find_entities(client: MissingTableClient, prefix: str, verbose: bool = False
         console.print("  [dim]Scanning users...[/dim]")
     try:
         users = client.get_users()
-        inventory.users = [
-            u for u in users if u.get("username", "").startswith(prefix)
-        ]
+        inventory.users = [u for u in users if u.get("username", "").startswith(prefix)]
     except Exception:
         # User listing may not be available or user doesn't have permission
         pass
@@ -403,10 +394,7 @@ def clean(
     mode = "[yellow]DRY RUN[/yellow]" if dry_run else "[red]LIVE DELETE[/red]"
     console.print(
         Panel(
-            f"[bold]TSC Cleanup Tool[/bold]\n"
-            f"Mode: {mode}\n"
-            f"Prefix: [cyan]{prefix}[/cyan]\n"
-            f"URL: [dim]{url}[/dim]",
+            f"[bold]TSC Cleanup Tool[/bold]\nMode: {mode}\nPrefix: [cyan]{prefix}[/cyan]\nURL: [dim]{url}[/dim]",
             title="🧹 TSC Cleanup",
         )
     )
@@ -419,7 +407,7 @@ def clean(
         console.print(f"  [green]✓[/green] Logged in as [cyan]{user}[/cyan]")
     except Exception as e:
         console.print(f"  [red]✗[/red] Login failed: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     # Find entities
     console.print("\n[bold]Step 2:[/bold] Scanning for entities...")
@@ -466,9 +454,7 @@ def clean(
     console.print(summary_table)
 
     if dry_run:
-        console.print(
-            f"\n[yellow]Dry run complete.[/yellow] Would delete {total_deleted} entities."
-        )
+        console.print(f"\n[yellow]Dry run complete.[/yellow] Would delete {total_deleted} entities.")
         console.print("Run with [bold]--no-dry-run[/bold] to actually delete.")
     else:
         console.print(f"\n[green]✓[/green] Cleanup complete. Deleted {total_deleted} entities.")
@@ -528,9 +514,7 @@ def scan(
 
     console.print(
         Panel(
-            f"[bold]TSC Entity Scanner[/bold]\n"
-            f"Prefix: [cyan]{prefix}[/cyan]\n"
-            f"URL: [dim]{url}[/dim]",
+            f"[bold]TSC Entity Scanner[/bold]\nPrefix: [cyan]{prefix}[/cyan]\nURL: [dim]{url}[/dim]",
             title="🔍 Scan",
         )
     )
@@ -542,7 +526,7 @@ def scan(
         console.print(f"[green]✓[/green] Logged in as [cyan]{user}[/cyan]")
     except Exception as e:
         console.print(f"[red]Login failed:[/red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     console.print("\nScanning for entities...")
     inventory = find_entities(client, prefix, verbose=verbose)
@@ -625,15 +609,15 @@ def both(
         console.print(f"[green]✓[/green] Logged in as [cyan]{user}[/cyan]")
     except Exception as e:
         console.print(f"[red]Login failed:[/red] {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     total_entities = 0
     all_results: dict[str, int] = {}
 
     for prefix in ["tsc_a_", "tsc_b_"]:
-        console.print(f"\n[bold]{'='*50}[/bold]")
+        console.print(f"\n[bold]{'=' * 50}[/bold]")
         console.print(f"[bold]Scanning prefix: [cyan]{prefix}[/cyan][/bold]")
-        console.print(f"[bold]{'='*50}[/bold]")
+        console.print(f"[bold]{'=' * 50}[/bold]")
 
         inventory = find_entities(client, prefix, verbose=verbose)
 
@@ -653,9 +637,9 @@ def both(
             console.print(f"\n[dim]Would delete {inventory.total_count} entities[/dim]")
 
     # Final summary
-    console.print(f"\n[bold]{'='*50}[/bold]")
+    console.print(f"\n[bold]{'=' * 50}[/bold]")
     console.print("[bold]Overall Summary[/bold]")
-    console.print(f"[bold]{'='*50}[/bold]")
+    console.print(f"[bold]{'=' * 50}[/bold]")
 
     if dry_run:
         console.print(f"[yellow]Dry run complete.[/yellow] Would delete {total_entities} total entities.")

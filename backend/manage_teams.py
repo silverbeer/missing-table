@@ -21,10 +21,7 @@ import typer
 from rich import box
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.prompt import Confirm
 from rich.table import Table
-
-from models.teams import Team
 
 # Initialize Typer app and Rich console
 app = typer.Typer(help="Team Management CLI Tool")
@@ -37,6 +34,7 @@ API_URL = os.getenv("API_URL", "http://localhost:8000")
 # ============================================================================
 # Authentication & API Helper Functions
 # ============================================================================
+
 
 def get_auth_token() -> str:
     """Get authentication token for API requests."""
@@ -51,8 +49,8 @@ def get_auth_token() -> str:
         # Load environment variables from file
         with open(env_file) as f:
             for line in f:
-                if line.strip() and not line.startswith('#'):
-                    key, value = line.strip().split('=', 1)
+                if line.strip() and not line.startswith("#"):
+                    key, value = line.strip().split("=", 1)
                     os.environ[key] = value
 
     # Try to login as admin user
@@ -62,7 +60,7 @@ def get_auth_token() -> str:
     response = requests.post(
         f"{API_URL}/api/auth/login",
         json={"username": username, "password": password},
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if response.status_code == 200:
@@ -73,17 +71,9 @@ def get_auth_token() -> str:
         raise typer.Exit(code=1)
 
 
-def api_request(
-    method: str,
-    endpoint: str,
-    token: str,
-    data: dict[str, Any] | None = None
-) -> requests.Response:
+def api_request(method: str, endpoint: str, token: str, data: dict[str, Any] | None = None) -> requests.Response:
     """Make an authenticated API request."""
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     url = f"{API_URL}{endpoint}"
 
@@ -104,6 +94,7 @@ def api_request(
 # ============================================================================
 # Data Fetching Functions
 # ============================================================================
+
 
 def get_all_teams(token: str) -> list[dict]:
     """Fetch all teams from the API."""
@@ -149,6 +140,7 @@ def get_all_match_types(token: str) -> list[dict]:
 # Export Functions
 # ============================================================================
 
+
 def determine_team_type(club_name: str, academy_team: bool) -> str:
     """Determine team type based on club affiliation and academy status."""
     if not club_name:
@@ -160,7 +152,10 @@ def determine_team_type(club_name: str, academy_team: bool) -> str:
 
 
 @app.command()
-def export_teams(csv_file: str, club: str | None = typer.Option(None, "--club", help="Filter by club name (case-insensitive)")):
+def export_teams(
+    csv_file: str,
+    club: str | None = typer.Option(None, "--club", help="Filter by club name (case-insensitive)"),
+):
     """
     Export all teams to a CSV file.
 
@@ -187,12 +182,14 @@ def export_teams(csv_file: str, club: str | None = typer.Option(None, "--club", 
         age_groups = get_all_age_groups(token)
         match_types = get_all_match_types(token)
 
-    console.print(f"✅ Found {len(teams)} teams, {len(clubs)} clubs, {len(age_groups)} age groups, {len(match_types)} match types")
+    console.print(
+        f"✅ Found {len(teams)} teams, {len(clubs)} clubs, {len(age_groups)} age groups, {len(match_types)} match types"
+    )
 
     # Create lookup dictionaries
     club_lookup = {club["id"]: club["name"] for club in clubs}
-    age_group_lookup = {ag["id"]: ag["name"] for ag in age_groups}
-    match_type_lookup = {mt["id"]: mt["name"] for mt in match_types}
+    {ag["id"]: ag["name"] for ag in age_groups}
+    {mt["id"]: mt["name"] for mt in match_types}
 
     # Filter teams by club if specified
     if club:
@@ -209,16 +206,11 @@ def export_teams(csv_file: str, club: str | None = typer.Option(None, "--club", 
     csv_data = []
     processed_teams = 0
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console
-    ) as progress:
-
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
         task = progress.add_task("[cyan]Processing teams...", total=len(teams))
 
         for team in teams:
-            team_id = team["id"]
+            team["id"]
             team_name = team["name"]
             city = team.get("city", "")
             club_id = team.get("club_id")
@@ -240,24 +232,38 @@ def export_teams(csv_file: str, club: str | None = typer.Option(None, "--club", 
             match_types_str = "Friendly"
 
             # Add to CSV data
-            csv_data.append({
-                "name": team_name,
-                "city": city,
-                "club_name": club_name,
-                "team_type": team_type,
-                "age_groups": age_groups_str,
-                "match_types": match_types_str,
-                "academy_team": str(academy_team).lower()
-            })
+            csv_data.append(
+                {
+                    "name": team_name,
+                    "city": city,
+                    "club_name": club_name,
+                    "team_type": team_type,
+                    "age_groups": age_groups_str,
+                    "match_types": match_types_str,
+                    "academy_team": str(academy_team).lower(),
+                }
+            )
 
             processed_teams += 1
-            progress.update(task, advance=1, description=f"[cyan]Processed {processed_teams}/{len(teams)} teams...")
+            progress.update(
+                task,
+                advance=1,
+                description=f"[cyan]Processed {processed_teams}/{len(teams)} teams...",
+            )
 
     # Write to CSV
     try:
-        with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+        with open(csv_file, "w", newline="", encoding="utf-8") as f:
             if csv_data:
-                fieldnames = ["name", "city", "club_name", "team_type", "age_groups", "match_types", "academy_team"]
+                fieldnames = [
+                    "name",
+                    "city",
+                    "club_name",
+                    "team_type",
+                    "age_groups",
+                    "match_types",
+                    "academy_team",
+                ]
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(csv_data)
@@ -282,18 +288,19 @@ def export_teams(csv_file: str, club: str | None = typer.Option(None, "--club", 
                     row["club_name"][:20] + "..." if len(row["club_name"]) > 20 else row["club_name"],
                     row["team_type"],
                     row["age_groups"],
-                    row["match_types"]
+                    row["match_types"],
                 )
             console.print(table)
 
     except Exception as e:
         console.print(f"[red]❌ Failed to write CSV file: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 # ============================================================================
 # List Command
 # ============================================================================
+
 
 @app.command()
 def list():
@@ -336,7 +343,7 @@ def list():
             team["name"][:24] + "..." if len(team["name"]) > 24 else team["name"],
             team.get("city", "")[:19] + "..." if len(team.get("city", "")) > 19 else team.get("city", ""),
             club_name[:19] + "..." if len(club_name) > 19 else club_name,
-            academy
+            academy,
         )
 
     console.print(table)

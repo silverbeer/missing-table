@@ -4,8 +4,6 @@ Generate and display the SQL schema for Supabase.
 Copy the output and run it in Supabase SQL Editor.
 """
 
-import os
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,7 +39,7 @@ CREATE TABLE games (
     away_score INTEGER NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
+
     -- Foreign key constraints (referencing team names)
     CONSTRAINT fk_home_team FOREIGN KEY (home_team) REFERENCES teams(name) ON UPDATE CASCADE,
     CONSTRAINT fk_away_team FOREIGN KEY (away_team) REFERENCES teams(name) ON UPDATE CASCADE
@@ -73,17 +71,4 @@ SELECT 'Schema creation complete' as status;
 
 
 if __name__ == "__main__":
-    print("🚀 Supabase Schema Generator")
-    print(f"📡 Project URL: {os.getenv('SUPABASE_URL')}")
-    print("\n" + "=" * 80)
-    print("📋 COPY THIS SQL AND PASTE IT INTO SUPABASE SQL EDITOR:")
-    print("=" * 80)
-    print(generate_schema_sql())
-    print("=" * 80)
-    print("\n📖 Instructions:")
-    print("1. Go to your Supabase project dashboard")
-    print("2. Click 'SQL Editor' in the left sidebar")
-    print("3. Copy the SQL above and paste it into the editor")
-    print("4. Click 'Run' to execute")
-    print("5. You should see 'Schema creation complete' when done")
-    print("\n🔗 Direct link: https://supabase.com/dashboard/project/ppgxasqgqbnauvxozmjw/sql")
+    pass

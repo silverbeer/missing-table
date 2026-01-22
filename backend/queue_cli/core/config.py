@@ -6,7 +6,6 @@ Handles loading configuration from environment variables and config files.
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -20,7 +19,7 @@ class QueueConfig:
     default_routing_key: str = "matches.process"
 
     @classmethod
-    def from_env(cls, env: Optional[str] = None) -> "QueueConfig":
+    def from_env(cls, env: str | None = None) -> "QueueConfig":
         """
         Load configuration from environment variables.
 
@@ -34,14 +33,13 @@ class QueueConfig:
         broker_url = os.getenv(
             "CELERY_BROKER_URL",
             os.getenv(
-                "RABBITMQ_URL", "amqp://admin:admin123@localhost:5672//"  # pragma: allowlist secret
+                "RABBITMQ_URL",
+                "amqp://admin:admin123@localhost:5672//",  # pragma: allowlist secret
             ),
         )
 
         # Get result backend from environment
-        result_backend = os.getenv(
-            "CELERY_RESULT_BACKEND", os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        )
+        result_backend = os.getenv("CELERY_RESULT_BACKEND", os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 
         return cls(
             broker_url=broker_url,

@@ -178,11 +178,7 @@ class TeamDAO(BaseDAO):
         For match-scraper integration, this helps look up teams by name.
         """
         response = (
-            self.client.table("teams")
-            .select("id, name, city, academy_team")
-            .ilike("name", name)
-            .limit(1)
-            .execute()
+            self.client.table("teams").select("id, name, city, academy_team").ilike("name", name).limit(1).execute()
         )
 
         if response.data and len(response.data) > 0:
@@ -195,13 +191,7 @@ class TeamDAO(BaseDAO):
 
         Returns team info (id, name, city, club_id).
         """
-        response = (
-            self.client.table("teams")
-            .select("id, name, city, club_id")
-            .eq("id", team_id)
-            .limit(1)
-            .execute()
-        )
+        response = self.client.table("teams").select("id, name, city, club_id").eq("id", team_id).limit(1).execute()
 
         if response.data and len(response.data) > 0:
             return response.data[0]
@@ -244,13 +234,7 @@ class TeamDAO(BaseDAO):
         # Fetch league separately (no FK relationship)
         league_id = team.get("league_id")
         if league_id:
-            league_response = (
-                self.client.table("match_types")
-                .select("id, name")
-                .eq("id", league_id)
-                .limit(1)
-                .execute()
-            )
+            league_response = self.client.table("match_types").select("id, name").eq("id", league_id).limit(1).execute()
             if league_response.data and len(league_response.data) > 0:
                 result["league"] = league_response.data[0]
 
@@ -269,7 +253,7 @@ class TeamDAO(BaseDAO):
         return [*response.data]
 
     @dao_cache("teams:club:{club_id}")
-    def get_club_teams(self, club_id: int) -> list[dict]:  # noqa: C901
+    def get_club_teams(self, club_id: int) -> list[dict]:
         """Get all teams for a club across all leagues.
 
         Args:
@@ -314,18 +298,8 @@ class TeamDAO(BaseDAO):
         # Get match counts for all teams in one query
         match_counts = {}
         if team_ids:
-            home_matches = (
-                self.client.table("matches")
-                .select("home_team_id")
-                .in_("home_team_id", team_ids)
-                .execute()
-            )
-            away_matches = (
-                self.client.table("matches")
-                .select("away_team_id")
-                .in_("away_team_id", team_ids)
-                .execute()
-            )
+            home_matches = self.client.table("matches").select("home_team_id").in_("home_team_id", team_ids).execute()
+            away_matches = self.client.table("matches").select("away_team_id").in_("away_team_id", team_ids).execute()
             for match in home_matches.data:
                 tid = match["home_team_id"]
                 match_counts[tid] = match_counts.get(tid, 0) + 1
@@ -336,12 +310,7 @@ class TeamDAO(BaseDAO):
         # Get player counts for all teams in one query
         player_counts = {}
         if team_ids:
-            players = (
-                self.client.table("user_profiles")
-                .select("team_id")
-                .in_("team_id", team_ids)
-                .execute()
-            )
+            players = self.client.table("user_profiles").select("team_id").in_("team_id", team_ids).execute()
             for player in players.data:
                 tid = player["team_id"]
                 player_counts[tid] = player_counts.get(tid, 0) + 1
@@ -419,12 +388,7 @@ class TeamDAO(BaseDAO):
         # Get league_id from division (if division provided)
         league_id = None
         if division_id is not None:
-            division_response = (
-                self.client.table("divisions")
-                .select("league_id")
-                .eq("id", division_id)
-                .execute()
-            )
+            division_response = self.client.table("divisions").select("league_id").eq("id", division_id).execute()
             if not division_response.data:
                 raise ValueError(f"Division {division_id} not found")
             league_id = division_response.data[0]["league_id"]
@@ -494,12 +458,7 @@ class TeamDAO(BaseDAO):
         }
         logger.debug("DAO update_team", team_id=team_id, update_data=update_data)
 
-        result = (
-            self.client.table("teams")
-            .update(update_data)
-            .eq("id", team_id)
-            .execute()
-        )
+        result = self.client.table("teams").update(update_data).eq("id", team_id).execute()
 
         return result.data[0] if result.data else None
 
@@ -529,9 +488,7 @@ class TeamDAO(BaseDAO):
     # === Team Mapping Methods ===
 
     @invalidates_cache(TEAMS_CACHE_PATTERN)
-    def update_team_division(
-        self, team_id: int, age_group_id: int, division_id: int
-    ) -> bool:
+    def update_team_division(self, team_id: int, age_group_id: int, division_id: int) -> bool:
         """Update the division for a team in a specific age group."""
         response = (
             self.client.table("team_mappings")
@@ -543,9 +500,7 @@ class TeamDAO(BaseDAO):
         return bool(response.data)
 
     @invalidates_cache(TEAMS_CACHE_PATTERN)
-    def create_team_mapping(
-        self, team_id: int, age_group_id: int, division_id: int
-    ) -> dict:
+    def create_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> dict:
         """Create a team mapping, update team's league_id, and enable League match participation.
 
         When assigning a team to a division (which belongs to a league), this method:
@@ -554,27 +509,26 @@ class TeamDAO(BaseDAO):
         3. Auto-creates a team_match_types entry for League matches (match_type_id=1)
         """
         # Get the league_id from the division
-        division_response = (
-            self.client.table("divisions")
-            .select("league_id")
-            .eq("id", division_id)
-            .execute()
-        )
+        division_response = self.client.table("divisions").select("league_id").eq("id", division_id).execute()
         if division_response.data:
             league_id = division_response.data[0]["league_id"]
-            self.client.table("teams").update({
-                "league_id": league_id,
-                "division_id": division_id,
-            }).eq("id", team_id).execute()
+            self.client.table("teams").update(
+                {
+                    "league_id": league_id,
+                    "division_id": division_id,
+                }
+            ).eq("id", team_id).execute()
 
         # Create the team mapping
         result = (
             self.client.table("team_mappings")
-            .insert({
-                "team_id": team_id,
-                "age_group_id": age_group_id,
-                "division_id": division_id,
-            })
+            .insert(
+                {
+                    "team_id": team_id,
+                    "age_group_id": age_group_id,
+                    "division_id": division_id,
+                }
+            )
             .execute()
         )
 
@@ -589,12 +543,14 @@ class TeamDAO(BaseDAO):
             .execute()
         )
         if not existing.data:
-            self.client.table("team_match_types").insert({
-                "team_id": team_id,
-                "match_type_id": LEAGUE_MATCH_TYPE_ID,
-                "age_group_id": age_group_id,
-                "is_active": True,
-            }).execute()
+            self.client.table("team_match_types").insert(
+                {
+                    "team_id": team_id,
+                    "match_type_id": LEAGUE_MATCH_TYPE_ID,
+                    "age_group_id": age_group_id,
+                    "is_active": True,
+                }
+            ).execute()
             logger.info(
                 "Auto-created team_match_types entry for League",
                 team_id=team_id,
@@ -604,9 +560,7 @@ class TeamDAO(BaseDAO):
         return result.data[0]
 
     @invalidates_cache(TEAMS_CACHE_PATTERN)
-    def delete_team_mapping(
-        self, team_id: int, age_group_id: int, division_id: int
-    ) -> bool:
+    def delete_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> bool:
         """Delete a team mapping."""
         result = (
             self.client.table("team_mappings")
@@ -629,44 +583,35 @@ class TeamDAO(BaseDAO):
         Returns:
             Updated team dict
         """
-        result = (
-            self.client.table("teams")
-            .update({"club_id": club_id})
-            .eq("id", team_id)
-            .execute()
-        )
+        result = self.client.table("teams").update({"club_id": club_id}).eq("id", team_id).execute()
         if not result.data or len(result.data) == 0:
             raise ValueError(f"Failed to update club for team {team_id}")
         return result.data[0]
 
     # === Team Match Type Participation Methods ===
 
-    def add_team_match_type_participation(
-        self, team_id: int, match_type_id: int, age_group_id: int
-    ) -> bool:
+    def add_team_match_type_participation(self, team_id: int, match_type_id: int, age_group_id: int) -> bool:
         """Add a team's participation in a specific match type and age group."""
         try:
-            self.client.table("team_match_types").insert({
-                "team_id": team_id,
-                "match_type_id": match_type_id,
-                "age_group_id": age_group_id,
-                "is_active": True,
-            }).execute()
+            self.client.table("team_match_types").insert(
+                {
+                    "team_id": team_id,
+                    "match_type_id": match_type_id,
+                    "age_group_id": age_group_id,
+                    "is_active": True,
+                }
+            ).execute()
             return True
         except Exception:
             logger.exception("Error adding team match type participation")
             return False
 
-    def remove_team_match_type_participation(
-        self, team_id: int, match_type_id: int, age_group_id: int
-    ) -> bool:
+    def remove_team_match_type_participation(self, team_id: int, match_type_id: int, age_group_id: int) -> bool:
         """Remove a team's participation in a specific match type and age group."""
         try:
-            self.client.table("team_match_types").update({"is_active": False}).eq(
-                "team_id", team_id
-            ).eq("match_type_id", match_type_id).eq(
-                "age_group_id", age_group_id
-            ).execute()
+            self.client.table("team_match_types").update({"is_active": False}).eq("team_id", team_id).eq(
+                "match_type_id", match_type_id
+            ).eq("age_group_id", age_group_id).execute()
             return True
         except Exception:
             logger.exception("Error removing team match type participation")
@@ -701,9 +646,7 @@ class TeamDAO(BaseDAO):
         Returns:
             Club dict if team belongs to a club, None otherwise
         """
-        team_response = (
-            self.client.table("teams").select("club_id").eq("id", team_id).execute()
-        )
+        team_response = self.client.table("teams").select("club_id").eq("id", team_id).execute()
         if not team_response.data or len(team_response.data) == 0:
             return None
 
@@ -711,9 +654,7 @@ class TeamDAO(BaseDAO):
         if not club_id:
             return None
 
-        club_response = (
-            self.client.table("clubs").select("*").eq("id", club_id).execute()
-        )
+        club_response = self.client.table("clubs").select("*").eq("id", club_id).execute()
         if club_response.data and len(club_response.data) > 0:
             return club_response.data[0]
         return None
@@ -728,11 +669,7 @@ class TeamDAO(BaseDAO):
 
             if not response.data:
                 # Fallback to Python aggregation
-                matches = (
-                    self.client.table("matches")
-                    .select("home_team_id,away_team_id")
-                    .execute()
-                )
+                matches = self.client.table("matches").select("home_team_id,away_team_id").execute()
                 counts = {}
                 for match in matches.data:
                     home_id = match["home_team_id"]

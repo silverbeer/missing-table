@@ -14,9 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     from app import app
-except ImportError as e:
-    print(f"Error importing app: {e}")
-    print("Make sure you're running this from the backend directory with dependencies installed")
+except ImportError:
     sys.exit(1)
 
 
@@ -28,18 +26,12 @@ def export_openapi_schema(output_file: str = "openapi.json"):
 
         # Write to file
         output_path = Path(output_file)
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(openapi_schema, f, indent=2)
-
-        print(f"✅ OpenAPI schema exported to {output_path}")
-        print(f"   Title: {openapi_schema.get('info', {}).get('title')}")
-        print(f"   Version: {openapi_schema.get('info', {}).get('version')}")
-        print(f"   Endpoints: {len(openapi_schema.get('paths', {}))}")
 
         return True
 
-    except Exception as e:
-        print(f"❌ Error exporting OpenAPI schema: {e}")
+    except Exception:
         return False
 
 
@@ -47,12 +39,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Export OpenAPI schema from FastAPI app")
-    parser.add_argument(
-        "--output",
-        "-o",
-        default="openapi.json",
-        help="Output file path (default: openapi.json)"
-    )
+    parser.add_argument("--output", "-o", default="openapi.json", help="Output file path (default: openapi.json)")
 
     args = parser.parse_args()
 
