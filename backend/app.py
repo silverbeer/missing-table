@@ -18,6 +18,7 @@ from auth import (
     require_match_management_permission,
     require_team_manager_or_admin,
 )
+from constants import PLAYER_POSITIONS
 from csrf_protection import provide_csrf_token
 from middleware import TraceMiddleware
 from models import (
@@ -1576,34 +1577,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
 @app.get("/api/positions")
 async def get_positions(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get all available player positions."""
-    positions = [
-        {"full_name": "Goalkeeper", "abbreviation": "GK"},
-        {"full_name": "Center Back", "abbreviation": "CB"},
-        {"full_name": "Left Center Back", "abbreviation": "LCB"},
-        {"full_name": "Right Center Back", "abbreviation": "RCB"},
-        {"full_name": "Left Back", "abbreviation": "LB"},
-        {"full_name": "Right Back", "abbreviation": "RB"},
-        {"full_name": "Left Wing Back", "abbreviation": "LWB"},
-        {"full_name": "Right Wing Back", "abbreviation": "RWB"},
-        {"full_name": "Sweeper", "abbreviation": "SW"},
-        {"full_name": "Central Midfielder", "abbreviation": "CM"},
-        {"full_name": "Defensive Midfielder", "abbreviation": "CDM"},
-        {"full_name": "Attacking Midfielder", "abbreviation": "CAM"},
-        {"full_name": "Left Midfielder", "abbreviation": "LM"},
-        {"full_name": "Right Midfielder", "abbreviation": "RM"},
-        {"full_name": "Wide Midfielder", "abbreviation": "WM"},
-        {"full_name": "Box-to-Box Midfielder", "abbreviation": "B2B"},
-        {"full_name": "Holding Midfielder", "abbreviation": "HM"},
-        {"full_name": "Striker", "abbreviation": "ST"},
-        {"full_name": "Center Forward", "abbreviation": "CF"},
-        {"full_name": "Second Striker", "abbreviation": "SS"},
-        {"full_name": "Left Winger", "abbreviation": "LW"},
-        {"full_name": "Right Winger", "abbreviation": "RW"},
-        {"full_name": "Forward", "abbreviation": "FW"},
-        {"full_name": "False Nine", "abbreviation": "F9"},
-        {"full_name": "Target Forward", "abbreviation": "TF"},
-    ]
-    return positions
+    return PLAYER_POSITIONS
 
 
 @app.put("/api/auth/users/role")

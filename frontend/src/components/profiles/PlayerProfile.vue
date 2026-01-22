@@ -397,6 +397,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import PlayerProfileEditor from './PlayerProfileEditor.vue';
 import { getApiBaseUrl } from '../../config/api';
+import { PLAYER_POSITIONS } from '@/constants/positions';
 
 export default {
   name: 'PlayerProfile',
@@ -410,7 +411,7 @@ export default {
     const loadingHistory = ref(false);
     const showEditor = ref(false);
     const showEditInfo = ref(false);
-    const availablePositions = ref([]);
+    const availablePositions = ref(PLAYER_POSITIONS);
     const savingNumber = ref(false);
     const savingPosition = ref(false);
     const savingPersonalInfo = ref(false);
@@ -580,18 +581,6 @@ export default {
       editableLastName.value = authStore.state.profile?.last_name || '';
       editableHometown.value = authStore.state.profile?.hometown || '';
       editableDisplayName.value = authStore.state.profile?.display_name || '';
-    };
-
-    const fetchPositions = async () => {
-      try {
-        const positions = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/positions`,
-          { method: 'GET' }
-        );
-        availablePositions.value = positions;
-      } catch (error) {
-        console.error('Error fetching positions:', error);
-      }
     };
 
     const savePlayerNumber = async () => {
@@ -870,7 +859,6 @@ export default {
     );
 
     onMounted(async () => {
-      fetchPositions();
       initEditableFields();
       // Fetch history first, then games (so age group filter works)
       await fetchPlayerHistory();

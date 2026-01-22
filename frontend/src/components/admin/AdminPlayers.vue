@@ -447,6 +447,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { POSITION_ABBREVIATIONS } from '@/constants/positions';
 
 export default {
   name: 'AdminPlayers',
@@ -487,7 +488,7 @@ export default {
       is_current: true,
     });
 
-    const availablePositions = ['GK', 'DEF', 'MID', 'FWD'];
+    const availablePositions = POSITION_ABBREVIATIONS;
 
     // Computed
     const filteredTeams = computed(() => {
