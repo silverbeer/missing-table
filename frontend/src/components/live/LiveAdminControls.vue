@@ -95,7 +95,7 @@
               :key="player.id"
               :value="player.id"
             >
-              #{{ player.jersey_number }} {{ player.display_name }}
+              {{ formatPlayerOption(player) }}
             </option>
             <option value="other">Other (type name)</option>
           </select>
@@ -312,6 +312,23 @@ function startMatch() {
     half_duration: selectedDuration.value,
   });
   showStartModal.value = false;
+}
+
+// Format player option for dropdown - avoid showing "#33 #33" for unlinked players
+function formatPlayerOption(player) {
+  const jerseyNum = player.jersey_number;
+  const displayName = player.display_name;
+
+  // If display_name is empty, null, or just the jersey number (with or without #), show only jersey number
+  if (
+    !displayName ||
+    displayName === `#${jerseyNum}` ||
+    displayName === String(jerseyNum)
+  ) {
+    return `#${jerseyNum}`;
+  }
+
+  return `#${jerseyNum} ${displayName}`;
 }
 
 function submitGoal() {
