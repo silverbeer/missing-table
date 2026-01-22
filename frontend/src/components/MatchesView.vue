@@ -469,7 +469,15 @@
                   :key="`homegrown-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
                 >
-                  <td class="border-b text-center">{{ match.match_date }}</td>
+                  <td class="border-b text-center">
+                    <div>{{ match.match_date }}</div>
+                    <div
+                      v-if="formatLocalTime(match.scheduled_kickoff)"
+                      class="text-xs text-gray-500"
+                    >
+                      {{ formatLocalTime(match.scheduled_kickoff) }}
+                    </div>
+                  </td>
                   <td
                     class="border-b text-left px-2"
                     v-html="getTeamDisplay(match)"
@@ -569,7 +577,15 @@
                   :key="`academy-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
                 >
-                  <td class="border-b text-center">{{ match.match_date }}</td>
+                  <td class="border-b text-center">
+                    <div>{{ match.match_date }}</div>
+                    <div
+                      v-if="formatLocalTime(match.scheduled_kickoff)"
+                      class="text-xs text-gray-500"
+                    >
+                      {{ formatLocalTime(match.scheduled_kickoff) }}
+                    </div>
+                  </td>
                   <td
                     class="border-b text-left px-2"
                     v-html="getTeamDisplay(match)"
@@ -669,7 +685,15 @@
                   :key="`other-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
                 >
-                  <td class="border-b text-center">{{ match.match_date }}</td>
+                  <td class="border-b text-center">
+                    <div>{{ match.match_date }}</div>
+                    <div
+                      v-if="formatLocalTime(match.scheduled_kickoff)"
+                      class="text-xs text-gray-500"
+                    >
+                      {{ formatLocalTime(match.scheduled_kickoff) }}
+                    </div>
+                  </td>
                   <td
                     class="border-b text-left px-2"
                     v-html="getTeamDisplay(match)"
@@ -769,7 +793,15 @@
                 >
                   {{ index + 1 }}
                 </td>
-                <td class="border-b text-center">{{ match.match_date }}</td>
+                <td class="border-b text-center">
+                  <div>{{ match.match_date }}</div>
+                  <div
+                    v-if="formatLocalTime(match.scheduled_kickoff)"
+                    class="text-xs text-gray-500"
+                  >
+                    {{ formatLocalTime(match.scheduled_kickoff) }}
+                  </div>
+                </td>
                 <td
                   class="border-b text-left px-2"
                   v-html="getTeamDisplay(match)"
@@ -1719,6 +1751,17 @@ export default {
       return `${startYear}-${endYear}`;
     };
 
+    // Format UTC datetime to local time display
+    const formatLocalTime = isoString => {
+      if (!isoString) return null;
+      const date = new Date(isoString);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    };
+
     const getSegmentGridClass = () => {
       const segmentCount =
         (seasonStats.value.hasFallGames ? 1 : 0) +
@@ -2353,6 +2396,7 @@ export default {
       getTeamDisplayName,
       getTeamDisplayWithContext,
       formatSeasonDates,
+      formatLocalTime,
       getSegmentGridClass,
       canEditGames,
       tableColumnCount,

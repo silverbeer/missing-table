@@ -2072,6 +2072,7 @@ async def add_match(
             created_by=current_user.get("user_id"),  # Track who created the match
             source=match.source,  # Track source (manual, match-scraper, etc.)
             external_match_id=match.external_match_id,  # Store external match identifier if provided
+            scheduled_kickoff=match.scheduled_kickoff.isoformat() if match.scheduled_kickoff else None,
         )
         if success:
             return {"message": "Match added successfully"}
@@ -2118,6 +2119,7 @@ async def update_match(
             status=match.status,
             updated_by=current_user.get("user_id"),  # Track who updated the match
             external_match_id=match.external_match_id,  # Update external_match_id if provided
+            scheduled_kickoff=match.scheduled_kickoff.isoformat() if match.scheduled_kickoff else None,
         )
         if updated_match:
             return {"message": "Match updated successfully"}
@@ -2191,6 +2193,9 @@ async def patch_match(
             "external_match_id": match_patch.external_match_id
             if match_patch.external_match_id is not None
             else current_match.get("external_match_id"),
+            "scheduled_kickoff": match_patch.scheduled_kickoff.isoformat()
+            if match_patch.scheduled_kickoff is not None
+            else current_match.get("scheduled_kickoff"),
             "updated_by": current_user.get("user_id"),
         }
 

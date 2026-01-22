@@ -116,9 +116,7 @@
                   {{ getTeamInitials(match.home_team_name) }}
                 </div>
               </div>
-              <h2
-                class="text-sm lg:text-base font-bold text-white mb-0.5 line-clamp-2"
-              >
+              <h2 class="text-sm lg:text-base font-bold text-white mb-0.5">
                 {{ match.home_team_name }}
               </h2>
               <span class="text-[10px] text-slate-400 uppercase tracking-wider"
@@ -162,14 +160,38 @@
                   {{ getTeamInitials(match.away_team_name) }}
                 </div>
               </div>
-              <h2
-                class="text-sm lg:text-base font-bold text-white mb-0.5 line-clamp-2"
-              >
+              <h2 class="text-sm lg:text-base font-bold text-white mb-0.5">
                 {{ match.away_team_name }}
               </h2>
               <span class="text-[10px] text-slate-400 uppercase tracking-wider"
                 >Away</span
               >
+            </div>
+          </div>
+
+          <!-- Goal Scorers -->
+          <div
+            v-if="homeGoals.length || awayGoals.length"
+            class="flex justify-center gap-4 mt-3 pt-3 border-t border-slate-600"
+          >
+            <div class="flex-1 text-right max-w-[140px]">
+              <div
+                v-for="goal in homeGoals"
+                :key="goal.id"
+                class="text-xs text-slate-300 mb-1"
+              >
+                {{ goal.player_name }} {{ formatMinute(goal) }}
+              </div>
+            </div>
+            <div class="w-px bg-slate-600 flex-shrink-0"></div>
+            <div class="flex-1 text-left max-w-[140px]">
+              <div
+                v-for="goal in awayGoals"
+                :key="goal.id"
+                class="text-xs text-slate-300 mb-1"
+              >
+                {{ goal.player_name }} {{ formatMinute(goal) }}
+              </div>
             </div>
           </div>
         </div>
@@ -184,6 +206,17 @@
               >
               <span class="text-xs font-medium text-white">{{
                 formatDate(match.match_date)
+              }}</span>
+            </div>
+            <div
+              v-if="formatLocalTime(match.scheduled_kickoff)"
+              class="detail-item"
+            >
+              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
+                >Kickoff</span
+              >
+              <span class="text-xs font-medium text-white">{{
+                formatLocalTime(match.scheduled_kickoff)
               }}</span>
             </div>
             <div class="detail-item">
@@ -210,7 +243,10 @@
                 match.age_group_name
               }}</span>
             </div>
-            <div v-if="match.division_name" class="detail-item">
+            <div
+              v-if="match.division_name && match.match_type_name !== 'Friendly'"
+              class="detail-item"
+            >
               <span class="text-[10px] text-slate-500 uppercase tracking-wider"
                 >Division</span
               >
@@ -352,6 +388,7 @@ export default {
     const loading = ref(true);
     const error = ref(null);
     const match = ref(null);
+    const events = ref([]);
     const scoreboardRef = ref(null);
     const shareStatus = ref(null); // 'copying', 'success', 'error'
 
@@ -369,6 +406,34 @@ export default {
     const leagueName = computed(() => {
       return match.value?.division?.leagues?.name || null;
     });
+
+    // Filter goals by team
+    const homeGoals = computed(() => {
+      return events.value
+        .filter(
+          e =>
+            e.event_type === 'goal' && e.team_id === match.value?.home_team_id
+        )
+        .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
+    });
+
+    const awayGoals = computed(() => {
+      return events.value
+        .filter(
+          e =>
+            e.event_type === 'goal' && e.team_id === match.value?.away_team_id
+        )
+        .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
+    });
+
+    // Format minute display (e.g., "22'" or "90+5'")
+    const formatMinute = goal => {
+      if (!goal.match_minute) return '';
+      if (goal.extra_time) {
+        return `${goal.match_minute}+${goal.extra_time}'`;
+      }
+      return `${goal.match_minute}'`;
+    };
 
     // Status badge class based on match status
     const statusBadgeClass = computed(() => {
@@ -405,6 +470,31 @@ export default {
       });
     };
 
+    // Format UTC datetime to local time display
+    const formatLocalTime = isoString => {
+      if (!isoString) return null;
+      const date = new Date(isoString);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    };
+
+    // Fetch match events (goals, etc.)
+    const fetchEvents = async () => {
+      try {
+        const data = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/matches/${props.matchId}/live/events`
+        );
+        events.value = data || [];
+      } catch (err) {
+        // Events might not exist for older matches, that's ok
+        console.log('No events found for match:', err.message);
+        events.value = [];
+      }
+    };
+
     // Fetch match details
     const fetchMatch = async () => {
       loading.value = true;
@@ -415,6 +505,10 @@ export default {
           `${getApiBaseUrl()}/api/matches/${props.matchId}`
         );
         match.value = data;
+        // Also fetch events for completed/live matches
+        if (data.match_status === 'completed' || data.match_status === 'live') {
+          await fetchEvents();
+        }
       } catch (err) {
         console.error('Error fetching match:', err);
         if (err.message?.includes('401') || err.message?.includes('403')) {
@@ -486,12 +580,17 @@ export default {
       loading,
       error,
       match,
+      events,
+      homeGoals,
+      awayGoals,
       homeTeamColor,
       awayTeamColor,
       leagueName,
       statusBadgeClass,
       getTeamInitials,
       formatDate,
+      formatLocalTime,
+      formatMinute,
       fetchMatch,
       scoreboardRef,
       shareStatus,

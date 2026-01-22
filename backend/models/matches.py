@@ -2,6 +2,8 @@
 Match-related Pydantic models.
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -22,6 +24,7 @@ class EnhancedMatch(BaseModel):
     updated_by: str | None = None  # User ID who last updated the match
     source: str = "manual"  # Source: manual, match-scraper, import
     external_match_id: str | None = None  # External match identifier (e.g., from match-scraper)
+    scheduled_kickoff: datetime | None = None  # Scheduled kickoff datetime in UTC
 
 
 class MatchPatch(BaseModel):
@@ -39,6 +42,7 @@ class MatchPatch(BaseModel):
     division_id: int | None = None
     status: str | None = None
     external_match_id: str | None = None  # External match identifier
+    scheduled_kickoff: datetime | None = None  # Scheduled kickoff datetime in UTC
 
     class Config:
         # Validation for scores
