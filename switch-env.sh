@@ -3,8 +3,9 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Config file to persist environment choice
+# Config files to persist environment choices
 ENV_CONFIG_FILE="$SCRIPT_DIR/.current-env"
+REDIS_CONFIG_FILE="$SCRIPT_DIR/.current-redis"
 
 # Colors for output
 RED='\033[0;31m'
@@ -32,23 +33,34 @@ print_error() {
 show_help() {
     echo "Environment Switcher for Missing Table Development"
     echo ""
-    echo "Usage: $0 [ENVIRONMENT]"
+    echo "Usage: $0 [COMMAND] [OPTIONS]"
     echo ""
-    echo "Environments:"
-    echo "  local    Use local Supabase (requires 'npx supabase start')"
-    echo "  prod     Use cloud Supabase production (missingtable.com)"
-    echo "  status   Show current environment configuration"
-    echo "  help     Show this help message"
+    echo "Supabase Commands:"
+    echo "  local              Use local Supabase (requires 'npx supabase start')"
+    echo "  prod               Use cloud Supabase production (missingtable.com)"
+    echo "  supabase local     Explicit: use local Supabase"
+    echo "  supabase prod      Explicit: use prod Supabase"
+    echo ""
+    echo "Redis Commands:"
+    echo "  redis local        Use Redis in local k3s (port-forward to Rancher Desktop)"
+    echo "  redis cloud        Use Redis in DOKS (port-forward to cloud cluster)"
+    echo ""
+    echo "Other Commands:"
+    echo "  status             Show current Supabase and Redis configuration"
+    echo "  help               Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 local     # Switch to local development"
-    echo "  $0 prod      # Switch to production (cloud)"
-    echo "  $0 status    # Show current environment"
+    echo "  $0 local              # Switch Supabase to local (Redis unchanged)"
+    echo "  $0 prod               # Switch Supabase to prod (Redis unchanged)"
+    echo "  $0 supabase prod      # Explicit: Switch Supabase to prod"
+    echo "  $0 redis local        # Switch Redis to local k3s"
+    echo "  $0 redis cloud        # Switch Redis to DOKS cloud"
+    echo "  $0 status             # Show current configuration"
     echo ""
-    echo "What this script does:"
-    echo "  - Sets APP_ENV environment variable for current session"
-    echo "  - Updates shell export in ~/.bashrc or ~/.zshrc"
-    echo "  - Shows which environment files will be loaded"
+    echo "Typical Workflow:"
+    echo "  $0 supabase prod      # Use production database"
+    echo "  $0 redis local        # Use local k3s Redis for caching"
+    echo "  ./missing-table.sh start --watch"
     echo ""
 }
 
@@ -63,45 +75,74 @@ get_current_env() {
     fi
 }
 
+get_current_redis() {
+    # Read from .current-redis file, default to "local" for backward compatibility
+    if [ -f "$REDIS_CONFIG_FILE" ]; then
+        cat "$REDIS_CONFIG_FILE"
+    else
+        echo "local"
+    fi
+}
+
 show_status() {
     print_header "Current Environment Status"
 
     current_env=$(get_current_env)
-    echo "Current APP_ENV: $current_env"
+    current_redis=$(get_current_redis)
+
+    echo ""
+    echo -e "${YELLOW}Supabase:${NC}"
+    echo -e "  Source: ${GREEN}$current_env${NC}"
 
     # Check which files exist
     echo ""
-    echo "Available environment files:"
+    echo "  Available environment files:"
     for env in local prod; do
         backend_file="$SCRIPT_DIR/backend/.env.$env"
         frontend_file="$SCRIPT_DIR/frontend/.env.$env"
 
         if [ -f "$backend_file" ] && [ -f "$frontend_file" ]; then
             if [ "$env" = "$current_env" ]; then
-                echo -e "  ${GREEN}✅ $env (ACTIVE)${NC}"
+                echo -e "    ${GREEN}✅ $env (ACTIVE)${NC}"
             else
-                echo -e "  ✅ $env"
+                echo -e "    ✅ $env"
             fi
         else
-            echo -e "  ${RED}❌ $env (missing files)${NC}"
+            echo -e "    ${RED}❌ $env (missing files)${NC}"
         fi
     done
 
     # Show what would be loaded
     echo ""
-    echo "Environment files that would be loaded:"
-    echo "  Backend:  .env.$current_env"
-    echo "  Frontend: .env.$current_env"
+    echo "  Environment files that would be loaded:"
+    echo "    Backend:  .env.$current_env"
+    echo "    Frontend: .env.$current_env"
 
     # Check if Supabase is running for local env
     if [ "$current_env" = "local" ]; then
         echo ""
         if curl -s http://127.0.0.1:54331/health > /dev/null 2>&1; then
-            print_success "Local Supabase is running on port 54331"
+            print_success "  Local Supabase is running on port 54331"
         else
-            print_warning "Local Supabase is not running. Run 'npx supabase start' to start it."
+            print_warning "  Local Supabase is not running. Run 'npx supabase start' to start it."
         fi
     fi
+
+    echo ""
+    echo -e "${YELLOW}Redis:${NC}"
+    if [ "$current_redis" = "local" ]; then
+        echo -e "  Source: ${GREEN}local${NC} (k3s via Rancher Desktop)"
+        echo "  Context: rancher-desktop"
+    elif [ "$current_redis" = "cloud" ]; then
+        echo -e "  Source: ${GREEN}cloud${NC} (DOKS cluster)"
+        echo "  Context: do-nyc1-missingtable-dev"
+    else
+        echo -e "  Source: ${YELLOW}$current_redis${NC} (unknown)"
+    fi
+
+    echo ""
+    echo -e "${BLUE}Tip:${NC} Use './switch-env.sh supabase <local|prod>' to change Supabase"
+    echo -e "${BLUE}Tip:${NC} Use './switch-env.sh redis <local|cloud>' to change Redis"
 }
 
 switch_environment() {
@@ -175,6 +216,42 @@ switch_environment() {
     echo -e "${BLUE}Note:${NC} Run 'source ~/.zshrc' to update current terminal session."
 }
 
+switch_redis() {
+    local target_redis="$1"
+
+    # Validate redis source
+    if [ "$target_redis" != "local" ] && [ "$target_redis" != "cloud" ]; then
+        print_error "Invalid Redis source: $target_redis"
+        echo "Valid sources: local, cloud"
+        echo "  local = Redis in local k3s (Rancher Desktop)"
+        echo "  cloud = Redis in DOKS cluster"
+        exit 1
+    fi
+
+    print_header "Switching Redis to $target_redis"
+
+    # Write to config file
+    echo "$target_redis" > "$REDIS_CONFIG_FILE"
+    print_success "Saved Redis source to .current-redis"
+
+    # Show context information
+    if [ "$target_redis" = "local" ]; then
+        echo ""
+        echo "Redis will connect to: local k3s (Rancher Desktop)"
+        echo "Kubectl context: rancher-desktop"
+    elif [ "$target_redis" = "cloud" ]; then
+        echo ""
+        echo "Redis will connect to: DOKS cluster"
+        echo "Kubectl context: do-nyc1-missingtable-dev"
+    fi
+
+    echo ""
+    echo "Next steps:"
+    echo "  1. Restart services: ./missing-table.sh restart"
+    echo ""
+    print_success "Redis source switched to: $target_redis"
+}
+
 update_shell_config() {
     local target_env="$1"
 
@@ -209,7 +286,24 @@ update_shell_config() {
 # Main script logic
 case "${1:-help}" in
     local|prod)
+        # Backward compatible: switch Supabase environment
         switch_environment "$1"
+        ;;
+    supabase)
+        # Explicit supabase command
+        if [ -z "$2" ]; then
+            print_error "Missing environment. Usage: $0 supabase <local|prod>"
+            exit 1
+        fi
+        switch_environment "$2"
+        ;;
+    redis)
+        # New redis command
+        if [ -z "$2" ]; then
+            print_error "Missing redis source. Usage: $0 redis <local|cloud>"
+            exit 1
+        fi
+        switch_redis "$2"
         ;;
     status)
         show_status

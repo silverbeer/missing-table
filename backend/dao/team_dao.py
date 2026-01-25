@@ -91,43 +91,45 @@ class TeamDAO(BaseDAO):
             match_type_id: Filter by match type (e.g., League, Cup)
             age_group_id: Filter by age group (e.g., U14, U15)
             division_id: Optional - Filter by division (e.g., Bracket A for Futsal)
+
+        Note: Due to PostgREST limitations with multiple inner joins, we query
+        junction tables directly and intersect results when filtering by division.
         """
-        # Build the base query
+        # Get team IDs that have the required match type
+        mt_response = (
+            self.client.table("team_match_types")
+            .select("team_id")
+            .eq("match_type_id", match_type_id)
+            .eq("age_group_id", age_group_id)
+            .eq("is_active", True)
+            .execute()
+        )
+        match_type_team_ids = {r["team_id"] for r in mt_response.data}
+
+        if not match_type_team_ids:
+            return []
+
+        # If division filter is specified, intersect with division teams
         if division_id:
-            # When filtering by division, use inner join on team_mappings
-            query = (
-                self.client.table("teams")
-                .select("""
-                *,
-                team_mappings!inner (
-                    age_group_id,
-                    division_id,
-                    age_groups (
-                        id,
-                        name
-                    ),
-                    divisions (
-                        id,
-                        name
-                    )
-                ),
-                team_match_types!inner (
-                    match_type_id,
-                    age_group_id,
-                    is_active
-                )
-            """)
-                .eq("team_match_types.match_type_id", match_type_id)
-                .eq("team_match_types.age_group_id", age_group_id)
-                .eq("team_match_types.is_active", True)
-                .eq("team_mappings.age_group_id", age_group_id)
-                .eq("team_mappings.division_id", division_id)
+            div_response = (
+                self.client.table("team_mappings")
+                .select("team_id")
+                .eq("age_group_id", age_group_id)
+                .eq("division_id", division_id)
+                .execute()
             )
+            division_team_ids = {r["team_id"] for r in div_response.data}
+            final_team_ids = match_type_team_ids & division_team_ids
         else:
-            # Without division filter, include all team_mappings
-            query = (
-                self.client.table("teams")
-                .select("""
+            final_team_ids = match_type_team_ids
+
+        if not final_team_ids:
+            return []
+
+        # Fetch full team data for the filtered IDs
+        response = (
+            self.client.table("teams")
+            .select("""
                 *,
                 team_mappings (
                     age_groups (
@@ -138,19 +140,12 @@ class TeamDAO(BaseDAO):
                         id,
                         name
                     )
-                ),
-                team_match_types!inner (
-                    match_type_id,
-                    age_group_id,
-                    is_active
                 )
             """)
-                .eq("team_match_types.match_type_id", match_type_id)
-                .eq("team_match_types.age_group_id", age_group_id)
-                .eq("team_match_types.is_active", True)
-            )
-
-        response = query.order("name").execute()
+            .in_("id", list(final_team_ids))
+            .order("name")
+            .execute()
+        )
 
         # Flatten the age groups and divisions for each team
         teams = []

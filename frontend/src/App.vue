@@ -245,6 +245,11 @@
             />
           </div>
 
+          <!-- Leaderboard -->
+          <div v-if="currentTab === 'leaderboard'" class="p-4">
+            <GoalsLeaderboard />
+          </div>
+
           <!-- Add Match Form (auth required) -->
           <div v-if="currentTab === 'add-match'" class="p-4">
             <div v-if="!authStore.isAuthenticated" class="auth-required">
@@ -342,6 +347,7 @@ import { recordPageView, recordInviteRequest } from './faro';
 import MatchForm from './components/MatchForm.vue';
 import LeagueTable from './components/LeagueTable.vue';
 import MatchesView from './components/MatchesView.vue';
+import GoalsLeaderboard from './components/GoalsLeaderboard.vue';
 import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
 import ProfileRouter from './components/ProfileRouter.vue';
@@ -356,6 +362,7 @@ export default {
     MatchForm,
     LeagueTable,
     MatchesView,
+    GoalsLeaderboard,
     AuthNav,
     LoginForm,
     ProfileRouter,
@@ -437,6 +444,7 @@ export default {
     const allTabs = [
       { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
+      { id: 'leaderboard', name: 'Leaderboard', requiresAuth: true },
       {
         id: 'add-match',
         name: 'Add Match',

@@ -24,12 +24,17 @@ LOG_DIR="$PID_DIR/logs"
 REDIS_NAMESPACE="missing-table"
 REDIS_SERVICE="missing-table-redis"
 
+# Kubectl context configuration
+K3S_CONTEXT="rancher-desktop"              # Local k3s context (Rancher Desktop)
+DOKS_CONTEXT="do-nyc1-missingtable-dev"    # DOKS context
+
 # Create directories if they don't exist
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
-# Config file for persistent environment (shared with switch-env.sh)
+# Config files for persistent environment (shared with switch-env.sh)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_CONFIG_FILE="$SCRIPT_DIR/.current-env"
+REDIS_CONFIG_FILE="$SCRIPT_DIR/.current-redis"
 
 # Get current environment from config file or env var
 get_current_env() {
@@ -38,6 +43,16 @@ get_current_env() {
         cat "$ENV_CONFIG_FILE"
     elif [ -n "$APP_ENV" ]; then
         echo "$APP_ENV"
+    else
+        echo "local"
+    fi
+}
+
+# Get current Redis source from config file
+get_current_redis() {
+    # Read from .current-redis file, default to "local" for backward compatibility
+    if [ -f "$REDIS_CONFIG_FILE" ]; then
+        cat "$REDIS_CONFIG_FILE"
     else
         echo "local"
     fi
@@ -64,9 +79,11 @@ usage() {
     echo "                       --tail=100   : Show last N lines first (default: 50)"
     echo "                       --all        : Show all pods (default: backend only)"
     echo ""
-    echo -e "${YELLOW}Redis (k3s):${NC}"
-    echo "  Redis runs in k3s and is port-forwarded to localhost:6379"
-    echo "  If Redis is not deployed, caching will be disabled"
+    echo -e "${YELLOW}Redis:${NC}"
+    echo "  Redis source is configured via './switch-env.sh redis <local|cloud>'"
+    echo "    local = Redis in local k3s (Rancher Desktop)"
+    echo "    cloud = Redis in DOKS cluster"
+    echo "  Port-forwarded to localhost:6379. If Redis not deployed, caching disabled."
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo "  $0 start --watch   # With auto-reload for development"
@@ -133,9 +150,14 @@ kill_process() {
     fi
 }
 
-# Function to check if Redis pod is running in k3s
+# Function to check if Redis pod is running in k3s (optionally with specific context)
 redis_pod_running() {
-    kubectl get pod -n "$REDIS_NAMESPACE" -l app.kubernetes.io/component=redis --field-selector=status.phase=Running -o name 2>/dev/null | grep -q .
+    local context="${1:-}"
+    local context_flag=""
+    if [ -n "$context" ]; then
+        context_flag="--context=$context"
+    fi
+    kubectl $context_flag get pod -n "$REDIS_NAMESPACE" -l app.kubernetes.io/component=redis --field-selector=status.phase=Running -o name 2>/dev/null | grep -q .
 }
 
 # Function to check if Redis is accessible locally
@@ -143,9 +165,14 @@ redis_accessible() {
     nc -z localhost $REDIS_PORT 2>/dev/null
 }
 
-# Function to get Redis pod status
+# Function to get Redis pod status (optionally with specific context)
 get_redis_status() {
-    local pod_status=$(kubectl get pod -n "$REDIS_NAMESPACE" -l app.kubernetes.io/component=redis -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
+    local context="${1:-}"
+    local context_flag=""
+    if [ -n "$context" ]; then
+        context_flag="--context=$context"
+    fi
+    local pod_status=$(kubectl $context_flag get pod -n "$REDIS_NAMESPACE" -l app.kubernetes.io/component=redis -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
     if [ -z "$pod_status" ]; then
         echo "NOT_DEPLOYED"
     else
@@ -153,13 +180,13 @@ get_redis_status() {
     fi
 }
 
-# Function to start Redis port-forward
+# Function to start Redis port-forward to local k3s
 start_redis_portforward() {
-    echo -e "${YELLOW}Starting Redis port-forward...${NC}"
+    echo -e "${YELLOW}Starting Redis port-forward to local k3s...${NC}"
 
-    # Check if Redis pod is running
-    if ! redis_pod_running; then
-        echo -e "${RED}Redis pod is not running in k3s${NC}"
+    # Check if Redis pod is running in local k3s
+    if ! redis_pod_running "$K3S_CONTEXT"; then
+        echo -e "${RED}Redis pod is not running in local k3s${NC}"
         echo -e "${BLUE}Tip:${NC} Deploy Redis with: helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
         return 1
     fi
@@ -172,7 +199,7 @@ start_redis_portforward() {
 
     # Start port-forward in background
     local redis_pf_log="$LOG_DIR/redis-portforward.log"
-    nohup kubectl port-forward -n "$REDIS_NAMESPACE" "svc/$REDIS_SERVICE" "$REDIS_PORT:6379" > "$redis_pf_log" 2>&1 &
+    nohup kubectl --context="$K3S_CONTEXT" port-forward -n "$REDIS_NAMESPACE" "svc/$REDIS_SERVICE" "$REDIS_PORT:6379" > "$redis_pf_log" 2>&1 &
     local pf_pid=$!
     echo $pf_pid > "$REDIS_PF_PID_FILE"
 
@@ -180,7 +207,7 @@ start_redis_portforward() {
     local count=0
     while [ $count -lt 5 ]; do
         if redis_accessible; then
-            echo -e "${GREEN}Redis port-forward started (PID: $pf_pid)${NC}"
+            echo -e "${GREEN}Redis port-forward started to local k3s (PID: $pf_pid)${NC}"
             return 0
         fi
         sleep 1
@@ -188,6 +215,44 @@ start_redis_portforward() {
     done
 
     echo -e "${RED}Redis port-forward failed to start${NC}"
+    return 1
+}
+
+# Function to start Redis port-forward to DOKS cloud cluster
+start_cloud_redis_portforward() {
+    echo -e "${YELLOW}Starting Redis port-forward to DOKS...${NC}"
+
+    # Check if Redis pod is running in DOKS
+    if ! redis_pod_running "$DOKS_CONTEXT"; then
+        echo -e "${RED}Redis pod is not running in DOKS${NC}"
+        echo -e "${BLUE}Tip:${NC} Ensure Redis is deployed in DOKS cluster"
+        return 1
+    fi
+
+    # Check if already accessible
+    if redis_accessible; then
+        echo -e "${YELLOW}Redis already accessible on port $REDIS_PORT${NC}"
+        return 0
+    fi
+
+    # Start port-forward in background
+    local redis_pf_log="$LOG_DIR/redis-portforward.log"
+    nohup kubectl --context="$DOKS_CONTEXT" port-forward -n "$REDIS_NAMESPACE" "svc/$REDIS_SERVICE" "$REDIS_PORT:6379" > "$redis_pf_log" 2>&1 &
+    local pf_pid=$!
+    echo $pf_pid > "$REDIS_PF_PID_FILE"
+
+    # Wait for port-forward to establish
+    local count=0
+    while [ $count -lt 5 ]; do
+        if redis_accessible; then
+            echo -e "${GREEN}Redis port-forward started to DOKS (PID: $pf_pid)${NC}"
+            return 0
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+
+    echo -e "${RED}Redis port-forward to DOKS failed to start${NC}"
     return 1
 }
 
@@ -252,7 +317,7 @@ start_backend() {
     if command -v uv &> /dev/null; then
         if [ "$dev_mode" = "true" ]; then
             echo -e "${GREEN}Starting backend with auto-reload (uvicorn --reload)${NC}"
-            APP_ENV="$current_env" nohup uv run uvicorn app:app --host 0.0.0.0 --port $BACKEND_PORT --reload > "$backend_log" 2>&1 &
+            APP_ENV="$current_env" nohup uv run uvicorn app:app --host 0.0.0.0 --port $BACKEND_PORT --reload --no-access-log > "$backend_log" 2>&1 &
         else
             APP_ENV="$current_env" nohup uv run python app.py > "$backend_log" 2>&1 &
         fi
@@ -359,14 +424,29 @@ start_services() {
         return 1
     fi
 
-    # Start Redis port-forward if Redis is deployed in k3s
-    if redis_pod_running; then
-        start_redis_portforward
+    # Start Redis port-forward based on configured source
+    local redis_source=$(get_current_redis)
+    echo -e "Redis source: ${GREEN}$redis_source${NC}"
+
+    if [ "$redis_source" = "cloud" ]; then
+        # Port-forward to DOKS Redis
+        if redis_pod_running "$DOKS_CONTEXT"; then
+            start_cloud_redis_portforward
+        else
+            echo -e "${YELLOW}Redis not deployed in DOKS - caching will be disabled${NC}"
+            echo -e "${BLUE}Tip:${NC} Ensure Redis is deployed in DOKS cluster"
+            echo ""
+        fi
     else
-        echo -e "${YELLOW}Redis not deployed in k3s - caching will be disabled${NC}"
-        echo -e "${BLUE}Tip:${NC} To enable caching, deploy Redis with:"
-        echo -e "  helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
-        echo ""
+        # Default: port-forward to local k3s Redis
+        if redis_pod_running "$K3S_CONTEXT"; then
+            start_redis_portforward
+        else
+            echo -e "${YELLOW}Redis not deployed in local k3s - caching will be disabled${NC}"
+            echo -e "${BLUE}Tip:${NC} To enable caching, deploy Redis with:"
+            echo -e "  helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
+            echo ""
+        fi
     fi
 
     start_backend "$dev_mode"
@@ -494,12 +574,24 @@ show_status() {
         echo -e "  Status: ${RED}STOPPED${NC}"
     fi
 
-    # Redis status (k3s)
-    echo -e "\n${YELLOW}Redis (k3s - Port $REDIS_PORT):${NC}"
-    local redis_status=$(get_redis_status)
+    # Redis status
+    local redis_source=$(get_current_redis)
+    echo -e "\n${YELLOW}Redis (Port $REDIS_PORT):${NC}"
+    echo -e "  Source: ${GREEN}$redis_source${NC}"
+
+    if [ "$redis_source" = "cloud" ]; then
+        # Show DOKS Redis status
+        echo "  Cluster: DOKS ($DOKS_CONTEXT)"
+        local redis_status=$(get_redis_status "$DOKS_CONTEXT")
+    else
+        # Show local k3s Redis status
+        echo "  Cluster: local k3s ($K3S_CONTEXT)"
+        local redis_status=$(get_redis_status "$K3S_CONTEXT")
+    fi
+
     case "$redis_status" in
         "Running")
-            echo -e "  k3s Pod: ${GREEN}RUNNING${NC} (namespace: $REDIS_NAMESPACE)"
+            echo -e "  Pod: ${GREEN}RUNNING${NC} (namespace: $REDIS_NAMESPACE)"
             if redis_accessible; then
                 local pf_pid=""
                 if [ -f "$REDIS_PF_PID_FILE" ]; then
@@ -517,13 +609,18 @@ show_status() {
             fi
             ;;
         "NOT_DEPLOYED")
-            echo -e "  k3s Pod: ${YELLOW}NOT DEPLOYED${NC}"
-            echo -e "  ${BLUE}Tip:${NC} Deploy with: helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
+            echo -e "  Pod: ${YELLOW}NOT DEPLOYED${NC}"
+            if [ "$redis_source" = "cloud" ]; then
+                echo -e "  ${BLUE}Tip:${NC} Ensure Redis is deployed in DOKS cluster"
+            else
+                echo -e "  ${BLUE}Tip:${NC} Deploy with: helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
+            fi
             ;;
         *)
-            echo -e "  k3s Pod: ${YELLOW}$redis_status${NC} (namespace: $REDIS_NAMESPACE)"
+            echo -e "  Pod: ${YELLOW}$redis_status${NC} (namespace: $REDIS_NAMESPACE)"
             ;;
     esac
+    echo -e "  ${BLUE}Tip:${NC} Use './switch-env.sh redis <local|cloud>' to change Redis source"
 
     # Show all related processes
     local all_pids=$(get_missing_table_processes)
@@ -701,11 +798,124 @@ tail_k8s_logs() {
     fi
 }
 
+# Additional colors for log formatting
+CYAN='\033[0;36m'
+GRAY='\033[0;90m'
+BOLD='\033[1m'
+DIM='\033[2m'
+
+# Function to format a JSON log line with colors
+format_json_log() {
+    local line="$1"
+    local source="$2"  # "backend" or "frontend"
+
+    # Check if line looks like JSON (starts with {)
+    if [[ "$line" == "{"* ]]; then
+        # Try to parse with jq if available
+        if command -v jq &> /dev/null; then
+            local level=$(echo "$line" | jq -r '.level // "info"' 2>/dev/null)
+            local event=$(echo "$line" | jq -r '.event // .message // ""' 2>/dev/null)
+            local timestamp=$(echo "$line" | jq -r '.timestamp // ""' 2>/dev/null)
+            local filename=$(echo "$line" | jq -r '.filename // ""' 2>/dev/null)
+            local lineno=$(echo "$line" | jq -r '.lineno // ""' 2>/dev/null)
+            local request_id=$(echo "$line" | jq -r '.request_id // ""' 2>/dev/null)
+
+            # Extract additional context fields (exclude standard fields)
+            local context=$(echo "$line" | jq -r 'del(.event, .message, .level, .timestamp, .service, .session_id, .request_id, .logger, .filename, .lineno) | to_entries | map("\(.key)=\(.value)") | join(" ")' 2>/dev/null)
+
+            # Extract time portion from ISO timestamp
+            if [[ "$timestamp" == *"T"* ]]; then
+                timestamp=$(echo "$timestamp" | sed 's/.*T\([0-9:]*\).*/\1/' | cut -c1-8)
+            else
+                timestamp=$(date '+%H:%M:%S')
+            fi
+
+            # Build location string
+            local location=""
+            if [ -n "$filename" ] && [ "$filename" != "null" ]; then
+                location="${filename}:${lineno}"
+            fi
+
+            # Build request ID string (shortened)
+            local req_str=""
+            if [ -n "$request_id" ] && [ "$request_id" != "null" ]; then
+                req_str="${request_id#mt-req-}"  # Remove prefix for brevity
+            fi
+
+
+            # Build the output line
+            local output=""
+            local level_str=""
+            local event_color=""
+
+            case "$level" in
+                error|ERROR)
+                    level_str="${RED}${BOLD}ERROR${NC}"
+                    event_color="${RED}"
+                    ;;
+                warning|warn|WARNING|WARN)
+                    level_str="${YELLOW}${BOLD}WARN ${NC}"
+                    event_color="${YELLOW}"
+                    ;;
+                info|INFO)
+                    level_str="${CYAN}INFO ${NC}"
+                    event_color=""
+                    ;;
+                debug|DEBUG)
+                    level_str="${DIM}DEBUG${NC}"
+                    event_color="${DIM}"
+                    ;;
+                *)
+                    level_str="${BLUE}$level${NC}"
+                    event_color=""
+                    ;;
+            esac
+
+            # Format: [time] LEVEL event | context | location
+            output="${GRAY}[$timestamp]${NC} ${level_str} ${event_color}${event}${NC}"
+
+            # Add context if present
+            if [ -n "$context" ] && [ "$context" != "" ]; then
+                output="${output} ${DIM}| ${context}${NC}"
+            fi
+
+            # Add location for errors/warnings
+            if [ -n "$location" ] && [[ "$level" =~ ^(error|ERROR|warning|warn|WARNING|WARN)$ ]]; then
+                output="${output} ${DIM}@ ${location}${NC}"
+            fi
+
+            echo -e "$output"
+        else
+            # Fallback: simple grep-based parsing
+            local timestamp=$(date '+%H:%M:%S')
+            if echo "$line" | grep -q '"level":\s*"error"'; then
+                echo -e "${GRAY}[$timestamp]${NC} ${RED}${BOLD}ERROR${NC} ${RED}$line${NC}"
+            elif echo "$line" | grep -q '"level":\s*"warning\|warn"'; then
+                echo -e "${GRAY}[$timestamp]${NC} ${YELLOW}${BOLD}WARN ${NC} $line"
+            else
+                echo -e "${GRAY}[$timestamp]${NC} ${CYAN}INFO ${NC} $line"
+            fi
+        fi
+    else
+        # Non-JSON line (e.g., startup messages, stack traces)
+        local timestamp=$(date '+%H:%M:%S')
+        if echo "$line" | grep -iq "error\|exception\|traceback\|failed"; then
+            echo -e "${GRAY}[$timestamp]${NC} ${RED}$line${NC}"
+        elif echo "$line" | grep -iq "warning\|warn"; then
+            echo -e "${GRAY}[$timestamp]${NC} ${YELLOW}$line${NC}"
+        elif [ -n "$line" ]; then
+            echo -e "${GRAY}[$timestamp]${NC} $line"
+        fi
+    fi
+}
+
 # Function to tail logs in real-time
 tail_logs() {
-    echo -e "${BLUE}Missing Table Service Logs (Live)${NC}"
+    echo -e "${BLUE}${BOLD}Missing Table Service Logs (Live)${NC}"
     echo "=================================="
     echo -e "${YELLOW}Following logs in real-time... Press Ctrl+C to stop${NC}"
+    echo ""
+    echo -e "Legend: ${RED}${BOLD}ERROR${NC} ${YELLOW}${BOLD}WARN${NC} ${CYAN}INFO${NC} ${DIM}DEBUG${NC}"
     echo ""
 
     # Check which log files exist
@@ -726,48 +936,44 @@ tail_logs() {
         return 1
     fi
 
-    # Use multitail if available, otherwise fall back to tail -f
-    if command -v multitail &> /dev/null; then
-        echo -e "${GREEN}Using multitail for better display${NC}"
-        multitail $log_files
-    else
-        # Create a temporary file for tail output formatting
-        local temp_file="/tmp/missing-table-tail-$$"
+    # Check for jq
+    if ! command -v jq &> /dev/null; then
+        echo -e "${YELLOW}Tip: Install jq for better JSON log formatting: brew install jq${NC}"
+        echo ""
+    fi
 
-        # Function to cleanup temp file on exit
-        cleanup_tail() {
-            rm -f "$temp_file"
-            exit 0
-        }
-        trap cleanup_tail INT TERM EXIT
+    # Function to cleanup on exit
+    cleanup_tail() {
+        exit 0
+    }
+    trap cleanup_tail INT TERM EXIT
 
-        # Use tail -f with labels
-        if [ -f "$backend_log" ] && [ -f "$frontend_log" ]; then
-            echo -e "${GREEN}Tailing both backend and frontend logs...${NC}"
-            tail -f "$backend_log" "$frontend_log" | while read -r line; do
-                # Add timestamp and color coding
-                timestamp=$(date '+%H:%M:%S')
-                if echo "$line" | grep -q "==> .*/backend.log <=="; then
-                    echo -e "${BLUE}[$timestamp] BACKEND:${NC}"
-                elif echo "$line" | grep -q "==> .*/frontend.log <=="; then
-                    echo -e "${GREEN}[$timestamp] FRONTEND:${NC}"
-                elif [ -n "$line" ]; then
-                    echo "[$timestamp] $line"
-                fi
-            done
-        elif [ -f "$backend_log" ]; then
-            echo -e "${GREEN}Tailing backend logs only...${NC}"
-            tail -f "$backend_log" | while read -r line; do
-                timestamp=$(date '+%H:%M:%S')
-                echo -e "${BLUE}[$timestamp] BACKEND:${NC} $line"
-            done
-        elif [ -f "$frontend_log" ]; then
-            echo -e "${GREEN}Tailing frontend logs only...${NC}"
-            tail -f "$frontend_log" | while read -r line; do
-                timestamp=$(date '+%H:%M:%S')
-                echo -e "${GREEN}[$timestamp] FRONTEND:${NC} $line"
-            done
-        fi
+    # Tail logs with formatting
+    if [ -f "$backend_log" ] && [ -f "$frontend_log" ]; then
+        echo -e "${GREEN}Tailing both backend and frontend logs...${NC}"
+        echo ""
+        tail -f "$backend_log" "$frontend_log" | while read -r line; do
+            # Skip file header lines from tail -f
+            if echo "$line" | grep -q "==> .*/backend.log <=="; then
+                echo -e "\n${BLUE}${BOLD}--- BACKEND ---${NC}"
+            elif echo "$line" | grep -q "==> .*/frontend.log <=="; then
+                echo -e "\n${GREEN}${BOLD}--- FRONTEND ---${NC}"
+            elif [ -n "$line" ]; then
+                format_json_log "$line" "backend"
+            fi
+        done
+    elif [ -f "$backend_log" ]; then
+        echo -e "${GREEN}Tailing backend logs only...${NC}"
+        echo ""
+        tail -f "$backend_log" | while read -r line; do
+            format_json_log "$line" "backend"
+        done
+    elif [ -f "$frontend_log" ]; then
+        echo -e "${GREEN}Tailing frontend logs only...${NC}"
+        echo ""
+        tail -f "$frontend_log" | while read -r line; do
+            format_json_log "$line" "frontend"
+        done
     fi
 }
 

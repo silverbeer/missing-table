@@ -182,3 +182,7 @@ backend/tests/e2e/playwright/screenshots/
 # TSC test artifacts (environment-specific registry files)
 backend/tests/tsc/.entity_registry.json
 backend/tests/tsc/.entity_registry.*.json
+
+# Local environment config
+.current-env
+.current-redis

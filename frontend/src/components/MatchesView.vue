@@ -2028,9 +2028,12 @@ export default {
         lastFive: [],
       };
 
-      // Sort matches by date (ascending order) and filter by selected match type
+      // Sort matches by date (ascending order) and filter to only completed matches
+      // Only count matches that have actually been played (completed status)
       let sortedGames = [...matches.value].filter(
-        match => new Date(match.match_date) <= currentDate
+        match =>
+          new Date(match.match_date) <= currentDate &&
+          match.match_status === 'completed'
       );
 
       // Apply match type filter if a specific type is selected

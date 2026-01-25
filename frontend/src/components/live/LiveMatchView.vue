@@ -42,6 +42,10 @@
         :match-state="matchState"
         :match-period="matchPeriod"
         :fetch-rosters="fetchTeamRosters"
+        :fetch-lineups="fetchLineups"
+        :save-lineup="saveLineup"
+        :home-lineup="homeLineup"
+        :away-lineup="awayLineup"
         @update-clock="handleUpdateClock"
         @post-goal="handlePostGoal"
       />
@@ -94,6 +98,11 @@ const {
   loadMoreEvents,
   fetchMatchState,
   fetchTeamRosters,
+  // Lineup
+  homeLineup,
+  awayLineup,
+  fetchLineups,
+  saveLineup,
 } = useLiveMatch(props.matchId);
 
 const isSending = ref(false);

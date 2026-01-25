@@ -193,6 +193,131 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_team_error", team_id=team_id, season_id=season_id, error=str(e))
             return []
 
+    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:lim{limit}")
+    def get_goals_leaderboard(
+        self,
+        season_id: int,
+        league_id: int | None = None,
+        division_id: int | None = None,
+        age_group_id: int | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """
+        Get top goal scorers filtered by league/division/age group.
+
+        Args:
+            season_id: Season ID (required)
+            league_id: Optional league filter
+            division_id: Optional division filter
+            age_group_id: Optional age group filter
+            limit: Maximum results (default 50)
+
+        Returns:
+            List of player dicts with goals stats, ranked by goals descending
+        """
+        try:
+            # Build the query using Supabase RPC or raw SQL
+            # Since Supabase Python SDK doesn't support complex aggregations well,
+            # we'll fetch the data and aggregate in Python
+
+            # Get all player match stats for matches in this season
+            query = (
+                self.client.table("player_match_stats")
+                .select("""
+                    player_id,
+                    goals,
+                    match:matches!inner(
+                        id,
+                        season_id,
+                        match_status,
+                        division_id,
+                        age_group_id,
+                        division:divisions(
+                            id,
+                            league_id
+                        )
+                    ),
+                    player:players!inner(
+                        id,
+                        jersey_number,
+                        first_name,
+                        last_name,
+                        team_id,
+                        team:teams(
+                            id,
+                            name
+                        )
+                    )
+                """)
+                .eq("match.season_id", season_id)
+                .eq("match.match_status", "completed")
+            )
+
+            # Apply optional filters
+            if division_id is not None:
+                query = query.eq("match.division_id", division_id)
+            if age_group_id is not None:
+                query = query.eq("match.age_group_id", age_group_id)
+
+            response = query.execute()
+            stats = response.data or []
+
+            # Filter by league_id if specified (need to do this in Python since nested filter)
+            if league_id is not None:
+                stats = [
+                    s for s in stats
+                    if s.get("match", {}).get("division", {}).get("league_id") == league_id
+                ]
+
+            # Aggregate by player
+            player_goals: dict[int, dict] = {}
+            for stat in stats:
+                player = stat.get("player")
+                if not player:
+                    continue
+
+                player_id = player["id"]
+                goals = stat.get("goals", 0)
+
+                if player_id not in player_goals:
+                    team = player.get("team", {}) or {}
+                    player_goals[player_id] = {
+                        "player_id": player_id,
+                        "jersey_number": player.get("jersey_number"),
+                        "first_name": player.get("first_name"),
+                        "last_name": player.get("last_name"),
+                        "team_id": player.get("team_id"),
+                        "team_name": team.get("name"),
+                        "goals": 0,
+                        "games_played": 0,
+                    }
+
+                player_goals[player_id]["goals"] += goals
+                player_goals[player_id]["games_played"] += 1
+
+            # Filter out players with 0 goals and sort
+            result = [p for p in player_goals.values() if p["goals"] > 0]
+            result.sort(key=lambda x: (-x["goals"], x["games_played"]))
+
+            # Calculate goals per game and add rank
+            for i, player in enumerate(result[:limit], start=1):
+                player["rank"] = i
+                games = player["games_played"]
+                player["goals_per_game"] = round(player["goals"] / games, 2) if games > 0 else 0.0
+
+            return result[:limit]
+
+        except Exception as e:
+            logger.error(
+                "stats_goals_leaderboard_error",
+                season_id=season_id,
+                league_id=league_id,
+                division_id=division_id,
+                age_group_id=age_group_id,
+                error=str(e),
+            )
+            return []
+
     # === Update Operations ===
 
     @invalidates_cache(STATS_CACHE_PATTERN)

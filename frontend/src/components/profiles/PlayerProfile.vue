@@ -49,12 +49,12 @@
           <div class="form-group half">
             <label>Jersey Number</label>
             <input
-              v-model="editableNumber"
-              type="number"
-              min="1"
-              max="99"
-              placeholder="#"
+              :value="editableNumber || '—'"
+              type="text"
+              readonly
+              class="readonly-input"
             />
+            <span class="field-hint">Set by team manager</span>
           </div>
           <div class="form-group half">
             <label>Position</label>
@@ -703,9 +703,7 @@ export default {
         if (editableHometown.value !== (profile?.hometown || '')) {
           updates.hometown = editableHometown.value || null;
         }
-        if (editableNumber.value !== profile?.player_number) {
-          updates.player_number = editableNumber.value || null;
-        }
+        // Note: player_number is now set by team manager via invites, not editable by player
         const currentPositions = parsedPositions.value;
         const currentPosition =
           currentPositions.length > 0 ? currentPositions[0] : '';
@@ -1502,6 +1500,19 @@ export default {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.readonly-input {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
 }
 
 .form-row {
