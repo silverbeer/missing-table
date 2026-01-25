@@ -36,6 +36,7 @@ from models import (
     JerseyNumberUpdate,
     LeagueCreate,
     LeagueUpdate,
+    LineupSave,
     LiveMatchClock,
     MatchPatch,
     MatchSubmissionData,
@@ -65,7 +66,9 @@ from services import InviteService
 DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
 
 from dao.club_dao import ClubDAO
+from dao.exceptions import DuplicateRecordError
 from dao.league_dao import LeagueDAO
+from dao.lineup_dao import LineupDAO
 from dao.match_dao import MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.match_event_dao import MatchEventDAO
@@ -191,6 +194,7 @@ club_dao = ClubDAO(db_conn_holder_obj)
 player_dao = PlayerDAO(db_conn_holder_obj)
 roster_dao = RosterDAO(db_conn_holder_obj)
 player_stats_dao = PlayerStatsDAO(db_conn_holder_obj)
+lineup_dao = LineupDAO(db_conn_holder_obj)
 season_dao = SeasonDAO(db_conn_holder_obj)
 league_dao = LeagueDAO(db_conn_holder_obj)
 match_type_dao = MatchTypeDAO(db_conn_holder_obj)
@@ -2078,6 +2082,11 @@ async def add_match(
             return {"message": "Match added successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to add match")
+    except DuplicateRecordError as e:
+        logger.warning(f"Duplicate match: {e.message}", details=e.details)
+        raise HTTPException(status_code=409, detail=e.message) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error adding match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -2623,6 +2632,79 @@ async def get_match_events(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# === Match Lineup Endpoints ===
+
+
+@app.get("/api/matches/{match_id}/lineup/{team_id}")
+async def get_lineup(
+    match_id: int,
+    team_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Get lineup for a team in a specific match.
+
+    Returns lineup with formation name and player-position assignments,
+    enriched with player details (jersey number, name).
+    """
+    try:
+        lineup = lineup_dao.get_lineup(match_id, team_id)
+        return lineup
+    except Exception as e:
+        logger.error(f"Error getting lineup: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.put("/api/matches/{match_id}/lineup/{team_id}")
+async def save_lineup(
+    match_id: int,
+    team_id: int,
+    lineup: LineupSave,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Save or update lineup for a team in a match.
+
+    Only accessible by admins, club managers, and team managers who can edit this match.
+    When lineup is saved, also marks all assigned players as started in player_match_stats.
+    """
+    try:
+        # Get user ID from current user
+        user_id = current_user.get("id")
+
+        # Convert Pydantic models to dicts for storage
+        positions_data = [{"player_id": p.player_id, "position": p.position} for p in lineup.positions]
+
+        # Save the lineup
+        saved_lineup = lineup_dao.save_lineup(
+            match_id=match_id,
+            team_id=team_id,
+            formation_name=lineup.formation_name,
+            positions=positions_data,
+            user_id=user_id,
+        )
+
+        if not saved_lineup:
+            raise HTTPException(status_code=500, detail="Failed to save lineup")
+
+        # Mark all players in lineup as started
+        for position in lineup.positions:
+            player_stats_dao.set_started(position.player_id, match_id, started=True)
+
+        logger.info(
+            "Lineup saved",
+            match_id=match_id,
+            team_id=team_id,
+            formation=lineup.formation_name,
+            player_count=len(lineup.positions),
+        )
+
+        return saved_lineup
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving lineup: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 # === Enhanced League Table Endpoint ===
 
 
@@ -2666,6 +2748,41 @@ async def get_table(
         return table
     except Exception as e:
         logger.error(f"Error generating league table: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/leaderboards/goals")
+async def get_goals_leaderboard(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+    season_id: int = Query(..., description="Season ID (required)"),
+    league_id: int | None = Query(None, description="Filter by league ID"),
+    division_id: int | None = Query(None, description="Filter by division ID"),
+    age_group_id: int | None = Query(None, description="Filter by age group ID"),
+    limit: int = Query(50, description="Maximum results", ge=1, le=100),
+):
+    """Get goals leaderboard - top scorers filtered by season/league/division/age group."""
+    try:
+        leaderboard = player_stats_dao.get_goals_leaderboard(
+            season_id=season_id,
+            league_id=league_id,
+            division_id=division_id,
+            age_group_id=age_group_id,
+            limit=limit,
+        )
+
+        logger.info(
+            "Goals leaderboard query",
+            season_id=season_id,
+            league_id=league_id,
+            division_id=division_id,
+            age_group_id=age_group_id,
+            limit=limit,
+            rows_returned=len(leaderboard),
+        )
+
+        return leaderboard
+    except Exception as e:
+        logger.error(f"Error generating goals leaderboard: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -4222,4 +4339,4 @@ async def full_health_check():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, access_log=False)

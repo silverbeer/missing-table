@@ -415,6 +415,76 @@ export function useLiveMatch(matchId) {
     }
   }
 
+  // Lineup state
+  const homeLineup = ref(null);
+  const awayLineup = ref(null);
+  const lineupLoading = ref(false);
+
+  // Fetch lineup for a specific team
+  async function fetchLineup(teamId) {
+    try {
+      const response = await authStore.apiRequest(
+        `${getApiBaseUrl()}/api/matches/${matchId}/lineup/${teamId}`
+      );
+      return response;
+    } catch (err) {
+      console.error('Error fetching lineup:', err);
+      return null;
+    }
+  }
+
+  // Fetch lineups for both teams
+  async function fetchLineups() {
+    if (!matchState.value) return;
+
+    const { home_team_id, away_team_id } = matchState.value;
+    lineupLoading.value = true;
+
+    try {
+      const [homeResponse, awayResponse] = await Promise.all([
+        fetchLineup(home_team_id),
+        fetchLineup(away_team_id),
+      ]);
+
+      homeLineup.value = homeResponse;
+      awayLineup.value = awayResponse;
+    } catch (err) {
+      console.error('Error fetching lineups:', err);
+    } finally {
+      lineupLoading.value = false;
+    }
+  }
+
+  // Save lineup for a team
+  async function saveLineup(teamId, formationName, positions) {
+    try {
+      const response = await authStore.apiRequest(
+        `${getApiBaseUrl()}/api/matches/${matchId}/lineup/${teamId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            formation_name: formationName,
+            positions,
+          }),
+        }
+      );
+
+      // Update local state
+      if (matchState.value) {
+        if (teamId === matchState.value.home_team_id) {
+          homeLineup.value = response;
+        } else if (teamId === matchState.value.away_team_id) {
+          awayLineup.value = response;
+        }
+      }
+
+      return { success: true, lineup: response };
+    } catch (err) {
+      console.error('Error saving lineup:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   // Auto-initialize
   initialize();
 
@@ -425,6 +495,11 @@ export function useLiveMatch(matchId) {
     isLoading,
     error,
     isConnected,
+
+    // Lineup state
+    homeLineup,
+    awayLineup,
+    lineupLoading,
 
     // Computed
     elapsedSeconds,
@@ -440,5 +515,10 @@ export function useLiveMatch(matchId) {
     loadMoreEvents,
     fetchMatchState,
     fetchTeamRosters,
+
+    // Lineup methods
+    fetchLineup,
+    fetchLineups,
+    saveLineup,
   };
 }

@@ -33,6 +33,14 @@ from .leagues import (
     LeagueUpdate,
 )
 
+# Lineup models
+from .lineup import (
+    LineupPositionEntry,
+    LineupPositionResponse,
+    LineupResponse,
+    LineupSave,
+)
+
 # Live match models
 from .live_match import (
     GoalEvent,
@@ -90,6 +98,11 @@ __all__ = [
     "League",
     "LeagueCreate",
     "LeagueUpdate",
+    # Lineup
+    "LineupPositionEntry",
+    "LineupPositionResponse",
+    "LineupResponse",
+    "LineupSave",
     # Live Match
     "LiveMatchClock",
     "LiveMatchState",

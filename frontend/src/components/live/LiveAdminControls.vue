@@ -1,5 +1,58 @@
 <template>
   <div class="admin-controls">
+    <!-- Lineup Section (collapsible) -->
+    <div class="lineup-section">
+      <button
+        @click="toggleLineupSection"
+        class="section-toggle"
+        :class="{ expanded: showLineupSection }"
+      >
+        <span class="toggle-icon">{{ showLineupSection ? '-' : '+' }}</span>
+        Lineup
+      </button>
+
+      <div v-if="showLineupSection" class="lineup-content">
+        <!-- Team tabs -->
+        <div class="team-tabs">
+          <button
+            @click="activeLineupTab = 'home'"
+            :class="['tab-button', { active: activeLineupTab === 'home' }]"
+          >
+            {{ matchState.home_team_name }}
+          </button>
+          <button
+            @click="activeLineupTab = 'away'"
+            :class="['tab-button', { active: activeLineupTab === 'away' }]"
+          >
+            {{ matchState.away_team_name }}
+          </button>
+        </div>
+
+        <!-- Lineup manager for selected team -->
+        <div v-if="lineupsLoading" class="lineup-loading">
+          Loading lineups...
+        </div>
+        <LineupManager
+          v-else-if="activeLineupTab === 'home'"
+          :team-id="matchState.home_team_id"
+          :team-name="matchState.home_team_name"
+          :roster="homeRoster"
+          :initial-lineup="homeLineup"
+          :saving="savingLineup"
+          @save="handleSaveLineup(matchState.home_team_id, $event)"
+        />
+        <LineupManager
+          v-else
+          :team-id="matchState.away_team_id"
+          :team-name="matchState.away_team_name"
+          :roster="awayRoster"
+          :initial-lineup="awayLineup"
+          :saving="savingLineup"
+          @save="handleSaveLineup(matchState.away_team_id, $event)"
+        />
+      </div>
+    </div>
+
     <!-- Clock Controls -->
     <div class="clock-controls">
       <button
@@ -200,6 +253,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import LineupManager from './LineupManager.vue';
 
 const props = defineProps({
   matchState: {
@@ -212,6 +266,22 @@ const props = defineProps({
   },
   fetchRosters: {
     type: Function,
+    default: null,
+  },
+  fetchLineups: {
+    type: Function,
+    default: null,
+  },
+  saveLineup: {
+    type: Function,
+    default: null,
+  },
+  homeLineup: {
+    type: Object,
+    default: null,
+  },
+  awayLineup: {
+    type: Object,
     default: null,
   },
 });
@@ -233,6 +303,70 @@ const rostersLoaded = ref(false);
 
 // Start match modal state
 const showStartModal = ref(false);
+
+// Lineup section state
+const showLineupSection = ref(false);
+const activeLineupTab = ref('home');
+const lineupsLoading = ref(false);
+const lineupsLoaded = ref(false);
+const savingLineup = ref(false);
+
+// Toggle lineup section
+function toggleLineupSection() {
+  showLineupSection.value = !showLineupSection.value;
+
+  // Load rosters and lineups when section is opened for the first time
+  if (showLineupSection.value && !lineupsLoaded.value) {
+    loadLineupsAndRosters();
+  }
+}
+
+// Load lineups and rosters
+async function loadLineupsAndRosters() {
+  lineupsLoading.value = true;
+  try {
+    // Load rosters if not already loaded
+    if (props.fetchRosters && !rostersLoaded.value) {
+      const rosters = await props.fetchRosters();
+      homeRoster.value = rosters.home || [];
+      awayRoster.value = rosters.away || [];
+      rostersLoaded.value = true;
+    }
+
+    // Load lineups
+    if (props.fetchLineups) {
+      await props.fetchLineups();
+    }
+
+    lineupsLoaded.value = true;
+  } catch (err) {
+    console.error('Failed to load lineups and rosters:', err);
+  } finally {
+    lineupsLoading.value = false;
+  }
+}
+
+// Handle lineup save
+async function handleSaveLineup(teamId, lineupData) {
+  if (!props.saveLineup) return;
+
+  savingLineup.value = true;
+  try {
+    const result = await props.saveLineup(
+      teamId,
+      lineupData.formation_name,
+      lineupData.positions
+    );
+
+    if (!result.success) {
+      console.error('Failed to save lineup:', result.error);
+    }
+  } catch (err) {
+    console.error('Error saving lineup:', err);
+  } finally {
+    savingLineup.value = false;
+  }
+}
 
 // Compute current team roster based on selected team
 const currentTeamRoster = computed(() => {
@@ -629,5 +763,84 @@ function submitGoal() {
 
 .mt-2 {
   margin-top: 8px;
+}
+
+/* Lineup section styles */
+.lineup-section {
+  margin-bottom: 16px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 16px;
+}
+
+.section-toggle {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: 2px solid #444;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.section-toggle:hover {
+  border-color: #666;
+}
+
+.section-toggle.expanded {
+  border-color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.toggle-icon {
+  font-size: 18px;
+  font-weight: bold;
+  width: 20px;
+  text-align: center;
+}
+
+.lineup-content {
+  margin-top: 16px;
+}
+
+.team-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  background: transparent;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-button.active {
+  border-color: #2196f3;
+  background: rgba(33, 150, 243, 0.2);
+}
+
+.tab-button:hover:not(.active) {
+  border-color: #666;
+}
+
+.lineup-loading {
+  text-align: center;
+  padding: 40px;
+  color: #aaa;
 }
 </style>

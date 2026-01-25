@@ -11,8 +11,10 @@ from datetime import UTC
 import httpx
 import structlog
 from dotenv import load_dotenv
+from postgrest.exceptions import APIError
 
 from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.exceptions import DuplicateRecordError
 from dao.standings import (
     calculate_standings,
     filter_by_match_type,
@@ -593,6 +595,23 @@ class MatchDAO(BaseDAO):
 
             return bool(response.data)
 
+        except APIError as e:
+            error_dict = e.args[0] if e.args else {}
+            if error_dict.get("code") == "23505":
+                # Duplicate key violation
+                logger.warning(
+                    "Duplicate match detected",
+                    home_team_id=home_team_id,
+                    away_team_id=away_team_id,
+                    match_date=match_date,
+                    details=error_dict.get("details"),
+                )
+                raise DuplicateRecordError(
+                    message="A match with these teams on this date already exists",
+                    details=error_dict.get("details"),
+                ) from e
+            logger.exception("Error adding match")
+            return False
         except Exception:
             logger.exception("Error adding match")
             return False

@@ -146,19 +146,17 @@ cd frontend && npm run test:run        # Frontend tests
 
 ### Docker
 ```bash
-# Build for cloud (ALWAYS use this for GKE - handles ARM64/AMD64)
-./build-and-push.sh backend dev
-./build-and-push.sh frontend prod
-
-# Local development
+# Images are built by CI and pushed to GHCR (GitHub Container Registry)
+# Manual builds (local development only):
 docker-compose up
 docker-compose down
 ```
 
 ### Helm/Kubernetes
 ```bash
-cd helm && ./deploy-helm.sh
-helm upgrade missing-table ./missing-table --namespace missing-table
+# Production deploys via GitOps (ArgoCD watches values-doks.yaml)
+# Manual helm commands for debugging only:
+helm upgrade missing-table ./missing-table --namespace missing-table -f ./missing-table/values-doks.yaml
 ```
 
 **Full deployment docs**: [docs/05-deployment/README.md](docs/05-deployment/README.md)
@@ -167,9 +165,20 @@ helm upgrade missing-table ./missing-table --namespace missing-table
 
 ## Production Environment
 
-**GKE CLUSTER SHUTDOWN (2025-12-07)** - Application offline to save costs (~$40/month savings).
-- Database (Supabase) still active
-- **To restart**: See [docs/07-operations/GKE_SHUTDOWN_2025-12-07.md](docs/07-operations/GKE_SHUTDOWN_2025-12-07.md)
+**DOKS (DigitalOcean Kubernetes Service)** - Current production platform.
+
+| Component | Details |
+|-----------|---------|
+| **Cluster** | DOKS managed by Terraform in [missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap) |
+| **GitOps** | ArgoCD watches `helm/missing-table/values-doks.yaml` |
+| **Images** | GHCR (`ghcr.io/silverbeer/missing-table-backend/frontend`) |
+| **Secrets** | External Secrets Operator → AWS Secrets Manager |
+| **Domains** | missingtable.com, www.missingtable.com, api.missingtable.com |
+| **Database** | Supabase (cloud-hosted) |
+
+**CI/CD Flow**: Push to main → CI builds images → Updates `values-doks.yaml` → ArgoCD syncs to DOKS
+
+**Historical note**: GKE was shut down 2025-12-07, migrated to DOKS December 2025.
 
 ---
 
@@ -283,4 +292,4 @@ Backend-centered auth resolves k8s networking issues. All Supabase credentials s
 
 ---
 
-**Last Updated**: 2025-01-06
+**Last Updated**: 2026-01-22
