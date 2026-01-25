@@ -150,11 +150,11 @@
               <input
                 id="playerNumber"
                 type="text"
-                v-model="localState.player_number"
-                placeholder="e.g., 10"
-                maxlength="3"
-                class="form-input"
+                :value="localState.player_number || '—'"
+                readonly
+                class="form-input form-input-readonly"
               />
+              <span class="field-hint">Set by team manager</span>
             </div>
             <div class="form-group">
               <label for="playerPosition">Primary Position</label>
@@ -781,6 +781,18 @@ export default {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input-readonly {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
 }
 
 .error-toast,
