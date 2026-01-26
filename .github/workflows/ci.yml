@@ -160,7 +160,7 @@
         - name: Update image tags and version info in values.yaml
           run: |
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            VALUES_FILE="helm/missing-table/values-doks.yaml"
+            VALUES_FILE="helm/missing-table/values-prod.yaml"
 
             # Read version from VERSION file
             VERSION=$(cat VERSION | tr -d '\n')
@@ -185,7 +185,7 @@
           run: |
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add helm/missing-table/values-doks.yaml
+            git add helm/missing-table/values-prod.yaml
             if git diff --staged --quiet; then
               echo "No changes to commit"
             else
