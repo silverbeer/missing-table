@@ -116,6 +116,15 @@ class EntityRegistry:
             teams.append(self.premier_team_id)
         return teams
 
+    def reset_for_new_run(self) -> None:
+        """Clear accumulated list data for a fresh test run."""
+        self.match_ids.clear()
+        self.invites.clear()
+        self.user_ids.clear()
+        self.roster_entries.clear()
+        self.extra_team_ids.clear()
+        self.linked_player_id = None
+
     def get_pending_invite_ids(self) -> list[str]:
         """Get IDs of pending invites for cancellation."""
         return [inv["id"] for inv in self.invites if inv["status"] == "pending"]

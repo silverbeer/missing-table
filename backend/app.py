@@ -1687,17 +1687,23 @@ async def delete_user(
     """
     Delete a user (admin only).
 
-    Deletes from both user_profiles table and auth.users.
-    The user_profiles deletion cascades automatically due to FK constraint.
+    Deletes from both auth.users and user_profiles table.
+    user_profiles must be deleted explicitly (no FK cascade exists).
     """
     try:
-        # First verify the user exists
         profile = auth_service_client.table("user_profiles").select("*").eq("id", user_id).execute()
         if not profile.data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Delete from auth.users (this will cascade to user_profiles)
-        auth_service_client.auth.admin.delete_user(user_id)
+        # Delete from auth.users
+        try:
+            auth_service_client.auth.admin.delete_user(user_id)
+        except Exception as auth_err:
+            # Auth user may already be gone (orphaned profile)
+            logger.warning(f"Auth user {user_id} not in auth.users, continuing: {auth_err}")
+
+        # Explicitly delete from user_profiles (no FK cascade exists)
+        auth_service_client.table("user_profiles").delete().eq("id", user_id).execute()
 
         logger.info(f"User {user_id} deleted by admin {current_user.get('user_id')}")
         return {"message": "User deleted successfully"}

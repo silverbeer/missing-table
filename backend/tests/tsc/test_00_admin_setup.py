@@ -11,13 +11,16 @@ This phase creates all the infrastructure needed for the test journey:
 Run: pytest tests/tsc/test_00_admin_setup.py -v
 """
 
-import pytest
 
 from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig
 
 
 class TestAdminSetup:
     """Phase 0: Admin creates infrastructure and invites club manager."""
+
+    def test_00_reset_registry(self, entity_registry: EntityRegistry):
+        """Reset accumulated registry data for fresh test run."""
+        entity_registry.reset_for_new_run()
 
     def test_01_login_existing_admin(
         self,
