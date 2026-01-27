@@ -104,6 +104,7 @@ jobs:
           mkdir -p contract-allure-results
           uv run pytest tests/contract/ -m contract \
             --no-cov \
+            -n 0 \
             --alluredir=contract-allure-results \
             -v
         continue-on-error: true
