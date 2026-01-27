@@ -1705,6 +1705,11 @@ async def delete_user(
         # Explicitly delete from user_profiles (no FK cascade exists)
         auth_service_client.table("user_profiles").delete().eq("id", user_id).execute()
 
+        # Invalidate cached user list so subsequent queries reflect the deletion
+        from dao.base_dao import clear_cache
+
+        clear_cache("mt:dao:players:*")
+
         logger.info(f"User {user_id} deleted by admin {current_user.get('user_id')}")
         return {"message": "User deleted successfully"}
 
