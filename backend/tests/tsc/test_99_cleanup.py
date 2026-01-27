@@ -412,18 +412,19 @@ class TestCleanup:
         print(f"Users with prefix: {len(users)}")
 
         if issues:
-            print(f"\n⚠️  Some entities were not cleaned up:")
+            print("\n⚠️  Some entities were not cleaned up:")
             for issue in issues:
                 print(f"  - {issue}")
             pytest.fail(f"Cleanup incomplete: {len(issues)} entity types still have data")
 
         print(f"\n✅ All {prefix}* entities cleaned up successfully!")
 
-    def test_10_clear_registry_file(self):
+    def test_10_clear_registry_file(self, entity_registry):
         """Clear the persisted registry file for current environment."""
         from tests.tsc.conftest import clear_entity_registry, get_registry_file
 
         registry_file = get_registry_file()
         print(f"Registry file: {registry_file.name}")
         clear_entity_registry()
+        entity_registry.reset_for_new_run()
         print("Cleared entity registry file for current environment")
