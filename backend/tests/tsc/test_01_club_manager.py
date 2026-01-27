@@ -10,7 +10,6 @@ This phase tests the club manager user experience:
 Run: pytest tests/tsc/test_01_club_manager.py -v
 """
 
-import pytest
 
 from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig
 
@@ -145,6 +144,6 @@ class TestClubManagerJourney:
         assert len(club_fan_invites) > 0, "Club fan invite not created"
 
         print("\n=== Phase 1 Complete ===")
-        print(f"Club manager signed up and logged in")
+        print("Club manager signed up and logged in")
         print(f"Club fan invite created: {club_fan_invites[0]['code']}")
         print(f"Total invites: {len(entity_registry.invites)}")

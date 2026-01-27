@@ -10,10 +10,9 @@ Tests cover:
 """
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 from backend.services.invite_service import InviteService
 
 

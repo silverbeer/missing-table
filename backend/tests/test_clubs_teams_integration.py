@@ -2,10 +2,11 @@
 Integration test for clubs and teams CRUD operations.
 Tests the basic workflow of creating a club and linking teams to it.
 """
-import pytest
-from fastapi.testclient import TestClient
 import os
+
+import pytest
 from dotenv import load_dotenv
+from fastapi.testclient import TestClient
 
 from app import app
 
@@ -223,7 +224,7 @@ class TestClubsTeamsIntegration:
         assert fetched_team.get("parent_club_id") == self.created_club_id, \
             f"Expected parent_club_id={self.created_club_id}, got {fetched_team.get('parent_club_id')}"
 
-        print(f"✅ Team successfully linked to club!")
+        print("✅ Team successfully linked to club!")
 
         # Fetch club with teams to verify it shows up
         print("\n=== Step 6: Verifying club shows team ===")
@@ -384,11 +385,11 @@ class TestClubsTeamsIntegration:
         print(f"Club team count: {fetched_club.get('team_count', 0)}")
 
         assert fetched_club.get("team_count", 0) >= 1, \
-            f"Expected club to have at least 1 team"
+            "Expected club to have at least 1 team"
 
         team_names = [t["name"] for t in fetched_club.get("teams", [])]
         assert "Test Team With Parent" in team_names, \
-            f"Expected to find 'Test Team With Parent' in club teams"
+            "Expected to find 'Test Team With Parent' in club teams"
 
         print("✅ All tests passed!")
 

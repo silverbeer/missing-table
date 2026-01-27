@@ -11,10 +11,10 @@ import pytest
 from pydantic import ValidationError
 
 from models.auth import (
-    UserSignup,
-    ProfilePhotoSlot,
     PlayerCustomization,
     PlayerHistoryCreate,
+    ProfilePhotoSlot,
+    UserSignup,
 )
 
 

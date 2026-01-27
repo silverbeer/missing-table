@@ -26,17 +26,35 @@ from .exceptions import (
     ValidationError,
 )
 from .models import (
+    AdminPlayerTeamAssignment,
+    AdminPlayerUpdate,
     AgeGroupCreate,
     AgeGroupUpdate,
+    BulkRenumberRequest,
+    BulkRosterCreate,
     DivisionCreate,
     DivisionUpdate,
     EnhancedGame,
     GamePatch,
+    GoalEvent,
+    InviteRequestCreate,
+    InviteRequestStatusUpdate,
+    JerseyNumberUpdate,
+    LineupSave,
+    LiveMatchClock,
+    MatchSubmissionData,
+    MessageEvent,
+    PlayerCustomization,
+    PlayerHistoryCreate,
+    PlayerHistoryUpdate,
     RefreshTokenRequest,
     RoleUpdate,
+    RosterPlayerCreate,
+    RosterPlayerUpdate,
     SeasonCreate,
     SeasonUpdate,
     Team,
+    UserProfileUpdate,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -137,6 +155,37 @@ class MissingTableClient:
             url=url,
             headers=headers,
             json=json_data,
+            params=params,
+        )
+
+        if not response.is_success:
+            self._handle_response_error(response)
+
+        return response
+
+    def _request_multipart(
+        self,
+        method: str,
+        path: str,
+        files: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> httpx.Response:
+        """Make a multipart/form-data request (for file uploads)."""
+        url = urljoin(self.base_url, path)
+        # Omit Content-Type header; httpx sets multipart boundary automatically
+        headers = {}
+        if self._access_token:
+            headers["Authorization"] = f"Bearer {self._access_token}"
+
+        logger.debug(f"{method} {url} (multipart)")
+
+        response = self._client.request(
+            method=method,
+            url=url,
+            headers=headers,
+            files=files,
+            data=data,
             params=params,
         )
 
@@ -670,15 +719,19 @@ class MissingTableClient:
 
     # Team manager invite creation endpoints
 
-    def create_team_player_invite(self, team_id: int, age_group_id: int, email: str | None = None) -> dict[str, Any]:
+    def create_team_player_invite(
+        self, team_id: int, age_group_id: int, email: str | None = None, player_id: int | None = None
+    ) -> dict[str, Any]:
         """Create a team player invite (team manager or admin)."""
-        payload = {
+        payload: dict[str, Any] = {
             "invite_type": "team_player",
             "team_id": team_id,
             "age_group_id": age_group_id,
         }
         if email:
             payload["email"] = email
+        if player_id is not None:
+            payload["player_id"] = player_id
         response = self._request("POST", "/api/invites/team-manager/team-player", json_data=payload)
         return response.json()
 
@@ -740,4 +793,378 @@ class MissingTableClient:
     def delete_league(self, league_id: int) -> dict[str, Any]:
         """Delete a league (admin only)."""
         response = self._request("DELETE", f"/api/leagues/{league_id}")
+        return response.json()
+
+    # Auth extras
+
+    def get_me(self) -> dict[str, Any]:
+        """Get current authenticated user info."""
+        response = self._request("GET", "/api/auth/me")
+        return response.json()
+
+    def check_username_available(self, username: str) -> dict[str, Any]:
+        """Check if a username is available."""
+        response = self._request("GET", f"/api/auth/username-available/{username}")
+        return response.json()
+
+    # Profile photos
+
+    def upload_profile_photo(self, slot: str, file_path: str) -> dict[str, Any]:
+        """Upload a profile photo to a slot (multipart)."""
+        with open(file_path, "rb") as f:
+            response = self._request_multipart(
+                "POST",
+                f"/api/auth/profile/photo/{slot}",
+                files={"file": (file_path.split("/")[-1], f)},
+            )
+        return response.json()
+
+    def delete_profile_photo(self, slot: str) -> dict[str, Any]:
+        """Delete a profile photo from a slot."""
+        response = self._request("DELETE", f"/api/auth/profile/photo/{slot}")
+        return response.json()
+
+    def set_profile_photo_slot(self, slot: str) -> dict[str, Any]:
+        """Set the active profile photo slot."""
+        response = self._request("PUT", "/api/auth/profile/photo/profile-slot", json_data={"slot": slot})
+        return response.json()
+
+    # Profile customization
+
+    def update_player_customization(self, customization: PlayerCustomization) -> dict[str, Any]:
+        """Update player customization settings."""
+        response = self._request(
+            "PUT", "/api/auth/profile/customization", json_data=customization.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    # Player history
+
+    def get_player_history(self) -> list[dict[str, Any]]:
+        """Get current user's player history."""
+        response = self._request("GET", "/api/auth/profile/history")
+        return response.json()
+
+    def get_current_team_assignment(self) -> dict[str, Any]:
+        """Get current team assignment for the authenticated player."""
+        response = self._request("GET", "/api/auth/profile/history/current")
+        return response.json()
+
+    def get_all_current_teams(self) -> list[dict[str, Any]]:
+        """Get all current team assignments for the authenticated player."""
+        response = self._request("GET", "/api/auth/profile/teams/current")
+        return response.json()
+
+    def create_player_history(self, history: PlayerHistoryCreate) -> dict[str, Any]:
+        """Create a player history entry."""
+        response = self._request(
+            "POST", "/api/auth/profile/history", json_data=history.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def update_player_history(self, history_id: int, history: PlayerHistoryUpdate) -> dict[str, Any]:
+        """Update a player history entry."""
+        response = self._request(
+            "PUT", f"/api/auth/profile/history/{history_id}", json_data=history.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def delete_player_history(self, history_id: int) -> dict[str, Any]:
+        """Delete a player history entry."""
+        response = self._request("DELETE", f"/api/auth/profile/history/{history_id}")
+        return response.json()
+
+    # Admin user profile
+
+    def admin_update_user_profile(self, profile: UserProfileUpdate) -> dict[str, Any]:
+        """Update a user profile (admin only)."""
+        response = self._request("PUT", "/api/auth/users/profile", json_data=profile.model_dump(exclude_none=True))
+        return response.json()
+
+    # Admin player management
+
+    def get_admin_players(self, **params: Any) -> list[dict[str, Any]]:
+        """Get players list (admin only)."""
+        response = self._request("GET", "/api/admin/players", params=params or None)
+        return response.json()
+
+    def update_admin_player(self, player_id: int, update: AdminPlayerUpdate) -> dict[str, Any]:
+        """Update a player (admin only)."""
+        response = self._request(
+            "PUT", f"/api/admin/players/{player_id}", json_data=update.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def add_admin_player_team(self, player_id: int, assignment: AdminPlayerTeamAssignment) -> dict[str, Any]:
+        """Assign a player to a team (admin only)."""
+        response = self._request(
+            "POST", f"/api/admin/players/{player_id}/teams", json_data=assignment.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def end_admin_player_team(self, history_id: int) -> dict[str, Any]:
+        """End a player's team assignment (admin only)."""
+        response = self._request("PUT", f"/api/admin/players/teams/{history_id}/end")
+        return response.json()
+
+    # Team roster
+
+    def get_team_roster(self, team_id: int, season_id: int | None = None) -> dict[str, Any]:
+        """Get team roster for a season."""
+        params = {}
+        if season_id is not None:
+            params["season_id"] = season_id
+        response = self._request("GET", f"/api/teams/{team_id}/roster", params=params or None)
+        return response.json()
+
+    def create_roster_entry(self, team_id: int, entry: RosterPlayerCreate) -> dict[str, Any]:
+        """Create a roster entry for a team."""
+        response = self._request(
+            "POST", f"/api/teams/{team_id}/roster", json_data=entry.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def bulk_create_roster(self, team_id: int, bulk: BulkRosterCreate) -> dict[str, Any]:
+        """Bulk create roster entries for a team."""
+        response = self._request(
+            "POST", f"/api/teams/{team_id}/roster/bulk", json_data=bulk.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def update_roster_entry(self, team_id: int, player_id: int, update: RosterPlayerUpdate) -> dict[str, Any]:
+        """Update a roster entry."""
+        response = self._request(
+            "PUT", f"/api/teams/{team_id}/roster/{player_id}", json_data=update.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def update_jersey_number(self, team_id: int, player_id: int, update: JerseyNumberUpdate) -> dict[str, Any]:
+        """Update a player's jersey number."""
+        response = self._request(
+            "PUT", f"/api/teams/{team_id}/roster/{player_id}/number", json_data=update.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def bulk_renumber_roster(self, team_id: int, renumber: BulkRenumberRequest) -> dict[str, Any]:
+        """Bulk renumber roster entries."""
+        response = self._request(
+            "POST", f"/api/teams/{team_id}/roster/renumber", json_data=renumber.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def delete_roster_entry(self, team_id: int, player_id: int) -> dict[str, Any]:
+        """Delete a roster entry."""
+        response = self._request("DELETE", f"/api/teams/{team_id}/roster/{player_id}")
+        return response.json()
+
+    # Team players & stats
+
+    def get_team_players(self, team_id: int) -> list[dict[str, Any]]:
+        """Get all players for a team."""
+        response = self._request("GET", f"/api/teams/{team_id}/players")
+        return response.json()
+
+    def get_team_stats(self, team_id: int, season_id: int | None = None) -> dict[str, Any]:
+        """Get team stats."""
+        params = {}
+        if season_id is not None:
+            params["season_id"] = season_id
+        response = self._request("GET", f"/api/teams/{team_id}/stats", params=params or None)
+        return response.json()
+
+    # Team match types
+
+    def add_team_match_type(self, team_id: int, match_type_id: int, age_group_id: int) -> dict[str, Any]:
+        """Add a match type to a team."""
+        response = self._request(
+            "POST",
+            f"/api/teams/{team_id}/match-types",
+            json_data={"match_type_id": match_type_id, "age_group_id": age_group_id},
+        )
+        return response.json()
+
+    def delete_team_match_type(self, team_id: int, match_type_id: int, age_group_id: int) -> dict[str, Any]:
+        """Remove a match type from a team."""
+        response = self._request("DELETE", f"/api/teams/{team_id}/match-types/{match_type_id}/{age_group_id}")
+        return response.json()
+
+    # Match live
+
+    def get_live_matches(self) -> list[dict[str, Any]]:
+        """Get all currently live matches."""
+        response = self._request("GET", "/api/matches/live")
+        return response.json()
+
+    def get_live_match_state(self, match_id: int) -> dict[str, Any]:
+        """Get live state for a match."""
+        response = self._request("GET", f"/api/matches/{match_id}/live")
+        return response.json()
+
+    def update_match_clock(self, match_id: int, clock: LiveMatchClock) -> dict[str, Any]:
+        """Update the match clock."""
+        response = self._request(
+            "POST", f"/api/matches/{match_id}/live/clock", json_data=clock.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def post_goal(self, match_id: int, goal: GoalEvent) -> dict[str, Any]:
+        """Record a goal event."""
+        response = self._request(
+            "POST", f"/api/matches/{match_id}/live/goal", json_data=goal.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def post_message(self, match_id: int, message: MessageEvent) -> dict[str, Any]:
+        """Post a match message event."""
+        response = self._request(
+            "POST", f"/api/matches/{match_id}/live/message", json_data=message.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def delete_match_event(self, match_id: int, event_id: int) -> dict[str, Any]:
+        """Delete a match event."""
+        response = self._request("DELETE", f"/api/matches/{match_id}/live/events/{event_id}")
+        return response.json()
+
+    def get_match_events(self, match_id: int) -> list[dict[str, Any]]:
+        """Get all events for a match."""
+        response = self._request("GET", f"/api/matches/{match_id}/live/events")
+        return response.json()
+
+    # Match lineup
+
+    def get_lineup(self, match_id: int, team_id: int) -> dict[str, Any]:
+        """Get lineup for a team in a match."""
+        response = self._request("GET", f"/api/matches/{match_id}/lineup/{team_id}")
+        return response.json()
+
+    def save_lineup(self, match_id: int, team_id: int, lineup: LineupSave) -> dict[str, Any]:
+        """Save lineup for a team in a match."""
+        response = self._request(
+            "PUT", f"/api/matches/{match_id}/lineup/{team_id}", json_data=lineup.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    # Match operations
+
+    def submit_match_async(self, submission: MatchSubmissionData) -> dict[str, Any]:
+        """Submit a match asynchronously via message queue."""
+        response = self._request(
+            "POST", "/api/matches/submit", json_data=submission.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def get_task_status(self, task_id: str) -> dict[str, Any]:
+        """Get the status of an async task."""
+        response = self._request("GET", f"/api/matches/task/{task_id}")
+        return response.json()
+
+    # Team mappings
+
+    def create_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> dict[str, Any]:
+        """Create a team mapping."""
+        response = self._request(
+            "POST",
+            "/api/team-mappings",
+            json_data={"team_id": team_id, "age_group_id": age_group_id, "division_id": division_id},
+        )
+        return response.json()
+
+    def delete_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> dict[str, Any]:
+        """Delete a team mapping."""
+        response = self._request("DELETE", f"/api/team-mappings/{team_id}/{age_group_id}/{division_id}")
+        return response.json()
+
+    # Club logo
+
+    def upload_club_logo(self, club_id: int, file_path: str) -> dict[str, Any]:
+        """Upload a club logo (multipart)."""
+        with open(file_path, "rb") as f:
+            response = self._request_multipart(
+                "POST",
+                f"/api/clubs/{club_id}/logo",
+                files={"file": (file_path.split("/")[-1], f)},
+            )
+        return response.json()
+
+    # Player stats
+
+    def get_my_player_stats(self, season_id: int | None = None) -> dict[str, Any]:
+        """Get current user's player stats."""
+        params = {}
+        if season_id is not None:
+            params["season_id"] = season_id
+        response = self._request("GET", "/api/me/player-stats", params=params or None)
+        return response.json()
+
+    def get_player_profile(self, user_id: str) -> dict[str, Any]:
+        """Get a player's public profile."""
+        response = self._request("GET", f"/api/players/{user_id}/profile")
+        return response.json()
+
+    def get_roster_player_stats(self, player_id: int, season_id: int | None = None) -> dict[str, Any]:
+        """Get stats for a roster player."""
+        params = {}
+        if season_id is not None:
+            params["season_id"] = season_id
+        response = self._request("GET", f"/api/roster/{player_id}/stats", params=params or None)
+        return response.json()
+
+    # Leaderboards
+
+    def get_goals_leaderboard(self, **params: Any) -> list[dict[str, Any]]:
+        """Get the goals leaderboard."""
+        response = self._request("GET", "/api/leaderboards/goals", params=params or None)
+        return response.json()
+
+    # Invite requests
+
+    def create_invite_request(self, request: InviteRequestCreate) -> dict[str, Any]:
+        """Submit a public invite request."""
+        response = self._request("POST", "/api/invite-requests", json_data=request.model_dump(exclude_none=True))
+        return response.json()
+
+    def list_invite_requests(
+        self, status: str | None = None, limit: int | None = None, offset: int | None = None
+    ) -> list[dict[str, Any]]:
+        """List invite requests (admin only)."""
+        params: dict[str, Any] = {}
+        if status is not None:
+            params["status"] = status
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        response = self._request("GET", "/api/invite-requests", params=params or None)
+        return response.json()
+
+    def get_invite_request_stats(self) -> dict[str, Any]:
+        """Get invite request statistics (admin only)."""
+        response = self._request("GET", "/api/invite-requests/stats")
+        return response.json()
+
+    def get_invite_request(self, request_id: str) -> dict[str, Any]:
+        """Get a specific invite request (admin only)."""
+        response = self._request("GET", f"/api/invite-requests/{request_id}")
+        return response.json()
+
+    def update_invite_request_status(
+        self, request_id: str, update: InviteRequestStatusUpdate
+    ) -> dict[str, Any]:
+        """Update invite request status (admin only)."""
+        response = self._request(
+            "PUT", f"/api/invite-requests/{request_id}/status", json_data=update.model_dump(exclude_none=True)
+        )
+        return response.json()
+
+    def delete_invite_request(self, request_id: str) -> dict[str, Any]:
+        """Delete an invite request (admin only)."""
+        response = self._request("DELETE", f"/api/invite-requests/{request_id}")
+        return response.json()
+
+    # Version
+
+    def get_version(self) -> dict[str, Any]:
+        """Get API version information."""
+        response = self._request("GET", "/api/version")
         return response.json()

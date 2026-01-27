@@ -198,11 +198,13 @@ jobs:
         if: always()
         run: |
           # Download existing unit test summaries to include in dashboard
-          mkdir -p /tmp/backend-allure/widgets /tmp/data
+          mkdir -p /tmp/backend-allure/widgets /tmp/data /tmp/contract-allure/widgets
           aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/allure/widgets/summary.json /tmp/backend-allure/widgets/summary.json || true
           aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/backend-coverage.json /tmp/data/backend-coverage.json || true
           aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-results.json /tmp/data/frontend-results.json || true
           aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-coverage.json /tmp/data/frontend-coverage.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/contract/widgets/summary.json /tmp/contract-allure/widgets/summary.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/api-inventory.json /tmp/data/api-inventory.json || true
 
       - name: Update dashboard with journey stats
         if: always()
@@ -217,6 +219,9 @@ jobs:
             --frontend-results-json /tmp/data/frontend-results.json \
             --frontend-coverage-json /tmp/data/frontend-coverage.json \
             --journey-allure-dir allure-report \
+            --contract-allure-dir /tmp/contract-allure \
+            --include-contract \
+            --api-inventory-json /tmp/data/api-inventory.json \
             --history-json /tmp/history.json \
             --comparison-json /tmp/comparison.json
 

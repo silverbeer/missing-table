@@ -11,12 +11,12 @@ Demonstrates:
 - Viewport-specific comparisons
 """
 
-import pytest
 from pathlib import Path
-from playwright.sync_api import Page
 
-from page_objects import StandingsPage, LoginPage
+import pytest
 from fixtures.visual_regression import VisualRegression
+from page_objects import LoginPage, StandingsPage
+from playwright.sync_api import Page
 
 # Note: Most visual tests require authentication since the app is invite-only.
 # Tests use authenticated_page fixture to ensure user is logged in before screenshots.
@@ -71,7 +71,7 @@ class TestVisualRegression:
         """Test login page visual appearance."""
         # Arrange
         login_page.navigate()
-        
+
         # Assert
         assert visual_regression.compare("login_page"), \
             "Login page visual should match baseline"
@@ -114,7 +114,7 @@ class TestVisualRegression:
         # Arrange
         login_page.navigate()
         login_page.login("invalid@example.com", "wrongpassword")
-        
+
         # Assert
         if login_page.has_error_message():
             assert visual_regression.compare("login_error_state"), \
@@ -165,7 +165,7 @@ class TestDarkModeVisual:
         # Arrange - Enable dark mode via preference
         page.emulate_media(color_scheme="dark")
         standings_page.navigate()
-        
+
         # Assert
         assert visual_regression.compare("homepage_dark"), \
             "Homepage dark mode visual should match baseline"

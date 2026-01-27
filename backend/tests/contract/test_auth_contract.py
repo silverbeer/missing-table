@@ -214,6 +214,27 @@ class TestSignupWithInviteContract:
 
 
 @pytest.mark.contract
+class TestAdminUserManagementContract:
+    """Test admin user management endpoint contracts."""
+
+    def test_update_user_role_requires_admin(self, authenticated_api_client: MissingTableClient):
+        """Test that update_user_role requires admin role."""
+        from api_client import AuthorizationError
+        from api_client.models import RoleUpdate
+
+        role_update = RoleUpdate(user_id="fake-id", role="user")
+        with pytest.raises((AuthorizationError, AuthenticationError)):
+            authenticated_api_client.update_user_role(role_update)
+
+    def test_delete_user_requires_admin(self, authenticated_api_client: MissingTableClient):
+        """Test that delete_user requires admin role."""
+        from api_client import AuthorizationError
+
+        with pytest.raises((AuthorizationError, AuthenticationError)):
+            authenticated_api_client.delete_user("fake-user-id")
+
+
+@pytest.mark.contract
 class TestAuthorizationContract:
     """Test authorization and role-based access control."""
 

@@ -1,15 +1,17 @@
-import pytest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
+from unittest.mock import Mock, patch
+
 import jwt
-from fastapi import HTTPException
-from fastapi.security import HTTPAuthorizationCredentials
+import pytest
 from backend.auth import (
     AuthManager,
-    username_to_internal_email,
+    check_username_available,
     internal_email_to_username,
     is_internal_email,
-    check_username_available,
+    username_to_internal_email,
 )
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+
 
 @pytest.mark.unit
 class TestAuthManager:

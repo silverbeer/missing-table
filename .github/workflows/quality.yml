@@ -93,6 +93,26 @@ jobs:
           cd backend
           allure generate allure-results -o allure-report --clean
 
+      - name: Run contract tests against production
+        id: contract-tests
+        env:
+          API_BASE_URL: https://api.missingtable.com
+          ADMIN_TEST_USERNAME: ${{ secrets.TSC_ADMIN_USERNAME }}
+          ADMIN_TEST_PASSWORD: ${{ secrets.TSC_ADMIN_PASSWORD }}
+        run: |
+          cd backend
+          mkdir -p contract-allure-results
+          uv run pytest tests/contract/ -m contract \
+            --no-cov \
+            --alluredir=contract-allure-results \
+            -v
+        continue-on-error: true
+
+      - name: Generate contract Allure report
+        run: |
+          cd backend
+          allure generate contract-allure-results -o contract-allure-report --clean
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -108,6 +128,16 @@ jobs:
           npm run test:coverage
         continue-on-error: true
 
+      - name: Generate API coverage page
+        run: |
+          cd backend
+          mkdir -p api-coverage-report
+          uv run ../scripts/generate-api-coverage.py \
+            --inventory api_inventory.json \
+            --output api-coverage-report/index.html \
+            --commit-sha ${{ github.sha }} \
+            --run-id ${{ github.run_id }}
+
       - name: Add dashboard navigation to reports
         env:
           BUILD_VERSION: ${{ steps.build-info.outputs.version }}
@@ -121,6 +151,9 @@ jobs:
           # Inject into backend Allure report
           sed -i "s|<body>|<body>${BANNER}|" backend/allure-report/index.html
 
+          # Inject into contract Allure report
+          sed -i "s|<body>|<body>${BANNER}|" backend/contract-allure-report/index.html
+
           # Inject into backend coverage report (coverage.py uses <body class="indexfile">)
           sed -i 's|<body class="indexfile">|<body class="indexfile">'"${BANNER}"'|' backend/htmlcov/index.html
 
@@ -129,6 +162,9 @@ jobs:
 
           # Inject into frontend Vitest HTML report
           sed -i "s|<body>|<body>${BANNER}|" frontend/html-report/index.html
+
+          # Inject into API coverage page
+          sed -i "s|<body>|<body>${BANNER}|" backend/api-coverage-report/index.html
 
       - name: Extract run metadata
         run: |
@@ -144,6 +180,7 @@ jobs:
             --backend-coverage-json coverage.json \
             --frontend-results-json ../frontend/test-results.json \
             --frontend-coverage-json ../frontend/coverage/coverage-final.json \
+            --contract-allure-dir contract-allure-report \
             --output /tmp/run-metadata.json
 
       - name: Download history and compare runs
@@ -196,6 +233,9 @@ jobs:
             --frontend-results-json ../frontend/test-results.json \
             --frontend-coverage-json ../frontend/coverage/coverage-final.json \
             --include-journey \
+            --contract-allure-dir contract-allure-report \
+            --include-contract \
+            --api-inventory-json api_inventory.json \
             --history-json /tmp/history.json \
             --comparison-json /tmp/comparison.json
 
@@ -203,6 +243,10 @@ jobs:
         run: |
           # Upload latest reports
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/latest/missing-table/prod/allure/ \
+            --delete \
+            --cache-control "max-age=300"
+
+          aws s3 sync backend/contract-allure-report/ s3://${S3_BUCKET}/latest/missing-table/prod/contract/ \
             --delete \
             --cache-control "max-age=300"
 
@@ -215,6 +259,10 @@ jobs:
             --cache-control "max-age=300"
 
           # Upload Vitest HTML report (excluding .gz files first)
+          aws s3 sync backend/api-coverage-report/ s3://${S3_BUCKET}/latest/missing-table/prod/api-coverage/ \
+            --delete \
+            --cache-control "max-age=300"
+
           aws s3 sync frontend/html-report/ s3://${S3_BUCKET}/latest/missing-table/prod/frontend-vitest/ \
             --delete \
             --exclude "*.gz" \
@@ -238,6 +286,8 @@ jobs:
             --cache-control "max-age=300"
           aws s3 cp frontend/coverage/coverage-final.json s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-coverage.json \
             --cache-control "max-age=300"
+          aws s3 cp backend/api_inventory.json s3://${S3_BUCKET}/latest/missing-table/prod/data/api-inventory.json \
+            --cache-control "max-age=300"
 
           # Upload history index
           aws s3 cp /tmp/history.json s3://${S3_BUCKET}/data/history.json \
@@ -246,6 +296,10 @@ jobs:
           # Archive run reports
           RUN_DATE=$(date -u +"%Y-%m-%d")
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/allure/ \
+            --cache-control "max-age=31536000"
+          aws s3 sync backend/contract-allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/contract/ \
+            --cache-control "max-age=31536000"
+          aws s3 sync backend/api-coverage-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/api-coverage/ \
             --cache-control "max-age=31536000"
           aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/backend-unit/ \
             --cache-control "max-age=31536000"
@@ -283,6 +337,10 @@ jobs:
           FE_TOTAL=$(python3 -c "import json; print(json.load(open('frontend/test-results.json'))['numTotalTests'])")
           FE_COV=$(python3 -c "import json; d=json.load(open('frontend/coverage/coverage-final.json')); t=sum(len(v['s']) for v in d.values()); c=sum(sum(1 for x in v['s'].values() if x>0) for v in d.values()); print(f'{c/t*100:.1f}' if t>0 else 'N/A')" 2>/dev/null || echo "N/A")
 
+          # Contract metrics
+          CT_PASSED=$(python3 -c "import json; print(json.load(open('backend/contract-allure-report/widgets/summary.json'))['statistic']['passed'])" 2>/dev/null || echo "N/A")
+          CT_TOTAL=$(python3 -c "import json; print(json.load(open('backend/contract-allure-report/widgets/summary.json'))['statistic']['total'])" 2>/dev/null || echo "N/A")
+
           echo "### Quality Reports Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Dashboard:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
@@ -292,9 +350,12 @@ jobs:
           echo "- [Backend Coverage](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Tests (Vitest)](https://quality.missingtable.com/latest/missing-table/prod/frontend-vitest/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Coverage](https://quality.missingtable.com/latest/missing-table/prod/frontend-unit/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [API Contract Tests](https://quality.missingtable.com/latest/missing-table/prod/contract/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [API Coverage](https://quality.missingtable.com/latest/missing-table/prod/api-coverage/)" >> $GITHUB_STEP_SUMMARY
           echo "- [User Journey Tests](https://quality.missingtable.com/latest/missing-table/prod/journey/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Suite | Tests | Coverage |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|-------|----------|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | ${BE_PASSED}/${BE_TOTAL} | ${BE_COV}% |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${FE_PASSED}/${FE_TOTAL} | ${FE_COV}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract | ${CT_PASSED}/${CT_TOTAL} | N/A |" >> $GITHUB_STEP_SUMMARY

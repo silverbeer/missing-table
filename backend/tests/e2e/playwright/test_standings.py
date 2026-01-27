@@ -16,9 +16,8 @@ Demonstrates:
 """
 
 import pytest
-from playwright.sync_api import Page, expect
-
-from page_objects import StandingsPage, NavigationBar
+from page_objects import StandingsPage
+from playwright.sync_api import Page
 
 # Note: All standings tests require authentication since the app is invite-only.
 # Tests use authenticated_page fixture to ensure user is logged in.
@@ -218,22 +217,22 @@ class TestStandingsFiltering:
         """
         # Arrange
         standings_page.navigate()
-        
+
         # Get available options
         seasons = standings_page.get_available_seasons()
         age_groups = standings_page.get_available_age_groups()
         divisions = standings_page.get_available_divisions()
-        
+
         # Act - Apply filters based on combination
         if "season" in filter_combination and len(seasons) > filter_combination["season"]:
             standings_page.select_season(seasons[filter_combination["season"]])
-        
+
         if "age_group" in filter_combination and len(age_groups) > filter_combination["age_group"]:
             standings_page.select_age_group(age_groups[filter_combination["age_group"]])
-        
+
         if "division" in filter_combination and len(divisions) > filter_combination["division"]:
             standings_page.select_division(divisions[filter_combination["division"]])
-        
+
         # Assert - Table should still be visible (may be empty)
         assert standings_page.is_table_visible() or standings_page.has_no_data_message()
 

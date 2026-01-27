@@ -3,13 +3,10 @@ End-to-end tests for the invite system.
 These tests require a running Supabase instance and test the full invite workflow.
 """
 
-import pytest
-import os
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import json
-from datetime import datetime
 from contextlib import contextmanager
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 @pytest.mark.e2e
@@ -79,7 +76,7 @@ class TestInviteWorkflowE2E:
     def mock_invite_service(self):
         """Mock invite service responses."""
         mock_service = MagicMock()
-        
+
         # Mock successful invite creation
         mock_service.create_invitation.return_value = {
             "id": "invite-123",
@@ -92,11 +89,11 @@ class TestInviteWorkflowE2E:
             "expires_at": "2024-01-08T00:00:00Z",
             "created_at": "2024-01-01T00:00:00Z"
         }
-        
+
         # Mock invite validation
         mock_service.validate_invite_code.return_value = {
             "valid": True,
-            "id": "invite-123", 
+            "id": "invite-123",
             "invite_type": "team_manager",
             "team_id": 1,
             "team_name": "Test Team",
@@ -104,12 +101,12 @@ class TestInviteWorkflowE2E:
             "age_group_name": "U12",
             "email": "newuser@example.com"
         }
-        
+
         # Mock user invitations list
         mock_service.get_user_invitations.return_value = [
             {
                 "id": "invite-123",
-                "invite_code": "ABC123DEF456",  # pragma: allowlist secret 
+                "invite_code": "ABC123DEF456",  # pragma: allowlist secret
                 "invite_type": "team_manager",
                 "team_id": 1,
                 "age_group_id": 1,
@@ -121,7 +118,7 @@ class TestInviteWorkflowE2E:
                 "age_groups": {"name": "U12"}
             }
         ]
-        
+
         return mock_service
 
     def test_admin_create_team_manager_invite(self, app, test_client, admin_user_mock, mock_invite_service):
@@ -163,14 +160,14 @@ class TestInviteWorkflowE2E:
 
             response = test_client.post("/api/invites/admin/team-fan", json=invite_data)
             assert response.status_code == 200
-            
+
     def test_validate_invite_code_public(self, test_client, mock_invite_service):
         """Test public invite code validation."""
         with patch('api.invites.InviteService') as mock_service_class:
             mock_service_class.return_value = mock_invite_service
-            
+
             response = test_client.get("/api/invites/validate/ABC123DEF456")  # pragma: allowlist secret
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data["valid"] is True
@@ -183,9 +180,9 @@ class TestInviteWorkflowE2E:
         with patch('api.invites.InviteService') as mock_service_class:
             mock_service_class.return_value = mock_invite_service
             mock_invite_service.validate_invite_code.return_value = None
-            
+
             response = test_client.get("/api/invites/validate/INVALID123")
-            
+
             assert response.status_code == 404
             data = response.json()
             assert "Invalid or expired" in data["detail"]
@@ -289,10 +286,10 @@ class TestInviteWorkflowE2E:
             assert "Only admins" in response.json()["detail"]
 
 
-@pytest.mark.e2e 
+@pytest.mark.e2e
 class TestInviteValidationE2E:
     """Test invite validation and error handling."""
-    
+
     def test_invalid_invite_type_validation(self, test_client):
         """Test validation of invalid invite types."""
         invite_data = {
@@ -303,7 +300,7 @@ class TestInviteValidationE2E:
 
         response = test_client.post("/api/invites/admin/team-manager", json=invite_data)
         assert response.status_code in [401, 403, 422]  # Auth required first, then validation
-        
+
     def test_missing_required_fields_validation(self, test_client):
         """Test validation when required fields are missing."""
         incomplete_data_sets = [
@@ -336,7 +333,7 @@ class TestInviteValidationE2E:
 @pytest.mark.integration
 class TestInviteIntegration:
     """Integration tests for invite system without full mocking."""
-    
+
     def test_invite_endpoints_exist(self, test_client):
         """Test that all expected invite endpoints exist and respond appropriately."""
         endpoints = [
@@ -350,7 +347,7 @@ class TestInviteIntegration:
             ("GET", "/api/invites/team-manager/assignments", [401, 403]),  # Requires auth
             ("DELETE", "/api/invites/test-id", [401, 403]),  # Requires auth
         ]
-        
+
         for method, endpoint, expected_codes in endpoints:
             if method == "GET":
                 response = test_client.get(endpoint)

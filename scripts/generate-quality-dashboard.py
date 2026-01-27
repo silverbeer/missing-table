@@ -29,12 +29,11 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
-
 
 # =============================================================================
 # Pydantic Models
@@ -95,9 +94,9 @@ class TestMetrics(BaseModel):
     tool: str = ""  # e.g., "pytest + Allure", "Vitest"
     statistic: TestStatistic = Field(default_factory=TestStatistic)
     duration_ms: int = 0
-    coverage_percent: Optional[float] = None
-    coverage_report_url: Optional[str] = None
-    test_report_url: Optional[str] = None
+    coverage_percent: float | None = None
+    coverage_report_url: str | None = None
+    test_report_url: str | None = None
 
     @computed_field
     @property
@@ -148,7 +147,7 @@ class DashboardConfig(BaseModel):
     commit_sha: str
     run_id: str
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        default_factory=lambda: datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     )
     repo_url: str = "https://github.com/silverbeer/missing-table"
 
@@ -166,7 +165,7 @@ class HistorySuiteSummary(BaseModel):
     passed: int = 0
     failed: int = 0
     skipped: int = 0
-    coverage_pct: Optional[float] = None
+    coverage_pct: float | None = None
 
 
 class HistoryRun(BaseModel):
@@ -226,7 +225,7 @@ class ComparisonResult(BaseModel):
     """Comparison between runs."""
 
     current_run_id: str = ""
-    previous_run_id: Optional[str] = None
+    previous_run_id: str | None = None
     status_change: str = "first_run"  # regression, improvement, stable, mixed, first_run
     summary: dict = Field(default_factory=lambda: {
         "new_failures": 0,
@@ -263,7 +262,7 @@ def load_allure_summary(allure_dir: Path) -> AllureSummary:
     return AllureSummary.model_validate(data)
 
 
-def load_python_coverage(coverage_json: Path) -> Optional[float]:
+def load_python_coverage(coverage_json: Path) -> float | None:
     """Load Python coverage.json and return percent covered."""
     if not coverage_json.exists():
         print(f"Warning: {coverage_json} not found", file=sys.stderr)
@@ -299,7 +298,7 @@ def load_vitest_results(results_json: Path) -> tuple[TestStatistic, int]:
     ), duration_ms
 
 
-def load_istanbul_coverage(coverage_json: Path) -> Optional[float]:
+def load_istanbul_coverage(coverage_json: Path) -> float | None:
     """Load Istanbul/V8 coverage-final.json and return percent covered."""
     if not coverage_json.exists():
         print(f"Warning: {coverage_json} not found", file=sys.stderr)
@@ -323,8 +322,8 @@ def load_istanbul_coverage(coverage_json: Path) -> Optional[float]:
 
 
 def build_backend_metrics(
-    allure_dir: Optional[Path] = None,
-    coverage_json: Optional[Path] = None,
+    allure_dir: Path | None = None,
+    coverage_json: Path | None = None,
 ) -> TestMetrics:
     """Build TestMetrics for backend tests."""
     if allure_dir:
@@ -352,8 +351,8 @@ def build_backend_metrics(
 
 
 def build_frontend_metrics(
-    results_json: Optional[Path] = None,
-    coverage_json: Optional[Path] = None,
+    results_json: Path | None = None,
+    coverage_json: Path | None = None,
 ) -> TestMetrics:
     """Build TestMetrics for frontend tests."""
     if results_json:
@@ -379,7 +378,7 @@ def build_frontend_metrics(
 
 
 def build_journey_metrics(
-    allure_dir: Optional[Path] = None,
+    allure_dir: Path | None = None,
 ) -> TestMetrics:
     """Build TestMetrics for user journey tests."""
     if allure_dir:
@@ -402,7 +401,48 @@ def build_journey_metrics(
     )
 
 
-def load_history(history_json: Path) -> Optional[HistoryIndex]:
+def build_contract_metrics(
+    allure_dir: Path | None = None,
+    api_inventory_json: Path | None = None,
+) -> TestMetrics:
+    """Build TestMetrics for API contract tests."""
+    if allure_dir:
+        allure = load_allure_summary(allure_dir)
+        statistic = allure.statistic
+        duration_ms = allure.time.duration
+    else:
+        statistic = TestStatistic()
+        duration_ms = 0
+
+    coverage_percent = None
+    coverage_report_url = None
+
+    if api_inventory_json and api_inventory_json.exists():
+        try:
+            with open(api_inventory_json) as f:
+                inventory = json.load(f)
+            summary = inventory.get("summary", {})
+            total = summary.get("total_endpoints", 0)
+            with_client = summary.get("with_client_method", 0)
+            if total > 0:
+                coverage_percent = (with_client / total) * 100
+                coverage_report_url = "latest/missing-table/prod/api-coverage/index.html"
+        except Exception as e:
+            print(f"Warning: Could not parse API inventory: {e}", file=sys.stderr)
+
+    return TestMetrics(
+        name="contract",
+        label="API Contract",
+        tool="pytest + Allure",
+        statistic=statistic,
+        duration_ms=duration_ms,
+        coverage_percent=coverage_percent,
+        coverage_report_url=coverage_report_url,
+        test_report_url="latest/missing-table/prod/contract/index.html",
+    )
+
+
+def load_history(history_json: Path) -> HistoryIndex | None:
     """Load history index from JSON file."""
     if not history_json.exists():
         print(f"Warning: {history_json} not found", file=sys.stderr)
@@ -417,7 +457,7 @@ def load_history(history_json: Path) -> Optional[HistoryIndex]:
         return None
 
 
-def load_comparison(comparison_json: Path) -> Optional[ComparisonResult]:
+def load_comparison(comparison_json: Path) -> ComparisonResult | None:
     """Load comparison result from JSON file."""
     if not comparison_json.exists():
         print(f"Warning: {comparison_json} not found", file=sys.stderr)
@@ -538,10 +578,10 @@ def format_timestamp(iso_timestamp: str) -> str:
 
 
 def generate_history_section(
-    history: Optional[HistoryIndex],
-    comparison: Optional[ComparisonResult],
+    history: HistoryIndex | None,
+    comparison: ComparisonResult | None,
     config: DashboardConfig,
-    workflow_filter: Optional[str] = None,
+    workflow_filter: str | None = None,
     section_id: str = "history",
 ) -> str:
     """Generate HTML for history section.
@@ -571,16 +611,19 @@ def generate_history_section(
         show_backend = True
         show_frontend = True
         show_journey = False
+        show_contract = True
     elif workflow_filter == "journey":
         section_title = "Journey Test History"
         show_backend = False
         show_frontend = False
         show_journey = True
+        show_contract = False
     else:
         section_title = "Test Run History"
         show_backend = True
         show_frontend = True
         show_journey = True
+        show_contract = True
 
     # Generate comparison banner if we have comparison data (only for main section)
     banner_html = ""
@@ -629,8 +672,9 @@ def generate_history_section(
         backend = run.suites.get("backend")
         frontend = run.suites.get("frontend")
         journey = run.suites.get("journey")
+        contract = run.suites.get("contract")
 
-        def suite_cell(suite: Optional[HistorySuiteSummary]) -> str:
+        def suite_cell(suite: HistorySuiteSummary | None) -> str:
             if not suite or suite.total == 0:
                 return '<td class="suite-cell na">-</td>'
             css_class = "passed" if suite.failed == 0 else "failed"
@@ -648,7 +692,7 @@ def generate_history_section(
             dt = datetime.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
             date_str = dt.strftime("%Y-%m-%d")
         except (ValueError, AttributeError):
-            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            date_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
         # Build report links based on workflow
         report_base = f"/runs/missing-table/prod/{date_str}/{run.run_id}"
@@ -670,6 +714,8 @@ def generate_history_section(
             suite_cells += suite_cell(frontend)
         if show_journey:
             suite_cells += suite_cell(journey)
+        if show_contract:
+            suite_cells += suite_cell(contract)
 
         # Build info cell
         version_display = run.version if run.version else "-"
@@ -699,6 +745,8 @@ def generate_history_section(
         header_cols += "<th>Frontend</th>"
     if show_journey:
         header_cols += "<th>Journey</th>"
+    if show_contract:
+        header_cols += "<th>Contract</th>"
 
     return f'''
     <div class="history-section" id="{section_id}-section">
@@ -740,7 +788,7 @@ def generate_history_section(
     </div>'''
 
 
-def generate_diff_section(comparison: Optional[ComparisonResult]) -> str:
+def generate_diff_section(comparison: ComparisonResult | None) -> str:
     """Generate HTML for diff/comparison details section."""
     if not comparison or comparison.status_change == "first_run":
         return ""
@@ -858,8 +906,8 @@ def generate_diff_section(comparison: Optional[ComparisonResult]) -> str:
 def generate_dashboard_html(
     metrics_list: list[TestMetrics],
     config: DashboardConfig,
-    history: Optional[HistoryIndex] = None,
-    comparison: Optional[ComparisonResult] = None,
+    history: HistoryIndex | None = None,
+    comparison: ComparisonResult | None = None,
 ) -> str:
     """Generate the complete dashboard HTML."""
     status = overall_status(metrics_list)
@@ -1462,6 +1510,12 @@ def main() -> None:
     parser.add_argument("--include-journey", action="store_true",
                         help="Always show journey card (even without local allure data)")
 
+    # Contract test inputs
+    parser.add_argument("--contract-allure-dir", help="Path to contract Allure report directory")
+    parser.add_argument("--include-contract", action="store_true",
+                        help="Always show contract card (even without local allure data)")
+    parser.add_argument("--api-inventory-json", help="Path to api_inventory.json for endpoint coverage")
+
     # History and comparison inputs
     parser.add_argument("--history-json", help="Path to history.json for run history display")
     parser.add_argument("--comparison-json", help="Path to comparison.json for regression detection")
@@ -1516,6 +1570,19 @@ def main() -> None:
                   f"{journey.duration_sec}s duration")
         else:
             print("Journey: card added (run journey tests to see stats)")
+
+    contract_allure = Path(args.contract_allure_dir) if args.contract_allure_dir else None
+
+    api_inventory = Path(args.api_inventory_json) if args.api_inventory_json else None
+
+    if contract_allure or args.include_contract:
+        contract = build_contract_metrics(allure_dir=contract_allure, api_inventory_json=api_inventory)
+        metrics_list.append(contract)
+        if contract.statistic.total > 0:
+            print(f"Contract: {contract.statistic.passed}/{contract.statistic.total} tests, "
+                  f"{contract.duration_sec}s duration")
+        else:
+            print("Contract: card added (run contract tests to see stats)")
 
     if not metrics_list:
         print("Error: No test results provided", file=sys.stderr)

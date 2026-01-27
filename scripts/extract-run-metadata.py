@@ -27,12 +27,11 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
-
 
 # =============================================================================
 # Pydantic Models
@@ -58,7 +57,7 @@ class SuiteStats(BaseModel):
     broken: int = 0
     skipped: int = 0
     duration_ms: int = 0
-    coverage_pct: Optional[float] = None
+    coverage_pct: float | None = None
 
 
 class RunMetadata(BaseModel):
@@ -67,7 +66,7 @@ class RunMetadata(BaseModel):
     run_id: str
     commit_sha: str
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     trigger: str = "workflow_dispatch"
     workflow: str = "unit"  # "unit" or "journey"
@@ -235,7 +234,7 @@ def parse_vitest_results(results_json: Path) -> tuple[SuiteStats, list[TestResul
 # =============================================================================
 
 
-def parse_python_coverage(coverage_json: Path) -> Optional[float]:
+def parse_python_coverage(coverage_json: Path) -> float | None:
     """Parse Python coverage.json for percent covered."""
     if not coverage_json.exists():
         return None
@@ -247,7 +246,7 @@ def parse_python_coverage(coverage_json: Path) -> Optional[float]:
     return totals.get("percent_covered", 0.0)
 
 
-def parse_istanbul_coverage(coverage_json: Path) -> Optional[float]:
+def parse_istanbul_coverage(coverage_json: Path) -> float | None:
     """Parse Istanbul/V8 coverage-final.json for percent covered."""
     if not coverage_json.exists():
         return None
@@ -300,6 +299,9 @@ def main() -> None:
     # Journey inputs
     parser.add_argument("--journey-allure-dir", help="Path to journey Allure report")
 
+    # Contract inputs
+    parser.add_argument("--contract-allure-dir", help="Path to contract Allure report")
+
     args = parser.parse_args()
 
     # Initialize metadata
@@ -348,6 +350,18 @@ def main() -> None:
             tests = parse_allure_tests(allure_dir, "journey")
             metadata.tests.extend(tests)
             print(f"Journey: {stats.passed}/{stats.total} tests, "
+                  f"{len(tests)} individual results extracted")
+
+    # Process contract tests
+    if args.contract_allure_dir:
+        allure_dir = Path(args.contract_allure_dir)
+        if allure_dir.exists():
+            stats, _ = parse_allure_summary(allure_dir)
+            metadata.suites["contract"] = stats
+
+            tests = parse_allure_tests(allure_dir, "contract")
+            metadata.tests.extend(tests)
+            print(f"Contract: {stats.passed}/{stats.total} tests, "
                   f"{len(tests)} individual results extracted")
 
     # Write output

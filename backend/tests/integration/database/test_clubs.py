@@ -40,7 +40,7 @@ class TestClubsDAO:
             for club in clubs:
                 if club['name'] in [TEST_CLUB['name'], TEST_CLUB_2['name']]:
                     self.dao.delete_club(club['id'])
-        except Exception:  # noqa: S110 - test cleanup should not fail on missing tables
+        except Exception:
             # Ignore cleanup errors (table may not exist yet)
             pass
 
@@ -137,7 +137,7 @@ class TestClubsAPI:
             for club in clubs:
                 if club['name'] in [TEST_CLUB['name'], TEST_CLUB_2['name']]:
                     self.dao.delete_club(club['id'])
-        except Exception:  # noqa: S110 - test cleanup should not fail on missing tables
+        except Exception:
             # Ignore cleanup errors (table may not exist yet)
             pass
 
