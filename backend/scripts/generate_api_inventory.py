@@ -46,9 +46,14 @@ def get_fastapi_routes():
     """Introspect FastAPI app to get all routes."""
     # Set dummy env vars so the app can be imported without a real DB connection.
     # We only need route metadata, never make actual database calls.
-    for var in ("SUPABASE_URL", "SUPABASE_ANON_KEY"):
+    _dummy_vars = {
+        "SUPABASE_URL": "https://placeholder.supabase.co",
+        "SUPABASE_ANON_KEY": "placeholder",
+        "SUPABASE_JWT_SECRET": "placeholder",
+    }
+    for var, default in _dummy_vars.items():
         if not os.environ.get(var):
-            os.environ[var] = "https://placeholder.supabase.co"
+            os.environ[var] = default
 
     from app import app
 
