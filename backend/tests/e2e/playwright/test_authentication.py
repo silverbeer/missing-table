@@ -16,11 +16,11 @@ Demonstrates:
 """
 
 import json
-import pytest
 from pathlib import Path
-from playwright.sync_api import Page, expect
 
-from page_objects import LoginPage, StandingsPage, NavigationBar
+import pytest
+from page_objects import LoginPage, NavigationBar, StandingsPage
+from playwright.sync_api import Page
 
 
 class TestLoginFlow:
@@ -66,7 +66,7 @@ class TestLoginFlow:
         # Arrange & Act
         login_page.navigate()
         login_page.login(admin_user.username, admin_user.password)
-        
+
         # Assert - Admin should see admin nav link
         # Note: This may need adjustment based on actual UI
         assert not login_page.has_error_message()
@@ -93,10 +93,10 @@ class TestLoginFlow:
         """Test that login with non-existent email shows error."""
         # Arrange
         login_page.navigate()
-        
+
         # Act
         login_page.login("nonexistent@example.com", "SomePassword123!")
-        
+
         # Assert
         assert login_page.has_error_message(), "Error should be displayed for non-existent user"
         # Verify we don't leak information about whether email exists
@@ -126,11 +126,11 @@ class TestLoginFlow:
         """
         # Arrange
         login_page.navigate()
-        
+
         # Act
         login_page.enter_email(email)
         login_page.enter_password(password)
-        
+
         # Assert - Check form validation
         if expected == "validation_error":
             # For empty fields, submit button may be disabled or form invalid
@@ -156,10 +156,10 @@ class TestLogout:
         Verifies session management security.
         """
         # Arrange - User is already logged in via fixture
-        
+
         # Act
         nav_bar.click_logout()
-        
+
         # Assert
         # Should be redirected to login or home
         current_url = authenticated_page.url
@@ -190,10 +190,10 @@ class TestSecurityMeasures:
         """
         # Arrange
         login_page.navigate()
-        
+
         # Act
         login_page.login(malicious_input, "password")
-        
+
         # Assert
         # Should show error, not crash or bypass authentication
         assert not login_page.is_login_successful()
@@ -211,10 +211,10 @@ class TestSecurityMeasures:
         # Arrange
         xss_payload = "<script>alert('xss')</script>"
         login_page.navigate()
-        
+
         # Act
         login_page.login(xss_payload, "password")
-        
+
         # Assert
         page_content = login_page.page.content()
         # XSS payload should be escaped or removed, not present as-is
@@ -230,12 +230,12 @@ class TestSecurityMeasures:
         """
         # Arrange
         login_page.navigate()
-        
+
         # Act - Attempt multiple failed logins
         for i in range(6):
             login_page.clear_form()
             login_page.login(f"user{i}@example.com", "wrong_password")
-        
+
         # Assert
         # After several attempts, should see rate limiting message
         # This depends on your backend implementation
@@ -251,10 +251,10 @@ class TestPasswordReset:
         """Test that forgot password link navigates to reset page."""
         # Arrange
         login_page.navigate()
-        
+
         # Act
         login_page.click_forgot_password()
-        
+
         # Assert
         current_url = login_page.get_current_url()
         assert "forgot" in current_url or "reset" in current_url
@@ -276,10 +276,10 @@ class TestSessionManagement:
         """
         # Arrange - User is logged in
         initial_logged_in = nav_bar.is_logged_in()
-        
+
         # Act
         authenticated_page.reload()
-        
+
         # Assert
         assert nav_bar.is_logged_in() == initial_logged_in
 
@@ -296,11 +296,11 @@ class TestSessionManagement:
         """
         # Try to access admin without auth
         page.goto(f"{base_url}/admin")
-        
+
         # Should redirect to login
         page.wait_for_timeout(1000)
         current_url = page.url
-        
+
         # Either redirected to login or access denied
         assert "/login" in current_url or "unauthorized" in page.content().lower() or "access" in page.content().lower()
 
@@ -318,10 +318,10 @@ class TestAccessibility:
         """
         # Arrange
         login_page.navigate()
-        
+
         # Act - Tab through form elements
         login_page.tab_through_form()
-        
+
         # The form should be fully keyboard accessible
         # Email -> Password -> Remember Me (if exists) -> Submit
 
@@ -335,10 +335,10 @@ class TestAccessibility:
         """
         # Arrange
         login_page.navigate()
-        
+
         # Act - Trigger validation error
         login_page.login("", "")
-        
+
         # Assert
         # Error messages should be present and associated with fields
         # via aria-describedby or aria-invalid
@@ -370,15 +370,15 @@ class TestDataDrivenLoginScenarios:
         for scenario in login_scenarios[:5]:  # Limit for demo
             # Arrange
             login_page.navigate()
-            
+
             # Act
             login_page.login(scenario["email"], scenario["password"])
-            
+
             # Assert based on expected result
             if scenario["expected_result"] == "success":
                 assert login_page.is_login_successful(), f"Failed: {scenario['description']}"
             elif scenario["expected_result"] == "error":
                 assert login_page.has_error_message(), f"Failed: {scenario['description']}"
-            
+
             # Clean up for next iteration
             login_page.navigate()

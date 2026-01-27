@@ -149,3 +149,46 @@ class ValidationError(BaseModel):
 
 class HTTPValidationError(BaseModel):
     detail: list[ValidationError] | None = Field(None, title="Detail")
+
+
+# Re-exports from backend/models/ (single source of truth)
+# These allow api_client consumers to import models without knowing the internal layout.
+
+from models.auth import (  # noqa: F401
+    AdminPlayerTeamAssignment,
+    AdminPlayerUpdate,
+    PlayerCustomization,
+    PlayerHistoryCreate,
+    PlayerHistoryUpdate,
+    ProfilePhotoSlot,
+    UserProfileUpdate,
+)
+from models.lineup import LineupSave  # noqa: F401
+from models.live_match import GoalEvent, LiveMatchClock, MessageEvent  # noqa: F401
+from models.matches import MatchSubmissionData  # noqa: F401
+from models.roster import (  # noqa: F401
+    BulkRenumberRequest,
+    BulkRosterCreate,
+    BulkRosterPlayer,
+    JerseyNumberUpdate,
+    RenumberEntry,
+    RosterPlayerCreate,
+    RosterPlayerUpdate,
+)
+
+
+# Invite request models — plain duplicates to avoid EmailStr dependency in client context
+class InviteRequestCreate(BaseModel):
+    """Create an invite request (public endpoint)."""
+
+    email: str = Field(..., description="Email address of the requester")
+    name: str = Field(..., min_length=1, max_length=255, description="Name of the requester")
+    team: str | None = Field(None, max_length=255, description="Team or club affiliation")
+    reason: str | None = Field(None, description="Reason for wanting to join")
+
+
+class InviteRequestStatusUpdate(BaseModel):
+    """Update invite request status (admin only)."""
+
+    status: str = Field(..., pattern="^(pending|approved|rejected)$")
+    admin_notes: str | None = Field(None, description="Admin notes about the decision")

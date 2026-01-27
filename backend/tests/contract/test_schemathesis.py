@@ -8,9 +8,9 @@ NOTE: This test is currently disabled due to schemathesis API changes.
 TODO: Update to use correct schemathesis 4.x API (from_uri or openapi.from_path)
 """
 
-import pytest
 from pathlib import Path
 
+import pytest
 
 # Temporarily skip this test file until schemathesis API is fixed
 pytest.skip(

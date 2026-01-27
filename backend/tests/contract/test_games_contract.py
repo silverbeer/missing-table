@@ -63,17 +63,15 @@ class TestGamesWriteContract:
 
     def test_create_game(self, authenticated_api_client: MissingTableClient):
         """Test creating a new game."""
-        # Note: EnhancedGame model uses game_type_id, but API expects match_type_id
-        # The API client will handle the conversion
         game = EnhancedGame(
-            game_date="2025-12-15",
+            match_date="2025-12-15",
             home_team_id=1,
             away_team_id=2,
             home_score=0,
             away_score=0,
             season_id=1,
             age_group_id=1,
-            game_type_id=1,  # Will be converted to match_type_id by API client
+            match_type_id=1,
             status="scheduled",
         )
 
@@ -94,19 +92,17 @@ class TestGamesWriteContract:
         game_id = games[0]["id"]
 
         # Create updated game data
-        # Note: API returns match_type_id and match_date, but EnhancedGame expects game_type_id and game_date
-        # We need to handle the conversion
-        match_type_id = games[0].get("match_type_id") or games[0].get("game_type_id", 1)
+        match_type_id = games[0].get("match_type_id", 1)
         match_date = games[0].get("match_date") or games[0].get("game_date")
         updated_game = EnhancedGame(
-            game_date=match_date,
+            match_date=match_date,
             home_team_id=games[0]["home_team_id"],
             away_team_id=games[0]["away_team_id"],
             home_score=3,
             away_score=2,
             season_id=games[0]["season_id"],
             age_group_id=games[0]["age_group_id"],
-            game_type_id=match_type_id,  # Will be converted to match_type_id by API client
+            match_type_id=match_type_id,
             status="played",
         )
 
@@ -195,6 +191,18 @@ class TestGamesWriteContract:
                 authenticated_api_client.patch_game(game_id, patch)
         except AuthorizationError:
             pytest.skip("User does not have permission to patch games")
+
+
+@pytest.mark.contract
+class TestGamesDeleteContract:
+    """Test delete operations for games endpoints."""
+
+    def test_delete_game_requires_auth(self, api_client: MissingTableClient):
+        """Test that delete_game requires authentication."""
+        from api_client import AuthenticationError
+
+        with pytest.raises((AuthenticationError, AuthorizationError)):
+            api_client.delete_game(999999)
 
 
 @pytest.mark.contract

@@ -27,7 +27,7 @@ class TestHealthCheckEndpoints:
         assert "status" in data
         assert "checks" in data
         assert "api" in data["checks"]
-        
+
         # API should always be healthy if we got a response
         assert data["checks"]["api"]["status"] == "healthy"
 
@@ -331,7 +331,7 @@ class TestErrorHandling:
         """Test invalid JSON payloads are handled properly."""
         # Test with malformed JSON (this will be handled by FastAPI)
         response = test_client.post(
-            "/api/teams", 
+            "/api/teams",
             data="{invalid json}",
             headers={"Content-Type": "application/json"}
         )

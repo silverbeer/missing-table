@@ -187,7 +187,7 @@ class TestFanJourney:
         print("\n=== Phase 4 Complete ===")
         print("Fan signed up, logged in, and viewed standings + live match")
         print("\n=== ALL JOURNEY PHASES COMPLETE ===")
-        print(f"Total entities created:")
+        print("Total entities created:")
         print(f"  - Season: {entity_registry.season_id}")
         print(f"  - Age Group: {entity_registry.age_group_id}")
         print(f"  - League: {entity_registry.league_id}")

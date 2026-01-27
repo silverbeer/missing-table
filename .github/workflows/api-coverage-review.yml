@@ -1,0 +1,203 @@
+name: API Coverage Review
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app.py'
+      - 'backend/api/**'
+      - 'backend/endpoints/**'
+      - 'backend/api_client/**'
+      - 'backend/api_inventory.json'
+
+jobs:
+  api-coverage-check:
+    name: Check API inventory
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Regenerate inventory from source
+        run: uv run python scripts/generate_api_inventory.py
+
+      - name: Check for inventory drift
+        id: drift
+        run: |
+          if git diff --exit-code api_inventory.json; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            echo "✅ api_inventory.json is up to date"
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️  api_inventory.json is out of date"
+            git diff api_inventory.json
+          fi
+
+      - name: Summarize coverage gaps
+        if: always()
+        run: |
+          python3 -c "
+          import json
+          with open('api_inventory.json') as f:
+              inv = json.load(f)
+          missing_client = [e for e in inv['endpoints'] if not e.get('client_method')]
+          missing_tests = [e for e in inv['endpoints'] if not any(t['type'] == 'contract' for t in e.get('tests', []))]
+          print('## API Coverage Summary')
+          print(f'Total endpoints: {inv[\"summary\"][\"total_endpoints\"]}')
+          print(f'Excluded: {inv[\"summary\"][\"excluded\"]}')
+          print(f'With client method: {inv[\"summary\"][\"with_client_method\"]}')
+          print()
+          if missing_client:
+              print(f'### ❌ Missing client methods ({len(missing_client)})')
+              for e in missing_client[:10]:
+                  print(f'- {e[\"method\"]} {e[\"path\"]}')
+              if len(missing_client) > 10:
+                  print(f'... and {len(missing_client) - 10} more')
+              print()
+          if missing_tests:
+              print(f'### ⚠️  Missing contract tests ({len(missing_tests)})')
+              for e in missing_tests[:10]:
+                  print(f'- {e[\"method\"]} {e[\"path\"]} → {e.get(\"client_method\", \"no method\")}')
+              if len(missing_tests) > 10:
+                  print(f'... and {len(missing_tests) - 10} more')
+          if not missing_client and not missing_tests:
+              print('### ✅ Full coverage!')
+          "
+
+  genai-review:
+    name: GenAI API review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: read
+    needs: api-coverage-check
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed route files
+        id: changes
+        run: |
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- \
+            backend/app.py \
+            backend/api/ \
+            backend/endpoints/ \
+            2>/dev/null || echo "")
+          if [ -z "$DIFF" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            # Save diff to file for the GenAI step
+            echo "$DIFF" > /tmp/route-diff.txt
+          fi
+
+      - name: GenAI analysis
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Only run if we have an API key configured
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY not set, skipping GenAI review"
+            exit 0
+          fi
+
+          python3 -c "
+          import json, os, sys
+
+          try:
+              import anthropic
+          except ImportError:
+              print('anthropic package not installed, skipping GenAI review')
+              sys.exit(0)
+
+          # Read inputs
+          with open('/tmp/route-diff.txt') as f:
+              diff = f.read()
+          with open('backend/api_inventory.json') as f:
+              inventory = json.load(f)
+
+          # Read a sample of client.py for pattern reference
+          with open('backend/api_client/client.py') as f:
+              client_source = f.read()
+          # Take first 200 lines as pattern sample
+          client_sample = '\n'.join(client_source.split('\n')[:200])
+
+          prompt = f'''You are reviewing a PR for the missing-table backend.
+
+          ## Context
+          - api_inventory.json summary: {json.dumps(inventory['summary'])}
+          - Changed files diff:
+          \`\`\`
+          {diff[:8000]}
+          \`\`\`
+          - Existing client pattern (first 200 lines):
+          \`\`\`python
+          {client_sample}
+          \`\`\`
+
+          ## Task
+          1. Identify any NEW or CHANGED API endpoints in the diff
+          2. For each new endpoint, generate a MissingTableClient method following the exact pattern
+          3. For each new endpoint, suggest a contract test name
+          4. Check which new endpoints are missing from the inventory
+          5. Output as a structured PR review comment with code suggestions
+
+          Keep the response concise — focus on actionable suggestions.
+          '''
+
+          client = anthropic.Anthropic()
+          response = client.messages.create(
+              model='claude-sonnet-4-20250514',
+              max_tokens=2000,
+              messages=[{'role': 'user', 'content': prompt}],
+          )
+
+          comment = response.content[0].text
+
+          # Write comment to file for the PR comment step
+          with open('/tmp/genai-comment.md', 'w') as f:
+              f.write('## 🤖 API Coverage Review\n\n')
+              f.write(comment)
+              f.write('\n\n---\n*Generated by API Coverage Review workflow*')
+
+          print('GenAI review generated')
+          " || echo "GenAI review failed (non-blocking)"
+
+      - name: Post PR comment
+        if: steps.changes.outputs.has_changes == 'true' && hashFiles('/tmp/genai-comment.md') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const body = fs.readFileSync('/tmp/genai-comment.md', 'utf8');
+              if (body.trim()) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body
+                });
+              }
+            } catch (e) {
+              console.log('No GenAI comment to post:', e.message);
+            }

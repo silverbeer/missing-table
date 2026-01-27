@@ -2,11 +2,10 @@
 Enhanced end-to-end tests for complex workflows and business logic.
 """
 
+from contextlib import contextmanager
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
-from contextlib import contextmanager
-import time
 
 
 @contextmanager
@@ -14,19 +13,19 @@ def authenticated_client(test_client: TestClient, user_role: str = "team-fan", t
     """Context manager to provide authenticated test client."""
     from app import app
     from auth import get_current_user_required
-    
+
     mock_user = {
         "user_id": f"test-user-{user_role}",
         "username": f"testuser_{user_role}",
         "role": user_role,
         "team_id": team_id
     }
-    
+
     def mock_get_current_user():
         return mock_user
-    
+
     app.dependency_overrides[get_current_user_required] = mock_get_current_user
-    
+
     try:
         yield test_client
     finally:
@@ -38,7 +37,7 @@ def authenticated_client(test_client: TestClient, user_role: str = "team-fan", t
     """Context manager to provide authenticated test client."""
     from app import app
     from auth import get_current_user_required
-    
+
     # Mock authenticated user
     mock_user = {
         "user_id": "test-user-123",
@@ -46,12 +45,12 @@ def authenticated_client(test_client: TestClient, user_role: str = "team-fan", t
         "role": user_role,
         "team_id": team_id
     }
-    
+
     def mock_get_current_user():
         return mock_user
-    
+
     app.dependency_overrides[get_current_user_required] = mock_get_current_user
-    
+
     try:
         yield test_client
     finally:
@@ -68,7 +67,7 @@ class TestInviteWorkflows:
         response = test_client.get("/api/invites/validate/short")
         assert response.status_code == 404  # Not found (short codes don't exist)
 
-        # Test with properly formatted but non-existent invite code  
+        # Test with properly formatted but non-existent invite code
         response = test_client.get("/api/invites/validate/123456789012")
         assert response.status_code == 404  # Not found
 
@@ -89,7 +88,7 @@ class TestInviteWorkflows:
         # All invite creation endpoints should require auth
         endpoints = [
             "/api/invites/admin/team-manager",
-            "/api/invites/admin/team-fan", 
+            "/api/invites/admin/team-fan",
             "/api/invites/admin/team-player",
             "/api/invites/team-manager/team-fan",
             "/api/invites/team-manager/team-player"
@@ -111,7 +110,7 @@ class TestInviteWorkflows:
         assert response.status_code == 403  # Forbidden (no auth token)
 
         # Test getting team manager assignments
-        response = test_client.get("/api/invites/team-manager/assignments") 
+        response = test_client.get("/api/invites/team-manager/assignments")
         assert response.status_code == 403  # Forbidden (no auth token)
 
 
@@ -123,7 +122,7 @@ class TestCompleteGameLifecycle:
         """Test that game data remains consistent across different endpoints."""
         from app import app
         from auth import get_current_user_required
-        
+
         # Mock authenticated user
         mock_user = {
             "user_id": "test-user-123",
@@ -131,12 +130,12 @@ class TestCompleteGameLifecycle:
             "role": "team-fan",
             "team_id": None
         }
-        
+
         def mock_get_current_user():
             return mock_user
-        
+
         app.dependency_overrides[get_current_user_required] = mock_get_current_user
-        
+
         try:
             # Get all games
             games_response = test_client.get("/api/matches")
@@ -159,7 +158,7 @@ class TestCompleteGameLifecycle:
             home_games_response = test_client.get(f"/api/matches/team/{home_team_id}")
             assert home_games_response.status_code == 200
             home_games = home_games_response.json()
-            
+
             home_game_ids = [g.get('id') for g in home_games if g.get('id')]
             assert game_id in home_game_ids, "Game should appear in home team's games"
 
@@ -167,7 +166,7 @@ class TestCompleteGameLifecycle:
             away_games_response = test_client.get(f"/api/matches/team/{away_team_id}")
             assert away_games_response.status_code == 200
             away_games = away_games_response.json()
-            
+
             away_game_ids = [g.get('id') for g in away_games if g.get('id')]
             assert game_id in away_game_ids, "Game should appear in away team's games"
         finally:
@@ -197,10 +196,10 @@ class TestCompleteGameLifecycle:
                 # Verify games_played = wins + draws + losses
                 # API may return 'played' or 'games_played'
                 games_played = team_standing.get('games_played') or team_standing.get('played', 0)
-                wins = team_standing.get('wins', 0) 
+                wins = team_standing.get('wins', 0)
                 draws = team_standing.get('draws', 0)
                 losses = team_standing.get('losses', 0)
-                
+
                 # Only check if games_played is actually set (not 0 or None)
                 if games_played:
                     assert games_played == wins + draws + losses, \
@@ -222,7 +221,7 @@ class TestCompleteGameLifecycle:
             for team in teams[:3]:
                 team_id = team.get('id')
                 team_name = team.get('name')
-                
+
                 if not team_id:
                     continue
 
@@ -287,7 +286,7 @@ class TestFilteringAndPagination:
                     )
                     assert response.status_code == 200
                     filtered_games = response.json()
-                    
+
                     # Verify all returned games match the filters
                     for game in filtered_games:
                         if 'season_id' in game:
@@ -321,7 +320,7 @@ class TestFilteringAndPagination:
             # Test filtered standings if reference data exists
             if seasons and age_groups and game_types:
                 season_id = seasons[0].get('id')
-                age_group_id = age_groups[0].get('id')  
+                age_group_id = age_groups[0].get('id')
                 game_type_id = game_types[0].get('id')
 
                 if all([season_id, age_group_id, game_type_id]):
@@ -344,7 +343,7 @@ class TestFilteringAndPagination:
         """Test pagination and limiting functionality."""
         with authenticated_client(test_client):
             limits_to_test = [1, 5, 10, 50, 100]
-            
+
             for limit in limits_to_test:
                 response = test_client.get(f"/api/matches?limit={limit}")
                 assert response.status_code == 200
@@ -377,12 +376,12 @@ class TestDataIntegrityAndValidation:
 
             if games and teams:
                 team_ids = {team.get('id') for team in teams if team.get('id')}
-                
+
                 # Check first few games
                 for game in games[:5]:
                     home_team_id = game.get('home_team_id')
                     away_team_id = game.get('away_team_id')
-                    
+
                     if home_team_id:
                         assert home_team_id in team_ids, f"Home team {home_team_id} not found in teams"
                     if away_team_id:
@@ -453,7 +452,7 @@ class TestErrorHandlingAndEdgeCases:
         with authenticated_client(test_client):
             extreme_params = [
                 "/api/matches?limit=-1",
-                "/api/matches?limit=0", 
+                "/api/matches?limit=0",
                 "/api/matches?season_id=-1",
                 "/api/matches?age_group_id=0",
                 "/api/matches/team/-1",
@@ -469,8 +468,7 @@ class TestErrorHandlingAndEdgeCases:
     def test_concurrent_request_simulation(self, test_client: TestClient):
         """Simulate concurrent requests to test system stability."""
         import concurrent.futures
-        import threading
-        
+
         with authenticated_client(test_client):
             def make_request():
                 """Make a simple API request."""
@@ -501,14 +499,14 @@ class TestBusinessLogicValidation:
             for game in games:
                 home_score = game.get('home_score')
                 away_score = game.get('away_score')
-                
+
                 # If scores exist, they should be non-negative integers
                 if home_score is not None:
                     assert isinstance(home_score, int), "Home score should be integer"
                     assert home_score >= 0, "Home score should be non-negative"
-                    
+
                 if away_score is not None:
-                    assert isinstance(away_score, int), "Away score should be integer"  
+                    assert isinstance(away_score, int), "Away score should be integer"
                     assert away_score >= 0, "Away score should be non-negative"
 
     @pytest.mark.e2e
@@ -523,11 +521,11 @@ class TestBusinessLogicValidation:
                 wins = team.get('wins', 0)
                 draws = team.get('draws', 0)
                 points = team.get('points', 0)
-                
+
                 # Standard soccer: 3 points for win, 1 for draw, 0 for loss
                 expected_min_points = wins * 3 + draws * 1
                 expected_max_points = wins * 3 + draws * 1  # Same because losses give 0 points
-                
+
                 assert points == expected_min_points, \
                     f"Team points ({points}) don't match expected ({expected_min_points}) for {wins} wins, {draws} draws"
 
@@ -542,7 +540,7 @@ class TestBusinessLogicValidation:
         for game in games:
             home_team_id = game.get('home_team_id')
             away_team_id = game.get('away_team_id')
-            
+
             if home_team_id is not None and away_team_id is not None:
                 assert home_team_id != away_team_id, \
                     f"Game {game.get('id')} has same team ({home_team_id}) as home and away"

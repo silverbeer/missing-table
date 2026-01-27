@@ -10,6 +10,7 @@ Also tests the division_id filtering feature for filtering teams by division
 
 import pytest
 from fastapi.testclient import TestClient
+
 from app import app
 from auth import get_current_user_required
 
@@ -68,7 +69,7 @@ def test_teams_have_divisions_by_age_group_structure(authenticated_client):
     # Check first team has the expected structure
     team = teams[0]
 
-    print(f"\n📊 Sample team structure:")
+    print("\n📊 Sample team structure:")
     print(f"  Team: {team.get('name')}")
     print(f"  Keys: {list(team.keys())}")
 
@@ -236,7 +237,7 @@ def test_no_teams_without_league_id(authenticated_client):
                 })
 
     if teams_without_league:
-        print(f"\n⚠️  Teams with missing league_id:")
+        print("\n⚠️  Teams with missing league_id:")
         for item in teams_without_league:
             print(f"  - {item['team']} (age group {item['age_group']}, division: {item['division']})")
 

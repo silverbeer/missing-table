@@ -2,10 +2,11 @@
 End-to-end tests for authentication endpoints and flows.
 """
 
+import time
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
-import time
 
 
 class TestAuthSignup:
@@ -19,10 +20,10 @@ class TestAuthSignup:
             "password": "TestPassword123!",
             "display_name": "Test User"
         }
-        
+
         response = test_client.post("/api/auth/signup", json=user_data)
         assert response.status_code in [200, 201, 400]  # 400 if user exists or other signup error
-        
+
         if response.status_code in [200, 201]:
             data = response.json()
             assert "message" in data or "access_token" in data
@@ -35,7 +36,7 @@ class TestAuthSignup:
             "password": "TestPassword123!",
             "display_name": "Test User"
         }
-        
+
         response = test_client.post("/api/auth/signup", json=user_data)
         assert response.status_code == 400  # Bad request (invalid email)
 
@@ -47,7 +48,7 @@ class TestAuthSignup:
             "password": "123",  # Too weak
             "display_name": "Test User"
         }
-        
+
         response = test_client.post("/api/auth/signup", json=user_data)
         assert response.status_code in [400, 422]  # Should reject weak password
 
@@ -79,7 +80,7 @@ class TestAuthLogin:
             "email": "nonexistent@example.com",
             "password": "WrongPassword123!"
         }
-        
+
         response = test_client.post("/api/auth/login", json=login_data)
         assert response.status_code in [400, 401]  # Unauthorized
 
@@ -90,7 +91,7 @@ class TestAuthLogin:
             "email": "invalid-email",
             "password": "TestPassword123!"
         }
-        
+
         response = test_client.post("/api/auth/login", json=login_data)
         assert response.status_code == 401  # Unauthorized (invalid credentials)
 
@@ -134,7 +135,7 @@ class TestAuthTokenRefresh:
         refresh_data = {
             "refresh_token": "invalid_token_12345"
         }
-        
+
         response = test_client.post("/api/auth/refresh", json=refresh_data)
         assert response.status_code in [400, 401]  # Invalid token
 
@@ -208,10 +209,10 @@ class TestAuthWithValidToken:
             "display_name": "Test User",
             "role": "user"
         }
-        
+
         headers = self.create_mock_auth_headers()
         response = test_client.get("/api/auth/profile", headers=headers)
-        
+
         # The actual response depends on the auth implementation
         # In a security-disabled environment, this might work differently
         assert response.status_code in [200, 401, 500]
@@ -226,13 +227,13 @@ class TestAuthWithValidToken:
             "display_name": "Test User",
             "role": "user"
         }
-        
+
         profile_data = {
             "display_name": "Updated Test User"
         }
         headers = self.create_mock_auth_headers()
         response = test_client.put("/api/auth/profile", json=profile_data, headers=headers)
-        
+
         assert response.status_code in [200, 401, 500]
 
     @pytest.mark.e2e
@@ -245,10 +246,10 @@ class TestAuthWithValidToken:
             "display_name": "Test User",
             "role": "user"
         }
-        
+
         headers = self.create_mock_auth_headers()
         response = test_client.get("/api/auth/me", headers=headers)
-        
+
         assert response.status_code in [200, 401, 500]
 
 
@@ -259,13 +260,13 @@ class TestAuthSecurityDisabled:
     def test_auth_endpoints_with_security_disabled(self, test_client: TestClient, mock_security_disabled):
         """Test auth endpoints when DISABLE_SECURITY=true."""
         # With security disabled, some endpoints might behave differently
-        
+
         # Test profile endpoint
         response = test_client.get("/api/auth/profile")
         # Could be 401 (still requires auth) or 200 (security disabled)
         assert response.status_code in [200, 401, 403, 500]
-        
-        # Test me endpoint  
+
+        # Test me endpoint
         response = test_client.get("/api/auth/me")
         assert response.status_code in [200, 401, 403, 500]
 
@@ -312,18 +313,18 @@ class TestRateLimitingAuth:
             "email": "test@example.com",
             "password": "WrongPassword123!"
         }
-        
+
         # Make several rapid requests
         responses = []
         for _ in range(3):
             response = test_client.post("/api/auth/login", json=login_data)
             responses.append(response.status_code)
-        
+
         # Should all be unauthorized (401) or some might be rate limited (429)
         for status_code in responses:
             assert status_code in [400, 401, 429]
 
-    @pytest.mark.e2e 
+    @pytest.mark.e2e
     def test_signup_rate_limiting(self, test_client: TestClient):
         """Test that signup attempts are rate limited."""
         # Make several rapid signup attempts
@@ -336,7 +337,7 @@ class TestRateLimitingAuth:
             }
             response = test_client.post("/api/auth/signup", json=user_data)
             responses.append(response.status_code)
-        
+
         # Should be a mix of success, validation errors, or rate limit errors
         for status_code in responses:
             assert status_code in [200, 201, 400, 401, 422, 429]
@@ -354,7 +355,7 @@ class TestAuthInputValidation:
             "password": "TestPassword123!",
             "display_name": "Test User"
         }
-        
+
         response = test_client.post("/api/auth/signup", json=user_data)
         assert response.status_code in [400, 422]
 
@@ -367,7 +368,7 @@ class TestAuthInputValidation:
             "password": long_password,
             "display_name": "Test User"
         }
-        
+
         response = test_client.post("/api/auth/signup", json=user_data)
         assert response.status_code in [200, 201, 400, 422]
 
@@ -380,7 +381,7 @@ class TestAuthInputValidation:
             "password": "TestPassword123!",
             "display_name": long_name
         }
-        
+
         response = test_client.post("/api/auth/signup", json=user_data)
         assert response.status_code in [200, 201, 400, 422]
 
@@ -393,14 +394,14 @@ class TestAuthInputValidation:
             "test_underscore@example.com",  # Underscore (should be valid)
             "test@sub.example.com",   # Subdomain (should be valid)
         ]
-        
+
         for email in special_emails:
             user_data = {
                 "email": email,
                 "password": "TestPassword123!",
                 "display_name": "Test User"
             }
-            
+
             response = test_client.post("/api/auth/signup", json=user_data)
             # Should either succeed or fail due to duplicate, not validation
             assert response.status_code in [200, 201, 400, 422]

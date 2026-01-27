@@ -2,8 +2,9 @@
 Tests for the Enhanced DAO layer.
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 # Module-level markers for all tests in this file
 pytestmark = [
@@ -45,7 +46,7 @@ def test_get_all_games(enhanced_dao):
     """Test getting all games."""
     games = enhanced_dao.get_all_games()
     assert isinstance(games, list)
-    
+
     # If we have games, check their structure
     if games:
         game = games[0]
@@ -61,12 +62,12 @@ def test_get_reference_data(enhanced_dao):
     age_groups = enhanced_dao.get_all_age_groups()
     assert isinstance(age_groups, list)
     assert len(age_groups) > 0, "Should have at least one age group"
-    
+
     # Test seasons
     seasons = enhanced_dao.get_all_seasons()
     assert isinstance(seasons, list)
     assert len(seasons) > 0, "Should have at least one season"
-    
+
     # Test game types
     game_types = enhanced_dao.get_all_game_types()
     assert isinstance(game_types, list)
@@ -132,15 +133,15 @@ def test_get_games_by_team(enhanced_dao):
     """Test getting games for a specific team."""
     # First get all teams to get a valid team ID
     teams = enhanced_dao.get_all_teams()
-    
+
     if teams:
         team_id = teams[0]['id']
         games = enhanced_dao.get_games_by_team(team_id)
         assert isinstance(games, list)
-        
+
         # If there are games, verify they involve the team
         for game in games:
-            assert (game['home_team_id'] == team_id or 
+            assert (game['home_team_id'] == team_id or
                    game['away_team_id'] == team_id), "Game should involve the specified team"
 
 
@@ -179,14 +180,14 @@ def test_dao_data_consistency(enhanced_dao):
     """Test data consistency across different DAO methods."""
     # Get all teams
     teams = enhanced_dao.get_all_teams()
-    
+
     # Get all games
     games = enhanced_dao.get_all_games()
-    
+
     # If we have both teams and games, verify referential integrity
     if teams and games:
         team_ids = set(team['id'] for team in teams)
-        
+
         for game in games:
             assert game['home_team_id'] in team_ids, f"Home team ID {game['home_team_id']} not found in teams"
-            assert game['away_team_id'] in team_ids, f"Away team ID {game['away_team_id']} not found in teams" 
+            assert game['away_team_id'] in team_ids, f"Away team ID {game['away_team_id']} not found in teams"
