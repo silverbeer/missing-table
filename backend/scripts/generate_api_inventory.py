@@ -44,6 +44,12 @@ NON_API_PATHS = {"/health", "/health/full"}
 
 def get_fastapi_routes():
     """Introspect FastAPI app to get all routes."""
+    # Set dummy env vars so the app can be imported without a real DB connection.
+    # We only need route metadata, never make actual database calls.
+    for var in ("SUPABASE_URL", "SUPABASE_ANON_KEY"):
+        if not os.environ.get(var):
+            os.environ[var] = "https://placeholder.supabase.co"
+
     from app import app
 
     routes = []
