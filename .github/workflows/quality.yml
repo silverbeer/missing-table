@@ -222,6 +222,11 @@ jobs:
             --output /tmp/history.json \
             --max-runs 10
 
+      - name: Download journey test results from S3
+        run: |
+          mkdir -p /tmp/journey-allure/widgets
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/journey/widgets/summary.json /tmp/journey-allure/widgets/summary.json || true
+
       - name: Generate dashboard landing page
         run: |
           cd backend
@@ -233,6 +238,7 @@ jobs:
             --backend-coverage-json coverage.json \
             --frontend-results-json ../frontend/test-results.json \
             --frontend-coverage-json ../frontend/coverage/coverage-final.json \
+            --journey-allure-dir /tmp/journey-allure \
             --include-journey \
             --contract-allure-dir contract-allure-report \
             --include-contract \
