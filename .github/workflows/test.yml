@@ -1,9 +1,11 @@
 name: Test Suite
 
 # Trigger on:
-# 1. Every push and pull request (unit + smoke tests)
-# 2. Scheduled nightly runs (integration tests)
-# 3. Manual dispatch for on-demand test execution
+# 1. Every push and pull request (unit tests)
+# 2. Manual dispatch for on-demand test execution
+#
+# Note: Nightly integration/journey tests run via quality-journey.yml against production.
+# Contract tests run via quality.yml on every push against production.
 on:
   push:
     branches:
@@ -19,9 +21,6 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**.md'
-  schedule:
-    # Run integration tests nightly at 2 AM UTC
-    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       test_level:
@@ -32,11 +31,6 @@ on:
         options:
           - 'quick'      # unit + smoke
           - 'unit'       # unit only
-          - 'integration' # integration only
-          - 'contract'   # contract only
-          - 'e2e'        # e2e only
-          - 'smoke'      # smoke only
-          - 'all'        # all tests
 
 env:
   PYTHON_VERSION: '3.13'
@@ -55,7 +49,6 @@ jobs:
   quick-tests:
     name: Quick Tests (Unit + Smoke)
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule' && github.event.inputs.test_level != 'integration' && github.event.inputs.test_level != 'contract' && github.event.inputs.test_level != 'e2e'
 
     steps:
       - name: Checkout code
@@ -84,14 +77,13 @@ jobs:
         continue-on-error: true
 
       # Note: Smoke tests are Playwright E2E tests that require running frontend/backend.
-      # They run in the dedicated e2e-tests job which sets up infrastructure.
-      # Keeping this step but marking it as skipped to avoid false failures.
+      # Run them locally or use quality-journey.yml for production journey tests.
       - name: Skip smoke tests (require infrastructure)
         id: smoke-tests
         run: |
           echo "Smoke tests skipped - they require running frontend/backend infrastructure."
           echo "Run smoke tests locally with: cd backend && uv run python run_tests.py --category smoke"
-          echo "Or use the e2e-tests workflow job."
+          echo "For production testing, use quality-journey.yml workflow."
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
@@ -123,7 +115,7 @@ jobs:
 
             [View full coverage report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-            *Note: Smoke tests are E2E tests requiring running servers. Run them locally or via the e2e-tests job.*
+            *Note: Smoke tests are E2E tests requiring running servers. Run them locally or use quality-journey.yml.*
             `;
 
             github.rest.issues.createComment({
@@ -139,192 +131,7 @@ jobs:
           echo "❌ Unit tests failed!"
           exit 1
 
-  # Job 2: Integration tests - runs nightly or on-demand
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event.inputs.test_level == 'integration' || github.event.inputs.test_level == 'all'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          cd backend
-          uv sync
-
-      - name: Start Supabase (local)
-        run: |
-          cd supabase-local
-          npx supabase start
-
-      - name: Setup integration test database
-        run: |
-          ./scripts/test-db-setup.sh integration
-
-      - name: Run integration tests
-        id: integration-tests
-        run: |
-          cd backend
-          uv run python run_tests.py --category integration --xml-coverage --json-coverage --html-coverage
-        continue-on-error: true
-
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-integration-${{ github.sha }}
-          path: |
-            backend/htmlcov/
-            backend/coverage.xml
-            backend/coverage.json
-          retention-days: 30
-
-      - name: Fail if tests failed
-        if: steps.integration-tests.outcome == 'failure'
-        run: |
-          echo "❌ Integration tests failed!"
-          exit 1
-
-  # Job 3: Contract tests - runs on-demand or nightly
-  contract-tests:
-    name: Contract Tests
-    runs-on: ubuntu-latest
-    if: github.event.inputs.test_level == 'contract' || github.event.inputs.test_level == 'all' || github.event_name == 'schedule'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          cd backend
-          uv sync
-
-      - name: Start Supabase (local)
-        run: |
-          cd supabase-local
-          npx supabase start
-
-      - name: Setup contract test database
-        run: |
-          ./scripts/test-db-setup.sh contract
-
-      - name: Start backend server
-        run: |
-          cd backend
-          uv run python app.py &
-          sleep 10  # Wait for server to start
-
-      - name: Run contract tests
-        id: contract-tests
-        run: |
-          cd backend
-          uv run python run_tests.py --category contract --xml-coverage --json-coverage --html-coverage
-        continue-on-error: true
-
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-contract-${{ github.sha }}
-          path: |
-            backend/htmlcov/
-            backend/coverage.xml
-            backend/coverage.json
-          retention-days: 30
-
-      - name: Fail if tests failed
-        if: steps.contract-tests.outcome == 'failure'
-        run: |
-          echo "❌ Contract tests failed!"
-          exit 1
-
-  # Job 4: E2E tests - runs on-demand or nightly
-  e2e-tests:
-    name: End-to-End Tests
-    runs-on: ubuntu-latest
-    if: github.event.inputs.test_level == 'e2e' || github.event.inputs.test_level == 'all' || github.event_name == 'schedule'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          cd backend
-          uv sync
-
-      - name: Install Playwright browsers
-        run: |
-          cd backend
-          uv run playwright install chromium --with-deps
-
-      - name: Start Supabase (local)
-        run: |
-          cd supabase-local
-          npx supabase start
-
-      - name: Setup e2e test database
-        run: |
-          ./scripts/test-db-setup.sh e2e
-
-      - name: Run e2e tests
-        id: e2e-tests
-        run: |
-          cd backend
-          uv run python run_tests.py --category e2e --xml-coverage --json-coverage --html-coverage
-        continue-on-error: true
-
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-e2e-${{ github.sha }}
-          path: |
-            backend/htmlcov/
-            backend/coverage.xml
-            backend/coverage.json
-          retention-days: 30
-
-      - name: Fail if tests failed
-        if: steps.e2e-tests.outcome == 'failure'
-        run: |
-          echo "❌ E2E tests failed!"
-          exit 1
-
-  # Job 5: Test Summary - aggregate results
+  # Job 2: Test Summary - aggregate results
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
