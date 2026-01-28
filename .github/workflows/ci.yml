@@ -1,201 +1,238 @@
-  name: CI
+name: CI
 
-  on:
-    push:
-      branches: ['**']
-  env:
-    PYTHON_VERSION: '3.13'
-    NODE_VERSION: '20'
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
 
-  permissions:
-    contents: read
-    packages: write
+# Cancel in-progress runs for the same workflow
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
+env:
+  PYTHON_VERSION: '3.13'
+  NODE_VERSION: '20'
 
-  jobs:
-    lint:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-        - name: Install uv
-          uses: astral-sh/setup-uv@v5
-          with:
-            enable-cache: true
-        - name: Set up Python
-          uses: actions/setup-python@v5
-          with:
-            python-version: ${{ env.PYTHON_VERSION }}
-        - name: Install dependencies
-          run: |
-            cd backend
-            uv sync            
-        - name: Run Ruff (Python lint)
-          run: |
-            cd backend
-            uv run ruff check .
-        - name: Run MyPy (Python type check)
-          continue-on-error: true
-          run: |
-            cd backend
-            uv run mypy .
-        - name: Set up Node
-          uses: actions/setup-node@v4
-          with:
-            node-version: ${{ env.NODE_VERSION }}
-            cache: 'npm'
-            cache-dependency-path: frontend/package-lock.json
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write  # For PR comments
 
-        - name: Install frontend dependencies
-          run: |
-            cd frontend
-            npm ci
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          cd backend
+          uv sync
+      - name: Run Ruff (Python lint)
+        run: |
+          cd backend
+          uv run ruff check .
+      - name: Run MyPy (Python type check)
+        continue-on-error: true
+        run: |
+          cd backend
+          uv run mypy .
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+      - name: Run frontend lint
+        run: |
+          cd frontend
+          npm run lint
+          npm run format:check
 
-        - name: Run frontend lint
-          run: |
-            cd frontend
-            npm run lint
-            npm run format:check
+  test-backend:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          cd backend
+          uv sync
+      - name: Run unit tests
+        run: |
+          cd backend
+          uv run pytest tests/unit --no-cov -v
 
+  test-frontend:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+      - name: Run unit tests
+        run: |
+          cd frontend
+          npm run test:run
 
-    test-backend:
-      needs: lint
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+  test-summary:
+    name: Test Summary
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Comment PR with test results
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const backendStatus = '${{ needs.test-backend.result }}' === 'success' ? '✅' : '❌';
+            const frontendStatus = '${{ needs.test-frontend.result }}' === 'success' ? '✅' : '❌';
+            const overallStatus = backendStatus === '✅' && frontendStatus === '✅' ? '✅ All tests passed' : '❌ Some tests failed';
 
-        - name: Install uv
-          uses: astral-sh/setup-uv@v5
-          with:
-            enable-cache: true
+            const comment = `### 🧪 CI Test Results
 
-        - name: Set up Python
-          uses: actions/setup-python@v5
-          with:
-            python-version: ${{ env.PYTHON_VERSION }}
+            | Test Suite | Status |
+            |------------|--------|
+            | Backend Unit Tests | ${backendStatus} |
+            | Frontend Unit Tests | ${frontendStatus} |
 
-        - name: Install dependencies
-          run: |
-            cd backend
-            uv sync
+            **Overall:** ${overallStatus}
 
-        - name: Run unit tests
-          run: |
-            cd backend
-            uv run pytest tests/unit --no-cov -v
+            **Commit:** \`${{ github.sha }}\`
+            **Branch:** \`${{ github.head_ref }}\`
 
-    test-frontend:
-      needs: lint
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+            [View full workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
 
-        - name: Set up Node
-          uses: actions/setup-node@v4
-          with:
-            node-version: ${{ env.NODE_VERSION }}
-            cache: 'npm'
-            cache-dependency-path: frontend/package-lock.json
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      - name: Generate summary
+        run: |
+          echo "### 🧪 CI Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Unit Tests | ${{ needs.test-backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Unit Tests | ${{ needs.test-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
 
-        - name: Install dependencies
-          run: |
-            cd frontend
-            npm ci
+  build-and-push:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push backend
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          docker build -t ghcr.io/silverbeer/missing-table-backend:${SHORT_SHA} -f backend/Dockerfile backend/
+          docker push ghcr.io/silverbeer/missing-table-backend:${SHORT_SHA}
+      - name: Build and push frontend
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          docker build \
+            --build-arg VITE_FARO_URL="${{ secrets.VITE_FARO_URL }}" \
+            -t ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA} \
+            -f frontend/Dockerfile frontend/
+          docker push ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA}
 
-        - name: Run unit tests
-          run: |
-            cd frontend
-            npm run test:run
+  # GitOps: Update Helm values with new image tags
+  # ArgoCD watches the repo and syncs changes to DOKS
+  update-helm-values:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Use PAT to bypass branch protection for automated commits
+          token: ${{ secrets.GH_PAT }}
+          ref: main
+          fetch-depth: 0
+      - name: Pull latest changes
+        run: |
+          git pull origin main
+      - name: Update image tags and version info in values.yaml
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          VALUES_FILE="helm/missing-table/values-prod.yaml"
 
-    build-and-push:
-      needs: [test-backend, test-frontend]
-      runs-on: ubuntu-latest
-      if: github.ref == 'refs/heads/main'
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+          # Read version from VERSION file
+          VERSION=$(cat VERSION | tr -d '\n')
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-        - name: Log in to GHCR
-          uses: docker/login-action@v3
-          with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
+          # Update backend tag (line with # backend-tag marker)
+          sed -i "s|tag: \".*\" # backend-tag|tag: \"${SHORT_SHA}\" # backend-tag|" $VALUES_FILE
 
-        - name: Build and push backend
-          run: |
+          # Update frontend tag (line with # frontend-tag marker)
+          sed -i "s|tag: \".*\" # frontend-tag|tag: \"${SHORT_SHA}\" # frontend-tag|" $VALUES_FILE
+
+          # Update version information
+          sed -i "s|version: \".*\" # version-tag|version: \"${VERSION}\" # version-tag|" $VALUES_FILE
+          sed -i "s|buildId: \".*\" # build-id|buildId: \"${{ github.run_number }}\" # build-id|" $VALUES_FILE
+          sed -i "s|commitSha: \".*\" # commit-sha|commitSha: \"${{ github.sha }}\" # commit-sha|" $VALUES_FILE
+          sed -i "s|buildDate: \".*\" # build-date|buildDate: \"${BUILD_DATE}\" # build-date|" $VALUES_FILE
+
+          echo "Updated tags to ${SHORT_SHA}, version to ${VERSION}"
+          cat $VALUES_FILE
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add helm/missing-table/values-prod.yaml
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            docker build -t ghcr.io/silverbeer/missing-table-backend:${SHORT_SHA} -f backend/Dockerfile backend/
-            docker push ghcr.io/silverbeer/missing-table-backend:${SHORT_SHA}
-
-        - name: Build and push frontend
-          run: |
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            docker build \
-              --build-arg VITE_FARO_URL="${{ secrets.VITE_FARO_URL }}" \
-              -t ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA} \
-              -f frontend/Dockerfile frontend/
-            docker push ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA}
-
-    # GitOps: Update Helm values with new image tags
-    # ArgoCD watches the repo and syncs changes to DOKS
-    update-helm-values:
-      needs: build-and-push
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-          with:
-            # Use PAT to bypass branch protection for automated commits
-            token: ${{ secrets.GH_PAT }}
-            ref: main
-            fetch-depth: 0
-
-        - name: Pull latest changes
-          run: |
-            git pull origin main
-
-        - name: Update image tags and version info in values.yaml
-          run: |
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            VALUES_FILE="helm/missing-table/values-prod.yaml"
-
-            # Read version from VERSION file
             VERSION=$(cat VERSION | tr -d '\n')
-            BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            git commit -m "chore: Update image tags to ${SHORT_SHA}
 
-            # Update backend tag (line with # backend-tag marker)
-            sed -i "s|tag: \".*\" # backend-tag|tag: \"${SHORT_SHA}\" # backend-tag|" $VALUES_FILE
+          Version: ${VERSION}
+          Build: ${{ github.run_number }}
 
-            # Update frontend tag (line with # frontend-tag marker)
-            sed -i "s|tag: \".*\" # frontend-tag|tag: \"${SHORT_SHA}\" # frontend-tag|" $VALUES_FILE
-
-            # Update version information
-            sed -i "s|version: \".*\" # version-tag|version: \"${VERSION}\" # version-tag|" $VALUES_FILE
-            sed -i "s|buildId: \".*\" # build-id|buildId: \"${{ github.run_number }}\" # build-id|" $VALUES_FILE
-            sed -i "s|commitSha: \".*\" # commit-sha|commitSha: \"${{ github.sha }}\" # commit-sha|" $VALUES_FILE
-            sed -i "s|buildDate: \".*\" # build-date|buildDate: \"${BUILD_DATE}\" # build-date|" $VALUES_FILE
-
-            echo "Updated tags to ${SHORT_SHA}, version to ${VERSION}"
-            cat $VALUES_FILE
-
-        - name: Commit and push
-          run: |
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add helm/missing-table/values-prod.yaml
-            if git diff --staged --quiet; then
-              echo "No changes to commit"
-            else
-              SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-              VERSION=$(cat VERSION | tr -d '\n')
-              git commit -m "chore: Update image tags to ${SHORT_SHA}
-
-            Version: ${VERSION}
-            Build: ${{ github.run_number }}
-
-            [skip ci]"
-              git push
-            fi
+          [skip ci]"
+            git push
+          fi
