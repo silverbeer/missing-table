@@ -2,16 +2,20 @@ name: Publish Quality Reports
 
 on:
   push:
-    branches: ['**']
+    branches: ['**']  # Coverage reports for all branches
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]  # Contract tests only after main deployment
   workflow_dispatch:
     inputs:
       test_type:
         description: 'Test type to run'
         required: true
-        default: 'unit'
+        default: 'coverage'
         type: choice
         options:
-          - 'unit'
+          - 'coverage'
           - 'all'
 
 env:
@@ -24,9 +28,12 @@ permissions:
   contents: read
 
 jobs:
-  publish-quality:
-    name: Run Tests & Publish
+  # Job 1: Coverage reports - runs on every push to any branch
+  publish-coverage:
+    name: Unit Tests & Coverage
     runs-on: ubuntu-latest
+    # Run on push events or manual dispatch
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
@@ -93,26 +100,6 @@ jobs:
           cd backend
           allure generate allure-results -o allure-report --clean
 
-      - name: Run contract tests against production
-        id: contract-tests
-        env:
-          API_BASE_URL: https://api.missingtable.com
-          ADMIN_TEST_USERNAME: ${{ secrets.TSC_ADMIN_USERNAME }}
-          ADMIN_TEST_PASSWORD: ${{ secrets.TSC_ADMIN_PASSWORD }}
-        run: |
-          cd backend
-          mkdir -p contract-allure-results
-          uv run pytest tests/contract/ -m contract \
-            --no-cov \
-            --alluredir=contract-allure-results \
-            -v
-        continue-on-error: true
-
-      - name: Generate contract Allure report
-        run: |
-          cd backend
-          allure generate contract-allure-results -o contract-allure-report --clean
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -151,9 +138,6 @@ jobs:
           # Inject into backend Allure report
           sed -i "s|<body>|<body>${BANNER}|" backend/allure-report/index.html
 
-          # Inject into contract Allure report
-          sed -i "s|<body>|<body>${BANNER}|" backend/contract-allure-report/index.html
-
           # Inject into backend coverage report (coverage.py uses <body class="indexfile">)
           sed -i 's|<body class="indexfile">|<body class="indexfile">'"${BANNER}"'|' backend/htmlcov/index.html
 
@@ -180,7 +164,6 @@ jobs:
             --backend-coverage-json coverage.json \
             --frontend-results-json ../frontend/test-results.json \
             --frontend-coverage-json ../frontend/coverage/coverage-final.json \
-            --contract-allure-dir contract-allure-report \
             --output /tmp/run-metadata.json
 
       - name: Download history and compare runs
@@ -233,8 +216,6 @@ jobs:
             --frontend-results-json ../frontend/test-results.json \
             --frontend-coverage-json ../frontend/coverage/coverage-final.json \
             --include-journey \
-            --contract-allure-dir contract-allure-report \
-            --include-contract \
             --api-inventory-json api_inventory.json \
             --history-json /tmp/history.json \
             --comparison-json /tmp/comparison.json
@@ -243,10 +224,6 @@ jobs:
         run: |
           # Upload latest reports
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/latest/missing-table/prod/allure/ \
-            --delete \
-            --cache-control "max-age=300"
-
-          aws s3 sync backend/contract-allure-report/ s3://${S3_BUCKET}/latest/missing-table/prod/contract/ \
             --delete \
             --cache-control "max-age=300"
 
@@ -297,8 +274,6 @@ jobs:
           RUN_DATE=$(date -u +"%Y-%m-%d")
           aws s3 sync backend/allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/allure/ \
             --cache-control "max-age=31536000"
-          aws s3 sync backend/contract-allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/contract/ \
-            --cache-control "max-age=31536000"
           aws s3 sync backend/api-coverage-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/api-coverage/ \
             --cache-control "max-age=31536000"
           aws s3 sync backend/htmlcov/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/backend-unit/ \
@@ -337,10 +312,6 @@ jobs:
           FE_TOTAL=$(python3 -c "import json; print(json.load(open('frontend/test-results.json'))['numTotalTests'])")
           FE_COV=$(python3 -c "import json; d=json.load(open('frontend/coverage/coverage-final.json')); t=sum(len(v['s']) for v in d.values()); c=sum(sum(1 for x in v['s'].values() if x>0) for v in d.values()); print(f'{c/t*100:.1f}' if t>0 else 'N/A')" 2>/dev/null || echo "N/A")
 
-          # Contract metrics
-          CT_PASSED=$(python3 -c "import json; print(json.load(open('backend/contract-allure-report/widgets/summary.json'))['statistic']['passed'])" 2>/dev/null || echo "N/A")
-          CT_TOTAL=$(python3 -c "import json; print(json.load(open('backend/contract-allure-report/widgets/summary.json'))['statistic']['total'])" 2>/dev/null || echo "N/A")
-
           echo "### Quality Reports Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Dashboard:** https://quality.missingtable.com" >> $GITHUB_STEP_SUMMARY
@@ -350,12 +321,148 @@ jobs:
           echo "- [Backend Coverage](https://quality.missingtable.com/latest/missing-table/prod/backend-unit/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Tests (Vitest)](https://quality.missingtable.com/latest/missing-table/prod/frontend-vitest/)" >> $GITHUB_STEP_SUMMARY
           echo "- [Frontend Coverage](https://quality.missingtable.com/latest/missing-table/prod/frontend-unit/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [API Contract Tests](https://quality.missingtable.com/latest/missing-table/prod/contract/)" >> $GITHUB_STEP_SUMMARY
           echo "- [API Coverage](https://quality.missingtable.com/latest/missing-table/prod/api-coverage/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [User Journey Tests](https://quality.missingtable.com/latest/missing-table/prod/journey/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Suite | Tests | Coverage |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|-------|----------|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | ${BE_PASSED}/${BE_TOTAL} | ${BE_COV}% |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${FE_PASSED}/${FE_TOTAL} | ${FE_COV}% |" >> $GITHUB_STEP_SUMMARY
-          echo "| Contract | ${CT_PASSED}/${CT_TOTAL} | N/A |" >> $GITHUB_STEP_SUMMARY
+
+  # Job 2: Contract tests - runs ONLY after CI workflow completes on main
+  # This ensures we test against the NEWLY DEPLOYED code, not the old version
+  contract-tests:
+    name: Contract Tests (Post-Deployment)
+    runs-on: ubuntu-latest
+    # Only run when CI workflow completes successfully on main branch
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-quality
+          aws-region: us-east-1
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for deployment of commit ${{ github.event.workflow_run.head_sha }}"
+          EXPECTED_SHA="${{ github.event.workflow_run.head_sha }}"
+
+          for i in {1..30}; do
+            DEPLOYED_SHA=$(curl -s https://api.missingtable.com/api/version | jq -r '.commitSha' 2>/dev/null || echo "")
+
+            if [ "$DEPLOYED_SHA" = "$EXPECTED_SHA" ]; then
+              echo "✅ Deployment confirmed: $DEPLOYED_SHA"
+              exit 0
+            fi
+
+            echo "Waiting... (attempt $i/30, expected: ${EXPECTED_SHA:0:7}, current: ${DEPLOYED_SHA:0:7})"
+            sleep 10
+          done
+
+          echo "⚠️ Deployment not detected within 5 minutes"
+          echo "Expected: $EXPECTED_SHA"
+          echo "Current: $DEPLOYED_SHA"
+          echo "Proceeding with contract tests anyway..."
+
+      - name: Install Allure CLI
+        run: |
+          curl -fsSL https://github.com/allure-framework/allure2/releases/download/2.30.0/allure-2.30.0.tgz | tar -xz
+          echo "$PWD/allure-2.30.0/bin" >> $GITHUB_PATH
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          uv sync
+
+      - name: Run contract tests against production
+        id: contract-tests
+        env:
+          API_BASE_URL: https://api.missingtable.com
+          ADMIN_TEST_USERNAME: ${{ secrets.TSC_ADMIN_USERNAME }}
+          ADMIN_TEST_PASSWORD: ${{ secrets.TSC_ADMIN_PASSWORD }}
+        run: |
+          cd backend
+          mkdir -p contract-allure-results
+          uv run pytest tests/contract/ -m contract \
+            --no-cov \
+            --alluredir=contract-allure-results \
+            -v
+        continue-on-error: true
+
+      - name: Generate contract Allure report
+        run: |
+          cd backend
+          allure generate contract-allure-results -o contract-allure-report --clean
+
+      - name: Extract build info
+        id: build-info
+        run: |
+          APP_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+          VERSION="${APP_VERSION}.${{ github.run_number }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "branch=main" >> $GITHUB_OUTPUT
+
+      - name: Add dashboard navigation to report
+        env:
+          BUILD_VERSION: ${{ steps.build-info.outputs.version }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          COMMIT_SHORT="${COMMIT_SHA:0:7}"
+          BANNER="<div style=\"background:#2563eb;color:white;padding:8px 16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;justify-content:space-between;\"><a href=\"https://quality.missingtable.com\" style=\"color:white;text-decoration:none;display:flex;align-items:center;gap:8px;\"><span style=\"font-size:18px;\">←</span> Back to Quality Dashboard</a><span style=\"opacity:0.9;\">Build ${BUILD_VERSION} · main · ${COMMIT_SHORT} (post-deploy)</span></div><div style=\"height:40px;\"></div>"
+          sed -i "s|<body>|<body>${BANNER}|" backend/contract-allure-report/index.html
+
+      - name: Upload contract report to S3
+        run: |
+          # Upload latest contract report
+          aws s3 sync backend/contract-allure-report/ s3://${S3_BUCKET}/latest/missing-table/prod/contract/ \
+            --delete \
+            --cache-control "max-age=300"
+
+          # Archive contract report
+          RUN_DATE=$(date -u +"%Y-%m-%d")
+          aws s3 sync backend/contract-allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/contract/ \
+            --cache-control "max-age=31536000"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} \
+            --paths "/latest/missing-table/prod/contract/*"
+
+      - name: Summary
+        run: |
+          CT_PASSED=$(python3 -c "import json; print(json.load(open('backend/contract-allure-report/widgets/summary.json'))['statistic']['passed'])" 2>/dev/null || echo "N/A")
+          CT_TOTAL=$(python3 -c "import json; print(json.load(open('backend/contract-allure-report/widgets/summary.json'))['statistic']['total'])" 2>/dev/null || echo "N/A")
+
+          echo "### Contract Tests (Post-Deployment)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** CI workflow on main branch" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.event.workflow_run.head_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract | ${CT_PASSED}/${CT_TOTAL} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Contract Report](https://quality.missingtable.com/latest/missing-table/prod/contract/)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check contract test results
+        if: steps.contract-tests.outcome == 'failure'
+        run: |
+          echo "⚠️ Contract tests failed - check report for details"
+          exit 1
