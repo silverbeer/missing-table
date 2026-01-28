@@ -348,13 +348,13 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-quality
           aws-region: us-east-1
 
-      - name: Wait for deployment
+      - name: Verify deployment is live
         run: |
-          echo "Waiting for deployment of commit ${{ github.event.workflow_run.head_sha }}"
+          echo "Polling /api/version until deployed commit matches ${{ github.event.workflow_run.head_sha }}"
           EXPECTED_SHA="${{ github.event.workflow_run.head_sha }}"
 
           for i in {1..30}; do
-            DEPLOYED_SHA=$(curl -s https://api.missingtable.com/api/version | jq -r '.commitSha' 2>/dev/null || echo "")
+            DEPLOYED_SHA=$(curl -s https://api.missingtable.com/api/version | jq -r '.commit_sha' 2>/dev/null || echo "")
 
             if [ "$DEPLOYED_SHA" = "$EXPECTED_SHA" ]; then
               echo "✅ Deployment confirmed: $DEPLOYED_SHA"
