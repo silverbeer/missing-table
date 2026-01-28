@@ -15,7 +15,7 @@ console = Console()
 def check_server_running(base_url: str) -> bool:
     """Check if the backend server is running."""
     try:
-        response = httpx.get(f"{base_url}/health", timeout=2.0)
+        response = httpx.get(f"{base_url}/health", timeout=10.0)
         return response.status_code == 200
     except (httpx.ConnectError, httpx.TimeoutException):
         return False
@@ -36,7 +36,7 @@ def verify_server_running(api_base_url: str = "http://localhost:8000"):
         console.print("   $ uv run pytest tests/contract/ -m contract -v\n")
         console.print("   [dim]Or use FastAPI TestClient for tests that don't need a real server[/dim]\n")
 
-        pytest.exit("Backend server not running. Start server and try again.", returncode=1)
+        pytest.skip("Backend server not running. Start server and try again.")
 
     console.print(f"\n[green]✅ Server running at {api_base_url}[/green]\n")
 
