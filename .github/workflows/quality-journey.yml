@@ -1,6 +1,9 @@
 name: User Journey Tests
 
 on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       environment:
