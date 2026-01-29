@@ -13,7 +13,7 @@ import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
 
-from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import BaseDAO, clear_cache, dao_cache, invalidates_cache
 from dao.exceptions import DuplicateRecordError
 from dao.standings import (
     calculate_standings,
@@ -706,10 +706,10 @@ class MatchDAO(BaseDAO):
                 # Return None to signal failure
                 return None
 
-            # Delay to allow Supabase cache to update (read-after-write consistency)
-            import time
-
-            time.sleep(0.3)  # 300ms delay - increased for reliable read-after-write
+            # Clear cache BEFORE re-fetch to avoid returning stale cached data.
+            # The @invalidates_cache decorator clears AFTER the function returns,
+            # but get_match_by_id uses @dao_cache and would hit stale cache.
+            clear_cache(MATCHES_CACHE_PATTERN)
 
             # Get the updated match to return with full relations
             return self.get_match_by_id(match_id)
