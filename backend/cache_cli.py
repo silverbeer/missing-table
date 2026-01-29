@@ -33,6 +33,26 @@ app = typer.Typer(
 console = Console()
 
 
+def get_redis_source():
+    """Read Redis source info from .mt-config."""
+    config_path = os.path.join(os.path.dirname(__file__), "..", ".mt-config")
+    config = {}
+    try:
+        with open(config_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    config[key] = value
+    except FileNotFoundError:
+        pass
+    source = config.get("redis_source", "local")
+    if source == "cloud":
+        context = config.get("cloud_context", "not configured")
+        return f"cloud ({context})"
+    return f"local ({config.get('local_context', 'rancher-desktop')})"
+
+
 def get_redis_client():
     """Get Redis client from environment or default."""
     import redis
@@ -41,10 +61,12 @@ def get_redis_client():
     try:
         client = redis.from_url(url, decode_responses=True)
         client.ping()
+        console.print(f"[dim]Redis: {get_redis_source()} ({url})[/dim]")
         return client
     except redis.RedisError as e:
         console.print(f"[red]Error connecting to Redis:[/red] {e}")
         console.print(f"[dim]URL: {url}[/dim]")
+        console.print(f"[dim]Configured source: {get_redis_source()}[/dim]")
         raise typer.Exit(1) from None
 
 
