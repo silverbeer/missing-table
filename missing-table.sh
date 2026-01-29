@@ -24,23 +24,42 @@ LOG_DIR="$PID_DIR/logs"
 REDIS_NAMESPACE="missing-table"
 REDIS_SERVICE="missing-table-redis"
 
-# Kubectl context configuration
-K3S_CONTEXT="rancher-desktop"              # Local k3s context (Rancher Desktop)
-DOKS_CONTEXT="do-nyc1-missingtable-dev"    # DOKS context
-
 # Create directories if they don't exist
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
-# Config files for persistent environment (shared with switch-env.sh)
+# Config file for persistent environment (shared with switch-env.sh)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_CONFIG_FILE="$SCRIPT_DIR/.current-env"
-REDIS_CONFIG_FILE="$SCRIPT_DIR/.current-redis"
+MT_CONFIG_FILE="$SCRIPT_DIR/.mt-config"
+
+# --- .mt-config helpers ---
+
+# Read a key from .mt-config, return default if missing
+mt_config_get() {
+    local key="$1"
+    local default="$2"
+    if [ -f "$MT_CONFIG_FILE" ]; then
+        local value
+        value=$(grep "^${key}=" "$MT_CONFIG_FILE" 2>/dev/null | head -1 | cut -d'=' -f2-)
+        if [ -n "$value" ]; then
+            echo "$value"
+            return
+        fi
+    fi
+    echo "$default"
+}
+
+# --- End helpers ---
+
+# Kubectl context configuration (read from .mt-config)
+K3S_CONTEXT="$(mt_config_get local_context rancher-desktop)"
+CLOUD_CONTEXT="$(mt_config_get cloud_context "")"
 
 # Get current environment from config file or env var
 get_current_env() {
-    # Priority: 1) .current-env file (set by switch-env.sh), 2) APP_ENV env var, 3) default to local
-    if [ -f "$ENV_CONFIG_FILE" ]; then
-        cat "$ENV_CONFIG_FILE"
+    local config_val
+    config_val=$(mt_config_get supabase_env "")
+    if [ -n "$config_val" ]; then
+        echo "$config_val"
     elif [ -n "$APP_ENV" ]; then
         echo "$APP_ENV"
     else
@@ -50,12 +69,7 @@ get_current_env() {
 
 # Get current Redis source from config file
 get_current_redis() {
-    # Read from .current-redis file, default to "local" for backward compatibility
-    if [ -f "$REDIS_CONFIG_FILE" ]; then
-        cat "$REDIS_CONFIG_FILE"
-    else
-        echo "local"
-    fi
+    mt_config_get redis_source local
 }
 
 # Function to print usage
@@ -82,7 +96,7 @@ usage() {
     echo -e "${YELLOW}Redis:${NC}"
     echo "  Redis source is configured via './switch-env.sh redis <local|cloud>'"
     echo "    local = Redis in local k3s (Rancher Desktop)"
-    echo "    cloud = Redis in DOKS cluster"
+    echo "    cloud = Redis in cloud cluster"
     echo "  Port-forwarded to localhost:6379. If Redis not deployed, caching disabled."
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
@@ -218,14 +232,20 @@ start_redis_portforward() {
     return 1
 }
 
-# Function to start Redis port-forward to DOKS cloud cluster
+# Function to start Redis port-forward to cloud cluster
 start_cloud_redis_portforward() {
-    echo -e "${YELLOW}Starting Redis port-forward to DOKS...${NC}"
+    if [ -z "$CLOUD_CONTEXT" ]; then
+        echo -e "${RED}Cloud context not configured${NC}"
+        echo -e "${BLUE}Tip:${NC} Run './switch-env.sh cloud-context <name>' to set the cloud kubectl context"
+        return 1
+    fi
 
-    # Check if Redis pod is running in DOKS
-    if ! redis_pod_running "$DOKS_CONTEXT"; then
-        echo -e "${RED}Redis pod is not running in DOKS${NC}"
-        echo -e "${BLUE}Tip:${NC} Ensure Redis is deployed in DOKS cluster"
+    echo -e "${YELLOW}Starting Redis port-forward to cloud ($CLOUD_CONTEXT)...${NC}"
+
+    # Check if Redis pod is running in cloud
+    if ! redis_pod_running "$CLOUD_CONTEXT"; then
+        echo -e "${RED}Redis pod is not running in cloud cluster${NC}"
+        echo -e "${BLUE}Tip:${NC} Ensure Redis is deployed in cloud cluster"
         return 1
     fi
 
@@ -237,7 +257,7 @@ start_cloud_redis_portforward() {
 
     # Start port-forward in background
     local redis_pf_log="$LOG_DIR/redis-portforward.log"
-    nohup kubectl --context="$DOKS_CONTEXT" port-forward -n "$REDIS_NAMESPACE" "svc/$REDIS_SERVICE" "$REDIS_PORT:6379" > "$redis_pf_log" 2>&1 &
+    nohup kubectl --context="$CLOUD_CONTEXT" port-forward -n "$REDIS_NAMESPACE" "svc/$REDIS_SERVICE" "$REDIS_PORT:6379" > "$redis_pf_log" 2>&1 &
     local pf_pid=$!
     echo $pf_pid > "$REDIS_PF_PID_FILE"
 
@@ -245,14 +265,14 @@ start_cloud_redis_portforward() {
     local count=0
     while [ $count -lt 5 ]; do
         if redis_accessible; then
-            echo -e "${GREEN}Redis port-forward started to DOKS (PID: $pf_pid)${NC}"
+            echo -e "${GREEN}Redis port-forward started to cloud (PID: $pf_pid)${NC}"
             return 0
         fi
         sleep 1
         count=$((count + 1))
     done
 
-    echo -e "${RED}Redis port-forward to DOKS failed to start${NC}"
+    echo -e "${RED}Redis port-forward to cloud failed to start${NC}"
     return 1
 }
 
@@ -429,12 +449,16 @@ start_services() {
     echo -e "Redis source: ${GREEN}$redis_source${NC}"
 
     if [ "$redis_source" = "cloud" ]; then
-        # Port-forward to DOKS Redis
-        if redis_pod_running "$DOKS_CONTEXT"; then
+        # Port-forward to cloud Redis
+        if [ -z "$CLOUD_CONTEXT" ]; then
+            echo -e "${YELLOW}Cloud context not configured - skipping cloud Redis${NC}"
+            echo -e "${BLUE}Tip:${NC} Run './switch-env.sh cloud-context <name>' to set it"
+            echo ""
+        elif redis_pod_running "$CLOUD_CONTEXT"; then
             start_cloud_redis_portforward
         else
-            echo -e "${YELLOW}Redis not deployed in DOKS - caching will be disabled${NC}"
-            echo -e "${BLUE}Tip:${NC} Ensure Redis is deployed in DOKS cluster"
+            echo -e "${YELLOW}Redis not deployed in cloud cluster - caching will be disabled${NC}"
+            echo -e "${BLUE}Tip:${NC} Ensure Redis is deployed in cloud cluster"
             echo ""
         fi
     else
@@ -580,9 +604,13 @@ show_status() {
     echo -e "  Source: ${GREEN}$redis_source${NC}"
 
     if [ "$redis_source" = "cloud" ]; then
-        # Show DOKS Redis status
-        echo "  Cluster: DOKS ($DOKS_CONTEXT)"
-        local redis_status=$(get_redis_status "$DOKS_CONTEXT")
+        # Show cloud Redis status
+        if [ -n "$CLOUD_CONTEXT" ]; then
+            echo "  Cluster: cloud ($CLOUD_CONTEXT)"
+        else
+            echo -e "  Cluster: cloud (${RED}context not configured${NC})"
+        fi
+        local redis_status=$(get_redis_status "$CLOUD_CONTEXT")
     else
         # Show local k3s Redis status
         echo "  Cluster: local k3s ($K3S_CONTEXT)"
@@ -611,7 +639,7 @@ show_status() {
         "NOT_DEPLOYED")
             echo -e "  Pod: ${YELLOW}NOT DEPLOYED${NC}"
             if [ "$redis_source" = "cloud" ]; then
-                echo -e "  ${BLUE}Tip:${NC} Ensure Redis is deployed in DOKS cluster"
+                echo -e "  ${BLUE}Tip:${NC} Ensure Redis is deployed in cloud cluster"
             else
                 echo -e "  ${BLUE}Tip:${NC} Deploy with: helm upgrade missing-table ./helm/missing-table --set redis.enabled=true -n missing-table"
             fi
@@ -701,7 +729,7 @@ colorize_json_log() {
     fi
 }
 
-# Function to tail Kubernetes logs (DOKS/cloud)
+# Function to tail Kubernetes logs (cloud)
 tail_k8s_logs() {
     local since="${1:-10m}"
     local tail_lines="${2:-50}"

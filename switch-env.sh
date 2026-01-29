@@ -3,9 +3,8 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Config files to persist environment choices
-ENV_CONFIG_FILE="$SCRIPT_DIR/.current-env"
-REDIS_CONFIG_FILE="$SCRIPT_DIR/.current-redis"
+# Unified config file
+MT_CONFIG_FILE="$SCRIPT_DIR/.mt-config"
 
 # Colors for output
 RED='\033[0;31m'
@@ -14,20 +13,54 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# --- .mt-config helpers ---
+
+# Read a key from .mt-config, return default if missing
+mt_config_get() {
+    local key="$1"
+    local default="$2"
+    if [ -f "$MT_CONFIG_FILE" ]; then
+        local value
+        value=$(grep "^${key}=" "$MT_CONFIG_FILE" 2>/dev/null | head -1 | cut -d'=' -f2-)
+        if [ -n "$value" ]; then
+            echo "$value"
+            return
+        fi
+    fi
+    echo "$default"
+}
+
+# Write/update a key in .mt-config
+mt_config_set() {
+    local key="$1"
+    local value="$2"
+    if [ -f "$MT_CONFIG_FILE" ]; then
+        # Remove existing key line
+        grep -v "^${key}=" "$MT_CONFIG_FILE" > "$MT_CONFIG_FILE.tmp"
+        mv "$MT_CONFIG_FILE.tmp" "$MT_CONFIG_FILE"
+    else
+        # Create new config with header
+        echo "# Missing Table local environment config" > "$MT_CONFIG_FILE"
+    fi
+    echo "${key}=${value}" >> "$MT_CONFIG_FILE"
+}
+
+# --- End helpers ---
+
 print_header() {
     echo -e "${BLUE}=== $1 ===${NC}"
 }
 
 print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}$1${NC}"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}$1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}$1${NC}"
 }
 
 show_help() {
@@ -43,31 +76,38 @@ show_help() {
     echo ""
     echo "Redis Commands:"
     echo "  redis local        Use Redis in local k3s (port-forward to Rancher Desktop)"
-    echo "  redis cloud        Use Redis in DOKS (port-forward to cloud cluster)"
+    echo "  redis cloud        Use Redis in cloud cluster (port-forward to cloud k8s)"
+    echo ""
+    echo "Cloud Context Commands:"
+    echo "  cloud-context <name>   Set the kubectl context for cloud operations"
     echo ""
     echo "Other Commands:"
-    echo "  status             Show current Supabase and Redis configuration"
+    echo "  status             Show current Supabase, Redis, and cloud context configuration"
     echo "  help               Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 local              # Switch Supabase to local (Redis unchanged)"
-    echo "  $0 prod               # Switch Supabase to prod (Redis unchanged)"
-    echo "  $0 supabase prod      # Explicit: Switch Supabase to prod"
-    echo "  $0 redis local        # Switch Redis to local k3s"
-    echo "  $0 redis cloud        # Switch Redis to DOKS cloud"
-    echo "  $0 status             # Show current configuration"
+    echo "  $0 local                          # Switch Supabase to local (Redis unchanged)"
+    echo "  $0 prod                           # Switch Supabase to prod (Redis unchanged)"
+    echo "  $0 supabase prod                  # Explicit: Switch Supabase to prod"
+    echo "  $0 redis local                    # Switch Redis to local k3s"
+    echo "  $0 redis cloud                    # Switch Redis to cloud cluster"
+    echo "  $0 cloud-context lke560651-ctx    # Set cloud kubectl context"
+    echo "  $0 status                         # Show current configuration"
     echo ""
     echo "Typical Workflow:"
-    echo "  $0 supabase prod      # Use production database"
-    echo "  $0 redis local        # Use local k3s Redis for caching"
+    echo "  $0 cloud-context lke560651-ctx    # Set once when switching providers"
+    echo "  $0 supabase prod                  # Use production database"
+    echo "  $0 redis local                    # Use local k3s Redis for caching"
     echo "  ./missing-table.sh start --watch"
     echo ""
 }
 
 get_current_env() {
-    # Priority: 1) .current-env file (set by switch-env.sh), 2) APP_ENV env var, 3) default to local
-    if [ -f "$ENV_CONFIG_FILE" ]; then
-        cat "$ENV_CONFIG_FILE"
+    # Priority: 1) .mt-config (set by switch-env.sh), 2) APP_ENV env var, 3) default to local
+    local config_val
+    config_val=$(mt_config_get supabase_env "")
+    if [ -n "$config_val" ]; then
+        echo "$config_val"
     elif [ -n "$APP_ENV" ]; then
         echo "$APP_ENV"
     else
@@ -76,12 +116,7 @@ get_current_env() {
 }
 
 get_current_redis() {
-    # Read from .current-redis file, default to "local" for backward compatibility
-    if [ -f "$REDIS_CONFIG_FILE" ]; then
-        cat "$REDIS_CONFIG_FILE"
-    else
-        echo "local"
-    fi
+    mt_config_get redis_source local
 }
 
 show_status() {
@@ -89,6 +124,8 @@ show_status() {
 
     current_env=$(get_current_env)
     current_redis=$(get_current_redis)
+    cloud_ctx=$(mt_config_get cloud_context "")
+    local_ctx=$(mt_config_get local_context rancher-desktop)
 
     echo ""
     echo -e "${YELLOW}Supabase:${NC}"
@@ -103,12 +140,12 @@ show_status() {
 
         if [ -f "$backend_file" ] && [ -f "$frontend_file" ]; then
             if [ "$env" = "$current_env" ]; then
-                echo -e "    ${GREEN}✅ $env (ACTIVE)${NC}"
+                echo -e "    ${GREEN}$env (ACTIVE)${NC}"
             else
-                echo -e "    ✅ $env"
+                echo -e "    $env"
             fi
         else
-            echo -e "    ${RED}❌ $env (missing files)${NC}"
+            echo -e "    ${RED}$env (missing files)${NC}"
         fi
     done
 
@@ -131,18 +168,38 @@ show_status() {
     echo ""
     echo -e "${YELLOW}Redis:${NC}"
     if [ "$current_redis" = "local" ]; then
-        echo -e "  Source: ${GREEN}local${NC} (k3s via Rancher Desktop)"
-        echo "  Context: rancher-desktop"
+        echo -e "  Source: ${GREEN}local${NC} (k3s via $local_ctx)"
+        echo "  Context: $local_ctx"
     elif [ "$current_redis" = "cloud" ]; then
-        echo -e "  Source: ${GREEN}cloud${NC} (DOKS cluster)"
-        echo "  Context: do-nyc1-missingtable-dev"
+        if [ -n "$cloud_ctx" ]; then
+            echo -e "  Source: ${GREEN}cloud${NC} (cloud cluster)"
+            echo "  Context: $cloud_ctx"
+        else
+            echo -e "  Source: ${GREEN}cloud${NC} (cloud cluster)"
+            echo -e "  Context: ${RED}not configured${NC}"
+            echo -e "  ${BLUE}Tip:${NC} Run '$0 cloud-context <name>' to set the cloud kubectl context"
+        fi
     else
         echo -e "  Source: ${YELLOW}$current_redis${NC} (unknown)"
     fi
 
     echo ""
+    echo -e "${YELLOW}Cloud Context:${NC}"
+    if [ -n "$cloud_ctx" ]; then
+        echo -e "  kubectl context: ${GREEN}$cloud_ctx${NC}"
+    else
+        echo -e "  kubectl context: ${YELLOW}not configured${NC}"
+        echo -e "  ${BLUE}Tip:${NC} Run '$0 cloud-context <name>' to set the cloud kubectl context"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}Local Context:${NC}"
+    echo -e "  kubectl context: ${GREEN}$local_ctx${NC}"
+
+    echo ""
     echo -e "${BLUE}Tip:${NC} Use './switch-env.sh supabase <local|prod>' to change Supabase"
     echo -e "${BLUE}Tip:${NC} Use './switch-env.sh redis <local|cloud>' to change Redis"
+    echo -e "${BLUE}Tip:${NC} Use './switch-env.sh cloud-context <name>' to set cloud context"
 }
 
 switch_environment() {
@@ -171,9 +228,9 @@ switch_environment() {
 
     print_header "Switching to $target_env environment"
 
-    # Write to config file (persists across sessions without needing to source anything)
-    echo "$target_env" > "$ENV_CONFIG_FILE"
-    print_success "Saved environment to .current-env"
+    # Write to .mt-config
+    mt_config_set supabase_env "$target_env"
+    print_success "Saved environment to .mt-config"
 
     # Update shell configuration
     update_shell_config "$target_env"
@@ -224,25 +281,33 @@ switch_redis() {
         print_error "Invalid Redis source: $target_redis"
         echo "Valid sources: local, cloud"
         echo "  local = Redis in local k3s (Rancher Desktop)"
-        echo "  cloud = Redis in DOKS cluster"
+        echo "  cloud = Redis in cloud cluster"
         exit 1
     fi
 
     print_header "Switching Redis to $target_redis"
 
-    # Write to config file
-    echo "$target_redis" > "$REDIS_CONFIG_FILE"
-    print_success "Saved Redis source to .current-redis"
+    # Write to .mt-config
+    mt_config_set redis_source "$target_redis"
+    print_success "Saved Redis source to .mt-config"
 
     # Show context information
     if [ "$target_redis" = "local" ]; then
+        local local_ctx
+        local_ctx=$(mt_config_get local_context rancher-desktop)
         echo ""
-        echo "Redis will connect to: local k3s (Rancher Desktop)"
-        echo "Kubectl context: rancher-desktop"
+        echo "Redis will connect to: local k3s ($local_ctx)"
+        echo "Kubectl context: $local_ctx"
     elif [ "$target_redis" = "cloud" ]; then
+        local cloud_ctx
+        cloud_ctx=$(mt_config_get cloud_context "")
         echo ""
-        echo "Redis will connect to: DOKS cluster"
-        echo "Kubectl context: do-nyc1-missingtable-dev"
+        echo "Redis will connect to: cloud cluster"
+        if [ -n "$cloud_ctx" ]; then
+            echo "Kubectl context: $cloud_ctx"
+        else
+            print_warning "Cloud context not configured. Run '$0 cloud-context <name>' to set it."
+        fi
     fi
 
     echo ""
@@ -250,6 +315,33 @@ switch_redis() {
     echo "  1. Restart services: ./missing-table.sh restart"
     echo ""
     print_success "Redis source switched to: $target_redis"
+}
+
+switch_cloud_context() {
+    local context_name="$1"
+
+    if [ -z "$context_name" ]; then
+        print_error "Missing context name. Usage: $0 cloud-context <context-name>"
+        echo ""
+        echo "Examples:"
+        echo "  $0 cloud-context lke560651-ctx          # Linode LKE"
+        echo "  $0 cloud-context do-nyc1-missingtable   # DigitalOcean DOKS"
+        echo ""
+        echo "List available contexts with: kubectl config get-contexts"
+        exit 1
+    fi
+
+    print_header "Setting cloud kubectl context"
+
+    mt_config_set cloud_context "$context_name"
+    print_success "Cloud context set to: $context_name"
+
+    echo ""
+    echo "This context will be used for:"
+    echo "  - Redis cloud port-forwarding"
+    echo "  - Any cloud kubectl operations in missing-table.sh"
+    echo ""
+    echo -e "${BLUE}Tip:${NC} Verify with: kubectl --context=$context_name cluster-info"
 }
 
 update_shell_config() {
@@ -298,12 +390,15 @@ case "${1:-help}" in
         switch_environment "$2"
         ;;
     redis)
-        # New redis command
+        # Redis source command
         if [ -z "$2" ]; then
             print_error "Missing redis source. Usage: $0 redis <local|cloud>"
             exit 1
         fi
         switch_redis "$2"
+        ;;
+    cloud-context)
+        switch_cloud_context "$2"
         ;;
     status)
         show_status

@@ -184,5 +184,4 @@ backend/tests/tsc/.entity_registry.json
 backend/tests/tsc/.entity_registry.*.json
 
 # Local environment config
-.current-env
-.current-redis
+.mt-config
