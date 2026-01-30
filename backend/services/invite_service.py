@@ -81,7 +81,8 @@ class InviteService:
                     raise ValueError("team_id is required for team-level invites")
                 if not age_group_id:
                     raise ValueError("age_group_id is required for team-level invites")
-                club_id = None
+                # Derive club_id from the team's parent club
+                club_id = self._get_team_club_id(team_id)
 
             # Generate unique invite code
             invite_code = self.generate_invite_code()
@@ -290,6 +291,16 @@ class InviteService:
         except Exception as e:
             logger.error(f"Error redeeming invitation {code}: {e}")
             return False
+
+    def _get_team_club_id(self, team_id: int) -> int | None:
+        """Look up a team's parent club_id."""
+        try:
+            response = self.supabase.table("teams").select("club_id").eq("id", team_id).execute()
+            if response.data:
+                return response.data[0].get("club_id")
+        except Exception as e:
+            logger.warning(f"Could not look up club_id for team {team_id}: {e}")
+        return None
 
     def _link_user_to_roster_entry(
         self,
