@@ -459,7 +459,7 @@ def update_user_team(supabase, identifier, team_id):
             user_id = profile_response.data[0]["id"]
 
         # Get team info to verify it exists
-        team_response = supabase.table("teams").select("id, name, city").eq("id", team_id).execute()
+        team_response = supabase.table("teams").select("id, name, city, club_id").eq("id", team_id).execute()
 
         if not team_response.data:
             console.print(f"[red]❌ Team ID {team_id} not found[/red]")
@@ -475,8 +475,9 @@ def update_user_team(supabase, identifier, team_id):
         )
         current_profile = profile_response.data[0] if profile_response.data else {}
 
-        # Update team_id in user_profiles
-        update_response = supabase.table("user_profiles").update({"team_id": team_id}).eq("id", user_id).execute()
+        # Update team_id and club_id (derived from team's parent club) in user_profiles
+        update_data = {"team_id": team_id, "club_id": team_info.get("club_id")}
+        update_response = supabase.table("user_profiles").update(update_data).eq("id", user_id).execute()
 
         if update_response.data:
             console.print("\n[bold green]✅ Team assignment updated successfully![/bold green]")
