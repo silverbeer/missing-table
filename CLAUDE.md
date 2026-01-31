@@ -205,13 +205,29 @@ Format: `MAJOR.MINOR.PATCH.BUILD` (e.g., `1.0.1.147`)
 
 **Full guide**: [docs/MIGRATION_BEST_PRACTICES.md](docs/MIGRATION_BEST_PRACTICES.md)
 
+### Schema Structure
+
+The database schema is consolidated into a single baseline migration:
+- **`supabase-local/migrations/00000000000000_schema.sql`** — Complete schema (tables, functions, RLS policies, indexes)
+- **`supabase-local/supabase/seed.sql`** — Reference data (age_groups, seasons, match_types, leagues, divisions)
+- `supabase/migrations/` is a **symlink** to `supabase-local/migrations/` — one source of truth
+
+New schema changes go in additional timestamped migration files (e.g., `20260201000000_add_foo.sql`).
+
 ### Quick Reference
 ```bash
+# Full local DB setup from scratch (schema + seed + test users)
+./scripts/setup-local-db.sh              # Without match data
+./scripts/setup-local-db.sh --restore    # With match data from backup
+
 # Local Supabase
 cd supabase-local && npx supabase start|stop|status
 
-# Create migration
-npx supabase db diff -f add_new_feature
+# Reset database (applies schema + seed)
+cd supabase-local && npx supabase db reset
+
+# Create new migration
+cd supabase-local && npx supabase db diff -f add_new_feature
 
 # Backup/Restore
 ./scripts/db_tools.sh backup
@@ -292,4 +308,4 @@ Backend-centered auth resolves k8s networking issues. All Supabase credentials s
 
 ---
 
-**Last Updated**: 2026-01-22
+**Last Updated**: 2026-01-30
