@@ -107,16 +107,20 @@ supabase start
 
 💡 **Tip**: Keep this terminal window open. Supabase needs to run in the background.
 
-### Step 4: Restore Database
+### Step 4: Set Up Database
 
 ```bash
-# Restore real data from backup
-./scripts/db_tools.sh restore
+# One-command setup: schema + reference data + test users
+./scripts/setup-local-db.sh
+
+# Or with match/team data from backup:
+./scripts/setup-local-db.sh --restore
 
 # This will:
-# ✓ Create all database tables
-# ✓ Import reference data (seasons, age groups, etc.)
-# ✓ Import teams and games
+# ✓ Reset database and apply consolidated schema
+# ✓ Seed reference data (seasons, age groups, match types, etc.)
+# ✓ Create test users (tom, tom_ifa, tom_ifa_fan, tom_club)
+# ✓ Optionally restore teams and matches from backup
 ```
 
 ### Step 5: Start the Application

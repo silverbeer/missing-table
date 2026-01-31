@@ -1,60 +1,53 @@
--- Seed data for teams
--- This creates sample teams for each age group and division combination
+-- =============================================================================
+-- Seed data: Reference tables required for the application to function
+-- =============================================================================
+-- This runs automatically after migrations during `npx supabase db reset`
+-- These are the core lookup/reference tables that the app depends on.
+-- =============================================================================
 
--- First, let's create some teams
--- Note: Adjust the age_group_id and division_id based on your actual IDs
+-- Age Groups
+INSERT INTO public.age_groups (id, name) VALUES
+  (1, 'U13'),
+  (2, 'U14'),
+  (3, 'U15'),
+  (4, 'U16'),
+  (5, 'U17'),
+  (7, 'U19')
+ON CONFLICT (id) DO NOTHING;
 
-DO $$
-DECLARE
-    age_group RECORD;
-    division RECORD;
-    team_counter INT := 1;
-BEGIN
-    -- Loop through all age groups
-    FOR age_group IN SELECT id, name FROM age_groups LOOP
-        -- Loop through all divisions
-        FOR division IN SELECT id, name FROM divisions LOOP
-            -- Create 2 teams for each age group/division combination
-            FOR i IN 1..2 LOOP
-                INSERT INTO teams (name, age_group_id, division_id, abbreviation, academy_team)
-                VALUES (
-                    'Team ' || division.name || ' ' || age_group.name || ' ' || i,
-                    age_group.id,
-                    division.id,
-                    'T' || LEFT(division.name, 2) || LEFT(age_group.name, 3) || i,
-                    false
-                );
-                team_counter := team_counter + 1;
-            END LOOP;
-        END LOOP;
-    END LOOP;
-    
-    RAISE NOTICE 'Created % teams', team_counter - 1;
-END $$;
+SELECT setval('public.age_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.age_groups));
 
--- Create a few specific teams with real-looking names
-INSERT INTO teams (name, age_group_id, division_id, abbreviation, academy_team)
-SELECT 
-    'FC United ' || ag.name,
-    ag.id,
-    d.id,
-    'FCU' || RIGHT(ag.name, 2),
-    true
-FROM age_groups ag
-CROSS JOIN divisions d
-WHERE ag.name IN ('U15', 'U16', 'U17')
-AND d.name = 'Northeast'
-ON CONFLICT DO NOTHING;
+-- Seasons
+INSERT INTO public.seasons (id, name, start_date, end_date) VALUES
+  (1, '2023-2024', '2023-09-01', '2024-06-30'),
+  (2, '2024-2025', '2024-09-01', '2025-06-30'),
+  (3, '2025-2026', '2025-09-01', '2026-06-30')
+ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO teams (name, age_group_id, division_id, abbreviation, academy_team)
-SELECT 
-    'City Soccer ' || ag.name,
-    ag.id,
-    d.id,
-    'CS' || RIGHT(ag.name, 2),
-    false
-FROM age_groups ag
-CROSS JOIN divisions d
-WHERE ag.name IN ('U13', 'U14', 'U15')
-AND d.name = 'Central'
-ON CONFLICT DO NOTHING;
+SELECT setval('public.seasons_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.seasons));
+
+-- Match Types
+INSERT INTO public.match_types (id, name) VALUES
+  (1, 'League'),
+  (2, 'Tournament'),
+  (3, 'Friendly'),
+  (4, 'Playoff')
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('public.match_types_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.match_types));
+
+-- Leagues
+INSERT INTO public.leagues (id, name, description, is_active) VALUES
+  (1, 'Homegrown', 'MLS Next Top League', true),
+  (2, 'Academy', 'MLS Next League 2', true)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('public.leagues_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.leagues));
+
+-- Divisions (depend on leagues)
+INSERT INTO public.divisions (id, name, description, league_id) VALUES
+  (1, 'Northeast', 'Northeast Division', 1),
+  (7, 'New England', 'New England Division', 2)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('public.divisions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.divisions));

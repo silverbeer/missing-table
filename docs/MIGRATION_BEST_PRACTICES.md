@@ -1,6 +1,6 @@
 # Database Migration Best Practices
 
-**Last Updated**: 2025-10-28
+**Last Updated**: 2026-01-30
 
 ## Overview
 
@@ -8,7 +8,8 @@ This document defines the standard practices for managing database schema change
 
 ## Migration Philosophy
 
-- **Single Source of Truth**: All schema changes MUST be migrations in `supabase/migrations/`
+- **Single Source of Truth**: All migrations live in `supabase-local/migrations/` (one directory)
+- **`supabase/migrations/`** is a symlink to `supabase-local/migrations/` — no more syncing
 - **Version Control**: Migrations are tracked in git like any other code
 - **Environment Parity**: All environments (local, dev, prod) use the same migrations
 - **Safety First**: Always backup before deploying, test locally before cloud
@@ -17,22 +18,25 @@ This document defines the standard practices for managing database schema change
 ## Directory Structure
 
 ```
-supabase/
-├── migrations/
-│   ├── 20251028000001_baseline_schema.sql  # Baseline migration (consolidated)
-│   ├── 20251029000002_add_new_feature.sql  # New migrations go here
-│   └── .archive/                            # Historical migrations (preserved)
-└── config.toml                              # Supabase CLI configuration
-
 supabase-local/
-├── migrations/
-│   ├── 20251028000001_baseline_schema.sql  # Copy of baseline
-│   └── .archive/                            # Archived old migrations
-└── config.toml                              # Local configuration
+├── migrations/                              # THE single source of truth
+│   ├── 00000000000000_schema.sql            # Consolidated baseline (pg_dump of full schema)
+│   ├── 20260201000000_add_new_feature.sql   # New migrations go alongside baseline
+│   └── .archive/                            # Historical migration filenames (reference only)
+├── supabase/
+│   ├── config.toml                          # Supabase CLI configuration
+│   ├── seed.sql                             # Reference data (age_groups, seasons, etc.)
+│   └── migrations -> ../migrations          # Symlink for Supabase CLI
+└── config.toml                              # Git-tracked copy of config
+
+supabase/
+└── migrations -> ../supabase-local/migrations  # Symlink — one source of truth
 
 scripts/
-├── deprecated/                              # Old ad-hoc SQL scripts (DO NOT USE)
-└── test-data/                               # Test data scripts (for testing only)
+├── setup-local-db.sh                        # One-command local DB setup
+├── seed_test_users.sh                       # Create test users
+├── db_tools.sh                              # Backup/restore utility
+└── test-data/                               # Test data scripts
 ```
 
 ## Migration Naming Convention
@@ -67,17 +71,13 @@ cd supabase-local
 npx supabase db diff -f add_new_feature
 
 # 3. Review the generated migration
-cat migrations/[timestamp]_add_new_feature.sql
+cat supabase/migrations/[timestamp]_add_new_feature.sql
 
 # 4. Test locally
 npx supabase db reset
-./scripts/db_tools.sh restore
 
-# 5. Copy to official migrations
-cp migrations/[timestamp]_add_new_feature.sql ../supabase/migrations/
-
-# 6. Commit to git
-git add supabase/migrations/ supabase-local/migrations/
+# 5. Commit to git (symlink means only one directory to track)
+git add supabase-local/migrations/
 git commit -m "feat: add new feature migration"
 ```
 
@@ -99,13 +99,9 @@ vim migrations/[timestamp]_add_new_feature.sql
 
 # 4. Test locally
 npx supabase db reset
-./scripts/db_tools.sh restore
 
-# 5. Copy to official migrations
-cp migrations/[timestamp]_add_new_feature.sql ../supabase/migrations/
-
-# 6. Commit to git
-git add supabase/migrations/ supabase-local/migrations/
+# 5. Commit to git
+git add supabase-local/migrations/
 git commit -m "feat: add new feature migration"
 ```
 
@@ -376,7 +372,7 @@ Before committing a migration, verify:
 - [ ] Data restore works after migration
 - [ ] Application starts and works with new schema
 - [ ] Tests pass with new schema
-- [ ] Migration copied to both `supabase/` and `supabase-local/` directories
+- [ ] Migration added to `supabase-local/migrations/` (single source of truth)
 - [ ] Breaking changes documented in commit message
 - [ ] Team notified if migration requires downtime
 
@@ -625,49 +621,71 @@ CREATE TABLE schema_version (
 );
 ```
 
-## Baseline Migration
+## Baseline Schema
 
 ### What Is It?
 
-The baseline migration (`20251028000001_baseline_schema.sql`) consolidates all historical migrations into a single file. This provides:
+The baseline migration (`00000000000000_schema.sql`) is a `pg_dump --schema-only` of the complete public schema. It consolidates all historical migrations into a single file. This provides:
 
 - Clean starting point for new environments
 - Complete schema in one place
 - Faster database resets
 - Simpler onboarding for new developers
-- **Schema version 1.0.0** - Initial baseline
 
-### When to Use Baseline
+### Seed Data
 
-- Setting up a new development environment
-- Creating a new Supabase project
-- After major refactoring that consolidates many small migrations
-- When migration history becomes unwieldy (50+ migrations)
+Reference data is seeded via `supabase-local/supabase/seed.sql` (enabled in config.toml). This includes:
+- Age groups (U13-U19)
+- Seasons (2023-2024 through 2025-2026)
+- Match types (League, Tournament, Friendly, Playoff)
+- Leagues (Homegrown, Academy)
+- Divisions (Northeast, New England)
+
+### One-Command Setup
+
+```bash
+# Full setup: schema + seed + test users
+./scripts/setup-local-db.sh
+
+# With match/team data restore
+./scripts/setup-local-db.sh --restore
+```
 
 ### Baseline Contents
 
 The baseline includes:
-- All tables (age_groups, seasons, teams, matches, etc.)
-- Auth system (user_profiles, invitations, team_manager_assignments)
-- Reference tables (divisions, match_types, team_match_types)
-- Enums (match_status)
-- Functions (is_admin, is_team_manager, manages_team, reset_all_sequences)
-- RLS policies for all tables
+- All tables (age_groups, seasons, teams, matches, clubs, players, etc.)
+- Auth system (user_profiles, invitations, invite_requests, team_manager_assignments)
+- Reference tables (divisions, match_types, team_match_types, leagues)
+- Enums (match_status, invite_request_status)
+- Functions (is_admin, is_team_manager, manages_team, reset_all_sequences, etc.)
+- RLS policies for all tables (51 policies)
 - Indexes for performance
 - Constraints for data integrity
 
 ### After Baseline
 
 New migrations are incremental changes on top of the baseline:
-- `20251028000001_baseline_schema.sql` (baseline)
-- `20251029000002_add_player_stats.sql` (new feature)
-- `20251030000003_add_match_attendance.sql` (new feature)
+- `00000000000000_schema.sql` (baseline)
+- `20260201000000_add_player_stats.sql` (new feature)
+- `20260202000000_add_match_attendance.sql` (new feature)
+
+### Re-consolidating the Baseline
+
+Periodically, you may want to re-consolidate the baseline by dumping the current schema:
+
+```bash
+PGPASSWORD=postgres pg_dump --schema-only --no-owner --no-privileges \
+  -h 127.0.0.1 -p 54332 -U postgres -d postgres --schema=public \
+  > supabase-local/migrations/00000000000000_schema.sql
+# Then remove the \restrict/\unrestrict lines and CREATE SCHEMA public
+```
 
 ## Resources
 
 - **Supabase CLI Documentation**: https://supabase.com/docs/guides/cli
 - **PostgreSQL Documentation**: https://www.postgresql.org/docs/
-- **Project Migrations**: `/supabase/migrations/`
+- **Project Migrations**: `/supabase-local/migrations/`
 - **Migration Log**: `/migration_consolidation_log.md`
 
 ## Questions?

@@ -63,6 +63,42 @@ def clear_table(table_name: str):
     except Exception as e:
         print(f"  ✗ Error clearing {table_name}: {e}")
 
+def validate_records(table_name: str, data: list) -> list:
+    """Filter out records with null values in NOT NULL columns.
+
+    Returns the list of valid records and prints warnings for skipped ones.
+    """
+    # NOT NULL columns per table (excluding 'id' which is auto-generated)
+    required_fields = {
+        'team_match_types': ['team_id', 'match_type_id', 'age_group_id'],
+        'teams': ['name'],
+        'matches': ['home_team_id', 'away_team_id', 'season_id'],
+        'clubs': ['name'],
+        'divisions': ['name'],
+        'leagues': ['name'],
+    }
+
+    fields = required_fields.get(table_name)
+    if not fields:
+        return data
+
+    valid = []
+    skipped = 0
+    for record in data:
+        missing = [f for f in fields if record.get(f) is None]
+        if missing:
+            skipped += 1
+            record_id = record.get('id', '?')
+            print(f"  ⚠ Skipping record id={record_id}: null value in {', '.join(missing)}")
+        else:
+            valid.append(record)
+
+    if skipped:
+        print(f"  ⚠ Filtered out {skipped} invalid record(s) from {table_name}")
+
+    return valid
+
+
 def restore_table(table_name: str, data: list):
     """Restore data to a single table."""
     if not data:
@@ -71,6 +107,12 @@ def restore_table(table_name: str, data: list):
 
     try:
         print(f"Restoring {table_name} ({len(data)} records)...")
+
+        # Filter out records that would violate NOT NULL constraints
+        data = validate_records(table_name, data)
+        if not data:
+            print(f"  ⚠ No valid records to restore for {table_name}")
+            return True
 
         # Insert in batches to avoid timeout
         batch_size = 100
