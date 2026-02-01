@@ -20,6 +20,7 @@ Use the convenient shell script for common operations:
 ./scripts/db_tools.sh restore database_backup_20231220_143022.json
 
 # Reset database and restore from latest backup (PREFERRED)
+# NOTE: Requires a backup less than 4 hours old (safety guard)
 ./scripts/db_tools.sh reset
 
 # Clean up old backups (keep only 5 most recent)
@@ -63,6 +64,18 @@ cd backend
 uv run python ../scripts/backup_database.py --list        # List existing backups
 uv run python ../scripts/backup_database.py --cleanup 10  # Keep only 10 backups
 ```
+
+## Backup Freshness Guard
+
+The `db_tools.sh reset` command includes a **4-hour safety guard**. Before resetting the database, it checks that a backup exists that was created less than 4 hours ago. If the latest backup is older, the reset is aborted to prevent data loss from a stale backup.
+
+```bash
+# If reset fails due to stale backup:
+./scripts/db_tools.sh backup    # Create a fresh backup first
+./scripts/db_tools.sh reset     # Now reset will succeed
+```
+
+This ensures you always have a recent restore point before a destructive reset operation.
 
 ## Restore System
 
