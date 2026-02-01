@@ -28,6 +28,45 @@ print_error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
+# Check that a recent backup exists (less than 4 hours old)
+# Returns 0 if a recent backup exists, 1 otherwise
+check_recent_backup() {
+    local backup_dir="$PROJECT_ROOT/backups"
+    local max_age_minutes=240  # 4 hours
+
+    if [ ! -d "$backup_dir" ]; then
+        print_error "Backup directory not found: $backup_dir"
+        return 1
+    fi
+
+    # Find backup files modified within the last 4 hours
+    local recent_backups
+    recent_backups=$(find "$backup_dir" -maxdepth 1 -name "database_backup_*.json" -mmin -${max_age_minutes} 2>/dev/null | sort -r | head -1)
+
+    if [ -z "$recent_backups" ]; then
+        # Find the most recent backup to show how old it is
+        local latest_backup
+        latest_backup=$(ls -t "$backup_dir"/database_backup_*.json 2>/dev/null | head -1)
+        if [ -n "$latest_backup" ]; then
+            local file_age_seconds
+            file_age_seconds=$(( $(date +%s) - $(stat -f %m "$latest_backup") ))
+            local hours=$(( file_age_seconds / 3600 ))
+            local minutes=$(( (file_age_seconds % 3600) / 60 ))
+            print_error "No recent backup found. Latest backup is ${hours}h ${minutes}m old:"
+            echo "  $(basename "$latest_backup")"
+        else
+            print_error "No backups found at all in $backup_dir"
+        fi
+        echo ""
+        echo "Create a backup first:"
+        echo "  ./scripts/db_tools.sh backup"
+        return 1
+    fi
+
+    print_success "Recent backup found: $(basename "$recent_backups")"
+    return 0
+}
+
 # Check if Python environment is available
 check_environment() {
     if ! command -v uv &> /dev/null; then
@@ -160,12 +199,18 @@ reset_and_populate() {
     print_warning "Creating backup before reset..."
     backup_database "$current_env"
 
+    # Verify a recent backup exists before destructive reset
+    if ! check_recent_backup; then
+        print_error "Aborting reset: no backup less than 4 hours old."
+        return 1
+    fi
+
     # Reset database
     print_warning "Resetting database..."
     cd "$PROJECT_ROOT" || exit 1
 
     if [ "$current_env" = "local" ]; then
-        npx supabase db reset
+        cd supabase-local && npx supabase db reset
     else
         print_warning "Cloud environment reset requires manual intervention."
         print_warning "Consider using database migrations instead."
@@ -190,12 +235,12 @@ cleanup_backups() {
 
 # Show help
 show_help() {
-    echo "Database Tools - MLS Next Development Utility"
+    echo "Database Tools - Missing Table Development Utility"
     echo ""
     echo "Usage: $0 [COMMAND] [OPTIONS]"
     echo ""
     echo "Commands:"
-    echo "  backup [env]                    Create backup for specified environment (local|dev|prod)"
+    echo "  backup [env]                    Create backup for specified environment (local|prod)"
     echo "  restore [backup_file] [env]     Restore from backup to specified environment"
     echo "  list                            List available backups"
     echo "  reset [env]                     Reset database and repopulate with basic data"
@@ -204,14 +249,13 @@ show_help() {
     echo ""
     echo "Environment Options:"
     echo "  local     Local Supabase (default) - requires 'npx supabase start'"
-    echo "  dev       Cloud development environment"
     echo "  prod      Cloud production environment"
     echo ""
     echo "Examples:"
     echo "  $0 backup                                    # Create backup for current environment"
-    echo "  $0 backup dev                                # Create backup for dev environment"
+    echo "  $0 backup prod                               # Create backup for prod environment"
     echo "  $0 restore                                   # Restore latest backup to current environment"
-    echo "  $0 restore backup_file.json dev              # Restore specific backup to dev environment"
+    echo "  $0 restore backup_file.json prod             # Restore specific backup to prod environment"
     echo "  $0 list                                      # List all backups"
     echo "  $0 reset local                               # Reset local database"
     echo "  $0 cleanup 5                                 # Keep only 5 most recent backups"

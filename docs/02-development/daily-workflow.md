@@ -74,14 +74,13 @@ supabase status   # Check status and get URLs
 
 ## 🌍 Environment Management
 
-The application supports multiple environments: **local**, **dev** (cloud), and **prod** (cloud).
+The application supports two environments: **local** and **prod** (cloud).
 
 ### Environment Switching
 
 ```bash
 # Switch environments
 ./switch-env.sh local    # Local Supabase (default)
-./switch-env.sh dev      # Cloud development
 ./switch-env.sh prod     # Cloud production
 
 # Check current environment
@@ -99,12 +98,7 @@ The application supports multiple environments: **local**, **dev** (cloud), and 
 - Best for e2e testing and offline development
 - Configuration: `backend/.env.local`, `frontend/.env.local`
 
-**2. Cloud Development Environment**:
-- Uses Supabase cloud for cross-machine sync
-- Perfect for match-scraper integration
-- Configuration: `backend/.env.dev`, `frontend/.env.dev`
-
-**3. Production Environment**:
+**2. Production Environment**:
 - Uses production Supabase project
 - Configuration: `backend/.env.prod`, `frontend/.env.prod`
 - Use with caution - production data
@@ -237,18 +231,6 @@ supabase start
 ./scripts/db_tools.sh backup     # Create backup of current state
 ```
 
-**Cloud Development**:
-```bash
-# Start cloud development
-./switch-env.sh dev
-./missing-table.sh start         # No need to start Supabase - using cloud
-
-# Your development work...
-
-# End of session (optional backup)
-./scripts/db_tools.sh backup dev # Create backup of current state
-```
-
 ### Testing New Features
 
 ```bash
@@ -257,10 +239,6 @@ supabase start
 
 # After testing, if things go wrong
 ./scripts/db_tools.sh restore    # Restore to last known good state
-
-# Cross-environment testing
-./scripts/db_tools.sh backup local      # Backup local state
-./scripts/db_tools.sh restore dev       # Copy local data to dev for testing
 ```
 
 ### Database Schema Changes

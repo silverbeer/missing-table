@@ -14,7 +14,8 @@ This section covers daily development workflows, tools, and best practices for w
 |----------|-------------|
 | **[Daily Workflow](daily-workflow.md)** | Common commands and development patterns |
 | **[Environment Management](environment-management.md)** | Switching between local, dev, and prod environments |
-| **[Database Operations](database-operations.md)** | Backup, restore, and migration procedures |
+| **[Database Operations](database-operations.md)** | Backup, restore, and database management |
+| **[Schema Migrations](schema-migrations.md)** | Creating, testing, and deploying migrations |
 | **[Docker Guide](docker-guide.md)** | Building images, platform considerations |
 | **[Logging Standards](logging-standards.md)** | Frontend/backend logging, trace IDs, Grafana Loki |
 | **[API Development](api-development.md)** | Creating new API endpoints |
@@ -65,7 +66,6 @@ cd frontend && npm run lint                     # JavaScript linting
 ```bash
 # Switch environments
 ./switch-env.sh local    # Local Supabase (default)
-./switch-env.sh dev      # Cloud development
 ./switch-env.sh prod     # Cloud production
 
 # Check current environment

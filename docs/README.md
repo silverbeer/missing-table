@@ -50,8 +50,9 @@ Welcome to the Missing Table documentation! This guide will help you get started
 > Daily workflows, commands, and development practices
 
 - **[Daily Workflow](02-development/daily-workflow.md)** - Common commands and patterns
-- **[Environment Management](02-development/environment-management.md)** - Local, dev, prod environments
-- **[Database Operations](02-development/database-operations.md)** - Backup, restore, migrations
+- **[Environment Management](02-development/environment-management.md)** - Local and prod environments
+- **[Database Operations](02-development/database-operations.md)** - Backup, restore, database management
+- **[Schema Migrations](02-development/schema-migrations.md)** - Creating and deploying migrations
 - **[Docker Guide](02-development/docker-guide.md)** - Building images, platform considerations
 - **[API Development](02-development/api-development.md)** - Creating new endpoints
 

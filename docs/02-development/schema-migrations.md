@@ -1,6 +1,6 @@
 # Database Migration Best Practices
 
-**Last Updated**: 2026-01-30
+**Last Updated**: 2026-02-01
 
 ## Overview
 
@@ -11,7 +11,7 @@ This document defines the standard practices for managing database schema change
 - **Single Source of Truth**: All migrations live in `supabase-local/migrations/` (one directory)
 - **`supabase/migrations/`** is a symlink to `supabase-local/migrations/` — no more syncing
 - **Version Control**: Migrations are tracked in git like any other code
-- **Environment Parity**: All environments (local, dev, prod) use the same migrations
+- **Environment Parity**: All environments (local, prod) use the same migrations
 - **Safety First**: Always backup before deploying, test locally before cloud
 - **No Ad-Hoc SQL**: Schema changes outside of migrations are forbidden
 
@@ -260,26 +260,7 @@ cd backend && uv run pytest
 # Verify changes work as expected
 ```
 
-### 2. Dev Deployment
-
-```bash
-# Switch to dev environment
-./switch-env.sh dev
-
-# Backup dev database
-./scripts/db_tools.sh backup dev
-
-# Apply migrations to dev
-cd supabase-local && npx supabase db push --linked
-
-# Verify migration applied
-npx supabase migration list
-
-# Test on dev environment
-curl https://dev.missingtable.com/api/health
-```
-
-### 3. Production Deployment
+### 2. Production Deployment
 
 **⚠️ CRITICAL: Only deploy to production during scheduled maintenance windows**
 
@@ -303,7 +284,7 @@ npx supabase migration list
 watch -n 30 'curl -s https://missingtable.com/api/health'
 
 # 7. Check application logs
-kubectl logs -l app=missing-table-backend -n missing-table-dev --tail=100
+kubectl logs -l app=missing-table-backend -n missing-table --tail=100
 
 # 8. Announce deployment complete
 ```
@@ -443,7 +424,7 @@ ALTER TYPE match_status ADD VALUE IF NOT EXISTS 'forfeited';
 
 ## What NOT To Do
 
-### ❌ Never Modify Existing Migrations
+### Never Modify Existing Migrations
 
 Once a migration is deployed to any environment, it is **immutable**.
 
@@ -455,7 +436,7 @@ vim supabase/migrations/20251028000001_baseline_schema.sql
 npx supabase migration new fix_issue
 ```
 
-### ❌ Never Run Ad-Hoc SQL in Production
+### Never Run Ad-Hoc SQL in Production
 
 ```bash
 # ❌ BAD: Direct SQL execution
@@ -467,12 +448,12 @@ npx supabase migration new add_team_logo
 npx supabase db push --linked
 ```
 
-### ❌ Never Skip Local Testing
+### Never Skip Local Testing
 
 ```bash
 # ❌ BAD: Deploy directly to prod
 git commit -m "add migration" && git push
-kubectl rollout restart deployment/backend -n missing-table-dev
+kubectl rollout restart deployment/backend -n missing-table
 
 # ✅ GOOD: Test locally first
 npx supabase db reset
@@ -481,7 +462,7 @@ npx supabase db reset
 # Then deploy
 ```
 
-### ❌ Never Use DROP Without Backup
+### Never Use DROP Without Backup
 
 ```bash
 # ❌ BAD: Drop without backup
@@ -686,15 +667,13 @@ PGPASSWORD=postgres pg_dump --schema-only --no-owner --no-privileges \
 - **Supabase CLI Documentation**: https://supabase.com/docs/guides/cli
 - **PostgreSQL Documentation**: https://www.postgresql.org/docs/
 - **Project Migrations**: `/supabase-local/migrations/`
-- **Migration Log**: `/migration_consolidation_log.md`
 
 ## Questions?
 
 If you're unsure about a migration:
 1. Ask in the team chat
 2. Test extensively in local environment
-3. Deploy to dev first
-4. When in doubt, make it idempotent and reversible
+3. When in doubt, make it idempotent and reversible
 
 ---
 

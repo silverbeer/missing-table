@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **MT backend** = FastAPI backend (Python 3.13+, located in `backend/`)
 - **MT frontend** = Vue.js application (located in `frontend/`)
 - **MT scraper** = match-scraper repository (separate repo)
-- **MT db** = Supabase databases (local/dev/prod environments)
+- **MT db** = Supabase databases (local/prod environments)
 
 ---
 
@@ -119,7 +119,7 @@ If code mixes business logic with database queries, **STOP and communicate**:
 Full-stack web application for MLS Next sports league standings and match schedules.
 - **Backend**: FastAPI (Python 3.13+) in `backend/`
 - **Frontend**: Vue 3 in `frontend/`
-- **Database**: Supabase (local/dev/prod)
+- **Database**: Supabase (local/prod)
 
 **Detailed docs**: [docs/03-architecture/README.md](docs/03-architecture/README.md)
 
@@ -203,7 +203,7 @@ Format: `MAJOR.MINOR.PATCH.BUILD` (e.g., `1.0.1.147`)
 
 ## Database/Supabase
 
-**Full guide**: [docs/MIGRATION_BEST_PRACTICES.md](docs/MIGRATION_BEST_PRACTICES.md)
+**Full guide**: [docs/02-development/schema-migrations.md](docs/02-development/schema-migrations.md)
 
 ### Schema Structure
 
@@ -238,7 +238,6 @@ cd supabase-local && npx supabase db diff -f add_new_feature
 ### Environment Switching
 ```bash
 ./switch-env.sh local    # Local Supabase (default)
-./switch-env.sh dev      # Cloud development
 ./switch-env.sh prod     # Cloud production
 ./switch-env.sh status   # Check current environment
 ```

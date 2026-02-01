@@ -86,7 +86,40 @@ echo -e "${GREEN}Prerequisites OK${NC}"
 echo ""
 
 ##############################################################################
-# Step 2: Reset database (applies schema + seed)
+# Step 2: Check for recent backup (less than 4 hours old)
+##############################################################################
+echo -e "${YELLOW}Checking for recent backup...${NC}"
+
+BACKUP_DIR="$PROJECT_ROOT/backups"
+MAX_AGE_MINUTES=240  # 4 hours
+
+recent_backup=""
+if [ -d "$BACKUP_DIR" ]; then
+    recent_backup=$(find "$BACKUP_DIR" -maxdepth 1 -name "database_backup_*.json" -mmin -${MAX_AGE_MINUTES} 2>/dev/null | sort -r | head -1)
+fi
+
+if [ -z "$recent_backup" ]; then
+    echo -e "${RED}No backup less than 4 hours old found. Aborting reset.${NC}"
+    latest_backup=$(ls -t "$BACKUP_DIR"/database_backup_*.json 2>/dev/null | head -1)
+    if [ -n "$latest_backup" ]; then
+        file_age_seconds=$(( $(date +%s) - $(stat -f %m "$latest_backup") ))
+        hours=$(( file_age_seconds / 3600 ))
+        minutes=$(( (file_age_seconds % 3600) / 60 ))
+        echo -e "${RED}Latest backup is ${hours}h ${minutes}m old: $(basename "$latest_backup")${NC}"
+    else
+        echo -e "${RED}No backups found at all in $BACKUP_DIR${NC}"
+    fi
+    echo ""
+    echo "Create a backup first:"
+    echo "  ./scripts/db_tools.sh backup"
+    exit 1
+fi
+
+echo -e "${GREEN}Recent backup found: $(basename "$recent_backup")${NC}"
+echo ""
+
+##############################################################################
+# Step 3: Reset database (applies schema + seed)
 ##############################################################################
 echo -e "${BLUE}Step 1: Resetting database (schema + seed data)...${NC}"
 cd "$PROJECT_ROOT/supabase-local"
