@@ -136,6 +136,12 @@ if [ "$RESTORE_DATA" = true ]; then
     if [ -f "$SCRIPT_DIR/db_tools.sh" ]; then
         bash "$SCRIPT_DIR/db_tools.sh" restore
         echo -e "${GREEN}Data restore complete${NC}"
+
+        # Fix sport_type for Futsal leagues (backup may not have this set)
+        echo -e "${YELLOW}Setting sport_type for Futsal leagues...${NC}"
+        PGPASSWORD=postgres psql -h 127.0.0.1 -p 54332 -U postgres -d postgres \
+            -c "UPDATE public.leagues SET sport_type = 'futsal' WHERE LOWER(name) LIKE '%futsal%' AND sport_type != 'futsal';" \
+            2>/dev/null && echo -e "${GREEN}Futsal leagues updated${NC}" || echo -e "${YELLOW}Could not update Futsal leagues${NC}"
     else
         echo -e "${YELLOW}db_tools.sh not found, skipping data restore${NC}"
     fi
@@ -146,9 +152,31 @@ else
 fi
 
 ##############################################################################
+# Step 3: Flush Redis cache (stale cache can serve old/empty data)
+##############################################################################
+echo -e "${BLUE}Step 3: Flushing Redis cache...${NC}"
+
+# Read kubectl context from .mt-config if available
+MT_CONFIG_FILE="$PROJECT_ROOT/.mt-config"
+K3S_CONTEXT="rancher-desktop"
+if [ -f "$MT_CONFIG_FILE" ]; then
+    config_context=$(grep "^local_context=" "$MT_CONFIG_FILE" 2>/dev/null | head -1 | cut -d'=' -f2-)
+    if [ -n "$config_context" ]; then
+        K3S_CONTEXT="$config_context"
+    fi
+fi
+
+if kubectl --context="$K3S_CONTEXT" exec -n missing-table svc/missing-table-redis -- redis-cli FLUSHALL &>/dev/null; then
+    echo -e "${GREEN}Redis cache flushed${NC}"
+else
+    echo -e "${YELLOW}Redis not available — skipping cache flush${NC}"
+fi
+echo ""
+
+##############################################################################
 # Step 4: Seed test users
 ##############################################################################
-echo -e "${BLUE}Step 3: Seeding test users...${NC}"
+echo -e "${BLUE}Step 4: Seeding test users...${NC}"
 cd "$PROJECT_ROOT"
 if [ -f "$SCRIPT_DIR/seed_test_users.sh" ]; then
     bash "$SCRIPT_DIR/seed_test_users.sh" local
@@ -176,5 +204,5 @@ echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "  - Start backend: cd backend && APP_ENV=local uv run python app.py"
 echo "  - Start frontend: cd frontend && npm run serve"
-echo "  - Or use: ./missing-table.sh dev"
+echo "  - Or use: ./missing-table.sh start --watch"
 echo ""
