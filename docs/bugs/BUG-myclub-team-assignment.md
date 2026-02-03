@@ -1,7 +1,8 @@
 # BUG: MyClub Tab Shows "No Team Assigned" Despite Player Being on Teams
 
-**Status**: Open
+**Status**: Fixed
 **Discovered**: 2026-02-03
+**Fixed**: 2026-02-03
 **Severity**: Medium - affects team-player users viewing their team roster
 
 ---
@@ -85,6 +86,18 @@ Use `player_team_history` as primary source of truth for the MyClub tab, and als
 | `backend/dao/player_dao.py` | `get_user_profile_with_relationships()` (line 27) |
 | `backend/services/invite_service.py` | Only place that sets `user_profiles.team_id` (during invite redemption) |
 | `supabase-local/migrations/00000000000000_schema.sql` | Schema for `player_team_history` and `user_profiles` |
+
+## Fix Applied
+
+**Option A implemented**: The read path was fixed to use `player_team_history` as the source of truth.
+
+### Changes Made
+
+1. **`backend/app.py`** (`/api/auth/me` endpoint): For `team-player` users, the response now includes a `current_teams` array populated from `player_team_history` (via `player_dao.get_all_current_player_teams()`). This returns all teams where `is_current=true`, supporting multi-team players.
+
+2. **`frontend/src/components/profiles/TeamRosterRouter.vue`**: The `hasTeam` computed property now checks both `profile.team_id` (legacy path from invite signup) and `profile.current_teams.length > 0` (from `player_team_history`). Either being truthy allows the player through to the roster view.
+
+No changes were needed in `TeamRosterPage.vue` since it already fetches current teams from `/api/auth/profile/teams/current` and uses `player_team_history` data.
 
 ## Additional Context
 

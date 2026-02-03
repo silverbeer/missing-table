@@ -93,9 +93,10 @@ export default {
       return authStore.state.profile?.role || 'team-fan';
     });
 
-    // Check if user has a team assigned
+    // Check if user has a team assigned (via user_profiles.team_id or player_team_history)
     const hasTeam = computed(() => {
-      return !!authStore.state.profile?.team_id;
+      const profile = authStore.state.profile;
+      return !!profile?.team_id || profile?.current_teams?.length > 0;
     });
 
     // Handle clicking on a player card

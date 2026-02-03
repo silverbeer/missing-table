@@ -1533,6 +1533,18 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
         # Get fresh profile data with team AND club info
         profile = player_dao.get_user_profile_with_relationships(current_user["user_id"]) or {}
 
+        # For team-players, include current team assignments from player_team_history.
+        # This is the source of truth for team membership (user_profiles.team_id is only
+        # set during invite-code signup, not when added via roster manager).
+        current_teams = []
+        role = profile.get("role", "team-fan")
+        if role == "team-player":
+            teams_data = player_dao.get_all_current_player_teams(current_user["user_id"])
+            current_teams = [
+                {"team_id": t.get("team_id"), "team": t.get("team"), "season": t.get("season")}
+                for t in teams_data
+            ]
+
         return {
             "success": True,
             "user": {
@@ -1541,7 +1553,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                 "profile": {
                     "username": profile.get("username"),
                     "email": profile.get("email"),
-                    "role": profile.get("role", "team-fan"),
+                    "role": role,
                     "team_id": profile.get("team_id"),
                     "club_id": profile.get("club_id"),
                     "display_name": profile.get("display_name"),
@@ -1550,6 +1562,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     "positions": profile.get("positions"),
                     "team": profile.get("team"),
                     "club": profile.get("club"),
+                    "current_teams": current_teams,
                     "created_at": profile.get("created_at"),
                     "updated_at": profile.get("updated_at"),
                     # Photo fields
