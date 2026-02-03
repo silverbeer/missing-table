@@ -32,7 +32,7 @@ async def get_version():
     Environment Variables:
         - APP_VERSION: Semantic version (e.g., "1.0.0")
         - BUILD_ID: CI/CD build/workflow run ID
-        - ENVIRONMENT: Environment name (local, dev, production)
+        - ENVIRONMENT: Environment name (local, prod)
         - COMMIT_SHA: Git commit SHA
         - BUILD_DATE: ISO format build timestamp
     """

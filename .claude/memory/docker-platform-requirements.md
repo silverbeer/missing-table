@@ -13,9 +13,9 @@ This causes the error: `no match for platform in manifest: not found`
 
 ```bash
 # For cloud deployment (GKE) - REQUIRED
-./build-and-push.sh backend dev      # Dev environment (AMD64, push)
+./build-and-push.sh backend prod     # Prod environment (AMD64, push)
 ./build-and-push.sh frontend prod    # Prod environment (AMD64, push)
-./build-and-push.sh all dev          # All services (AMD64, push)
+./build-and-push.sh all prod         # All services (AMD64, push)
 
 # For local development only
 ./build-and-push.sh backend local    # Current platform, no push
@@ -23,7 +23,7 @@ This causes the error: `no match for platform in manifest: not found`
 
 ## What the Script Does
 
-1. **Cloud builds (dev/prod)**:
+1. **Cloud builds (prod)**:
    - Builds for `linux/amd64` platform (GKE requirement)
    - Pushes to Artifact Registry
    - Uses `docker buildx build --platform linux/amd64`
@@ -52,16 +52,16 @@ docker buildx build --platform linux/amd64 \
 
 ```bash
 # 1. Restart deployment to pull new image
-kubectl rollout restart deployment/missing-table-backend -n missing-table-dev
+kubectl rollout restart deployment/missing-table-backend -n missing-table-prod
 
 # 2. Wait for rollout to complete
-kubectl rollout status deployment/missing-table-backend -n missing-table-dev --timeout=180s
+kubectl rollout status deployment/missing-table-backend -n missing-table-prod --timeout=180s
 
 # 3. Check pod status
-kubectl get pods -n missing-table-dev -l app.kubernetes.io/component=backend
+kubectl get pods -n missing-table-prod -l app.kubernetes.io/component=backend
 
 # 4. View logs
-kubectl logs -f -l app.kubernetes.io/component=backend -n missing-table-dev
+kubectl logs -f -l app.kubernetes.io/component=backend -n missing-table-prod
 ```
 
 ## Environment-Specific Registries

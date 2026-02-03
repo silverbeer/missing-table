@@ -136,15 +136,6 @@ Make sure local Supabase is running:
 cd supabase-local && npx supabase start
 ```
 
-### Cloud Development
-
-Update `frontend/.env.dev`:
-```bash
-# These should already be set
-VUE_APP_SUPABASE_URL=https://ppgxasqgqbnauvxozmjw.supabase.co
-VUE_APP_SUPABASE_ANON_KEY=your_anon_key
-```
-
 ### Production
 
 Update `frontend/.env.prod`:
@@ -161,8 +152,8 @@ Run the OAuth support migration to add required columns:
 # Local
 cd supabase-local && npx supabase db reset
 
-# Cloud (after testing locally)
-./switch-env.sh dev
+# Production (after testing locally)
+./switch-env.sh prod
 cd supabase-local && npx supabase db push --linked
 ```
 

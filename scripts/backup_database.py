@@ -36,6 +36,61 @@ if not url or not key:
     raise Exception("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY")
 
 supabase: Client = create_client(url, key)
+db_url = os.getenv("DATABASE_URL")
+
+# Tables intentionally excluded from backups
+EXCLUDED_TABLES = {
+    'user_profiles',    # Managed per-environment (different auth.users UUIDs)
+    'schema_version',   # Internal tracking, recreated by migrations
+    'service_accounts', # Contains API keys - managed per-environment
+}
+
+
+def check_for_new_tables(tables_to_backup: list) -> list:
+    """
+    Check if there are tables in the database not included in the backup list.
+    Returns list of tables that are missing from backups.
+    """
+    try:
+        import psycopg2
+        if not db_url:
+            print("  ⚠ Cannot check for new tables: DATABASE_URL not set")
+            return []
+
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_type = 'BASE TABLE'
+        """)
+        db_tables = {row[0] for row in cur.fetchall()}
+        conn.close()
+
+        backup_set = set(tables_to_backup) | EXCLUDED_TABLES
+        missing = db_tables - backup_set
+
+        if missing:
+            print("=" * 60)
+            print("⚠️  WARNING: Tables exist in database but NOT in backup list:")
+            for table in sorted(missing):
+                print(f"    - {table}")
+            print()
+            print("  Add these to 'tables_to_backup' in backup_database.py")
+            print("  Or add to 'EXCLUDED_TABLES' if intentionally skipped.")
+            print("=" * 60)
+            print()
+
+        return list(missing)
+
+    except ImportError:
+        print("  ⚠ psycopg2 not available, skipping table check")
+        return []
+    except Exception as e:
+        print(f"  ⚠ Could not check for new tables: {e}")
+        return []
+
 
 def backup_table(table_name: str, select_columns: str = '*'):
     """Backup a single table to JSON."""
@@ -78,7 +133,7 @@ def create_backup():
         'age_groups',
         'leagues',  # Added for league layer support - must come before divisions
         'divisions',  # Now depends on leagues
-        'match_types',  # Updated from game_types
+        'match_types',
         'seasons',
 
         # Clubs (before teams - teams have club_id foreign key)
@@ -87,14 +142,37 @@ def create_backup():
         # Teams and mappings
         'teams',
         'team_mappings',
-        'team_match_types',  # Updated from team_game_types
+        'team_match_types',
+        'team_aliases',
 
-        # Matches (updated from games)
+        # Team management
+        'team_manager_assignments',
+
+        # Players
+        'players',
+        'player_team_history',
+
+        # Matches
         'matches',
 
-        # user_profiles excluded - manage separately per environment
+        # Match-related data
+        'match_events',
+        'match_lineups',
+        'player_match_stats',
+
+        # Invitations
+        'invitations',
+        'invite_requests',
+
+        # Intentionally excluded (see EXCLUDED_TABLES):
+        # - user_profiles: managed per-environment (different auth.users UUIDs)
+        # - service_accounts: contains API keys, managed per-environment
+        # - schema_version: internal tracking, recreated by migrations
     ]
-    
+
+    # Safety check: warn if database has tables not in backup list
+    check_for_new_tables(tables_to_backup)
+
     backup_data = {
         'backup_info': {
             'timestamp': timestamp,
@@ -145,12 +223,13 @@ def create_backup():
 def list_backups():
     """List all available backups."""
     backup_dir = Path(__file__).parent.parent / 'backups'
-    
+
     if not backup_dir.exists():
         print("No backups directory found.")
         return []
-    
-    backup_files = list(backup_dir.glob("database_backup_*.json"))
+
+    # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
+    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
     backup_files.sort(reverse=True)  # Most recent first
     
     if not backup_files:
@@ -182,11 +261,12 @@ def list_backups():
 def cleanup_old_backups(keep_count: int = 10):
     """Keep only the most recent N backups."""
     backup_dir = Path(__file__).parent.parent / 'backups'
-    
+
     if not backup_dir.exists():
         return
-    
-    backup_files = list(backup_dir.glob("database_backup_*.json"))
+
+    # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
+    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
     backup_files.sort(reverse=True)  # Most recent first
     
     if len(backup_files) <= keep_count:

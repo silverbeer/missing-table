@@ -3,7 +3,7 @@
 TSC Test Data Cleanup Script
 
 Safely cleans up TSC test data by querying entities by name prefix.
-Works on any environment (local, dev, prod) without needing a registry file.
+Works on any environment (local, prod) without needing a registry file.
 
 Usage:
     # Clean up tsc_a_ data from production

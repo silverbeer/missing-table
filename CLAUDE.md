@@ -218,7 +218,8 @@ New schema changes go in additional timestamped migration files (e.g., `20260201
 ```bash
 # Full local DB setup from scratch (schema + seed + test users)
 ./scripts/setup-local-db.sh              # Without match data
-./scripts/setup-local-db.sh --restore    # With match data from backup
+./scripts/setup-local-db.sh --restore    # With match data from existing backup
+./scripts/setup-local-db.sh --from-prod  # Backup from prod first, then restore locally (RECOMMENDED)
 
 # Local Supabase
 cd supabase-local && npx supabase start|stop|status

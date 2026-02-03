@@ -1,6 +1,6 @@
-# Testing Parent Clubs in DEV
+# Testing Parent Clubs
 
-**Environment:** https://dev.missingtable.com
+**Environment:** Local (http://localhost:8080) or Prod (https://missingtable.com)
 **Date:** 2025-10-30
 **Status:** ✅ Ready for Testing
 
@@ -10,7 +10,7 @@
 
 ```bash
 cd backend
-export APP_ENV=dev
+export APP_ENV=local
 
 # Run interactive test
 python test_parent_clubs.py
@@ -92,7 +92,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 cd backend
-export APP_ENV=dev
+export APP_ENV=local
 
 python -c "
 from dao.enhanced_data_access_fixed import SupabaseConnection, EnhancedSportsDAO
@@ -145,7 +145,7 @@ This simulates a real-world scenario where "IFA" has both Academy and Homegrown 
 
 3. **Link teams to parent (via database):**
    ```bash
-   cd backend && export APP_ENV=dev
+   cd backend && export APP_ENV=local
 
    python -c "
    from dao.enhanced_data_access_fixed import SupabaseConnection, EnhancedSportsDAO

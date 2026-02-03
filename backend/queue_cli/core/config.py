@@ -24,7 +24,7 @@ class QueueConfig:
         Load configuration from environment variables.
 
         Args:
-            env: Environment name (local, dev, prod). Defaults to current environment.
+            env: Environment name (local, prod). Defaults to current environment.
 
         Returns:
             QueueConfig instance

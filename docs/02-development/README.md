@@ -14,6 +14,7 @@ This section covers daily development workflows, tools, and best practices for w
 |----------|-------------|
 | **[Daily Workflow](daily-workflow.md)** | Common commands and development patterns |
 | **[Environment Management](environment-management.md)** | Switching between local, dev, and prod environments |
+| **[Local K3s with Redis](local-k3s-with-redis.md)** | Full local setup with Rancher Desktop and Redis caching |
 | **[Database Operations](database-operations.md)** | Backup, restore, and database management |
 | **[Schema Migrations](schema-migrations.md)** | Creating, testing, and deploying migrations |
 | **[Docker Guide](docker-guide.md)** | Building images, platform considerations |
@@ -46,10 +47,10 @@ cd frontend && npm run serve           # Frontend with HMR
 ./missing-table.sh stop     # Stop all services
 
 # Database Operations
-./scripts/db_tools.sh backup        # Create backup
-./scripts/db_tools.sh restore       # Restore from latest
-./scripts/db_tools.sh list          # List backups
-./scripts/db_tools.sh cleanup 5     # Keep 5 most recent
+./scripts/setup-local-db.sh --from-prod  # Refresh local from prod (RECOMMENDED)
+./scripts/db_tools.sh backup             # Create backup
+./scripts/db_tools.sh restore            # Restore from latest
+./scripts/db_tools.sh list               # List backups
 
 # Testing
 cd backend && uv run pytest                    # Backend tests
@@ -82,8 +83,15 @@ cd frontend && npm run lint                     # JavaScript linting
 # Morning setup
 git pull origin main
 ./switch-env.sh local
-supabase start
+cd supabase-local && npx supabase start && cd ..
+
+# Option A: Restore from existing backup
 ./scripts/db_tools.sh restore
+
+# Option B: Refresh from production (gets latest data)
+./scripts/setup-local-db.sh --from-prod
+
+# Start development
 ./missing-table.sh dev
 
 # During development
@@ -91,7 +99,6 @@ supabase start
 # - No need to restart services!
 
 # End of day
-./scripts/db_tools.sh backup  # Optional backup
 ./missing-table.sh stop
 ```
 
@@ -207,13 +214,13 @@ npm run build --report
 
 ### Environment Files
 
-**Backend** (`.env`, `.env.local`, `.env.dev`):
+**Backend** (`.env`, `.env.local`, `.env.prod`):
 ```bash
 SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_SERVICE_KEY=your_key
 ```
 
-**Frontend** (`.env.local`, `.env.development`):
+**Frontend** (`.env.local`, `.env.prod`):
 ```bash
 VUE_APP_API_URL=http://localhost:8000
 VUE_APP_SUPABASE_URL=http://127.0.0.1:54321

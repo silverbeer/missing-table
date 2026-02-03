@@ -3,7 +3,7 @@ TSC Journey Tests - Phase 99: Cleanup.
 
 This phase cleans up all test entities by querying for entities with the
 tsc_a_ prefix. This approach is safer than ID-based cleanup because:
-- Works across environments (local, dev, prod)
+- Works across environments (local, prod)
 - Doesn't depend on a registry file
 - Idempotent - safe to run multiple times
 

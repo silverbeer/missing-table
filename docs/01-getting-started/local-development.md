@@ -26,7 +26,7 @@ npm install -g supabase
 brew install gh
 ```
 
-### 2. Kubernetes Environment (Optional - for Helm deployments)
+### 2. Kubernetes Environment (Optional - for Redis caching and Helm deployments)
 
 ```bash
 # Install Rancher Desktop for Kubernetes
@@ -36,6 +36,8 @@ brew install gh
 # Install Helm (for Kubernetes deployments)
 brew install helm
 ```
+
+> **Want Redis caching?** See [Local K3s with Redis](../02-development/local-k3s-with-redis.md) for a complete guide on setting up local Kubernetes with Redis.
 
 ## Project Setup
 

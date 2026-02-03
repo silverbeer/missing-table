@@ -39,11 +39,10 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Check if environment is specified
 if [ -z "$1" ]; then
     print_error "Usage: $0 <environment>"
-    echo "  Environments: local, dev, prod"
+    echo "  Environments: local, prod"
     echo ""
     echo "Example:"
     echo "  $0 local   # Setup users for local development"
-    echo "  $0 dev     # Setup users for cloud dev environment"
     echo "  $0 prod    # Setup users for production environment"
     exit 1
 fi
@@ -51,9 +50,9 @@ fi
 ENVIRONMENT=$1
 
 # Validate environment
-if [[ ! "$ENVIRONMENT" =~ ^(local|dev|prod)$ ]]; then
+if [[ ! "$ENVIRONMENT" =~ ^(local|prod)$ ]]; then
     print_error "Invalid environment: $ENVIRONMENT"
-    echo "  Valid environments: local, dev, prod"
+    echo "  Valid environments: local, prod"
     exit 1
 fi
 

@@ -4,11 +4,11 @@
 
 ## Current Configuration
 
-- **Environment**: Dev (Supabase)
+- **Environment**: Local (Supabase)
 - **Replicas**: 2
 - **Result Backend**: RPC (no Redis required)
 - **Message Broker**: RabbitMQ (local k3s)
-- **Database**: Dev Supabase
+- **Database**: Local Supabase
 
 ## Component Health
 
@@ -17,7 +17,7 @@
 ✅ RabbitMQ Connection:       Connected
 ✅ Queue Consumers:           2 workers on 'matches' queue
 ✅ Result Backend:            RPC (lightweight)
-✅ Database Connection:       Dev Supabase
+✅ Database Connection:       Local Supabase
 ```
 
 ## Quick Commands
@@ -113,7 +113,7 @@ python main.py scrape --league "MLS Next" --season "2024-2025"
 ### Database connection errors
 1. Check Supabase URL: `kubectl get configmap -n match-scraper missing-table-worker-config -o yaml`
 2. Verify credentials: `kubectl get secret -n match-scraper missing-table-worker-secrets -o yaml`
-3. Switch environment: `./k3s/worker/switch-worker-env.sh dev`
+3. Switch environment: `./k3s/worker/switch-worker-env.sh local`
 
 ### Need to switch to prod
 ```bash

@@ -51,15 +51,19 @@ cd frontend && npm run lint
 ### Database Backup & Restore
 
 ```bash
+# Refresh local database from production (RECOMMENDED)
+./scripts/setup-local-db.sh --from-prod
+
 # Database backup and restore utility
-./scripts/db_tools.sh restore        # Restore from latest backup (PREFERRED)
+./scripts/db_tools.sh restore        # Restore from latest backup
 ./scripts/db_tools.sh restore backup_file.json  # Restore from specific backup
 ./scripts/db_tools.sh backup         # Create new backup
+APP_ENV=prod ./scripts/db_tools.sh backup  # Create backup from prod
 ./scripts/db_tools.sh list           # List available backups
 ./scripts/db_tools.sh cleanup 5      # Keep only 5 most recent backups
 ```
 
-**IMPORTANT**: Always use `db_tools.sh restore` for database operations. Never use `supabase db reset` with seeds.
+**Recommended workflow**: Use `./scripts/setup-local-db.sh --from-prod` to get a complete refresh from production data.
 
 ### Supabase Commands
 
@@ -222,13 +226,18 @@ curl http://localhost:8000/health/full
 ```bash
 # Start local development
 ./switch-env.sh local
-supabase start
-./scripts/db_tools.sh restore    # Restore real data from latest backup
+cd supabase-local && npx supabase start && cd ..
+
+# Option A: Restore from existing local backup
+./scripts/db_tools.sh restore
+
+# Option B: Refresh from production (gets latest data)
+./scripts/setup-local-db.sh --from-prod
 
 # Your development work...
 
-# End of session (optional backup)
-./scripts/db_tools.sh backup     # Create backup of current state
+# End of session
+./missing-table.sh stop
 ```
 
 ### Testing New Features

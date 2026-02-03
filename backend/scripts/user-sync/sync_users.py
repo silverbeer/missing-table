@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-Sync users between dev and production environments.
+Sync users between local and production environments.
 
-This script ensures test users can use the same credentials in both dev and prod.
+This script ensures test users can use the same credentials in both local and prod.
 
 Usage:
-    # Sync from dev to prod (creates missing users in prod)
-    APP_ENV=dev python sync_users.py --to prod
+    # Sync from local to prod (creates missing users in prod)
+    APP_ENV=local python sync_users.py --to prod
 
-    # Sync from prod to dev (creates missing users in dev)
-    APP_ENV=prod python sync_users.py --to dev
+    # Sync from prod to local (creates missing users in local)
+    APP_ENV=prod python sync_users.py --to local
 
     # Dry run (see what would be synced without making changes)
-    APP_ENV=dev python sync_users.py --to prod --dry-run
+    APP_ENV=local python sync_users.py --to prod --dry-run
 
     # Set specific password for new users
-    APP_ENV=dev python sync_users.py --to prod --password "TestPass123!"
+    APP_ENV=local python sync_users.py --to prod --password "TestPass123!"
 """
 
 import argparse
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Source env from APP_ENV
-    source_env = os.getenv("APP_ENV", "dev")
+    source_env = os.getenv("APP_ENV", "local")
     target_env = args.to
 
     if source_env == target_env:

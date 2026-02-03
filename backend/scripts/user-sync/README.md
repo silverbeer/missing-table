@@ -1,10 +1,10 @@
 # User Synchronization Between Environments
 
-This directory contains utilities to keep auth users synchronized between dev and production environments, ensuring test users can use the same credentials in both environments.
+This directory contains utilities to keep auth users synchronized between local and production environments, ensuring test users can use the same credentials in both environments.
 
 ## Problem
 
-Test users need to access both dev and production environments without maintaining separate credentials for each environment.
+Test users need to access both local and production environments without maintaining separate credentials for each environment.
 
 ## Solution
 
@@ -12,23 +12,23 @@ Use the `sync_users.py` script to synchronize users from one environment to anot
 
 ## Quick Start
 
-### Sync Dev Users to Production
+### Sync Local Users to Production
 
 ```bash
 # Dry run first (see what would happen)
 cd backend
-APP_ENV=dev uv run python scripts/user-sync/sync_users.py --to prod --dry-run
+APP_ENV=local uv run python scripts/user-sync/sync_users.py --to prod --dry-run
 
 # Actually sync with custom password
-APP_ENV=dev uv run python scripts/user-sync/sync_users.py --to prod --password "TestPass123!"
+APP_ENV=local uv run python scripts/user-sync/sync_users.py --to prod --password "TestPass123!"
 ```
 
-### Sync Production Users to Dev
+### Sync Production Users to Local
 
 ```bash
-# Sync prod → dev
+# Sync prod → local
 cd backend
-APP_ENV=prod uv run python scripts/user-sync/sync_users.py --to dev --password "TestPass123!"
+APP_ENV=prod uv run python scripts/user-sync/sync_users.py --to local --password "TestPass123!"
 ```
 
 ## How It Works
@@ -44,13 +44,13 @@ The script supports several password strategies:
 
 ### Option 1: Specify password via flag (Recommended)
 ```bash
-APP_ENV=dev uv run python scripts/user-sync/sync_users.py --to prod --password "TestPass123!"
+APP_ENV=local uv run python scripts/user-sync/sync_users.py --to prod --password "TestPass123!"
 ```
 
 ### Option 2: Set environment variable
 ```bash
 export SYNC_DEFAULT_PASSWORD="TestPass123!"
-APP_ENV=dev uv run python scripts/user-sync/sync_users.py --to prod
+APP_ENV=local uv run python scripts/user-sync/sync_users.py --to prod
 ```
 
 ### Option 3: Use default (not recommended)
@@ -89,20 +89,20 @@ This means:
 
 ### New Test User Flow
 
-1. **Create user in dev environment**
+1. **Create user in local environment**
    ```bash
-   # User signs up in dev via app
+   # User signs up in local via app
    # Email: alice@example.com
    ```
 
 2. **Sync to production**
    ```bash
    cd backend
-   APP_ENV=dev uv run python scripts/user-sync/sync_users.py --to prod --password "Test2025!"
+   APP_ENV=local uv run python scripts/user-sync/sync_users.py --to prod --password "Test2025!"
    ```
 
 3. **User can now log in to both environments**
-   - Dev: alice@example.com / (original password)
+   - Local: alice@example.com / (original password)
    - Prod: alice@example.com / Test2025!
 
 4. **User changes prod password via app**
@@ -110,14 +110,14 @@ This means:
 ### Onboarding Multiple Test Users
 
 ```bash
-# 1. Create all test users in dev environment (via app signup)
+# 1. Create all test users in local environment (via app signup)
 
 # 2. Sync all users to prod at once
 cd backend
-APP_ENV=dev uv run python scripts/user-sync/sync_users.py --to prod --password "Welcome2025!"
+APP_ENV=local uv run python scripts/user-sync/sync_users.py --to prod --password "Welcome2025!"
 
 # 3. Send welcome email with:
-#    - Dev URL: https://dev.missingtable.com
+#    - Local URL: http://localhost:8080
 #    - Prod URL: https://missingtable.com
 #    - Credentials: <email> / Welcome2025!
 #    - Instructions to change password
@@ -129,8 +129,8 @@ To backup current users (for reference or rollback):
 
 ```bash
 cd backend
-APP_ENV=dev uv run python scripts/user-sync/backup_auth_users.py
-# Creates: auth_users_dev_YYYYMMDD_HHMMSS.json
+APP_ENV=local uv run python scripts/user-sync/backup_auth_users.py
+# Creates: auth_users_local_YYYYMMDD_HHMMSS.json
 
 APP_ENV=prod uv run python scripts/user-sync/backup_auth_users.py
 # Creates: auth_users_prod_YYYYMMDD_HHMMSS.json
@@ -150,11 +150,11 @@ Backups are automatically gitignored and stored in `backend/` temporarily. Move 
 
 ### "Missing SUPABASE_URL or SUPABASE_SERVICE_KEY"
 
-Make sure you have both `.env.dev` and `.env.prod` files with Supabase credentials:
+Make sure you have both `.env.local` and `.env.prod` files with Supabase credentials:
 
 ```bash
-# backend/.env.dev
-SUPABASE_URL=https://xxx.supabase.co
+# backend/.env.local
+SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_SERVICE_KEY=xxx
 
 # backend/.env.prod

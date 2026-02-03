@@ -196,26 +196,46 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     # - Restoring user_profiles from backup will cause UUID mismatches with auth.users
     # - See docs/FOREIGN_KEY_DECISION.md for details
     # - Use backend/manage_users.py to create users in each environment
+    # Restoration order respects FK dependencies for INSERT
+    # Clearing happens in REVERSE order to respect FK dependencies for DELETE
     restoration_order = [
-        # Reference data first (no dependencies)
+        # 1. Reference data first (no dependencies)
         'age_groups',
         'leagues',  # leagues before divisions
         'divisions',
-        'match_types',  # Updated from game_types
+        'match_types',
         'seasons',
 
-        # Clubs before teams (teams have club_id foreign key)
+        # 2. Clubs (before teams - teams have club_id FK)
         'clubs',
 
-        # Teams (depend on divisions, age_groups, clubs)
+        # 3. Teams (depend on clubs, divisions, age_groups)
         'teams',
         'team_mappings',
-        'team_match_types',  # Updated from team_game_types
+        'team_match_types',
+        'team_aliases',
 
-        # user_profiles excluded - manage separately per environment
+        # 4. Team management
+        'team_manager_assignments',
 
-        # Matches (depend on teams, seasons, etc.) - Updated from games
+        # 5. Players (may depend on teams)
+        'players',
+        'player_team_history',
+
+        # 6. Matches (depend on teams, seasons, etc.)
         'matches',
+
+        # 7. Tables that depend on matches/teams/clubs/players
+        # These are cleared FIRST (reverse order) before their parents
+        'match_events',
+        'match_lineups',
+        'player_match_stats',
+        'invitations',      # depends on clubs, teams, players
+        'invite_requests',  # depends on auth.users
+
+        # Excluded - manage separately per environment:
+        # - user_profiles (different auth.users UUIDs per env)
+        # - service_accounts (contains API keys)
     ]
     
     success_count = 0
@@ -225,9 +245,10 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     if clear_existing:
         print("🧹 Clearing existing data...")
         # Clear in reverse order to respect foreign keys
+        # Clear ALL tables in restoration_order (not just ones in backup)
+        # This ensures FK dependencies are cleared even if table isn't being restored
         for table in reversed(restoration_order):
-            if table in tables_data:
-                clear_table(table)
+            clear_table(table)
         print()
     
     # Restore tables in order
@@ -267,12 +288,13 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
 def list_available_backups():
     """List available backup files."""
     backup_dir = Path(__file__).parent.parent / 'backups'
-    
+
     if not backup_dir.exists():
         print("No backups directory found.")
         return []
-    
-    backup_files = list(backup_dir.glob("database_backup_*.json"))
+
+    # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
+    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
     backup_files.sort(reverse=True)  # Most recent first
     
     if not backup_files:
@@ -315,13 +337,15 @@ if __name__ == "__main__":
             
         elif args.latest:
             backup_dir = Path(__file__).parent.parent / 'backups'
-            backup_files = list(backup_dir.glob("database_backup_*.json"))
-            
+            # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
+            # This avoids picking up old manually-named files like database_backup_prod_mapped.json
+            backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
+
             if not backup_files:
                 print("❌ No backup files found")
                 sys.exit(1)
-            
-            # Get most recent backup
+
+            # Get most recent backup by sorting filenames (timestamps sort correctly)
             backup_files.sort(reverse=True)
             latest_backup = backup_files[0]
             

@@ -11,7 +11,7 @@ A powerful CLI tool for inspecting and troubleshooting database data directly vi
 ## Features
 
 - **Direct Database Access**: Connects directly to Supabase, bypassing backend DAOs for raw data inspection
-- **Environment Aware**: Automatically loads `.env.{APP_ENV}` files (local/dev/prod)
+- **Environment Aware**: Automatically loads `.env.{APP_ENV}` files (local/prod)
 - **Rich Terminal UI**: Beautiful tables and panels using the `rich` library
 - **Comprehensive Commands**: Browse age groups, divisions, teams, matches with filtering
 - **Duplicate Detection**: Identifies duplicate matches based on key criteria
@@ -177,10 +177,6 @@ The tool automatically loads environment variables from `.env.{APP_ENV}` files:
 export APP_ENV=local
 cd backend && uv run python inspect_db.py stats
 
-# Use with dev database
-export APP_ENV=dev
-cd backend && uv run python inspect_db.py stats
-
 # Use with prod database (use caution!)
 export APP_ENV=prod
 cd backend && uv run python inspect_db.py stats
@@ -188,7 +184,7 @@ cd backend && uv run python inspect_db.py stats
 
 Or use the environment switcher:
 ```bash
-./switch-env.sh dev
+./switch-env.sh local
 cd backend && uv run python inspect_db.py games --team IFA
 ```
 
@@ -229,9 +225,9 @@ cd backend && uv run python inspect_db.py matches --team "IFA" --age-group U13
 
 **Solution:**
 ```bash
-# Compare statistics
+# Compare statistics between local and prod
 ./switch-env.sh local && cd backend && uv run python inspect_db.py stats
-./switch-env.sh dev && cd backend && uv run python inspect_db.py stats
+./switch-env.sh prod && cd backend && uv run python inspect_db.py stats
 
 # Find all duplicates in production
 ./switch-env.sh prod && cd backend && uv run python inspect_db.py matches --duplicates

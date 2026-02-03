@@ -12,7 +12,7 @@ Features:
 - Filter by Team (home or away)
 - Filter by Season (default: 2025-2026)
 - Beautiful rich table output
-- Environment-aware (local/dev/prod)
+- Environment-aware (local/prod)
 
 Usage:
     # Search with defaults (League matches, 2025-2026 season)

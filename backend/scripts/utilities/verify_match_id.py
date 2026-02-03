@@ -12,11 +12,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from dao.match_dao import SupabaseConnection
 
-# Load dev environment (from backend root)
+# Load prod environment (from backend root)
 backend_root = Path(__file__).parent.parent.parent
-load_dotenv(backend_root / '.env.dev')
+load_dotenv(backend_root / '.env.prod')
 
-print("Connecting to dev database...")
+print("Connecting to prod database...")
 db = SupabaseConnection()
 
 # Check if match_id column exists

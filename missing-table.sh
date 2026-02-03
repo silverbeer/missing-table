@@ -538,28 +538,15 @@ show_status() {
 
     # Determine database connection based on environment
     if [ "$current_env" = "local" ]; then
-        # Check if Supabase is running locally
-        if curl -s http://127.0.0.1:54331/health > /dev/null 2>&1; then
-            local supabase_url="http://127.0.0.1:54331"
-            local studio_url="http://127.0.0.1:54333"
+        # Check if Supabase is running locally (Kong API on 54321)
+        if curl -s http://127.0.0.1:54321/health > /dev/null 2>&1; then
+            local supabase_url="http://127.0.0.1:54321"
+            local studio_url="http://127.0.0.1:54323"
             echo -e "  Database: ${GREEN}Local Supabase${NC} ($supabase_url)"
             echo -e "  Studio UI: ${GREEN}$studio_url${NC}"
         else
             echo -e "  Database: ${RED}Local Supabase (not running)${NC}"
             echo -e "  ${BLUE}Tip:${NC} Start with 'npx supabase start'"
-        fi
-    elif [ "$current_env" = "dev" ]; then
-        echo -e "  Database: ${GREEN}Cloud Supabase (dev)${NC}"
-        # Extract Supabase URL from .env.dev if it exists
-        if [ -f "backend/.env.dev" ]; then
-            local supabase_url=$(grep "^SUPABASE_URL=" backend/.env.dev 2>/dev/null | cut -d '=' -f2)
-            if [ -n "$supabase_url" ]; then
-                # Extract project ref from URL (e.g., ppgxasqgqbnauvxozmjw from https://ppgxasqgqbnauvxozmjw.supabase.co)
-                local project_ref=$(echo "$supabase_url" | sed -n 's|https://\([^.]*\)\.supabase\.co|\1|p')
-                if [ -n "$project_ref" ]; then
-                    echo -e "  Studio UI: ${GREEN}https://supabase.com/dashboard/project/$project_ref${NC}"
-                fi
-            fi
         fi
     elif [ "$current_env" = "prod" ]; then
         echo -e "  Database: ${GREEN}Cloud Supabase (prod)${NC}"
@@ -576,7 +563,7 @@ show_status() {
     fi
 
     # Show how to switch environments
-    echo -e "  ${BLUE}Tip:${NC} Use './switch-env.sh <local|dev|prod>' to change environment"
+    echo -e "  ${BLUE}Tip:${NC} Use './switch-env.sh <local|prod>' to change environment"
 
     # Backend status
     echo -e "\n${YELLOW}Backend (Port $BACKEND_PORT):${NC}"
