@@ -33,7 +33,8 @@ class TeamDAO(BaseDAO):
             *,
             leagues!teams_league_id_fkey (
                 id,
-                name
+                name,
+                sport_type
             ),
             team_mappings (
                 age_groups (
@@ -46,7 +47,8 @@ class TeamDAO(BaseDAO):
                     league_id,
                     leagues!divisions_league_id_fkey (
                         id,
-                        name
+                        name,
+                        sport_type
                     )
                 )
             )
@@ -71,9 +73,10 @@ class TeamDAO(BaseDAO):
                         age_groups.append(age_group)
                         if tag.get("divisions"):
                             division = tag["divisions"]
-                            # Add league_name to division for easy access in frontend
+                            # Add league_name and sport_type to division for easy access in frontend
                             if division.get("leagues"):
                                 division["league_name"] = division["leagues"]["name"]
+                                division["sport_type"] = division["leagues"].get("sport_type", "soccer")
                             divisions_by_age_group[age_group["id"]] = division
             team["age_groups"] = age_groups
             team["divisions_by_age_group"] = divisions_by_age_group

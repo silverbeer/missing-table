@@ -277,7 +277,7 @@
           </div>
         </div>
 
-        <!-- Display Filtered Matchs -->
+        <!-- Display Filtered Matches -->
         <div v-if="sortedGames.length > 0">
           <div class="mb-4">
             <!-- All Matches: Show week range -->
@@ -290,7 +290,7 @@
             <!-- My Club: Show team name and league info -->
             <div v-else>
               <h3 class="text-lg font-semibold mb-2">
-                Matchs for {{ getSelectedTeamName() }}
+                Matches for {{ getSelectedTeamName() }}
               </h3>
 
               <!-- League Information -->
@@ -337,9 +337,12 @@
 
             <!-- Season Segments - Stack on mobile -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <!-- Fall Segment - Only show if Fall matches exist -->
+              <!-- Fall Segment - Only show if Fall matches exist and not a Futsal league -->
               <div
-                v-if="seasonStats.hasFallGames"
+                v-if="
+                  seasonStats.hasFallGames &&
+                  selectedTeamLeagueInfo?.sportType !== 'futsal'
+                "
                 class="p-4 bg-blue-50 rounded-lg border border-blue-100"
               >
                 <h4 class="font-medium text-blue-700 mb-2">Fall Segment</h4>
@@ -359,9 +362,12 @@
                 </div>
               </div>
 
-              <!-- Spring Segment - Only show if Spring matches exist -->
+              <!-- Spring Segment - Only show if Spring matches exist and not a Futsal league -->
               <div
-                v-if="seasonStats.hasSpringGames"
+                v-if="
+                  seasonStats.hasSpringGames &&
+                  selectedTeamLeagueInfo?.sportType !== 'futsal'
+                "
                 class="p-4 bg-green-50 rounded-lg border border-green-100"
               >
                 <h4 class="font-medium text-green-700 mb-2">Spring Segment</h4>
@@ -381,12 +387,12 @@
                 </div>
               </div>
 
-              <!-- Last 5 Matchs - Only show if matches exist -->
+              <!-- Last 5 Matches - Only show if matches exist -->
               <div
                 v-if="seasonStats.matchesPlayed > 0"
                 class="p-4 bg-purple-50 rounded-lg border border-purple-100"
               >
-                <h4 class="font-medium text-purple-700 mb-2">Last 5 Matchs</h4>
+                <h4 class="font-medium text-purple-700 mb-2">Last 5 Matches</h4>
                 <div class="flex space-x-2 justify-center sm:justify-start">
                   <template v-if="seasonStats.lastFive.length > 0">
                     <span
@@ -1896,6 +1902,7 @@ export default {
           ageGroup: ageGroup.name,
           division: division.name,
           league: division.league_name || 'Unknown League',
+          sportType: division.sport_type || 'soccer',
         };
       }
 
@@ -2100,8 +2107,8 @@ export default {
         }
       });
 
-      // Take the last 5 matches and reverse to show most recent first
-      stats.lastFive = allResults.slice(-5).reverse();
+      // Take the last 5 matches in chronological order (oldest → newest, left → right)
+      stats.lastFive = allResults.slice(-5);
 
       // Calculate final stats
       stats.goalDifference = stats.goalsFor - stats.goalsAgainst;

@@ -741,6 +741,7 @@ CREATE TABLE public.leagues (
     name character varying(100) NOT NULL,
     description text,
     is_active boolean DEFAULT true,
+    sport_type character varying(20) DEFAULT 'soccer' NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
