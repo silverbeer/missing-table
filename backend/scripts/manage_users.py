@@ -69,9 +69,9 @@ def validate_role(role: str) -> tuple[bool, str]:
 
 
 def load_environment():
-    """Load environment variables based on APP_ENV or default to dev."""
+    """Load environment variables based on APP_ENV or default to local."""
     load_dotenv()
-    app_env = os.getenv("APP_ENV", "dev")
+    app_env = os.getenv("APP_ENV", "local")
     env_file = f".env.{app_env}"
     if os.path.exists(env_file):
         load_dotenv(env_file, override=True)
@@ -583,7 +583,7 @@ def get_user_info(supabase, email):
 def list_command():
     """List all users in the system."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     load_environment()
     supabase = get_supabase_client()
@@ -608,7 +608,7 @@ def password_command(
 ):
     """Change a user's password."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     if not confirm and not Confirm.ask(f"⚠️  Change password for {email}?"):
         console.print("[yellow]❌ Password change cancelled[/yellow]")
@@ -645,7 +645,7 @@ def create_command(
 ):
     """Create a new user."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     # Validate role before proceeding
     is_valid, error_msg = validate_role(role)
@@ -684,7 +684,7 @@ def role_command(
 ):
     """Update a user's role (accepts username or email)."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     # Validate role before proceeding
     is_valid, error_msg = validate_role(role)
@@ -714,7 +714,7 @@ def role_command(
 def info_command(email: str = typer.Option(..., "--email", "-e", help="User email")):
     """Get detailed information about a user."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     load_environment()
     supabase = get_supabase_client()
@@ -784,7 +784,7 @@ def delete_command(
 ):
     """Delete a user by ID from both auth.users and user_profiles."""
     console.print("[bold red]🗑️  User Deletion Tool[/bold red]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     load_environment()
     supabase = get_supabase_client()
@@ -808,7 +808,7 @@ def team_command(
 ):
     """Assign a user to a team."""
     console.print("[bold cyan]👥 User Team Assignment Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     if not confirm and not Confirm.ask(f"⚠️  Assign {user} to team ID {team_id}?"):
         console.print("[yellow]❌ Team assignment cancelled[/yellow]")
@@ -832,7 +832,7 @@ def team_command(
 def teams_command():
     """List all teams in the system."""
     console.print("[bold cyan]🏆 Team Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     load_environment()
     supabase = get_supabase_client()
@@ -1149,7 +1149,7 @@ def roster_command(
 ):
     """Manage team rosters - add users to rosters, list rosters, remove players."""
     console.print("[bold cyan]⚽ Roster Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     load_environment()
     supabase = get_supabase_client()
@@ -1218,7 +1218,7 @@ def roster_command(
 def seasons_command():
     """List all seasons in the system."""
     console.print("[bold cyan]📅 Season Management Tool[/bold cyan]")
-    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'dev')}[/yellow]\n")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
 
     load_environment()
     supabase = get_supabase_client()
@@ -1240,7 +1240,7 @@ def env_command():
     console.print("[bold cyan]🌍 Environment Configuration[/bold cyan]\n")
 
     # Get APP_ENV before loading
-    app_env = os.getenv("APP_ENV", "dev")
+    app_env = os.getenv("APP_ENV", "local")
 
     # Load environment
     load_environment()

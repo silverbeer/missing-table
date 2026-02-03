@@ -12,10 +12,12 @@ Overview of database management for the Missing Table project.
 ```bash
 # Full local DB setup from scratch (schema + seed + test users)
 ./scripts/setup-local-db.sh              # Without match data
-./scripts/setup-local-db.sh --restore    # With match data from backup
+./scripts/setup-local-db.sh --restore    # With match data from existing backup
+./scripts/setup-local-db.sh --from-prod  # Backup from prod first, then restore locally
 
 # Backup/Restore
-./scripts/db_tools.sh backup             # Create backup
+./scripts/db_tools.sh backup             # Create backup from current environment
+APP_ENV=prod ./scripts/db_tools.sh backup  # Create backup from production
 ./scripts/db_tools.sh restore            # Restore from latest backup
 ./scripts/db_tools.sh list               # List available backups
 
@@ -61,13 +63,26 @@ The `db_tools.sh reset` command includes a **4-hour safety guard**: it will refu
 
 ## Common Workflows
 
-### Starting Fresh
+### Starting Fresh (from existing backup)
 
 ```bash
 ./scripts/setup-local-db.sh --restore
 ```
 
 This runs `supabase db reset` (schema + seed), creates test users, and restores match data from the latest backup.
+
+### Refresh Local from Production
+
+```bash
+./scripts/setup-local-db.sh --from-prod
+```
+
+This is the **recommended workflow** for syncing your local database with production. It:
+1. Creates a fresh backup from prod
+2. Resets local database (schema + seed)
+3. Restores match/team data from the fresh backup
+4. Flushes Redis cache
+5. Seeds test users
 
 ### After Schema Changes
 

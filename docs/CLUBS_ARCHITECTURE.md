@@ -337,11 +337,6 @@ cd supabase-local
 npx supabase db reset
 ./scripts/db_tools.sh restore
 
-# Dev environment
-./switch-env.sh dev
-cd supabase-local
-npx supabase db push --linked
-
 # Production (with backup!)
 ./switch-env.sh prod
 ./scripts/db_tools.sh backup prod

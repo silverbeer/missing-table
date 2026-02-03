@@ -158,8 +158,8 @@ show_status() {
     # Check if Supabase is running for local env
     if [ "$current_env" = "local" ]; then
         echo ""
-        if curl -s http://127.0.0.1:54331/health > /dev/null 2>&1; then
-            print_success "  Local Supabase is running on port 54331"
+        if curl -s http://127.0.0.1:54321/health > /dev/null 2>&1; then
+            print_success "  Local Supabase is running on port 54321"
         else
             print_warning "  Local Supabase is not running. Run 'npx supabase start' to start it."
         fi

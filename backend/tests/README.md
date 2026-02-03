@@ -102,8 +102,8 @@ npx supabase status
 **Cloud Supabase (For integration testing):**
 
 ```bash
-# Switch to dev environment
-./switch-env.sh dev
+# Switch to prod environment
+./switch-env.sh prod
 
 # Apply migrations
 cd supabase-local && npx supabase db push --linked

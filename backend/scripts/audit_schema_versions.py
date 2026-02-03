@@ -2,12 +2,12 @@
 """
 Schema Version Audit Script
 
-Checks schema versions and migration status across all environments (local, dev, prod).
+Checks schema versions and migration status across all environments (local, prod).
 Identifies schema drift and missing migrations.
 
 Usage:
     APP_ENV=local python scripts/audit_schema_versions.py
-    APP_ENV=dev python scripts/audit_schema_versions.py
+    APP_ENV=prod python scripts/audit_schema_versions.py
     APP_ENV=prod python scripts/audit_schema_versions.py
 
 Or run for all environments:
@@ -160,13 +160,13 @@ def check_schema_version(client, env: str) -> dict:
 
 @app.command()
 def audit(
-    env: str = typer.Option(None, "--env", "-e", help="Environment to audit (local, dev, prod)"),
+    env: str = typer.Option(None, "--env", "-e", help="Environment to audit (local, prod)"),
     all_envs: bool = typer.Option(False, "--all", "-a", help="Audit all environments")
 ):
     """Audit schema versions across environments."""
 
     if all_envs:
-        environments = ["local", "dev", "prod"]
+        environments = ["local", "prod"]
     elif env:
         environments = [env]
     else:

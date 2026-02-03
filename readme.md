@@ -400,7 +400,7 @@ cd frontend && npm test         # Frontend tests
 
 # Environment Switching
 ./switch-env.sh local    # Local development
-./switch-env.sh dev      # Cloud development
+./switch-env.sh prod     # Production (use with caution)
 ```
 
 **Full command reference** → [Daily Workflow Guide](docs/02-development/daily-workflow.md)

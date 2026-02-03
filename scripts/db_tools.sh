@@ -40,13 +40,14 @@ check_recent_backup() {
     fi
 
     # Find backup files modified within the last 4 hours
+    # Only match timestamp-formatted backups (database_backup_[0-9]*.json)
     local recent_backups
-    recent_backups=$(find "$backup_dir" -maxdepth 1 -name "database_backup_*.json" -mmin -${max_age_minutes} 2>/dev/null | sort -r | head -1)
+    recent_backups=$(find "$backup_dir" -maxdepth 1 -name "database_backup_[0-9]*.json" -mmin -${max_age_minutes} 2>/dev/null | sort -r | head -1)
 
     if [ -z "$recent_backups" ]; then
         # Find the most recent backup to show how old it is
         local latest_backup
-        latest_backup=$(ls -t "$backup_dir"/database_backup_*.json 2>/dev/null | head -1)
+        latest_backup=$(ls -t "$backup_dir"/database_backup_[0-9]*.json 2>/dev/null | head -1)
         if [ -n "$latest_backup" ]; then
             local file_age_seconds
             file_age_seconds=$(( $(date +%s) - $(stat -f %m "$latest_backup") ))

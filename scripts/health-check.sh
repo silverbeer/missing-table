@@ -49,8 +49,8 @@ get_base_url() {
     local env=$1
 
     case "$env" in
-        dev)
-            echo "https://dev.missingtable.com"
+        local)
+            echo "http://localhost:8080"
             ;;
         prod|production)
             echo "https://missingtable.com"
@@ -64,14 +64,14 @@ get_base_url() {
             echo "Usage: $0 <environment|url>"
             echo ""
             echo "Environments:"
-            echo "  dev         - Dev environment (https://dev.missingtable.com)"
+            echo "  local       - Local environment (http://localhost:8080)"
             echo "  prod        - Production environment (https://missingtable.com)"
             echo "  <url>       - Custom URL (http://... or https://...)"
             echo ""
             echo "Examples:"
-            echo "  $0 dev"
+            echo "  $0 local"
             echo "  $0 prod"
-            echo "  $0 https://dev.missingtable.com"
+            echo "  $0 https://missingtable.com"
             exit 1
             ;;
     esac
@@ -236,7 +236,7 @@ interactive_mode() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     echo "Select environment to check:"
-    echo "  1) Dev (https://dev.missingtable.com)"
+    echo "  1) Local (http://localhost:8080)"
     echo "  2) Production (https://missingtable.com)"
     echo "  3) Custom URL"
     echo "  4) Exit"
@@ -245,7 +245,7 @@ interactive_mode() {
 
     case $choice in
         1)
-            ENVIRONMENT="dev"
+            ENVIRONMENT="local"
             ;;
         2)
             ENVIRONMENT="prod"

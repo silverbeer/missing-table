@@ -17,7 +17,7 @@ The application uses **different secret loading strategies** depending on the en
 ### Local Development
 
 **How it works:**
-1. Developer creates `.env.local` or `.env.dev` from example
+1. Developer creates `.env.local` from example
 2. Backend uses `python-dotenv` to load from `.env` files
 3. Environment variables are read via `os.getenv()`
 
@@ -36,7 +36,6 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 **Available .env files:**
 - `backend/.env` - Default (git tracked, no secrets)
 - `backend/.env.local` - Local Supabase (gitignored)
-- `backend/.env.dev` - Cloud dev environment (gitignored)
 - `backend/.env.prod` - Cloud prod environment (gitignored)
 - `backend/.env.example` - Template (git tracked)
 
@@ -142,7 +141,7 @@ The frontend is a **static Vue.js application**. Secrets are compiled into the J
 ### Local Development
 
 **How it works:**
-1. Developer creates `.env.local` or `.env.dev`
+1. Developer creates `.env.local`
 2. Vue CLI reads `.env` files during `npm run serve`
 3. Variables prefixed with `VUE_APP_` are compiled into the code
 4. No runtime environment variable loading
@@ -150,7 +149,6 @@ The frontend is a **static Vue.js application**. Secrets are compiled into the J
 **Available .env files:**
 - `frontend/.env` - Default development (git tracked, public values only)
 - `frontend/.env.local` - Local Supabase (gitignored)
-- `frontend/.env.dev` - Cloud dev environment (gitignored)
 - `frontend/.env.prod` - Cloud prod environment (gitignored)
 - `frontend/.env.production` - Production build config (gitignored)
 
@@ -421,7 +419,7 @@ kubectl rollout restart deployment/missing-table-frontend -n missing-table-dev
 
 ✅ **DO:**
 - Keep `.env` files in `.gitignore`
-- Use separate `.env.local`, `.env.dev`, `.env.prod`
+- Use separate `.env.local`, `.env.prod`
 - Store backups in password manager, not files
 - Use weak passwords for local-only services
 

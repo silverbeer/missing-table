@@ -28,7 +28,7 @@ Update your `.env` file with the actual values:
 SUPABASE_URL=https://your-actual-project-id.supabase.co
 SUPABASE_ANON_KEY=your-actual-anon-key
 SUPABASE_SERVICE_KEY=your-actual-service-role-key
-ENVIRONMENT=development
+ENVIRONMENT=local
 ```
 
 ## 4. Create Database Schema

@@ -32,9 +32,9 @@ echo "This script will help you configure your cloud Supabase credentials."
 echo "You'll need to get these values from your Supabase dashboard."
 echo ""
 
-# Check if .env.dev files exist
-backend_env="$SCRIPT_DIR/backend/.env.dev"
-frontend_env="$SCRIPT_DIR/frontend/.env.dev"
+# Check if .env.prod files exist
+backend_env="$SCRIPT_DIR/backend/.env.prod"
+frontend_env="$SCRIPT_DIR/frontend/.env.prod"
 
 if [ ! -f "$backend_env" ] || [ ! -f "$frontend_env" ]; then
     print_error "Environment files not found. Please run the migration setup first."
@@ -95,7 +95,7 @@ echo "Enter your Database Connection String (URI format):"
 echo "Should look like: postgresql://postgres.[project-id]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres"
 read -p "Database URL: " database_url
 
-# Update backend .env.dev
+# Update backend .env.prod
 echo ""
 print_header "Updating Backend Configuration"
 
@@ -115,7 +115,7 @@ rm "$backend_env.tmp"
 
 print_success "Backend configuration updated"
 
-# Update frontend .env.dev
+# Update frontend .env.prod
 print_header "Updating Frontend Configuration"
 
 # Create backup
@@ -138,7 +138,7 @@ print_header "Testing Configuration"
 echo "Testing Supabase connection..."
 cd "$SCRIPT_DIR/backend" || exit 1
 
-export APP_ENV=dev
+export APP_ENV=prod
 
 if uv run python -c "
 from dao.enhanced_data_access_fixed import SupabaseConnection
@@ -158,7 +158,7 @@ echo ""
 print_header "Next Steps"
 
 echo "1. Apply database migrations to your cloud database:"
-echo "   ./switch-env.sh dev"
+echo "   ./switch-env.sh prod"
 echo "   npx supabase db push"
 echo ""
 echo "2. Migrate your data to the cloud:"
@@ -173,6 +173,6 @@ print_success "Cloud credentials configuration complete!"
 
 echo ""
 print_warning "Security Note:"
-echo "- Your credentials are now stored in .env.dev files"
+echo "- Your credentials are now stored in .env.prod files"
 echo "- These files should NOT be committed to git"
 echo "- Backups of original files were created with .backup suffix"

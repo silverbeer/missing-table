@@ -212,8 +212,8 @@ curl http://localhost:8000/health
 # Local Supabase
 npx supabase start
 
-# Or switch to dev environment
-./switch-env.sh dev
+# Or switch to prod environment
+./switch-env.sh prod
 ```
 
 ### "Test collection errors"

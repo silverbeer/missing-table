@@ -10,6 +10,9 @@ Use the convenient shell script for common operations:
 # Create a backup
 ./scripts/db_tools.sh backup
 
+# Create a backup from production
+APP_ENV=prod ./scripts/db_tools.sh backup
+
 # List available backups
 ./scripts/db_tools.sh list
 
@@ -26,6 +29,21 @@ Use the convenient shell script for common operations:
 # Clean up old backups (keep only 5 most recent)
 ./scripts/db_tools.sh cleanup 5
 ```
+
+### Refresh Local from Production (Recommended)
+
+The easiest way to sync your local database with production:
+
+```bash
+./scripts/setup-local-db.sh --from-prod
+```
+
+This single command:
+1. Creates a fresh backup from prod
+2. Resets local database (applies schema + seed)
+3. Restores match/team data from the fresh backup
+4. Flushes Redis cache
+5. Seeds test users (tom, tom_ifa, etc.)
 
 ## Backup System
 
@@ -172,6 +190,14 @@ git checkout feature-branch
 
 # 3. Reset database and restore real data for new branch
 ./scripts/db_tools.sh reset
+```
+
+**Scenario 4: Sync Local with Production Data**
+```bash
+# Single command to refresh local from prod
+./scripts/setup-local-db.sh --from-prod
+
+# This backs up from prod, resets local, restores data, and seeds test users
 ```
 
 ## File Structure

@@ -26,26 +26,20 @@ class PlayerDAO(BaseDAO):
     @dao_cache("players:profile:{user_id}")
     def get_user_profile_with_relationships(self, user_id: str) -> dict | None:
         """
-        Get user profile with team, club, and age group relationships.
+        Get user profile with team relationship.
 
         Args:
             user_id: User ID to fetch profile for
 
         Returns:
-            User profile dict with team, club, and age_group data, or None if not found
+            User profile dict with team data, or None if not found
         """
         try:
             response = (
                 self.client.table("user_profiles")
                 .select("""
                 *,
-                team:teams(id, name, city, club_id, league_id, division_id, age_group_id,
-                    age_group:age_groups(id, name),
-                    league:leagues(id, name),
-                    division:divisions(id, name),
-                    club:clubs(id, name, city, logo_url, primary_color, secondary_color)
-                ),
-                club:clubs(id, name, city, logo_url, primary_color, secondary_color)
+                team:teams(id, name, city)
             """)
                 .eq("id", user_id)
                 .execute()
@@ -377,11 +371,14 @@ class PlayerDAO(BaseDAO):
         is_current: bool = False,
     ) -> dict | None:
         """
-        Create a new player team history entry.
+        Create or update a player team history entry.
 
-        Uses the database function to handle:
-        - Auto-populating age_group_id, league_id, division_id from team
-        - Marking previous entries as not current if is_current=True
+        Uses UPSERT to handle the unique constraint on (player_id, team_id, season_id).
+        If an entry already exists for the same player/team/season, it updates that
+        entry instead of failing. This supports:
+        - Re-adding a player to a team they were previously on
+        - Updating is_current flag on existing entries
+        - Players on multiple teams simultaneously (futsal use case)
 
         Args:
             player_id: User ID of the player
@@ -393,13 +390,9 @@ class PlayerDAO(BaseDAO):
             is_current: Whether this is the current assignment
 
         Returns:
-            Created history entry dict, or None on error
+            Created/updated history entry dict, or None on error
         """
         try:
-            # Note: We use direct insert instead of RPC because the RPC function
-            # automatically unsets is_current on all other entries, which prevents
-            # players from being on multiple teams simultaneously (futsal use case)
-
             # Get team details for age_group_id, league_id, division_id
             team_response = (
                 self.client.table("teams").select("age_group_id, league_id, division_id").eq("id", team_id).execute()
@@ -407,7 +400,7 @@ class PlayerDAO(BaseDAO):
 
             team_data = team_response.data[0] if team_response.data else {}
 
-            insert_data = {
+            upsert_data = {
                 "player_id": player_id,
                 "team_id": team_id,
                 "season_id": season_id,
@@ -420,12 +413,18 @@ class PlayerDAO(BaseDAO):
                 "notes": notes,
             }
 
-            response = self.client.table("player_team_history").insert(insert_data).execute()
+            # Use upsert to handle existing entries - if (player_id, team_id, season_id)
+            # already exists, update it instead of failing
+            response = (
+                self.client.table("player_team_history")
+                .upsert(upsert_data, on_conflict="player_id,team_id,season_id")
+                .execute()
+            )
             if response.data and len(response.data) > 0:
                 return self.get_player_history_entry_by_id(response.data[0]["id"])
             return None
         except Exception as e:
-            logger.error(f"Error creating player history entry: {e}")
+            logger.error(f"Error creating/updating player history entry: {e}")
             return None
 
     def get_player_history_entry_by_id(self, history_id: int) -> dict | None:

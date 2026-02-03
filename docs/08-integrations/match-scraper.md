@@ -48,9 +48,9 @@ uv run python scripts/utilities/create_service_account_token.py --service-name m
 Add the generated token to your match-scraper environment:
 
 ```bash
-# In match-scraper .env.dev file
+# In match-scraper .env.local or .env.prod file
 MISSING_TABLE_API_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-MISSING_TABLE_API_BASE_URL=https://dev.missingtable.com
+MISSING_TABLE_API_BASE_URL=http://localhost:8080  # or https://missingtable.com for prod
 
 # Optional: Choose API mode (default is async)
 USE_ASYNC_API=true  # Recommended for bulk operations

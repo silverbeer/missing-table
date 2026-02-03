@@ -415,15 +415,15 @@ kubectl rollout status deployment/missing-table-frontend -n missing-table-prod
 
 ### Database Migrations
 
-**⚠️ Always test migrations in dev environment first!**
+**⚠️ Always test migrations in local environment first!**
 
 ```bash
-# 1. Test migration in dev
-./switch-env.sh dev
+# 1. Test migration locally
+./switch-env.sh local
 npx supabase db push
 
 # 2. Verify migration works
-./scripts/health-check.sh dev
+./scripts/health-check.sh local
 
 # 3. After deploying code to prod, migration runs automatically
 # (Migrations are applied during Helm upgrade)

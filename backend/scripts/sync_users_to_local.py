@@ -147,14 +147,26 @@ def fetch_users_from_cloud(
     """Fetch users from cloud Supabase with optional filtering."""
     console.print("[cyan]Fetching users from cloud...[/cyan]")
 
-    response = supabase.auth.admin.list_users()
-    users_list = _get_users_list(response)
+    # Paginate through all auth users (default limit is 50)
+    users_list = []
+    page = 1
+    per_page = 100
+    while True:
+        response = supabase.auth.admin.list_users(page=page, per_page=per_page)
+        page_users = _get_users_list(response)
+        if not page_users:
+            break
+        users_list.extend(page_users)
+        console.print(f"[dim]  Fetched page {page}: {len(page_users)} users[/dim]")
+        if len(page_users) < per_page:
+            break
+        page += 1
 
     if not users_list:
         console.print("[yellow]No users found in cloud[/yellow]")
         return []
 
-    console.print(f"[dim]Found {len(users_list)} auth users[/dim]")
+    console.print(f"[dim]Found {len(users_list)} total auth users[/dim]")
 
     # Build user data with profiles
     users_data = []

@@ -665,11 +665,11 @@ def create_or_get_division(name: str, description: str = None) -> int:
 ```
 
 **Testing Match-Scraper Integration**:
-- [ ] 1. Deploy updated missing-table to dev
-- [ ] 2. Get Homegrown league ID from dev: `cd backend && APP_ENV=dev uv run python -c "from dao.enhanced_data_access_fixed import SportsDataAccess; dao = SportsDataAccess(); leagues = dao.get_all_leagues(); print([l for l in leagues if l['name']=='Homegrown'])"`
+- [ ] 1. Deploy updated missing-table to local or prod
+- [ ] 2. Get Homegrown league ID: `cd backend && APP_ENV=local uv run python -c "from dao.enhanced_data_access_fixed import SportsDataAccess; dao = SportsDataAccess(); leagues = dao.get_all_leagues(); print([l for l in leagues if l['name']=='Homegrown'])"`
 - [ ] 3. Update match-scraper config with league ID
 - [ ] 4. Update match-scraper division creation code
-- [ ] 5. Test scraper against dev environment
+- [ ] 5. Test scraper against local environment
 - [ ] 6. Verify divisions created with correct league_id
 
 ---

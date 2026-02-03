@@ -51,12 +51,12 @@ kubectl logs -n match-scraper -l app=missing-table-worker --tail=50 -f
 kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues
 ```
 
-## Switching Environments (Dev ↔ Prod)
+## Switching Environments (Local ↔ Prod)
 
 ### Using Helper Script (Recommended)
 ```bash
-# Switch to dev
-./k3s/worker/switch-worker-env.sh dev
+# Switch to local
+./k3s/worker/switch-worker-env.sh local
 
 # Switch to prod
 ./k3s/worker/switch-worker-env.sh prod
@@ -209,7 +209,7 @@ kubectl rollout status deployment/missing-table-celery-worker -n match-scraper
 - `CELERY_BROKER_URL` - Celery broker URL (same as RabbitMQ)
 - `REDIS_URL` - Redis connection string
 - `SUPABASE_URL` - Supabase project URL
-- `ENVIRONMENT` - dev or production
+- `ENVIRONMENT` - local or production
 - `LOG_LEVEL` - Logging level (INFO, DEBUG, WARNING)
 
 **From Secret:**

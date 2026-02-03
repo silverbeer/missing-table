@@ -9,9 +9,9 @@ from supabase import Client, create_client
 
 
 def load_environment():
-    """Load environment variables based on APP_ENV or default to dev."""
+    """Load environment variables based on APP_ENV or default to local."""
     load_dotenv()
-    app_env = os.getenv("APP_ENV", "dev")
+    app_env = os.getenv("APP_ENV", "local")
     env_file = f".env.{app_env}"
     if os.path.exists(env_file):
         load_dotenv(env_file, override=True)

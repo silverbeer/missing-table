@@ -1,11 +1,11 @@
 #!/bin/bash
-# Switch Celery worker environment between dev and prod
+# Switch Celery worker environment between local and prod
 #
 # This script makes it easy to point your local k3s Celery workers
-# at either the dev or prod Supabase database.
+# at either the local or prod Supabase database.
 #
 # Usage:
-#   ./switch-worker-env.sh dev     # Switch to dev Supabase
+#   ./switch-worker-env.sh local   # Switch to local Supabase
 #   ./switch-worker-env.sh prod    # Switch to prod Supabase
 #   ./switch-worker-env.sh status  # Show current environment
 
@@ -75,7 +75,7 @@ show_status() {
         log_warning "No workers deployed"
         echo ""
         echo "To deploy workers, run:"
-        echo "  ./switch-worker-env.sh dev"
+        echo "  ./switch-worker-env.sh local"
         echo ""
         return
     fi
@@ -186,9 +186,9 @@ main() {
     local command=${1:-help}
 
     case "$command" in
-        dev)
+        local)
             check_context
-            deploy_env "dev"
+            deploy_env "local"
             ;;
         prod)
             check_context
@@ -199,15 +199,15 @@ main() {
             show_status
             ;;
         help|--help|-h)
-            echo "Usage: $0 {dev|prod|status}"
+            echo "Usage: $0 {local|prod|status}"
             echo ""
             echo "Commands:"
-            echo "  dev     - Switch workers to dev Supabase database"
+            echo "  local   - Switch workers to local Supabase database"
             echo "  prod    - Switch workers to prod Supabase database"
             echo "  status  - Show current environment and worker status"
             echo ""
             echo "Examples:"
-            echo "  $0 dev      # Switch to dev"
+            echo "  $0 local    # Switch to local"
             echo "  $0 prod     # Switch to prod"
             echo "  $0 status   # Check current status"
             echo ""
@@ -215,7 +215,7 @@ main() {
         *)
             log_error "Unknown command: $command"
             echo ""
-            echo "Usage: $0 {dev|prod|status}"
+            echo "Usage: $0 {local|prod|status}"
             echo "Run '$0 help' for more information"
             exit 1
             ;;

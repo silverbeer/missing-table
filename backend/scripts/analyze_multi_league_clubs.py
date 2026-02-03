@@ -7,7 +7,7 @@ This helps determine which teams need to be split into parent club + child teams
 
 Usage:
     APP_ENV=local python scripts/analyze_multi_league_clubs.py
-    APP_ENV=dev python scripts/analyze_multi_league_clubs.py
+    APP_ENV=prod python scripts/analyze_multi_league_clubs.py
     python scripts/analyze_multi_league_clubs.py --env local --output report.json
 """
 
