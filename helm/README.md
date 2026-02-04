@@ -160,7 +160,7 @@ This chart is designed to work with ArgoCD for GitOps workflows. ArgoCD is manag
 
 - **ArgoCD installation**: Managed via Helm in Terraform (`clouds/digitalocean/environments/dev/main.tf`)
 - **Application manifests**: Defined as Terraform `kubectl_manifest` resources
-- **GitOps workflow**: ArgoCD syncs from `main` branch using `values-doks.yaml`
+- **GitOps workflow**: ArgoCD syncs from `main` branch using `values-prod.yaml`
 
 ### Benefits of Helm + ArgoCD
 

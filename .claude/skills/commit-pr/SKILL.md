@@ -13,8 +13,8 @@ Create commits and pull requests with awareness of the GitOps deployment pipelin
 **Merging a PR to main triggers automatic deployment:**
 
 1. GitHub Actions builds Docker images → pushes to GHCR
-2. GHA updates `helm/missing-table/values-doks.yaml` with new image tags
-3. Argo CD detects helm changes → syncs to DOKS cluster (~2-3 min)
+2. GHA updates `helm/missing-table/values-prod.yaml` with new image tags
+3. Argo CD detects helm changes → syncs to production cluster (~2-3 min)
 
 **No manual build/push needed.** Just merge the PR and Argo handles deployment.
 
