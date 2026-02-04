@@ -1,10 +1,10 @@
-# DOKS Production Environment
+# Production Environment
 
 ## Overview
 
-Missing Table production runs on **DigitalOcean Kubernetes Service (DOKS)**, managed via GitOps with ArgoCD.
+Missing Table production runs on **Linode Kubernetes Engine (LKE)**, managed via GitOps with ArgoCD.
 
-**Migrated from GKE**: December 2025 (see [GKE_SHUTDOWN_2025-12-07.md](./GKE_SHUTDOWN_2025-12-07.md) for historical reference)
+**Migration history**: GKE (shutdown 2025-12-07) → DOKS (December 2025) → LKE (February 2026)
 
 ---
 
@@ -15,12 +15,12 @@ GitHub (main branch)
     ↓
 CI Workflow (.github/workflows/ci.yml)
     ↓ builds images, pushes to GHCR
-    ↓ updates helm/missing-table/values-doks.yaml
+    ↓ updates helm/missing-table/values-prod.yaml
     ↓
-ArgoCD (watches values-doks.yaml)
+ArgoCD (watches values-prod.yaml)
     ↓ syncs to cluster
     ↓
-DOKS Cluster
+LKE Cluster
     ├── missing-table namespace
     │   ├── backend (FastAPI)
     │   ├── frontend (Vue/Nginx)
@@ -37,7 +37,7 @@ DOKS Cluster
 | Repository | Purpose |
 |------------|---------|
 | **missing-table** (this repo) | Application code, Helm charts, CI/CD |
-| **[missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap)** | Terraform IaC, ArgoCD config, DOKS provisioning |
+| **[missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap)** | Terraform IaC, ArgoCD config, LKE provisioning |
 
 ---
 
@@ -45,7 +45,7 @@ DOKS Cluster
 
 | File | Purpose |
 |------|---------|
-| `helm/missing-table/values-doks.yaml` | DOKS-specific Helm values (updated by CI) |
+| `helm/missing-table/values-prod.yaml` | Production Helm values (updated by CI) |
 | `.github/workflows/ci.yml` | CI pipeline that builds and updates tags |
 
 ---
@@ -82,15 +82,12 @@ Secrets include:
 
 1. Merge PR to `main`
 2. CI builds images, pushes to GHCR
-3. CI updates `values-doks.yaml` with new image tags
-4. ArgoCD detects changes and syncs to DOKS
+3. CI updates `values-prod.yaml` with new image tags
+4. ArgoCD detects changes and syncs to LKE
 
 ### Manual (Emergency only)
 
 ```bash
-# Get cluster credentials (requires doctl CLI configured)
-doctl kubernetes cluster kubeconfig save <cluster-name>
-
 # Check current state
 kubectl get pods -n missing-table
 kubectl get ingress -n missing-table
@@ -132,7 +129,7 @@ curl https://missingtable.com/
 
 ## Version Information
 
-Current version info is stored in `values-doks.yaml`:
+Current version info is stored in `values-prod.yaml`:
 
 ```yaml
 version: "X.Y.Z"     # Semantic version

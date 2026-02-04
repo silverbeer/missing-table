@@ -180,7 +180,7 @@ jobs:
           docker push ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA}
 
   # GitOps: Update Helm values with new image tags
-  # ArgoCD watches the repo and syncs changes to DOKS
+  # ArgoCD watches the repo and syncs changes to production
   update-helm-values:
     needs: build-and-push
     runs-on: ubuntu-latest

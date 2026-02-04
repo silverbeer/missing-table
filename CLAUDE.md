@@ -154,9 +154,9 @@ docker-compose down
 
 ### Helm/Kubernetes
 ```bash
-# Production deploys via GitOps (ArgoCD watches values-doks.yaml)
+# Production deploys via GitOps (ArgoCD watches values-prod.yaml)
 # Manual helm commands for debugging only:
-helm upgrade missing-table ./missing-table --namespace missing-table -f ./missing-table/values-doks.yaml
+helm upgrade missing-table ./missing-table --namespace missing-table -f ./missing-table/values-prod.yaml
 ```
 
 **Full deployment docs**: [docs/05-deployment/README.md](docs/05-deployment/README.md)
@@ -165,20 +165,20 @@ helm upgrade missing-table ./missing-table --namespace missing-table -f ./missin
 
 ## Production Environment
 
-**DOKS (DigitalOcean Kubernetes Service)** - Current production platform.
+**LKE (Linode Kubernetes Engine)** - Current production platform.
 
 | Component | Details |
 |-----------|---------|
-| **Cluster** | DOKS managed by Terraform in [missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap) |
-| **GitOps** | ArgoCD watches `helm/missing-table/values-doks.yaml` |
+| **Cluster** | LKE managed by Terraform in [missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap) |
+| **GitOps** | ArgoCD watches `helm/missing-table/values-prod.yaml` |
 | **Images** | GHCR (`ghcr.io/silverbeer/missing-table-backend/frontend`) |
 | **Secrets** | External Secrets Operator → AWS Secrets Manager |
 | **Domains** | missingtable.com, www.missingtable.com, api.missingtable.com |
 | **Database** | Supabase (cloud-hosted) |
 
-**CI/CD Flow**: Push to main → CI builds images → Updates `values-doks.yaml` → ArgoCD syncs to DOKS
+**CI/CD Flow**: Push to main → CI builds images → Updates `values-prod.yaml` → ArgoCD syncs to LKE
 
-**Historical note**: GKE was shut down 2025-12-07, migrated to DOKS December 2025.
+**Historical note**: GKE shut down 2025-12-07, migrated to DOKS December 2025, migrated to LKE February 2026.
 
 ---
 
@@ -308,4 +308,4 @@ Backend-centered auth resolves k8s networking issues. All Supabase credentials s
 
 ---
 
-**Last Updated**: 2026-01-30
+**Last Updated**: 2026-02-04

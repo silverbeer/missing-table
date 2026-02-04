@@ -372,7 +372,7 @@ This repository contains:
 - **100% Infrastructure as Code** - All infrastructure defined in Terraform/OpenTofu
 - **ArgoCD** - GitOps-based continuous deployment
 - **Grafana Stack** - Full observability (Loki, Tempo, Grafana dashboards)
-- **DigitalOcean Kubernetes** - Production Kubernetes cluster
+- **Linode Kubernetes (LKE)** - Production Kubernetes cluster
 - **Helm Charts** - Application deployment configurations
 
 **Why separate repos?**

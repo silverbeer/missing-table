@@ -1,4 +1,4 @@
-# DOKS environment configuration
+# Production environment configuration (LKE)
 # Secrets come from External Secrets Operator (AWS Secrets Manager)
 # Image tags and version info updated by CI workflow
 
