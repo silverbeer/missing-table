@@ -1480,6 +1480,16 @@ async def add_admin_player_team(
                 if roster_entry:
                     roster_dao.link_user_to_player(roster_entry["id"], player_id)
 
+        # Backfill club_id on user_profiles if not already set.
+        # Roster-managed players get player_team_history entries but their
+        # user_profiles.club_id was never populated, causing them to see
+        # unrelated clubs/leagues in the UI.
+        team_info = team_dao.get_team_by_id(data.team_id)
+        if team_info and team_info.get("club_id"):
+            profile = player_dao.get_user_profile_with_relationships(player_id)
+            if profile and not profile.get("club_id"):
+                player_dao.update_user_profile(player_id, {"club_id": team_info["club_id"]})
+
         return {"success": True, "assignment": entry}
 
     except HTTPException:

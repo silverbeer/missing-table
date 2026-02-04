@@ -322,6 +322,29 @@ export default {
       }
     };
 
+    // Filter leagues to only those where the user's club has teams
+    const filterLeaguesByClub = () => {
+      const clubId = authStore.userClubId.value;
+      if (authStore.isAdmin.value || !clubId) return;
+
+      const clubLeagueIds = new Set(
+        teams.value
+          .filter(t => t.club_id === clubId && t.league_id)
+          .map(t => t.league_id)
+      );
+
+      if (clubLeagueIds.size > 0) {
+        leagues.value = leagues.value.filter(l => clubLeagueIds.has(l.id));
+        // Re-select default if current selection was filtered out
+        if (!leagues.value.find(l => l.id === selectedLeagueId.value)) {
+          const homegrown = leagues.value.find(l => l.name === 'Homegrown');
+          selectedLeagueId.value = homegrown
+            ? homegrown.id
+            : leagues.value[0]?.id || null;
+        }
+      }
+    };
+
     const filterDivisionsByLeague = () => {
       console.log('Filtering divisions by league:', {
         selectedLeagueId: selectedLeagueId.value,
@@ -489,6 +512,10 @@ export default {
         fetchSeasons(),
         fetchTeams(),
       ]);
+
+      // Filter leagues to user's club before selecting defaults
+      filterLeaguesByClub();
+
       // Fetch divisions after leagues are loaded so we can filter by default league
       await fetchDivisions();
 

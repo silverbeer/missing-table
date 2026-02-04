@@ -93,7 +93,11 @@
                   class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option :value="null">-- Select a club --</option>
-                  <option v-for="club in clubs" :key="club.id" :value="club.id">
+                  <option
+                    v-for="club in filteredClubs"
+                    :key="club.id"
+                    :value="club.id"
+                  >
                     {{ club.name }}
                   </option>
                 </select>
@@ -1479,6 +1483,30 @@ export default {
       }
     };
 
+    // Filter clubs to only those sharing leagues with the user's club
+    const filteredClubs = computed(() => {
+      const clubId = authStore.userClubId.value;
+      if (authStore.isAdmin.value || !clubId) return clubs.value;
+
+      // Find league IDs where the user's club has teams
+      const userLeagueIds = new Set(
+        teams.value
+          .filter(t => t.club_id === clubId && t.league_id)
+          .map(t => t.league_id)
+      );
+
+      if (userLeagueIds.size === 0) return clubs.value;
+
+      // Find club IDs that have teams in those same leagues
+      const sharedClubIds = new Set(
+        teams.value
+          .filter(t => t.league_id && userLeagueIds.has(t.league_id))
+          .map(t => t.club_id)
+      );
+
+      return clubs.value.filter(c => sharedClubIds.has(c.id));
+    });
+
     const getWeekBoundaries = offset => {
       const now = new Date();
       const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
@@ -2358,6 +2386,7 @@ export default {
       matchTypes,
       leagues,
       clubs,
+      filteredClubs,
       selectedViewTab,
       selectedTeam,
       selectedClubId,
