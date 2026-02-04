@@ -1438,7 +1438,8 @@ async def add_admin_player_team(
 ):
     """Assign a player to a team (admin/manager operation).
 
-    Creates a player_team_history entry for the assignment.
+    Creates a player_team_history entry and a corresponding roster (players table)
+    entry so the player appears in both the Admin/Players and Admin/Teams/Roster views.
     """
     try:
         # Use the existing create_player_history_entry method
@@ -1450,10 +1451,36 @@ async def add_admin_player_team(
             is_current=data.is_current,
         )
 
-        if entry:
-            return {"success": True, "assignment": entry}
-        else:
+        if not entry:
             raise HTTPException(status_code=500, detail="Failed to create team assignment")
+
+        # Also create a roster (players table) entry if one doesn't already exist
+        # for this user/team/season, so the player shows up in Admin/Teams/Roster.
+        if data.jersey_number:
+            existing_roster = roster_dao.get_player_by_user_profile_id(
+                player_id, team_id=data.team_id, season_id=data.season_id
+            )
+            if not existing_roster:
+                # Get player profile for name info
+                profile = player_dao.get_user_profile_with_relationships(player_id)
+                display_name = profile.get("display_name", "") if profile else ""
+                name_parts = display_name.split(" ", 1) if display_name else [""]
+                first_name = name_parts[0] if name_parts else None
+                last_name = name_parts[1] if len(name_parts) > 1 else None
+
+                roster_entry = roster_dao.create_player(
+                    team_id=data.team_id,
+                    season_id=data.season_id,
+                    jersey_number=data.jersey_number,
+                    first_name=first_name,
+                    last_name=last_name,
+                    created_by=current_user.get("user_id"),
+                )
+                # Link the roster entry to the user profile
+                if roster_entry:
+                    roster_dao.link_user_to_player(roster_entry["id"], player_id)
+
+        return {"success": True, "assignment": entry}
 
     except HTTPException:
         raise
@@ -3667,7 +3694,7 @@ async def get_team_players(team_id: int, current_user: dict[str, Any] = Depends(
             raise HTTPException(status_code=404, detail="Team not found")
         requested_club_id = requested_team.get("club_id")
 
-        # Get user's club_id from their profile's team_id or club_id
+        # Get user's club_id from their profile's team_id, club_id, or player_team_history
         user_club_ids = set()
 
         # Check user's direct club_id (for club managers/fans)
@@ -3679,6 +3706,17 @@ async def get_team_players(team_id: int, current_user: dict[str, Any] = Depends(
             user_team = team_dao.get_team_by_id(current_user["team_id"])
             if user_team and user_team.get("club_id"):
                 user_club_ids.add(user_team["club_id"])
+
+        # Also check player_team_history for current team assignments.
+        # Players added via roster manager have entries here but not in user_profiles.team_id.
+        if not user_club_ids:
+            current_teams = player_dao.get_all_current_player_teams(current_user["user_id"])
+            for ct in current_teams:
+                team_data = ct.get("team")
+                if team_data:
+                    club = team_data.get("club")
+                    if club and club.get("id"):
+                        user_club_ids.add(club["id"])
 
         # Authorization: user must belong to a team in the same club
         if requested_club_id not in user_club_ids:

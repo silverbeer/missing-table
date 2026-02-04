@@ -99,6 +99,10 @@ Use `player_team_history` as primary source of truth for the MyClub tab, and als
 
 No changes were needed in `TeamRosterPage.vue` since it already fetches current teams from `/api/auth/profile/teams/current` and uses `player_team_history` data.
 
+3. **`backend/app.py`** (`POST /api/admin/players/{player_id}/teams`): When assigning a player to a team, now also creates a corresponding entry in the `players` (roster) table and links it to the user profile. This ensures the player appears in both Admin/Players and Admin/Teams/Roster views.
+
+4. **`backend/app.py`** (`GET /api/teams/{team_id}/players`): The authorization check now also consults `player_team_history` to determine club membership, so players whose `user_profiles.team_id` is NULL (added via roster manager) can still view their team roster.
+
 ## Additional Context
 
 - `user_profiles.team_id` is set correctly when a user signs up via an invite code (the signup flow in `app.py:385-396` copies `team_id` from the invitation)
