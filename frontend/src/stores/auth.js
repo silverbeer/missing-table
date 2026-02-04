@@ -86,6 +86,14 @@ export const useAuthStore = () => {
       if (!profile.team && profile.current_teams?.length > 0) {
         profile.team = profile.current_teams[0].team;
       }
+      // Derive club_id from current_teams for roster-managed players
+      // whose user_profiles.club_id was never set
+      if (!profile.club_id && profile.current_teams?.length > 0) {
+        const club = profile.current_teams[0].team?.club;
+        if (club?.id) {
+          profile.club_id = club.id;
+        }
+      }
       localStorage.setItem('auth_profile', JSON.stringify(profile));
     } else {
       localStorage.removeItem('auth_profile');
