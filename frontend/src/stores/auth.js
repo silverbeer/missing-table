@@ -79,12 +79,18 @@ export const useAuthStore = () => {
   };
 
   const setProfile = profile => {
-    state.profile = profile;
     if (profile) {
+      // If profile.team is null but current_teams has entries (from player_team_history),
+      // populate profile.team from the first current team so all components that check
+      // profile.team work for players added via roster manager.
+      if (!profile.team && profile.current_teams?.length > 0) {
+        profile.team = profile.current_teams[0].team;
+      }
       localStorage.setItem('auth_profile', JSON.stringify(profile));
     } else {
       localStorage.removeItem('auth_profile');
     }
+    state.profile = profile;
   };
 
   const signup = async (username, password, displayName, email = null) => {
