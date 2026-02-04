@@ -85,7 +85,35 @@
       </div>
     </div>
 
-    <div class="overflow-x-auto">
+    <!-- Playoff bracket toggle -->
+    <div v-if="bracketExists" class="mb-4 flex justify-end">
+      <button
+        @click="showBracket = !showBracket"
+        class="px-4 py-2 text-sm font-medium rounded-md transition-colors"
+        :class="
+          showBracket
+            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            : 'bg-yellow-500 text-white hover:bg-yellow-600'
+        "
+      >
+        {{ showBracket ? 'Show Standings' : 'Show Playoff Bracket' }}
+      </button>
+    </div>
+
+    <!-- Playoff Bracket View -->
+    <PlayoffBracket
+      v-if="
+        showBracket &&
+        selectedLeagueId &&
+        selectedSeasonId &&
+        selectedAgeGroupId
+      "
+      :leagueId="selectedLeagueId"
+      :seasonId="selectedSeasonId"
+      :ageGroupId="selectedAgeGroupId"
+    />
+
+    <div v-if="!showBracket" class="overflow-x-auto">
       <!-- Loading State -->
       <div
         v-if="loading"
@@ -234,9 +262,11 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import PlayoffBracket from './PlayoffBracket.vue';
 
 export default {
   name: 'LeagueTable',
+  components: { PlayoffBracket },
   props: {
     initialAgeGroupId: {
       type: Number,
@@ -270,6 +300,10 @@ export default {
     const selectedSeasonId = ref(2); // Default to 2024-2025
     const error = ref(null);
     const loading = ref(true);
+
+    // Playoff bracket state
+    const bracketExists = ref(false);
+    const showBracket = ref(false);
 
     // Computed property for selected league name
     const selectedLeagueName = computed(() => {
@@ -454,14 +488,45 @@ export default {
       }
     };
 
-    // Watch for league changes to filter divisions and fetch team aliases
+    const checkBracketExists = async () => {
+      bracketExists.value = false;
+      showBracket.value = false;
+      if (
+        !selectedLeagueId.value ||
+        !selectedSeasonId.value ||
+        !selectedAgeGroupId.value
+      )
+        return;
+      try {
+        const params = new URLSearchParams({
+          league_id: selectedLeagueId.value,
+          season_id: selectedSeasonId.value,
+          age_group_id: selectedAgeGroupId.value,
+        });
+        const data = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/playoffs/bracket?${params}`,
+          { method: 'GET' }
+        );
+        bracketExists.value = Array.isArray(data) && data.length > 0;
+      } catch {
+        // Bracket check is non-critical — ignore errors
+      }
+    };
+
+    // Watch for league changes to filter divisions and check bracket
     watch(selectedLeagueId, () => {
       filterDivisionsByLeague();
+      checkBracketExists();
     });
 
     // Watch for changes in filters and refetch data
     watch([selectedSeasonId, selectedAgeGroupId, selectedDivisionId], () => {
       fetchTableData();
+    });
+
+    // Re-check bracket when season or age group changes
+    watch([selectedSeasonId, selectedAgeGroupId], () => {
+      checkBracketExists();
     });
 
     // Watch for filterKey changes to apply external filters (from team card clicks)
@@ -560,6 +625,7 @@ export default {
       }
 
       fetchTableData();
+      checkBracketExists();
     });
 
     return {
@@ -577,6 +643,8 @@ export default {
       getTeamDisplayName,
       error,
       loading,
+      bracketExists,
+      showBracket,
       authStore,
     };
   },

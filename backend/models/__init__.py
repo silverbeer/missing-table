@@ -54,6 +54,9 @@ from .live_match import (
 # Match models
 from .matches import EnhancedMatch, MatchPatch, MatchSubmissionData
 
+# Playoff models
+from .playoffs import AdvanceWinnerRequest, GenerateBracketRequest, PlayoffBracketSlot
+
 # Roster models
 from .roster import (
     BulkRenumberRequest,
@@ -79,31 +82,28 @@ __all__ = [
     "AdminPlayerTeamAssignment",
     "AdminPlayerTeamEnd",
     "AdminPlayerUpdate",
+    "AdvanceWinnerRequest",
     "AgeGroupCreate",
     "AgeGroupUpdate",
     "BulkRenumberRequest",
     "BulkRosterCreate",
     "BulkRosterPlayer",
-    # Clubs
     "Club",
     "ClubData",
     "ClubWithTeams",
     "DivisionCreate",
     "DivisionUpdate",
-    # Matches
     "EnhancedMatch",
+    "GenerateBracketRequest",
     "GoalEvent",
     "JerseyNumberUpdate",
-    # Leagues
     "League",
     "LeagueCreate",
     "LeagueUpdate",
-    # Lineup
     "LineupPositionEntry",
     "LineupPositionResponse",
     "LineupResponse",
     "LineupSave",
-    # Live Match
     "LiveMatchClock",
     "LiveMatchState",
     "LiveMatchSummary",
@@ -114,18 +114,16 @@ __all__ = [
     "PlayerCustomization",
     "PlayerHistoryCreate",
     "PlayerHistoryUpdate",
+    "PlayoffBracketSlot",
     "ProfilePhotoSlot",
     "RefreshTokenRequest",
     "RenumberEntry",
     "RoleUpdate",
-    # Roster
     "RosterPlayerCreate",
     "RosterPlayerResponse",
     "RosterPlayerUpdate",
-    # Seasons
     "SeasonCreate",
     "SeasonUpdate",
-    # Teams
     "Team",
     "TeamData",
     "TeamMappingCreate",
@@ -134,7 +132,6 @@ __all__ = [
     "UserLogin",
     "UserProfile",
     "UserProfileUpdate",
-    # Auth
     "UserSignup",
     "load_clubs_from_json",
 ]

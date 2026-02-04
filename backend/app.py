@@ -24,6 +24,7 @@ from middleware import TraceMiddleware
 from models import (
     AdminPlayerTeamAssignment,
     AdminPlayerUpdate,
+    AdvanceWinnerRequest,
     AgeGroupCreate,
     AgeGroupUpdate,
     BulkRenumberRequest,
@@ -32,6 +33,7 @@ from models import (
     DivisionCreate,
     DivisionUpdate,
     EnhancedMatch,
+    GenerateBracketRequest,
     GoalEvent,
     JerseyNumberUpdate,
     LeagueCreate,
@@ -75,6 +77,7 @@ from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
+from dao.playoff_dao import PlayoffDAO
 from dao.roster_dao import RosterDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
@@ -198,6 +201,7 @@ lineup_dao = LineupDAO(db_conn_holder_obj)
 season_dao = SeasonDAO(db_conn_holder_obj)
 league_dao = LeagueDAO(db_conn_holder_obj)
 match_type_dao = MatchTypeDAO(db_conn_holder_obj)
+playoff_dao = PlayoffDAO(db_conn_holder_obj)
 
 
 # === Simple Redis Caching ===
@@ -4295,6 +4299,107 @@ async def get_player_profile(user_id: str, current_user: dict[str, Any] = Depend
     except Exception as e:
         logger.error(f"Error getting player profile: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get player profile") from e
+
+
+# =============================================================================
+# Playoff Bracket Endpoints
+# =============================================================================
+
+
+@app.get("/api/playoffs/bracket")
+async def get_playoff_bracket(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+    league_id: int = Query(..., description="League ID"),
+    season_id: int = Query(..., description="Season ID"),
+    age_group_id: int = Query(..., description="Age group ID"),
+):
+    """Get playoff bracket for a league/season/age group."""
+    try:
+        bracket = playoff_dao.get_bracket(league_id, season_id, age_group_id)
+        return bracket
+    except Exception as e:
+        logger.error(f"Error fetching playoff bracket: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/admin/playoffs/generate")
+async def generate_playoff_bracket(
+    request: GenerateBracketRequest,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Generate a playoff bracket from current standings (admin only).
+
+    Takes top 4 teams from each division, creates 7 bracket slots and 4 QF matches.
+    """
+    try:
+        # Get standings for both divisions
+        standings_a = match_dao.get_league_table(
+            season_id=request.season_id,
+            age_group_id=request.age_group_id,
+            division_id=request.division_a_id,
+            match_type="League",
+        )
+        standings_b = match_dao.get_league_table(
+            season_id=request.season_id,
+            age_group_id=request.age_group_id,
+            division_id=request.division_b_id,
+            match_type="League",
+        )
+
+        bracket = playoff_dao.generate_bracket(
+            league_id=request.league_id,
+            season_id=request.season_id,
+            age_group_id=request.age_group_id,
+            standings_a=standings_a,
+            standings_b=standings_b,
+            division_a_id=request.division_a_id,
+            division_b_id=request.division_b_id,
+        )
+        return bracket
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error generating playoff bracket: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/admin/playoffs/advance")
+async def advance_playoff_winner(
+    request: AdvanceWinnerRequest,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Advance the winner of a completed bracket slot to the next round (admin only)."""
+    try:
+        result = playoff_dao.advance_winner(request.slot_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error advancing playoff winner: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/admin/playoffs/bracket")
+async def delete_playoff_bracket(
+    current_user: dict[str, Any] = Depends(require_admin),
+    league_id: int = Query(..., description="League ID"),
+    season_id: int = Query(..., description="Season ID"),
+    age_group_id: int = Query(..., description="Age group ID"),
+):
+    """Delete an entire playoff bracket and its matches (admin only)."""
+    try:
+        deleted = playoff_dao.delete_bracket(league_id, season_id, age_group_id)
+        if deleted == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="No bracket found for this league/season/age group",
+            )
+        return {"message": "Bracket deleted successfully", "slots_deleted": deleted}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting playoff bracket: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # Health check
