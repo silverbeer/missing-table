@@ -4322,6 +4322,86 @@ async def get_playoff_bracket(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.post("/api/playoffs/advance")
+async def advance_playoff_winner_by_manager(
+    request: AdvanceWinnerRequest,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Advance the winner of a completed bracket slot to the next round.
+
+    Team managers can advance when their team is the winner.
+    Club managers can advance when any team in their club is the winner.
+    Admins can advance any slot.
+    """
+    try:
+        # Get slot with match data to verify permissions
+        slot_response = (
+            match_dao.client.table("playoff_bracket_slots")
+            .select("*, match:matches(id, home_team_id, away_team_id, home_score, away_score, match_status)")
+            .eq("id", request.slot_id)
+            .execute()
+        )
+        if not slot_response.data:
+            raise HTTPException(status_code=404, detail=f"Slot {request.slot_id} not found")
+
+        slot = slot_response.data[0]
+        match = slot.get("match")
+        if not match:
+            raise HTTPException(status_code=400, detail=f"Slot {request.slot_id} has no linked match")
+
+        home_team_id = match.get("home_team_id")
+        away_team_id = match.get("away_team_id")
+
+        # Check if user can edit this match (team manager for their team, club manager for their club)
+        if not auth_manager.can_edit_match(current_user, home_team_id, away_team_id):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        # For non-admins, verify their team is the winner (not just a participant)
+        if current_user.get("role") != "admin":
+            if match.get("match_status") != "completed":
+                raise HTTPException(status_code=400, detail="Match is not completed yet")
+            if match.get("home_score") is None or match.get("away_score") is None:
+                raise HTTPException(status_code=400, detail="Match has no scores")
+            if match["home_score"] == match["away_score"]:
+                raise HTTPException(status_code=400, detail="Match is tied - admin must resolve")
+
+            # Determine the winner
+            winner_team_id = (
+                home_team_id if match["home_score"] > match["away_score"] else away_team_id
+            )
+
+            # Check if user's team is the winner
+            user_team_id = current_user.get("team_id")
+            user_club_id = current_user.get("club_id")
+            role = current_user.get("role")
+
+            user_is_winner = False
+            if role == "team-manager" and user_team_id == winner_team_id:
+                user_is_winner = True
+            elif role == "club_manager" and user_club_id:
+                # Check if winner team belongs to user's club
+                winner_club_id = auth_manager._get_team_club_id(winner_team_id)
+                if winner_club_id == user_club_id:
+                    user_is_winner = True
+
+            if not user_is_winner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only the winning team's manager can advance the winner"
+                )
+
+        # All checks passed, advance the winner
+        result = playoff_dao.advance_winner(request.slot_id)
+        return result
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error advancing playoff winner: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.post("/api/admin/playoffs/generate")
 async def generate_playoff_bracket(
     request: GenerateBracketRequest,

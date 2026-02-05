@@ -81,6 +81,8 @@ class PlayoffDAO(BaseDAO):
                     # Denormalized match data
                     "home_team_name": None,
                     "away_team_name": None,
+                    "home_team_id": None,
+                    "away_team_id": None,
                     "home_score": None,
                     "away_score": None,
                     "match_status": None,
@@ -95,6 +97,16 @@ class PlayoffDAO(BaseDAO):
                     )
                     slot["away_team_name"] = (
                         match["away_team"]["name"]
+                        if match.get("away_team")
+                        else None
+                    )
+                    slot["home_team_id"] = (
+                        match["home_team"]["id"]
+                        if match.get("home_team")
+                        else None
+                    )
+                    slot["away_team_id"] = (
+                        match["away_team"]["id"]
                         if match.get("away_team")
                         else None
                     )
