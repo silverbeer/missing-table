@@ -155,6 +155,9 @@ def create_backup():
         # Matches
         'matches',
 
+        # Playoff brackets (depends on matches)
+        'playoff_bracket_slots',
+
         # Match-related data
         'match_events',
         'match_lineups',
