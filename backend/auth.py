@@ -298,28 +298,53 @@ class AuthManager:
         role = user_data.get("role")
         user_team_id = user_data.get("team_id")
         user_club_id = user_data.get("club_id")
+        username = user_data.get("username", "unknown")
+
+        logger.debug(
+            f"can_edit_match check - User: {username}, Role: {role}, "
+            f"user_team_id: {user_team_id}, user_club_id: {user_club_id}, "
+            f"home_team_id: {home_team_id}, away_team_id: {away_team_id}"
+        )
 
         # Admins can edit any match
         if role == "admin":
+            logger.debug(f"can_edit_match: GRANTED - {username} is admin")
             return True
 
         # Service accounts with manage_matches permission can edit any match
         if role == "service_account":
             permissions = user_data.get("permissions", [])
             if "manage_matches" in permissions:
+                logger.debug("can_edit_match: GRANTED - service account has manage_matches")
                 return True
 
         # Team managers can edit matches involving their team
         if role == "team-manager" and user_team_id in [home_team_id, away_team_id]:
+            logger.debug(f"can_edit_match: GRANTED - team manager's team ({user_team_id}) is in match")
             return True
 
         # Club managers can edit matches involving any team in their club
         if role == "club_manager" and user_club_id:
             home_club_id = self._get_team_club_id(home_team_id)
             away_club_id = self._get_team_club_id(away_team_id)
+            logger.debug(
+                f"can_edit_match: club_manager check - user_club_id: {user_club_id}, "
+                f"home_team ({home_team_id}) club: {home_club_id}, "
+                f"away_team ({away_team_id}) club: {away_club_id}"
+            )
             if user_club_id in [home_club_id, away_club_id]:
+                logger.debug("can_edit_match: GRANTED - club manager's club matches")
                 return True
+            else:
+                logger.warning(
+                    f"can_edit_match: DENIED - club_manager {username} (club {user_club_id}) "
+                    f"cannot edit match between teams {home_team_id} (club {home_club_id}) "
+                    f"and {away_team_id} (club {away_club_id})"
+                )
+        elif role == "club_manager" and not user_club_id:
+            logger.warning(f"can_edit_match: DENIED - club_manager {username} has no club_id set")
 
+        logger.debug(f"can_edit_match: DENIED - {username} ({role}) lacks permission")
         return False
 
 

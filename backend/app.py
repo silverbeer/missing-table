@@ -4322,6 +4322,86 @@ async def get_playoff_bracket(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.post("/api/playoffs/advance")
+async def advance_playoff_winner_by_manager(
+    request: AdvanceWinnerRequest,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Advance the winner of a completed bracket slot to the next round.
+
+    Team managers can advance when their team is the winner.
+    Club managers can advance when any team in their club is the winner.
+    Admins can advance any slot.
+    """
+    try:
+        # Get slot with match data to verify permissions
+        slot_response = (
+            match_dao.client.table("playoff_bracket_slots")
+            .select("*, match:matches(id, home_team_id, away_team_id, home_score, away_score, match_status)")
+            .eq("id", request.slot_id)
+            .execute()
+        )
+        if not slot_response.data:
+            raise HTTPException(status_code=404, detail=f"Slot {request.slot_id} not found")
+
+        slot = slot_response.data[0]
+        match = slot.get("match")
+        if not match:
+            raise HTTPException(status_code=400, detail=f"Slot {request.slot_id} has no linked match")
+
+        home_team_id = match.get("home_team_id")
+        away_team_id = match.get("away_team_id")
+
+        # Check if user can edit this match (team manager for their team, club manager for their club)
+        if not auth_manager.can_edit_match(current_user, home_team_id, away_team_id):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        # For non-admins, verify their team is the winner (not just a participant)
+        if current_user.get("role") != "admin":
+            if match.get("match_status") != "completed":
+                raise HTTPException(status_code=400, detail="Match is not completed yet")
+            if match.get("home_score") is None or match.get("away_score") is None:
+                raise HTTPException(status_code=400, detail="Match has no scores")
+            if match["home_score"] == match["away_score"]:
+                raise HTTPException(status_code=400, detail="Match is tied - admin must resolve")
+
+            # Determine the winner
+            winner_team_id = (
+                home_team_id if match["home_score"] > match["away_score"] else away_team_id
+            )
+
+            # Check if user's team is the winner
+            user_team_id = current_user.get("team_id")
+            user_club_id = current_user.get("club_id")
+            role = current_user.get("role")
+
+            user_is_winner = False
+            if role == "team-manager" and user_team_id == winner_team_id:
+                user_is_winner = True
+            elif role == "club_manager" and user_club_id:
+                # Check if winner team belongs to user's club
+                winner_club_id = auth_manager._get_team_club_id(winner_team_id)
+                if winner_club_id == user_club_id:
+                    user_is_winner = True
+
+            if not user_is_winner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only the winning team's manager can advance the winner"
+                )
+
+        # All checks passed, advance the winner
+        result = playoff_dao.advance_winner(request.slot_id)
+        return result
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error advancing playoff winner: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.post("/api/admin/playoffs/generate")
 async def generate_playoff_bracket(
     request: GenerateBracketRequest,
@@ -4412,6 +4492,93 @@ async def delete_playoff_bracket(
         raise
     except Exception as e:
         logger.error(f"Error deleting playoff bracket: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# =============================================================================
+# Cache Management Endpoints (Admin Only)
+# =============================================================================
+
+
+@app.get("/api/admin/cache")
+async def get_cache_stats(current_user: dict[str, Any] = Depends(require_admin)):
+    """Get cache statistics and keys grouped by type (admin only)."""
+    from dao.base_dao import get_redis_client
+
+    redis_client = get_redis_client()
+    if not redis_client:
+        return {
+            "enabled": False,
+            "message": "Cache is disabled or Redis unavailable",
+            "groups": {},
+        }
+
+    try:
+        # Get all cache keys
+        all_keys = list(redis_client.scan_iter(match="mt:dao:*", count=1000))
+
+        # Group by type
+        groups = {}
+        for key in all_keys:
+            # Key format: mt:dao:TYPE:...
+            parts = key.split(":")
+            cache_type = parts[2] if len(parts) >= 3 else "other"
+
+            if cache_type not in groups:
+                groups[cache_type] = {"count": 0, "keys": []}
+            groups[cache_type]["count"] += 1
+            groups[cache_type]["keys"].append(key)
+
+        return {
+            "enabled": True,
+            "total_keys": len(all_keys),
+            "groups": groups,
+        }
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/admin/cache")
+async def clear_all_cache(current_user: dict[str, Any] = Depends(require_admin)):
+    """Clear all DAO cache entries (admin only)."""
+    from dao.base_dao import clear_cache
+
+    try:
+        deleted = clear_cache("mt:dao:*")
+        logger.info(f"Admin {current_user.get('username')} cleared all cache: {deleted} keys")
+        return {"message": "Cache cleared", "deleted": deleted}
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/admin/cache/{cache_type}")
+async def clear_cache_by_type(
+    cache_type: str,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Clear cache entries for a specific type (admin only).
+
+    Valid types: playoffs, matches, players, clubs, teams, standings, etc.
+    """
+    from dao.base_dao import clear_cache
+
+    # Validate cache type to prevent arbitrary pattern injection
+    valid_types = ["playoffs", "matches", "players", "clubs", "teams", "standings", "rosters"]
+    if cache_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid cache type. Valid types: {', '.join(valid_types)}",
+        )
+
+    try:
+        pattern = f"mt:dao:{cache_type}:*"
+        deleted = clear_cache(pattern)
+        logger.info(f"Admin {current_user.get('username')} cleared {cache_type} cache: {deleted} keys")
+        return {"message": f"{cache_type} cache cleared", "deleted": deleted}
+    except Exception as e:
+        logger.error(f"Error clearing {cache_type} cache: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

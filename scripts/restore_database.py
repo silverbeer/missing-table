@@ -225,7 +225,10 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         # 6. Matches (depend on teams, seasons, etc.)
         'matches',
 
-        # 7. Tables that depend on matches/teams/clubs/players
+        # 7. Playoff brackets (depend on matches)
+        'playoff_bracket_slots',
+
+        # 8. Tables that depend on matches/teams/clubs/players
         # These are cleared FIRST (reverse order) before their parents
         'match_events',
         'match_lineups',

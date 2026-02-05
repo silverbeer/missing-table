@@ -43,6 +43,60 @@
                   <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
                   <span class="score">{{ s.away_score ?? '' }}</span>
                 </div>
+                <!-- Match info and controls -->
+                <div v-if="s.match_id" class="match-info">
+                  <div class="match-date-row">
+                    <span
+                      v-if="!editingSlotId || editingSlotId !== s.id"
+                      class="match-date"
+                    >
+                      {{ formatDate(s.match_date) }}
+                      <span v-if="s.scheduled_kickoff">{{
+                        formatTime(s.scheduled_kickoff)
+                      }}</span>
+                    </span>
+                    <!-- Edit date/time inline -->
+                    <div v-else class="edit-datetime">
+                      <input
+                        type="date"
+                        v-model="editDate"
+                        class="date-input"
+                      />
+                      <input
+                        type="time"
+                        v-model="editTime"
+                        class="time-input"
+                      />
+                      <button @click="saveDateTime(s)" class="save-btn">
+                        Save
+                      </button>
+                      <button @click="cancelEdit" class="cancel-btn">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Edit controls for managers -->
+                  <div
+                    v-if="canManageSlot(s) && editingSlotId !== s.id"
+                    class="slot-controls"
+                  >
+                    <button
+                      @click="startEditDateTime(s)"
+                      class="edit-btn"
+                      title="Edit date/time"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      v-if="canAdvanceSlot(s)"
+                      @click="advanceWinner(s)"
+                      class="advance-btn"
+                      title="Advance winner to next round"
+                    >
+                      ➡️ Advance
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -81,6 +135,60 @@
                   <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
                   <span class="score">{{ s.away_score ?? '' }}</span>
                 </div>
+                <!-- Match info and controls -->
+                <div v-if="s.match_id" class="match-info">
+                  <div class="match-date-row">
+                    <span
+                      v-if="!editingSlotId || editingSlotId !== s.id"
+                      class="match-date"
+                    >
+                      {{ formatDate(s.match_date) }}
+                      <span v-if="s.scheduled_kickoff">{{
+                        formatTime(s.scheduled_kickoff)
+                      }}</span>
+                    </span>
+                    <!-- Edit date/time inline -->
+                    <div v-else class="edit-datetime">
+                      <input
+                        type="date"
+                        v-model="editDate"
+                        class="date-input"
+                      />
+                      <input
+                        type="time"
+                        v-model="editTime"
+                        class="time-input"
+                      />
+                      <button @click="saveDateTime(s)" class="save-btn">
+                        Save
+                      </button>
+                      <button @click="cancelEdit" class="cancel-btn">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Edit controls for managers -->
+                  <div
+                    v-if="canManageSlot(s) && editingSlotId !== s.id"
+                    class="slot-controls"
+                  >
+                    <button
+                      @click="startEditDateTime(s)"
+                      class="edit-btn"
+                      title="Edit date/time"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      v-if="canAdvanceSlot(s)"
+                      @click="advanceWinner(s)"
+                      class="advance-btn"
+                      title="Advance winner to next round"
+                    >
+                      ➡️ Advance
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -112,6 +220,52 @@
                   <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
                   <span class="score">{{ s.away_score ?? '' }}</span>
                 </div>
+                <!-- Match info and controls (no advance for final) -->
+                <div v-if="s.match_id" class="match-info">
+                  <div class="match-date-row">
+                    <span
+                      v-if="!editingSlotId || editingSlotId !== s.id"
+                      class="match-date"
+                    >
+                      {{ formatDate(s.match_date) }}
+                      <span v-if="s.scheduled_kickoff">{{
+                        formatTime(s.scheduled_kickoff)
+                      }}</span>
+                    </span>
+                    <!-- Edit date/time inline -->
+                    <div v-else class="edit-datetime">
+                      <input
+                        type="date"
+                        v-model="editDate"
+                        class="date-input"
+                      />
+                      <input
+                        type="time"
+                        v-model="editTime"
+                        class="time-input"
+                      />
+                      <button @click="saveDateTime(s)" class="save-btn">
+                        Save
+                      </button>
+                      <button @click="cancelEdit" class="cancel-btn">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Edit controls for managers (no advance for final) -->
+                  <div
+                    v-if="canManageSlot(s) && editingSlotId !== s.id"
+                    class="slot-controls"
+                  >
+                    <button
+                      @click="startEditDateTime(s)"
+                      class="edit-btn"
+                      title="Edit date/time"
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -139,6 +293,11 @@ export default {
     const loading = ref(false);
     const error = ref(null);
 
+    // Edit state
+    const editingSlotId = ref(null);
+    const editDate = ref('');
+    const editTime = ref('');
+
     // Derive bracket tiers dynamically from bracket data
     const bracketTiers = computed(() => {
       const tierNames = [...new Set(bracket.value.map(s => s.bracket_tier))];
@@ -160,6 +319,151 @@ export default {
       if (s.home_score == null || s.away_score == null) return false;
       if (side === 'home') return s.home_score > s.away_score;
       return s.away_score > s.home_score;
+    };
+
+    // Authorization helpers
+    const canManageSlot = slot => {
+      if (!authStore.isAuthenticated.value) return false;
+      if (authStore.isAdmin.value) return true;
+
+      const userTeamId = authStore.userTeamId.value;
+      if (authStore.isTeamManager.value && userTeamId) {
+        return (
+          slot.home_team_id === userTeamId || slot.away_team_id === userTeamId
+        );
+      }
+      // Club managers can only manage slots involving their club's teams
+      if (authStore.isClubManager.value) {
+        const userClubId = authStore.userClubId.value;
+        if (!userClubId) return false;
+        return (
+          slot.home_club_id === userClubId || slot.away_club_id === userClubId
+        );
+      }
+      return false;
+    };
+
+    const canAdvanceSlot = slot => {
+      if (!canManageSlot(slot)) return false;
+      if (slot.match_status !== 'completed') return false;
+      if (slot.round === 'final') return false;
+      if (slot.home_score == null || slot.away_score == null) return false;
+      if (slot.home_score === slot.away_score) return false; // Tied - admin must resolve
+
+      // Admins can always advance
+      if (authStore.isAdmin.value) return true;
+
+      // Determine winner
+      const winnerTeamId =
+        slot.home_score > slot.away_score
+          ? slot.home_team_id
+          : slot.away_team_id;
+      const winnerClubId =
+        slot.home_score > slot.away_score
+          ? slot.home_club_id
+          : slot.away_club_id;
+
+      // Team managers can only advance if their team won
+      if (authStore.isTeamManager.value) {
+        const userTeamId = authStore.userTeamId.value;
+        return userTeamId === winnerTeamId;
+      }
+
+      // Club managers can only advance if their club's team won
+      if (authStore.isClubManager.value) {
+        const userClubId = authStore.userClubId.value;
+        return userClubId === winnerClubId;
+      }
+
+      return false;
+    };
+
+    // Date/time formatting
+    const formatDate = dateStr => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr + 'T00:00:00');
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+    };
+
+    const formatTime = isoString => {
+      if (!isoString) return '';
+      // Parse ISO datetime string and convert to local time
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    };
+
+    // Extract local time (HH:MM) from ISO datetime string for time input
+    const extractLocalTime = isoString => {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return '';
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
+
+    // Edit date/time
+    const startEditDateTime = slot => {
+      editingSlotId.value = slot.id;
+      editDate.value = slot.match_date || '';
+      editTime.value = extractLocalTime(slot.scheduled_kickoff);
+    };
+
+    const cancelEdit = () => {
+      editingSlotId.value = null;
+      editDate.value = '';
+      editTime.value = '';
+    };
+
+    const saveDateTime = async slot => {
+      try {
+        const updateData = {};
+        if (editDate.value) updateData.match_date = editDate.value;
+        // Convert date + time to ISO datetime string for scheduled_kickoff
+        if (editDate.value && editTime.value) {
+          const localDateTime = new Date(`${editDate.value}T${editTime.value}`);
+          updateData.scheduled_kickoff = localDateTime.toISOString();
+        }
+
+        await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/matches/${slot.match_id}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(updateData),
+          }
+        );
+        // Refresh bracket
+        await fetchBracket();
+        cancelEdit();
+      } catch (err) {
+        error.value = err.message || 'Failed to update date/time';
+      }
+    };
+
+    // Advance winner
+    const advanceWinner = async slot => {
+      try {
+        // Use the non-admin endpoint for team/club managers, admin endpoint for admins
+        const endpoint = authStore.isAdmin.value
+          ? `${getApiBaseUrl()}/api/admin/playoffs/advance`
+          : `${getApiBaseUrl()}/api/playoffs/advance`;
+
+        await authStore.apiRequest(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ slot_id: slot.id }),
+        });
+        // Refresh bracket to show updated state
+        await fetchBracket();
+      } catch (err) {
+        error.value = err.message || 'Failed to advance winner';
+      }
     };
 
     const fetchBracket = async () => {
@@ -198,6 +502,17 @@ export default {
       bracketTiers,
       getSlotsByRound,
       isWinner,
+      canManageSlot,
+      canAdvanceSlot,
+      formatDate,
+      formatTime,
+      editingSlotId,
+      editDate,
+      editTime,
+      startEditDateTime,
+      cancelEdit,
+      saveDateTime,
+      advanceWinner,
     };
   },
 };
@@ -369,6 +684,108 @@ export default {
   top: 25%;
   height: 50%;
   border-right: 2px solid #d1d5db;
+}
+
+/* Match info and controls */
+.match-info {
+  padding: 0.25rem 0.5rem;
+  background: #f9fafb;
+  border-top: 1px solid #f3f4f6;
+  font-size: 0.6875rem;
+}
+
+.match-date-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.match-date {
+  color: #6b7280;
+}
+
+.slot-controls {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.edit-btn,
+.advance-btn {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.625rem;
+  transition: background-color 0.15s;
+}
+
+.edit-btn:hover {
+  background: #f3f4f6;
+}
+
+.advance-btn {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.advance-btn:hover {
+  background: #bfdbfe;
+}
+
+/* Edit datetime inline */
+.edit-datetime {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.date-input,
+.time-input {
+  padding: 0.125rem 0.25rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+}
+
+.date-input {
+  width: 100px;
+}
+
+.time-input {
+  width: 70px;
+}
+
+.save-btn,
+.cancel-btn {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  font-size: 0.625rem;
+}
+
+.save-btn {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.save-btn:hover {
+  background: #bbf7d0;
+}
+
+.cancel-btn {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.cancel-btn:hover {
+  background: #fecaca;
 }
 
 /* Mobile: stack vertically */

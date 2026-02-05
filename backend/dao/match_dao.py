@@ -27,6 +27,7 @@ logger = structlog.get_logger()
 
 # Cache patterns for invalidation
 MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
+PLAYOFF_CACHE_PATTERN = "mt:dao:playoffs:*"
 
 
 # Load environment variables with environment-specific support
@@ -652,7 +653,7 @@ class MatchDAO(BaseDAO):
             external_match_id=external_match_id,
         )
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN)
     def update_match(
         self,
         match_id: int,
@@ -710,6 +711,7 @@ class MatchDAO(BaseDAO):
             # The @invalidates_cache decorator clears AFTER the function returns,
             # but get_match_by_id uses @dao_cache and would hit stale cache.
             clear_cache(MATCHES_CACHE_PATTERN)
+            clear_cache(PLAYOFF_CACHE_PATTERN)
 
             # Get the updated match to return with full relations
             return self.get_match_by_id(match_id)

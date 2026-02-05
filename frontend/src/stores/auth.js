@@ -678,7 +678,19 @@ export const useAuthStore = () => {
       const error = await response
         .json()
         .catch(() => ({ message: 'Network error' }));
-      throw new Error(error.detail || error.message || 'Request failed');
+      // Handle FastAPI validation errors (422) where detail is an array
+      let errorMessage = 'Request failed';
+      if (Array.isArray(error.detail)) {
+        // Extract message(s) from validation error array
+        errorMessage = error.detail
+          .map(e => e.msg || e.message || JSON.stringify(e))
+          .join('; ');
+      } else if (typeof error.detail === 'string') {
+        errorMessage = error.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      throw new Error(errorMessage);
     }
 
     return response.json();
