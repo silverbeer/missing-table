@@ -131,6 +131,15 @@
           <AdminMatches />
         </div>
 
+        <!-- Playoffs Management -->
+        <div
+          v-if="currentSection === 'playoffs'"
+          class="p-6"
+          data-testid="admin-section-playoffs"
+        >
+          <AdminPlayoffs />
+        </div>
+
         <!-- Invites Management -->
         <div
           v-if="currentSection === 'invites'"
@@ -157,6 +166,7 @@ import AdminPlayers from './admin/AdminPlayers.vue';
 import AdminMatches from './admin/AdminMatches.vue';
 import AdminInvites from './admin/AdminInvites.vue';
 import AdminInviteRequests from './admin/AdminInviteRequests.vue';
+import AdminPlayoffs from './admin/AdminPlayoffs.vue';
 
 export default {
   name: 'AdminPanel',
@@ -171,6 +181,7 @@ export default {
     AdminMatches,
     AdminInvites,
     AdminInviteRequests,
+    AdminPlayoffs,
   },
   setup() {
     const authStore = useAuthStore();
@@ -187,6 +198,7 @@ export default {
       { id: 'teams', name: 'Teams', adminOnly: false },
       { id: 'players', name: 'Players', adminOnly: false },
       { id: 'matches', name: 'Matches', adminOnly: false },
+      { id: 'playoffs', name: 'Playoffs', adminOnly: true },
       { id: 'invites', name: 'Invites', adminOnly: false },
     ];
 

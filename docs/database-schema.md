@@ -284,6 +284,37 @@ CREATE TABLE match_types (
 
 ---
 
+### playoff_bracket_slots
+
+8-team single elimination bracket structure for playoff tracking. Each bracket is scoped to a league/season/age group combination. Self-referencing FKs link later rounds to their feeder slots.
+
+```sql
+CREATE TABLE playoff_bracket_slots (
+    id SERIAL PRIMARY KEY,
+    league_id INTEGER NOT NULL REFERENCES leagues(id),
+    season_id INTEGER NOT NULL REFERENCES seasons(id),
+    age_group_id INTEGER NOT NULL REFERENCES age_groups(id),
+    round VARCHAR(20) NOT NULL CHECK (round IN ('quarterfinal', 'semifinal', 'final')),
+    bracket_position INTEGER NOT NULL,
+    match_id INTEGER REFERENCES matches(id) ON DELETE SET NULL,
+    home_seed INTEGER,
+    away_seed INTEGER,
+    home_source_slot_id INTEGER REFERENCES playoff_bracket_slots(id),
+    away_source_slot_id INTEGER REFERENCES playoff_bracket_slots(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(league_id, season_id, age_group_id, round, bracket_position)
+);
+```
+
+**Key Design Decisions:**
+- `match_id` is nullable — SF/Final slots exist before their matches are created
+- `home_source_slot_id`/`away_source_slot_id` define bracket progression (e.g., "winner of QF1 feeds into SF1 home")
+- `home_seed`/`away_seed` store original seeding for display only
+- Playoff matches use `division_id = NULL` in the `matches` table, naturally excluding them from league standings
+
+---
+
 ## Relationship Tables
 
 ### team_mappings
