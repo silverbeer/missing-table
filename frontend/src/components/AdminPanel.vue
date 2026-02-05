@@ -148,6 +148,15 @@
         >
           <AdminInvites />
         </div>
+
+        <!-- Cache Management -->
+        <div
+          v-if="currentSection === 'cache'"
+          class="p-6"
+          data-testid="admin-section-cache"
+        >
+          <AdminCache />
+        </div>
       </div>
     </div>
   </div>
@@ -167,6 +176,7 @@ import AdminMatches from './admin/AdminMatches.vue';
 import AdminInvites from './admin/AdminInvites.vue';
 import AdminInviteRequests from './admin/AdminInviteRequests.vue';
 import AdminPlayoffs from './admin/AdminPlayoffs.vue';
+import AdminCache from './admin/AdminCache.vue';
 
 export default {
   name: 'AdminPanel',
@@ -182,6 +192,7 @@ export default {
     AdminInvites,
     AdminInviteRequests,
     AdminPlayoffs,
+    AdminCache,
   },
   setup() {
     const authStore = useAuthStore();
@@ -200,6 +211,7 @@ export default {
       { id: 'matches', name: 'Matches', adminOnly: false },
       { id: 'playoffs', name: 'Playoffs', adminOnly: true },
       { id: 'invites', name: 'Invites', adminOnly: false },
+      { id: 'cache', name: 'Cache', adminOnly: true },
     ];
 
     // Filter sections based on user role

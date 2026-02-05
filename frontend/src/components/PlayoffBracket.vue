@@ -332,8 +332,14 @@ export default {
           slot.home_team_id === userTeamId || slot.away_team_id === userTeamId
         );
       }
-      // Club managers - backend validates the club, allow UI to show controls
-      if (authStore.isClubManager.value) return true;
+      // Club managers can only manage slots involving their club's teams
+      if (authStore.isClubManager.value) {
+        const userClubId = authStore.userClubId.value;
+        if (!userClubId) return false;
+        return (
+          slot.home_club_id === userClubId || slot.away_club_id === userClubId
+        );
+      }
       return false;
     };
 
@@ -347,18 +353,29 @@ export default {
       // Admins can always advance
       if (authStore.isAdmin.value) return true;
 
+      // Determine winner
+      const winnerTeamId =
+        slot.home_score > slot.away_score
+          ? slot.home_team_id
+          : slot.away_team_id;
+      const winnerClubId =
+        slot.home_score > slot.away_score
+          ? slot.home_club_id
+          : slot.away_club_id;
+
       // Team managers can only advance if their team won
       if (authStore.isTeamManager.value) {
         const userTeamId = authStore.userTeamId.value;
-        const winnerTeamId =
-          slot.home_score > slot.away_score
-            ? slot.home_team_id
-            : slot.away_team_id;
         return userTeamId === winnerTeamId;
       }
 
-      // Club managers - backend will validate
-      return true;
+      // Club managers can only advance if their club's team won
+      if (authStore.isClubManager.value) {
+        const userClubId = authStore.userClubId.value;
+        return userClubId === winnerClubId;
+      }
+
+      return false;
     };
 
     // Date/time formatting
@@ -371,22 +388,32 @@ export default {
       });
     };
 
-    const formatTime = timeStr => {
-      if (!timeStr) return '';
-      const [hours, minutes] = timeStr.split(':');
-      const date = new Date();
-      date.setHours(parseInt(hours), parseInt(minutes));
+    const formatTime = isoString => {
+      if (!isoString) return '';
+      // Parse ISO datetime string and convert to local time
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return '';
       return date.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
       });
     };
 
+    // Extract local time (HH:MM) from ISO datetime string for time input
+    const extractLocalTime = isoString => {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return '';
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
+
     // Edit date/time
     const startEditDateTime = slot => {
       editingSlotId.value = slot.id;
       editDate.value = slot.match_date || '';
-      editTime.value = slot.scheduled_kickoff || '';
+      editTime.value = extractLocalTime(slot.scheduled_kickoff);
     };
 
     const cancelEdit = () => {
@@ -399,7 +426,11 @@ export default {
       try {
         const updateData = {};
         if (editDate.value) updateData.match_date = editDate.value;
-        if (editTime.value) updateData.scheduled_kickoff = editTime.value;
+        // Convert date + time to ISO datetime string for scheduled_kickoff
+        if (editDate.value && editTime.value) {
+          const localDateTime = new Date(`${editDate.value}T${editTime.value}`);
+          updateData.scheduled_kickoff = localDateTime.toISOString();
+        }
 
         await authStore.apiRequest(
           `${getApiBaseUrl()}/api/matches/${slot.match_id}`,

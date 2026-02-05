@@ -4495,6 +4495,93 @@ async def delete_playoff_bracket(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# =============================================================================
+# Cache Management Endpoints (Admin Only)
+# =============================================================================
+
+
+@app.get("/api/admin/cache")
+async def get_cache_stats(current_user: dict[str, Any] = Depends(require_admin)):
+    """Get cache statistics and keys grouped by type (admin only)."""
+    from dao.base_dao import get_redis_client
+
+    redis_client = get_redis_client()
+    if not redis_client:
+        return {
+            "enabled": False,
+            "message": "Cache is disabled or Redis unavailable",
+            "groups": {},
+        }
+
+    try:
+        # Get all cache keys
+        all_keys = list(redis_client.scan_iter(match="mt:dao:*", count=1000))
+
+        # Group by type
+        groups = {}
+        for key in all_keys:
+            # Key format: mt:dao:TYPE:...
+            parts = key.split(":")
+            cache_type = parts[2] if len(parts) >= 3 else "other"
+
+            if cache_type not in groups:
+                groups[cache_type] = {"count": 0, "keys": []}
+            groups[cache_type]["count"] += 1
+            groups[cache_type]["keys"].append(key)
+
+        return {
+            "enabled": True,
+            "total_keys": len(all_keys),
+            "groups": groups,
+        }
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/admin/cache")
+async def clear_all_cache(current_user: dict[str, Any] = Depends(require_admin)):
+    """Clear all DAO cache entries (admin only)."""
+    from dao.base_dao import clear_cache
+
+    try:
+        deleted = clear_cache("mt:dao:*")
+        logger.info(f"Admin {current_user.get('username')} cleared all cache: {deleted} keys")
+        return {"message": "Cache cleared", "deleted": deleted}
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/admin/cache/{cache_type}")
+async def clear_cache_by_type(
+    cache_type: str,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Clear cache entries for a specific type (admin only).
+
+    Valid types: playoffs, matches, players, clubs, teams, standings, etc.
+    """
+    from dao.base_dao import clear_cache
+
+    # Validate cache type to prevent arbitrary pattern injection
+    valid_types = ["playoffs", "matches", "players", "clubs", "teams", "standings", "rosters"]
+    if cache_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid cache type. Valid types: {', '.join(valid_types)}",
+        )
+
+    try:
+        pattern = f"mt:dao:{cache_type}:*"
+        deleted = clear_cache(pattern)
+        logger.info(f"Admin {current_user.get('username')} cleared {cache_type} cache: {deleted} keys")
+        return {"message": f"{cache_type} cache cleared", "deleted": deleted}
+    except Exception as e:
+        logger.error(f"Error clearing {cache_type} cache: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 # Health check
 @app.get("/health")
 async def health_check():

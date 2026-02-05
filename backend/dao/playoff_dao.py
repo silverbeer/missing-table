@@ -50,8 +50,8 @@ class PlayoffDAO(BaseDAO):
                 .select(
                     "*, match:matches("
                     "id, match_date, scheduled_kickoff, match_status, home_score, away_score, "
-                    "home_team:teams!matches_home_team_id_fkey(id, name), "
-                    "away_team:teams!matches_away_team_id_fkey(id, name)"
+                    "home_team:teams!matches_home_team_id_fkey(id, name, club_id), "
+                    "away_team:teams!matches_away_team_id_fkey(id, name, club_id)"
                     ")"
                 )
                 .eq("league_id", league_id)
@@ -83,6 +83,8 @@ class PlayoffDAO(BaseDAO):
                     "away_team_name": None,
                     "home_team_id": None,
                     "away_team_id": None,
+                    "home_club_id": None,
+                    "away_club_id": None,
                     "home_score": None,
                     "away_score": None,
                     "match_status": None,
@@ -107,6 +109,16 @@ class PlayoffDAO(BaseDAO):
                     )
                     slot["away_team_id"] = (
                         match["away_team"]["id"]
+                        if match.get("away_team")
+                        else None
+                    )
+                    slot["home_club_id"] = (
+                        match["home_team"].get("club_id")
+                        if match.get("home_team")
+                        else None
+                    )
+                    slot["away_club_id"] = (
+                        match["away_team"].get("club_id")
                         if match.get("away_team")
                         else None
                     )

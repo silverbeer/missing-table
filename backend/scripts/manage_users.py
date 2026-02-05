@@ -497,6 +497,89 @@ def update_user_team(supabase, identifier, team_id):
         return False
 
 
+def update_user_club(supabase, identifier, club_id):
+    """Update a user's club assignment."""
+    try:
+        console.print(f"[cyan]🔍 Looking up user: {identifier}[/cyan]")
+
+        # Search by username in user_profiles
+        profile_response = (
+            supabase.table("user_profiles")
+            .select("id, username, display_name, role, club_id")
+            .eq("username", identifier)
+            .execute()
+        )
+
+        if not profile_response.data:
+            console.print(f"[red]❌ User with username '{identifier}' not found[/red]")
+            return False
+
+        user_id = profile_response.data[0]["id"]
+        current_profile = profile_response.data[0]
+
+        # Get club info to verify it exists
+        club_response = supabase.table("clubs").select("id, name").eq("id", club_id).execute()
+
+        if not club_response.data:
+            console.print(f"[red]❌ Club ID {club_id} not found[/red]")
+            console.print("[yellow]💡 Hint: Use 'manage_users.py clubs' to list all clubs[/yellow]")
+            return False
+
+        club_info = club_response.data[0]
+        console.print(f"[green]✓ Found club: {club_info['name']} (ID: {club_info['id']})[/green]")
+
+        # Update club_id in user_profiles
+        update_response = supabase.table("user_profiles").update({"club_id": club_id}).eq("id", user_id).execute()
+
+        if update_response.data:
+            console.print("\n[bold green]✅ Club assignment updated successfully![/bold green]")
+            console.print(f"  User: [cyan]{current_profile.get('username', 'N/A')}[/cyan]")
+            console.print(f"  Role: [yellow]{current_profile.get('role', 'N/A')}[/yellow]")
+            console.print(f"  Previous Club: [dim]{current_profile.get('club_id', 'None')}[/dim]")
+            console.print(f"  New Club: [green]{club_info['name']} [ID: {club_id}][/green]")
+            return True
+        else:
+            console.print("[red]❌ Club assignment failed[/red]")
+            return False
+
+    except Exception as e:
+        console.print(f"[red]❌ Error updating club: {e}[/red]")
+        return False
+
+
+def list_clubs(supabase):
+    """List all clubs in the system."""
+    try:
+        console.print("[cyan]📋 Fetching all clubs...[/cyan]\n")
+
+        clubs_response = supabase.table("clubs").select("id, name").order("name").execute()
+
+        if not clubs_response.data:
+            console.print("[yellow]No clubs found[/yellow]")
+            return True
+
+        console.print(f"[bold cyan]🏢 Found {len(clubs_response.data)} clubs:[/bold cyan]\n")
+
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            show_lines=True,
+            box=box.ROUNDED,
+        )
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Club Name", style="green")
+
+        for club in clubs_response.data:
+            table.add_row(str(club["id"]), club["name"])
+
+        console.print(table)
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ Error listing clubs: {e}[/red]")
+        return False
+
+
 def list_teams(supabase):
     """List all teams in the system."""
     try:
@@ -841,6 +924,54 @@ def teams_command():
         raise typer.Exit(1)
 
     success = list_teams(supabase)
+    if success:
+        console.print("\n[green]🎉 Operation completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Operation failed![/red]")
+        raise typer.Exit(1)
+
+
+@app.command("club")
+def club_command(
+    user: str = typer.Option(..., "--user", "-u", help="Username to assign"),
+    club_id: int = typer.Option(..., "--club-id", "-c", help="Club ID to assign"),
+    confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation prompts"),
+):
+    """Assign a user to a club (for club managers)."""
+    console.print("[bold cyan]🏢 User Club Assignment Tool[/bold cyan]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
+
+    if not confirm and not Confirm.ask(f"⚠️  Assign {user} to club ID {club_id}?"):
+        console.print("[yellow]❌ Club assignment cancelled[/yellow]")
+        raise typer.Exit(0)
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    success = update_user_club(supabase, user, club_id)
+    if success:
+        console.print("\n[green]🎉 Operation completed successfully![/green]")
+    else:
+        console.print("\n[red]💥 Operation failed![/red]")
+        raise typer.Exit(1)
+
+
+@app.command("clubs")
+def clubs_command():
+    """List all clubs in the system."""
+    console.print("[bold cyan]🏢 Club Management Tool[/bold cyan]")
+    console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
+
+    load_environment()
+    supabase = get_supabase_client()
+
+    if not supabase:
+        raise typer.Exit(1)
+
+    success = list_clubs(supabase)
     if success:
         console.print("\n[green]🎉 Operation completed successfully![/green]")
     else:
