@@ -1,24 +1,32 @@
 # Playoff Tracking Feature
 
-**Status**: Planned
+**Status**: In Progress
 **Branch**: `feature/playoff-tracking`
 **Started**: 2026-02-04
 
 ## Overview
 
-8-team single elimination playoff bracket for Kick Futsal. Top 4 teams from each of the two divisions (Bracket A and Bracket B) are seeded into a cross-division bracket: Quarterfinals (4 games) → Semifinals (2 games) → Final (1 game).
+Two parallel 8-team single elimination playoff brackets for Kick Futsal. All 16 teams from the two divisions (Bracket A and Bracket B) participate:
+
+- **Upper Bracket**: Positions 1-4 from each division (8 teams)
+- **Lower Bracket**: Positions 5-8 from each division (8 teams)
+
+Each bracket uses cross-division seeding: Quarterfinals (4 games) → Semifinals (2 games) → Final (1 game). Total: 14 bracket slots, up to 14 matches.
 
 ### Key Concepts
 
 | Term | Description |
 |------|-------------|
 | **Bracket Slot** | A position in the bracket that may or may not have a match assigned |
-| **Seeding** | A1=1, B1=2, A2=3, B2=4, A3=5, B3=6, A4=7, B4=8 |
+| **Bracket Tier** | Configurable name (e.g., "Gold", "Silver") — stored as free-form string in `bracket_tier` column |
+| **Seeding** | Per tier: A1=1, B1=2, A2=3, B2=4, A3=5, B3=6, A4=7, B4=8 |
 | **Source Slot** | Self-referencing FK linking a SF/Final slot to its feeder QF/SF slot |
 | **Cross-Division** | Playoff matches have `division_id = NULL` — naturally excluded from league standings |
-| **Scope** | Each bracket is scoped to `(league_id, season_id, age_group_id)` |
+| **Scope** | Each bracket pair is scoped to `(league_id, season_id, age_group_id)` |
 
 ### Bracket Structure
+
+Each tier (upper and lower) has the same structure:
 
 ```
 Quarterfinals          Semifinals           Final
@@ -39,7 +47,7 @@ Quarterfinals          Semifinals           Final
  +--------------+
 ```
 
-### QF Matchups
+### QF Matchups (same pattern for both tiers)
 
 | Slot | Home | Away | Home Seed | Away Seed |
 |------|------|------|-----------|-----------|
@@ -48,97 +56,19 @@ Quarterfinals          Semifinals           Final
 | QF3 | A2 | B3 | 3 | 6 |
 | QF4 | B1 | A4 | 2 | 7 |
 
+For the **upper bracket**, A1-A4 are division standings positions 1-4. For the **lower bracket**, A1-A4 are positions 5-8.
+
 ### Admin Workflow
 
-1. **Generate**: Admin selects league/season/age group → clicks "Generate Playoff Bracket" → system reads current standings, takes top 4 from each division, creates 7 bracket slots + 4 QF matches
-2. **Score**: Admin enters scores for QF matches via standard match edit flow (AdminMatches)
-3. **Advance**: After a match is completed, admin clicks "Advance Winner" on the Playoffs tab → system creates next-round match when both feeder slots are complete
-4. **Repeat**: Continue through SF and Final rounds
-5. **Reset**: Admin can delete entire bracket and start over if needed
-
----
-
-## Implementation Checklist
-
-### Phase 1: Database Schema
-
-- [ ] Create `playoff_bracket_slots` table migration
-  - [ ] Fields: id, league_id, season_id, age_group_id, round, bracket_position, match_id, home_seed, away_seed, home_source_slot_id, away_source_slot_id, created_at, updated_at
-  - [ ] CHECK constraint on round: `('quarterfinal', 'semifinal', 'final')`
-  - [ ] UNIQUE constraint: `(league_id, season_id, age_group_id, round, bracket_position)`
-  - [ ] Self-referencing FKs: `home_source_slot_id`, `away_source_slot_id`
-  - [ ] `match_id` nullable with `ON DELETE SET NULL`
-  - [ ] Index on `(league_id, season_id, age_group_id)`
-  - [ ] RLS policies: SELECT for all, INSERT/UPDATE/DELETE for admins
-- [ ] Apply migration to local Supabase
-- [ ] Verify constraints and indexes
-
-### Phase 2: Backend — Pydantic Models
-
-- [ ] Create `backend/models/playoffs.py`
-  - [ ] `PlayoffBracketSlot` — full slot with denormalized match data (team names, scores, status)
-  - [ ] `GenerateBracketRequest` — league_id, season_id, age_group_id, division_a_id, division_b_id
-  - [ ] `AdvanceWinnerRequest` — slot_id
-
-### Phase 3: Backend — PlayoffDAO
-
-- [ ] Create `backend/dao/playoff_dao.py` (extends BaseDAO)
-  - [ ] `get_bracket(league_id, season_id, age_group_id)` — returns all slots with joined match/team data
-  - [ ] `generate_bracket(league_id, season_id, age_group_id, standings_a, standings_b, division_a_id, division_b_id)` — creates 7 slots + 4 QF matches in transaction
-  - [ ] `advance_winner(completed_slot_id)` — determines winner, updates next-round slot, creates match when both teams known
-  - [ ] `delete_bracket(league_id, season_id, age_group_id)` — removes all bracket slots
-  - [ ] `link_match_to_slot(slot_id, match_id)` — link existing match to a bracket slot
-  - [ ] `create_slot(slot_data)` — create single bracket slot
-  - [ ] `update_slot(slot_id, data)` — update a bracket slot
-  - [ ] Cache pattern: `PLAYOFF_CACHE_PATTERN = "mt:dao:playoffs:*"`
-
-### Phase 4: Backend — API Endpoints
-
-- [ ] Add DAO instantiation in `app.py` (~line 190)
-- [ ] `GET /api/playoffs/bracket` — query params: league_id, season_id, age_group_id; auth: logged-in user
-- [ ] `POST /api/admin/playoffs/generate` — body: GenerateBracketRequest; auth: admin; validates ≥4 teams per division
-- [ ] `POST /api/admin/playoffs/advance` — body: AdvanceWinnerRequest; auth: admin
-- [ ] `DELETE /api/admin/playoffs/bracket` — query params: league_id, season_id, age_group_id; auth: admin
-
-### Phase 5: Frontend — AdminPlayoffs.vue
-
-- [ ] Create `frontend/src/components/admin/AdminPlayoffs.vue`
-  - [ ] League/Season/Age Group selection dropdowns
-  - [ ] "Generate Playoff Bracket" button (when no bracket exists)
-  - [ ] Auto-detect division IDs from league's divisions
-  - [ ] Bracket visualization with admin controls
-  - [ ] "Advance Winner" button on completed slots
-  - [ ] "Edit Match" link navigating to AdminMatches
-  - [ ] "Reset Bracket" button to delete and start over
-- [ ] Register in `AdminPanel.vue`
-  - [ ] Add `{ id: 'playoffs', name: 'Playoffs', adminOnly: true }` to `allAdminSections` (~line 180)
-  - [ ] Import and render AdminPlayoffs component
-
-### Phase 6: Frontend — PlayoffBracket.vue
-
-- [ ] Create `frontend/src/components/PlayoffBracket.vue`
-  - [ ] Props: leagueId, seasonId, ageGroupId
-  - [ ] 3-column CSS grid layout (QF → SF → Final)
-  - [ ] Matchup cards with team names, seed labels, scores, winner highlight
-  - [ ] "TBD" for undetermined slots
-  - [ ] Connector lines via CSS borders/pseudo-elements
-  - [ ] Mobile responsive (vertical stack on small screens)
-
-### Phase 7: Frontend — LeagueTable Integration
-
-- [ ] Modify `frontend/src/components/LeagueTable.vue`
-  - [ ] Check bracket existence on load (lightweight API call)
-  - [ ] Add "Show Playoff Bracket" / "Show Standings" toggle button
-  - [ ] Conditionally render `<PlayoffBracket>` or standings table
-
-### Phase 8: Testing & Polish
-
-- [ ] End-to-end test: Generate bracket from standings
-- [ ] End-to-end test: Enter QF scores → advance winners → SF matches created
-- [ ] End-to-end test: Complete bracket through to Final
-- [ ] Test reset bracket flow
-- [ ] Run linters (frontend + backend)
-- [ ] Manual QA on local environment
+1. **Configure**: Admin selects league/season/age group, then configures:
+   - **Division A/B**: Which two divisions to use for the bracket
+   - **First Round Date**: When quarterfinal matches will be scheduled
+   - **Tier Names**: Custom names for each bracket (e.g., "Gold" and "Silver" instead of "upper"/"lower")
+2. **Generate**: Click "Generate Playoff Bracket" → system reads current standings, creates bracket slots and QF matches with configured settings
+3. **Score**: Admin enters scores for QF matches via standard match edit flow (AdminMatches)
+4. **Advance**: After a match is completed, admin clicks "Advance Winner" on the Playoffs tab → system creates next-round match when both feeder slots are complete
+5. **Repeat**: Continue through SF and Final rounds for both tiers
+6. **Reset**: Admin can delete entire bracket (both tiers) and start over if needed
 
 ---
 
@@ -154,6 +84,7 @@ CREATE TABLE public.playoff_bracket_slots (
     age_group_id INTEGER NOT NULL REFERENCES age_groups(id),
     round VARCHAR(20) NOT NULL CHECK (round IN ('quarterfinal', 'semifinal', 'final')),
     bracket_position INTEGER NOT NULL,
+    bracket_tier VARCHAR(10) NOT NULL DEFAULT 'upper' CHECK (bracket_tier IN ('upper', 'lower')),
     match_id INTEGER REFERENCES matches(id) ON DELETE SET NULL,
     home_seed INTEGER,
     away_seed INTEGER,
@@ -161,11 +92,11 @@ CREATE TABLE public.playoff_bracket_slots (
     away_source_slot_id INTEGER REFERENCES playoff_bracket_slots(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(league_id, season_id, age_group_id, round, bracket_position)
+    UNIQUE(league_id, season_id, age_group_id, bracket_tier, round, bracket_position)
 );
 
-CREATE INDEX idx_playoff_bracket_league_season_ag
-    ON playoff_bracket_slots(league_id, season_id, age_group_id);
+CREATE INDEX idx_playoff_bracket_league_season_ag_tier
+    ON playoff_bracket_slots(league_id, season_id, age_group_id, bracket_tier);
 
 -- RLS: visible to all, writable by admins
 ALTER TABLE public.playoff_bracket_slots ENABLE ROW LEVEL SECURITY;
@@ -185,32 +116,28 @@ CREATE POLICY "playoff_bracket_slots_admin_delete"
 
 ### Column Design Notes
 
+- **`bracket_tier`** — Free-form string (e.g., "Gold", "Silver", "Bronze") that distinguishes between parallel brackets. Part of the unique constraint so each tier has its own set of positions.
 - **`match_id`** is nullable — SF/Final slots exist before their matches are created. `ON DELETE SET NULL` preserves bracket structure if a match is deleted.
-- **`home_source_slot_id` / `away_source_slot_id`** are self-referencing FKs that define bracket progression (e.g., "winner of QF1 feeds into SF1 home"). Enables automatic advancement without hardcoding bracket structure.
+- **`home_source_slot_id` / `away_source_slot_id`** are self-referencing FKs that define bracket progression (e.g., "winner of QF1 feeds into SF1 home"). Enables automatic advancement without hardcoding bracket structure. Inherently tier-scoped since they reference specific slot IDs.
 - **`home_seed` / `away_seed`** store original seeding for display purposes only.
 
-### Pydantic Models
+### Generate Bracket Logic
+
+1. Validate enough teams for configured tiers (e.g., 8 teams if using positions 1-8)
+2. For each configured tier:
+   - Slice standings based on tier's `start_position` and `end_position`
+   - Create 7 `playoff_bracket_slots` rows (4 QF + 2 SF + 1 Final) with custom `bracket_tier` name
+   - Create `matches` rows for QF round only (teams known), with `match_type_id = 4` (Playoff), `match_status = 'scheduled'`, `division_id = NULL`, and configured `start_date`
+3. SF/Final matches created later by `advance_winner` when both feeder slots complete
+4. Total: 14 slots, 8 QF matches (for standard 2-tier configuration)
+
+### API Request Model
 
 ```python
-class PlayoffBracketSlot(BaseModel):
-    id: int
-    league_id: int
-    season_id: int
-    age_group_id: int
-    round: str
-    bracket_position: int
-    match_id: int | None = None
-    home_seed: int | None = None
-    away_seed: int | None = None
-    home_source_slot_id: int | None = None
-    away_source_slot_id: int | None = None
-    # Denormalized from linked match
-    home_team_name: str | None = None
-    away_team_name: str | None = None
-    home_score: int | None = None
-    away_score: int | None = None
-    match_status: str | None = None
-    match_date: str | None = None
+class BracketTierConfig(BaseModel):
+    name: str           # e.g., "Gold", "Silver"
+    start_position: int # 1 for positions 1-4, 5 for positions 5-8
+    end_position: int   # 4 for positions 1-4, 8 for positions 5-8
 
 class GenerateBracketRequest(BaseModel):
     league_id: int
@@ -218,19 +145,9 @@ class GenerateBracketRequest(BaseModel):
     age_group_id: int
     division_a_id: int
     division_b_id: int
-
-class AdvanceWinnerRequest(BaseModel):
-    slot_id: int
+    start_date: str                   # ISO date for QF matches (e.g., "2026-02-15")
+    tiers: list[BracketTierConfig]    # Tier configurations
 ```
-
-### Generate Bracket Logic
-
-1. Create 7 `playoff_bracket_slots` rows in a transaction
-2. QF slots (positions 1–4) with seeding from standings
-3. SF slots with `home_source_slot_id`/`away_source_slot_id` pointing to QF slots
-4. Final slot with source slots pointing to SF1 and SF2
-5. Create `matches` rows for QF round only (teams known), with `match_type_id = 4` (Playoff), `match_status = 'scheduled'`, `division_id = NULL`
-6. SF/Final matches created later by `advance_winner` when both feeder slots complete
 
 ### Team ID Resolution
 
@@ -254,11 +171,14 @@ Playoff matches set `division_id = NULL`. The existing `filter_same_division_mat
 
 | File | Status | Description |
 |------|--------|-------------|
-| `supabase-local/migrations/20260205000000_add_playoff_bracket_slots.sql` | New | Database migration for playoff_bracket_slots table |
-| `backend/models/playoffs.py` | New | Pydantic models (PlayoffBracketSlot, GenerateBracketRequest, AdvanceWinnerRequest) |
-| `backend/dao/playoff_dao.py` | New | PlayoffDAO with bracket CRUD, generation, and advancement logic |
-| `frontend/src/components/PlayoffBracket.vue` | New | Public bracket visualization (3-column grid with connector lines) |
-| `frontend/src/components/admin/AdminPlayoffs.vue` | New | Admin playoff management (generate, advance, reset) |
+| `supabase-local/migrations/20260205000000_add_playoff_bracket_slots.sql` | Created | Base table migration |
+| `supabase-local/migrations/20260205100000_add_bracket_tier.sql` | Created | Add `bracket_tier` column + updated constraints |
+| `supabase-local/migrations/20260205110000_bracket_tier_name.sql` | Created | Remove CHECK constraint, allow free-form tier names |
+| `backend/models/playoffs.py` | Created | Pydantic models with `bracket_tier` and `scheduled_kickoff` fields |
+| `backend/dao/playoff_dao.py` | Created | PlayoffDAO with dual-tier bracket generation, advancement, and deletion |
+| `frontend/src/components/PlayoffBracket.vue` | Created | Public dual-tier bracket visualization |
+| `frontend/src/components/admin/AdminPlayoffs.vue` | Created | Admin playoff management with dual-tier display |
+| `frontend/src/components/admin/BracketSlotCard.vue` | Created | Inline date/time editing card for bracket slots |
 | `backend/app.py` | Modified | 4 new endpoints + DAO instantiation |
 | `frontend/src/components/AdminPanel.vue` | Modified | Register Playoffs tab in allAdminSections |
 | `frontend/src/components/LeagueTable.vue` | Modified | Add bracket toggle when playoffs exist |
@@ -279,3 +199,6 @@ Playoff matches set `division_id = NULL`. The existing `filter_same_division_mat
 | Date | Change |
 |------|--------|
 | 2026-02-04 | Initial plan created |
+| 2026-02-04 | Phases 1-7 implemented (single bracket) |
+| 2026-02-05 | Upgraded to dual-tier brackets (upper + lower), all 16 teams participate |
+| 2026-02-05 | Added configurable bracket generation: custom tier names, start date, division selection |

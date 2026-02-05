@@ -8,6 +8,8 @@ Handles all database operations for playoff brackets including:
 - Bracket deletion (reset)
 """
 
+from datetime import date, timedelta
+
 import structlog
 
 from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
@@ -47,7 +49,7 @@ class PlayoffDAO(BaseDAO):
                 self.client.table("playoff_bracket_slots")
                 .select(
                     "*, match:matches("
-                    "id, match_date, match_status, home_score, away_score, "
+                    "id, match_date, scheduled_kickoff, match_status, home_score, away_score, "
                     "home_team:teams!matches_home_team_id_fkey(id, name), "
                     "away_team:teams!matches_away_team_id_fkey(id, name)"
                     ")"
@@ -70,6 +72,7 @@ class PlayoffDAO(BaseDAO):
                     "age_group_id": row["age_group_id"],
                     "round": row["round"],
                     "bracket_position": row["bracket_position"],
+                    "bracket_tier": row.get("bracket_tier"),
                     "match_id": row["match_id"],
                     "home_seed": row["home_seed"],
                     "away_seed": row["away_seed"],
@@ -82,6 +85,7 @@ class PlayoffDAO(BaseDAO):
                     "away_score": None,
                     "match_status": None,
                     "match_date": None,
+                    "scheduled_kickoff": None,
                 }
                 if match:
                     slot["home_team_name"] = (
@@ -98,6 +102,7 @@ class PlayoffDAO(BaseDAO):
                     slot["away_score"] = match.get("away_score")
                     slot["match_status"] = match.get("match_status")
                     slot["match_date"] = match.get("match_date")
+                    slot["scheduled_kickoff"] = match.get("scheduled_kickoff")
                 slots.append(slot)
 
             return slots
@@ -123,34 +128,40 @@ class PlayoffDAO(BaseDAO):
         standings_b: list[dict],
         division_a_id: int,
         division_b_id: int,
+        start_date: str,
+        tiers: list[dict],
     ) -> list[dict]:
-        """Generate a full 8-team single elimination bracket.
+        """Generate configurable multi-tier 8-team single elimination brackets.
 
-        Creates 7 bracket slots (4 QF + 2 SF + 1 Final) and 4 QF matches.
-        SF/Final matches are created later when winners are advanced.
+        Creates bracket slots and QF matches for each configured tier.
+        Each tier uses the same cross-division seeding pattern.
 
         Args:
             league_id: League ID
             season_id: Season ID
             age_group_id: Age group ID
-            standings_a: Top-4 standings from division A (sorted by rank)
-            standings_b: Top-4 standings from division B (sorted by rank)
+            standings_a: Full standings from division A (sorted by rank)
+            standings_b: Full standings from division B (sorted by rank)
             division_a_id: Division A ID (for team lookups)
             division_b_id: Division B ID (for team lookups)
+            start_date: ISO date string for QF matches (e.g., "2026-02-15")
+            tiers: List of tier configs, each with name, start_position, end_position
 
         Returns:
             List of created bracket slot dicts
 
         Raises:
-            ValueError: If fewer than 4 teams in either division
+            ValueError: If not enough teams for the configured tiers
         """
-        if len(standings_a) < 4:
+        # Determine required team count from tier configuration
+        max_position = max(t["end_position"] for t in tiers)
+        if len(standings_a) < max_position:
             raise ValueError(
-                f"Division A needs at least 4 teams, has {len(standings_a)}"
+                f"Division A needs at least {max_position} teams, has {len(standings_a)}"
             )
-        if len(standings_b) < 4:
+        if len(standings_b) < max_position:
             raise ValueError(
-                f"Division B needs at least 4 teams, has {len(standings_b)}"
+                f"Division B needs at least {max_position} teams, has {len(standings_b)}"
             )
 
         # Check for existing bracket
@@ -169,122 +180,138 @@ class PlayoffDAO(BaseDAO):
         # Build name→team_id mapping from both divisions
         team_map = self._build_team_name_map(division_a_id, division_b_id)
 
-        # Build seed→team mapping
-        # A1=seed1, B1=seed2, A2=seed3, B2=seed4, A3=seed5, B3=seed6, A4=seed7, B4=seed8
-        seed_teams = {}
-        for i, standing in enumerate(standings_a[:4]):
-            seed = (i * 2) + 1  # 1, 3, 5, 7
-            name = standing["team"]
-            if name not in team_map:
-                raise ValueError(f"Team '{name}' not found in division teams")
-            seed_teams[seed] = {"name": name, "id": team_map[name]}
+        # Process each configured tier
+        tier_names = []
+        for tier_config in tiers:
+            tier = tier_config["name"]
+            tier_names.append(tier)
+            start_pos = tier_config["start_position"] - 1  # Convert to 0-indexed
+            end_pos = tier_config["end_position"]
+            slice_a = standings_a[start_pos:end_pos]
+            slice_b = standings_b[start_pos:end_pos]
 
-        for i, standing in enumerate(standings_b[:4]):
-            seed = (i * 2) + 2  # 2, 4, 6, 8
-            name = standing["team"]
-            if name not in team_map:
-                raise ValueError(f"Team '{name}' not found in division teams")
-            seed_teams[seed] = {"name": name, "id": team_map[name]}
+            # Build seed→team mapping for this tier
+            # A1=seed1, B1=seed2, A2=seed3, B2=seed4, A3=seed5, B3=seed6, A4=seed7, B4=seed8
+            seed_teams = {}
+            for i, standing in enumerate(slice_a):
+                seed = (i * 2) + 1  # 1, 3, 5, 7
+                name = standing["team"]
+                if name not in team_map:
+                    raise ValueError(f"Team '{name}' not found in division teams")
+                seed_teams[seed] = {"name": name, "id": team_map[name]}
 
-        logger.info(
-            "generating_playoff_bracket",
-            league_id=league_id,
-            seed_teams={s: t["name"] for s, t in seed_teams.items()},
-        )
+            for i, standing in enumerate(slice_b):
+                seed = (i * 2) + 2  # 2, 4, 6, 8
+                name = standing["team"]
+                if name not in team_map:
+                    raise ValueError(f"Team '{name}' not found in division teams")
+                seed_teams[seed] = {"name": name, "id": team_map[name]}
 
-        # Create QF slots and matches
-        qf_slots = []
-        for matchup in QF_MATCHUPS:
-            home = seed_teams[matchup["home_seed"]]
-            away = seed_teams[matchup["away_seed"]]
-
-            # Create the match
-            match_data = {
-                "match_date": "1970-01-01",  # Placeholder, admin sets real date
-                "home_team_id": home["id"],
-                "away_team_id": away["id"],
-                "season_id": season_id,
-                "age_group_id": age_group_id,
-                "match_type_id": PLAYOFF_MATCH_TYPE_ID,
-                "match_status": "scheduled",
-                "source": "playoff-generator",
-            }
-            match_response = (
-                self.client.table("matches").insert(match_data).execute()
+            logger.info(
+                "generating_playoff_bracket_tier",
+                league_id=league_id,
+                tier=tier,
+                seed_teams={s: t["name"] for s, t in seed_teams.items()},
             )
-            match_id = match_response.data[0]["id"]
 
-            # Create the bracket slot
-            slot_data = {
+            # Create QF slots and matches for this tier
+            qf_slots = []
+            for matchup in QF_MATCHUPS:
+                home = seed_teams[matchup["home_seed"]]
+                away = seed_teams[matchup["away_seed"]]
+
+                # Create the match with configured start date
+                match_data = {
+                    "match_date": start_date,
+                    "home_team_id": home["id"],
+                    "away_team_id": away["id"],
+                    "season_id": season_id,
+                    "age_group_id": age_group_id,
+                    "match_type_id": PLAYOFF_MATCH_TYPE_ID,
+                    "match_status": "scheduled",
+                    "source": "playoff-generator",
+                }
+                match_response = (
+                    self.client.table("matches").insert(match_data).execute()
+                )
+                match_id = match_response.data[0]["id"]
+
+                # Create the bracket slot
+                slot_data = {
+                    "league_id": league_id,
+                    "season_id": season_id,
+                    "age_group_id": age_group_id,
+                    "bracket_tier": tier,
+                    "round": "quarterfinal",
+                    "bracket_position": matchup["position"],
+                    "match_id": match_id,
+                    "home_seed": matchup["home_seed"],
+                    "away_seed": matchup["away_seed"],
+                }
+                slot_response = (
+                    self.client.table("playoff_bracket_slots")
+                    .insert(slot_data)
+                    .execute()
+                )
+                qf_slots.append(slot_response.data[0])
+
+            # Create SF slots (no matches yet — teams TBD)
+            sf_slots = []
+            # SF1: winner of QF1 vs winner of QF2
+            sf1_data = {
                 "league_id": league_id,
                 "season_id": season_id,
                 "age_group_id": age_group_id,
-                "round": "quarterfinal",
-                "bracket_position": matchup["position"],
-                "match_id": match_id,
-                "home_seed": matchup["home_seed"],
-                "away_seed": matchup["away_seed"],
+                "bracket_tier": tier,
+                "round": "semifinal",
+                "bracket_position": 1,
+                "home_source_slot_id": qf_slots[0]["id"],
+                "away_source_slot_id": qf_slots[1]["id"],
             }
-            slot_response = (
+            sf1_response = (
                 self.client.table("playoff_bracket_slots")
-                .insert(slot_data)
+                .insert(sf1_data)
                 .execute()
             )
-            qf_slots.append(slot_response.data[0])
+            sf_slots.append(sf1_response.data[0])
 
-        # Create SF slots (no matches yet — teams TBD)
-        sf_slots = []
-        # SF1: winner of QF1 vs winner of QF2
-        sf1_data = {
-            "league_id": league_id,
-            "season_id": season_id,
-            "age_group_id": age_group_id,
-            "round": "semifinal",
-            "bracket_position": 1,
-            "home_source_slot_id": qf_slots[0]["id"],
-            "away_source_slot_id": qf_slots[1]["id"],
-        }
-        sf1_response = (
-            self.client.table("playoff_bracket_slots")
-            .insert(sf1_data)
-            .execute()
-        )
-        sf_slots.append(sf1_response.data[0])
+            # SF2: winner of QF3 vs winner of QF4
+            sf2_data = {
+                "league_id": league_id,
+                "season_id": season_id,
+                "age_group_id": age_group_id,
+                "bracket_tier": tier,
+                "round": "semifinal",
+                "bracket_position": 2,
+                "home_source_slot_id": qf_slots[2]["id"],
+                "away_source_slot_id": qf_slots[3]["id"],
+            }
+            sf2_response = (
+                self.client.table("playoff_bracket_slots")
+                .insert(sf2_data)
+                .execute()
+            )
+            sf_slots.append(sf2_response.data[0])
 
-        # SF2: winner of QF3 vs winner of QF4
-        sf2_data = {
-            "league_id": league_id,
-            "season_id": season_id,
-            "age_group_id": age_group_id,
-            "round": "semifinal",
-            "bracket_position": 2,
-            "home_source_slot_id": qf_slots[2]["id"],
-            "away_source_slot_id": qf_slots[3]["id"],
-        }
-        sf2_response = (
-            self.client.table("playoff_bracket_slots")
-            .insert(sf2_data)
-            .execute()
-        )
-        sf_slots.append(sf2_response.data[0])
-
-        # Create Final slot (no match yet)
-        final_data = {
-            "league_id": league_id,
-            "season_id": season_id,
-            "age_group_id": age_group_id,
-            "round": "final",
-            "bracket_position": 1,
-            "home_source_slot_id": sf_slots[0]["id"],
-            "away_source_slot_id": sf_slots[1]["id"],
-        }
-        self.client.table("playoff_bracket_slots").insert(final_data).execute()
+            # Create Final slot (no match yet)
+            final_data = {
+                "league_id": league_id,
+                "season_id": season_id,
+                "age_group_id": age_group_id,
+                "bracket_tier": tier,
+                "round": "final",
+                "bracket_position": 1,
+                "home_source_slot_id": sf_slots[0]["id"],
+                "away_source_slot_id": sf_slots[1]["id"],
+            }
+            self.client.table("playoff_bracket_slots").insert(final_data).execute()
 
         logger.info(
             "playoff_bracket_generated",
             league_id=league_id,
             season_id=season_id,
             age_group_id=age_group_id,
+            tiers=tier_names,
         )
 
         # Return the full bracket
@@ -395,8 +422,9 @@ class PlayoffDAO(BaseDAO):
                 home_team_id = other_winner_team_id
                 away_team_id = winner_team_id
 
+            default_date = (date.today() + timedelta(days=5)).isoformat()
             match_data = {
-                "match_date": "1970-01-01",  # Placeholder
+                "match_date": default_date,
                 "home_team_id": home_team_id,
                 "away_team_id": away_team_id,
                 "season_id": next_slot["season_id"],

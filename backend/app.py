@@ -4327,9 +4327,10 @@ async def generate_playoff_bracket(
     request: GenerateBracketRequest,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
-    """Generate a playoff bracket from current standings (admin only).
+    """Generate configurable playoff brackets from current standings (admin only).
 
-    Takes top 4 teams from each division, creates 7 bracket slots and 4 QF matches.
+    Creates bracket slots and QF matches for each configured tier.
+    Tier names and start date are configurable.
     """
     try:
         # Get standings for both divisions
@@ -4346,6 +4347,16 @@ async def generate_playoff_bracket(
             match_type="League",
         )
 
+        # Convert tier configs to dict format for DAO
+        tiers = [
+            {
+                "name": tier.name,
+                "start_position": tier.start_position,
+                "end_position": tier.end_position,
+            }
+            for tier in request.tiers
+        ]
+
         bracket = playoff_dao.generate_bracket(
             league_id=request.league_id,
             season_id=request.season_id,
@@ -4354,6 +4365,8 @@ async def generate_playoff_bracket(
             standings_b=standings_b,
             division_a_id=request.division_a_id,
             division_b_id=request.division_b_id,
+            start_date=request.start_date,
+            tiers=tiers,
         )
         return bracket
     except ValueError as e:

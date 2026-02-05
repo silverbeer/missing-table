@@ -19,95 +19,100 @@
     </div>
 
     <!-- Bracket display -->
-    <div v-else class="bracket-layout">
-      <!-- Quarterfinals column -->
-      <div class="bracket-column">
-        <h4 class="round-header">Quarterfinals</h4>
-        <div class="matchups matchups-qf">
-          <div
-            v-for="s in qfSlots"
-            :key="s.id"
-            class="matchup-card"
-            :class="{ completed: s.match_status === 'completed' }"
-          >
-            <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
-              <span class="seed" v-if="s.home_seed">{{ s.home_seed }}</span>
-              <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
-              <span class="score">{{ s.home_score ?? '' }}</span>
-            </div>
-            <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
-              <span class="seed" v-if="s.away_seed">{{ s.away_seed }}</span>
-              <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
-              <span class="score">{{ s.away_score ?? '' }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Connector QF→SF -->
-      <div class="connector-column connector-qf-sf">
-        <div class="connector-pair">
-          <div class="connector-line top"></div>
-          <div class="connector-line bottom"></div>
-          <div class="connector-merge"></div>
-        </div>
-        <div class="connector-pair">
-          <div class="connector-line top"></div>
-          <div class="connector-line bottom"></div>
-          <div class="connector-merge"></div>
-        </div>
-      </div>
-
-      <!-- Semifinals column -->
-      <div class="bracket-column">
-        <h4 class="round-header">Semifinals</h4>
-        <div class="matchups matchups-sf">
-          <div
-            v-for="s in sfSlots"
-            :key="s.id"
-            class="matchup-card"
-            :class="{ completed: s.match_status === 'completed' }"
-          >
-            <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
-              <span class="seed" v-if="s.home_seed">{{ s.home_seed }}</span>
-              <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
-              <span class="score">{{ s.home_score ?? '' }}</span>
-            </div>
-            <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
-              <span class="seed" v-if="s.away_seed">{{ s.away_seed }}</span>
-              <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
-              <span class="score">{{ s.away_score ?? '' }}</span>
+    <div v-else>
+      <div v-for="tier in bracketTiers" :key="tier.key" class="tier-section">
+        <h3 class="tier-header">{{ tier.label }}</h3>
+        <div class="bracket-layout">
+          <!-- Quarterfinals column -->
+          <div class="bracket-column">
+            <h4 class="round-header">Quarterfinals</h4>
+            <div class="matchups matchups-qf">
+              <div
+                v-for="s in getSlotsByRound(tier.key, 'quarterfinal')"
+                :key="s.id"
+                class="matchup-card"
+                :class="{ completed: s.match_status === 'completed' }"
+              >
+                <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
+                  <span class="seed" v-if="s.home_seed">{{ s.home_seed }}</span>
+                  <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
+                  <span class="score">{{ s.home_score ?? '' }}</span>
+                </div>
+                <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
+                  <span class="seed" v-if="s.away_seed">{{ s.away_seed }}</span>
+                  <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
+                  <span class="score">{{ s.away_score ?? '' }}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Connector SF→Final -->
-      <div class="connector-column connector-sf-final">
-        <div class="connector-pair">
-          <div class="connector-line top"></div>
-          <div class="connector-line bottom"></div>
-          <div class="connector-merge"></div>
-        </div>
-      </div>
-
-      <!-- Final column -->
-      <div class="bracket-column">
-        <h4 class="round-header">Final</h4>
-        <div class="matchups matchups-final">
-          <div
-            v-for="s in finalSlots"
-            :key="s.id"
-            class="matchup-card final-card"
-            :class="{ completed: s.match_status === 'completed' }"
-          >
-            <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
-              <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
-              <span class="score">{{ s.home_score ?? '' }}</span>
+          <!-- Connector QF→SF -->
+          <div class="connector-column connector-qf-sf">
+            <div class="connector-pair">
+              <div class="connector-line top"></div>
+              <div class="connector-line bottom"></div>
+              <div class="connector-merge"></div>
             </div>
-            <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
-              <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
-              <span class="score">{{ s.away_score ?? '' }}</span>
+            <div class="connector-pair">
+              <div class="connector-line top"></div>
+              <div class="connector-line bottom"></div>
+              <div class="connector-merge"></div>
+            </div>
+          </div>
+
+          <!-- Semifinals column -->
+          <div class="bracket-column">
+            <h4 class="round-header">Semifinals</h4>
+            <div class="matchups matchups-sf">
+              <div
+                v-for="s in getSlotsByRound(tier.key, 'semifinal')"
+                :key="s.id"
+                class="matchup-card"
+                :class="{ completed: s.match_status === 'completed' }"
+              >
+                <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
+                  <span class="seed" v-if="s.home_seed">{{ s.home_seed }}</span>
+                  <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
+                  <span class="score">{{ s.home_score ?? '' }}</span>
+                </div>
+                <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
+                  <span class="seed" v-if="s.away_seed">{{ s.away_seed }}</span>
+                  <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
+                  <span class="score">{{ s.away_score ?? '' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Connector SF→Final -->
+          <div class="connector-column connector-sf-final">
+            <div class="connector-pair">
+              <div class="connector-line top"></div>
+              <div class="connector-line bottom"></div>
+              <div class="connector-merge"></div>
+            </div>
+          </div>
+
+          <!-- Final column -->
+          <div class="bracket-column">
+            <h4 class="round-header">Final</h4>
+            <div class="matchups matchups-final">
+              <div
+                v-for="s in getSlotsByRound(tier.key, 'final')"
+                :key="s.id"
+                class="matchup-card final-card"
+                :class="{ completed: s.match_status === 'completed' }"
+              >
+                <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
+                  <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
+                  <span class="score">{{ s.home_score ?? '' }}</span>
+                </div>
+                <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
+                  <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
+                  <span class="score">{{ s.away_score ?? '' }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -134,19 +139,21 @@ export default {
     const loading = ref(false);
     const error = ref(null);
 
-    const qfSlots = computed(() =>
+    // Derive bracket tiers dynamically from bracket data
+    const bracketTiers = computed(() => {
+      const tierNames = [...new Set(bracket.value.map(s => s.bracket_tier))];
+      // Sort alphabetically for consistent display
+      tierNames.sort();
+      return tierNames.map(name => ({
+        key: name,
+        label: name,
+      }));
+    });
+
+    const getSlotsByRound = (tier, round) =>
       bracket.value
-        .filter(s => s.round === 'quarterfinal')
-        .sort((a, b) => a.bracket_position - b.bracket_position)
-    );
-    const sfSlots = computed(() =>
-      bracket.value
-        .filter(s => s.round === 'semifinal')
-        .sort((a, b) => a.bracket_position - b.bracket_position)
-    );
-    const finalSlots = computed(() =>
-      bracket.value.filter(s => s.round === 'final')
-    );
+        .filter(s => s.bracket_tier === tier && s.round === round)
+        .sort((a, b) => a.bracket_position - b.bracket_position);
 
     const isWinner = (s, side) => {
       if (s.match_status !== 'completed') return false;
@@ -188,9 +195,8 @@ export default {
       bracket,
       loading,
       error,
-      qfSlots,
-      sfSlots,
-      finalSlots,
+      bracketTiers,
+      getSlotsByRound,
       isWinner,
     };
   },
@@ -200,6 +206,19 @@ export default {
 <style scoped>
 .playoff-bracket {
   overflow-x: auto;
+}
+
+.tier-section {
+  margin-bottom: 2.5rem;
+}
+
+.tier-header {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 /* Bracket layout — 5 columns: QF | connectors | SF | connectors | Final */
