@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-01-27T21:03:53.765549+00:00",
+  "generated_at": "2026-02-06T19:07:31.201036+00:00",
   "excluded_endpoints": [
     {
       "method": "POST",
@@ -69,6 +69,88 @@
           "file": "tests/integration/api/test_endpoints.py",
           "test_name": "test_get_active_seasons",
           "type": "integration"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/cache",
+      "client_method": "clear_all_cache",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_get_cache_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_clear_all_cache_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/cache",
+      "client_method": "get_cache_stats",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_get_cache_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_clear_all_cache_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_clear_cache_by_type_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_get_cache_stats_admin",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/cache/{cache_type}",
+      "client_method": "clear_cache_by_type",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_get_cache_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_clear_all_cache_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_clear_cache_by_type_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_get_cache_stats_admin",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_cache_contract.py",
+          "test_name": "test_clear_cache_by_type_invalid",
+          "type": "contract"
         }
       ],
       "coverage_status": "fully_covered"
@@ -174,6 +256,93 @@
         {
           "file": "tests/contract/test_admin_contract.py",
           "test_name": "test_add_admin_player_team_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/playoffs/advance",
+      "client_method": "advance_playoff_winner_admin",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_get_playoff_bracket_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_advance_playoff_winner_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_generate_playoff_bracket_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_advance_playoff_winner_admin_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/playoffs/bracket",
+      "client_method": "delete_playoff_bracket",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_get_playoff_bracket_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_advance_playoff_winner_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_generate_playoff_bracket_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_advance_playoff_winner_admin_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_delete_playoff_bracket_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/playoffs/generate",
+      "client_method": "generate_playoff_bracket",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_get_playoff_bracket_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_advance_playoff_winner_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_generate_playoff_bracket_requires_auth",
           "type": "contract"
         }
       ],
@@ -784,6 +953,41 @@
         {
           "file": "tests/tsc/test_01_club_manager.py",
           "test_name": "test_03_login_club_manager",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_01_login_admin",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_02_complete_live_league_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_03_create_playoff_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_04_set_playoff_match_live",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_05_record_playoff_goals",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_06_complete_playoff_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_07_login_fan",
           "type": "journey"
         },
         {
@@ -6737,6 +6941,56 @@
           "file": "tests/contract/test_standings_contract.py",
           "test_name": "test_get_goals_leaderboard",
           "type": "contract"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_01_login_admin",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_02_complete_live_league_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_03_create_playoff_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_04_set_playoff_match_live",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_05_record_playoff_goals",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_06_complete_playoff_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_07_login_fan",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_08_verify_unfiltered_leaderboard_includes_playoff_goals",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_09_verify_playoff_only_leaderboard",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_10_verify_league_only_leaderboard_excludes_playoff_goals",
+          "type": "journey"
         }
       ],
       "coverage_status": "fully_covered"
@@ -8264,6 +8518,31 @@
           "file": "tests/tsc/test_02_team_manager.py",
           "test_name": "test_11c_record_goal_with_roster_player",
           "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_01_login_admin",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_02_complete_live_league_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_03_create_playoff_match",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_04_set_playoff_match_live",
+          "type": "journey"
+        },
+        {
+          "file": "tests/tsc/test_05_playoff_leaderboard.py",
+          "test_name": "test_05_record_playoff_goals",
+          "type": "journey"
         }
       ],
       "coverage_status": "fully_covered"
@@ -8345,6 +8624,49 @@
         {
           "file": "tests/contract/test_player_stats_contract.py",
           "test_name": "test_get_player_profile",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playoffs/advance",
+      "client_method": "advance_playoff_winner",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_get_playoff_bracket_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_advance_playoff_winner_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_generate_playoff_bracket_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_advance_playoff_winner_admin_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/playoffs/bracket",
+      "client_method": "get_playoff_bracket",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_playoffs_contract.py",
+          "test_name": "test_get_playoff_bracket_requires_auth",
           "type": "contract"
         }
       ],
@@ -11302,13 +11624,13 @@
     }
   ],
   "summary": {
-    "total_endpoints": 117,
+    "total_endpoints": 125,
     "excluded": 3,
-    "with_client_method": 114,
-    "with_tests": 114,
+    "with_client_method": 122,
+    "with_tests": 122,
     "without_tests": 0,
     "coverage_status": {
-      "fully_covered": 114
+      "fully_covered": 122
     }
   }
 }

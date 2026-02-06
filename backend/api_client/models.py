@@ -166,6 +166,7 @@ from models.auth import (  # noqa: F401
 from models.lineup import LineupSave  # noqa: F401
 from models.live_match import GoalEvent, LiveMatchClock, MessageEvent  # noqa: F401
 from models.matches import MatchSubmissionData  # noqa: F401
+from models.playoffs import AdvanceWinnerRequest, GenerateBracketRequest  # noqa: F401
 from models.roster import (  # noqa: F401
     BulkRenumberRequest,
     BulkRosterCreate,
