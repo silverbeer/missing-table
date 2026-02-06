@@ -43,6 +43,39 @@
         </div>
       </div>
 
+      <!-- Match Type Filter -->
+      <div data-testid="match-type-filter">
+        <h3 class="text-sm font-medium text-gray-700 mb-3">Match Type</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            @click="selectedMatchTypeId = null"
+            :class="[
+              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              selectedMatchTypeId === null
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]"
+            data-testid="match-type-all"
+          >
+            All
+          </button>
+          <button
+            v-for="mt in matchTypes"
+            :key="mt.id"
+            @click="selectedMatchTypeId = mt.id"
+            :class="[
+              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              selectedMatchTypeId === mt.id
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]"
+            :data-testid="`match-type-${mt.name}`"
+          >
+            {{ mt.name }}
+          </button>
+        </div>
+      </div>
+
       <!-- Season and Division Row -->
       <div
         class="flex flex-col sm:flex-row sm:space-x-6 space-y-4 sm:space-y-0"
@@ -235,10 +268,12 @@ export default {
     const divisions = ref([]);
     const allDivisions = ref([]);
     const seasons = ref([]);
+    const matchTypes = ref([]);
     const selectedAgeGroupId = ref(null);
     const selectedLeagueId = ref(null);
     const selectedDivisionId = ref(null);
     const selectedSeasonId = ref(null);
+    const selectedMatchTypeId = ref(null);
     const error = ref(null);
     const loading = ref(true);
 
@@ -277,6 +312,17 @@ export default {
         }
       } catch (err) {
         console.error('Error fetching leagues:', err);
+      }
+    };
+
+    const fetchMatchTypes = async () => {
+      try {
+        const data = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/match-types`
+        );
+        matchTypes.value = data.sort((a, b) => a.name.localeCompare(b.name));
+      } catch (err) {
+        console.error('Error fetching match types:', err);
       }
     };
 
@@ -357,6 +403,9 @@ export default {
         if (selectedAgeGroupId.value) {
           url += `&age_group_id=${selectedAgeGroupId.value}`;
         }
+        if (selectedMatchTypeId.value) {
+          url += `&match_type_id=${selectedMatchTypeId.value}`;
+        }
 
         console.log('Fetching leaderboard:', url);
         const data = await authStore.apiRequest(url);
@@ -400,6 +449,7 @@ export default {
         selectedAgeGroupId,
         selectedLeagueId,
         selectedDivisionId,
+        selectedMatchTypeId,
       ],
       () => {
         if (selectedSeasonId.value) {
@@ -409,7 +459,12 @@ export default {
     );
 
     onMounted(async () => {
-      await Promise.all([fetchAgeGroups(), fetchLeagues(), fetchSeasons()]);
+      await Promise.all([
+        fetchAgeGroups(),
+        fetchLeagues(),
+        fetchSeasons(),
+        fetchMatchTypes(),
+      ]);
       await fetchDivisions();
       fetchLeaderboardData();
     });
@@ -420,10 +475,12 @@ export default {
       leagues,
       divisions,
       seasons,
+      matchTypes,
       selectedAgeGroupId,
       selectedLeagueId,
       selectedDivisionId,
       selectedSeasonId,
+      selectedMatchTypeId,
       formatSeasonDates,
       formatPlayerName,
       error,

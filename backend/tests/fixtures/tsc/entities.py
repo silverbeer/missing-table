@@ -70,6 +70,9 @@ class EntityRegistry:
     # Track player linked via invite (for verification after signup)
     linked_player_id: int | None = None
 
+    # Playoff match ID (for Phase 5 leaderboard tests)
+    playoff_match_id: int | None = None
+
     def add_match(self, match_id: int) -> None:
         """Track a created match."""
         if match_id not in self.match_ids:
@@ -146,6 +149,7 @@ class EntityRegistry:
             "user_ids": self.user_ids,
             "roster_entries": self.roster_entries,
             "linked_player_id": self.linked_player_id,
+            "playoff_match_id": self.playoff_match_id,
         }
 
     @classmethod
@@ -166,4 +170,5 @@ class EntityRegistry:
         registry.user_ids = data.get("user_ids", [])
         registry.roster_entries = data.get("roster_entries", [])
         registry.linked_player_id = data.get("linked_player_id")
+        registry.playoff_match_id = data.get("playoff_match_id")
         return registry

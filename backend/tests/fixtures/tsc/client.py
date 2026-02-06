@@ -466,8 +466,13 @@ class TSCClient:
         home_score: int = 0,
         away_score: int = 0,
         status: str = "scheduled",
+        match_type_id: int = 1,
     ) -> dict[str, Any]:
-        """Create a match or return existing one if it exists (idempotent)."""
+        """Create a match or return existing one if it exists (idempotent).
+
+        Args:
+            match_type_id: Match type (1=League, 2=Tournament, 3=Friendly, 4=Playoff)
+        """
         if not self.registry.season_id or not self.registry.age_group_id:
             raise ValueError("Season and age group must be created first")
 
@@ -487,7 +492,7 @@ class TSCClient:
             away_score=away_score,
             season_id=self.registry.season_id,
             age_group_id=self.registry.age_group_id,
-            match_type_id=1,  # Default match type (API expects match_type_id)
+            match_type_id=match_type_id,
             division_id=self.registry.division_id,
             status=status,
         )
@@ -699,6 +704,31 @@ class TSCClient:
         """Post a goal with player_id (updates player stats)."""
         goal = GoalEvent(team_id=team_id, player_id=player_id, message=message)
         return self._client.post_goal(match_id, goal)
+
+    # Leaderboards
+
+    def get_goals_leaderboard(
+        self,
+        season_id: int | None = None,
+        league_id: int | None = None,
+        division_id: int | None = None,
+        age_group_id: int | None = None,
+        match_type_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get goals leaderboard with optional filters."""
+        sid = season_id or self.registry.season_id
+        if not sid:
+            raise ValueError("Season ID required - create a season first")
+        params: dict[str, Any] = {"season_id": sid}
+        if league_id is not None:
+            params["league_id"] = league_id
+        if division_id is not None:
+            params["division_id"] = division_id
+        if age_group_id is not None:
+            params["age_group_id"] = age_group_id
+        if match_type_id is not None:
+            params["match_type_id"] = match_type_id
+        return self._client.get_goals_leaderboard(**params)
 
     # Read Operations (no tracking needed)
 

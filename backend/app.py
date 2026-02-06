@@ -2823,15 +2823,17 @@ async def get_goals_leaderboard(
     league_id: int | None = Query(None, description="Filter by league ID"),
     division_id: int | None = Query(None, description="Filter by division ID"),
     age_group_id: int | None = Query(None, description="Filter by age group ID"),
+    match_type_id: int | None = Query(None, description="Filter by match type ID (e.g. 4 for Playoff)"),
     limit: int = Query(50, description="Maximum results", ge=1, le=100),
 ):
-    """Get goals leaderboard - top scorers filtered by season/league/division/age group."""
+    """Get goals leaderboard - top scorers filtered by season/league/division/age group/match type."""
     try:
         leaderboard = player_stats_dao.get_goals_leaderboard(
             season_id=season_id,
             league_id=league_id,
             division_id=division_id,
             age_group_id=age_group_id,
+            match_type_id=match_type_id,
             limit=limit,
         )
 
@@ -2841,6 +2843,7 @@ async def get_goals_leaderboard(
             league_id=league_id,
             division_id=division_id,
             age_group_id=age_group_id,
+            match_type_id=match_type_id,
             limit=limit,
             rows_returned=len(leaderboard),
         )
