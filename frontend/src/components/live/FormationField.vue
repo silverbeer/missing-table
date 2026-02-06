@@ -5,48 +5,120 @@
       class="field-svg"
       preserveAspectRatio="xMidYMid meet"
     >
-      <!-- Field background -->
-      <rect x="0" y="0" width="100" height="120" class="field-bg" />
+      <!-- Soccer field -->
+      <template v-if="sportType !== 'futsal'">
+        <!-- Field background -->
+        <rect x="0" y="0" width="100" height="120" class="field-bg soccer-bg" />
 
-      <!-- Center circle -->
-      <circle cx="50" cy="60" r="12" class="field-line" fill="none" />
-      <circle cx="50" cy="60" r="1" class="field-line" />
+        <!-- Center circle -->
+        <circle cx="50" cy="60" r="12" class="field-line" fill="none" />
+        <circle cx="50" cy="60" r="1" class="field-line" />
 
-      <!-- Center line -->
-      <line x1="0" y1="60" x2="100" y2="60" class="field-line" />
+        <!-- Center line -->
+        <line x1="0" y1="60" x2="100" y2="60" class="field-line" />
 
-      <!-- Goal boxes (top) -->
-      <rect
-        x="30"
-        y="0"
-        width="40"
-        height="18"
-        class="field-line"
-        fill="none"
-      />
-      <rect x="38" y="0" width="24" height="8" class="field-line" fill="none" />
+        <!-- Goal boxes (top) -->
+        <rect
+          x="30"
+          y="0"
+          width="40"
+          height="18"
+          class="field-line"
+          fill="none"
+        />
+        <rect
+          x="38"
+          y="0"
+          width="24"
+          height="8"
+          class="field-line"
+          fill="none"
+        />
 
-      <!-- Goal boxes (bottom) -->
-      <rect
-        x="30"
-        y="102"
-        width="40"
-        height="18"
-        class="field-line"
-        fill="none"
-      />
-      <rect
-        x="38"
-        y="112"
-        width="24"
-        height="8"
-        class="field-line"
-        fill="none"
-      />
+        <!-- Goal boxes (bottom) -->
+        <rect
+          x="30"
+          y="102"
+          width="40"
+          height="18"
+          class="field-line"
+          fill="none"
+        />
+        <rect
+          x="38"
+          y="112"
+          width="24"
+          height="8"
+          class="field-line"
+          fill="none"
+        />
 
-      <!-- Penalty spots -->
-      <circle cx="50" cy="14" r="0.8" class="field-line" />
-      <circle cx="50" cy="106" r="0.8" class="field-line" />
+        <!-- Penalty spots -->
+        <circle cx="50" cy="14" r="0.8" class="field-line" />
+        <circle cx="50" cy="106" r="0.8" class="field-line" />
+      </template>
+
+      <!-- Futsal court -->
+      <template v-else>
+        <!-- Court background -->
+        <rect x="0" y="0" width="100" height="120" class="field-bg futsal-bg" />
+
+        <!-- Court boundary -->
+        <rect
+          x="4"
+          y="4"
+          width="92"
+          height="112"
+          class="field-line"
+          fill="none"
+          rx="2"
+        />
+
+        <!-- Center line -->
+        <line x1="4" y1="60" x2="96" y2="60" class="field-line" />
+
+        <!-- Center circle -->
+        <circle cx="50" cy="60" r="8" class="field-line" fill="none" />
+        <circle cx="50" cy="60" r="1" class="field-line" />
+
+        <!-- Penalty arcs (top) -->
+        <path d="M 35 4 A 15 15 0 0 1 65 4" class="field-line" fill="none" />
+
+        <!-- Penalty arcs (bottom) -->
+        <path
+          d="M 35 116 A 15 15 0 0 0 65 116"
+          class="field-line"
+          fill="none"
+        />
+
+        <!-- Penalty spots -->
+        <circle cx="50" cy="18" r="0.8" class="field-line" />
+        <circle cx="50" cy="102" r="0.8" class="field-line" />
+
+        <!-- Goal areas (small rectangles) -->
+        <rect
+          x="38"
+          y="4"
+          width="24"
+          height="6"
+          class="field-line"
+          fill="none"
+        />
+        <rect
+          x="38"
+          y="110"
+          width="24"
+          height="6"
+          class="field-line"
+          fill="none"
+        />
+
+        <!-- Corner arcs -->
+        <path d="M 4 7 A 3 3 0 0 1 7 4" class="field-line" fill="none" />
+        <path d="M 93 4 A 3 3 0 0 1 96 7" class="field-line" fill="none" />
+        <path d="M 4 113 A 3 3 0 0 0 7 116" class="field-line" fill="none" />
+        <path d="M 93 116 A 3 3 0 0 0 96 113" class="field-line" fill="none" />
+      </template>
 
       <!-- Position markers -->
       <g
@@ -93,7 +165,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { FORMATIONS } from '../../config/formations';
+import { getFormations } from '../../config/formations';
 
 const props = defineProps({
   formation: {
@@ -112,13 +184,18 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  sportType: {
+    type: String,
+    default: 'soccer',
+  },
 });
 
 const emit = defineEmits(['position-clicked']);
 
 // Get positions for the current formation
 const formationPositions = computed(() => {
-  const formationData = FORMATIONS[props.formation];
+  const formations = getFormations(props.sportType);
+  const formationData = formations[props.formation];
   return formationData ? formationData.positions : [];
 });
 
@@ -185,8 +262,12 @@ function handlePositionClick(positionCode) {
   display: block;
 }
 
-.field-bg {
+.field-bg.soccer-bg {
   fill: #2e7d32;
+}
+
+.field-bg.futsal-bg {
+  fill: #2962a8;
 }
 
 .field-line {

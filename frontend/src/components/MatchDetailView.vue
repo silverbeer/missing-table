@@ -439,6 +439,7 @@
                 :roster="homeRoster"
                 :initial-lineup="homeLineup"
                 :saving="savingLineup"
+                :sport-type="sportType"
                 @save="handleSaveLineup(match.home_team_id, $event)"
               />
             </div>
@@ -459,6 +460,7 @@
                 :roster="awayRoster"
                 :initial-lineup="awayLineup"
                 :saving="savingLineup"
+                :sport-type="sportType"
                 @save="handleSaveLineup(match.away_team_id, $event)"
               />
             </div>
@@ -519,6 +521,15 @@ export default {
     // Get league name from division object
     const leagueName = computed(() => {
       return match.value?.division?.leagues?.name || null;
+    });
+
+    // Determine sport type from match data
+    const sportType = computed(() => {
+      return (
+        match.value?.sport_type ||
+        match.value?.division?.leagues?.sport_type ||
+        'soccer'
+      );
     });
 
     // Filter goals by team
@@ -770,6 +781,7 @@ export default {
       homeTeamColor,
       awayTeamColor,
       leagueName,
+      sportType,
       statusBadgeClass,
       getTeamInitials,
       formatDate,

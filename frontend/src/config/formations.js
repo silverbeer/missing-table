@@ -1,5 +1,5 @@
 /**
- * Soccer Formation Templates
+ * Formation Templates for Soccer (11v11) and Futsal (5v5)
  *
  * Each formation defines position names and their coordinates on a field.
  * Coordinates are percentages (0-100) where:
@@ -122,11 +122,73 @@ export const FORMATIONS = {
   },
 };
 
-export const DEFAULT_FORMATION = '4-3-3';
+export const FUTSAL_FORMATIONS = {
+  '1-2-2': {
+    name: '1-2-2',
+    positions: [
+      { position: 'GK', x: 50, y: 90 },
+      { position: 'LD', x: 30, y: 65 },
+      { position: 'RD', x: 70, y: 65 },
+      { position: 'LF', x: 30, y: 35 },
+      { position: 'RF', x: 70, y: 35 },
+    ],
+  },
+  '2-2': {
+    name: '2-2',
+    positions: [
+      { position: 'GK', x: 50, y: 90 },
+      { position: 'LD', x: 25, y: 65 },
+      { position: 'RD', x: 75, y: 65 },
+      { position: 'LF', x: 25, y: 30 },
+      { position: 'RF', x: 75, y: 30 },
+    ],
+  },
+  '1-2-1': {
+    name: '1-2-1 (Diamond)',
+    positions: [
+      { position: 'GK', x: 50, y: 90 },
+      { position: 'FIX', x: 50, y: 68 },
+      { position: 'LW', x: 22, y: 48 },
+      { position: 'RW', x: 78, y: 48 },
+      { position: 'PIV', x: 50, y: 25 },
+    ],
+  },
+  '3-1': {
+    name: '3-1',
+    positions: [
+      { position: 'GK', x: 50, y: 90 },
+      { position: 'LD', x: 25, y: 65 },
+      { position: 'CD', x: 50, y: 68 },
+      { position: 'RD', x: 75, y: 65 },
+      { position: 'PIV', x: 50, y: 30 },
+    ],
+  },
+};
 
-export function getFormationOptions() {
-  return Object.keys(FORMATIONS).map(key => ({
+export const DEFAULT_FORMATION = '4-3-3';
+export const DEFAULT_FUTSAL_FORMATION = '1-2-2';
+
+/**
+ * Get the formations object for a given sport type.
+ */
+export function getFormations(sportType = 'soccer') {
+  return sportType === 'futsal' ? FUTSAL_FORMATIONS : FORMATIONS;
+}
+
+/**
+ * Get the default formation for a given sport type.
+ */
+export function getDefaultFormation(sportType = 'soccer') {
+  return sportType === 'futsal' ? DEFAULT_FUTSAL_FORMATION : DEFAULT_FORMATION;
+}
+
+/**
+ * Get formation options for dropdown selects.
+ */
+export function getFormationOptions(sportType = 'soccer') {
+  const formations = getFormations(sportType);
+  return Object.keys(formations).map(key => ({
     value: key,
-    label: FORMATIONS[key].name,
+    label: formations[key].name,
   }));
 }

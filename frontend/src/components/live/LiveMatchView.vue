@@ -46,6 +46,7 @@
         :save-lineup="saveLineup"
         :home-lineup="homeLineup"
         :away-lineup="awayLineup"
+        :sport-type="sportType"
         @update-clock="handleUpdateClock"
         @post-goal="handlePostGoal"
       />
@@ -66,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useLiveMatch } from '../../composables/useLiveMatch';
 import LiveScoreboard from './LiveScoreboard.vue';
 import LiveAdminControls from './LiveAdminControls.vue';
@@ -104,6 +105,8 @@ const {
   fetchLineups,
   saveLineup,
 } = useLiveMatch(props.matchId);
+
+const sportType = computed(() => matchState.value?.sport_type || 'soccer');
 
 const isSending = ref(false);
 

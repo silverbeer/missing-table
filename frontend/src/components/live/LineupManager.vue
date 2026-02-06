@@ -24,6 +24,7 @@
       :formation="selectedFormation"
       :assignments="assignments"
       :roster="roster"
+      :sport-type="sportType"
       @position-clicked="openPlayerSelector"
     />
 
@@ -110,8 +111,8 @@
 import { ref, computed, watch } from 'vue';
 import FormationField from './FormationField.vue';
 import {
-  FORMATIONS,
-  DEFAULT_FORMATION,
+  getFormations,
+  getDefaultFormation,
   getFormationOptions,
 } from '../../config/formations';
 
@@ -136,19 +137,23 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  sportType: {
+    type: String,
+    default: 'soccer',
+  },
 });
 
 const emit = defineEmits(['save', 'change']);
 
 // State
-const selectedFormation = ref(DEFAULT_FORMATION);
+const selectedFormation = ref(getDefaultFormation(props.sportType));
 const assignments = ref([]); // Array of { player_id, position, jersey_number, display_name }
 const showPlayerModal = ref(false);
 const selectedPosition = ref(null);
 const originalLineup = ref(null);
 
 // Formation options
-const formationOptions = getFormationOptions();
+const formationOptions = computed(() => getFormationOptions(props.sportType));
 
 // Computed: players not assigned to any position
 const unassignedPlayers = computed(() => {
@@ -252,7 +257,8 @@ function clearPosition(positionCode) {
 // Handle formation change
 function handleFormationChange() {
   // Clear assignments that don't exist in the new formation
-  const newFormation = FORMATIONS[selectedFormation.value];
+  const formations = getFormations(props.sportType);
+  const newFormation = formations[selectedFormation.value];
   if (newFormation) {
     const validPositions = new Set(newFormation.positions.map(p => p.position));
     assignments.value = assignments.value.filter(a =>
@@ -290,7 +296,8 @@ function emitChange() {
 // Initialize from initial lineup
 function initializeFromLineup(lineup) {
   if (lineup) {
-    selectedFormation.value = lineup.formation_name || DEFAULT_FORMATION;
+    selectedFormation.value =
+      lineup.formation_name || getDefaultFormation(props.sportType);
 
     // Map positions with player details
     const positions = lineup.positions || [];
@@ -309,7 +316,7 @@ function initializeFromLineup(lineup) {
 
     originalLineup.value = { ...lineup };
   } else {
-    selectedFormation.value = DEFAULT_FORMATION;
+    selectedFormation.value = getDefaultFormation(props.sportType);
     assignments.value = [];
     originalLineup.value = null;
   }
