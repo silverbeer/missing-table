@@ -119,8 +119,9 @@ class TestMetrics(BaseModel):
     @computed_field
     @property
     def status(self) -> Literal["success", "failure", "unknown"]:
-        if self.executed == 0:
+        if self.statistic.total == 0:
             return "unknown"
+        # All skipped or all passed — no failures means success
         if self.statistic.failed == 0 and self.statistic.broken == 0:
             return "success"
         return "failure"
@@ -509,6 +510,13 @@ def generate_test_suite_card(m: TestMetrics) -> str:
     coverage_str = f"{m.coverage_percent:.1f}%" if m.coverage_percent is not None else "N/A"
     tool_badge = f'<span class="tool-badge">{m.tool}</span>' if m.tool else ""
 
+    if m.executed > 0:
+        tests_display = f'{m.statistic.passed}<span class="stat-small">/{m.executed}</span>'
+    elif m.statistic.skipped > 0:
+        tests_display = f'<span class="stat-small" style="font-size:0.7rem">{m.statistic.skipped} skipped</span>'
+    else:
+        tests_display = '-'
+
     return f'''
       <div class="suite-card">
         <div class="suite-header">
@@ -518,7 +526,7 @@ def generate_test_suite_card(m: TestMetrics) -> str:
         </div>
         <div class="suite-stats">
           <div class="stat">
-            <span class="stat-value">{m.statistic.passed}<span class="stat-small">/{m.executed}</span></span>
+            <span class="stat-value">{tests_display}</span>
             <span class="stat-label">Tests</span>
           </div>
           <div class="stat">
@@ -920,7 +928,7 @@ def generate_dashboard_html(
       background-color: #f3f4f6;
       min-height: 100vh;
     }}
-    .container {{ max-width: 1280px; margin: 0 auto; padding: 2rem 1rem; }}
+    .container {{ max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }}
     .header {{ text-align: center; margin-bottom: 2rem; }}
     .header h1 {{ font-size: 2.25rem; font-weight: 700; color: #2563eb; margin-bottom: 0.5rem; }}
     .header p {{ font-size: 1.125rem; color: #4b5563; }}
