@@ -9,6 +9,7 @@ import { ref, computed, onUnmounted, watch } from 'vue';
 import { supabase } from '../config/supabase';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import { useMatchLineup } from './useMatchLineup';
 
 export function useLiveMatch(matchId) {
   const authStore = useAuthStore();
@@ -388,102 +389,16 @@ export function useLiveMatch(matchId) {
     }
   );
 
-  // Fetch rosters for both teams (used for goal scorer selection)
-  async function fetchTeamRosters() {
-    if (!matchState.value) return { home: [], away: [] };
-
-    const { home_team_id, away_team_id, season_id } = matchState.value;
-    if (!season_id) return { home: [], away: [] };
-
-    try {
-      const [homeResponse, awayResponse] = await Promise.all([
-        authStore.apiRequest(
-          `${getApiBaseUrl()}/api/teams/${home_team_id}/roster?season_id=${season_id}`
-        ),
-        authStore.apiRequest(
-          `${getApiBaseUrl()}/api/teams/${away_team_id}/roster?season_id=${season_id}`
-        ),
-      ]);
-
-      return {
-        home: homeResponse?.roster || [],
-        away: awayResponse?.roster || [],
-      };
-    } catch (err) {
-      console.error('Error fetching rosters:', err);
-      return { home: [], away: [] };
-    }
-  }
-
-  // Lineup state
-  const homeLineup = ref(null);
-  const awayLineup = ref(null);
-  const lineupLoading = ref(false);
-
-  // Fetch lineup for a specific team
-  async function fetchLineup(teamId) {
-    try {
-      const response = await authStore.apiRequest(
-        `${getApiBaseUrl()}/api/matches/${matchId}/lineup/${teamId}`
-      );
-      return response;
-    } catch (err) {
-      console.error('Error fetching lineup:', err);
-      return null;
-    }
-  }
-
-  // Fetch lineups for both teams
-  async function fetchLineups() {
-    if (!matchState.value) return;
-
-    const { home_team_id, away_team_id } = matchState.value;
-    lineupLoading.value = true;
-
-    try {
-      const [homeResponse, awayResponse] = await Promise.all([
-        fetchLineup(home_team_id),
-        fetchLineup(away_team_id),
-      ]);
-
-      homeLineup.value = homeResponse;
-      awayLineup.value = awayResponse;
-    } catch (err) {
-      console.error('Error fetching lineups:', err);
-    } finally {
-      lineupLoading.value = false;
-    }
-  }
-
-  // Save lineup for a team
-  async function saveLineup(teamId, formationName, positions) {
-    try {
-      const response = await authStore.apiRequest(
-        `${getApiBaseUrl()}/api/matches/${matchId}/lineup/${teamId}`,
-        {
-          method: 'PUT',
-          body: JSON.stringify({
-            formation_name: formationName,
-            positions,
-          }),
-        }
-      );
-
-      // Update local state
-      if (matchState.value) {
-        if (teamId === matchState.value.home_team_id) {
-          homeLineup.value = response;
-        } else if (teamId === matchState.value.away_team_id) {
-          awayLineup.value = response;
-        }
-      }
-
-      return { success: true, lineup: response };
-    } catch (err) {
-      console.error('Error saving lineup:', err);
-      return { success: false, error: err.message };
-    }
-  }
+  // Delegate roster/lineup operations to shared composable
+  const {
+    homeLineup,
+    awayLineup,
+    lineupLoading,
+    fetchTeamRosters,
+    fetchLineup,
+    fetchLineups,
+    saveLineup,
+  } = useMatchLineup(matchId, matchState);
 
   // Auto-initialize
   initialize();

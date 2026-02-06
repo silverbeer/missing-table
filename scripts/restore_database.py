@@ -36,6 +36,57 @@ if not url or not key:
 
 supabase: Client = create_client(url, key)
 
+def get_local_user_profile_ids() -> set:
+    """Fetch all user_profile IDs that exist in the local database."""
+    try:
+        result = supabase.table("user_profiles").select("id").execute()
+        return {r["id"] for r in (result.data or [])}
+    except Exception as e:
+        print(f"  ⚠ Could not fetch local user_profiles: {e}")
+        return set()
+
+
+# UUID columns per table that reference user_profiles.
+# These must be nulled out when the referenced UUID doesn't exist locally,
+# otherwise the FK constraint causes the entire insert to fail silently.
+USER_PROFILE_FK_COLUMNS = {
+    'players': ['created_by', 'user_profile_id'],
+    'player_team_history': ['player_id'],  # references user_profiles via UUID
+    'match_lineups': ['created_by', 'updated_by'],
+    'match_events': ['created_by'],
+    'player_match_stats': ['player_id'],
+    'team_manager_assignments': ['user_id'],
+    'invitations': ['created_by', 'claimed_by'],
+    'invite_requests': ['user_id'],
+}
+
+
+def sanitize_user_profile_refs(table_name: str, data: list, local_ids: set) -> list:
+    """Null out UUID columns that reference user_profiles not present locally.
+
+    Prod and local have different auth.users UUIDs, so any FK pointing at
+    user_profiles will break if the UUID doesn't exist in the target env.
+    Both created_by and user_profile_id FKs are nullable (ON DELETE SET NULL),
+    so setting them to None is safe.
+    """
+    columns = USER_PROFILE_FK_COLUMNS.get(table_name)
+    if not columns:
+        return data
+
+    nulled_count = 0
+    for record in data:
+        for col in columns:
+            val = record.get(col)
+            if val and val not in local_ids:
+                record[col] = None
+                nulled_count += 1
+
+    if nulled_count:
+        print(f"  ℹ️  Cleared {nulled_count} user_profile reference(s) not found locally")
+
+    return data
+
+
 def clear_table(table_name: str):
     """Clear all data from a table."""
     try:
@@ -99,7 +150,7 @@ def validate_records(table_name: str, data: list) -> list:
     return valid
 
 
-def restore_table(table_name: str, data: list):
+def restore_table(table_name: str, data: list, local_profile_ids: set | None = None):
     """Restore data to a single table."""
     if not data:
         print(f"Skipping {table_name} (no data)")
@@ -110,6 +161,10 @@ def restore_table(table_name: str, data: list):
 
         # Filter out records that would violate NOT NULL constraints
         data = validate_records(table_name, data)
+
+        # Null out user_profile FK references that don't exist locally
+        if local_profile_ids is not None:
+            data = sanitize_user_profile_refs(table_name, data, local_profile_ids)
         if not data:
             print(f"  ⚠ No valid records to restore for {table_name}")
             return True
@@ -254,11 +309,17 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
             clear_table(table)
         print()
     
+    # Fetch local user_profile IDs so we can sanitize FK references
+    print("🔍 Fetching local user_profile IDs for FK sanitization...")
+    local_profile_ids = get_local_user_profile_ids()
+    print(f"  Found {len(local_profile_ids)} local user profile(s)")
+    print()
+
     # Restore tables in order
     print("📥 Restoring data...")
     for table in restoration_order:
         if table in tables_data:
-            if restore_table(table, tables_data[table]):
+            if restore_table(table, tables_data[table], local_profile_ids):
                 success_count += 1
         else:
             print(f"Skipping {table} (not in backup)")

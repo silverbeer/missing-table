@@ -2,8 +2,7 @@
 -- Upper bracket: top 4 from each division. Lower bracket: positions 5-8.
 
 ALTER TABLE public.playoff_bracket_slots
-    ADD COLUMN bracket_tier VARCHAR(10) NOT NULL DEFAULT 'upper'
-    CHECK (bracket_tier IN ('upper', 'lower'));
+    ADD COLUMN bracket_tier VARCHAR(50);
 
 -- Drop old unique constraint (round + position alone is no longer unique).
 -- The auto-generated name varies by Postgres version, so look it up dynamically.
