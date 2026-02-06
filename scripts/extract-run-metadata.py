@@ -280,8 +280,8 @@ def main() -> None:
     parser.add_argument("--trigger", default="workflow_dispatch",
                         help="Workflow trigger type (push, workflow_dispatch, schedule)")
     parser.add_argument("--workflow", default="unit",
-                        choices=["unit", "journey"],
-                        help="Workflow type: unit (quality.yml) or journey (quality-journey.yml)")
+                        choices=["unit", "journey", "contract"],
+                        help="Workflow type: unit, journey, or contract")
     parser.add_argument("--version", default="",
                         help="Build version (e.g., 1.0.1.252)")
     parser.add_argument("--branch", default="",
