@@ -15,6 +15,8 @@ import {
   createLiveMatch,
   createPostponedMatch,
   createCancelledMatch,
+  createTeamManagerAuthStore,
+  createAuthenticatedUserStore,
 } from '../helpers/matchFactories';
 
 // =============================================================================
@@ -437,6 +439,118 @@ describe('MatchDetailView', () => {
 
       expect(mockAuthStore.apiRequest.mock.calls.length).toBeGreaterThan(
         initialCallCount
+      );
+    });
+  });
+
+  // ===========================================================================
+  // TESTS: PRE-MATCH LINEUP SECTION
+  // ===========================================================================
+
+  describe('pre-match lineup section', () => {
+    it('shows lineup toggle for admin on scheduled match', async () => {
+      // Default mockAuthStore is admin
+      mockAuthStore.apiRequest = vi.fn(() =>
+        Promise.resolve(createMockMatch())
+      );
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="lineup-section"]').exists()).toBe(
+        true
+      );
+      expect(wrapper.find('[data-testid="lineup-toggle"]').text()).toContain(
+        'Starting Lineup'
+      );
+    });
+
+    it('hides lineup section for non-manager users', async () => {
+      mockAuthStore = createAuthenticatedUserStore();
+      mockAuthStore.apiRequest = vi.fn(() =>
+        Promise.resolve(createMockMatch())
+      );
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="lineup-section"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('hides lineup section for completed matches', async () => {
+      mockAuthStore.apiRequest = createMockApiRequestForMatch(
+        createCompletedMatch()
+      );
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="lineup-section"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('hides lineup section for live matches', async () => {
+      mockAuthStore.apiRequest =
+        createMockApiRequestForMatch(createLiveMatch());
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="lineup-section"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('shows lineup section for team manager on their team match', async () => {
+      mockAuthStore = createTeamManagerAuthStore(1, 1);
+      const match = createMockMatch({
+        home_team_id: 1,
+        away_team_id: 2,
+      });
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve(match));
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="lineup-section"]').exists()).toBe(
+        true
+      );
+    });
+
+    it('hides lineup section for team manager on unrelated match', async () => {
+      mockAuthStore = createTeamManagerAuthStore(99, 99);
+      const match = createMockMatch({
+        home_team_id: 1,
+        away_team_id: 2,
+      });
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve(match));
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="lineup-section"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('toggle button expands lineup content', async () => {
+      mockAuthStore.apiRequest = vi.fn(url => {
+        if (url.includes('/roster')) return Promise.resolve({ roster: [] });
+        if (url.includes('/lineup')) return Promise.resolve(null);
+        return Promise.resolve(createMockMatch());
+      });
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      // Lineup content should not be visible initially
+      expect(wrapper.find('[data-testid="lineup-tab-home"]').exists()).toBe(
+        false
+      );
+
+      // Click toggle
+      await wrapper.find('[data-testid="lineup-toggle"]').trigger('click');
+      await flushPromises();
+
+      // After expanding and loading, should show no-roster message (empty rosters)
+      expect(wrapper.find('[data-testid="no-roster-message"]').exists()).toBe(
+        true
       );
     });
   });

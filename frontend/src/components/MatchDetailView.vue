@@ -357,6 +357,115 @@
         </button>
       </div>
 
+      <!-- Pre-match Lineup Section (scheduled matches, authorized users only) -->
+      <div
+        v-if="canManageLineup && match.match_status === 'scheduled'"
+        class="mt-3"
+        data-testid="lineup-section"
+      >
+        <button
+          @click="toggleLineupSection"
+          data-testid="lineup-toggle"
+          class="w-full flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
+          :class="{ 'bg-slate-600': showLineupSection }"
+        >
+          <span class="text-base font-bold w-5 text-center">{{
+            showLineupSection ? '-' : '+'
+          }}</span>
+          Starting Lineup
+        </button>
+
+        <div v-if="showLineupSection" class="mt-2 bg-slate-800 rounded-lg p-3">
+          <!-- No roster for either team -->
+          <div
+            v-if="rostersLoaded && !homeRoster.length && !awayRoster.length"
+            class="text-slate-400 text-sm text-center py-4"
+            data-testid="no-roster-message"
+          >
+            No roster available for either team. Add players to a team roster
+            before setting lineups.
+          </div>
+
+          <!-- Loading state -->
+          <div
+            v-else-if="lineupDataLoading"
+            class="text-slate-400 text-sm text-center py-4"
+          >
+            Loading lineups...
+          </div>
+
+          <!-- Team tabs + LineupManager -->
+          <template v-else-if="rostersLoaded">
+            <div class="flex gap-2 mb-3">
+              <button
+                @click="activeLineupTab = 'home'"
+                data-testid="lineup-tab-home"
+                class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
+                :class="
+                  activeLineupTab === 'home'
+                    ? 'border-blue-500 bg-blue-500/20 text-white'
+                    : 'border-slate-600 text-slate-400 hover:border-slate-500'
+                "
+              >
+                {{ match.home_team_name }}
+              </button>
+              <button
+                @click="activeLineupTab = 'away'"
+                data-testid="lineup-tab-away"
+                class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
+                :class="
+                  activeLineupTab === 'away'
+                    ? 'border-blue-500 bg-blue-500/20 text-white'
+                    : 'border-slate-600 text-slate-400 hover:border-slate-500'
+                "
+              >
+                {{ match.away_team_name }}
+              </button>
+            </div>
+
+            <!-- Home team tab -->
+            <div v-if="activeLineupTab === 'home'">
+              <div
+                v-if="!homeRoster.length"
+                class="text-slate-400 text-sm text-center py-4"
+                data-testid="no-roster-home"
+              >
+                No roster available for {{ match.home_team_name }}.
+              </div>
+              <LineupManager
+                v-else
+                :team-id="match.home_team_id"
+                :team-name="match.home_team_name"
+                :roster="homeRoster"
+                :initial-lineup="homeLineup"
+                :saving="savingLineup"
+                @save="handleSaveLineup(match.home_team_id, $event)"
+              />
+            </div>
+
+            <!-- Away team tab -->
+            <div v-if="activeLineupTab === 'away'">
+              <div
+                v-if="!awayRoster.length"
+                class="text-slate-400 text-sm text-center py-4"
+                data-testid="no-roster-away"
+              >
+                No roster available for {{ match.away_team_name }}.
+              </div>
+              <LineupManager
+                v-else
+                :team-id="match.away_team_id"
+                :team-name="match.away_team_name"
+                :roster="awayRoster"
+                :initial-lineup="awayLineup"
+                :saving="savingLineup"
+                @save="handleSaveLineup(match.away_team_id, $event)"
+              />
+            </div>
+          </template>
+        </div>
+      </div>
+
       <!-- Screen reader description -->
       <span class="sr-only">
         {{ match.home_team_name }} {{ match.home_score ?? 'no score' }} versus
@@ -373,9 +482,14 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import html2canvas from 'html2canvas';
+import { useMatchLineup } from '../composables/useMatchLineup';
+import LineupManager from './live/LineupManager.vue';
 
 export default {
   name: 'MatchDetailView',
+  components: {
+    LineupManager,
+  },
   props: {
     matchId: {
       type: [Number, String],
@@ -576,6 +690,76 @@ export default {
       }
     };
 
+    // --- Pre-match lineup management ---
+    const {
+      homeRoster,
+      awayRoster,
+      homeLineup,
+      awayLineup,
+      fetchTeamRosters,
+      fetchLineups,
+      saveLineup,
+    } = useMatchLineup(props.matchId, match);
+
+    // Permission: can the current user manage lineups for this match?
+    const canManageLineup = computed(() => {
+      if (!match.value) return false;
+      if (!authStore.isAuthenticated.value) return false;
+      if (authStore.isAdmin.value) return true;
+      if (authStore.isClubManager.value) return true;
+      if (authStore.isTeamManager.value) {
+        const userTeamId = authStore.userTeamId.value;
+        return (
+          userTeamId === match.value.home_team_id ||
+          userTeamId === match.value.away_team_id
+        );
+      }
+      return false;
+    });
+
+    // Lineup UI state
+    const showLineupSection = ref(false);
+    const activeLineupTab = ref('home');
+    const rostersLoaded = ref(false);
+    const lineupDataLoading = ref(false);
+    const savingLineup = ref(false);
+
+    // Toggle lineup section and lazy-load rosters/lineups
+    const toggleLineupSection = async () => {
+      showLineupSection.value = !showLineupSection.value;
+
+      if (showLineupSection.value && !rostersLoaded.value) {
+        lineupDataLoading.value = true;
+        try {
+          await Promise.all([fetchTeamRosters(), fetchLineups()]);
+          rostersLoaded.value = true;
+        } catch (err) {
+          console.error('Failed to load lineups and rosters:', err);
+        } finally {
+          lineupDataLoading.value = false;
+        }
+      }
+    };
+
+    // Handle lineup save from LineupManager component
+    const handleSaveLineup = async (teamId, lineupData) => {
+      savingLineup.value = true;
+      try {
+        const result = await saveLineup(
+          teamId,
+          lineupData.formation_name,
+          lineupData.positions
+        );
+        if (!result.success) {
+          console.error('Failed to save lineup:', result.error);
+        }
+      } catch (err) {
+        console.error('Error saving lineup:', err);
+      } finally {
+        savingLineup.value = false;
+      }
+    };
+
     return {
       loading,
       error,
@@ -595,6 +779,19 @@ export default {
       scoreboardRef,
       shareStatus,
       shareScoreboard,
+      // Lineup
+      canManageLineup,
+      showLineupSection,
+      activeLineupTab,
+      homeRoster,
+      awayRoster,
+      homeLineup,
+      awayLineup,
+      rostersLoaded,
+      lineupDataLoading,
+      savingLineup,
+      toggleLineupSection,
+      handleSaveLineup,
     };
   },
 };
