@@ -193,23 +193,25 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_team_error", team_id=team_id, season_id=season_id, error=str(e))
             return []
 
-    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:lim{limit}")
+    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:mt{match_type_id}:lim{limit}")
     def get_goals_leaderboard(
         self,
         season_id: int,
         league_id: int | None = None,
         division_id: int | None = None,
         age_group_id: int | None = None,
+        match_type_id: int | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """
-        Get top goal scorers filtered by league/division/age group.
+        Get top goal scorers filtered by league/division/age group/match type.
 
         Args:
             season_id: Season ID (required)
             league_id: Optional league filter
             division_id: Optional division filter
             age_group_id: Optional age group filter
+            match_type_id: Optional match type filter (e.g. 4 for Playoff)
             limit: Maximum results (default 50)
 
         Returns:
@@ -230,6 +232,7 @@ class PlayerStatsDAO(BaseDAO):
                         id,
                         season_id,
                         match_status,
+                        match_type_id,
                         division_id,
                         age_group_id,
                         division:divisions(
@@ -262,7 +265,12 @@ class PlayerStatsDAO(BaseDAO):
             response = query.execute()
             stats = response.data or []
 
-            # Filter by league_id if specified (need to do this in Python since nested filter)
+            # Filter in Python since PostgREST nested filters on !inner joins are unreliable
+            if match_type_id is not None:
+                stats = [
+                    s for s in stats
+                    if s.get("match", {}).get("match_type_id") == match_type_id
+                ]
             if league_id is not None:
                 stats = [
                     s for s in stats
@@ -314,6 +322,7 @@ class PlayerStatsDAO(BaseDAO):
                 league_id=league_id,
                 division_id=division_id,
                 age_group_id=age_group_id,
+                match_type_id=match_type_id,
                 error=str(e),
             )
             return []
