@@ -28,6 +28,7 @@ from .exceptions import (
 from .models import (
     AdminPlayerTeamAssignment,
     AdminPlayerUpdate,
+    AdvanceWinnerRequest,
     AgeGroupCreate,
     AgeGroupUpdate,
     BulkRenumberRequest,
@@ -36,6 +37,7 @@ from .models import (
     DivisionUpdate,
     EnhancedGame,
     GamePatch,
+    GenerateBracketRequest,
     GoalEvent,
     InviteRequestCreate,
     InviteRequestStatusUpdate,
@@ -1160,6 +1162,56 @@ class MissingTableClient:
     def delete_invite_request(self, request_id: str) -> dict[str, Any]:
         """Delete an invite request (admin only)."""
         response = self._request("DELETE", f"/api/invite-requests/{request_id}")
+        return response.json()
+
+    # Playoffs
+
+    def get_playoff_bracket(
+        self, league_id: int, season_id: int, age_group_id: int
+    ) -> dict[str, Any]:
+        """Get playoff bracket for a league/season/age group."""
+        params = {"league_id": league_id, "season_id": season_id, "age_group_id": age_group_id}
+        response = self._request("GET", "/api/playoffs/bracket", params=params)
+        return response.json()
+
+    def advance_playoff_winner(self, request: AdvanceWinnerRequest) -> dict[str, Any]:
+        """Advance the winner of a completed bracket slot (team manager or admin)."""
+        response = self._request("POST", "/api/playoffs/advance", json_data=request.model_dump())
+        return response.json()
+
+    def generate_playoff_bracket(self, request: GenerateBracketRequest) -> dict[str, Any]:
+        """Generate playoff brackets from current standings (admin only)."""
+        response = self._request("POST", "/api/admin/playoffs/generate", json_data=request.model_dump())
+        return response.json()
+
+    def advance_playoff_winner_admin(self, request: AdvanceWinnerRequest) -> dict[str, Any]:
+        """Advance the winner of a completed bracket slot (admin only)."""
+        response = self._request("POST", "/api/admin/playoffs/advance", json_data=request.model_dump())
+        return response.json()
+
+    def delete_playoff_bracket(
+        self, league_id: int, season_id: int, age_group_id: int
+    ) -> dict[str, Any]:
+        """Delete an entire playoff bracket and its matches (admin only)."""
+        params = {"league_id": league_id, "season_id": season_id, "age_group_id": age_group_id}
+        response = self._request("DELETE", "/api/admin/playoffs/bracket", params=params)
+        return response.json()
+
+    # Cache management
+
+    def get_cache_stats(self) -> dict[str, Any]:
+        """Get cache statistics and keys grouped by type (admin only)."""
+        response = self._request("GET", "/api/admin/cache")
+        return response.json()
+
+    def clear_all_cache(self) -> dict[str, Any]:
+        """Clear all DAO cache entries (admin only)."""
+        response = self._request("DELETE", "/api/admin/cache")
+        return response.json()
+
+    def clear_cache_by_type(self, cache_type: str) -> dict[str, Any]:
+        """Clear cache entries for a specific type (admin only)."""
+        response = self._request("DELETE", f"/api/admin/cache/{cache_type}")
         return response.json()
 
     # Version

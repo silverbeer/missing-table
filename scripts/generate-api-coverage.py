@@ -129,7 +129,7 @@ def generate_html(inventory: dict, commit_sha: str, run_id: str) -> str:
       background-color: #f3f4f6;
       min-height: 100vh;
     }}
-    .container {{ max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }}
+    .container {{ max-width: 1280px; margin: 0 auto; padding: 2rem 1rem; }}
     .header {{ text-align: center; margin-bottom: 2rem; }}
     .header h1 {{ font-size: 2rem; font-weight: 700; color: #2563eb; margin-bottom: 0.5rem; }}
     .header p {{ font-size: 1rem; color: #4b5563; }}
@@ -209,7 +209,9 @@ def generate_html(inventory: dict, commit_sha: str, run_id: str) -> str:
       padding: 0.5rem 0.75rem;
       text-align: left;
       border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
     }}
+    .endpoints-table td:nth-child(3) {{ white-space: normal; }}
     .endpoints-table th {{
       background: #f9fafb;
       font-weight: 600;
