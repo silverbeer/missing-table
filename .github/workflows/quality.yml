@@ -119,6 +119,11 @@ jobs:
           npm run test:coverage
         continue-on-error: true
 
+      - name: Regenerate API inventory from source
+        run: |
+          cd backend
+          uv run python scripts/generate_api_inventory.py
+
       - name: Generate API coverage page
         run: |
           cd backend
