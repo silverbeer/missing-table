@@ -2234,6 +2234,19 @@ export default {
         return true;
       }
 
+      // Club managers can edit matches involving any team in their club
+      if (authStore.isClubManager.value && authStore.userClubId.value) {
+        const clubId = authStore.userClubId.value;
+        const homeTeam = teams.value.find(t => t.id === match.home_team_id);
+        const awayTeam = teams.value.find(t => t.id === match.away_team_id);
+        if (
+          (homeTeam && homeTeam.club_id === clubId) ||
+          (awayTeam && awayTeam.club_id === clubId)
+        ) {
+          return true;
+        }
+      }
+
       // Team managers can only edit matches involving their team
       // IMPORTANT: userTeamId is a computed property, so we need .value
       if (authStore.isTeamManager.value && authStore.userTeamId.value) {
