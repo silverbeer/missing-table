@@ -39,6 +39,7 @@
           :roster="homeRoster"
           :initial-lineup="homeLineup"
           :saving="savingLineup"
+          :sport-type="sportType"
           @save="handleSaveLineup(matchState.home_team_id, $event)"
         />
         <LineupManager
@@ -48,6 +49,7 @@
           :roster="awayRoster"
           :initial-lineup="awayLineup"
           :saving="savingLineup"
+          :sport-type="sportType"
           @save="handleSaveLineup(matchState.away_team_id, $event)"
         />
       </div>
@@ -283,6 +285,10 @@ const props = defineProps({
   awayLineup: {
     type: Object,
     default: null,
+  },
+  sportType: {
+    type: String,
+    default: 'soccer',
   },
 });
 

@@ -13,6 +13,7 @@ class League(BaseModel):
     id: int
     name: str
     description: str | None = None
+    sport_type: str = "soccer"
     is_active: bool = True
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -23,6 +24,7 @@ class LeagueCreate(BaseModel):
 
     name: str
     description: str | None = None
+    sport_type: str = "soccer"
     is_active: bool = True
 
 
@@ -31,6 +33,7 @@ class LeagueUpdate(BaseModel):
 
     name: str | None = None
     description: str | None = None
+    sport_type: str | None = None
     is_active: bool | None = None
 
 

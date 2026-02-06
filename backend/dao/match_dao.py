@@ -730,7 +730,8 @@ class MatchDAO(BaseDAO):
                     *,
                     home_team:teams!matches_home_team_id_fkey(
                         id, name,
-                        club:clubs(id, name, logo_url, primary_color, secondary_color)
+                        club:clubs(id, name, logo_url, primary_color, secondary_color),
+                        division:divisions(id, leagues(sport_type))
                     ),
                     away_team:teams!matches_away_team_id_fkey(
                         id, name,
@@ -739,7 +740,7 @@ class MatchDAO(BaseDAO):
                     season:seasons(id, name),
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
-                    division:divisions(id, name, leagues(id, name))
+                    division:divisions(id, name, leagues(id, name, sport_type))
                 """)
                 .eq("id", match_id)
                 .execute()
@@ -747,6 +748,18 @@ class MatchDAO(BaseDAO):
 
             if response.data and len(response.data) > 0:
                 match = response.data[0]
+                # Extract sport_type from division -> leagues (match division)
+                division = match.get("division") or {}
+                league = division.get("leagues") or {}
+                sport_type = league.get("sport_type")
+
+                # Fallback: get sport_type from home team's division -> league
+                if not sport_type:
+                    home_team = match.get("home_team") or {}
+                    team_div = home_team.get("division") or {}
+                    team_league = team_div.get("leagues") or {}
+                    sport_type = team_league.get("sport_type", "soccer")
+
                 # Flatten the response to match the format from get_all_matches
                 flat_match = {
                     "id": match["id"],
@@ -769,6 +782,7 @@ class MatchDAO(BaseDAO):
                     "division_id": match.get("division_id"),
                     "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
+                    "sport_type": sport_type,
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
@@ -949,11 +963,15 @@ class MatchDAO(BaseDAO):
                 self.client.table("matches")
                 .select("""
                     *,
-                    home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, logo_url)),
+                    home_team:teams!matches_home_team_id_fkey(
+                        id, name,
+                        club:clubs(id, logo_url),
+                        division:divisions(id, leagues(sport_type))
+                    ),
                     away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, logo_url)),
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
-                    division:divisions(id, name)
+                    division:divisions(id, name, leagues(id, name, sport_type))
                 """)
                 .eq("id", match_id)
                 .single()
@@ -969,6 +987,17 @@ class MatchDAO(BaseDAO):
             away_team = match.get("away_team") or {}
             home_club = home_team.get("club") or {}
             away_club = away_team.get("club") or {}
+
+            # Extract sport_type from division -> leagues
+            division = match.get("division") or {}
+            league = division.get("leagues") or {}
+            sport_type = league.get("sport_type")
+
+            # Fallback: get sport_type from home team's division -> league
+            if not sport_type:
+                team_div = home_team.get("division") or {}
+                team_league = team_div.get("leagues") or {}
+                sport_type = team_league.get("sport_type", "soccer")
 
             return {
                 "match_id": match["id"],
@@ -992,6 +1021,7 @@ class MatchDAO(BaseDAO):
                 "age_group_name": match["age_group"]["name"] if match.get("age_group") else None,
                 "match_type_name": match["match_type"]["name"] if match.get("match_type") else None,
                 "division_name": match["division"]["name"] if match.get("division") else None,
+                "sport_type": sport_type,
             }
 
         except Exception:
