@@ -100,21 +100,28 @@ class TestMetrics(BaseModel):
 
     @computed_field
     @property
+    def executed(self) -> int:
+        """Number of tests that actually ran (total minus skipped)."""
+        return self.statistic.total - self.statistic.skipped
+
+    @computed_field
+    @property
     def duration_sec(self) -> str:
         return f"{self.duration_ms / 1000:.1f}"
 
     @computed_field
     @property
     def pass_rate(self) -> float:
-        if self.statistic.total == 0:
+        if self.executed == 0:
             return 0.0
-        return self.statistic.passed / self.statistic.total * 100
+        return self.statistic.passed / self.executed * 100
 
     @computed_field
     @property
     def status(self) -> Literal["success", "failure", "unknown"]:
         if self.statistic.total == 0:
             return "unknown"
+        # All skipped or all passed — no failures means success
         if self.statistic.failed == 0 and self.statistic.broken == 0:
             return "success"
         return "failure"
@@ -122,16 +129,16 @@ class TestMetrics(BaseModel):
     @computed_field
     @property
     def passed_pct(self) -> float:
-        if self.statistic.total == 0:
+        if self.executed == 0:
             return 0.0
-        return self.statistic.passed / self.statistic.total * 100
+        return self.statistic.passed / self.executed * 100
 
     @computed_field
     @property
     def failed_pct(self) -> float:
-        if self.statistic.total == 0:
+        if self.executed == 0:
             return 0.0
-        return self.statistic.failed / self.statistic.total * 100
+        return self.statistic.failed / self.executed * 100
 
     @computed_field
     @property
@@ -492,7 +499,11 @@ def overall_status(metrics_list: list[TestMetrics]) -> str:
         return "unknown"
     if any(m.status == "failure" for m in metrics_list):
         return "failure"
-    if all(m.status == "success" for m in metrics_list):
+    # Ignore suites with no data (total == 0) when determining overall status
+    suites_with_data = [m for m in metrics_list if m.statistic.total > 0]
+    if not suites_with_data:
+        return "unknown"
+    if all(m.status == "success" for m in suites_with_data):
         return "success"
     return "unknown"
 
@@ -503,6 +514,16 @@ def generate_test_suite_card(m: TestMetrics) -> str:
     coverage_str = f"{m.coverage_percent:.1f}%" if m.coverage_percent is not None else "N/A"
     tool_badge = f'<span class="tool-badge">{m.tool}</span>' if m.tool else ""
 
+    if m.executed > 0:
+        tests_display = f'{m.statistic.passed}<span class="stat-small">/{m.executed}</span>'
+        tests_label = "Tests"
+    elif m.statistic.skipped > 0:
+        tests_display = f'{m.statistic.skipped}'
+        tests_label = "Skipped"
+    else:
+        tests_display = '-'
+        tests_label = "Tests"
+
     return f'''
       <div class="suite-card">
         <div class="suite-header">
@@ -512,8 +533,8 @@ def generate_test_suite_card(m: TestMetrics) -> str:
         </div>
         <div class="suite-stats">
           <div class="stat">
-            <span class="stat-value">{m.statistic.passed}<span class="stat-small">/{m.statistic.total}</span></span>
-            <span class="stat-label">Tests</span>
+            <span class="stat-value">{tests_display}</span>
+            <span class="stat-label">{tests_label}</span>
           </div>
           <div class="stat">
             <span class="stat-value">{coverage_str}</span>
@@ -658,10 +679,13 @@ def generate_history_section(
         def suite_cell(suite: HistorySuiteSummary | None) -> str:
             if not suite or suite.total == 0:
                 return '<td class="suite-cell na">-</td>'
+            executed = suite.total - suite.skipped
+            if executed == 0:
+                return '<td class="suite-cell na">-</td>'
             css_class = "passed" if suite.failed == 0 else "failed"
-            return f'<td class="suite-cell {css_class}">{suite.passed}/{suite.total}</td>'
+            return f'<td class="suite-cell {css_class}">{suite.passed}/{executed}</td>'
 
-        total = run.summary.get("total", 0)
+        total = run.summary.get("total", 0) - run.summary.get("skipped", 0)
         passed = run.summary.get("passed", 0)
 
         timestamp_display = format_timestamp(run.timestamp)
@@ -886,7 +910,7 @@ def generate_dashboard_html(
     icon, color, bg = generate_status_style(status)
 
     total_passed = sum(m.statistic.passed for m in metrics_list)
-    total_tests = sum(m.statistic.total for m in metrics_list)
+    total_executed = sum(m.executed for m in metrics_list)
     total_duration = sum(m.duration_ms for m in metrics_list)
 
     suite_cards = "\n".join(generate_test_suite_card(m) for m in metrics_list)
@@ -911,7 +935,7 @@ def generate_dashboard_html(
       background-color: #f3f4f6;
       min-height: 100vh;
     }}
-    .container {{ max-width: 1024px; margin: 0 auto; padding: 2rem 1rem; }}
+    .container {{ max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }}
     .header {{ text-align: center; margin-bottom: 2rem; }}
     .header h1 {{ font-size: 2.25rem; font-weight: 700; color: #2563eb; margin-bottom: 0.5rem; }}
     .header p {{ font-size: 1.125rem; color: #4b5563; }}
@@ -1046,7 +1070,7 @@ def generate_dashboard_html(
     .history-section h2 {{ font-size: 1.125rem; font-weight: 600; color: #1f2937; margin-bottom: 1rem; }}
     .history-table-wrapper {{ overflow-x: auto; }}
     .history-table {{ width: 100%; border-collapse: collapse; font-size: 0.875rem; }}
-    .history-table th, .history-table td {{ padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }}
+    .history-table th, .history-table td {{ padding: 0.5rem 0.5rem; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }}
     .history-table th {{ background: #f9fafb; font-weight: 600; color: #4b5563; font-size: 0.75rem; text-transform: uppercase; }}
     .history-table tr:hover {{ background: #f9fafb; }}
     .history-table tr.current-run {{ background: #eff6ff; }}
@@ -1423,7 +1447,7 @@ def generate_dashboard_html(
       </div>
       <div class="summary-card">
         <div class="summary-card-icon">✅</div>
-        <div class="summary-card-value">{total_passed}<span class="summary-card-value-small">/{total_tests}</span></div>
+        <div class="summary-card-value">{total_passed}<span class="summary-card-value-small">/{total_executed}</span></div>
         <div class="summary-card-label">Total Tests</div>
       </div>
       <div class="summary-card">
