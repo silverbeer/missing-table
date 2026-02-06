@@ -499,7 +499,11 @@ def overall_status(metrics_list: list[TestMetrics]) -> str:
         return "unknown"
     if any(m.status == "failure" for m in metrics_list):
         return "failure"
-    if all(m.status == "success" for m in metrics_list):
+    # Ignore suites with no data (total == 0) when determining overall status
+    suites_with_data = [m for m in metrics_list if m.statistic.total > 0]
+    if not suites_with_data:
+        return "unknown"
+    if all(m.status == "success" for m in suites_with_data):
         return "success"
     return "unknown"
 
@@ -512,10 +516,13 @@ def generate_test_suite_card(m: TestMetrics) -> str:
 
     if m.executed > 0:
         tests_display = f'{m.statistic.passed}<span class="stat-small">/{m.executed}</span>'
+        tests_label = "Tests"
     elif m.statistic.skipped > 0:
-        tests_display = f'<span class="stat-small" style="font-size:0.7rem">{m.statistic.skipped} skipped</span>'
+        tests_display = f'{m.statistic.skipped}'
+        tests_label = "Skipped"
     else:
         tests_display = '-'
+        tests_label = "Tests"
 
     return f'''
       <div class="suite-card">
@@ -527,7 +534,7 @@ def generate_test_suite_card(m: TestMetrics) -> str:
         <div class="suite-stats">
           <div class="stat">
             <span class="stat-value">{tests_display}</span>
-            <span class="stat-label">Tests</span>
+            <span class="stat-label">{tests_label}</span>
           </div>
           <div class="stat">
             <span class="stat-value">{coverage_str}</span>
