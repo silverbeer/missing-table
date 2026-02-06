@@ -15,6 +15,7 @@ env:
 permissions:
   id-token: write   # Required for OIDC
   contents: read
+  actions: read     # Required for CI build number lookup
 
 jobs:
   contract-tests:
@@ -100,11 +101,37 @@ jobs:
 
       - name: Extract build info
         id: build-info
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           APP_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
-          VERSION="${APP_VERSION}.${{ github.run_number }}"
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+
+          # Use CI workflow_run.run_number directly when triggered by CI
+          CI_RUN_NUMBER=""
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            CI_RUN_NUMBER="${{ github.event.workflow_run.run_number }}"
+          fi
+          # Fallback: API lookup by SHA
+          if [ -z "$CI_RUN_NUMBER" ]; then
+            CI_RUN_NUMBER=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${COMMIT_SHA}&per_page=1" \
+              --jq '.workflow_runs[0].run_number // empty' 2>/dev/null || echo "")
+          fi
+          # Fallback: latest CI run on main
+          if [ -z "$CI_RUN_NUMBER" ]; then
+            CI_RUN_NUMBER=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&per_page=1&status=completed" \
+              --jq '.workflow_runs[0].run_number // empty' 2>/dev/null || echo "")
+          fi
+          # Last resort: own run_number
+          if [ -z "$CI_RUN_NUMBER" ]; then
+            CI_RUN_NUMBER="${{ github.run_number }}"
+            echo "Warning: Could not find CI build number, using own run_number"
+          fi
+
+          VERSION="${APP_VERSION}.${CI_RUN_NUMBER}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "branch=main" >> $GITHUB_OUTPUT
+          echo "Build version: $VERSION (CI build #${CI_RUN_NUMBER})"
 
       - name: Add dashboard navigation to report
         env:
@@ -127,11 +154,75 @@ jobs:
           aws s3 sync backend/contract-allure-report/ s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/contract/ \
             --cache-control "max-age=31536000"
 
+      - name: Extract contract metadata
+        run: |
+          cd backend
+          uv run ../scripts/extract-run-metadata.py \
+            --run-id ${{ github.run_id }} \
+            --commit-sha ${{ github.event.workflow_run.head_sha || github.sha }} \
+            --trigger ${{ github.event_name }} \
+            --workflow contract \
+            --version "${{ steps.build-info.outputs.version }}" \
+            --branch "${{ steps.build-info.outputs.branch }}" \
+            --contract-allure-dir contract-allure-report \
+            --output /tmp/contract-metadata.json
+
+      - name: Download history and update
+        run: |
+          # Download existing history
+          aws s3 cp s3://${S3_BUCKET}/data/history.json /tmp/history.json || echo '{"runs":[]}' > /tmp/history.json
+
+          # Update history index with contract results
+          cd backend
+          uv run ../scripts/update-history-index.py \
+            --current-run /tmp/contract-metadata.json \
+            --history /tmp/history.json \
+            --output /tmp/history.json \
+            --max-runs 15
+
+          # Upload updated history
+          aws s3 cp /tmp/history.json s3://${S3_BUCKET}/data/history.json \
+            --cache-control "max-age=300"
+
+          # Archive contract metadata
+          RUN_DATE=$(date -u +"%Y-%m-%d")
+          aws s3 cp /tmp/contract-metadata.json \
+            s3://${S3_BUCKET}/runs/missing-table/prod/${RUN_DATE}/${{ github.run_id }}/metadata.json \
+            --cache-control "max-age=31536000"
+
+      - name: Download test data and regenerate dashboard
+        run: |
+          # Download existing unit/journey/contract test summaries
+          mkdir -p /tmp/backend-allure/widgets /tmp/data /tmp/contract-allure/widgets
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/allure/widgets/summary.json /tmp/backend-allure/widgets/summary.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/backend-coverage.json /tmp/data/backend-coverage.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-results.json /tmp/data/frontend-results.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/frontend-coverage.json /tmp/data/frontend-coverage.json || true
+          aws s3 cp s3://${S3_BUCKET}/latest/missing-table/prod/data/api-inventory.json /tmp/data/api-inventory.json || true
+
+          cd backend
+          uv run ../scripts/generate-quality-dashboard.py \
+            --output /tmp/index.html \
+            --commit-sha ${{ github.event.workflow_run.head_sha || github.sha }} \
+            --run-id ${{ github.run_id }} \
+            --backend-allure-dir /tmp/backend-allure \
+            --backend-coverage-json /tmp/data/backend-coverage.json \
+            --frontend-results-json /tmp/data/frontend-results.json \
+            --frontend-coverage-json /tmp/data/frontend-coverage.json \
+            --contract-allure-dir contract-allure-report \
+            --include-contract \
+            --api-inventory-json /tmp/data/api-inventory.json \
+            --history-json /tmp/history.json
+
+          aws s3 cp /tmp/index.html s3://${S3_BUCKET}/index.html \
+            --cache-control "max-age=300" \
+            --content-type "text/html"
+
       - name: Invalidate CloudFront
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} \
-            --paths "/latest/missing-table/prod/contract/*"
+            --paths "/latest/missing-table/prod/contract/*" "/index.html" "/data/*"
 
       - name: Summary
         run: |

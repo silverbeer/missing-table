@@ -22,6 +22,7 @@ env:
 permissions:
   id-token: write   # Required for OIDC
   contents: read
+  actions: read     # Required for CI build number lookup
 
 jobs:
   journey-tests:
@@ -46,15 +47,34 @@ jobs:
 
       - name: Extract build info
         id: build-info
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Read version from VERSION file (matches production app format)
           APP_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
-          # Use GitHub run number as build suffix (same as production CI/CD)
-          VERSION="${APP_VERSION}.${{ github.run_number }}"
+          COMMIT_SHA="${{ github.sha }}"
+          BRANCH="${{ github.ref_name }}"
+
+          # Look up CI build number by commit SHA
+          CI_RUN_NUMBER=""
+          # 1. Exact SHA match
+          CI_RUN_NUMBER=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${COMMIT_SHA}&per_page=1" \
+            --jq '.workflow_runs[0].run_number // empty' 2>/dev/null || echo "")
+          # 2. Latest CI run on same branch
+          if [ -z "$CI_RUN_NUMBER" ]; then
+            CI_RUN_NUMBER=$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=${BRANCH}&per_page=1&status=completed" \
+              --jq '.workflow_runs[0].run_number // empty' 2>/dev/null || echo "")
+          fi
+          # 3. Fallback: own run_number
+          if [ -z "$CI_RUN_NUMBER" ]; then
+            CI_RUN_NUMBER="${{ github.run_number }}"
+            echo "Warning: Could not find CI build number, using own run_number"
+          fi
+
+          VERSION="${APP_VERSION}.${CI_RUN_NUMBER}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          echo "Build version: $VERSION"
-          echo "Branch: ${{ github.ref_name }}"
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+          echo "Build version: $VERSION (CI build #${CI_RUN_NUMBER})"
+          echo "Branch: ${BRANCH}"
 
       - name: Verify Allure CLI
         run: |
@@ -173,7 +193,7 @@ jobs:
             --current-run /tmp/journey-metadata.json \
             --history /tmp/history.json \
             --output /tmp/history.json \
-            --max-runs 10
+            --max-runs 15
 
       - name: Upload to S3
         if: always()

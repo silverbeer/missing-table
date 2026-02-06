@@ -577,57 +577,38 @@ def format_timestamp(iso_timestamp: str) -> str:
         return "Unknown"
 
 
+def generate_type_badge(workflow: str) -> str:
+    """Return colored HTML badge for workflow type."""
+    badges = {
+        "unit": '<span class="type-badge type-unit">Unit</span>',
+        "journey": '<span class="type-badge type-journey">Journey</span>',
+        "contract": '<span class="type-badge type-contract">Contract</span>',
+    }
+    return badges.get(workflow, f'<span class="type-badge">{workflow}</span>')
+
+
 def generate_history_section(
     history: HistoryIndex | None,
     comparison: ComparisonResult | None,
     config: DashboardConfig,
-    workflow_filter: str | None = None,
-    section_id: str = "history",
 ) -> str:
-    """Generate HTML for history section.
+    """Generate unified HTML for Quality History section.
 
-    Args:
-        history: History index with runs
-        comparison: Comparison result (only shown for main/unit section)
-        config: Dashboard configuration
-        workflow_filter: Filter to specific workflow ("unit" or "journey"), None for all
-        section_id: HTML ID prefix for this section (for multiple tables)
+    Shows all workflow types (unit, journey, contract) in a single table
+    with a Type column containing colored badges.
     """
     if not history or not history.runs:
         return ""
 
-    # Filter runs by workflow if specified
-    if workflow_filter:
-        filtered_runs = [r for r in history.runs if r.workflow == workflow_filter]
-    else:
-        filtered_runs = history.runs
+    section_id = "history"
+    all_runs = history.runs
 
-    if not filtered_runs:
+    if not all_runs:
         return ""
 
-    # Determine section title and columns based on workflow
-    if workflow_filter == "unit":
-        section_title = "Unit Test History"
-        show_backend = True
-        show_frontend = True
-        show_journey = False
-        show_contract = True
-    elif workflow_filter == "journey":
-        section_title = "Journey Test History"
-        show_backend = False
-        show_frontend = False
-        show_journey = True
-        show_contract = False
-    else:
-        section_title = "Test Run History"
-        show_backend = True
-        show_frontend = True
-        show_journey = True
-        show_contract = True
-
-    # Generate comparison banner if we have comparison data (only for main section)
+    # Generate comparison banner if we have comparison data
     banner_html = ""
-    if comparison and comparison.status_change != "first_run" and section_id == "history":
+    if comparison and comparison.status_change != "first_run":
         if comparison.status_change == "regression":
             banner_class = "regression"
             banner_icon = "⚠️"
@@ -656,7 +637,7 @@ def generate_history_section(
 
     # Generate history table rows with checkboxes for comparison
     rows = []
-    for i, run in enumerate(filtered_runs):
+    for i, run in enumerate(all_runs):
         is_current = (run.run_id == config.run_id)
         row_class = "current-run" if is_current else ""
 
@@ -698,6 +679,8 @@ def generate_history_section(
         report_base = f"/runs/missing-table/prod/{date_str}/{run.run_id}"
         if run.workflow == "journey":
             report_links = f'<a href="{report_base}/journey/" title="Journey Allure Report">🎯</a>'
+        elif run.workflow == "contract":
+            report_links = f'<a href="{report_base}/contract/" title="Contract Allure Report">🎯</a>'
         else:
             report_links = (
                 f'<a href="{report_base}/allure/" title="Backend Allure Report">🎯</a> '
@@ -706,16 +689,11 @@ def generate_history_section(
                 f'<a href="{report_base}/frontend-unit/" title="Frontend Coverage">📈</a>'
             )
 
-        # Build suite columns
-        suite_cells = ""
-        if show_backend:
-            suite_cells += suite_cell(backend)
-        if show_frontend:
-            suite_cells += suite_cell(frontend)
-        if show_journey:
-            suite_cells += suite_cell(journey)
-        if show_contract:
-            suite_cells += suite_cell(contract)
+        # Type badge
+        type_badge = generate_type_badge(run.workflow)
+
+        # Build all 4 suite columns
+        suite_cells = suite_cell(backend) + suite_cell(frontend) + suite_cell(journey) + suite_cell(contract)
 
         # Build info cell
         version_display = run.version if run.version else "-"
@@ -729,6 +707,7 @@ def generate_history_section(
           <td>{timestamp_display}</td>
           <td class="build-cell">{build_cell}</td>
           <td><code><a href="{config.repo_url}/commit/{run.commit_sha}" target="_blank">{commit_short}</a></code></td>
+          <td>{type_badge}</td>
           {suite_cells}
           <td>{passed}/{total}</td>
           <td class="report-links">{report_links}</td>
@@ -737,20 +716,9 @@ def generate_history_section(
 
     rows_html = "\n".join(rows)
 
-    # Build header columns
-    header_cols = ""
-    if show_backend:
-        header_cols += "<th>Backend</th>"
-    if show_frontend:
-        header_cols += "<th>Frontend</th>"
-    if show_journey:
-        header_cols += "<th>Journey</th>"
-    if show_contract:
-        header_cols += "<th>Contract</th>"
-
     return f'''
     <div class="history-section" id="{section_id}-section">
-      <h2>{section_title} (Last {len(filtered_runs)} Runs)</h2>
+      <h2>Quality History (Last {len(all_runs)} Runs)</h2>
       <div class="compare-controls">
         <button id="{section_id}-compare-btn" class="compare-button" disabled onclick="compareSelectedRuns('{section_id}')">
           Select 2 runs to compare
@@ -767,7 +735,11 @@ def generate_history_section(
               <th>Date</th>
               <th>Build</th>
               <th>Commit</th>
-              {header_cols}
+              <th>Type</th>
+              <th>Backend</th>
+              <th>Frontend</th>
+              <th>Journey</th>
+              <th>Contract</th>
               <th>Total</th>
               <th>Reports</th>
               <th>Status</th>
@@ -920,16 +892,8 @@ def generate_dashboard_html(
     suite_cards = "\n".join(generate_test_suite_card(m) for m in metrics_list)
     report_links = generate_report_links(metrics_list)
 
-    # Generate separate history sections for each workflow
-    unit_history = generate_history_section(
-        history, comparison, config,
-        workflow_filter="unit", section_id="unit-history"
-    )
-    journey_history = generate_history_section(
-        history, None, config,  # No comparison banner for journey
-        workflow_filter="journey", section_id="journey-history"
-    )
-    history_section = unit_history + journey_history
+    # Generate unified history section showing all workflow types
+    history_section = generate_history_section(history, comparison, config)
 
     diff_section = generate_diff_section(comparison)
 
@@ -1093,6 +1057,21 @@ def generate_dashboard_html(
     .suite-cell.passed {{ color: #22863a; }}
     .suite-cell.failed {{ color: #cb2431; }}
     .suite-cell.na {{ color: #9ca3af; }}
+
+    /* Type badges */
+    .type-badge {{
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      white-space: nowrap;
+    }}
+    .type-unit {{ background: #dbeafe; color: #1d4ed8; }}
+    .type-journey {{ background: #dcfce7; color: #15803d; }}
+    .type-contract {{ background: #f3e8ff; color: #7e22ce; }}
 
     /* Comparison banner */
     .comparison-banner {{
