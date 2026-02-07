@@ -30,7 +30,7 @@ def filter_completed_matches(matches: list[dict]) -> list[dict]:
         match_status = match.get("match_status")
         if match_status:
             # Use match_status field if available
-            if match_status == "completed":
+            if match_status in ("completed", "forfeit"):
                 played_matches.append(match)
         else:
             # Fallback to date-based logic for backwards compatibility

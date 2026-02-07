@@ -256,9 +256,15 @@ CREATE TYPE match_status AS ENUM (
     'postponed',
     'cancelled',
     'tbd',
-    'live'
+    'live',
+    'forfeit'
 );
 ```
+
+**Forfeit Support:**
+- `forfeit_team_id` (nullable FK → `teams.id`) — set when `match_status = 'forfeit'`
+- CHECK constraint enforces: `forfeit_team_id` must be NULL unless status is `'forfeit'`, and when status is `'forfeit'` it must reference one of `home_team_id` or `away_team_id`
+- Forfeiting team gets score 0, non-forfeiting team gets score 3
 
 **Important Notes:**
 - `match_id` - External match identifier (used by match-scraper)

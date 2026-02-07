@@ -54,3 +54,10 @@ class AdvanceWinnerRequest(BaseModel):
     """Request to advance the winner of a completed bracket slot."""
 
     slot_id: int
+
+
+class ForfeitMatchRequest(BaseModel):
+    """Request to declare a forfeit on a playoff match."""
+
+    slot_id: int
+    forfeit_team_id: int

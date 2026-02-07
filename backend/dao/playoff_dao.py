@@ -375,7 +375,7 @@ class PlayoffDAO(BaseDAO):
         match = slot.get("match")
         if not match:
             raise ValueError(f"Slot {slot_id} has no linked match")
-        if match.get("match_status") != "completed":
+        if match.get("match_status") not in ("completed", "forfeit"):
             raise ValueError(f"Match for slot {slot_id} is not completed")
         if match["home_score"] is None or match["away_score"] is None:
             raise ValueError(f"Match for slot {slot_id} has no scores")
@@ -425,7 +425,7 @@ class PlayoffDAO(BaseDAO):
             )
             if other_slot_response.data:
                 other_match = other_slot_response.data[0].get("match")
-                if other_match and other_match.get("match_status") == "completed":
+                if other_match and other_match.get("match_status") in ("completed", "forfeit"):
                     if (
                         other_match["home_score"] is not None
                         and other_match["away_score"] is not None
@@ -491,6 +491,87 @@ class PlayoffDAO(BaseDAO):
             .execute()
         )
         return updated.data[0] if updated.data else None
+
+    # === Forfeit ===
+
+    @invalidates_cache(PLAYOFF_CACHE_PATTERN, MATCHES_CACHE_PATTERN)
+    def forfeit_match(self, slot_id: int, forfeit_team_id: int) -> dict | None:
+        """Declare a forfeit on a playoff match.
+
+        The forfeiting team loses 0-3, the match is marked as 'forfeit',
+        and the winning team automatically advances in the bracket.
+
+        Args:
+            slot_id: The bracket slot ID
+            forfeit_team_id: The team ID that is forfeiting
+
+        Returns:
+            The updated next-round slot dict from advance_winner, or None if final
+
+        Raises:
+            ValueError: If match not found, wrong status, or team not a participant
+        """
+        # Get the bracket slot with linked match
+        slot_response = (
+            self.client.table("playoff_bracket_slots")
+            .select(
+                "*, match:matches(id, home_team_id, away_team_id, "
+                "home_score, away_score, match_status)"
+            )
+            .eq("id", slot_id)
+            .execute()
+        )
+        if not slot_response.data:
+            raise ValueError(f"Slot {slot_id} not found")
+
+        slot = slot_response.data[0]
+        match = slot.get("match")
+        if not match:
+            raise ValueError(f"Slot {slot_id} has no linked match")
+        if match.get("match_status") not in ("scheduled", "live"):
+            raise ValueError(
+                f"Match for slot {slot_id} cannot be forfeited "
+                f"(status: {match.get('match_status')})"
+            )
+
+        home_team_id = match["home_team_id"]
+        away_team_id = match["away_team_id"]
+
+        if forfeit_team_id not in (home_team_id, away_team_id):
+            raise ValueError(
+                f"Team {forfeit_team_id} is not a participant in this match"
+            )
+
+        # Set scores: non-forfeiting team gets 3, forfeiting team gets 0
+        if forfeit_team_id == home_team_id:
+            home_score = 0
+            away_score = 3
+        else:
+            home_score = 3
+            away_score = 0
+
+        # Update the match
+        self.client.table("matches").update(
+            {
+                "match_status": "forfeit",
+                "home_score": home_score,
+                "away_score": away_score,
+                "forfeit_team_id": forfeit_team_id,
+            }
+        ).eq("id", match["id"]).execute()
+
+        logger.info(
+            "playoff_match_forfeited",
+            slot_id=slot_id,
+            match_id=match["id"],
+            forfeit_team_id=forfeit_team_id,
+        )
+
+        # Advance the winner to the next round (reuse existing logic)
+        if slot["round"] != "final":
+            return self.advance_winner(slot_id)
+
+        return None
 
     # === Bracket Deletion ===
 
