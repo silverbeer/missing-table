@@ -218,12 +218,12 @@
               class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900"
             >
               <div class="flex items-center">
-                <span
-                  v-if="player.jersey_number"
-                  class="text-gray-400 text-xs mr-2"
+                <span class="font-semibold text-base"
                   >#{{ player.jersey_number }}</span
                 >
-                <span>{{ formatPlayerName(player) }}</span>
+                <span v-if="hasPlayerName(player)" class="ml-2">{{
+                  formatPlayerName(player)
+                }}</span>
               </div>
             </td>
             <td
@@ -376,11 +376,15 @@ export default {
       return `${startYear}-${endYear}`;
     };
 
+    const hasPlayerName = player => {
+      return !!(player.first_name || player.last_name);
+    };
+
     const formatPlayerName = player => {
       if (player.first_name && player.last_name) {
         return `${player.first_name} ${player.last_name}`;
       }
-      return player.first_name || player.last_name || 'Unknown Player';
+      return player.first_name || player.last_name || '';
     };
 
     const fetchLeaderboardData = async () => {
@@ -482,6 +486,7 @@ export default {
       selectedSeasonId,
       selectedMatchTypeId,
       formatSeasonDates,
+      hasPlayerName,
       formatPlayerName,
       error,
       loading,

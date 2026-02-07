@@ -32,20 +32,22 @@ class MatchEventDAO(BaseDAO):
         player_id: int | None = None,
         match_minute: int | None = None,
         extra_time: int | None = None,
+        player_out_id: int | None = None,
     ) -> dict | None:
         """Create a new match event.
 
         Args:
             match_id: The match this event belongs to
-            event_type: Type of event ('goal', 'message', 'status_change')
+            event_type: Type of event ('goal', 'message', 'status_change', 'substitution')
             message: Event message/description
             created_by: UUID of user who created the event
             created_by_username: Username of creator (denormalized for display)
-            team_id: Team ID (for goal events)
+            team_id: Team ID (for goal/substitution events)
             player_name: Player name (for goal events)
-            player_id: Player ID from roster (for goal events)
+            player_id: Player ID from roster (for goal events, player coming on for subs)
             match_minute: Minute when event occurred (e.g., 22 for 22nd minute)
             extra_time: Stoppage/injury time minutes (e.g., 5 for 90+5)
+            player_out_id: Player ID being substituted off (for substitution events)
 
         Returns:
             Created event record or None on error
@@ -59,7 +61,7 @@ class MatchEventDAO(BaseDAO):
                 "created_by_username": created_by_username,
             }
 
-            # Add optional fields for goal events
+            # Add optional fields for goal/substitution events
             if team_id is not None:
                 data["team_id"] = team_id
             if player_name is not None:
@@ -70,6 +72,8 @@ class MatchEventDAO(BaseDAO):
                 data["match_minute"] = match_minute
             if extra_time is not None:
                 data["extra_time"] = extra_time
+            if player_out_id is not None:
+                data["player_out_id"] = player_out_id
 
             response = self.client.table("match_events").insert(data).execute()
 
