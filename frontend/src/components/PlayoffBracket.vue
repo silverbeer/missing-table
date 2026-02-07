@@ -73,23 +73,66 @@
                       }}</span>
                     </span>
                     <!-- Edit date/time inline -->
-                    <div v-else class="edit-datetime">
-                      <input
-                        type="date"
-                        v-model="editDate"
-                        class="date-input"
-                      />
-                      <input
-                        type="time"
-                        v-model="editTime"
-                        class="time-input"
-                      />
-                      <button @click="saveDateTime(s)" class="save-btn">
-                        Save
-                      </button>
-                      <button @click="cancelEdit" class="cancel-btn">
-                        Cancel
-                      </button>
+                    <div v-else class="edit-panel">
+                      <div class="edit-datetime">
+                        <input
+                          type="date"
+                          v-model="editDate"
+                          class="date-input"
+                        />
+                        <input
+                          type="time"
+                          v-model="editTime"
+                          class="time-input"
+                        />
+                        <button @click="saveDateTime(s)" class="save-btn">
+                          Save
+                        </button>
+                        <button @click="cancelEdit" class="cancel-btn">
+                          Cancel
+                        </button>
+                      </div>
+                      <!-- Forfeit option (inside edit panel) -->
+                      <div
+                        v-if="canForfeitSlot(s) && forfeitSlotId !== s.id"
+                        class="forfeit-link-row"
+                      >
+                        <button @click="startForfeit(s)" class="forfeit-link">
+                          Declare Forfeit...
+                        </button>
+                      </div>
+                      <!-- Forfeit dialog (expands below) -->
+                      <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
+                        <p class="forfeit-prompt">Which team is forfeiting?</p>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.home_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.home_team_name }}
+                        </label>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.away_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.away_team_name }}
+                        </label>
+                        <div class="forfeit-actions">
+                          <button
+                            @click="confirmForfeit(s)"
+                            class="forfeit-confirm-btn"
+                            :disabled="!forfeitTeamId"
+                          >
+                            Confirm Forfeit
+                          </button>
+                          <button @click="cancelForfeit" class="cancel-btn">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <!-- Edit controls for managers -->
@@ -112,46 +155,6 @@
                     >
                       ➡️ Advance
                     </button>
-                    <button
-                      v-if="canForfeitSlot(s)"
-                      @click="startForfeit(s)"
-                      class="forfeit-btn"
-                      title="Declare forfeit"
-                    >
-                      Forfeit
-                    </button>
-                  </div>
-                  <!-- Forfeit dialog -->
-                  <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
-                    <p class="forfeit-prompt">Which team is forfeiting?</p>
-                    <label class="forfeit-radio">
-                      <input
-                        type="radio"
-                        :value="s.home_team_id"
-                        v-model="forfeitTeamId"
-                      />
-                      {{ s.home_team_name }}
-                    </label>
-                    <label class="forfeit-radio">
-                      <input
-                        type="radio"
-                        :value="s.away_team_id"
-                        v-model="forfeitTeamId"
-                      />
-                      {{ s.away_team_name }}
-                    </label>
-                    <div class="forfeit-actions">
-                      <button
-                        @click="confirmForfeit(s)"
-                        class="forfeit-confirm-btn"
-                        :disabled="!forfeitTeamId"
-                      >
-                        Confirm
-                      </button>
-                      <button @click="cancelForfeit" class="cancel-btn">
-                        Cancel
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -222,23 +225,66 @@
                       }}</span>
                     </span>
                     <!-- Edit date/time inline -->
-                    <div v-else class="edit-datetime">
-                      <input
-                        type="date"
-                        v-model="editDate"
-                        class="date-input"
-                      />
-                      <input
-                        type="time"
-                        v-model="editTime"
-                        class="time-input"
-                      />
-                      <button @click="saveDateTime(s)" class="save-btn">
-                        Save
-                      </button>
-                      <button @click="cancelEdit" class="cancel-btn">
-                        Cancel
-                      </button>
+                    <div v-else class="edit-panel">
+                      <div class="edit-datetime">
+                        <input
+                          type="date"
+                          v-model="editDate"
+                          class="date-input"
+                        />
+                        <input
+                          type="time"
+                          v-model="editTime"
+                          class="time-input"
+                        />
+                        <button @click="saveDateTime(s)" class="save-btn">
+                          Save
+                        </button>
+                        <button @click="cancelEdit" class="cancel-btn">
+                          Cancel
+                        </button>
+                      </div>
+                      <!-- Forfeit option (inside edit panel) -->
+                      <div
+                        v-if="canForfeitSlot(s) && forfeitSlotId !== s.id"
+                        class="forfeit-link-row"
+                      >
+                        <button @click="startForfeit(s)" class="forfeit-link">
+                          Declare Forfeit...
+                        </button>
+                      </div>
+                      <!-- Forfeit dialog (expands below) -->
+                      <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
+                        <p class="forfeit-prompt">Which team is forfeiting?</p>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.home_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.home_team_name }}
+                        </label>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.away_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.away_team_name }}
+                        </label>
+                        <div class="forfeit-actions">
+                          <button
+                            @click="confirmForfeit(s)"
+                            class="forfeit-confirm-btn"
+                            :disabled="!forfeitTeamId"
+                          >
+                            Confirm Forfeit
+                          </button>
+                          <button @click="cancelForfeit" class="cancel-btn">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <!-- Edit controls for managers -->
@@ -261,46 +307,6 @@
                     >
                       ➡️ Advance
                     </button>
-                    <button
-                      v-if="canForfeitSlot(s)"
-                      @click="startForfeit(s)"
-                      class="forfeit-btn"
-                      title="Declare forfeit"
-                    >
-                      Forfeit
-                    </button>
-                  </div>
-                  <!-- Forfeit dialog -->
-                  <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
-                    <p class="forfeit-prompt">Which team is forfeiting?</p>
-                    <label class="forfeit-radio">
-                      <input
-                        type="radio"
-                        :value="s.home_team_id"
-                        v-model="forfeitTeamId"
-                      />
-                      {{ s.home_team_name }}
-                    </label>
-                    <label class="forfeit-radio">
-                      <input
-                        type="radio"
-                        :value="s.away_team_id"
-                        v-model="forfeitTeamId"
-                      />
-                      {{ s.away_team_name }}
-                    </label>
-                    <div class="forfeit-actions">
-                      <button
-                        @click="confirmForfeit(s)"
-                        class="forfeit-confirm-btn"
-                        :disabled="!forfeitTeamId"
-                      >
-                        Confirm
-                      </button>
-                      <button @click="cancelForfeit" class="cancel-btn">
-                        Cancel
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -364,23 +370,66 @@
                       }}</span>
                     </span>
                     <!-- Edit date/time inline -->
-                    <div v-else class="edit-datetime">
-                      <input
-                        type="date"
-                        v-model="editDate"
-                        class="date-input"
-                      />
-                      <input
-                        type="time"
-                        v-model="editTime"
-                        class="time-input"
-                      />
-                      <button @click="saveDateTime(s)" class="save-btn">
-                        Save
-                      </button>
-                      <button @click="cancelEdit" class="cancel-btn">
-                        Cancel
-                      </button>
+                    <div v-else class="edit-panel">
+                      <div class="edit-datetime">
+                        <input
+                          type="date"
+                          v-model="editDate"
+                          class="date-input"
+                        />
+                        <input
+                          type="time"
+                          v-model="editTime"
+                          class="time-input"
+                        />
+                        <button @click="saveDateTime(s)" class="save-btn">
+                          Save
+                        </button>
+                        <button @click="cancelEdit" class="cancel-btn">
+                          Cancel
+                        </button>
+                      </div>
+                      <!-- Forfeit option (inside edit panel) -->
+                      <div
+                        v-if="canForfeitSlot(s) && forfeitSlotId !== s.id"
+                        class="forfeit-link-row"
+                      >
+                        <button @click="startForfeit(s)" class="forfeit-link">
+                          Declare Forfeit...
+                        </button>
+                      </div>
+                      <!-- Forfeit dialog (expands below) -->
+                      <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
+                        <p class="forfeit-prompt">Which team is forfeiting?</p>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.home_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.home_team_name }}
+                        </label>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.away_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.away_team_name }}
+                        </label>
+                        <div class="forfeit-actions">
+                          <button
+                            @click="confirmForfeit(s)"
+                            class="forfeit-confirm-btn"
+                            :disabled="!forfeitTeamId"
+                          >
+                            Confirm Forfeit
+                          </button>
+                          <button @click="cancelForfeit" class="cancel-btn">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <!-- Edit controls for managers (no advance for final) -->
@@ -395,46 +444,6 @@
                     >
                       ✏️
                     </button>
-                    <button
-                      v-if="canForfeitSlot(s)"
-                      @click="startForfeit(s)"
-                      class="forfeit-btn"
-                      title="Declare forfeit"
-                    >
-                      Forfeit
-                    </button>
-                  </div>
-                  <!-- Forfeit dialog -->
-                  <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
-                    <p class="forfeit-prompt">Which team is forfeiting?</p>
-                    <label class="forfeit-radio">
-                      <input
-                        type="radio"
-                        :value="s.home_team_id"
-                        v-model="forfeitTeamId"
-                      />
-                      {{ s.home_team_name }}
-                    </label>
-                    <label class="forfeit-radio">
-                      <input
-                        type="radio"
-                        :value="s.away_team_id"
-                        v-model="forfeitTeamId"
-                      />
-                      {{ s.away_team_name }}
-                    </label>
-                    <div class="forfeit-actions">
-                      <button
-                        @click="confirmForfeit(s)"
-                        class="forfeit-confirm-btn"
-                        :disabled="!forfeitTeamId"
-                      >
-                        Confirm
-                      </button>
-                      <button @click="cancelForfeit" class="cancel-btn">
-                        Cancel
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -612,6 +621,8 @@ export default {
       editingSlotId.value = null;
       editDate.value = '';
       editTime.value = '';
+      forfeitSlotId.value = null;
+      forfeitTeamId.value = null;
     };
 
     const saveDateTime = async slot => {
@@ -981,19 +992,31 @@ export default {
   background: #bfdbfe;
 }
 
-.forfeit-btn {
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-  border: 1px solid #fdba74;
-  background: #fff7ed;
-  color: #c2410c;
-  cursor: pointer;
-  font-size: 0.625rem;
-  transition: background-color 0.15s;
+/* Edit panel wrapper */
+.edit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.forfeit-btn:hover {
-  background: #fed7aa;
+.forfeit-link-row {
+  margin-top: 0.125rem;
+}
+
+.forfeit-link {
+  background: none;
+  border: none;
+  color: #c2410c;
+  cursor: pointer;
+  font-size: 0.5625rem;
+  padding: 0;
+  text-decoration: underline;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.forfeit-link:hover {
+  opacity: 1;
 }
 
 /* Forfeit dialog */
