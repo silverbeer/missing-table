@@ -253,7 +253,6 @@ class PlayerStatsDAO(BaseDAO):
                     )
                 """)
                 .eq("match.season_id", season_id)
-                .eq("match.match_status", "completed")
             )
 
             # Apply optional filters
@@ -266,15 +265,28 @@ class PlayerStatsDAO(BaseDAO):
             stats = response.data or []
 
             # Filter in Python since PostgREST nested filters on !inner joins are unreliable
+            # Include completed and forfeit matches (forfeit matches can have real goals)
+            stats = [
+                s for s in stats
+                if s.get("match", {}).get("match_status") in ("completed", "forfeit")
+            ]
             if match_type_id is not None:
                 stats = [
                     s for s in stats
                     if s.get("match", {}).get("match_type_id") == match_type_id
                 ]
             if league_id is not None:
+                # For matches with a division, check division.league_id directly.
+                # For playoff matches (division_id is null), check if the player's
+                # team plays in this league by looking at their divisional matches.
+                league_team_ids = self._get_league_team_ids(league_id, season_id)
                 stats = [
                     s for s in stats
-                    if s.get("match", {}).get("division", {}).get("league_id") == league_id
+                    if (s.get("match", {}).get("division") or {}).get("league_id") == league_id
+                    or (
+                        s.get("match", {}).get("division") is None
+                        and s.get("player", {}).get("team_id") in league_team_ids
+                    )
                 ]
 
             # Aggregate by player
@@ -315,17 +327,169 @@ class PlayerStatsDAO(BaseDAO):
 
             return result[:limit]
 
-        except Exception as e:
-            logger.error(
+        except Exception:
+            logger.exception(
                 "stats_goals_leaderboard_error",
                 season_id=season_id,
                 league_id=league_id,
                 division_id=division_id,
                 age_group_id=age_group_id,
                 match_type_id=match_type_id,
+            )
+            raise
+
+    def _get_league_team_ids(self, league_id: int, season_id: int) -> set[int]:
+        """Get team IDs that participate in a league via their divisional matches.
+
+        Used to attribute playoff goals (which have no division) to the correct league.
+        """
+        try:
+            # Get divisions belonging to this league
+            div_response = (
+                self.client.table("divisions")
+                .select("id")
+                .eq("league_id", league_id)
+                .execute()
+            )
+            division_ids = [d["id"] for d in (div_response.data or [])]
+            if not division_ids:
+                return set()
+
+            # Get teams that have matches in those divisions for this season
+            matches_response = (
+                self.client.table("matches")
+                .select("home_team_id, away_team_id")
+                .eq("season_id", season_id)
+                .in_("division_id", division_ids)
+                .execute()
+            )
+            team_ids = set()
+            for m in matches_response.data or []:
+                team_ids.add(m["home_team_id"])
+                team_ids.add(m["away_team_id"])
+            return team_ids
+
+        except Exception:
+            logger.exception("stats_get_league_team_ids_error", league_id=league_id)
+            return set()
+
+    def get_team_match_stats(self, match_id: int, team_id: int) -> list[dict]:
+        """
+        Get player stats for a specific team in a match, joined with player info.
+
+        Args:
+            match_id: Match ID
+            team_id: Team ID
+
+        Returns:
+            List of player stats dicts with player details
+        """
+        try:
+            # Get all players on this team for the match's season
+            # First get the match to find the season
+            match_response = (
+                self.client.table("matches")
+                .select("season_id")
+                .eq("id", match_id)
+                .single()
+                .execute()
+            )
+            if not match_response.data:
+                return []
+
+            season_id = match_response.data["season_id"]
+
+            # Get all players on the team for this season
+            players_response = (
+                self.client.table("players")
+                .select("id, jersey_number, first_name, last_name")
+                .eq("team_id", team_id)
+                .eq("season_id", season_id)
+                .eq("is_active", True)
+                .order("jersey_number")
+                .execute()
+            )
+
+            players = players_response.data or []
+
+            # Get existing stats for these players in this match
+            player_ids = [p["id"] for p in players]
+            if not player_ids:
+                return []
+
+            stats_response = (
+                self.client.table("player_match_stats")
+                .select("*")
+                .eq("match_id", match_id)
+                .in_("player_id", player_ids)
+                .execute()
+            )
+
+            stats_by_player = {s["player_id"]: s for s in (stats_response.data or [])}
+
+            # Merge player info with stats
+            result = []
+            for player in players:
+                stats = stats_by_player.get(player["id"], {})
+                result.append({
+                    "player_id": player["id"],
+                    "jersey_number": player["jersey_number"],
+                    "first_name": player.get("first_name"),
+                    "last_name": player.get("last_name"),
+                    "started": stats.get("started", False),
+                    "minutes_played": stats.get("minutes_played", 0),
+                    "goals": stats.get("goals", 0),
+                })
+
+            return result
+
+        except Exception as e:
+            logger.error(
+                "stats_team_match_error",
+                match_id=match_id,
+                team_id=team_id,
                 error=str(e),
             )
             return []
+
+    @invalidates_cache(STATS_CACHE_PATTERN)
+    def batch_update_stats(self, match_id: int, player_stats: list[dict]) -> bool:
+        """
+        Batch upsert started/minutes_played for multiple players in a match.
+
+        Args:
+            match_id: Match ID
+            player_stats: List of dicts with player_id, started, minutes_played
+
+        Returns:
+            True if successful
+        """
+        try:
+            for entry in player_stats:
+                player_id = entry["player_id"]
+                # Ensure record exists
+                self.get_or_create_match_stats(player_id, match_id)
+
+                # Update started and minutes
+                self.client.table("player_match_stats").update({
+                    "started": entry["started"],
+                    "minutes_played": entry["minutes_played"],
+                }).eq("player_id", player_id).eq("match_id", match_id).execute()
+
+            logger.info(
+                "stats_batch_updated",
+                match_id=match_id,
+                player_count=len(player_stats),
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                "stats_batch_update_error",
+                match_id=match_id,
+                error=str(e),
+            )
+            return False
 
     # === Update Operations ===
 

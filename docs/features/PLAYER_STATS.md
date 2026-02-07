@@ -139,7 +139,23 @@ Create a roster management system with player statistics tracking. Players can e
   - [ ] Roster with stats columns
   - [ ] Sort by different stats
 
-### Phase 8: Testing & Polish
+### Phase 8: Post-Match Stats Editor
+
+- [x] Database migration: Add `substitution` event type and `player_out_id` column to `match_events`
+- [x] Backend models: `PostMatchGoal`, `PostMatchSubstitution`, `PlayerStatEntry`, `BatchPlayerStatsUpdate`
+- [x] DAO additions: `get_team_match_stats()`, `batch_update_stats()`, `player_out_id` in `create_event()`
+- [x] API endpoints:
+  - [x] `POST /api/matches/{id}/post-match/goal` - Record goal event
+  - [x] `DELETE /api/matches/{id}/post-match/goal/{event_id}` - Remove goal
+  - [x] `POST /api/matches/{id}/post-match/substitution` - Record substitution
+  - [x] `DELETE /api/matches/{id}/post-match/substitution/{event_id}` - Remove substitution
+  - [x] `GET /api/matches/{id}/post-match/stats/{team_id}` - Get player stats
+  - [x] `PUT /api/matches/{id}/post-match/stats/{team_id}` - Batch update stats
+- [x] Frontend composable: `usePostMatchStats.js`
+- [x] Frontend components: `PostMatchEditor.vue`, `TeamStatsPanel.vue`
+- [x] Integration: Added to `MatchDetailView.vue` for completed matches
+
+### Phase 9: Testing & Polish
 
 - [ ] End-to-end test: Create roster → Send invite → Accept → Link verified
 - [ ] End-to-end test: Live game → Score goal → Stats updated
@@ -241,6 +257,15 @@ def bulk_renumber(team_id, season_id, changes):
 | `frontend/src/components/admin/AdminInvites.vue` | Modified | Add jersey number input for team_player invites |
 | `backend/api/invites.py` | Modified | Accept jersey_number in invite creation |
 | `backend/dao/roster_dao.py` | Modified | Add get_player_by_user_profile_id() method |
+| `supabase-local/migrations/20260208000000_add_substitution_event_type.sql` | New | Add substitution event type and player_out_id |
+| `backend/models/post_match.py` | New | Post-match stats Pydantic models |
+| `backend/dao/match_event_dao.py` | Modified | Add player_out_id parameter |
+| `backend/dao/player_stats_dao.py` | Modified | Add get_team_match_stats(), batch_update_stats() |
+| `backend/app.py` | Modified | Post-match goal, substitution, stats endpoints |
+| `frontend/src/composables/usePostMatchStats.js` | New | Post-match stats composable |
+| `frontend/src/components/PostMatchEditor.vue` | New | Post-match stats editor component |
+| `frontend/src/components/post-match/TeamStatsPanel.vue` | New | Team stats panel sub-component |
+| `frontend/src/components/MatchDetailView.vue` | Modified | Integrate PostMatchEditor for completed matches |
 
 ---
 
@@ -265,3 +290,4 @@ def bulk_renumber(team_id, season_id, changes):
 | 2026-01-20 | Phase 6 complete: Live game goal entry now uses roster dropdown with player_id tracking |
 | 2026-01-20 | Phase 7 complete: Individual player stats (Games Played, Games Started, Minutes, Goals) displayed in PlayerProfile.vue |
 | 2026-01-20 | Enhancement: Added jersey_number field to AdminInvites.vue - creates roster entry when invite is redeemed |
+| 2026-02-08 | Phase 8 complete: Post-match stats editor - goals, substitutions, and player stats for completed matches |

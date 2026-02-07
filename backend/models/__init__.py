@@ -62,6 +62,14 @@ from .playoffs import (
     PlayoffBracketSlot,
 )
 
+# Post-match stats models
+from .post_match import (
+    BatchPlayerStatsUpdate,
+    PlayerStatEntry,
+    PostMatchGoal,
+    PostMatchSubstitution,
+)
+
 # Roster models
 from .roster import (
     BulkRenumberRequest,
@@ -90,6 +98,7 @@ __all__ = [
     "AdvanceWinnerRequest",
     "AgeGroupCreate",
     "AgeGroupUpdate",
+    "BatchPlayerStatsUpdate",
     "BulkRenumberRequest",
     "BulkRosterCreate",
     "BulkRosterPlayer",
@@ -120,7 +129,10 @@ __all__ = [
     "PlayerCustomization",
     "PlayerHistoryCreate",
     "PlayerHistoryUpdate",
+    "PlayerStatEntry",
     "PlayoffBracketSlot",
+    "PostMatchGoal",
+    "PostMatchSubstitution",
     "ProfilePhotoSlot",
     "RefreshTokenRequest",
     "RenumberEntry",

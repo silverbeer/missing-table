@@ -27,6 +27,7 @@ from models import (
     AdvanceWinnerRequest,
     AgeGroupCreate,
     AgeGroupUpdate,
+    BatchPlayerStatsUpdate,
     BulkRenumberRequest,
     BulkRosterCreate,
     Club,
@@ -47,6 +48,8 @@ from models import (
     PlayerCustomization,
     PlayerHistoryCreate,
     PlayerHistoryUpdate,
+    PostMatchGoal,
+    PostMatchSubstitution,
     ProfilePhotoSlot,
     RefreshTokenRequest,
     RoleUpdate,
@@ -2481,6 +2484,12 @@ async def update_match_clock(
             created_by_username=current_user.get("username"),
         )
 
+        # When a match ends, invalidate stats cache so leaderboard picks up new goals
+        if clock.action == "end_match":
+            from dao.base_dao import clear_cache
+
+            clear_cache("mt:dao:stats:*")
+
         return result
     except HTTPException:
         raise
@@ -2768,6 +2777,359 @@ async def save_lineup(
         raise
     except Exception as e:
         logger.error(f"Error saving lineup: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# === Post-Match Stats Endpoints ===
+
+
+def validate_post_match_access(
+    user: dict[str, Any], match: dict, team_id: int
+) -> None:
+    """Validate user has access to edit post-match stats for a team.
+
+    Checks:
+    - Match is completed
+    - User can edit the match
+    - Team is a participant in the match
+
+    Raises HTTPException on failure.
+    """
+    if match.get("match_status") != "completed":
+        raise HTTPException(status_code=400, detail="Match must be completed to edit post-match stats")
+
+    if team_id not in [match["home_team_id"], match["away_team_id"]]:
+        raise HTTPException(status_code=400, detail="Team must be a participant in this match")
+
+    if not auth_manager.can_edit_match(user, match["home_team_id"], match["away_team_id"]):
+        raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+    # Team-scoped check: team managers can only edit their own team
+    role = user.get("role")
+    if role == "team-manager":
+        user_team_id = user.get("team_id")
+        if user_team_id != team_id:
+            raise HTTPException(status_code=403, detail="Team managers can only edit stats for their own team")
+
+
+@app.post("/api/matches/{match_id}/post-match/goal")
+async def post_match_add_goal(
+    match_id: int,
+    goal: PostMatchGoal,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Record a goal for a completed match.
+
+    Creates a goal event and increments the player's goal count in player_match_stats.
+    Does NOT modify the match score (already set).
+    """
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        validate_post_match_access(current_user, current_match, goal.team_id)
+
+        # Validate player exists and is on the team
+        player = roster_dao.get_player_by_id(goal.player_id)
+        if not player:
+            raise HTTPException(status_code=400, detail="Player not found")
+        if player["team_id"] != goal.team_id:
+            raise HTTPException(status_code=400, detail="Player must be on the specified team")
+
+        player_name = player.get("display_name", f"#{player['jersey_number']}")
+        team_name = (
+            current_match.get("home_team_name")
+            if goal.team_id == current_match["home_team_id"]
+            else current_match.get("away_team_name")
+        )
+
+        goal_message = f"GOAL! {team_name} - {player_name}"
+        if goal.message:
+            goal_message += f" ({goal.message})"
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        event = match_event_dao.create_event(
+            match_id=match_id,
+            event_type="goal",
+            message=goal_message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+            team_id=goal.team_id,
+            player_name=player_name,
+            player_id=goal.player_id,
+            match_minute=goal.match_minute,
+            extra_time=goal.extra_time,
+        )
+
+        if not event:
+            raise HTTPException(status_code=500, detail="Failed to create goal event")
+
+        # Increment player goal stats
+        player_stats_dao.increment_goals(goal.player_id, match_id)
+
+        logger.info(
+            "post_match_goal_recorded",
+            match_id=match_id,
+            player_id=goal.player_id,
+            team_id=goal.team_id,
+            minute=goal.match_minute,
+        )
+
+        return event
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording post-match goal: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/matches/{match_id}/post-match/goal/{event_id}")
+async def post_match_remove_goal(
+    match_id: int,
+    event_id: int,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Remove a goal event from a completed match.
+
+    Soft-deletes the event and decrements the player's goal count.
+    """
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # Get the event to find team_id and player_id
+        event = match_event_dao.get_event_by_id(event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        if event.get("match_id") != match_id:
+            raise HTTPException(status_code=400, detail="Event does not belong to this match")
+        if event.get("event_type") != "goal":
+            raise HTTPException(status_code=400, detail="Event is not a goal")
+
+        team_id = event.get("team_id")
+        if team_id:
+            validate_post_match_access(current_user, current_match, team_id)
+        else:
+            # No team_id on the event; just check general match access
+            if not auth_manager.can_edit_match(
+                current_user, current_match["home_team_id"], current_match["away_team_id"]
+            ):
+                raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+        success = match_event_dao.soft_delete_event(event_id, deleted_by=user_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete goal event")
+
+        # Decrement player goal stats
+        player_id = event.get("player_id")
+        if player_id:
+            player_stats_dao.decrement_goals(player_id, match_id)
+
+        logger.info(
+            "post_match_goal_removed",
+            match_id=match_id,
+            event_id=event_id,
+            player_id=player_id,
+        )
+
+        return {"detail": "Goal removed"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing post-match goal: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/matches/{match_id}/post-match/substitution")
+async def post_match_add_substitution(
+    match_id: int,
+    sub: PostMatchSubstitution,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Record a substitution for a completed match."""
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        validate_post_match_access(current_user, current_match, sub.team_id)
+
+        # Validate both players exist and are on the team
+        player_in = roster_dao.get_player_by_id(sub.player_in_id)
+        if not player_in:
+            raise HTTPException(status_code=400, detail="Player coming on not found")
+        if player_in["team_id"] != sub.team_id:
+            raise HTTPException(status_code=400, detail="Player coming on must be on the specified team")
+
+        player_out = roster_dao.get_player_by_id(sub.player_out_id)
+        if not player_out:
+            raise HTTPException(status_code=400, detail="Player coming off not found")
+        if player_out["team_id"] != sub.team_id:
+            raise HTTPException(status_code=400, detail="Player coming off must be on the specified team")
+
+        player_in_name = player_in.get("display_name", f"#{player_in['jersey_number']}")
+        player_out_name = player_out.get("display_name", f"#{player_out['jersey_number']}")
+
+        sub_message = f"SUB: {player_in_name} on for {player_out_name}"
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        event = match_event_dao.create_event(
+            match_id=match_id,
+            event_type="substitution",
+            message=sub_message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+            team_id=sub.team_id,
+            player_id=sub.player_in_id,
+            player_out_id=sub.player_out_id,
+            match_minute=sub.match_minute,
+            extra_time=sub.extra_time,
+        )
+
+        if not event:
+            raise HTTPException(status_code=500, detail="Failed to create substitution event")
+
+        logger.info(
+            "post_match_substitution_recorded",
+            match_id=match_id,
+            player_in_id=sub.player_in_id,
+            player_out_id=sub.player_out_id,
+            minute=sub.match_minute,
+        )
+
+        return event
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording post-match substitution: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/matches/{match_id}/post-match/substitution/{event_id}")
+async def post_match_remove_substitution(
+    match_id: int,
+    event_id: int,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Remove a substitution event from a completed match."""
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        event = match_event_dao.get_event_by_id(event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        if event.get("match_id") != match_id:
+            raise HTTPException(status_code=400, detail="Event does not belong to this match")
+        if event.get("event_type") != "substitution":
+            raise HTTPException(status_code=400, detail="Event is not a substitution")
+
+        team_id = event.get("team_id")
+        if team_id:
+            validate_post_match_access(current_user, current_match, team_id)
+        else:
+            if not auth_manager.can_edit_match(
+                current_user, current_match["home_team_id"], current_match["away_team_id"]
+            ):
+                raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+        success = match_event_dao.soft_delete_event(event_id, deleted_by=user_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete substitution event")
+
+        logger.info(
+            "post_match_substitution_removed",
+            match_id=match_id,
+            event_id=event_id,
+        )
+
+        return {"detail": "Substitution removed"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing post-match substitution: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/matches/{match_id}/post-match/stats/{team_id}")
+async def post_match_get_stats(
+    match_id: int,
+    team_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Get player stats for a team in a completed match."""
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        if team_id not in [current_match["home_team_id"], current_match["away_team_id"]]:
+            raise HTTPException(status_code=400, detail="Team must be a participant in this match")
+
+        stats = player_stats_dao.get_team_match_stats(match_id, team_id)
+        return {"stats": stats}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting post-match stats: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.put("/api/matches/{match_id}/post-match/stats/{team_id}")
+async def post_match_update_stats(
+    match_id: int,
+    team_id: int,
+    batch: BatchPlayerStatsUpdate,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Batch update player stats (started, minutes_played) for a team in a completed match."""
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        validate_post_match_access(current_user, current_match, team_id)
+
+        player_stats = [
+            {
+                "player_id": entry.player_id,
+                "started": entry.started,
+                "minutes_played": entry.minutes_played,
+            }
+            for entry in batch.players
+        ]
+
+        success = player_stats_dao.batch_update_stats(match_id, player_stats)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update player stats")
+
+        logger.info(
+            "post_match_stats_updated",
+            match_id=match_id,
+            team_id=team_id,
+            player_count=len(batch.players),
+        )
+
+        # Return updated stats
+        stats = player_stats_dao.get_team_match_stats(match_id, team_id)
+        return {"stats": stats}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating post-match stats: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

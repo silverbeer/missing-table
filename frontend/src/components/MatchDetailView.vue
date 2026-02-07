@@ -468,6 +468,15 @@
         </div>
       </div>
 
+      <!-- Post-Match Stats Editor (completed matches, authorized users only) -->
+      <PostMatchEditor
+        v-if="canManageLineup && match.match_status === 'completed'"
+        :match-id="matchId"
+        :match="match"
+        :events="events"
+        @events-changed="fetchMatch"
+      />
+
       <!-- Screen reader description -->
       <span class="sr-only">
         {{ match.home_team_name }} {{ match.home_score ?? 'no score' }} versus
@@ -486,11 +495,13 @@ import { getApiBaseUrl } from '../config/api';
 import html2canvas from 'html2canvas';
 import { useMatchLineup } from '../composables/useMatchLineup';
 import LineupManager from './live/LineupManager.vue';
+import PostMatchEditor from './PostMatchEditor.vue';
 
 export default {
   name: 'MatchDetailView',
   components: {
     LineupManager,
+    PostMatchEditor,
   },
   props: {
     matchId: {
