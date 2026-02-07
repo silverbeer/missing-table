@@ -31,17 +31,34 @@
                 v-for="s in getSlotsByRound(tier.key, 'quarterfinal')"
                 :key="s.id"
                 class="matchup-card"
-                :class="{ completed: s.match_status === 'completed' }"
+                :class="{
+                  completed: s.match_status === 'completed',
+                  forfeit: s.match_status === 'forfeit',
+                }"
               >
                 <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
                   <span class="seed" v-if="s.home_seed">{{ s.home_seed }}</span>
                   <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
-                  <span class="score">{{ s.home_score ?? '' }}</span>
+                  <span class="score">
+                    {{ s.home_score ?? '' }}
+                    <span
+                      v-if="isForfeitTeam(s, 'home')"
+                      class="forfeit-indicator"
+                      >(F)</span
+                    >
+                  </span>
                 </div>
                 <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
                   <span class="seed" v-if="s.away_seed">{{ s.away_seed }}</span>
                   <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
-                  <span class="score">{{ s.away_score ?? '' }}</span>
+                  <span class="score">
+                    {{ s.away_score ?? '' }}
+                    <span
+                      v-if="isForfeitTeam(s, 'away')"
+                      class="forfeit-indicator"
+                      >(F)</span
+                    >
+                  </span>
                 </div>
                 <!-- Match info and controls -->
                 <div v-if="s.match_id" class="match-info">
@@ -56,23 +73,66 @@
                       }}</span>
                     </span>
                     <!-- Edit date/time inline -->
-                    <div v-else class="edit-datetime">
-                      <input
-                        type="date"
-                        v-model="editDate"
-                        class="date-input"
-                      />
-                      <input
-                        type="time"
-                        v-model="editTime"
-                        class="time-input"
-                      />
-                      <button @click="saveDateTime(s)" class="save-btn">
-                        Save
-                      </button>
-                      <button @click="cancelEdit" class="cancel-btn">
-                        Cancel
-                      </button>
+                    <div v-else class="edit-panel">
+                      <div class="edit-datetime">
+                        <input
+                          type="date"
+                          v-model="editDate"
+                          class="date-input"
+                        />
+                        <input
+                          type="time"
+                          v-model="editTime"
+                          class="time-input"
+                        />
+                        <button @click="saveDateTime(s)" class="save-btn">
+                          Save
+                        </button>
+                        <button @click="cancelEdit" class="cancel-btn">
+                          Cancel
+                        </button>
+                      </div>
+                      <!-- Forfeit option (inside edit panel) -->
+                      <div
+                        v-if="canForfeitSlot(s) && forfeitSlotId !== s.id"
+                        class="forfeit-link-row"
+                      >
+                        <button @click="startForfeit(s)" class="forfeit-link">
+                          Declare Forfeit...
+                        </button>
+                      </div>
+                      <!-- Forfeit dialog (expands below) -->
+                      <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
+                        <p class="forfeit-prompt">Which team is forfeiting?</p>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.home_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.home_team_name }}
+                        </label>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.away_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.away_team_name }}
+                        </label>
+                        <div class="forfeit-actions">
+                          <button
+                            @click="confirmForfeit(s)"
+                            class="forfeit-confirm-btn"
+                            :disabled="!forfeitTeamId"
+                          >
+                            Confirm Forfeit
+                          </button>
+                          <button @click="cancelForfeit" class="cancel-btn">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <!-- Edit controls for managers -->
@@ -123,17 +183,34 @@
                 v-for="s in getSlotsByRound(tier.key, 'semifinal')"
                 :key="s.id"
                 class="matchup-card"
-                :class="{ completed: s.match_status === 'completed' }"
+                :class="{
+                  completed: s.match_status === 'completed',
+                  forfeit: s.match_status === 'forfeit',
+                }"
               >
                 <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
                   <span class="seed" v-if="s.home_seed">{{ s.home_seed }}</span>
                   <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
-                  <span class="score">{{ s.home_score ?? '' }}</span>
+                  <span class="score">
+                    {{ s.home_score ?? '' }}
+                    <span
+                      v-if="isForfeitTeam(s, 'home')"
+                      class="forfeit-indicator"
+                      >(F)</span
+                    >
+                  </span>
                 </div>
                 <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
                   <span class="seed" v-if="s.away_seed">{{ s.away_seed }}</span>
                   <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
-                  <span class="score">{{ s.away_score ?? '' }}</span>
+                  <span class="score">
+                    {{ s.away_score ?? '' }}
+                    <span
+                      v-if="isForfeitTeam(s, 'away')"
+                      class="forfeit-indicator"
+                      >(F)</span
+                    >
+                  </span>
                 </div>
                 <!-- Match info and controls -->
                 <div v-if="s.match_id" class="match-info">
@@ -148,23 +225,66 @@
                       }}</span>
                     </span>
                     <!-- Edit date/time inline -->
-                    <div v-else class="edit-datetime">
-                      <input
-                        type="date"
-                        v-model="editDate"
-                        class="date-input"
-                      />
-                      <input
-                        type="time"
-                        v-model="editTime"
-                        class="time-input"
-                      />
-                      <button @click="saveDateTime(s)" class="save-btn">
-                        Save
-                      </button>
-                      <button @click="cancelEdit" class="cancel-btn">
-                        Cancel
-                      </button>
+                    <div v-else class="edit-panel">
+                      <div class="edit-datetime">
+                        <input
+                          type="date"
+                          v-model="editDate"
+                          class="date-input"
+                        />
+                        <input
+                          type="time"
+                          v-model="editTime"
+                          class="time-input"
+                        />
+                        <button @click="saveDateTime(s)" class="save-btn">
+                          Save
+                        </button>
+                        <button @click="cancelEdit" class="cancel-btn">
+                          Cancel
+                        </button>
+                      </div>
+                      <!-- Forfeit option (inside edit panel) -->
+                      <div
+                        v-if="canForfeitSlot(s) && forfeitSlotId !== s.id"
+                        class="forfeit-link-row"
+                      >
+                        <button @click="startForfeit(s)" class="forfeit-link">
+                          Declare Forfeit...
+                        </button>
+                      </div>
+                      <!-- Forfeit dialog (expands below) -->
+                      <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
+                        <p class="forfeit-prompt">Which team is forfeiting?</p>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.home_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.home_team_name }}
+                        </label>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.away_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.away_team_name }}
+                        </label>
+                        <div class="forfeit-actions">
+                          <button
+                            @click="confirmForfeit(s)"
+                            class="forfeit-confirm-btn"
+                            :disabled="!forfeitTeamId"
+                          >
+                            Confirm Forfeit
+                          </button>
+                          <button @click="cancelForfeit" class="cancel-btn">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <!-- Edit controls for managers -->
@@ -210,15 +330,32 @@
                 v-for="s in getSlotsByRound(tier.key, 'final')"
                 :key="s.id"
                 class="matchup-card final-card"
-                :class="{ completed: s.match_status === 'completed' }"
+                :class="{
+                  completed: s.match_status === 'completed',
+                  forfeit: s.match_status === 'forfeit',
+                }"
               >
                 <div class="team-row" :class="{ winner: isWinner(s, 'home') }">
                   <span class="team-name">{{ s.home_team_name || 'TBD' }}</span>
-                  <span class="score">{{ s.home_score ?? '' }}</span>
+                  <span class="score">
+                    {{ s.home_score ?? '' }}
+                    <span
+                      v-if="isForfeitTeam(s, 'home')"
+                      class="forfeit-indicator"
+                      >(F)</span
+                    >
+                  </span>
                 </div>
                 <div class="team-row" :class="{ winner: isWinner(s, 'away') }">
                   <span class="team-name">{{ s.away_team_name || 'TBD' }}</span>
-                  <span class="score">{{ s.away_score ?? '' }}</span>
+                  <span class="score">
+                    {{ s.away_score ?? '' }}
+                    <span
+                      v-if="isForfeitTeam(s, 'away')"
+                      class="forfeit-indicator"
+                      >(F)</span
+                    >
+                  </span>
                 </div>
                 <!-- Match info and controls (no advance for final) -->
                 <div v-if="s.match_id" class="match-info">
@@ -233,23 +370,66 @@
                       }}</span>
                     </span>
                     <!-- Edit date/time inline -->
-                    <div v-else class="edit-datetime">
-                      <input
-                        type="date"
-                        v-model="editDate"
-                        class="date-input"
-                      />
-                      <input
-                        type="time"
-                        v-model="editTime"
-                        class="time-input"
-                      />
-                      <button @click="saveDateTime(s)" class="save-btn">
-                        Save
-                      </button>
-                      <button @click="cancelEdit" class="cancel-btn">
-                        Cancel
-                      </button>
+                    <div v-else class="edit-panel">
+                      <div class="edit-datetime">
+                        <input
+                          type="date"
+                          v-model="editDate"
+                          class="date-input"
+                        />
+                        <input
+                          type="time"
+                          v-model="editTime"
+                          class="time-input"
+                        />
+                        <button @click="saveDateTime(s)" class="save-btn">
+                          Save
+                        </button>
+                        <button @click="cancelEdit" class="cancel-btn">
+                          Cancel
+                        </button>
+                      </div>
+                      <!-- Forfeit option (inside edit panel) -->
+                      <div
+                        v-if="canForfeitSlot(s) && forfeitSlotId !== s.id"
+                        class="forfeit-link-row"
+                      >
+                        <button @click="startForfeit(s)" class="forfeit-link">
+                          Declare Forfeit...
+                        </button>
+                      </div>
+                      <!-- Forfeit dialog (expands below) -->
+                      <div v-if="forfeitSlotId === s.id" class="forfeit-dialog">
+                        <p class="forfeit-prompt">Which team is forfeiting?</p>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.home_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.home_team_name }}
+                        </label>
+                        <label class="forfeit-radio">
+                          <input
+                            type="radio"
+                            :value="s.away_team_id"
+                            v-model="forfeitTeamId"
+                          />
+                          {{ s.away_team_name }}
+                        </label>
+                        <div class="forfeit-actions">
+                          <button
+                            @click="confirmForfeit(s)"
+                            class="forfeit-confirm-btn"
+                            :disabled="!forfeitTeamId"
+                          >
+                            Confirm Forfeit
+                          </button>
+                          <button @click="cancelForfeit" class="cancel-btn">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <!-- Edit controls for managers (no advance for final) -->
@@ -298,6 +478,10 @@ export default {
     const editDate = ref('');
     const editTime = ref('');
 
+    // Forfeit state
+    const forfeitSlotId = ref(null);
+    const forfeitTeamId = ref(null);
+
     // Derive bracket tiers dynamically from bracket data
     const bracketTiers = computed(() => {
       const tierNames = [...new Set(bracket.value.map(s => s.bracket_tier))];
@@ -315,10 +499,18 @@ export default {
         .sort((a, b) => a.bracket_position - b.bracket_position);
 
     const isWinner = (s, side) => {
-      if (s.match_status !== 'completed') return false;
+      if (s.match_status !== 'completed' && s.match_status !== 'forfeit')
+        return false;
       if (s.home_score == null || s.away_score == null) return false;
       if (side === 'home') return s.home_score > s.away_score;
       return s.away_score > s.home_score;
+    };
+
+    const isForfeitTeam = (s, side) => {
+      if (s.match_status !== 'forfeit') return false;
+      // The forfeiting team is the one with score 0
+      if (side === 'home') return s.home_score === 0 && s.away_score === 3;
+      return s.away_score === 0 && s.home_score === 3;
     };
 
     // Authorization helpers
@@ -345,7 +537,8 @@ export default {
 
     const canAdvanceSlot = slot => {
       if (!canManageSlot(slot)) return false;
-      if (slot.match_status !== 'completed') return false;
+      if (slot.match_status !== 'completed' && slot.match_status !== 'forfeit')
+        return false;
       if (slot.round === 'final') return false;
       if (slot.home_score == null || slot.away_score == null) return false;
       if (slot.home_score === slot.away_score) return false; // Tied - admin must resolve
@@ -376,6 +569,14 @@ export default {
       }
 
       return false;
+    };
+
+    const canForfeitSlot = slot => {
+      if (!canManageSlot(slot)) return false;
+      if (slot.match_status !== 'scheduled' && slot.match_status !== 'live')
+        return false;
+      if (!slot.home_team_id || !slot.away_team_id) return false;
+      return true;
     };
 
     // Date/time formatting
@@ -420,6 +621,8 @@ export default {
       editingSlotId.value = null;
       editDate.value = '';
       editTime.value = '';
+      forfeitSlotId.value = null;
+      forfeitTeamId.value = null;
     };
 
     const saveDateTime = async slot => {
@@ -466,6 +669,38 @@ export default {
       }
     };
 
+    // Forfeit
+    const startForfeit = slot => {
+      forfeitSlotId.value = slot.id;
+      forfeitTeamId.value = null;
+    };
+
+    const cancelForfeit = () => {
+      forfeitSlotId.value = null;
+      forfeitTeamId.value = null;
+    };
+
+    const confirmForfeit = async slot => {
+      if (!forfeitTeamId.value) return;
+      try {
+        const endpoint = authStore.isAdmin.value
+          ? `${getApiBaseUrl()}/api/admin/playoffs/forfeit`
+          : `${getApiBaseUrl()}/api/playoffs/forfeit`;
+
+        await authStore.apiRequest(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({
+            slot_id: slot.id,
+            forfeit_team_id: forfeitTeamId.value,
+          }),
+        });
+        cancelForfeit();
+        await fetchBracket();
+      } catch (err) {
+        error.value = err.message || 'Failed to declare forfeit';
+      }
+    };
+
     const fetchBracket = async () => {
       if (!props.leagueId || !props.seasonId || !props.ageGroupId) return;
       try {
@@ -502,8 +737,10 @@ export default {
       bracketTiers,
       getSlotsByRound,
       isWinner,
+      isForfeitTeam,
       canManageSlot,
       canAdvanceSlot,
+      canForfeitSlot,
       formatDate,
       formatTime,
       editingSlotId,
@@ -513,6 +750,11 @@ export default {
       cancelEdit,
       saveDateTime,
       advanceWinner,
+      forfeitSlotId,
+      forfeitTeamId,
+      startForfeit,
+      cancelForfeit,
+      confirmForfeit,
     };
   },
 };
@@ -571,6 +813,10 @@ export default {
   border-color: #86efac;
 }
 
+.matchup-card.forfeit {
+  border-color: #fdba74;
+}
+
 .final-card {
   border-width: 2px;
   border-color: #fbbf24;
@@ -578,6 +824,10 @@ export default {
 
 .final-card.completed {
   border-color: #22c55e;
+}
+
+.final-card.forfeit {
+  border-color: #f97316;
 }
 
 .team-row {
@@ -618,6 +868,13 @@ export default {
   font-family: ui-monospace, monospace;
   font-weight: 600;
   margin-left: 0.5rem;
+}
+
+.forfeit-indicator {
+  color: #ea580c;
+  font-size: 0.625rem;
+  font-weight: 400;
+  margin-left: 0.125rem;
 }
 
 /* Spacing between matchup cards per round */
@@ -733,6 +990,84 @@ export default {
 
 .advance-btn:hover {
   background: #bfdbfe;
+}
+
+/* Edit panel wrapper */
+.edit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.forfeit-link-row {
+  margin-top: 0.125rem;
+}
+
+.forfeit-link {
+  background: none;
+  border: none;
+  color: #c2410c;
+  cursor: pointer;
+  font-size: 0.5625rem;
+  padding: 0;
+  text-decoration: underline;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.forfeit-link:hover {
+  opacity: 1;
+}
+
+/* Forfeit dialog */
+.forfeit-dialog {
+  margin-top: 0.375rem;
+  padding: 0.375rem;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 0.25rem;
+}
+
+.forfeit-prompt {
+  font-weight: 600;
+  color: #9a3412;
+  margin-bottom: 0.25rem;
+}
+
+.forfeit-radio {
+  display: block;
+  margin-bottom: 0.125rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.forfeit-radio input {
+  margin-right: 0.25rem;
+}
+
+.forfeit-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.forfeit-confirm-btn {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid #fdba74;
+  background: #fed7aa;
+  color: #9a3412;
+  cursor: pointer;
+  font-size: 0.625rem;
+}
+
+.forfeit-confirm-btn:hover {
+  background: #fdba74;
+}
+
+.forfeit-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Edit datetime inline */

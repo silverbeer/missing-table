@@ -506,6 +506,8 @@
                           match.match_status === 'postponed',
                         'bg-red-100 text-red-800':
                           match.match_status === 'cancelled',
+                        'bg-orange-100 text-orange-800':
+                          match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                           match.match_status === 'live',
                         'bg-gray-100 text-gray-800': !match.match_status,
@@ -609,6 +611,8 @@
                           match.match_status === 'postponed',
                         'bg-red-100 text-red-800':
                           match.match_status === 'cancelled',
+                        'bg-orange-100 text-orange-800':
+                          match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                           match.match_status === 'live',
                         'bg-gray-100 text-gray-800': !match.match_status,
@@ -712,6 +716,8 @@
                           match.match_status === 'postponed',
                         'bg-red-100 text-red-800':
                           match.match_status === 'cancelled',
+                        'bg-orange-100 text-orange-800':
+                          match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                           match.match_status === 'live',
                         'bg-gray-100 text-gray-800': !match.match_status,
@@ -835,6 +841,8 @@
                         match.match_status === 'postponed',
                       'bg-red-100 text-red-800':
                         match.match_status === 'cancelled',
+                      'bg-orange-100 text-orange-800':
+                        match.match_status === 'forfeit',
                       'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                         match.match_status === 'live',
                       'bg-gray-100 text-gray-800': !match.match_status,
@@ -957,6 +965,8 @@
                           match.match_status === 'postponed',
                         'bg-red-100 text-red-800':
                           match.match_status === 'cancelled',
+                        'bg-orange-100 text-orange-800':
+                          match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
                           match.match_status === 'live',
                       }"
@@ -1072,6 +1082,8 @@
                           match.match_status === 'postponed',
                         'bg-red-100 text-red-800':
                           match.match_status === 'cancelled',
+                        'bg-orange-100 text-orange-800':
+                          match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
                           match.match_status === 'live',
                       }"
@@ -1187,6 +1199,8 @@
                           match.match_status === 'postponed',
                         'bg-red-100 text-red-800':
                           match.match_status === 'cancelled',
+                        'bg-orange-100 text-orange-800':
+                          match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
                           match.match_status === 'live',
                       }"
@@ -1311,6 +1325,8 @@
                         match.match_status === 'postponed',
                       'bg-red-100 text-red-800':
                         match.match_status === 'cancelled',
+                      'bg-orange-100 text-orange-800':
+                        match.match_status === 'forfeit',
                       'bg-red-600 text-white font-extrabold px-3 py-1 animate-pulse shadow-lg whitespace-nowrap':
                         match.match_status === 'live',
                       'bg-gray-100 text-gray-800': !match.match_status,
@@ -1674,8 +1690,12 @@ export default {
     };
 
     const getScoreDisplay = match => {
-      // Show scores for matches that have been completed OR are currently live
-      if (match.match_status !== 'completed' && match.match_status !== 'live') {
+      // Show scores for matches that have been completed, forfeited, OR are currently live
+      if (
+        match.match_status !== 'completed' &&
+        match.match_status !== 'live' &&
+        match.match_status !== 'forfeit'
+      ) {
         return '-'; // Return dash for scheduled/postponed/cancelled matches
       }
 
@@ -1727,8 +1747,11 @@ export default {
         return '-';
       }
 
-      // ONLY show results for matches that have been completed (not live!)
-      if (match.match_status !== 'completed') {
+      // ONLY show results for matches that have been completed or forfeited (not live!)
+      if (
+        match.match_status !== 'completed' &&
+        match.match_status !== 'forfeit'
+      ) {
         return '-'; // Return dash for live/scheduled/postponed/cancelled matches
       }
 

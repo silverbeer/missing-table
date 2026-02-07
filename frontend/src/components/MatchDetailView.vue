@@ -568,6 +568,7 @@ export default {
         scheduled: 'bg-blue-900/50 text-blue-400 border border-blue-700',
         postponed: 'bg-yellow-900/50 text-yellow-400 border border-yellow-700',
         cancelled: 'bg-red-900/50 text-red-400 border border-red-700',
+        forfeit: 'bg-orange-900/50 text-orange-400 border border-orange-700',
       };
       return classes[status] || classes.scheduled;
     });

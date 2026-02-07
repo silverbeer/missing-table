@@ -67,8 +67,9 @@ For the **upper bracket**, A1-A4 are division standings positions 1-4. For the *
 2. **Generate**: Click "Generate Playoff Bracket" → system reads current standings, creates bracket slots and QF matches with configured settings
 3. **Score**: Admin enters scores for QF matches via standard match edit flow (AdminMatches)
 4. **Advance**: After a match is completed, admin clicks "Advance Winner" on the Playoffs tab → system creates next-round match when both feeder slots are complete
-5. **Repeat**: Continue through SF and Final rounds for both tiers
-6. **Reset**: Admin can delete entire bracket (both tiers) and start over if needed
+5. **Forfeit**: If a team forfeits, admin/manager clicks "Forfeit" on a scheduled or live match → selects the forfeiting team → system sets score to 0-3, marks match as `forfeit`, and automatically advances the winner
+6. **Repeat**: Continue through SF and Final rounds for both tiers
+7. **Reset**: Admin can delete entire bracket (both tiers) and start over if needed
 
 ---
 
@@ -157,6 +158,25 @@ class GenerateBracketRequest(BaseModel):
 
 Playoff matches set `division_id = NULL`. The existing `filter_same_division_matches()` only runs when `division_id` is provided, so playoff matches are naturally excluded from regular league standings. No changes to the standings engine needed.
 
+### Forfeit Handling
+
+A team can forfeit a playoff match (when status is `scheduled` or `live`). The flow:
+
+1. Admin/manager clicks "Forfeit" button on the bracket slot
+2. Selects which team is forfeiting via radio buttons
+3. Backend sets: `match_status = 'forfeit'`, forfeiting team score = 0, non-forfeiting team score = 3, `forfeit_team_id` = forfeiting team
+4. `advance_winner()` is called automatically — the winner advances to the next round
+
+**API Endpoints:**
+- `POST /api/playoffs/forfeit` — team/club managers (permission-checked)
+- `POST /api/admin/playoffs/forfeit` — admin (unrestricted)
+
+Both accept `{ slot_id: int, forfeit_team_id: int }`.
+
+**Database:** The `matches` table has a `forfeit_team_id` column (nullable FK → `teams`) with a CHECK constraint ensuring it's only set when `match_status = 'forfeit'` and references a participant team.
+
+**UI:** Forfeited matches show an orange border, and the forfeiting team's score displays "(F)" next to the 0.
+
 ### Existing Infrastructure (No Changes Needed)
 
 - Match type "Playoff" (ID: 4) already in seed data
@@ -179,7 +199,8 @@ Playoff matches set `division_id = NULL`. The existing `filter_same_division_mat
 | `frontend/src/components/PlayoffBracket.vue` | Created | Public dual-tier bracket visualization |
 | `frontend/src/components/admin/AdminPlayoffs.vue` | Created | Admin playoff management with dual-tier display |
 | `frontend/src/components/admin/BracketSlotCard.vue` | Created | Inline date/time editing card for bracket slots |
-| `backend/app.py` | Modified | 4 new endpoints + DAO instantiation |
+| `supabase-local/migrations/20260207000000_add_forfeit_status.sql` | Created | Add `forfeit` enum value + `forfeit_team_id` column |
+| `backend/app.py` | Modified | 4 new endpoints + DAO instantiation + 2 forfeit endpoints |
 | `frontend/src/components/AdminPanel.vue` | Modified | Register Playoffs tab in allAdminSections |
 | `frontend/src/components/LeagueTable.vue` | Modified | Add bracket toggle when playoffs exist |
 
@@ -202,3 +223,4 @@ Playoff matches set `division_id = NULL`. The existing `filter_same_division_mat
 | 2026-02-04 | Phases 1-7 implemented (single bracket) |
 | 2026-02-05 | Upgraded to dual-tier brackets (upper + lower), all 16 teams participate |
 | 2026-02-05 | Added configurable bracket generation: custom tier names, start date, division selection |
+| 2026-02-07 | Added forfeit support: forfeit button, 0-3 scoring, auto-advancement, orange UI indicators |

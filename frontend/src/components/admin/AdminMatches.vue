@@ -611,6 +611,7 @@ export default {
         completed: 'bg-green-100 text-green-800',
         postponed: 'bg-orange-100 text-orange-800',
         cancelled: 'bg-red-100 text-red-800',
+        forfeit: 'bg-orange-100 text-orange-800',
       };
       return classes[status] || 'bg-gray-100 text-gray-800';
     };

@@ -55,7 +55,12 @@ from .live_match import (
 from .matches import EnhancedMatch, MatchPatch, MatchSubmissionData
 
 # Playoff models
-from .playoffs import AdvanceWinnerRequest, GenerateBracketRequest, PlayoffBracketSlot
+from .playoffs import (
+    AdvanceWinnerRequest,
+    ForfeitMatchRequest,
+    GenerateBracketRequest,
+    PlayoffBracketSlot,
+)
 
 # Roster models
 from .roster import (
@@ -94,6 +99,7 @@ __all__ = [
     "DivisionCreate",
     "DivisionUpdate",
     "EnhancedMatch",
+    "ForfeitMatchRequest",
     "GenerateBracketRequest",
     "GoalEvent",
     "JerseyNumberUpdate",

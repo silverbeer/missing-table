@@ -33,6 +33,7 @@ from models import (
     DivisionCreate,
     DivisionUpdate,
     EnhancedMatch,
+    ForfeitMatchRequest,
     GenerateBracketRequest,
     GoalEvent,
     JerseyNumberUpdate,
@@ -2232,7 +2233,7 @@ async def patch_match(
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
         # Validate match_status if provided (must match database CHECK constraint)
-        valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled"]
+        valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled", "forfeit"]
         status_to_check = match_patch.match_status or match_patch.status
         if status_to_check is not None and status_to_check not in valid_statuses:
             raise HTTPException(status_code=400, detail=f"status must be one of: {', '.join(valid_statuses)}")
@@ -4361,7 +4362,7 @@ async def advance_playoff_winner_by_manager(
 
         # For non-admins, verify their team is the winner (not just a participant)
         if current_user.get("role") != "admin":
-            if match.get("match_status") != "completed":
+            if match.get("match_status") not in ("completed", "forfeit"):
                 raise HTTPException(status_code=400, detail="Match is not completed yet")
             if match.get("home_score") is None or match.get("away_score") is None:
                 raise HTTPException(status_code=400, detail="Match has no scores")
@@ -4402,6 +4403,87 @@ async def advance_playoff_winner_by_manager(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Error advancing playoff winner: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/playoffs/forfeit")
+async def forfeit_playoff_match_by_manager(
+    request: ForfeitMatchRequest,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Declare a forfeit on a playoff match.
+
+    Team managers can forfeit their own team.
+    Club managers can forfeit teams in their club.
+    Admins can forfeit any team.
+    """
+    try:
+        # Get slot with match data to verify permissions
+        slot_response = (
+            match_dao.client.table("playoff_bracket_slots")
+            .select("*, match:matches(id, home_team_id, away_team_id, match_status)")
+            .eq("id", request.slot_id)
+            .execute()
+        )
+        if not slot_response.data:
+            raise HTTPException(status_code=404, detail=f"Slot {request.slot_id} not found")
+
+        slot = slot_response.data[0]
+        match = slot.get("match")
+        if not match:
+            raise HTTPException(status_code=400, detail=f"Slot {request.slot_id} has no linked match")
+
+        home_team_id = match.get("home_team_id")
+        away_team_id = match.get("away_team_id")
+
+        # Check if user can edit this match
+        if not auth_manager.can_edit_match(current_user, home_team_id, away_team_id):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        # For non-admins, verify the forfeit_team_id is their own team
+        if current_user.get("role") != "admin":
+            user_team_id = current_user.get("team_id")
+            user_club_id = current_user.get("club_id")
+            role = current_user.get("role")
+
+            can_forfeit = False
+            if role == "team-manager" and user_team_id == request.forfeit_team_id:
+                can_forfeit = True
+            elif role == "club_manager" and user_club_id:
+                forfeit_club_id = auth_manager._get_team_club_id(request.forfeit_team_id)
+                if forfeit_club_id == user_club_id:
+                    can_forfeit = True
+
+            if not can_forfeit:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only forfeit your own team"
+                )
+
+        result = playoff_dao.forfeit_match(request.slot_id, request.forfeit_team_id)
+        return result or {"message": "Forfeit recorded (final match)"}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error forfeiting playoff match: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/admin/playoffs/forfeit")
+async def forfeit_playoff_match(
+    request: ForfeitMatchRequest,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Declare a forfeit on a playoff match (admin only)."""
+    try:
+        result = playoff_dao.forfeit_match(request.slot_id, request.forfeit_team_id)
+        return result or {"message": "Forfeit recorded (final match)"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error forfeiting playoff match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
