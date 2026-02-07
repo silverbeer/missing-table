@@ -69,7 +69,8 @@ CREATE TYPE public.match_status AS ENUM (
     'postponed',
     'cancelled',
     'tbd',
-    'live'
+    'live',
+    'forfeit'
 );
 
 
