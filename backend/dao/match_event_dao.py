@@ -235,6 +235,120 @@ class MatchEventDAO(BaseDAO):
             logger.exception("Error cleaning up expired match events")
             return 0
 
+    def update_event(
+        self,
+        event_id: int,
+        match_minute: int | None = None,
+        extra_time: int | None = None,
+        player_name: str | None = None,
+        player_id: int | None = None,
+    ) -> dict | None:
+        """Update editable fields on a match event.
+
+        Only updates fields that are provided (non-None).
+
+        Args:
+            event_id: Event to update
+            match_minute: New match minute
+            extra_time: New extra/stoppage time
+            player_name: New player name
+            player_id: New player ID
+
+        Returns:
+            Updated event record or None on error
+        """
+        try:
+            data = {}
+            if match_minute is not None:
+                data["match_minute"] = match_minute
+            if extra_time is not None:
+                data["extra_time"] = extra_time
+            if player_name is not None:
+                data["player_name"] = player_name
+            if player_id is not None:
+                data["player_id"] = player_id
+
+            if not data:
+                return self.get_event_by_id(event_id)
+
+            response = (
+                self.client.table("match_events")
+                .update(data)
+                .eq("id", event_id)
+                .execute()
+            )
+
+            if response.data:
+                logger.info(
+                    "match_event_updated",
+                    event_id=event_id,
+                    updated_fields=list(data.keys()),
+                )
+                return response.data[0]
+            return None
+
+        except Exception:
+            logger.exception("Error updating match event", event_id=event_id)
+            return None
+
+    def get_goal_events(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        match_type_id: int | None = None,
+        team_id: int | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Get goal events across matches with joined match context.
+
+        Args:
+            season_id: Optional filter by season
+            age_group_id: Optional filter by age group
+            match_type_id: Optional filter by match type
+            team_id: Optional filter by team (scoring team)
+            limit: Maximum results
+            offset: Pagination offset
+
+        Returns:
+            List of goal events with match context
+        """
+        try:
+            query = (
+                self.client.table("match_events")
+                .select(
+                    "*, match:matches!inner("
+                    "id, match_date, home_score, away_score, "
+                    "season_id, age_group_id, match_type_id, "
+                    "home_team:teams!matches_home_team_id_fkey(id, name), "
+                    "away_team:teams!matches_away_team_id_fkey(id, name), "
+                    "season:seasons(id, name), "
+                    "age_group:age_groups(id, name), "
+                    "match_type:match_types(id, name)"
+                    ")"
+                )
+                .eq("event_type", "goal")
+                .eq("is_deleted", False)
+                .order("created_at", desc=True)
+                .range(offset, offset + limit - 1)
+            )
+
+            if season_id is not None:
+                query = query.eq("match.season_id", season_id)
+            if age_group_id is not None:
+                query = query.eq("match.age_group_id", age_group_id)
+            if match_type_id is not None:
+                query = query.eq("match.match_type_id", match_type_id)
+            if team_id is not None:
+                query = query.eq("team_id", team_id)
+
+            response = query.execute()
+            return response.data or []
+
+        except Exception:
+            logger.exception("Error getting goal events")
+            return []
+
     def get_events_count(self, match_id: int) -> int:
         """Get total count of active events for a match.
 

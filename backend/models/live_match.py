@@ -43,6 +43,15 @@ class MessageEvent(BaseModel):
     message: str = Field(..., min_length=1, max_length=500, description="Message content")
 
 
+class GoalEventUpdate(BaseModel):
+    """Model for updating a goal event (admin corrections)."""
+
+    match_minute: int | None = Field(None, ge=0, le=120, description="Match minute when goal was scored")
+    extra_time: int | None = Field(None, ge=0, le=30, description="Extra/stoppage time minutes")
+    player_name: str | None = Field(None, max_length=200, description="Name of the goal scorer")
+    player_id: int | None = Field(None, description="ID of the goal scorer from roster")
+
+
 class MatchEventResponse(BaseModel):
     """Response model for a match event."""
 
@@ -51,6 +60,9 @@ class MatchEventResponse(BaseModel):
     event_type: str
     team_id: int | None = None
     player_name: str | None = None
+    player_id: int | None = None
+    match_minute: int | None = None
+    extra_time: int | None = None
     message: str
     created_by: str | None = None
     created_by_username: str | None = None
