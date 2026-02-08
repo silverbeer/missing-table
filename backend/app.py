@@ -37,6 +37,7 @@ from models import (
     ForfeitMatchRequest,
     GenerateBracketRequest,
     GoalEvent,
+    GoalEventUpdate,
     JerseyNumberUpdate,
     LeagueCreate,
     LeagueUpdate,
@@ -2680,6 +2681,11 @@ async def delete_event(
 
             match_dao.update_match_score(match_id, home_score, away_score, updated_by=user_id)
 
+            # Also decrement player stats if player_id was tracked
+            goal_player_id = event.get("player_id")
+            if goal_player_id:
+                player_stats_dao.decrement_goals(goal_player_id, match_id)
+
         return {"message": "Event deleted successfully"}
     except HTTPException:
         raise
@@ -4939,6 +4945,92 @@ async def delete_playoff_bracket(
         raise
     except Exception as e:
         logger.error(f"Error deleting playoff bracket: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# =============================================================================
+# Goals Management Endpoints (Admin)
+# =============================================================================
+
+
+@app.get("/api/admin/goals")
+async def get_goal_events(
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+    season_id: int | None = Query(None, description="Filter by season"),
+    age_group_id: int | None = Query(None, description="Filter by age group"),
+    match_type_id: int | None = Query(None, description="Filter by match type"),
+    team_id: int | None = Query(None, description="Filter by scoring team"),
+    limit: int = Query(100, le=500, description="Maximum results"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+):
+    """List goal events with match context for admin management."""
+    try:
+        goals = match_event_dao.get_goal_events(
+            season_id=season_id,
+            age_group_id=age_group_id,
+            match_type_id=match_type_id,
+            team_id=team_id,
+            limit=limit,
+            offset=offset,
+        )
+        return goals
+    except Exception as e:
+        logger.error(f"Error getting goal events: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.patch("/api/admin/goals/{event_id}")
+async def update_goal_event(
+    event_id: int,
+    update: GoalEventUpdate,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Update a goal event's time or player (admin corrections).
+
+    If player_id changes, adjusts both old and new player stats.
+    """
+    try:
+        # Get the existing event
+        event = match_event_dao.get_event_by_id(event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        if event.get("event_type") != "goal":
+            raise HTTPException(status_code=400, detail="Event is not a goal")
+        if event.get("is_deleted"):
+            raise HTTPException(status_code=400, detail="Cannot update a deleted event")
+
+        match_id = event["match_id"]
+
+        # If player_id is changing, adjust player stats
+        old_player_id = event.get("player_id")
+        new_player_id = update.player_id
+        if new_player_id is not None and old_player_id != new_player_id:
+            # Decrement old player's goals
+            if old_player_id:
+                player_stats_dao.decrement_goals(old_player_id, match_id)
+            # Increment new player's goals
+            player_stats_dao.increment_goals(new_player_id, match_id)
+
+        # Build update kwargs (only pass non-None fields)
+        update_kwargs = {}
+        if update.match_minute is not None:
+            update_kwargs["match_minute"] = update.match_minute
+        if update.extra_time is not None:
+            update_kwargs["extra_time"] = update.extra_time
+        if update.player_name is not None:
+            update_kwargs["player_name"] = update.player_name
+        if update.player_id is not None:
+            update_kwargs["player_id"] = update.player_id
+
+        updated = match_event_dao.update_event(event_id, **update_kwargs)
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to update event")
+
+        return updated
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating goal event: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

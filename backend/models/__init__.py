@@ -44,6 +44,7 @@ from .lineup import (
 # Live match models
 from .live_match import (
     GoalEvent,
+    GoalEventUpdate,
     LiveMatchClock,
     LiveMatchState,
     LiveMatchSummary,
@@ -111,6 +112,7 @@ __all__ = [
     "ForfeitMatchRequest",
     "GenerateBracketRequest",
     "GoalEvent",
+    "GoalEventUpdate",
     "JerseyNumberUpdate",
     "League",
     "LeagueCreate",

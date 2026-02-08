@@ -131,6 +131,15 @@
           <AdminMatches />
         </div>
 
+        <!-- Goals Management -->
+        <div
+          v-if="currentSection === 'goals'"
+          class="p-6"
+          data-testid="admin-section-goals"
+        >
+          <AdminGoals />
+        </div>
+
         <!-- Playoffs Management -->
         <div
           v-if="currentSection === 'playoffs'"
@@ -173,6 +182,7 @@ import AdminClubs from './admin/AdminClubs.vue';
 import AdminTeams from './admin/AdminTeams.vue';
 import AdminPlayers from './admin/AdminPlayers.vue';
 import AdminMatches from './admin/AdminMatches.vue';
+import AdminGoals from './admin/AdminGoals.vue';
 import AdminInvites from './admin/AdminInvites.vue';
 import AdminInviteRequests from './admin/AdminInviteRequests.vue';
 import AdminPlayoffs from './admin/AdminPlayoffs.vue';
@@ -189,6 +199,7 @@ export default {
     AdminTeams,
     AdminPlayers,
     AdminMatches,
+    AdminGoals,
     AdminInvites,
     AdminInviteRequests,
     AdminPlayoffs,
@@ -209,6 +220,7 @@ export default {
       { id: 'teams', name: 'Teams', adminOnly: false },
       { id: 'players', name: 'Players', adminOnly: false },
       { id: 'matches', name: 'Matches', adminOnly: false },
+      { id: 'goals', name: 'Goals', adminOnly: false },
       { id: 'playoffs', name: 'Playoffs', adminOnly: true },
       { id: 'invites', name: 'Invites', adminOnly: false },
       { id: 'cache', name: 'Cache', adminOnly: true },
