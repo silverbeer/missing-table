@@ -141,8 +141,10 @@ class MatchEventDAO(BaseDAO):
             Event record or None if not found
         """
         try:
-            response = self.client.table("match_events").select("*").eq("id", event_id).single().execute()
-            return response.data
+            response = self.client.table("match_events").select("*").eq("id", event_id).limit(1).execute()
+            if response.data:
+                return response.data[0]
+            return None
         except Exception:
             logger.exception("Error getting match event", event_id=event_id)
             return None
