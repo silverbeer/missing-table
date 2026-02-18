@@ -16,6 +16,10 @@
           "
           class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-600 space-y-1"
         >
+          <div v-if="isAdmin && match.id" class="flex items-center space-x-2">
+            <span class="font-medium">Match ID:</span>
+            <span class="font-mono text-gray-800">{{ match.id }}</span>
+          </div>
           <div v-if="match.match_id" class="flex items-center space-x-2">
             <span class="font-medium">External Match ID:</span>
             <span class="font-mono text-gray-800">{{ match.match_id }}</span>
@@ -448,6 +452,7 @@ export default {
       formData,
       loading,
       error,
+      isAdmin: authStore.isAdmin,
       updateMatch,
       formatDate,
       getSourceText,

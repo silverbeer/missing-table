@@ -371,6 +371,8 @@ class MissingTableClient:
         team_id: int | None = None,
         limit: int | None = None,
         upcoming: bool | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get matches (games) with optional filters."""
         params = {}
@@ -388,6 +390,10 @@ class MissingTableClient:
             params["limit"] = limit
         if upcoming is not None:
             params["upcoming"] = upcoming
+        if start_date is not None:
+            params["start_date"] = start_date
+        if end_date is not None:
+            params["end_date"] = end_date
 
         response = self._request("GET", "/api/matches", params=params)
         return response.json()
