@@ -185,3 +185,6 @@ backend/tests/tsc/.entity_registry.*.json
 
 # Local environment config
 .mt-config
+
+# MT CLI state (contains JWT tokens)
+.mt-cli-state.json

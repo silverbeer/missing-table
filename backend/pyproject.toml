@@ -74,6 +74,7 @@ packages = ["."]
 
 [project.scripts]
 mt-cli = "cli:app"
+mt = "mt_cli:app"
 
 [dependency-groups]
 dev = [
