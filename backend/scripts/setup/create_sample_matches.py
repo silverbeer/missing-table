@@ -10,25 +10,29 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import random
 from datetime import datetime, timedelta
 
+from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
+from dao.season_dao import SeasonDAO
+from dao.team_dao import TeamDAO
 
 
 def create_sample_matches():
     """Create sample matches with the new league-aware schema."""
     conn = SupabaseConnection()
-    dao = MatchDAO(conn)
+    match_dao = MatchDAO(conn)
+    team_dao = TeamDAO(conn)
+    season_dao = SeasonDAO(conn)
+    league_dao = LeagueDAO(conn)
 
     # Get current data
-    teams = dao.get_all_teams()
-    seasons = dao.get_all_seasons()
-    dao.get_all_age_groups()
-    divisions = dao.get_all_divisions()
-    match_types = dao.get_all_match_types()
+    teams = team_dao.get_all_teams()
+    seasons = season_dao.get_all_seasons()
+    divisions = league_dao.get_all_divisions()
 
     # Create some sample matches
-    if teams and seasons and divisions and match_types:
-        season_name = seasons[0]["name"]
-        division_name = divisions[0]["name"]
+    if teams and seasons and divisions:
+        season_id = seasons[0]["id"]
+        division_id = divisions[0]["id"]
 
         # Get teams that have mappings
         teams_with_mappings = [t for t in teams if t.get("age_groups")]
@@ -43,7 +47,7 @@ def create_sample_matches():
 
             # Get age group from first mapping
             if home_team["age_groups"] and away_team["age_groups"]:
-                age_group_name = home_team["age_groups"][0]["name"]
+                age_group_id = home_team["age_groups"][0]["id"]
 
                 # Create a match
                 match_date = datetime.now() - timedelta(days=random.randint(1, 30))
@@ -52,23 +56,20 @@ def create_sample_matches():
                     "home_team_id": home_team["id"],
                     "away_team_id": away_team["id"],
                     "match_date": match_date.isoformat(),
-                    "season": season_name,
-                    "age_group": age_group_name,
-                    "division": division_name,
+                    "season_id": season_id,
+                    "age_group_id": age_group_id,
+                    "division_id": division_id,
                     "home_score": random.randint(0, 5),
                     "away_score": random.randint(0, 5),
                     "match_status": "completed",
                 }
 
                 try:
-                    result = dao.create_match(**match_data)
+                    result = match_dao.create_match(**match_data)
                     if result:
                         matches_created += 1
                 except Exception:
                     pass
-
-    else:
-        pass
 
 
 if __name__ == "__main__":

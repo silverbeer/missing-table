@@ -14,7 +14,10 @@ from celery import Task
 
 from celery_app import app
 from celery_tasks.validation_tasks import validate_match_data
+from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
+from dao.season_dao import SeasonDAO
+from dao.team_dao import TeamDAO
 from logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -24,20 +27,51 @@ class DatabaseTask(Task):
     """
     Base task class that provides database access.
 
-    The _dao and _connection attributes are set as class attributes to ensure
-    they're shared across all task executions in the same worker process.
+    The DAO and connection attributes are class-level so they're shared
+    across all task executions in the same worker process.
     """
 
-    _dao = None
     _connection = None
+    _dao = None
+    _team_dao = None
+    _season_dao = None
+    _league_dao = None
 
     @property
     def dao(self):
-        """Lazy initialization of DAO to avoid creating connections at import time."""
+        """Lazy initialization of MatchDAO to avoid creating connections at import time."""
         if self._dao is None:
-            self._connection = SupabaseConnection()
+            if self._connection is None:
+                self._connection = SupabaseConnection()
             self._dao = MatchDAO(self._connection)
         return self._dao
+
+    @property
+    def team_dao(self):
+        """Lazy initialization of TeamDAO for team lookups."""
+        if self._team_dao is None:
+            if self._connection is None:
+                self._connection = SupabaseConnection()
+            self._team_dao = TeamDAO(self._connection)
+        return self._team_dao
+
+    @property
+    def season_dao(self):
+        """Lazy initialization of SeasonDAO for season/age-group lookups."""
+        if self._season_dao is None:
+            if self._connection is None:
+                self._connection = SupabaseConnection()
+            self._season_dao = SeasonDAO(self._connection)
+        return self._season_dao
+
+    @property
+    def league_dao(self):
+        """Lazy initialization of LeagueDAO for division lookups."""
+        if self._league_dao is None:
+            if self._connection is None:
+                self._connection = SupabaseConnection()
+            self._league_dao = LeagueDAO(self._connection)
+        return self._league_dao
 
     def _check_needs_update(self, existing_match: dict[str, Any], new_data: dict[str, Any]) -> bool:
         """
@@ -190,14 +224,12 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         logger.debug(f"Looking up teams: {home_team_name}, {away_team_name}")
 
         # Get or create teams
-        home_team = self.dao.get_team_by_name(home_team_name)
+        home_team = self.team_dao.get_team_by_name(home_team_name)
         if not home_team:
             logger.warning(f"Home team not found: {home_team_name}. Creating placeholder.")
-            # In Phase 4, we'll implement team creation from match-scraper data
-            # For now, log and skip
             raise ValueError(f"Team not found: {home_team_name}")
 
-        away_team = self.dao.get_team_by_name(away_team_name)
+        away_team = self.team_dao.get_team_by_name(away_team_name)
         if not away_team:
             logger.warning(f"Away team not found: {away_team_name}. Creating placeholder.")
             raise ValueError(f"Team not found: {away_team_name}")
@@ -218,7 +250,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             # Look up age_group_id if age_group is provided
             age_group_id = None
             if match_data.get("age_group"):
-                age_group = self.dao.get_age_group_by_name(match_data["age_group"])
+                age_group = self.season_dao.get_age_group_by_name(match_data["age_group"])
                 if age_group:
                     age_group_id = age_group["id"]
                 else:
@@ -286,19 +318,39 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 }
         else:
             logger.info(f"Creating new match (MLS ID: {external_match_id}): {home_team_name} vs {away_team_name}")
+
+            # Resolve names to IDs before calling create_match
+            current_season = self.season_dao.get_current_season()
+            season_id = current_season["id"] if current_season else 1
+
+            age_group_id_for_create = 1  # Default fallback
+            if match_data.get("age_group"):
+                ag_record = self.season_dao.get_age_group_by_name(match_data["age_group"])
+                if ag_record:
+                    age_group_id_for_create = ag_record["id"]
+                else:
+                    logger.warning(f"Age group '{match_data['age_group']}' not found, using default ID 1")
+
+            division_id_for_create = None
+            if match_data.get("division"):
+                div_record = self.league_dao.get_division_by_name(match_data["division"])
+                if div_record:
+                    division_id_for_create = div_record["id"]
+                else:
+                    logger.error(f"Division '{match_data['division']}' not found in database")
+
             match_id = self.dao.create_match(
                 home_team_id=home_team["id"],
                 away_team_id=away_team["id"],
                 match_date=match_data["match_date"],
-                season=match_data["season"],
+                season_id=season_id,
                 home_score=match_data.get("home_score"),
                 away_score=match_data.get("away_score"),
                 match_status=match_data.get("match_status", "scheduled"),
-                location=match_data.get("location"),
                 source="match-scraper",
                 match_id=external_match_id,
-                age_group=match_data.get("age_group"),
-                division=match_data.get("division"),
+                age_group_id=age_group_id_for_create,
+                division_id=division_id_for_create,
             )
             if match_id:
                 result = {

@@ -95,11 +95,6 @@ class SupabaseConnection:
 class MatchDAO(BaseDAO):
     """Data Access Object for match and league data using normalized schema."""
 
-    # Reference data methods moved to:
-    # - SeasonDAO (seasons, age_groups)
-    # - LeagueDAO (leagues, divisions)
-    # - MatchTypeDAO (match_types)
-
     # === Core Match Methods ===
 
     def get_match_by_external_id(self, external_match_id: str) -> dict | None:
@@ -286,68 +281,39 @@ class MatchDAO(BaseDAO):
         home_team_id: int,
         away_team_id: int,
         match_date: str,
-        season: str,
+        season_id: int,
         home_score: int | None = None,
         away_score: int | None = None,
         match_status: str = "scheduled",
-        location: str | None = None,
         source: str = "manual",
         match_id: str | None = None,
-        age_group: str | None = None,
-        division: str | None = None,
+        age_group_id: int = 1,
+        division_id: int | None = None,
     ) -> int | None:
-        """Create a new match with simplified parameters.
+        """Create a new match with pre-resolved IDs.
 
-        This is a convenience method for match-scraper integration that accepts
-        team IDs directly and minimal required fields.
+        Callers are responsible for resolving names to IDs before calling this
+        method. The Celery task and API layer both do this already.
 
         Args:
             home_team_id: Database ID of home team
             away_team_id: Database ID of away team
             match_date: ISO format date string
-            season: Season name (e.g., "2025-26")
+            season_id: Database ID of season
             home_score: Home team score (optional)
             away_score: Away team score (optional)
             match_status: Match status (scheduled, live, completed, etc.)
-            location: Match location (optional)
             source: Data source (default: "manual", use "match-scraper" for external)
             match_id: External match ID for deduplication (optional)
-            age_group: Age group name (e.g., "U14", "U13") - will be looked up in database
-            division: Division name (e.g., "Northeast") - will be looked up in database
+            age_group_id: Database ID of age group (default: 1)
+            division_id: Database ID of division (optional)
 
         Returns:
             Created match ID, or None on failure
         """
         try:
-            # Get current season as fallback
-            current_season = self.get_current_season()
-            season_id = current_season["id"] if current_season else 1  # Fallback to ID 1
-
-            # Look up age_group_id from age_group name
-            age_group_id = 1  # Default fallback
-            if age_group:
-                age_group_record = self.get_age_group_by_name(age_group)
-                if age_group_record:
-                    age_group_id = age_group_record["id"]
-                    logger.debug(f"Mapped age_group '{age_group}' to ID {age_group_id}")
-                else:
-                    logger.warning(f"Age group '{age_group}' not found in database, using default ID {age_group_id}")
-
-            # Look up division_id from division name
-            division_id = None
-            if division:
-                division_record = self.get_division_by_name(division)
-                if division_record:
-                    division_id = division_record["id"]
-                    logger.debug(f"Mapped division '{division}' to ID {division_id}")
-                else:
-                    logger.error(f"Division '{division}' not found in database")
-                    if source == "match-scraper":
-                        raise ValueError(
-                            f"Division '{division}' is required for match-scraper but not found in database"
-                        )
-            elif source == "match-scraper":
-                # Division is required for match-scraper sourced games
+            # Validate division for match-scraper sourced matches
+            if source == "match-scraper" and division_id is None:
                 logger.error("Division is required for match-scraper sourced matches but was not provided")
                 raise ValueError("Division is required for match-scraper sourced matches")
 
