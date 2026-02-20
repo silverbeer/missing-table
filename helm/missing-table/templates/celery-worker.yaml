@@ -57,13 +57,13 @@ spec:
               key: supabase-jwt-secret
         # Celery/RabbitMQ configuration
         - name: CELERY_BROKER_URL
-          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.match-scraper.svc.cluster.local:5672//"
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
         - name: CELERY_RESULT_BACKEND
-          value: "redis://messaging-redis.match-scraper.svc.cluster.local:6379/0"
+          value: {{ .Values.celeryWorker.redis.url | quote }}
         - name: RABBITMQ_URL
-          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@messaging-rabbitmq.match-scraper.svc.cluster.local:5672//"
+          value: "amqp://{{ .Values.celeryWorker.rabbitmq.username }}:{{ .Values.celeryWorker.rabbitmq.password }}@{{ .Values.celeryWorker.rabbitmq.host }}:{{ .Values.celeryWorker.rabbitmq.port }}//"
         - name: REDIS_URL
-          value: "redis://messaging-redis.match-scraper.svc.cluster.local:6379/0"
+          value: {{ .Values.celeryWorker.redis.url | quote }}
         # Environment configuration
         - name: ENVIRONMENT
           value: {{ .Values.backend.env.environment | quote }}

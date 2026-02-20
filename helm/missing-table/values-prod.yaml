@@ -29,6 +29,20 @@ backend:
 redis:
   enabled: true
 
+# Celery Worker — consumes match data from RabbitMQ (match-scraper namespace)
+celeryWorker:
+  enabled: true
+  replicaCount: 1
+
+  rabbitmq:
+    username: "guest"
+    password: "guest"  #pragma: allowlist secret
+    host: "rabbitmq.match-scraper.svc.cluster.local"
+    port: 5672
+
+  redis:
+    url: "redis://missing-table-redis:6379/0"
+
 frontend:
   replicaCount: 1
 
