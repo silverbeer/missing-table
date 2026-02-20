@@ -162,16 +162,19 @@ frontend:
     loadBalancerIP: ""  # Let Rancher Desktop assign
 
 # Celery Worker configuration
-# Disabled: Celery workers run on local K3s cluster, not in GKE
+# Enable in values-prod.yaml to run workers in Cloud K8s
 celeryWorker:
   enabled: false
-  replicaCount: 2
+  replicaCount: 1
 
   rabbitmq:
-    username: "admin"
-    password: "admin"
-    host: "messaging-rabbitmq.messaging.svc.cluster.local"
+    username: "guest"
+    password: "guest"  #pragma: allowlist secret
+    host: "rabbitmq.match-scraper.svc.cluster.local"
     port: 5672
+
+  redis:
+    url: "redis://missing-table-redis:6379/0"
 
   resources:
     requests:
