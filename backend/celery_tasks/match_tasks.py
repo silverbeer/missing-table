@@ -73,6 +73,18 @@ class DatabaseTask(Task):
             self._league_dao = LeagueDAO(self._connection)
         return self._league_dao
 
+    @staticmethod
+    def _build_scheduled_kickoff(match_data: dict[str, Any]) -> str | None:
+        """Combine match_date + match_time into an ISO 8601 timestamp for scheduled_kickoff.
+
+        Returns None if match_time is absent or null.
+        """
+        match_time = match_data.get("match_time")
+        match_date = match_data.get("match_date")
+        if match_time and match_date:
+            return f"{match_date}T{match_time}:00"
+        return None
+
     def _check_needs_update(self, existing_match: dict[str, Any], new_data: dict[str, Any]) -> bool:
         """
         Check if the existing match needs to be updated based on new data.
@@ -109,6 +121,13 @@ class DatabaseTask(Task):
                 )
                 return True
 
+        # Check if scheduled_kickoff can be set/updated from match_time
+        new_kickoff = self._build_scheduled_kickoff(new_data)
+        existing_kickoff = existing_match.get("scheduled_kickoff")
+        if new_kickoff and new_kickoff != existing_kickoff:
+            logger.debug(f"scheduled_kickoff changed: {existing_kickoff} → {new_kickoff}")
+            return True
+
         return False
 
     def _update_match_scores(self, existing_match: dict[str, Any], new_data: dict[str, Any]) -> bool:
@@ -134,9 +153,10 @@ class DatabaseTask(Task):
             if new_data.get("match_status"):
                 update_data["match_status"] = new_data["match_status"]
 
-            # Populate match_time if provided and not already set
-            if new_data.get("match_time") and not existing_match.get("match_time"):
-                update_data["match_time"] = new_data["match_time"]
+            # Update scheduled_kickoff if match_time provided and different
+            new_kickoff = self._build_scheduled_kickoff(new_data)
+            if new_kickoff and new_kickoff != existing_match.get("scheduled_kickoff"):
+                update_data["scheduled_kickoff"] = new_kickoff
 
             # Note: updated_by field expects UUID, not string.
             # For match-scraper updates, we'll skip this field since it's optional.
@@ -343,6 +363,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 else:
                     logger.error(f"Division '{match_data['division']}' not found in database")
 
+            scheduled_kickoff = self._build_scheduled_kickoff(match_data)
+
             match_id = self.dao.create_match(
                 home_team_id=home_team["id"],
                 away_team_id=away_team["id"],
@@ -355,7 +377,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 match_id=external_match_id,
                 age_group_id=age_group_id_for_create,
                 division_id=division_id_for_create,
-                match_time=match_data.get("match_time"),
+                scheduled_kickoff=scheduled_kickoff,
             )
             if match_id:
                 result = {
