@@ -8,7 +8,9 @@ These tasks run asynchronously in Celery workers, allowing for:
 - Horizontal scaling of processing capacity
 """
 
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from celery import Task
 
@@ -75,14 +77,22 @@ class DatabaseTask(Task):
 
     @staticmethod
     def _build_scheduled_kickoff(match_data: dict[str, Any]) -> str | None:
-        """Combine match_date + match_time into an ISO 8601 timestamp for scheduled_kickoff.
+        """Combine match_date + match_time into a UTC ISO 8601 timestamp for scheduled_kickoff.
+
+        MLS Next displays all times in US Eastern.  We interpret match_time as
+        Eastern, convert to UTC, and return an ISO string suitable for a
+        Supabase ``timestamptz`` column.
 
         Returns None if match_time is absent or null.
         """
         match_time = match_data.get("match_time")
         match_date = match_data.get("match_date")
         if match_time and match_date:
-            return f"{match_date}T{match_time}:00"
+            eastern = ZoneInfo("America/New_York")
+            naive = datetime.strptime(f"{match_date} {match_time}", "%Y-%m-%d %H:%M")
+            eastern_dt = naive.replace(tzinfo=eastern)
+            utc_dt = eastern_dt.astimezone(ZoneInfo("UTC"))
+            return utc_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         return None
 
     def _check_needs_update(self, existing_match: dict[str, Any], new_data: dict[str, Any]) -> bool:
