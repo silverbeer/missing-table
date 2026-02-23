@@ -134,6 +134,10 @@ class DatabaseTask(Task):
             if new_data.get("match_status"):
                 update_data["match_status"] = new_data["match_status"]
 
+            # Populate match_time if provided and not already set
+            if new_data.get("match_time") and not existing_match.get("match_time"):
+                update_data["match_time"] = new_data["match_time"]
+
             # Note: updated_by field expects UUID, not string.
             # For match-scraper updates, we'll skip this field since it's optional.
             # If we need to track match-scraper updates, we should use 'source' field instead.
@@ -351,6 +355,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 match_id=external_match_id,
                 age_group_id=age_group_id_for_create,
                 division_id=division_id_for_create,
+                match_time=match_data.get("match_time"),
             )
             if match_id:
                 result = {
