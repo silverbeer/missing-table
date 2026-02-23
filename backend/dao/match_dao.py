@@ -289,6 +289,7 @@ class MatchDAO(BaseDAO):
         match_id: str | None = None,
         age_group_id: int = 1,
         division_id: int | None = None,
+        scheduled_kickoff: str | None = None,
     ) -> int | None:
         """Create a new match with pre-resolved IDs.
 
@@ -335,6 +336,8 @@ class MatchDAO(BaseDAO):
 
             if match_id:
                 data["match_id"] = match_id
+            if scheduled_kickoff:
+                data["scheduled_kickoff"] = scheduled_kickoff
 
             response = self.client.table("matches").insert(data).execute()
 

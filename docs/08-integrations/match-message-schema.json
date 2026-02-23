@@ -3,7 +3,7 @@
   "$id": "https://missingtable.com/schemas/match-message-v1.json",
   "title": "Match Data Message Contract",
   "description": "Message format for match data submitted from match-scraper to RabbitMQ/Celery workers. This is the canonical contract between the producer (match-scraper) and consumer (celery workers).",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "object",
   "required": [
     "home_team",
@@ -78,6 +78,12 @@
       "description": "External match ID from source system (for deduplication)",
       "example": "mlsnext_12345"
     },
+    "match_time": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{2}:\\d{2}$",
+      "description": "Match kick-off time in HH:MM format (24-hour, null if TBD)",
+      "example": "14:00"
+    },
     "location": {
       "type": ["string", "null"],
       "description": "Match location/venue",
@@ -103,6 +109,7 @@
       "score_away": 1,
       "status": "completed",
       "match_id": "mlsnext_12345",
+      "match_time": "14:00",
       "location": "Toyota Park"
     },
     {
@@ -114,7 +121,8 @@
       "match_type": "Cup",
       "score_home": null,
       "score_away": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "match_time": "10:30"
     },
     {
       "home_team": "Team C",
