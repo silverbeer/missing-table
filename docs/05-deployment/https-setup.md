@@ -1,7 +1,15 @@
-# GKE HTTPS & Custom Domain Setup Guide
+# DEPRECATED — Historical Reference
+
+> **GKE was shut down on 2025-12-07.** HTTPS/TLS is now managed by cert-manager + Let's Encrypt in the current cloud K8s cluster. See [Production Environment](../07-operations/CLOUD_K8S_PRODUCTION.md) for current setup.
+>
+> This document is preserved for historical reference only.
+
+---
+
+# GKE HTTPS & Custom Domain Setup Guide (Historical)
 
 **Project:** Missing Table
-**Environment:** Development (dev.missingtable.com)
+**Environment:** Development (dev.missingtable.com — no longer exists)
 **Date Completed:** October 3, 2025
 **Time to Complete:** ~90 minutes
 
