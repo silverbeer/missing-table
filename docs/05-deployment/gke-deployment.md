@@ -1,6 +1,14 @@
-# GKE Deployment Guide
+# DEPRECATED — Historical Reference
 
-This guide covers deploying the Missing Table application to Google Kubernetes Engine (GKE) Autopilot.
+> **GKE was shut down on 2025-12-07.** Missing Table production moved to DOKS (Dec 2025) and then LKE (Feb 2026). See [Production Environment](../07-operations/CLOUD_K8S_PRODUCTION.md) for current deployment docs.
+>
+> This document is preserved for historical reference only. Do not follow these instructions.
+
+---
+
+# GKE Deployment Guide (Historical)
+
+This guide covered deploying the Missing Table application to Google Kubernetes Engine (GKE) Autopilot.
 
 ## Architecture
 

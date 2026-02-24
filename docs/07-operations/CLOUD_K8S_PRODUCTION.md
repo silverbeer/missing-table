@@ -1,10 +1,13 @@
-# Production Environment
+# Production Environment — Cloud K8s
 
 ## Overview
 
-Missing Table production runs on **Linode Kubernetes Engine (LKE)**, managed via GitOps with ArgoCD.
+Missing Table production (API + frontend) runs on **cloud K8s**, managed via GitOps with ArgoCD. The cloud provider has changed over time and may change again — this doc is intentionally provider-agnostic.
 
+**Current provider**: LKE (as of February 2026)
 **Migration history**: GKE (shutdown 2025-12-07) → DOKS (December 2025) → LKE (February 2026)
+
+> **Note**: The match-scraper pipeline runs separately on an M4 Mac in rancher-desktop K3s. See the [match-scraper-agent](https://github.com/silverbeer/match-scraper-agent) repo for those docs.
 
 ---
 
@@ -20,7 +23,7 @@ CI Workflow (.github/workflows/ci.yml)
 ArgoCD (watches values-prod.yaml)
     ↓ syncs to cluster
     ↓
-LKE Cluster
+Cloud K8s Cluster
     ├── missing-table namespace
     │   ├── backend (FastAPI)
     │   ├── frontend (Vue/Nginx)
@@ -37,7 +40,7 @@ LKE Cluster
 | Repository | Purpose |
 |------------|---------|
 | **missing-table** (this repo) | Application code, Helm charts, CI/CD |
-| **[missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap)** | Terraform IaC, ArgoCD config, LKE provisioning |
+| **[missingtable-platform-bootstrap](https://github.com/silverbeer/missingtable-platform-bootstrap)** | Terraform IaC, ArgoCD config, cluster provisioning |
 
 ---
 
@@ -83,7 +86,7 @@ Secrets include:
 1. Merge PR to `main`
 2. CI builds images, pushes to GHCR
 3. CI updates `values-prod.yaml` with new image tags
-4. ArgoCD detects changes and syncs to LKE
+4. ArgoCD detects changes and syncs to cluster
 
 ### Manual (Emergency only)
 

@@ -182,7 +182,7 @@ from src.api.missing_table_client import MissingTableClient
 async def submit_matches_async():
     # Initialize client
     client = MissingTableClient(
-        base_url="https://dev.missingtable.com",
+        base_url="https://missingtable.com",
         api_token="your-service-account-token"
     )
 
@@ -234,12 +234,12 @@ asyncio.run(submit_matches_async())
 
 ```bash
 # 1. Health check (no auth required)
-curl https://dev.missingtable.com/health
+curl https://missingtable.com/health
 
 # 2. Submit match for async processing
 curl -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json" \
-     -X POST https://dev.missingtable.com/api/matches/submit \
+     -X POST https://missingtable.com/api/matches/submit \
      -d '{
        "home_team": "IFA",
        "away_team": "NEFC",
@@ -254,7 +254,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 # 3. Check task status
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-     https://dev.missingtable.com/api/matches/task/TASK_ID_HERE
+     https://missingtable.com/api/matches/task/TASK_ID_HERE
 ```
 
 ## 🔄 Sync API (Legacy)
@@ -344,7 +344,7 @@ headers = {
 - ✅ Store in environment variables
 - ✅ Never commit to source control
 - ✅ Rotate periodically (yearly recommended)
-- ✅ Use separate tokens per environment (dev/prod)
+- ✅ Use separate tokens per environment (prod/local)
 - ❌ Never hardcode in source code
 - ❌ Never share tokens between services
 
@@ -354,19 +354,19 @@ headers = {
 
 ```bash
 # Basic health
-curl https://dev.missingtable.com/health
+curl https://missingtable.com/health
 
 # Expected: {"status": "healthy", "version": "2.0.0"}
 
 # Full health with database status
-curl https://dev.missingtable.com/health/full
+curl https://missingtable.com/health/full
 ```
 
 ### 2. Test Authentication
 
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-     https://dev.missingtable.com/api/matches
+     https://missingtable.com/api/matches
 
 # Should return 200 with match data (not 401)
 ```
@@ -377,7 +377,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 # Submit test match
 curl -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json" \
-     -X POST https://dev.missingtable.com/api/matches/submit \
+     -X POST https://missingtable.com/api/matches/submit \
      -d '{
        "home_team": "IFA",
        "away_team": "NEFC",
@@ -392,7 +392,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 # Get task_id from response, then check status
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-     https://dev.missingtable.com/api/matches/task/TASK_ID
+     https://missingtable.com/api/matches/task/TASK_ID
 ```
 
 ### 4. Real Scraper Test
@@ -411,11 +411,11 @@ python -m src.cli.main scrape --start 7 --end 7 -a U14 -d Northeast
 ### Check Celery Workers
 
 ```bash
-# List workers in GKE
-kubectl get pods -n missing-table-dev | grep celery-worker
+# List workers in M4 Mac K3s (rancher-desktop context)
+kubectl get pods -n match-scraper -l app=missing-table-worker
 
 # Check worker logs
-kubectl logs -n missing-table-dev deployment/missing-table-celery-worker
+kubectl logs -n match-scraper -l environment=prod --tail=50
 ```
 
 ### Check Task Queue
@@ -536,20 +536,22 @@ Seasons follow MLS Next format (August to July):
 - `2025-26` - Aug 2025 to Jul 2026
 - `2024-25` - Aug 2024 to Jul 2025
 
-## 🔧 Development Database
+## 🔧 Database
 
-Match-scraper works against the development database:
-- **Environment**: Use `dev` environment in GKE
+The scraper pipeline writes to **prod Supabase** (missingtable.com). There is no dev Supabase — only prod and local.
+
+- **Prod**: Workers in M4 Mac K3s write to `ppgxasqgqbnauvxozmjw.supabase.co`
+- **Local**: Local workers write to `localhost:54321`
 - **Backup**: Use `./scripts/db_tools.sh backup` before major operations
 - **Restore**: Use `./scripts/db_tools.sh restore` if needed
 
 ## 📞 Support & Resources
 
-- **API Documentation**: https://dev.missingtable.com/docs
+- **API Documentation**: https://api.missingtable.com/docs
 - **Match-Scraper Repo**: Check README for latest CLI options
 - **Database Tools**: `./scripts/db_tools.sh --help`
-- **Backend Logs**: `kubectl logs -n missing-table-dev deployment/missing-table-backend`
-- **Worker Logs**: `kubectl logs -n missing-table-dev deployment/missing-table-celery-worker`
+- **Backend Logs**: `kubectl logs -n missing-table -l app=backend`
+- **Worker Logs**: `kubectl logs -n match-scraper -l environment=prod`
 
 ## 🎯 Migration Guide: Sync → Async
 
