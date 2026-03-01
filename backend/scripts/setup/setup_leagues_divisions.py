@@ -39,6 +39,11 @@ divisions_to_create = [
         "description": "Northeast Division (Homegrown)",
     },
     {
+        "name": "Florida",
+        "league_id": homegrown_league_id,
+        "description": "Florida Division (Homegrown)",
+    },
+    {
         "name": "New England",
         "league_id": academy_league_id,
         "description": "New England Conference (Academy)",

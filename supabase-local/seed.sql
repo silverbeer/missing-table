@@ -47,6 +47,7 @@ SELECT setval('public.leagues_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.
 -- Divisions (depend on leagues)
 INSERT INTO public.divisions (id, name, description, league_id) VALUES
   (1, 'Northeast', 'Northeast Division', 1),
+  (2, 'Florida', 'Florida Division', 1),
   (7, 'New England', 'New England Division', 2)
 ON CONFLICT (id) DO NOTHING;
 
