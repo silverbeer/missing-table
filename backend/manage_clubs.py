@@ -228,6 +228,10 @@ def create_club(token: str, club: ClubData) -> dict[str, Any] | None:
         "website": club.website,
         "description": f"Club based in {club.location}",
         "is_active": True,
+        "logo_url": club.logo_url or None,
+        "primary_color": club.primary_color or None,
+        "secondary_color": club.secondary_color or None,
+        "instagram": club.instagram or None,
     }
 
     response = api_request("POST", "/api/clubs", token, data=payload)
@@ -251,6 +255,10 @@ def update_club(token: str, club_id: int, club: ClubData) -> bool:
         "website": club.website,
         "description": f"Club based in {club.location}",
         "is_active": True,
+        "logo_url": club.logo_url or None,
+        "primary_color": club.primary_color or None,
+        "secondary_color": club.secondary_color or None,
+        "instagram": club.instagram or None,
     }
 
     response = api_request("PUT", f"/api/clubs/{club_id}", token, data=payload)
@@ -481,7 +489,12 @@ def sync(
             if existing_club:
                 # Club exists - check if update needed
                 needs_update = (
-                    existing_club.get("city") != club.location or existing_club.get("website") != club.website
+                    existing_club.get("city") != club.location
+                    or existing_club.get("website") != club.website
+                    or (club.logo_url and existing_club.get("logo_url") != club.logo_url)
+                    or (club.primary_color and existing_club.get("primary_color") != club.primary_color)
+                    or (club.secondary_color and existing_club.get("secondary_color") != club.secondary_color)
+                    or (club.instagram and existing_club.get("instagram") != club.instagram)
                 )
 
                 if needs_update and not dry_run:

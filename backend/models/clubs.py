@@ -41,6 +41,10 @@ class ClubData(BaseModel):
     club_name: str
     location: str
     website: str = ""
+    logo_url: str = ""
+    primary_color: str = ""
+    secondary_color: str = ""
+    instagram: str = ""
     teams: list[TeamData]
     is_pro_academy: bool = Field(
         default=False,
@@ -54,6 +58,32 @@ class ClubData(BaseModel):
         """Validate website is a URL or empty."""
         if v and not v.startswith(("http://", "https://")):
             raise ValueError(f"Website must be a valid URL or empty, got {v}")
+        return v
+
+    @field_validator("logo_url")
+    @classmethod
+    def validate_logo_url(cls, v: str) -> str:
+        """Validate logo_url is a URL or empty."""
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError(f"logo_url must be a valid URL or empty, got {v}")
+        return v
+
+    @field_validator("primary_color", "secondary_color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
+        """Validate color is a hex code or empty."""
+        import re
+
+        if v and not re.match(r"^#[0-9a-fA-F]{3,8}$", v):
+            raise ValueError(f"Color must be a hex code (e.g., #FF0000) or empty, got {v}")
+        return v
+
+    @field_validator("instagram")
+    @classmethod
+    def validate_instagram(cls, v: str) -> str:
+        """Validate instagram is a URL or empty."""
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError(f"Instagram must be a valid URL or empty, got {v}")
         return v
 
 

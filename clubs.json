@@ -8,15 +8,26 @@
                 "team_name": "Bayside FC",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "Bayside FC Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "Oakwood Soccer Club",
@@ -27,15 +38,26 @@
                 "team_name": "Oakwood Soccer Club",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "Oakwood Soccer Club Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "NEFC",
@@ -46,21 +68,35 @@
                 "team_name": "NEFC",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "NEFC Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             },
             {
                 "team_name": "NEFC South",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "IFA",
@@ -71,21 +107,35 @@
                 "team_name": "IFA",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "IFA Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             },
             {
                 "team_name": "IFA West",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "FC Greater Boston Bolts",
@@ -96,15 +146,26 @@
                 "team_name": "FC Greater Boston Bolts",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "FC Greater Boston Bolts Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "Seacoast United",
@@ -115,21 +176,35 @@
                 "team_name": "Seacoast United",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "Seacoast United Bedford",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             },
             {
                 "team_name": "Seacoast United Mass",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
-            }            
-        ]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
+            }
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "Valeo Futbol Club",
@@ -140,15 +215,26 @@
                 "team_name": "Valeo Futbol Club",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "Valeo Futbol Club Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "Rochester NY FC",
@@ -159,15 +245,26 @@
                 "team_name": "Rochester NY FC",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             },
             {
                 "team_name": "Rochester NY FC Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]                
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "New York Red Bulls",
@@ -179,7 +276,14 @@
                 "team_name": "New York Red Bulls",
                 "league": "Homegrown",
                 "division": "Northeast",
-                "age_groups": ["U13", "U14", "U15", "U16", "U17", "U19"]                
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
             }
         ]
     },
@@ -192,9 +296,13 @@
                 "team_name": "New England Surf SC",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "Syracuse Development Academy",
@@ -205,9 +313,13 @@
                 "team_name": "Syracuse Development Academy",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "Connecticut Rush",
@@ -218,9 +330,13 @@
                 "team_name": "Connecticut Rush",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "New York Elite Alleycats FC",
@@ -231,9 +347,13 @@
                 "team_name": "New York Elite Alleycats FC",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "Ginga FC",
@@ -244,9 +364,13 @@
                 "team_name": "Ginga FC",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
+        ],
+        "is_pro_academy": false
     },
     {
         "club_name": "New York Rush",
@@ -257,10 +381,383 @@
                 "team_name": "New York Rush",
                 "league": "Academy",
                 "conference": "New England",
-                "age_groups": ["U13", "U14"]
+                "age_groups": [
+                    "U13",
+                    "U14"
+                ]
             }
-        ]
-    }    
+        ],
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Athletum FC Academy",
+        "location": "",
+        "website": "https://athletumfc.com",
+        "teams": [
+            {
+                "team_name": "Athletum FC Academy",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "instagram": "https://www.instagram.com/athletumfc",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Chargers Soccer Club",
+        "location": "",
+        "website": "https://www.chargerssoccer.com",
+        "teams": [
+            {
+                "team_name": "Chargers Soccer Club",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://www.chargerssoccer.com/wp-content/uploads/2025/10/Website-photo-1.jpg",
+        "primary_color": "#C49345",
+        "secondary_color": "#2A2822",
+        "instagram": "https://www.instagram.com/ChargersSC",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "IMG",
+        "location": "",
+        "website": "https://www.imgacademy.com",
+        "teams": [
+            {
+                "team_name": "IMG",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://www.imgacademy.com/sites/default/files/styles/scale_1700w/public/2022-07/img-homepage-meta_0.jpg?itok=LMirU0Ik",
+        "primary_color": "#B2B7BC",
+        "secondary_color": "#73793A",
+        "instagram": "https://www.instagram.com/imgacademy",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "IdeaSport SA",
+        "location": "",
+        "website": "https://idea-sports.com",
+        "teams": [
+            {
+                "team_name": "IdeaSport SA",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://idea-sports.com/assets/img/apple-touch-icon.png",
+        "primary_color": "#ffffff",
+        "secondary_color": "#2b5797",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Inter Miami CF",
+        "location": "",
+        "website": "https://www.intermiamicf.com",
+        "teams": [
+            {
+                "team_name": "Inter Miami CF",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U17"
+                ]
+            }
+        ],
+        "logo_url": "https://images.mlssoccer.com/image/upload/assets/logos/MIA.svg",
+        "instagram": "https://www.instagram.com/intermiamicf",
+        "is_pro_academy": true
+    },
+    {
+        "club_name": "Jacksonville Armada FC",
+        "location": "",
+        "website": "https://www.jacksonvillearmada.com",
+        "teams": [
+            {
+                "team_name": "Jacksonville Armada FC",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://www.jacksonvillearmada.com/square.ico",
+        "primary_color": "#002a5c",
+        "secondary_color": "#080404",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Jacksonville FC",
+        "location": "",
+        "website": "https://www.jacksonvillearmada.com",
+        "teams": [
+            {
+                "team_name": "Jacksonville FC",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15"
+                ]
+            }
+        ],
+        "logo_url": "https://www.jacksonvillearmada.com/square.ico",
+        "primary_color": "#002a5c",
+        "secondary_color": "#080404",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Miami Futbol Academy Rush",
+        "location": "",
+        "website": "https://miamifutbolacademyrush.com",
+        "teams": [
+            {
+                "team_name": "Miami Futbol Academy Rush",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://miamifutbolacademyrush.com/wp-content/uploads/2024/05/icon64.png",
+        "primary_color": "#9FA1A2",
+        "secondary_color": "#9FA1A2",
+        "instagram": "https://www.instagram.com/miamifutbolacademyrush",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Orlando City SC",
+        "location": "",
+        "website": "https://www.orlandocitysc.com",
+        "teams": [
+            {
+                "team_name": "Orlando City SC",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U17"
+                ]
+            }
+        ],
+        "logo_url": "https://images.mlssoccer.com/image/upload/v1623172020/assets/orl/logos/ORL-thumbnail.jpg",
+        "primary_color": "#612998",
+        "secondary_color": "#E9D390",
+        "instagram": "https://www.instagram.com/orlandocitysc",
+        "is_pro_academy": true
+    },
+    {
+        "club_name": "Orlando City Soccer School South",
+        "location": "",
+        "website": "https://www.ocss-south.com",
+        "teams": [
+            {
+                "team_name": "Orlando City Soccer School South",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://www.ocss-south.com/_templates/Home/images/favicon.png",
+        "primary_color": "#6A2D9E",
+        "secondary_color": "#6A2D9E",
+        "instagram": "https://www.instagram.com/OrlandoCitySC",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Orlando City Youth SC",
+        "location": "",
+        "website": "https://www.modular11.com",
+        "teams": [
+            {
+                "team_name": "Orlando City Youth SC",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://www.modular11.com/favicon.ico",
+        "primary_color": "#545454",
+        "secondary_color": "#5C5C5C",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Sol SC Florida",
+        "location": "",
+        "website": "https://solsportsclub.org",
+        "teams": [
+            {
+                "team_name": "Sol SC Florida",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "instagram": "https://www.instagram.com/solscflorida",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "South Florida Football Academy",
+        "location": "",
+        "website": "https://sffada.com",
+        "teams": [
+            {
+                "team_name": "South Florida Football Academy",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Tampa Bay United",
+        "location": "",
+        "website": "https://sportsrecruits.com",
+        "teams": [
+            {
+                "team_name": "Tampa Bay United",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://cdn.prod.website-files.com/6532d628a339dc3431582536/66317615b035b42914372dd8_SR-Share-Image.webp",
+        "primary_color": "#0b0a0f",
+        "secondary_color": "#E9E8ED",
+        "instagram": "https://www.instagram.com/sports_recruits",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "West Florida Flames",
+        "location": "",
+        "website": "https://fcflames.com",
+        "teams": [
+            {
+                "team_name": "West Florida Flames",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://fcflames.ottosport.ai/_files/Screenshot%202025-07-31%20at%204%2C08%2C15%E2%80%AFPM.png",
+        "primary_color": "#A6B2B3",
+        "secondary_color": "#242C44",
+        "instagram": "https://www.instagram.com/west_florida_flames",
+        "is_pro_academy": false
+    },
+    {
+        "club_name": "Weston FC",
+        "location": "",
+        "website": "https://www.westonfc.org",
+        "teams": [
+            {
+                "team_name": "Weston FC",
+                "league": "Homegrown",
+                "division": "Florida",
+                "age_groups": [
+                    "U13",
+                    "U14",
+                    "U15",
+                    "U16",
+                    "U17",
+                    "U19"
+                ]
+            }
+        ],
+        "logo_url": "https://static.wixstatic.com/media/287b2a_d6b7fc1a614b4fb8aa86ed381574f254~mv2.png/v1/fill/w_1448,h_1078,al_c/287b2a_d6b7fc1a614b4fb8aa86ed381574f254~mv2.png",
+        "primary_color": "#040404",
+        "secondary_color": "#9DD8F3",
+        "is_pro_academy": false
+    }
 ]
-
-
