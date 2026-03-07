@@ -43,12 +43,7 @@
           }"
         >
           <div class="flex items-center gap-3">
-            <img
-              v-if="club.logo_url"
-              :src="club.logo_url"
-              :alt="`${club.name} logo`"
-              class="w-10 h-10 rounded-full object-cover bg-white"
-            />
+            <ClubLogo :logo-url="club.logo_url" :name="club.name" size="md" />
             <div>
               <h4 class="text-xl font-bold text-white">{{ club.name }}</h4>
               <p class="text-white text-opacity-80 text-sm">{{ club.city }}</p>
@@ -535,9 +530,11 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import ClubLogo from '../shared/ClubLogo.vue';
 
 export default {
   name: 'AdminClubs',
+  components: { ClubLogo },
   setup() {
     const authStore = useAuthStore();
     const clubs = ref([]);

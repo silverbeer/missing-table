@@ -24,7 +24,15 @@
 
     <!-- Player info -->
     <div class="card-info">
-      <div class="player-name">{{ displayName }}</div>
+      <div class="player-name-row">
+        <ClubLogo
+          v-if="clubLogoUrl"
+          :logo-url="clubLogoUrl"
+          :name="clubName"
+          size="xs"
+        />
+        <div class="player-name">{{ displayName }}</div>
+      </div>
       <div v-if="secondaryInfo" class="player-secondary">
         {{ secondaryInfo }}
       </div>
@@ -84,11 +92,13 @@
 <script>
 import { computed } from 'vue';
 import PlayerPhotoOverlay from './PlayerPhotoOverlay.vue';
+import ClubLogo from '@/components/shared/ClubLogo.vue';
 
 export default {
   name: 'PlayerCard',
   components: {
     PlayerPhotoOverlay,
+    ClubLogo,
   },
   props: {
     player: {
@@ -98,6 +108,14 @@ export default {
     clubColor: {
       type: String,
       default: null,
+    },
+    clubLogoUrl: {
+      type: String,
+      default: '',
+    },
+    clubName: {
+      type: String,
+      default: '',
     },
     // Override colors for team roster view (use club colors instead of player's choice)
     overlayPrimaryColor: {
@@ -243,11 +261,18 @@ export default {
   text-align: center;
 }
 
+.player-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
 .player-name {
   font-weight: 600;
   font-size: 16px;
   color: #1f2937;
-  margin-bottom: 4px;
   /* Truncate long names */
   white-space: nowrap;
   overflow: hidden;

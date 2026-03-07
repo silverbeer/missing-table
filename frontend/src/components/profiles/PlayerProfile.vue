@@ -136,7 +136,16 @@
           </div>
         </div>
 
-        <div v-if="authStore.state.profile?.team" class="team-line">
+        <div
+          v-if="authStore.state.profile?.team"
+          class="team-line"
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <ClubLogo
+            :logo-url="authStore.state.profile.team.club?.logo_url"
+            :name="authStore.state.profile.team.name"
+            size="xs"
+          />
           <span class="team-name">{{ authStore.state.profile.team.name }}</span>
           <span v-if="currentAgeGroup?.name" class="separator">•</span>
           <span v-if="currentAgeGroup?.name" class="age-group">
@@ -398,11 +407,13 @@ import { useAuthStore } from '@/stores/auth';
 import PlayerProfileEditor from './PlayerProfileEditor.vue';
 import { getApiBaseUrl } from '../../config/api';
 import { PLAYER_POSITIONS } from '@/constants/positions';
+import ClubLogo from '@/components/shared/ClubLogo.vue';
 
 export default {
   name: 'PlayerProfile',
   components: {
     PlayerProfileEditor,
+    ClubLogo,
   },
   setup() {
     const authStore = useAuthStore();
