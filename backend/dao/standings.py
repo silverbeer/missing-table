@@ -137,6 +137,10 @@ def calculate_standings(matches: list[dict]) -> list[dict]:
         home_score = match.get("home_score")
         away_score = match.get("away_score")
 
+        # Skip matches without scores
+        if home_score is None or away_score is None:
+            continue
+
         # Capture club logo_url from joined club data
         home_club = match["home_team"].get("club") or {}
         away_club = match["away_team"].get("club") or {}
@@ -144,10 +148,6 @@ def calculate_standings(matches: list[dict]) -> list[dict]:
             standings[home_team]["logo_url"] = home_club.get("logo_url")
         if not standings[away_team]["logo_url"]:
             standings[away_team]["logo_url"] = away_club.get("logo_url")
-
-        # Skip matches without scores
-        if home_score is None or away_score is None:
-            continue
 
         # Update played count
         standings[home_team]["played"] += 1
