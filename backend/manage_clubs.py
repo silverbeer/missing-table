@@ -26,7 +26,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm
 from rich.table import Table
 
-from models.clubs import ClubData, TeamData, load_clubs_from_json
+from models.clubs import ClubData, TeamData, club_name_to_slug, load_clubs_from_json
 
 # Initialize Typer app and Rich console
 app = typer.Typer(help="Club and Team Management CLI Tool")
@@ -35,6 +35,7 @@ console = Console()
 # API Configuration
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 CLUBS_JSON_PATH = Path(__file__).parent.parent / "clubs.json"
+LOGO_DIR = Path(__file__).parent.parent / "club-logos"
 
 
 # ============================================================================
@@ -270,6 +271,19 @@ def update_club(token: str, club_id: int, club: ClubData) -> bool:
         return False
 
 
+def upload_club_logo(token: str, club_id: int, logo_path: Path) -> bool:
+    """Upload a local logo file for a club via the API."""
+    url = f"{API_URL}/api/clubs/{club_id}/logo"
+    headers = {"Authorization": f"Bearer {token}"}
+    with open(logo_path, "rb") as f:
+        response = requests.post(url, headers=headers, files={"file": (logo_path.name, f, "image/png")})
+    if response.status_code == 200:
+        return True
+    else:
+        console.print(f"[yellow]  Failed to upload logo for club {club_id}: {response.text}[/yellow]")
+        return False
+
+
 # ============================================================================
 # Team Management Functions
 # ============================================================================
@@ -470,6 +484,7 @@ def sync(
         "clubs_created": 0,
         "clubs_updated": 0,
         "clubs_unchanged": 0,
+        "logos_uploaded": 0,
         "teams_created": 0,
         "teams_updated": 0,
         "teams_unchanged": 0,
@@ -538,6 +553,15 @@ def sync(
                     console.print(f"  [green]✨ Would create club: {club.club_name}[/green]")
                     stats["clubs_created"] += 1
                     club_id = None  # Can't process teams in dry run without club ID
+
+            # Upload local logo if available
+            if club_id and not dry_run:
+                slug = club_name_to_slug(club.club_name)
+                logo_path = LOGO_DIR / f"{slug}.png"
+                if logo_path.exists():
+                    if upload_club_logo(token, club_id, logo_path):
+                        console.print(f"  [magenta]🖼️  Uploaded logo: {slug}.png[/magenta]")
+                        stats["logos_uploaded"] += 1
 
             # Process teams for this club
             for team in club.teams:
@@ -715,6 +739,8 @@ def sync(
     summary_table.add_row("Clubs Created", str(stats["clubs_created"]))
     summary_table.add_row("Clubs Updated", str(stats["clubs_updated"]))
     summary_table.add_row("Clubs Unchanged", str(stats["clubs_unchanged"]))
+    if stats["logos_uploaded"] > 0:
+        summary_table.add_row("Logos Uploaded", f"[magenta]{stats['logos_uploaded']}[/magenta]")
     summary_table.add_row("Teams Created", str(stats["teams_created"]))
     summary_table.add_row("Teams Updated", str(stats["teams_updated"]))
     summary_table.add_row("Teams Unchanged", str(stats["teams_unchanged"]))

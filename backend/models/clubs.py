@@ -3,7 +3,17 @@ Pydantic models for clubs and teams data structure.
 Used for parsing and validating clubs.json and API requests.
 """
 
+import re
+import unicodedata
+
 from pydantic import BaseModel, Field, field_validator
+
+
+def club_name_to_slug(name: str) -> str:
+    """Convert club name to filename slug: 'Inter Miami CF' -> 'inter-miami-cf'"""
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    name = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return name
 
 
 class TeamData(BaseModel):

@@ -54,6 +54,9 @@ database_backup_*.json
 database_backup_*.sql
 restore_database_backup*.sql
 
+# Club logo staging folder (binary assets curated locally, uploaded via manage_clubs.py sync)
+club-logos/
+
 # Archive directory (contains sensitive backups and deprecated code)
 .archive/
 
