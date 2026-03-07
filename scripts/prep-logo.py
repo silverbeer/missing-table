@@ -6,12 +6,12 @@ Takes a source image (any format/size), removes the background,
 centers and pads to a square, and outputs a 512x512 transparent PNG.
 
 Usage:
-    python scripts/prep-logo.py input.png --club "Bayside FC"
-    python scripts/prep-logo.py input.jpg --club "Inter Miami CF" --size 256
-    python scripts/prep-logo.py input.png --club "CF Montréal" --no-remove-bg
+    cd backend && uv run python ../scripts/prep-logo.py input.png --club "Bayside FC"
+    cd backend && uv run python ../scripts/prep-logo.py input.jpg --club "Inter Miami CF" --size 256
+    cd backend && uv run python ../scripts/prep-logo.py input.png --club "CF Montréal" --no-remove-bg
 
-Dependencies:
-    pip install Pillow rembg
+Dependencies (managed via uv in backend/pyproject.toml):
+    pillow, rembg
 
 The output is saved to club-logos/{slug}.png where slug is derived
 from the club name (lowercase, hyphens, accents stripped).
@@ -23,11 +23,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
-try:
-    from PIL import Image
-except ImportError:
-    print("Missing dependency: pip install Pillow")
-    sys.exit(1)
+from PIL import Image
 
 
 def club_name_to_slug(name: str) -> str:
@@ -39,12 +35,7 @@ def club_name_to_slug(name: str) -> str:
 
 def remove_background(img: Image.Image) -> Image.Image:
     """Remove background using rembg."""
-    try:
-        from rembg import remove
-    except ImportError:
-        print("Missing dependency: pip install rembg")
-        print("Or use --no-remove-bg to skip background removal.")
-        sys.exit(1)
+    from rembg import remove
 
     return remove(img)
 
