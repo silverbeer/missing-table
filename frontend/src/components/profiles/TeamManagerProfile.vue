@@ -4,7 +4,15 @@
       <!-- Club-level Management -->
       <div v-if="authStore.state.profile.club" class="info-group">
         <label>Managing Club:</label>
-        <span class="club-name">
+        <span
+          class="club-name"
+          style="display: inline-flex; align-items: center; gap: 6px"
+        >
+          <ClubLogo
+            :logo-url="authStore.state.profile.club.logo_url"
+            :name="authStore.state.profile.club.name"
+            size="sm"
+          />
           {{ authStore.state.profile.club.name }}
           <span class="club-location"
             >({{ authStore.state.profile.club.city }})</span
@@ -16,7 +24,15 @@
       <!-- Team-level Management -->
       <div v-else-if="authStore.state.profile.team" class="info-group">
         <label>Managing Team:</label>
-        <span class="team-name">
+        <span
+          class="team-name"
+          style="display: inline-flex; align-items: center; gap: 6px"
+        >
+          <ClubLogo
+            :logo-url="authStore.state.profile.team.club?.logo_url"
+            :name="authStore.state.profile.team.name"
+            size="sm"
+          />
           {{ authStore.state.profile.team.name }}
           <span v-if="authStore.state.profile.team.city">
             ({{ authStore.state.profile.team.city }})
@@ -210,12 +226,14 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import BaseProfile from './BaseProfile.vue';
+import ClubLogo from '@/components/shared/ClubLogo.vue';
 import { getApiBaseUrl } from '../../config/api';
 
 export default {
   name: 'TeamManagerProfile',
   components: {
     BaseProfile,
+    ClubLogo,
   },
   emits: ['logout'],
   setup() {

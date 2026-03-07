@@ -166,6 +166,8 @@
           :key="player.id"
           :player="player"
           :clubColor="team?.club?.primary_color"
+          :clubLogoUrl="team?.club?.logo_url || ''"
+          :clubName="team?.club?.name || ''"
           :overlayPrimaryColor="team?.club?.primary_color"
           :overlayTextColor="'#FFFFFF'"
           :overlayAccentColor="team?.club?.secondary_color"

@@ -10,10 +10,14 @@ Usage:
     python manage_clubs.py list              # List all clubs and teams
     python manage_clubs.py delete-club <id>  # Delete a club
     python manage_clubs.py delete-team <id>  # Delete a team
+    python manage_clubs.py logo-status       # Show logo status for all clubs
+    python manage_clubs.py upload-logos      # Upload prepared logos to DB
 """
 
+import colorsys
 import json
 import os
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +30,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm
 from rich.table import Table
 
-from models.clubs import ClubData, TeamData, load_clubs_from_json
+from models.clubs import ClubData, TeamData, club_name_to_slug, load_clubs_from_json
 
 # Initialize Typer app and Rich console
 app = typer.Typer(help="Club and Team Management CLI Tool")
@@ -35,6 +39,8 @@ console = Console()
 # API Configuration
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 CLUBS_JSON_PATH = Path(__file__).parent.parent / "clubs.json"
+LOGO_DIR = Path(__file__).parent.parent / "club-logos"
+LOGO_READY_DIR = LOGO_DIR / "ready"
 
 
 # ============================================================================
@@ -228,6 +234,10 @@ def create_club(token: str, club: ClubData) -> dict[str, Any] | None:
         "website": club.website,
         "description": f"Club based in {club.location}",
         "is_active": True,
+        "logo_url": club.logo_url or None,
+        "primary_color": club.primary_color or None,
+        "secondary_color": club.secondary_color or None,
+        "instagram": club.instagram or None,
     }
 
     response = api_request("POST", "/api/clubs", token, data=payload)
@@ -251,6 +261,10 @@ def update_club(token: str, club_id: int, club: ClubData) -> bool:
         "website": club.website,
         "description": f"Club based in {club.location}",
         "is_active": True,
+        "logo_url": club.logo_url or None,
+        "primary_color": club.primary_color or None,
+        "secondary_color": club.secondary_color or None,
+        "instagram": club.instagram or None,
     }
 
     response = api_request("PUT", f"/api/clubs/{club_id}", token, data=payload)
@@ -260,6 +274,73 @@ def update_club(token: str, club_id: int, club: ClubData) -> bool:
     else:
         console.print(f"[yellow]⚠️  Failed to update club (ID: {club_id}): {response.text}[/yellow]")
         return False
+
+
+def upload_club_logo(token: str, club_id: int, logo_path: Path) -> bool:
+    """Upload a local logo file for a club via the API."""
+    url = f"{API_URL}/api/clubs/{club_id}/logo"
+    headers = {"Authorization": f"Bearer {token}"}
+    with open(logo_path, "rb") as f:
+        response = requests.post(url, headers=headers, files={"file": (logo_path.name, f, "image/png")})
+    if response.status_code == 200:
+        return True
+    else:
+        console.print(f"[yellow]  Failed to upload logo for club {club_id}: {response.text}[/yellow]")
+        return False
+
+
+def extract_brand_colors(logo_path: Path) -> tuple[str | None, str | None]:
+    """Extract primary and secondary brand colors from a logo image.
+
+    Analyzes opaque, saturated pixels to find the dominant brand colors,
+    filtering out transparent, near-white, near-black, and gray pixels.
+
+    Returns:
+        (primary_hex, secondary_hex) tuple, e.g. ('#0060a0', '#c09040').
+        Returns (None, None) if no suitable colors are found.
+    """
+    from PIL import Image
+
+    img = Image.open(logo_path).convert("RGBA")
+    pixels = list(img.getdata())
+
+    # Keep only opaque, saturated, mid-brightness pixels
+    filtered: list[tuple[int, int, int]] = []
+    for r, g, b, a in pixels:
+        if a < 128:
+            continue
+        brightness = (r + g + b) / 3
+        if brightness < 30 or brightness > 225:
+            continue
+        _, s, _ = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+        if s < 0.15:
+            continue
+        # Quantize to reduce noise (round to nearest 16)
+        qr, qg, qb = (r >> 4) << 4, (g >> 4) << 4, (b >> 4) << 4
+        filtered.append((qr, qg, qb))
+
+    if not filtered:
+        return None, None
+
+    counts = Counter(filtered).most_common(20)
+
+    # Primary = most common saturated color
+    primary = counts[0][0]
+    ph, _, _ = colorsys.rgb_to_hsv(primary[0] / 255, primary[1] / 255, primary[2] / 255)
+
+    # Secondary = most common color with a different hue
+    secondary = None
+    for color, _ in counts[1:]:
+        ch, _, _ = colorsys.rgb_to_hsv(color[0] / 255, color[1] / 255, color[2] / 255)
+        hue_diff = min(abs(ch - ph), 1 - abs(ch - ph))
+        if hue_diff > 0.05:
+            secondary = color
+            break
+
+    def to_hex(c: tuple[int, int, int]) -> str:
+        return f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}"
+
+    return to_hex(primary), to_hex(secondary) if secondary else to_hex(primary)
 
 
 # ============================================================================
@@ -462,6 +543,7 @@ def sync(
         "clubs_created": 0,
         "clubs_updated": 0,
         "clubs_unchanged": 0,
+        "logos_uploaded": 0,
         "teams_created": 0,
         "teams_updated": 0,
         "teams_unchanged": 0,
@@ -481,7 +563,12 @@ def sync(
             if existing_club:
                 # Club exists - check if update needed
                 needs_update = (
-                    existing_club.get("city") != club.location or existing_club.get("website") != club.website
+                    existing_club.get("city") != club.location
+                    or existing_club.get("website") != club.website
+                    or (club.logo_url and existing_club.get("logo_url") != club.logo_url)
+                    or (club.primary_color and existing_club.get("primary_color") != club.primary_color)
+                    or (club.secondary_color and existing_club.get("secondary_color") != club.secondary_color)
+                    or (club.instagram and existing_club.get("instagram") != club.instagram)
                 )
 
                 if needs_update and not dry_run:
@@ -525,6 +612,15 @@ def sync(
                     console.print(f"  [green]✨ Would create club: {club.club_name}[/green]")
                     stats["clubs_created"] += 1
                     club_id = None  # Can't process teams in dry run without club ID
+
+            # Upload local logo if available
+            if club_id and not dry_run:
+                slug = club_name_to_slug(club.club_name)
+                logo_path = LOGO_READY_DIR / f"{slug}.png"
+                if logo_path.exists():
+                    if upload_club_logo(token, club_id, logo_path):
+                        console.print(f"  [magenta]🖼️  Uploaded logo: {slug}.png[/magenta]")
+                        stats["logos_uploaded"] += 1
 
             # Process teams for this club
             for team in club.teams:
@@ -702,6 +798,8 @@ def sync(
     summary_table.add_row("Clubs Created", str(stats["clubs_created"]))
     summary_table.add_row("Clubs Updated", str(stats["clubs_updated"]))
     summary_table.add_row("Clubs Unchanged", str(stats["clubs_unchanged"]))
+    if stats["logos_uploaded"] > 0:
+        summary_table.add_row("Logos Uploaded", f"[magenta]{stats['logos_uploaded']}[/magenta]")
     summary_table.add_row("Teams Created", str(stats["teams_created"]))
     summary_table.add_row("Teams Updated", str(stats["teams_updated"]))
     summary_table.add_row("Teams Unchanged", str(stats["teams_unchanged"]))
@@ -720,8 +818,8 @@ def sync(
 # ============================================================================
 
 
-@app.command()
-def list(
+@app.command(name="list")
+def list_clubs(
     show_teams: bool = typer.Option(True, "--show-teams/--no-teams", help="Show teams under each club"),
 ):
     """List all clubs and their teams."""
@@ -856,6 +954,209 @@ def delete_team(
     else:
         console.print(f"[red]❌ Failed to delete team: {response.text}[/red]")
         raise typer.Exit(code=1)
+
+
+# ============================================================================
+# Logo Status Command
+# ============================================================================
+
+
+@app.command()
+def logo_status():
+    """Show all clubs with their expected logo filenames and current logo status."""
+    console.print("[bold cyan]Club Logo Status[/bold cyan]\n")
+
+    # Authenticate
+    with console.status("[bold yellow]Authenticating...", spinner="dots"):
+        token = get_auth_token()
+
+    # Fetch all clubs from DB
+    with console.status("[bold yellow]Fetching clubs...", spinner="dots"):
+        clubs = get_all_clubs(token)
+
+    if not clubs:
+        console.print("[yellow]No clubs found in database[/yellow]")
+        return
+
+    # Check what ready files exist
+    ready_files = set()
+    if LOGO_READY_DIR.exists():
+        ready_files = {f.stem for f in LOGO_READY_DIR.glob("*.png")}
+
+    # Build table
+    table = Table(title="Club Logo Status", box=box.ROUNDED)
+    table.add_column("Club Name", style="cyan")
+    table.add_column("Slug Filename", style="white")
+    table.add_column("DB Logo", style="white", justify="center")
+    table.add_column("Local File", style="white", justify="center")
+
+    has_logo = 0
+    missing_logo = 0
+
+    for club in sorted(clubs, key=lambda c: c["name"]):
+        slug = club_name_to_slug(club["name"])
+        db_has_logo = bool(club.get("logo_url"))
+        local_exists = slug in ready_files
+
+        if db_has_logo:
+            db_status = "[green]Yes[/green]"
+            has_logo += 1
+        else:
+            db_status = "[dim]-[/dim]"
+            missing_logo += 1
+
+        local_status = "[green]Ready[/green]" if local_exists else "[dim]-[/dim]"
+
+        table.add_row(club["name"], f"{slug}.png", db_status, local_status)
+
+    console.print(table)
+    console.print(f"\n[green]{has_logo}[/green] clubs with logos, [yellow]{missing_logo}[/yellow] without logos")
+    console.print(f"\nTo add a logo: place raw image in [bold]club-logos/raw/{'{slug}'}.png[/bold]")
+    console.print("Then run: [bold]uv run python ../scripts/prep-logo.py --batch[/bold]")
+    console.print("Then run: [bold]uv run python manage_clubs.py upload-logos[/bold]")
+
+
+# ============================================================================
+# Upload Logos Command
+# ============================================================================
+
+
+@app.command()
+def upload_logos(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be uploaded without making changes"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Re-upload logos even if club already has one"),
+    extract_colors: bool = typer.Option(
+        False, "--extract-colors", help="Extract primary/secondary brand colors from logos"
+    ),
+):
+    """
+    Upload prepared logos from club-logos/ready/ to the database.
+
+    Matches PNG filenames (slugs) to clubs in the database using
+    club_name_to_slug(). Works with ALL clubs in the DB, not just
+    those in clubs.json.
+
+    With --extract-colors, also analyzes each logo to detect dominant
+    brand colors and updates clubs that don't already have colors set.
+    """
+    console.print("[bold cyan]Upload Club Logos[/bold cyan]\n")
+
+    if dry_run:
+        console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]\n")
+
+    # Check ready directory
+    if not LOGO_READY_DIR.exists():
+        console.print(f"[red]Ready directory not found: {LOGO_READY_DIR}[/red]")
+        console.print("Run prep-logo.py --batch first to prepare logos.")
+        raise typer.Exit(code=1)
+
+    ready_files = list(LOGO_READY_DIR.glob("*.png"))
+    if not ready_files:
+        console.print(f"[yellow]No PNG files found in {LOGO_READY_DIR}[/yellow]")
+        return
+
+    console.print(f"Found {len(ready_files)} prepared logo(s)")
+    if extract_colors:
+        console.print("[cyan]Color extraction enabled[/cyan]")
+    console.print()
+
+    # Authenticate
+    with console.status("[bold yellow]Authenticating...", spinner="dots"):
+        token = get_auth_token()
+
+    # Fetch ALL clubs from DB
+    with console.status("[bold yellow]Fetching clubs...", spinner="dots"):
+        clubs = get_all_clubs(token)
+
+    if not clubs:
+        console.print("[red]No clubs found in database[/red]")
+        raise typer.Exit(code=1)
+
+    # Build slug -> club mapping
+    slug_to_club: dict[str, dict] = {}
+    for club in clubs:
+        slug = club_name_to_slug(club["name"])
+        slug_to_club[slug] = club
+
+    # Process each ready file
+    stats = {"uploaded": 0, "skipped_has_logo": 0, "unmatched": 0, "errors": 0, "colors_set": 0}
+    unmatched_files: list[str] = []
+
+    for logo_path in sorted(ready_files):
+        slug = logo_path.stem
+        club = slug_to_club.get(slug)
+
+        if not club:
+            console.print(f"  [yellow]No matching club for: {logo_path.name}[/yellow]")
+            unmatched_files.append(logo_path.name)
+            stats["unmatched"] += 1
+            continue
+
+        # Skip if club already has a logo (unless --overwrite)
+        if club.get("logo_url") and not overwrite:
+            console.print(f"  [dim]Skipped (already has logo): {club['name']}[/dim]")
+            stats["skipped_has_logo"] += 1
+            # Still extract colors if requested and club has no colors
+            if extract_colors and not club.get("primary_color"):
+                _apply_extracted_colors(token, club, logo_path, dry_run, stats)
+            continue
+
+        if dry_run:
+            action = "Would re-upload" if club.get("logo_url") else "Would upload"
+            console.print(f"  [green]{action}: {logo_path.name} -> {club['name']}[/green]")
+            stats["uploaded"] += 1
+        else:
+            if upload_club_logo(token, club["id"], logo_path):
+                console.print(f"  [green]Uploaded: {logo_path.name} -> {club['name']}[/green]")
+                stats["uploaded"] += 1
+            else:
+                stats["errors"] += 1
+
+        # Extract and set colors if requested
+        if extract_colors and not club.get("primary_color"):
+            _apply_extracted_colors(token, club, logo_path, dry_run, stats)
+
+    # Summary
+    console.print(f"\n[bold]Summary:[/bold] {stats['uploaded']} uploaded", end="")
+    if stats["skipped_has_logo"]:
+        console.print(f", {stats['skipped_has_logo']} skipped (already have logo)", end="")
+    if stats["colors_set"]:
+        console.print(f", {stats['colors_set']} colors extracted", end="")
+    if stats["unmatched"]:
+        console.print(f", {stats['unmatched']} unmatched", end="")
+    if stats["errors"]:
+        console.print(f", [red]{stats['errors']} errors[/red]", end="")
+    console.print()
+
+    if unmatched_files:
+        console.print("\n[yellow]Unmatched files (no DB club with this slug):[/yellow]")
+        for f in unmatched_files:
+            console.print(f"  {f}")
+        console.print("\nRun [bold]logo-status[/bold] to see expected slugs for all clubs.")
+
+    if dry_run:
+        console.print("\n[yellow]Run without --dry-run to apply changes[/yellow]")
+
+
+def _apply_extracted_colors(
+    token: str, club: dict, logo_path: Path, dry_run: bool, stats: dict
+) -> None:
+    """Extract colors from a logo and update the club if it has no colors set."""
+    primary, secondary = extract_brand_colors(logo_path)
+    if not primary:
+        return
+
+    if dry_run:
+        console.print(f"    [magenta]Would set colors: {primary} / {secondary}[/magenta]")
+        stats["colors_set"] += 1
+    else:
+        payload = {"primary_color": primary, "secondary_color": secondary}
+        response = api_request("PUT", f"/api/clubs/{club['id']}", token, data=payload)
+        if response.status_code == 200:
+            console.print(f"    [magenta]Set colors: {primary} / {secondary}[/magenta]")
+            stats["colors_set"] += 1
+        else:
+            console.print(f"    [yellow]Failed to set colors: {response.text}[/yellow]")
 
 
 # ============================================================================

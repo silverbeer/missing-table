@@ -209,7 +209,14 @@
             <td
               class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm font-medium text-gray-900 max-w-[100px] sm:max-w-[140px] md:max-w-none md:whitespace-nowrap"
             >
-              {{ getTeamDisplayName(team.team) }}
+              <div class="flex items-center gap-1.5">
+                <ClubLogo
+                  :logo-url="team.logo_url"
+                  :name="team.team"
+                  size="xs"
+                />
+                <span>{{ getTeamDisplayName(team.team) }}</span>
+              </div>
             </td>
             <td
               class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
@@ -263,10 +270,11 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import PlayoffBracket from './PlayoffBracket.vue';
+import ClubLogo from './shared/ClubLogo.vue';
 
 export default {
   name: 'LeagueTable',
-  components: { PlayoffBracket },
+  components: { PlayoffBracket, ClubLogo },
   props: {
     initialAgeGroupId: {
       type: Number,

@@ -3,7 +3,17 @@ Pydantic models for clubs and teams data structure.
 Used for parsing and validating clubs.json and API requests.
 """
 
+import re
+import unicodedata
+
 from pydantic import BaseModel, Field, field_validator
+
+
+def club_name_to_slug(name: str) -> str:
+    """Convert club name to filename slug: 'Inter Miami CF' -> 'inter-miami-cf'"""
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    name = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return name
 
 
 class TeamData(BaseModel):
@@ -41,6 +51,10 @@ class ClubData(BaseModel):
     club_name: str
     location: str
     website: str = ""
+    logo_url: str = ""
+    primary_color: str = ""
+    secondary_color: str = ""
+    instagram: str = ""
     teams: list[TeamData]
     is_pro_academy: bool = Field(
         default=False,
@@ -54,6 +68,32 @@ class ClubData(BaseModel):
         """Validate website is a URL or empty."""
         if v and not v.startswith(("http://", "https://")):
             raise ValueError(f"Website must be a valid URL or empty, got {v}")
+        return v
+
+    @field_validator("logo_url")
+    @classmethod
+    def validate_logo_url(cls, v: str) -> str:
+        """Validate logo_url is a URL or empty."""
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError(f"logo_url must be a valid URL or empty, got {v}")
+        return v
+
+    @field_validator("primary_color", "secondary_color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
+        """Validate color is a hex code or empty."""
+        import re
+
+        if v and not re.match(r"^#[0-9a-fA-F]{3,8}$", v):
+            raise ValueError(f"Color must be a hex code (e.g., #FF0000) or empty, got {v}")
+        return v
+
+    @field_validator("instagram")
+    @classmethod
+    def validate_instagram(cls, v: str) -> str:
+        """Validate instagram is a URL or empty."""
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError(f"Instagram must be a valid URL or empty, got {v}")
         return v
 
 

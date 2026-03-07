@@ -375,8 +375,8 @@ class MatchDAO(BaseDAO):
         try:
             query = self.client.table("matches").select("""
                 *,
-                home_team:teams!matches_home_team_id_fkey(id, name),
-                away_team:teams!matches_away_team_id_fkey(id, name),
+                home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
+                away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
                 season:seasons(id, name),
                 age_group:age_groups(id, name),
                 match_type:match_types(id, name),
@@ -421,6 +421,8 @@ class MatchDAO(BaseDAO):
                     "away_team_id": match["away_team_id"],
                     "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
                     "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                    "home_team_club": match["home_team"].get("club") if match.get("home_team") else None,
+                    "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],
@@ -461,8 +463,8 @@ class MatchDAO(BaseDAO):
                 self.client.table("matches")
                 .select("""
                 *,
-                home_team:teams!matches_home_team_id_fkey(id, name),
-                away_team:teams!matches_away_team_id_fkey(id, name),
+                home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
+                away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
                 season:seasons(id, name),
                 age_group:age_groups(id, name),
                 match_type:match_types(id, name),
@@ -490,6 +492,8 @@ class MatchDAO(BaseDAO):
                     "away_team_id": match["away_team_id"],
                     "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
                     "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                    "home_team_club": match["home_team"].get("club") if match.get("home_team") else None,
+                    "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],
@@ -861,8 +865,8 @@ class MatchDAO(BaseDAO):
         )
         query = self.client.table("matches").select("""
             *,
-            home_team:teams!matches_home_team_id_fkey(id, name, division_id),
-            away_team:teams!matches_away_team_id_fkey(id, name, division_id),
+            home_team:teams!matches_home_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
+            away_team:teams!matches_away_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
             match_type:match_types(id, name)
         """)
 

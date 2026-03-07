@@ -484,10 +484,51 @@
                   <td class="border-b text-center text-sm text-gray-600">
                     {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                   </td>
-                  <td
-                    class="border-b text-left px-2"
-                    v-html="getTeamDisplay(match)"
-                  ></td>
+                  <td class="border-b text-left px-2">
+                    <div
+                      v-if="getMatchTeams(match).mode === 'all'"
+                      class="flex items-center gap-1"
+                    >
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).away.logoUrl"
+                        :name="getMatchTeams(match).away.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                        >{{ getMatchTeams(match).away.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).away.icon"
+                        :class="getMatchTeams(match).away.iconClass"
+                        >{{ getMatchTeams(match).away.icon }}</span
+                      >
+                      <span class="mx-0.5">@</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).home.logoUrl"
+                        :name="getMatchTeams(match).home.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                        >{{ getMatchTeams(match).home.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).home.icon"
+                        :class="getMatchTeams(match).home.iconClass"
+                        >{{ getMatchTeams(match).home.icon }}</span
+                      >
+                    </div>
+                    <div v-else class="flex items-center gap-1">
+                      <span>{{ getMatchTeams(match).prefix }}</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).opponent.logoUrl"
+                        :name="getMatchTeams(match).opponent.name"
+                        size="xs"
+                      />
+                      <span>{{ getMatchTeams(match).opponent.name }}</span>
+                    </div>
+                  </td>
                   <td class="border-b text-center">
                     {{ getScoreDisplay(match) }}
                   </td>
@@ -589,10 +630,51 @@
                   <td class="border-b text-center text-sm text-gray-600">
                     {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                   </td>
-                  <td
-                    class="border-b text-left px-2"
-                    v-html="getTeamDisplay(match)"
-                  ></td>
+                  <td class="border-b text-left px-2">
+                    <div
+                      v-if="getMatchTeams(match).mode === 'all'"
+                      class="flex items-center gap-1"
+                    >
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).away.logoUrl"
+                        :name="getMatchTeams(match).away.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                        >{{ getMatchTeams(match).away.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).away.icon"
+                        :class="getMatchTeams(match).away.iconClass"
+                        >{{ getMatchTeams(match).away.icon }}</span
+                      >
+                      <span class="mx-0.5">@</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).home.logoUrl"
+                        :name="getMatchTeams(match).home.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                        >{{ getMatchTeams(match).home.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).home.icon"
+                        :class="getMatchTeams(match).home.iconClass"
+                        >{{ getMatchTeams(match).home.icon }}</span
+                      >
+                    </div>
+                    <div v-else class="flex items-center gap-1">
+                      <span>{{ getMatchTeams(match).prefix }}</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).opponent.logoUrl"
+                        :name="getMatchTeams(match).opponent.name"
+                        size="xs"
+                      />
+                      <span>{{ getMatchTeams(match).opponent.name }}</span>
+                    </div>
+                  </td>
                   <td class="border-b text-center">
                     {{ getScoreDisplay(match) }}
                   </td>
@@ -694,10 +776,51 @@
                   <td class="border-b text-center text-sm text-gray-600">
                     {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                   </td>
-                  <td
-                    class="border-b text-left px-2"
-                    v-html="getTeamDisplay(match)"
-                  ></td>
+                  <td class="border-b text-left px-2">
+                    <div
+                      v-if="getMatchTeams(match).mode === 'all'"
+                      class="flex items-center gap-1"
+                    >
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).away.logoUrl"
+                        :name="getMatchTeams(match).away.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                        >{{ getMatchTeams(match).away.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).away.icon"
+                        :class="getMatchTeams(match).away.iconClass"
+                        >{{ getMatchTeams(match).away.icon }}</span
+                      >
+                      <span class="mx-0.5">@</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).home.logoUrl"
+                        :name="getMatchTeams(match).home.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                        >{{ getMatchTeams(match).home.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).home.icon"
+                        :class="getMatchTeams(match).home.iconClass"
+                        >{{ getMatchTeams(match).home.icon }}</span
+                      >
+                    </div>
+                    <div v-else class="flex items-center gap-1">
+                      <span>{{ getMatchTeams(match).prefix }}</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).opponent.logoUrl"
+                        :name="getMatchTeams(match).opponent.name"
+                        size="xs"
+                      />
+                      <span>{{ getMatchTeams(match).opponent.name }}</span>
+                    </div>
+                  </td>
                   <td class="border-b text-center">
                     {{ getScoreDisplay(match) }}
                   </td>
@@ -799,10 +922,51 @@
                 <td class="border-b text-center text-sm text-gray-600">
                   {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
                 </td>
-                <td
-                  class="border-b text-left px-2"
-                  v-html="getTeamDisplay(match)"
-                ></td>
+                <td class="border-b text-left px-2">
+                  <div
+                    v-if="getMatchTeams(match).mode === 'all'"
+                    class="flex items-center gap-1"
+                  >
+                    <ClubLogo
+                      :logo-url="getMatchTeams(match).away.logoUrl"
+                      :name="getMatchTeams(match).away.name"
+                      size="xs"
+                    />
+                    <span
+                      :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                      >{{ getMatchTeams(match).away.name }}</span
+                    >
+                    <span
+                      v-if="getMatchTeams(match).away.icon"
+                      :class="getMatchTeams(match).away.iconClass"
+                      >{{ getMatchTeams(match).away.icon }}</span
+                    >
+                    <span class="mx-0.5">@</span>
+                    <ClubLogo
+                      :logo-url="getMatchTeams(match).home.logoUrl"
+                      :name="getMatchTeams(match).home.name"
+                      size="xs"
+                    />
+                    <span
+                      :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                      >{{ getMatchTeams(match).home.name }}</span
+                    >
+                    <span
+                      v-if="getMatchTeams(match).home.icon"
+                      :class="getMatchTeams(match).home.iconClass"
+                      >{{ getMatchTeams(match).home.icon }}</span
+                    >
+                  </div>
+                  <div v-else class="flex items-center gap-1">
+                    <span>{{ getMatchTeams(match).prefix }}</span>
+                    <ClubLogo
+                      :logo-url="getMatchTeams(match).opponent.logoUrl"
+                      :name="getMatchTeams(match).opponent.name"
+                      size="xs"
+                    />
+                    <span>{{ getMatchTeams(match).opponent.name }}</span>
+                  </div>
+                </td>
                 <td class="border-b text-center">
                   {{ getScoreDisplay(match) }}
                 </td>
@@ -932,10 +1096,51 @@
 
                 <!-- Teams and Score -->
                 <div class="mb-3">
-                  <div
-                    class="text-base font-medium text-gray-900 mb-2"
-                    v-html="getTeamDisplay(match)"
-                  ></div>
+                  <div class="text-base font-medium text-gray-900 mb-2">
+                    <div
+                      v-if="getMatchTeams(match).mode === 'all'"
+                      class="flex items-center gap-1 flex-wrap"
+                    >
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).away.logoUrl"
+                        :name="getMatchTeams(match).away.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                        >{{ getMatchTeams(match).away.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).away.icon"
+                        :class="getMatchTeams(match).away.iconClass"
+                        >{{ getMatchTeams(match).away.icon }}</span
+                      >
+                      <span class="mx-0.5">@</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).home.logoUrl"
+                        :name="getMatchTeams(match).home.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                        >{{ getMatchTeams(match).home.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).home.icon"
+                        :class="getMatchTeams(match).home.iconClass"
+                        >{{ getMatchTeams(match).home.icon }}</span
+                      >
+                    </div>
+                    <div v-else class="flex items-center gap-1">
+                      <span>{{ getMatchTeams(match).prefix }}</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).opponent.logoUrl"
+                        :name="getMatchTeams(match).opponent.name"
+                        size="xs"
+                      />
+                      <span>{{ getMatchTeams(match).opponent.name }}</span>
+                    </div>
+                  </div>
                   <div class="flex items-center space-x-3">
                     <span class="text-2xl font-bold text-gray-900">
                       {{ getScoreDisplay(match) }}
@@ -1049,10 +1254,51 @@
 
                 <!-- Teams and Score -->
                 <div class="mb-3">
-                  <div
-                    class="text-base font-medium text-gray-900 mb-2"
-                    v-html="getTeamDisplay(match)"
-                  ></div>
+                  <div class="text-base font-medium text-gray-900 mb-2">
+                    <div
+                      v-if="getMatchTeams(match).mode === 'all'"
+                      class="flex items-center gap-1 flex-wrap"
+                    >
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).away.logoUrl"
+                        :name="getMatchTeams(match).away.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                        >{{ getMatchTeams(match).away.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).away.icon"
+                        :class="getMatchTeams(match).away.iconClass"
+                        >{{ getMatchTeams(match).away.icon }}</span
+                      >
+                      <span class="mx-0.5">@</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).home.logoUrl"
+                        :name="getMatchTeams(match).home.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                        >{{ getMatchTeams(match).home.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).home.icon"
+                        :class="getMatchTeams(match).home.iconClass"
+                        >{{ getMatchTeams(match).home.icon }}</span
+                      >
+                    </div>
+                    <div v-else class="flex items-center gap-1">
+                      <span>{{ getMatchTeams(match).prefix }}</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).opponent.logoUrl"
+                        :name="getMatchTeams(match).opponent.name"
+                        size="xs"
+                      />
+                      <span>{{ getMatchTeams(match).opponent.name }}</span>
+                    </div>
+                  </div>
                   <div class="flex items-center space-x-3">
                     <span class="text-2xl font-bold text-gray-900">
                       {{ getScoreDisplay(match) }}
@@ -1166,10 +1412,51 @@
 
                 <!-- Teams and Score -->
                 <div class="mb-3">
-                  <div
-                    class="text-base font-medium text-gray-900 mb-2"
-                    v-html="getTeamDisplay(match)"
-                  ></div>
+                  <div class="text-base font-medium text-gray-900 mb-2">
+                    <div
+                      v-if="getMatchTeams(match).mode === 'all'"
+                      class="flex items-center gap-1 flex-wrap"
+                    >
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).away.logoUrl"
+                        :name="getMatchTeams(match).away.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                        >{{ getMatchTeams(match).away.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).away.icon"
+                        :class="getMatchTeams(match).away.iconClass"
+                        >{{ getMatchTeams(match).away.icon }}</span
+                      >
+                      <span class="mx-0.5">@</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).home.logoUrl"
+                        :name="getMatchTeams(match).home.name"
+                        size="xs"
+                      />
+                      <span
+                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                        >{{ getMatchTeams(match).home.name }}</span
+                      >
+                      <span
+                        v-if="getMatchTeams(match).home.icon"
+                        :class="getMatchTeams(match).home.iconClass"
+                        >{{ getMatchTeams(match).home.icon }}</span
+                      >
+                    </div>
+                    <div v-else class="flex items-center gap-1">
+                      <span>{{ getMatchTeams(match).prefix }}</span>
+                      <ClubLogo
+                        :logo-url="getMatchTeams(match).opponent.logoUrl"
+                        :name="getMatchTeams(match).opponent.name"
+                        size="xs"
+                      />
+                      <span>{{ getMatchTeams(match).opponent.name }}</span>
+                    </div>
+                  </div>
                   <div class="flex items-center space-x-3">
                     <span class="text-2xl font-bold text-gray-900">
                       {{ getScoreDisplay(match) }}
@@ -1279,10 +1566,51 @@
 
               <!-- Teams and Score -->
               <div class="mb-3">
-                <div
-                  class="text-base font-medium text-gray-900 mb-2"
-                  v-html="getTeamDisplay(match)"
-                ></div>
+                <div class="text-base font-medium text-gray-900 mb-2">
+                  <div
+                    v-if="getMatchTeams(match).mode === 'all'"
+                    class="flex items-center gap-1 flex-wrap"
+                  >
+                    <ClubLogo
+                      :logo-url="getMatchTeams(match).away.logoUrl"
+                      :name="getMatchTeams(match).away.name"
+                      size="xs"
+                    />
+                    <span
+                      :class="{ 'font-bold': getMatchTeams(match).away.bold }"
+                      >{{ getMatchTeams(match).away.name }}</span
+                    >
+                    <span
+                      v-if="getMatchTeams(match).away.icon"
+                      :class="getMatchTeams(match).away.iconClass"
+                      >{{ getMatchTeams(match).away.icon }}</span
+                    >
+                    <span class="mx-0.5">@</span>
+                    <ClubLogo
+                      :logo-url="getMatchTeams(match).home.logoUrl"
+                      :name="getMatchTeams(match).home.name"
+                      size="xs"
+                    />
+                    <span
+                      :class="{ 'font-bold': getMatchTeams(match).home.bold }"
+                      >{{ getMatchTeams(match).home.name }}</span
+                    >
+                    <span
+                      v-if="getMatchTeams(match).home.icon"
+                      :class="getMatchTeams(match).home.iconClass"
+                      >{{ getMatchTeams(match).home.icon }}</span
+                    >
+                  </div>
+                  <div v-else class="flex items-center gap-1">
+                    <span>{{ getMatchTeams(match).prefix }}</span>
+                    <ClubLogo
+                      :logo-url="getMatchTeams(match).opponent.logoUrl"
+                      :name="getMatchTeams(match).opponent.name"
+                      size="xs"
+                    />
+                    <span>{{ getMatchTeams(match).opponent.name }}</span>
+                  </div>
+                </div>
                 <div class="flex items-center space-x-3">
                   <span class="text-2xl font-bold text-gray-900">
                     {{ getScoreDisplay(match) }}
@@ -1401,12 +1729,14 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 import MatchDetailView from '@/components/MatchDetailView.vue';
+import ClubLogo from '@/components/shared/ClubLogo.vue';
 
 export default {
   name: 'MatchesView',
   components: {
     MatchEditModal,
     MatchDetailView,
+    ClubLogo,
   },
   props: {
     initialAgeGroupId: { type: Number, default: null },
@@ -1676,6 +2006,70 @@ export default {
       } else {
         return `@ ${match.home_team_name}`;
       }
+    };
+
+    // Get structured team display data for template rendering (replaces v-html getTeamDisplay)
+    const getMatchTeams = match => {
+      if (selectedViewTab.value === 'all') {
+        const away = {
+          name: match.away_team_name,
+          logoUrl: match.away_team_club?.logo_url || '',
+          icon: '',
+          bold: false,
+        };
+        const home = {
+          name: match.home_team_name,
+          logoUrl: match.home_team_club?.logo_url || '',
+          icon: '',
+          bold: false,
+        };
+        // Result icons for completed matches with scores
+        if (
+          match.match_status === 'completed' &&
+          match.home_score != null &&
+          match.away_score != null
+        ) {
+          if (match.away_score > match.home_score) {
+            away.bold = true;
+            away.icon = '✓';
+            away.iconClass = 'text-green-600 font-bold';
+            home.icon = '✗';
+            home.iconClass = 'text-red-600 font-bold';
+          } else if (match.away_score < match.home_score) {
+            home.bold = true;
+            home.icon = '✓';
+            home.iconClass = 'text-green-600 font-bold';
+            away.icon = '✗';
+            away.iconClass = 'text-red-600 font-bold';
+          } else {
+            away.icon = '=';
+            away.iconClass = 'text-gray-500';
+            home.icon = '=';
+            home.iconClass = 'text-gray-500';
+          }
+        }
+        return { mode: 'all', away, home };
+      }
+      // My Club view
+      const selectedTeamId = parseInt(selectedTeam.value);
+      if (match.home_team_id === selectedTeamId) {
+        return {
+          mode: 'myclub',
+          prefix: 'vs',
+          opponent: {
+            name: match.away_team_name,
+            logoUrl: match.away_team_club?.logo_url || '',
+          },
+        };
+      }
+      return {
+        mode: 'myclub',
+        prefix: '@',
+        opponent: {
+          name: match.home_team_name,
+          logoUrl: match.home_team_club?.logo_url || '',
+        },
+      };
     };
 
     const getSelectedTeamName = () => {
@@ -2448,6 +2842,7 @@ export default {
       getResult,
       seasonStats,
       getTeamDisplay,
+      getMatchTeams,
       getSelectedTeamName,
       getTeamDisplayName,
       getTeamDisplayWithContext,

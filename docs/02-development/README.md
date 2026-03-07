@@ -17,6 +17,7 @@ This section covers daily development workflows, tools, and best practices for w
 | **[Local K3s with Redis](local-k3s-with-redis.md)** | Full local setup with Rancher Desktop and Redis caching |
 | **[Database Operations](database-operations.md)** | Backup, restore, and database management |
 | **[Schema Migrations](schema-migrations.md)** | Creating, testing, and deploying migrations |
+| **[Adding a Division](adding-a-division.md)** | End-to-end guide for adding a new MLS Next division |
 | **[Docker Guide](docker-guide.md)** | Building images, platform considerations |
 | **[Logging Standards](logging-standards.md)** | Frontend/backend logging, trace IDs, Grafana Loki |
 | **[API Development](api-development.md)** | Creating new API endpoints |
