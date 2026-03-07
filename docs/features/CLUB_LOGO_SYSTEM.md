@@ -26,6 +26,57 @@ The `enrich` command successfully finds club websites, but the logos it captures
 
 ---
 
+## Logo Onboarding Workflow
+
+When onboarding new divisions/clubs, follow this repeatable process to add logos:
+
+### Directory Structure
+
+```
+club-logos/
+  raw/        ← Drop source images here (any format/size), named as {slug}.ext
+  ready/      ← Processed 512x512 PNGs (output of prep-logo.py --batch)
+```
+
+### Step-by-Step
+
+```bash
+# 1. See what clubs need logos and what filenames to use
+cd backend && uv run python manage_clubs.py logo-status
+
+# 2. Drop raw images into staging folder, named by slug from step 1
+cp ~/Downloads/logo.png club-logos/raw/bayside-fc.png
+
+# 3. Batch prep all raw images (bg removal, resize to 512x512)
+cd backend && uv run python ../scripts/prep-logo.py --batch
+
+# 4. Upload all prepared logos to the database
+cd backend && uv run python manage_clubs.py upload-logos
+```
+
+### Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `manage_clubs.py logo-status` | Show all DB clubs with slug filename and logo status |
+| `prep-logo.py --batch` | Process all `club-logos/raw/*` images to `club-logos/ready/` |
+| `prep-logo.py --batch --no-remove-bg` | Batch prep without background removal |
+| `prep-logo.py input.png --club "Name"` | Process a single file by club name |
+| `manage_clubs.py upload-logos` | Upload all `club-logos/ready/*.png` to DB |
+| `manage_clubs.py upload-logos --dry-run` | Preview what would be uploaded |
+| `manage_clubs.py upload-logos --overwrite` | Re-upload even if club already has a logo |
+| `manage_clubs.py upload-logos --extract-colors` | Also extract primary/secondary brand colors from logos |
+
+### Notes
+
+- `logo-status` shows the expected slug filename for every club in the DB
+- `upload-logos` matches files to ALL DB clubs (not just clubs.json)
+- Batch prep skips files where output is already newer than input (re-run safe)
+- SVG and other unsupported formats are skipped with a warning
+- The `club-logos` Supabase storage bucket is auto-created on `supabase db reset` via `config.toml`
+
+---
+
 ## Phase 1: Backend Data Plumbing
 
 Prerequisite for frontend work — makes club/logo data available in match list and standings queries.
