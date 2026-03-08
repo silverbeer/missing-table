@@ -5251,6 +5251,31 @@ async def full_health_check():
         raise HTTPException(status_code=503, detail=health_status)
 
 
+# === Agent Endpoints ===
+
+
+@app.get("/api/agent/match-summary")
+async def get_agent_match_summary(
+    season: str = Query(..., description="Season name, e.g. '2025-26'"),
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Get match summary for agent decision-making.
+
+    Returns match counts grouped by age group, league, and division
+    with status breakdowns to help the agent decide what to scrape.
+    """
+    try:
+        targets = match_dao.get_match_summary(season)
+        return {
+            "season": season,
+            "generated_at": datetime.now(UTC).isoformat(),
+            "targets": targets,
+        }
+    except Exception as e:
+        logger.error("agent_match_summary_failed", error=str(e), season=season)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 if __name__ == "__main__":
     import uvicorn
 
