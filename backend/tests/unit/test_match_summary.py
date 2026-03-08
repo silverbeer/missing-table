@@ -1,0 +1,201 @@
+"""Unit tests for the agent match-summary endpoint."""
+
+from unittest.mock import MagicMock
+
+import pytest
+
+
+@pytest.mark.unit
+class TestGetMatchSummary:
+    """Tests for MatchDAO.get_match_summary()."""
+
+    def _make_dao(self):
+        from unittest.mock import patch
+
+        from dao.match_dao import MatchDAO
+
+        mock_client = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.get_client.return_value = mock_client
+
+        with patch.object(MatchDAO, "__init__", lambda self, conn: None):
+            dao = MatchDAO(mock_conn)
+            dao.connection_holder = mock_conn
+            dao.client = mock_client
+
+        return dao
+
+    def test_returns_empty_for_unknown_season(self):
+        dao = self._make_dao()
+        # Mock season lookup returning no results
+        mock_table = MagicMock()
+        dao.client.table.return_value = mock_table
+        mock_table.select.return_value = mock_table
+        mock_table.eq.return_value = mock_table
+        mock_table.limit.return_value = mock_table
+        mock_table.execute.return_value = MagicMock(data=[])
+
+        result = dao.get_match_summary("9999-00")
+        assert result == []
+
+    def test_groups_matches_correctly(self):
+        dao = self._make_dao()
+
+        matches_data = [
+            {
+                "match_date": "2026-03-01",
+                "match_status": "played",
+                "home_score": 2,
+                "away_score": 1,
+                "age_group": {"name": "U14"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            },
+            {
+                "match_date": "2026-03-15",
+                "match_status": "scheduled",
+                "home_score": None,
+                "away_score": None,
+                "age_group": {"name": "U14"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            },
+        ]
+
+        def table_side_effect(name):
+            mock = MagicMock()
+            if name == "seasons":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.limit.return_value = mock
+                mock.execute.return_value = MagicMock(data=[{"id": 1}])
+            elif name == "matches":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.execute.return_value = MagicMock(data=matches_data)
+            return mock
+
+        dao.client.table = table_side_effect
+
+        result = dao.get_match_summary("2025-26")
+        assert len(result) == 1
+        group = result[0]
+        assert group["age_group"] == "U14"
+        assert group["league"] == "Homegrown"
+        assert group["division"] == "Northeast"
+        assert group["total"] == 2
+        assert group["by_status"]["played"] == 1
+        assert group["by_status"]["scheduled"] == 1
+        assert group["last_played_date"] == "2026-03-01"
+
+    def test_needs_score_counts_past_unscored(self):
+        dao = self._make_dao()
+
+        matches_data = [
+            {
+                "match_date": "2026-03-01",
+                "match_status": "scheduled",
+                "home_score": None,
+                "away_score": None,
+                "age_group": {"name": "U14"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            },
+            {
+                "match_date": "2026-03-01",
+                "match_status": "tbd",
+                "home_score": None,
+                "away_score": None,
+                "age_group": {"name": "U14"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            },
+            {
+                "match_date": "2099-12-31",
+                "match_status": "scheduled",
+                "home_score": None,
+                "away_score": None,
+                "age_group": {"name": "U14"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            },
+        ]
+
+        def table_side_effect(name):
+            mock = MagicMock()
+            if name == "seasons":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.limit.return_value = mock
+                mock.execute.return_value = MagicMock(data=[{"id": 1}])
+            elif name == "matches":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.execute.return_value = MagicMock(data=matches_data)
+            return mock
+
+        dao.client.table = table_side_effect
+
+        result = dao.get_match_summary("2025-26")
+        assert result[0]["needs_score"] == 2  # Only past matches count
+
+
+@pytest.mark.unit
+class TestMatchSummaryEndpoint:
+    """Tests for GET /api/agent/match-summary endpoint."""
+
+    def test_returns_summary(self):
+        from unittest.mock import patch as mock_patch
+
+        with (
+            mock_patch("app.match_dao") as mock_dao,
+            mock_patch("app.require_match_management_permission", return_value=lambda: {"role": "service_account"}),
+        ):
+            mock_dao.get_match_summary.return_value = [
+                {
+                    "age_group": "U14",
+                    "league": "Homegrown",
+                    "division": "Northeast",
+                    "total": 92,
+                    "by_status": {"played": 45, "scheduled": 40},
+                    "needs_score": 5,
+                    "date_range": {"earliest": "2026-03-01", "latest": "2026-06-28"},
+                    "last_played_date": "2026-03-07",
+                }
+            ]
+
+            from fastapi.testclient import TestClient
+
+            from app import app
+
+            # Override the auth dependency
+            from auth import require_match_management_permission
+
+            app.dependency_overrides[require_match_management_permission] = lambda: {
+                "role": "service_account",
+                "service_name": "test",
+                "permissions": ["manage_matches"],
+            }
+
+            try:
+                client = TestClient(app)
+                response = client.get("/api/agent/match-summary?season=2025-26")
+                assert response.status_code == 200
+                data = response.json()
+                assert data["season"] == "2025-26"
+                assert len(data["targets"]) == 1
+                assert data["targets"][0]["total"] == 92
+            finally:
+                app.dependency_overrides.clear()
+
+    def test_missing_season_param(self):
+        from fastapi.testclient import TestClient
+
+        from app import app
+        from auth import require_match_management_permission
+
+        app.dependency_overrides[require_match_management_permission] = lambda: {
+            "role": "service_account",
+        }
+
+        try:
+            client = TestClient(app)
+            response = client.get("/api/agent/match-summary")
+            assert response.status_code == 422  # Missing required query param
+        finally:
+            app.dependency_overrides.clear()

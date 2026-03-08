@@ -454,6 +454,83 @@ class MatchDAO(BaseDAO):
             logger.exception("Error querying matches")
             return []
 
+    def get_match_summary(self, season_name: str) -> list[dict]:
+        """Get match summary statistics grouped by age group, league, and division.
+
+        Used by the match-scraper-agent to understand what MT already has
+        and make smart decisions about what to scrape.
+        """
+        from collections import defaultdict
+        from datetime import date
+
+        today = date.today().isoformat()
+
+        # Look up season by name
+        season_resp = self.client.table("seasons").select("id").eq("name", season_name).limit(1).execute()
+        if not season_resp.data:
+            return []
+        season_id = season_resp.data[0]["id"]
+
+        # Fetch all matches for this season with joins
+        response = (
+            self.client.table("matches")
+            .select("""
+                match_date, match_status, home_score, away_score,
+                age_group:age_groups(name),
+                division:divisions(name, league_id, leagues:leagues!divisions_league_id_fkey(name))
+            """)
+            .eq("season_id", season_id)
+            .execute()
+        )
+
+        # Group by (age_group, league, division)
+        groups = defaultdict(list)
+        for m in response.data:
+            ag = m["age_group"]["name"] if m.get("age_group") else "Unknown"
+            div_name = m["division"]["name"] if m.get("division") else "Unknown"
+            league_name = (
+                m["division"]["leagues"]["name"] if m.get("division") and m["division"].get("leagues") else "Unknown"
+            )
+            groups[(ag, league_name, div_name)].append(m)
+
+        # Compute summary per group
+        summaries = []
+        for (ag, league, div), matches in sorted(groups.items()):
+            by_status = defaultdict(int)
+            needs_score = 0
+            dates = []
+            last_played = None
+
+            for m in matches:
+                status = m.get("match_status", "scheduled")
+                by_status[status] += 1
+                md = m["match_date"]
+                dates.append(md)
+
+                if md < today and status in ("scheduled", "tbd") and m.get("home_score") is None:
+                    needs_score += 1
+
+                if status == "played" and (last_played is None or md > last_played):
+                    last_played = md
+
+            summaries.append(
+                {
+                    "age_group": ag,
+                    "league": league,
+                    "division": div,
+                    "total": len(matches),
+                    "by_status": dict(by_status),
+                    "needs_score": needs_score,
+                    "date_range": {
+                        "earliest": min(dates) if dates else None,
+                        "latest": max(dates) if dates else None,
+                    },
+                    "last_played_date": last_played,
+                }
+            )
+
+        return summaries
+
     def get_matches_by_team(
         self, team_id: int, season_id: int | None = None, age_group_id: int | None = None
     ) -> list[dict]:
