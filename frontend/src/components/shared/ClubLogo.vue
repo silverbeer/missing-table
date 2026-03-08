@@ -1,18 +1,21 @@
 <template>
-  <div :class="containerClass" :style="containerStyle">
+  <div
+    v-if="hasLogo || showInitials"
+    :class="containerClass"
+    :style="containerStyle"
+  >
     <!-- Logo image -->
     <img
-      v-if="logoUrl"
+      v-if="hasLogo"
       :src="logoUrl"
       :alt="`${name} logo`"
       :class="imgClass"
       @error="onImgError"
     />
-    <!-- Initials fallback for lg/xl when no logo -->
+    <!-- Initials fallback for md/lg/xl when no logo -->
     <span v-else-if="showInitials" :class="initialsClass">
       {{ initial }}
     </span>
-    <!-- xs/sm: empty spacer when no logo (no visual, just width reservation) -->
   </div>
 </template>
 
