@@ -624,6 +624,7 @@ export const useAuthStore = () => {
 
     const response = await fetch(endpoint, {
       ...options,
+      cache: 'no-store',
       headers: {
         ...defaultHeaders,
         ...options.headers,
@@ -642,6 +643,7 @@ export const useAuthStore = () => {
           defaultHeaders.Authorization = `Bearer ${retryToken}`;
           const retryResponse = await fetch(endpoint, {
             ...options,
+            cache: 'no-store',
             headers: {
               ...defaultHeaders,
               ...options.headers,
