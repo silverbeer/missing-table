@@ -4,10 +4,10 @@
     :class="containerClass"
     :style="containerStyle"
   >
-    <!-- Logo image -->
+    <!-- Logo image (sized variant with fallback to base) -->
     <img
       v-if="hasLogo"
-      :src="logoUrl"
+      :src="activeSrc"
       :alt="`${name} logo`"
       :class="imgClass"
       @error="onImgError"
@@ -39,8 +39,31 @@ const props = defineProps({
 });
 
 const imgFailed = ref(false);
+const variantFailed = ref(false);
+
+const sizeSuffix = computed(() => {
+  if (['xs', 'sm'].includes(props.size)) return '_sm';
+  if (['md', 'lg'].includes(props.size)) return '_md';
+  return ''; // xl uses base
+});
+
+const sizedLogoUrl = computed(() => {
+  if (!props.logoUrl || !sizeSuffix.value) return props.logoUrl;
+  return props.logoUrl.replace(/\.png$/, `${sizeSuffix.value}.png`);
+});
+
+const activeSrc = computed(() => {
+  if (variantFailed.value || !sizeSuffix.value) return props.logoUrl;
+  return sizedLogoUrl.value;
+});
 
 const onImgError = () => {
+  // If the sized variant failed, fall back to base URL
+  if (!variantFailed.value && sizeSuffix.value) {
+    variantFailed.value = true;
+    return;
+  }
+  // Base URL also failed — no logo available
   imgFailed.value = true;
 };
 

@@ -277,7 +277,11 @@ def update_club(token: str, club_id: int, club: ClubData) -> bool:
 
 
 def upload_club_logo(token: str, club_id: int, logo_path: Path) -> bool:
-    """Upload a local logo file for a club via the API."""
+    """Upload a local logo file for a club via the API.
+
+    The API endpoint generates _sm (64px) and _md (128px) size variants
+    automatically from the uploaded base image.
+    """
     url = f"{API_URL}/api/clubs/{club_id}/logo"
     headers = {"Authorization": f"Bearer {token}"}
     with open(logo_path, "rb") as f:
@@ -1050,7 +1054,8 @@ def upload_logos(
         console.print("Run prep-logo.py --batch first to prepare logos.")
         raise typer.Exit(code=1)
 
-    ready_files = list(LOGO_READY_DIR.glob("*.png"))
+    # Only process base files, skip _sm/_md size variants
+    ready_files = [f for f in LOGO_READY_DIR.glob("*.png") if not f.stem.endswith(("_sm", "_md"))]
     if not ready_files:
         console.print(f"[yellow]No PNG files found in {LOGO_READY_DIR}[/yellow]")
         return
