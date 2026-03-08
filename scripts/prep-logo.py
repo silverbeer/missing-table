@@ -3,7 +3,10 @@
 Prepare club logo images for upload.
 
 Takes a source image (any format/size), removes the background,
-centers and pads to a square, and outputs a 512x512 transparent PNG.
+centers and pads to a square, and outputs multiple size variants:
+  - {slug}.png      (256x256 base)
+  - {slug}_sm.png   (64x64 for xs/sm display sizes)
+  - {slug}_md.png   (128x128 for md/lg display sizes)
 
 Usage:
     # Single file mode (by club name):
@@ -13,13 +16,13 @@ Usage:
 
     # Batch mode (process all images in club-logos/raw/):
     cd backend && uv run python ../scripts/prep-logo.py --batch
-    cd backend && uv run python ../scripts/prep-logo.py --batch --no-remove-bg
+    cd backend && uv run python ../scripts/prep-logo.py --batch --force
 
 Dependencies (managed via uv in backend/pyproject.toml):
     pillow, rembg
 
-Single-file mode: output to club-logos/ready/{slug}.png (slug from club name).
-Batch mode: globs club-logos/raw/*, outputs to club-logos/ready/{stem}.png.
+Single-file mode: output to club-logos/ready/{slug}.png + _sm/_md variants.
+Batch mode: globs club-logos/raw/*, outputs to club-logos/ready/{stem}.png + variants.
 """
 
 import argparse
@@ -37,6 +40,12 @@ SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif
 PROJECT_ROOT = Path(__file__).parent.parent
 RAW_DIR = PROJECT_ROOT / "club-logos" / "raw"
 READY_DIR = PROJECT_ROOT / "club-logos" / "ready"
+
+# Size variants: (suffix, pixel size)
+SIZE_VARIANTS = [
+    ("_sm", 64),
+    ("_md", 128),
+]
 
 
 def remove_background(img: Image.Image) -> Image.Image:
@@ -71,6 +80,17 @@ def center_and_pad(img: Image.Image, target_size: int) -> Image.Image:
     return canvas
 
 
+def generate_variants(base_img: Image.Image, output_path: Path) -> None:
+    """Generate _sm and _md size variants from the base image."""
+    stem = output_path.stem
+    parent = output_path.parent
+    for suffix, px in SIZE_VARIANTS:
+        variant_path = parent / f"{stem}{suffix}.png"
+        variant = base_img.resize((px, px), Image.LANCZOS)
+        variant.save(variant_path, "PNG")
+        print(f"  Variant: {variant_path.name} ({px}x{px})")
+
+
 def process_single(input_path: Path, output_path: Path, size: int, skip_bg_removal: bool) -> bool:
     """Process a single image file. Returns True on success."""
     print(f"Processing: {input_path}")
@@ -88,10 +108,12 @@ def process_single(input_path: Path, output_path: Path, size: int, skip_bg_remov
     output_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(output_path, "PNG")
     print(f"  Saved: {output_path}")
+
+    generate_variants(img, output_path)
     return True
 
 
-def run_batch(size: int, skip_bg_removal: bool) -> None:
+def run_batch(size: int, skip_bg_removal: bool, force: bool = False) -> None:
     """Process all images in club-logos/raw/ and output to club-logos/ready/."""
     if not RAW_DIR.exists():
         print(f"Raw directory not found: {RAW_DIR}")
@@ -120,8 +142,12 @@ def run_batch(size: int, skip_bg_removal: bool) -> None:
         # Output uses the filename stem (without extension) as the slug
         output_path = READY_DIR / f"{raw_path.stem}.png"
 
-        # Skip if output already exists and is newer than input
-        if output_path.exists() and output_path.stat().st_mtime > raw_path.stat().st_mtime:
+        # Skip if output already exists and is newer than input (unless --force)
+        if (
+            not force
+            and output_path.exists()
+            and output_path.stat().st_mtime > raw_path.stat().st_mtime
+        ):
             print(f"Skipping (already up to date): {raw_path.name}")
             stats["skipped_fresh"] += 1
             continue
@@ -149,18 +175,23 @@ def main():
     parser.add_argument("input", type=Path, nargs="?", help="Source image file (single-file mode)")
     parser.add_argument("--club", help="Club name for single-file mode (e.g. 'Inter Miami CF')")
     parser.add_argument("--batch", action="store_true", help="Process all images in club-logos/raw/")
-    parser.add_argument("--size", type=int, default=512, help="Output size in pixels (default: 512)")
+    parser.add_argument("--size", type=int, default=256, help="Output size in pixels (default: 256)")
     parser.add_argument(
         "--no-remove-bg",
         action="store_true",
         help="Skip background removal (use if image already has transparent background)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate even if output is newer than input (batch mode)",
     )
     parser.add_argument("--output-dir", type=Path, default=None, help="Output directory (single-file mode)")
     args = parser.parse_args()
 
     if args.batch:
         # Batch mode: process all files in club-logos/raw/
-        run_batch(args.size, args.no_remove_bg)
+        run_batch(args.size, args.no_remove_bg, args.force)
     elif args.input and args.club:
         # Single-file mode: process one file by club name
         if not args.input.exists():

@@ -3699,12 +3699,31 @@ async def upload_club_logo(
         # Get the Supabase client from the DAO
         storage = match_dao.client.storage
 
-        # Upload to club-logos bucket (upsert to overwrite existing)
+        # Upload base image to club-logos bucket (upsert to overwrite existing)
         storage.from_("club-logos").upload(
             file_path, content, file_options={"content-type": file.content_type, "upsert": "true"}
         )
 
-        # Get public URL
+        # Generate and upload size variants (_sm=64px, _md=128px) for PNGs
+        if ext == "png":
+            from io import BytesIO
+
+            from PIL import Image as PILImage
+
+            base_img = PILImage.open(BytesIO(content))
+            for suffix, px in [("_sm", 64), ("_md", 128)]:
+                variant = base_img.resize((px, px), PILImage.LANCZOS)
+                buf = BytesIO()
+                variant.save(buf, "PNG")
+                variant_path = f"{club_id}{suffix}.png"
+                storage.from_("club-logos").upload(
+                    variant_path,
+                    buf.getvalue(),
+                    file_options={"content-type": "image/png", "upsert": "true"},
+                )
+            logger.info(f"Uploaded size variants for club {club_id}")
+
+        # Get public URL (points to base image)
         public_url = storage.from_("club-logos").get_public_url(file_path)
 
         # Update the club with the new logo URL

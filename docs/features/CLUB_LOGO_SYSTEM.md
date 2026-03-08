@@ -14,15 +14,32 @@ The `enrich` command successfully finds club websites, but the logos it captures
 ## Image Standard
 
 - **Format**: PNG with transparent background, square aspect ratio
-- **Source resolution**: 512x512px (or at least 256x256)
-- **One source file per club** — CSS handles all display sizes:
-  - `xs` = 24px (inline in tables/standings)
-  - `sm` = 32px (match cards, profile inline)
-  - `md` = 40px (admin grid, match list cards)
-  - `lg` = 56px (match detail badges)
-  - `xl` = 140px (profile hero sections)
-- **Naming**: `{slug}.png` where slug = lowercase, hyphens for spaces, accents stripped
-  - `inter-miami-cf.png`, `orlando-city-sc.png`, `dc-united.png`, `cf-montreal.png`
+- **Multi-size variants**: 3 files per club for optimal bandwidth
+
+| Tier | Suffix | Pixel size | Used for (CSS sizes) |
+|------|--------|------------|----------------------|
+| sm | `_sm.png` | 64x64 | xs (24px), sm (32px) — retina-ready |
+| md | `_md.png` | 128x128 | md (40px), lg (56px) — retina-ready |
+| base | `.png` | 256x256 | xl (140px) — retina-ready |
+
+- **Frontend auto-selects** the right variant based on the `size` prop, with fallback to base URL on 404
+- **Naming**: `{slug}.png` (base), `{slug}_sm.png`, `{slug}_md.png` where slug = lowercase, hyphens for spaces, accents stripped
+  - `inter-miami-cf.png`, `inter-miami-cf_sm.png`, `inter-miami-cf_md.png`
+
+### Storage Convention
+
+Files in `club-logos` Supabase bucket:
+```
+12.png        ← 256x256 base (logo_url in DB points here)
+12_sm.png     ← 64x64
+12_md.png     ← 128x128
+```
+
+### Bandwidth Impact
+
+Standings table with 20 teams:
+- **Before** (single 512px): 20 x ~130KB = 2.6MB
+- **After** (_sm variants): 20 x ~5KB = 100KB (~96% reduction)
 
 ---
 
@@ -35,7 +52,7 @@ When onboarding new divisions/clubs, follow this repeatable process to add logos
 ```
 club-logos/
   raw/        ← Drop source images here (any format/size), named as {slug}.ext
-  ready/      ← Processed 512x512 PNGs (output of prep-logo.py --batch)
+  ready/      ← Processed PNGs: {slug}.png (256px), {slug}_sm.png (64px), {slug}_md.png (128px)
 ```
 
 ### Step-by-Step
@@ -47,10 +64,10 @@ cd backend && uv run python manage_clubs.py logo-status
 # 2. Drop raw images into staging folder, named by slug from step 1
 cp ~/Downloads/logo.png club-logos/raw/bayside-fc.png
 
-# 3. Batch prep all raw images (bg removal, resize to 512x512)
+# 3. Batch prep all raw images (bg removal, resize + generate 3 size variants)
 cd backend && uv run python ../scripts/prep-logo.py --batch
 
-# 4. Upload all prepared logos to the database
+# 4. Upload all prepared logos to the database (API generates variants server-side)
 cd backend && uv run python manage_clubs.py upload-logos
 ```
 
@@ -59,9 +76,10 @@ cd backend && uv run python manage_clubs.py upload-logos
 | Command | Description |
 |---------|-------------|
 | `manage_clubs.py logo-status` | Show all DB clubs with slug filename and logo status |
-| `prep-logo.py --batch` | Process all `club-logos/raw/*` images to `club-logos/ready/` |
+| `prep-logo.py --batch` | Process all `club-logos/raw/*` → `ready/` (base + _sm + _md) |
+| `prep-logo.py --batch --force` | Regenerate all, even if output is newer than input |
 | `prep-logo.py --batch --no-remove-bg` | Batch prep without background removal |
-| `prep-logo.py input.png --club "Name"` | Process a single file by club name |
+| `prep-logo.py input.png --club "Name"` | Process a single file by club name (3 variants) |
 | `manage_clubs.py upload-logos` | Upload all `club-logos/ready/*.png` to DB |
 | `manage_clubs.py upload-logos --dry-run` | Preview what would be uploaded |
 | `manage_clubs.py upload-logos --overwrite` | Re-upload even if club already has a logo |
@@ -70,10 +88,11 @@ cd backend && uv run python manage_clubs.py upload-logos
 ### Notes
 
 - `logo-status` shows the expected slug filename for every club in the DB
-- `upload-logos` matches files to ALL DB clubs (not just clubs.json)
-- Batch prep skips files where output is already newer than input (re-run safe)
+- `upload-logos` matches base files to ALL DB clubs (skips `_sm`/`_md` variant files)
+- Batch prep skips files where output is already newer than input (use `--force` to override)
 - SVG and other unsupported formats are skipped with a warning
 - The `club-logos` Supabase storage bucket is auto-created on `supabase db reset` via `config.toml`
+- The API upload endpoint auto-generates `_sm` and `_md` variants server-side via Pillow
 
 ---
 
@@ -226,14 +245,13 @@ New method `_download_logo()` that saves the discovered logo image to a local fo
 
 ## Verification Checklist
 
-1. Place a test logo at `club-logos/bayside-fc.png` (512x512 PNG)
-2. Run `manage_clubs.py sync` — verify logo uploads and URL updates in DB
-3. Open MatchesView — verify logos appear next to team names in both desktop/mobile views
-4. Open LeagueTable — verify logos appear in standings rows
-5. Open TeamManagerProfile — verify club logo appears
-6. Open PlayerProfile — verify club logo appears in team line
-7. Run `mls-scraper enrich --input florida-clubs.json --logo-dir ./club-logos/` — verify candidate logos downloaded
-8. Check MatchDetailView still works (regression check)
+1. Run `prep-logo.py --batch --force` — verify 3 files per club in `ready/` (base + _sm + _md)
+2. Run `manage_clubs.py upload-logos --overwrite` — verify upload succeeds
+3. Check Supabase Storage — verify `{id}.png`, `{id}_sm.png`, `{id}_md.png` exist per club
+4. Open LeagueTable — verify Network tab shows `_sm` variant requests (not full-size)
+5. Open MatchDetailView — verify xl logos still use base URL
+6. Block `_sm` URL in DevTools — verify fallback to base URL works
+7. Check MatchesView, profiles — verify logos render at correct sizes
 
 ## Key Files Reference
 
