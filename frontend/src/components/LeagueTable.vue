@@ -146,6 +146,12 @@
               #
             </th>
             <th
+              class="px-1 sm:px-2 md:px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              title="Position movement"
+            >
+              +/-
+            </th>
+            <th
               class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-[100px] sm:max-w-[140px] md:max-w-none"
             >
               Team
@@ -190,6 +196,11 @@
             >
               Pts
             </th>
+            <th
+              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Form
+            </th>
           </tr>
         </thead>
         <tbody
@@ -205,6 +216,25 @@
               class="px-1 sm:px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500"
             >
               {{ index + 1 }}
+            </td>
+            <td
+              class="px-1 sm:px-2 md:px-3 py-3 md:py-4 whitespace-nowrap text-xs text-center"
+            >
+              <span
+                v-if="team.position_change > 0"
+                class="text-green-600 font-medium"
+                :title="`Up ${team.position_change}`"
+              >
+                ▲ {{ team.position_change }}
+              </span>
+              <span
+                v-else-if="team.position_change < 0"
+                class="text-red-600 font-medium"
+                :title="`Down ${Math.abs(team.position_change)}`"
+              >
+                ▼ {{ Math.abs(team.position_change) }}
+              </span>
+              <span v-else class="text-gray-400">—</span>
             </td>
             <td
               class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm font-medium text-gray-900 max-w-[100px] sm:max-w-[140px] md:max-w-none md:whitespace-nowrap"
@@ -257,6 +287,27 @@
               class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900"
             >
               {{ team.points }}
+            </td>
+            <td
+              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-center"
+            >
+              <div class="flex items-center justify-center gap-1">
+                <span
+                  v-for="(result, rIdx) in team.form || []"
+                  :key="rIdx"
+                  class="inline-block w-5 h-5 rounded-full text-[10px] font-bold leading-5 text-white text-center"
+                  :class="{
+                    'bg-green-500': result === 'W',
+                    'bg-red-500': result === 'L',
+                    'bg-gray-400': result === 'D',
+                  }"
+                  :title="
+                    result === 'W' ? 'Win' : result === 'L' ? 'Loss' : 'Draw'
+                  "
+                >
+                  {{ result }}
+                </span>
+              </div>
             </td>
           </tr>
         </tbody>
