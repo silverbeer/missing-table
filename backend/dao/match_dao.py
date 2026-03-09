@@ -16,7 +16,7 @@ from postgrest.exceptions import APIError
 from dao.base_dao import BaseDAO, clear_cache, dao_cache, invalidates_cache
 from dao.exceptions import DuplicateRecordError
 from dao.standings import (
-    calculate_standings,
+    calculate_standings_with_extras,
     filter_by_match_type,
     filter_completed_matches,
     filter_same_division_matches,
@@ -907,8 +907,8 @@ class MatchDAO(BaseDAO):
                 matches = filter_same_division_matches(matches, division_id)
             matches = filter_completed_matches(matches)
 
-            # Calculate standings using pure function
-            return calculate_standings(matches)
+            # Calculate standings using pure function (with form + movement)
+            return calculate_standings_with_extras(matches)
 
         except Exception:
             logger.exception("Error generating league table")
