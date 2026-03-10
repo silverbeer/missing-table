@@ -146,7 +146,7 @@
               #
             </th>
             <th
-              class="px-1 sm:px-2 md:px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-1 sm:px-2 md:px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
               title="Position movement"
             >
               +/-
@@ -197,7 +197,7 @@
               Pts
             </th>
             <th
-              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
               Form
             </th>
@@ -218,7 +218,7 @@
               {{ index + 1 }}
             </td>
             <td
-              class="px-1 sm:px-2 md:px-3 py-3 md:py-4 whitespace-nowrap text-xs text-center"
+              class="hidden md:table-cell px-1 sm:px-2 md:px-3 py-3 md:py-4 whitespace-nowrap text-xs text-center"
             >
               <span
                 v-if="team.position_change > 0"
@@ -289,7 +289,7 @@
               {{ team.points }}
             </td>
             <td
-              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-center"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-center"
             >
               <div class="flex items-center justify-center gap-1">
                 <span
