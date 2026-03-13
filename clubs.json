@@ -239,7 +239,7 @@
     {
         "club_name": "Rochester NY FC",
         "location": "Rochester, NY",
-        "website": "https://www.rochesternyfc.com",
+        "website": "https://www.rnyfc-youth.com",
         "teams": [
             {
                 "team_name": "Rochester NY FC",
@@ -264,6 +264,9 @@
                 ]
             }
         ],
+        "logo_url": "https://images.mlssoccer.com/image/upload/t_q-best/v1645628273/assets/mnp/logos/clubs/rnyfc-color.png",
+        "primary_color": "#3DDB85",
+        "secondary_color": "#1A1A2E",
         "is_pro_academy": false
     },
     {
