@@ -461,9 +461,10 @@ class MatchDAO(BaseDAO):
         and make smart decisions about what to scrape.
         """
         from collections import defaultdict
-        from datetime import date
+        from datetime import date, timedelta
 
         today = date.today().isoformat()
+        kickoff_horizon = (date.today() + timedelta(days=14)).isoformat()
 
         # Look up season by name
         season_resp = self.client.table("seasons").select("id").eq("name", season_name).limit(1).execute()
@@ -475,7 +476,7 @@ class MatchDAO(BaseDAO):
         response = (
             self.client.table("matches")
             .select("""
-                match_date, match_status, home_score, away_score,
+                match_date, match_status, home_score, away_score, scheduled_kickoff,
                 age_group:age_groups(name),
                 division:divisions(name, league_id, leagues:leagues!divisions_league_id_fkey(name))
             """)
@@ -498,6 +499,7 @@ class MatchDAO(BaseDAO):
         for (ag, league, div), matches in sorted(groups.items()):
             by_status = defaultdict(int)
             needs_score = 0
+            needs_kickoff = 0
             dates = []
             last_played = None
 
@@ -510,6 +512,13 @@ class MatchDAO(BaseDAO):
                 if md < today and status in ("scheduled", "tbd") and m.get("home_score") is None:
                     needs_score += 1
 
+                if (
+                    status in ("scheduled", "tbd")
+                    and today <= md <= kickoff_horizon
+                    and not m.get("scheduled_kickoff")
+                ):
+                    needs_kickoff += 1
+
                 if status == "played" and (last_played is None or md > last_played):
                     last_played = md
 
@@ -521,6 +530,7 @@ class MatchDAO(BaseDAO):
                     "total": len(matches),
                     "by_status": dict(by_status),
                     "needs_score": needs_score,
+                    "needs_kickoff": needs_kickoff,
                     "date_range": {
                         "earliest": min(dates) if dates else None,
                         "latest": max(dates) if dates else None,
