@@ -260,7 +260,7 @@ export default {
     };
 
     const formatDate = dateString => {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString + 'T00:00:00').toLocaleDateString();
     };
 
     const createSeason = async () => {
