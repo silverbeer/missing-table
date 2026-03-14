@@ -244,6 +244,41 @@
               </div>
             </div>
 
+            <!-- Division Filter -->
+            <div v-if="visibleDivisions.length > 1">
+              <h3 class="text-sm font-medium text-gray-700 mb-2">Division</h3>
+              <div
+                class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+              >
+                <button
+                  @click="selectedDivisionId = null"
+                  data-testid="division-all"
+                  :class="[
+                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                    selectedDivisionId === null
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 active:bg-gray-300',
+                  ]"
+                >
+                  All Divisions
+                </button>
+                <button
+                  v-for="division in visibleDivisions"
+                  :key="division.id"
+                  @click="selectedDivisionId = division.id"
+                  :data-testid="'division-' + division.id"
+                  :class="[
+                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                    selectedDivisionId === division.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 active:bg-gray-300',
+                  ]"
+                >
+                  {{ division.name }}
+                </button>
+              </div>
+            </div>
+
             <!-- Time Range Filter - Only show on "All Matches" tab -->
             <div v-if="selectedViewTab === 'all'">
               <h3 class="text-sm font-medium text-gray-700 mb-2">
@@ -1760,6 +1795,7 @@ export default {
     const selectedAgeGroupId = ref(2); // Default to U14
     const selectedSeasonId = ref(3); // Default to 2025-2026
     const selectedMatchTypeId = ref(1); // Default to League matches (id: 1)
+    const selectedDivisionId = ref(null); // null = All Divisions
     const weekOffset = ref(0); // 0 = current week, -1 = last week, +1 = next week
     const error = ref(null);
     const loading = ref(true);
@@ -1819,6 +1855,27 @@ export default {
         console.error('Error fetching leagues:', err);
       }
     };
+
+    // Compute visible divisions from loaded matches (only shows divisions with matches in current view)
+    const visibleDivisions = computed(() => {
+      if (!matches.value || !Array.isArray(matches.value)) return [];
+      const seen = new Map();
+      for (const match of matches.value) {
+        if (
+          match.division &&
+          match.division_id &&
+          !seen.has(match.division_id)
+        ) {
+          seen.set(match.division_id, {
+            id: match.division_id,
+            name: match.division.name || match.division_name,
+          });
+        }
+      }
+      return Array.from(seen.values()).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+    });
 
     const fetchClubs = async () => {
       try {
@@ -2399,6 +2456,13 @@ export default {
         );
       }
 
+      // Filter by division if a specific division is selected
+      if (selectedDivisionId.value !== null) {
+        filteredGames = filteredGames.filter(
+          match => match.division_id === selectedDivisionId.value
+        );
+      }
+
       return filteredGames;
     };
 
@@ -2824,6 +2888,8 @@ export default {
       selectedAgeGroupId,
       selectedSeasonId,
       selectedMatchTypeId,
+      visibleDivisions,
+      selectedDivisionId,
       weekOffset,
       weekRangeDisplay,
       filteredTeams,
