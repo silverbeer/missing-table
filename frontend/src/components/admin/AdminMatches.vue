@@ -554,7 +554,7 @@ export default {
     };
 
     const formatDate = dateString => {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString + 'T00:00:00').toLocaleDateString();
     };
 
     // Format UTC datetime to local time display

@@ -323,7 +323,7 @@ export default {
 
     const formatDate = dateString => {
       if (!dateString) return '-';
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString + 'T00:00:00').toLocaleDateString();
     };
 
     const formatMinute = (minute, extraTime) => {
