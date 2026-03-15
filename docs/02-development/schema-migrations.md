@@ -262,31 +262,28 @@ cd backend && uv run pytest
 
 ### 2. Production Deployment
 
-**⚠️ CRITICAL: Only deploy to production during scheduled maintenance windows**
+Use the `db_tools.sh migrate` command, which automates backup, migration push, and verification:
 
 ```bash
-# 1. Announce deployment window to team
+# One command: backup → apply → verify → restore env
+./scripts/db_tools.sh migrate prod
+```
 
-# 2. Create production backup
-./switch-env.sh prod
-./scripts/db_tools.sh backup prod
+This will:
+1. Show pending migrations and ask for confirmation
+2. Create a production backup automatically
+3. Run `npx supabase db push --linked`
+4. Show the migration list to verify
+5. Switch back to your original environment
 
-# 3. Apply migrations
-cd supabase-local && npx supabase db push --linked
+After deployment, monitor:
 
-# 4. Verify migration applied
-npx supabase migration list
-
-# 5. Smoke test production
-./scripts/health-check.sh prod
-
-# 6. Monitor for 15 minutes
-watch -n 30 'curl -s https://missingtable.com/api/health'
-
-# 7. Check application logs
+```bash
+# Check application logs
 kubectl logs -l app=missing-table-backend -n missing-table --tail=100
 
-# 8. Announce deployment complete
+# Verify health
+curl -s https://api.missingtable.com/api/health
 ```
 
 ## Rollback Strategy
