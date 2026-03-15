@@ -227,6 +227,12 @@ cd supabase-local && npx supabase start|stop|status
 # Reset database (applies schema + seed)
 cd supabase-local && npx supabase db reset
 
+# Apply migrations locally (without reset)
+./scripts/db_tools.sh migrate local
+
+# Deploy migrations to production (backup → apply → verify)
+./scripts/db_tools.sh migrate prod
+
 # Create new migration
 cd supabase-local && npx supabase db diff -f add_new_feature
 
