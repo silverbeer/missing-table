@@ -12,7 +12,8 @@ class PostMatchGoal(BaseModel):
     """Model for recording a post-match goal event."""
 
     team_id: int = Field(..., description="ID of the team that scored")
-    player_id: int = Field(..., description="ID of the goal scorer from roster")
+    player_id: int | None = Field(None, description="ID of the goal scorer from roster (preferred)")
+    player_name: str | None = Field(None, max_length=200, description="Name of goal scorer (when no roster)")
     match_minute: int = Field(..., ge=1, le=130, description="Minute the goal was scored")
     extra_time: int | None = Field(None, ge=1, description="Stoppage time minutes (e.g., 3 for 45+3)")
     message: str | None = Field(None, max_length=500, description="Optional goal description")
@@ -32,7 +33,8 @@ class PostMatchCard(BaseModel):
     """Model for recording a post-match card event (yellow or red)."""
 
     team_id: int = Field(..., description="ID of the team the player belongs to")
-    player_id: int = Field(..., description="ID of the carded player from roster")
+    player_id: int | None = Field(None, description="ID of the carded player from roster (preferred)")
+    player_name: str | None = Field(None, max_length=200, description="Name of player (when no roster)")
     card_type: str = Field(..., pattern="^(yellow_card|red_card)$", description="Type of card: yellow_card or red_card")
     match_minute: int = Field(..., ge=1, le=130, description="Minute the card was given")
     extra_time: int | None = Field(None, ge=1, description="Stoppage time minutes")

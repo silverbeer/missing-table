@@ -49,6 +49,7 @@
         <div class="flex-1 min-w-[120px]">
           <label class="text-slate-400 text-xs block mb-1">Player</label>
           <select
+            v-if="roster.length > 0"
             v-model="goalForm.player_id"
             class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
           >
@@ -62,6 +63,13 @@
               }}
             </option>
           </select>
+          <input
+            v-else
+            v-model="goalForm.player_name"
+            type="text"
+            placeholder="Enter player name"
+            class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
+          />
         </div>
         <div class="w-20">
           <label class="text-slate-400 text-xs block mb-1">Minute</label>
@@ -86,7 +94,7 @@
         </div>
         <button
           @click="submitGoal"
-          :disabled="!goalForm.player_id || !goalForm.match_minute"
+          :disabled="!canSubmitGoal || !goalForm.match_minute"
           class="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:text-slate-400 text-white text-sm rounded font-medium transition-colors"
         >
           Add
@@ -242,6 +250,7 @@
         <div class="flex-1 min-w-[120px]">
           <label class="text-slate-400 text-xs block mb-1">Player</label>
           <select
+            v-if="roster.length > 0"
             v-model="cardForm.player_id"
             class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
           >
@@ -255,6 +264,13 @@
               }}
             </option>
           </select>
+          <input
+            v-else
+            v-model="cardForm.player_name"
+            type="text"
+            placeholder="Enter player name"
+            class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
+          />
         </div>
         <div class="w-24">
           <label class="text-slate-400 text-xs block mb-1">Card</label>
@@ -289,7 +305,7 @@
         </div>
         <button
           @click="submitCard"
-          :disabled="!cardForm.player_id || !cardForm.match_minute"
+          :disabled="!canSubmitCard || !cardForm.match_minute"
           class="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-600 disabled:text-slate-400 text-white text-sm rounded font-medium transition-colors"
         >
           Add
@@ -440,6 +456,7 @@ export default {
     // Goal form
     const goalForm = ref({
       player_id: '',
+      player_name: '',
       match_minute: null,
       extra_time: null,
     });
@@ -447,6 +464,7 @@ export default {
     // Card form
     const cardForm = ref({
       player_id: '',
+      player_name: '',
       card_type: 'yellow_card',
       match_minute: null,
       extra_time: null,
@@ -509,17 +527,36 @@ export default {
       return name || `#${player.jersey_number}`;
     }
 
+    const canSubmitGoal = computed(() => {
+      if (props.roster.length > 0) return !!goalForm.value.player_id;
+      return !!goalForm.value.player_name.trim();
+    });
+
+    const canSubmitCard = computed(() => {
+      if (props.roster.length > 0) return !!cardForm.value.player_id;
+      return !!cardForm.value.player_name.trim();
+    });
+
     function submitGoal() {
       const data = {
         team_id: props.teamId,
-        player_id: goalForm.value.player_id,
         match_minute: goalForm.value.match_minute,
       };
+      if (goalForm.value.player_id) {
+        data.player_id = goalForm.value.player_id;
+      } else {
+        data.player_name = goalForm.value.player_name.trim();
+      }
       if (goalForm.value.extra_time) {
         data.extra_time = goalForm.value.extra_time;
       }
       emit('add-goal', data);
-      goalForm.value = { player_id: '', match_minute: null, extra_time: null };
+      goalForm.value = {
+        player_id: '',
+        player_name: '',
+        match_minute: null,
+        extra_time: null,
+      };
     }
 
     function submitSubstitution() {
@@ -544,16 +581,21 @@ export default {
     function submitCard() {
       const data = {
         team_id: props.teamId,
-        player_id: cardForm.value.player_id,
         card_type: cardForm.value.card_type,
         match_minute: cardForm.value.match_minute,
       };
+      if (cardForm.value.player_id) {
+        data.player_id = cardForm.value.player_id;
+      } else {
+        data.player_name = cardForm.value.player_name.trim();
+      }
       if (cardForm.value.extra_time) {
         data.extra_time = cardForm.value.extra_time;
       }
       emit('add-card', data);
       cardForm.value = {
         player_id: '',
+        player_name: '',
         card_type: 'yellow_card',
         match_minute: null,
         extra_time: null,
@@ -586,6 +628,8 @@ export default {
       goalEvents,
       subEvents,
       cardEvents,
+      canSubmitGoal,
+      canSubmitCard,
       formatMinute,
       playerDisplayName,
       onStartedChanged,
