@@ -195,6 +195,108 @@
       </div>
     </div>
 
+    <!-- Cards Section -->
+    <div>
+      <h4 class="text-slate-300 text-sm font-semibold mb-2">Cards</h4>
+
+      <!-- Existing cards -->
+      <div v-if="cardEvents.length" class="space-y-1 mb-2">
+        <div
+          v-for="event in cardEvents"
+          :key="event.id"
+          class="flex items-center justify-between bg-slate-700/50 px-3 py-1.5 rounded text-sm"
+        >
+          <span class="text-white">
+            <span class="text-yellow-400 font-medium">{{
+              formatMinute(event)
+            }}</span>
+            <svg
+              width="12"
+              height="16"
+              viewBox="0 0 24 24"
+              class="inline-block align-middle mx-1"
+            >
+              <rect
+                x="4"
+                width="16"
+                height="24"
+                rx="2"
+                :fill="event.event_type === 'red_card' ? '#EA3323' : '#FBBF24'"
+              />
+            </svg>
+            {{ event.player_name || 'Unknown' }}
+          </span>
+          <button
+            v-if="canEdit"
+            @click="$emit('remove-card', event.id)"
+            class="text-red-400 hover:text-red-300 text-xs px-1.5 py-0.5 rounded hover:bg-red-900/30"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+      <div v-else class="text-slate-500 text-xs mb-2">No cards recorded.</div>
+
+      <!-- Add card form -->
+      <div v-if="canEdit" class="flex flex-wrap gap-2 items-end">
+        <div class="flex-1 min-w-[120px]">
+          <label class="text-slate-400 text-xs block mb-1">Player</label>
+          <select
+            v-model="cardForm.player_id"
+            class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
+          >
+            <option value="">Select player</option>
+            <option v-for="p in roster" :key="p.id" :value="p.id">
+              #{{ p.jersey_number }}
+              {{
+                p.display_name ||
+                `${p.first_name || ''} ${p.last_name || ''}`.trim() ||
+                `#${p.jersey_number}`
+              }}
+            </option>
+          </select>
+        </div>
+        <div class="w-24">
+          <label class="text-slate-400 text-xs block mb-1">Card</label>
+          <select
+            v-model="cardForm.card_type"
+            class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
+          >
+            <option value="yellow_card">Yellow</option>
+            <option value="red_card">Red</option>
+          </select>
+        </div>
+        <div class="w-20">
+          <label class="text-slate-400 text-xs block mb-1">Minute</label>
+          <input
+            v-model.number="cardForm.match_minute"
+            type="number"
+            min="1"
+            max="130"
+            placeholder="Min"
+            class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
+          />
+        </div>
+        <div class="w-16">
+          <label class="text-slate-400 text-xs block mb-1">+ET</label>
+          <input
+            v-model.number="cardForm.extra_time"
+            type="number"
+            min="1"
+            placeholder=""
+            class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
+          />
+        </div>
+        <button
+          @click="submitCard"
+          :disabled="!cardForm.player_id || !cardForm.match_minute"
+          class="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-600 disabled:text-slate-400 text-white text-sm rounded font-medium transition-colors"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+
     <!-- Player Stats Section -->
     <div>
       <h4 class="text-slate-300 text-sm font-semibold mb-2">Player Stats</h4>
@@ -206,8 +308,11 @@
               <th class="text-left py-1.5 px-2">#</th>
               <th class="text-left py-1.5 px-2">Name</th>
               <th class="text-center py-1.5 px-2">Started</th>
+              <th class="text-center py-1.5 px-2">Played</th>
               <th class="text-center py-1.5 px-2">Min</th>
               <th class="text-center py-1.5 px-2">Goals</th>
+              <th class="text-center py-1.5 px-2">YC</th>
+              <th class="text-center py-1.5 px-2">RC</th>
             </tr>
           </thead>
           <tbody>
@@ -227,10 +332,23 @@
                   v-if="canEdit"
                   type="checkbox"
                   v-model="player.started"
+                  @change="onStartedChanged(player)"
                   class="rounded bg-slate-700 border-slate-600 text-blue-500"
                 />
                 <span v-else class="text-slate-300">{{
                   player.started ? 'Y' : '-'
+                }}</span>
+              </td>
+              <td class="text-center py-1.5 px-2">
+                <input
+                  v-if="canEdit"
+                  type="checkbox"
+                  v-model="player.played"
+                  :disabled="player.started"
+                  class="rounded bg-slate-700 border-slate-600 text-green-500 disabled:opacity-50"
+                />
+                <span v-else class="text-slate-300">{{
+                  player.played ? 'Y' : '-'
                 }}</span>
               </td>
               <td class="text-center py-1.5 px-2">
@@ -248,6 +366,30 @@
               </td>
               <td class="text-center py-1.5 px-2 text-slate-300">
                 {{ player.goals }}
+              </td>
+              <td class="text-center py-1.5 px-2">
+                <input
+                  v-if="canEdit"
+                  type="number"
+                  v-model.number="player.yellow_cards"
+                  min="0"
+                  max="2"
+                  class="w-10 bg-slate-700 text-yellow-400 text-sm text-center rounded px-1 py-0.5 border border-slate-600"
+                />
+                <span v-else class="text-slate-300">{{
+                  player.yellow_cards || 0
+                }}</span>
+              </td>
+              <td class="text-center py-1.5 px-2">
+                <input
+                  v-if="canEdit"
+                  type="checkbox"
+                  v-model="player.red_card"
+                  class="rounded bg-slate-700 border-slate-600 text-red-500"
+                />
+                <span v-else class="text-slate-300">{{
+                  player.red_card ? 'Y' : '-'
+                }}</span>
               </td>
             </tr>
           </tbody>
@@ -290,12 +432,22 @@ export default {
     'remove-goal',
     'add-substitution',
     'remove-substitution',
+    'add-card',
+    'remove-card',
     'save-stats',
   ],
   setup(props, { emit }) {
     // Goal form
     const goalForm = ref({
       player_id: '',
+      match_minute: null,
+      extra_time: null,
+    });
+
+    // Card form
+    const cardForm = ref({
+      player_id: '',
+      card_type: 'yellow_card',
       match_minute: null,
       extra_time: null,
     });
@@ -315,7 +467,11 @@ export default {
     watch(
       () => props.playerStats,
       newStats => {
-        editableStats.value = newStats.map(s => ({ ...s }));
+        editableStats.value = newStats.map(s => ({
+          ...s,
+          yellow_cards: s.yellow_cards || 0,
+          red_card: (s.red_cards || 0) > 0,
+        }));
       },
       { immediate: true, deep: true }
     );
@@ -330,6 +486,12 @@ export default {
     const subEvents = computed(() =>
       props.events
         .filter(e => e.event_type === 'substitution')
+        .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0))
+    );
+
+    const cardEvents = computed(() =>
+      props.events
+        .filter(e => ['red_card', 'yellow_card'].includes(e.event_type))
         .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0))
     );
 
@@ -379,11 +541,39 @@ export default {
       };
     }
 
+    function submitCard() {
+      const data = {
+        team_id: props.teamId,
+        player_id: cardForm.value.player_id,
+        card_type: cardForm.value.card_type,
+        match_minute: cardForm.value.match_minute,
+      };
+      if (cardForm.value.extra_time) {
+        data.extra_time = cardForm.value.extra_time;
+      }
+      emit('add-card', data);
+      cardForm.value = {
+        player_id: '',
+        card_type: 'yellow_card',
+        match_minute: null,
+        extra_time: null,
+      };
+    }
+
+    function onStartedChanged(player) {
+      if (player.started) {
+        player.played = true;
+      }
+    }
+
     function submitStats() {
       const entries = editableStats.value.map(s => ({
         player_id: s.player_id,
         started: s.started,
+        played: s.played || s.started,
         minutes_played: s.minutes_played,
+        yellow_cards: s.yellow_cards || 0,
+        red_cards: s.red_card ? 1 : 0,
       }));
       emit('save-stats', props.teamId, entries);
     }
@@ -391,13 +581,17 @@ export default {
     return {
       goalForm,
       subForm,
+      cardForm,
       editableStats,
       goalEvents,
       subEvents,
+      cardEvents,
       formatMinute,
       playerDisplayName,
+      onStartedChanged,
       submitGoal,
       submitSubstitution,
+      submitCard,
       submitStats,
     };
   },

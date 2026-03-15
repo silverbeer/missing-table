@@ -49,6 +49,7 @@
         :sport-type="sportType"
         @update-clock="handleUpdateClock"
         @post-goal="handlePostGoal"
+        @post-card="handlePostCard"
       />
 
       <!-- Activity Stream -->
@@ -94,6 +95,7 @@ const {
   canManage,
   updateClock,
   postGoal,
+  postCard,
   postMessage,
   deleteEvent,
   loadMoreEvents,
@@ -121,6 +123,13 @@ async function handlePostGoal({ teamId, playerName, message, playerId }) {
   const result = await postGoal(teamId, playerName, message, playerId);
   if (!result.success) {
     alert(result.error || 'Failed to post goal');
+  }
+}
+
+async function handlePostCard({ teamId, playerId, cardType, message }) {
+  const result = await postCard(teamId, playerId, cardType, message);
+  if (!result.success) {
+    alert(result.error || 'Failed to record card');
   }
 }
 

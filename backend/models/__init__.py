@@ -45,6 +45,7 @@ from .lineup import (
 from .live_match import (
     GoalEvent,
     GoalEventUpdate,
+    LiveCardEvent,
     LiveMatchClock,
     LiveMatchState,
     LiveMatchSummary,
@@ -67,6 +68,7 @@ from .playoffs import (
 from .post_match import (
     BatchPlayerStatsUpdate,
     PlayerStatEntry,
+    PostMatchCard,
     PostMatchGoal,
     PostMatchSubstitution,
 )
@@ -113,6 +115,7 @@ __all__ = [
     "GenerateBracketRequest",
     "GoalEvent",
     "GoalEventUpdate",
+    "LiveCardEvent",
     "JerseyNumberUpdate",
     "League",
     "LeagueCreate",
@@ -133,6 +136,7 @@ __all__ = [
     "PlayerHistoryUpdate",
     "PlayerStatEntry",
     "PlayoffBracketSlot",
+    "PostMatchCard",
     "PostMatchGoal",
     "PostMatchSubstitution",
     "ProfilePhotoSlot",

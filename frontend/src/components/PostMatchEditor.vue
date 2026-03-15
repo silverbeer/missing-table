@@ -72,6 +72,8 @@
             @remove-goal="handleRemoveGoal"
             @add-substitution="handleAddSubstitution"
             @remove-substitution="handleRemoveSubstitution"
+            @add-card="handleAddCard"
+            @remove-card="handleRemoveCard"
             @save-stats="handleSaveStats"
           />
         </div>
@@ -91,6 +93,8 @@
             @remove-goal="handleRemoveGoal"
             @add-substitution="handleAddSubstitution"
             @remove-substitution="handleRemoveSubstitution"
+            @add-card="handleAddCard"
+            @remove-card="handleRemoveCard"
             @save-stats="handleSaveStats"
           />
         </div>
@@ -140,6 +144,8 @@ export default {
       removeGoal,
       addSubstitution,
       removeSubstitution,
+      addCard,
+      removeCard,
       savePlayerStats,
     } = usePostMatchStats(
       props.matchId,
@@ -152,7 +158,9 @@ export default {
         e =>
           e.team_id === teamId &&
           !e.is_deleted &&
-          (e.event_type === 'goal' || e.event_type === 'substitution')
+          ['goal', 'substitution', 'red_card', 'yellow_card'].includes(
+            e.event_type
+          )
       );
     }
 
@@ -204,6 +212,22 @@ export default {
       }
     }
 
+    async function handleAddCard(cardData) {
+      const result = await addCard(cardData);
+      if (result.success) {
+        emit('events-changed');
+        await fetchAllStats();
+      }
+    }
+
+    async function handleRemoveCard(eventId) {
+      const result = await removeCard(eventId);
+      if (result.success) {
+        emit('events-changed');
+        await fetchAllStats();
+      }
+    }
+
     async function handleSaveStats(teamId, entries) {
       await savePlayerStats(teamId, entries);
     }
@@ -226,6 +250,8 @@ export default {
       handleRemoveGoal,
       handleAddSubstitution,
       handleRemoveSubstitution,
+      handleAddCard,
+      handleRemoveCard,
       handleSaveStats,
     };
   },

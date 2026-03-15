@@ -45,6 +45,51 @@
           </button>
         </template>
 
+        <!-- Card Event -->
+        <template
+          v-else-if="
+            event.event_type === 'red_card' ||
+            event.event_type === 'yellow_card'
+          "
+        >
+          <div
+            :class="[
+              'event-icon card-icon',
+              event.event_type === 'red_card' ? 'red-card' : 'yellow-card',
+            ]"
+          >
+            <span class="card-rect"></span>
+          </div>
+          <div class="event-content">
+            <div class="event-header">
+              <span v-if="event.match_minute" class="match-minute card-minute">
+                {{ formatMatchMinute(event) }}
+              </span>
+              <span class="event-time">{{ formatTime(event.created_at) }}</span>
+              <span
+                :class="[
+                  'team-badge',
+                  event.team_id === homeTeamId ? 'home' : 'away',
+                ]"
+              >
+                {{ event.team_id === homeTeamId ? 'HOME' : 'AWAY' }}
+              </span>
+            </div>
+            <div class="card-player">{{ event.player_name }}</div>
+            <div v-if="event.message" class="event-message">
+              {{ event.message }}
+            </div>
+          </div>
+          <button
+            v-if="canDelete"
+            @click="$emit('delete-event', event.id)"
+            class="delete-button"
+            title="Delete card"
+          >
+            &#10005;
+          </button>
+        </template>
+
         <!-- Status Change Event -->
         <template v-else-if="event.event_type === 'status_change'">
           <div class="event-icon status-icon">
@@ -167,6 +212,17 @@ function formatMatchMinute(event) {
   border-left: 3px solid #ffc107;
 }
 
+/* Card events */
+.event-red_card {
+  background: linear-gradient(135deg, #4a1a1a 0%, #16213e 100%);
+  border-left: 3px solid #d32f2f;
+}
+
+.event-yellow_card {
+  background: linear-gradient(135deg, #4a3a0a 0%, #16213e 100%);
+  border-left: 3px solid #f9a825;
+}
+
 /* Message events */
 .event-message {
   background: #1a1a2e;
@@ -195,6 +251,37 @@ function formatMatchMinute(event) {
 
 .message-icon {
   background: #444;
+}
+
+.card-icon {
+  border-radius: 50%;
+}
+
+.card-icon.red-card {
+  background: #d32f2f;
+}
+
+.card-icon.yellow-card {
+  background: #f9a825;
+}
+
+.card-rect {
+  display: inline-block;
+  width: 12px;
+  height: 16px;
+  border-radius: 2px;
+  background: white;
+}
+
+.card-minute {
+  color: #ff9800;
+}
+
+.card-player {
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 4px;
 }
 
 /* Event content */

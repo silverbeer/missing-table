@@ -533,6 +533,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).away.bold }"
                         >{{ getMatchTeams(match).away.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.away_team_id
+                        )"
+                        :key="'away-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).away.icon"
                         :class="getMatchTeams(match).away.iconClass"
@@ -548,6 +568,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).home.bold }"
                         >{{ getMatchTeams(match).home.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.home_team_id
+                        )"
+                        :key="'home-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).home.icon"
                         :class="getMatchTeams(match).home.iconClass"
@@ -679,6 +719,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).away.bold }"
                         >{{ getMatchTeams(match).away.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.away_team_id
+                        )"
+                        :key="'away-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).away.icon"
                         :class="getMatchTeams(match).away.iconClass"
@@ -694,6 +754,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).home.bold }"
                         >{{ getMatchTeams(match).home.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.home_team_id
+                        )"
+                        :key="'home-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).home.icon"
                         :class="getMatchTeams(match).home.iconClass"
@@ -825,6 +905,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).away.bold }"
                         >{{ getMatchTeams(match).away.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.away_team_id
+                        )"
+                        :key="'away-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).away.icon"
                         :class="getMatchTeams(match).away.iconClass"
@@ -840,6 +940,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).home.bold }"
                         >{{ getMatchTeams(match).home.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.home_team_id
+                        )"
+                        :key="'home-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).home.icon"
                         :class="getMatchTeams(match).home.iconClass"
@@ -1145,6 +1265,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).away.bold }"
                         >{{ getMatchTeams(match).away.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.away_team_id
+                        )"
+                        :key="'away-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).away.icon"
                         :class="getMatchTeams(match).away.iconClass"
@@ -1160,6 +1300,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).home.bold }"
                         >{{ getMatchTeams(match).home.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.home_team_id
+                        )"
+                        :key="'home-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).home.icon"
                         :class="getMatchTeams(match).home.iconClass"
@@ -1303,6 +1463,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).away.bold }"
                         >{{ getMatchTeams(match).away.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.away_team_id
+                        )"
+                        :key="'away-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).away.icon"
                         :class="getMatchTeams(match).away.iconClass"
@@ -1318,6 +1498,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).home.bold }"
                         >{{ getMatchTeams(match).home.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.home_team_id
+                        )"
+                        :key="'home-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).home.icon"
                         :class="getMatchTeams(match).home.iconClass"
@@ -1461,6 +1661,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).away.bold }"
                         >{{ getMatchTeams(match).away.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.away_team_id
+                        )"
+                        :key="'away-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).away.icon"
                         :class="getMatchTeams(match).away.iconClass"
@@ -1476,6 +1696,26 @@
                         :class="{ 'font-bold': getMatchTeams(match).home.bold }"
                         >{{ getMatchTeams(match).home.name }}</span
                       >
+                      <svg
+                        v-for="n in getTeamRedCardCount(
+                          match,
+                          match.home_team_id
+                        )"
+                        :key="'home-rc-' + n"
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle"
+                      >
+                        <title>Red card</title>
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          fill="#EA3323"
+                        />
+                      </svg>
                       <span
                         v-if="getMatchTeams(match).home.icon"
                         :class="getMatchTeams(match).home.iconClass"
@@ -2127,6 +2367,11 @@ export default {
           logoUrl: match.home_team_club?.logo_url || '',
         },
       };
+    };
+
+    const getTeamRedCardCount = (match, teamId) => {
+      if (!match.red_cards || !match.red_cards.length) return 0;
+      return match.red_cards.filter(c => c.team_id === teamId).length;
     };
 
     const getSelectedTeamName = () => {
@@ -2909,6 +3154,7 @@ export default {
       seasonStats,
       getTeamDisplay,
       getMatchTeams,
+      getTeamRedCardCount,
       getSelectedTeamName,
       getTeamDisplayName,
       getTeamDisplayWithContext,
