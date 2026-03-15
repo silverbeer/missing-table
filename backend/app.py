@@ -2953,14 +2953,20 @@ async def post_match_add_goal(
 
         validate_post_match_access(current_user, current_match, goal.team_id)
 
-        # Validate player exists and is on the team
-        player = roster_dao.get_player_by_id(goal.player_id)
-        if not player:
-            raise HTTPException(status_code=400, detail="Player not found")
-        if player["team_id"] != goal.team_id:
-            raise HTTPException(status_code=400, detail="Player must be on the specified team")
+        # Resolve player - either from roster or free-text name
+        player_id = goal.player_id
+        player_name = goal.player_name
 
-        player_name = player.get("display_name", f"#{player['jersey_number']}")
+        if player_id:
+            player = roster_dao.get_player_by_id(player_id)
+            if not player:
+                raise HTTPException(status_code=400, detail="Player not found")
+            if player["team_id"] != goal.team_id:
+                raise HTTPException(status_code=400, detail="Player must be on the specified team")
+            player_name = player.get("display_name", f"#{player['jersey_number']}")
+        elif not player_name:
+            raise HTTPException(status_code=400, detail="Either player_id or player_name is required")
+
         team_name = (
             current_match.get("home_team_name")
             if goal.team_id == current_match["home_team_id"]
@@ -2981,7 +2987,7 @@ async def post_match_add_goal(
             created_by_username=current_user.get("username"),
             team_id=goal.team_id,
             player_name=player_name,
-            player_id=goal.player_id,
+            player_id=player_id,
             match_minute=goal.match_minute,
             extra_time=goal.extra_time,
         )
@@ -2989,8 +2995,9 @@ async def post_match_add_goal(
         if not event:
             raise HTTPException(status_code=500, detail="Failed to create goal event")
 
-        # Increment player goal stats
-        player_stats_dao.increment_goals(goal.player_id, match_id)
+        # Increment player goal stats (only if roster player)
+        if player_id:
+            player_stats_dao.increment_goals(player_id, match_id)
 
         logger.info(
             "post_match_goal_recorded",
@@ -3202,14 +3209,20 @@ async def post_match_add_card(
 
         validate_post_match_access(current_user, current_match, card.team_id)
 
-        # Validate player exists and is on the team
-        player = roster_dao.get_player_by_id(card.player_id)
-        if not player:
-            raise HTTPException(status_code=400, detail="Player not found")
-        if player["team_id"] != card.team_id:
-            raise HTTPException(status_code=400, detail="Player must be on the specified team")
+        # Resolve player - either from roster or free-text name
+        player_id = card.player_id
+        player_name = card.player_name
 
-        player_name = player.get("display_name", f"#{player['jersey_number']}")
+        if player_id:
+            player = roster_dao.get_player_by_id(player_id)
+            if not player:
+                raise HTTPException(status_code=400, detail="Player not found")
+            if player["team_id"] != card.team_id:
+                raise HTTPException(status_code=400, detail="Player must be on the specified team")
+            player_name = player.get("display_name", f"#{player['jersey_number']}")
+        elif not player_name:
+            raise HTTPException(status_code=400, detail="Either player_id or player_name is required")
+
         card_label = "RED CARD" if card.card_type == "red_card" else "YELLOW CARD"
 
         card_message = f"{card_label}: {player_name}"
@@ -3226,7 +3239,7 @@ async def post_match_add_card(
             created_by_username=current_user.get("username"),
             team_id=card.team_id,
             player_name=player_name,
-            player_id=card.player_id,
+            player_id=player_id,
             match_minute=card.match_minute,
             extra_time=card.extra_time,
         )
@@ -3234,14 +3247,15 @@ async def post_match_add_card(
         if not event:
             raise HTTPException(status_code=500, detail="Failed to create card event")
 
-        # Update player card stats
-        stats = player_stats_dao.get_or_create_match_stats(card.player_id, match_id)
-        if stats:
-            card_field = "red_cards" if card.card_type == "red_card" else "yellow_cards"
-            current_count = stats.get(card_field, 0)
-            player_stats_dao.client.table("player_match_stats").update(
+        # Update player card stats (only if roster player)
+        if player_id:
+            stats = player_stats_dao.get_or_create_match_stats(player_id, match_id)
+            if stats:
+                card_field = "red_cards" if card.card_type == "red_card" else "yellow_cards"
+                current_count = stats.get(card_field, 0)
+                player_stats_dao.client.table("player_match_stats").update(
                 {card_field: current_count + 1, "played": True}
-            ).eq("player_id", card.player_id).eq("match_id", match_id).execute()
+            ).eq("player_id", player_id).eq("match_id", match_id).execute()
 
         logger.info(
             "post_match_card_recorded",
