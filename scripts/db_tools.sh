@@ -226,6 +226,87 @@ reset_and_populate() {
     print_success "Database reset and restoration completed"
 }
 
+# Deploy migrations to an environment
+deploy_migrations() {
+    local target_env="${1:-prod}"
+
+    if [ "$target_env" != "prod" ] && [ "$target_env" != "local" ]; then
+        print_error "Invalid environment: $target_env (must be 'local' or 'prod')"
+        return 1
+    fi
+
+    if [ "$target_env" = "local" ]; then
+        print_header "Applying Migrations to Local Database"
+        cd "$PROJECT_ROOT/supabase-local" || exit 1
+        npx supabase migration up
+        if [ $? -eq 0 ]; then
+            print_success "Local migrations applied successfully"
+        else
+            print_error "Local migration failed"
+            return 1
+        fi
+        return 0
+    fi
+
+    # Production deployment
+    print_header "Deploying Migrations to Production"
+    echo ""
+    print_warning "This will apply unapplied migrations to the PRODUCTION database."
+    echo ""
+
+    # Show which migrations will be applied
+    print_warning "Checking for pending migrations..."
+    cd "$PROJECT_ROOT/supabase-local" || exit 1
+
+    # Save current env and switch to prod
+    local original_env=$(get_current_environment)
+    "$PROJECT_ROOT/switch-env.sh" prod 2>/dev/null
+
+    echo ""
+    npx supabase migration list --linked 2>/dev/null
+    echo ""
+
+    # Confirm
+    read -p "$(echo -e "${YELLOW}Proceed with production migration? (yes/no): ${NC}")" confirm
+    if [ "$confirm" != "yes" ]; then
+        print_warning "Migration cancelled."
+        "$PROJECT_ROOT/switch-env.sh" "$original_env" 2>/dev/null
+        return 0
+    fi
+
+    # Step 1: Backup
+    print_header "Step 1/3: Creating Production Backup"
+    cd "$PROJECT_ROOT" || exit 1
+    backup_database "prod"
+    if [ $? -ne 0 ]; then
+        print_error "Backup failed. Aborting migration."
+        "$PROJECT_ROOT/switch-env.sh" "$original_env" 2>/dev/null
+        return 1
+    fi
+
+    # Step 2: Push migrations
+    print_header "Step 2/3: Applying Migrations"
+    cd "$PROJECT_ROOT/supabase-local" || exit 1
+    npx supabase db push --linked
+    if [ $? -ne 0 ]; then
+        print_error "Migration failed! Check output above."
+        print_warning "Your backup is available for rollback."
+        "$PROJECT_ROOT/switch-env.sh" "$original_env" 2>/dev/null
+        return 1
+    fi
+
+    # Step 3: Verify
+    print_header "Step 3/3: Verifying Migrations"
+    npx supabase migration list --linked 2>/dev/null
+    echo ""
+
+    # Switch back to original env
+    cd "$PROJECT_ROOT" || exit 1
+    "$PROJECT_ROOT/switch-env.sh" "$original_env" 2>/dev/null
+
+    print_success "Production migrations deployed successfully!"
+}
+
 # Clean up old backups
 cleanup_backups() {
     local keep_count="${1:-10}"
@@ -244,6 +325,7 @@ show_help() {
     echo "  backup [env]                    Create backup for specified environment (local|prod)"
     echo "  restore [backup_file] [env]     Restore from backup to specified environment"
     echo "  list                            List available backups"
+    echo "  migrate [env]                   Deploy pending migrations (default: prod)"
     echo "  reset [env]                     Reset database and repopulate with basic data"
     echo "  cleanup [keep_count]            Clean up old backups (default: keep 10)"
     echo "  help                            Show this help message"
@@ -259,6 +341,8 @@ show_help() {
     echo "  $0 restore backup_file.json prod             # Restore specific backup to prod environment"
     echo "  $0 list                                      # List all backups"
     echo "  $0 reset local                               # Reset local database"
+    echo "  $0 migrate                                   # Deploy pending migrations to prod"
+    echo "  $0 migrate local                              # Apply migrations locally"
     echo "  $0 cleanup 5                                 # Keep only 5 most recent backups"
     echo ""
 }
@@ -280,6 +364,9 @@ case "${1:-help}" in
         ;;
     list)
         list_backups
+        ;;
+    migrate)
+        deploy_migrations "$2"
         ;;
     reset)
         reset_and_populate "$2"
