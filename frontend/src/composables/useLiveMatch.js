@@ -314,6 +314,35 @@ export function useLiveMatch(matchId) {
     }
   }
 
+  async function postCard(teamId, playerId, cardType, message = null) {
+    try {
+      const cardData = {
+        team_id: teamId,
+        player_id: playerId,
+        card_type: cardType,
+      };
+      if (message) {
+        cardData.message = message;
+      }
+
+      const response = await authStore.apiRequest(
+        `${getApiBaseUrl()}/api/matches/${matchId}/live/card`,
+        {
+          method: 'POST',
+          body: JSON.stringify(cardData),
+        }
+      );
+      // Refetch events to get the new card event
+      if (response) {
+        await fetchMatchState();
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('Error posting card:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   async function postMessage(message) {
     try {
       const response = await authStore.apiRequest(
@@ -425,6 +454,7 @@ export function useLiveMatch(matchId) {
     // Methods
     updateClock,
     postGoal,
+    postCard,
     postMessage,
     deleteEvent,
     loadMoreEvents,

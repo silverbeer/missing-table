@@ -45,6 +45,51 @@
       </div>
     </div>
 
+    <!-- Cards -->
+    <div v-if="homeCards.length || awayCards.length" class="scorers-container">
+      <div class="scorers home-scorers">
+        <div v-for="card in homeCards" :key="card.id" class="scorer">
+          {{ card.player_name }}
+          <svg
+            width="10"
+            height="14"
+            viewBox="0 0 24 24"
+            class="inline-block align-middle mx-0.5"
+          >
+            <rect
+              x="4"
+              width="16"
+              height="24"
+              rx="2"
+              :fill="card.event_type === 'red_card' ? '#EA3323' : '#FBBF24'"
+            />
+          </svg>
+          {{ formatMinute(card) }}
+        </div>
+      </div>
+      <div class="scorers-divider"></div>
+      <div class="scorers away-scorers">
+        <div v-for="card in awayCards" :key="card.id" class="scorer">
+          {{ card.player_name }}
+          <svg
+            width="10"
+            height="14"
+            viewBox="0 0 24 24"
+            class="inline-block align-middle mx-0.5"
+          >
+            <rect
+              x="4"
+              width="16"
+              height="24"
+              rx="2"
+              :fill="card.event_type === 'red_card' ? '#EA3323' : '#FBBF24'"
+            />
+          </svg>
+          {{ formatMinute(card) }}
+        </div>
+      </div>
+    </div>
+
     <!-- Clock -->
     <div class="clock-container">
       <div class="clock">{{ elapsedTime }}</div>
@@ -115,6 +160,27 @@ const awayGoals = computed(() => {
     .filter(
       e =>
         e.event_type === 'goal' && e.team_id === props.matchState.away_team_id
+    )
+    .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
+});
+
+// Filter cards by team
+const homeCards = computed(() => {
+  return props.events
+    .filter(
+      e =>
+        ['red_card', 'yellow_card'].includes(e.event_type) &&
+        e.team_id === props.matchState.home_team_id
+    )
+    .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
+});
+
+const awayCards = computed(() => {
+  return props.events
+    .filter(
+      e =>
+        ['red_card', 'yellow_card'].includes(e.event_type) &&
+        e.team_id === props.matchState.away_team_id
     )
     .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
 });

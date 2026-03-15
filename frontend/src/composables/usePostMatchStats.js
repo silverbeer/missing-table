@@ -152,6 +152,45 @@ export function usePostMatchStats(matchId, matchData) {
   }
 
   /**
+   * Record a card (yellow or red) for a completed match.
+   */
+  async function addCard(cardData) {
+    error.value = null;
+    try {
+      const response = await authStore.apiRequest(
+        `${getApiBaseUrl()}/api/matches/${matchId}/post-match/card`,
+        {
+          method: 'POST',
+          body: JSON.stringify(cardData),
+        }
+      );
+      return { success: true, event: response };
+    } catch (err) {
+      console.error('Error adding card:', err);
+      error.value = err.message || 'Failed to add card';
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Remove a card event.
+   */
+  async function removeCard(eventId) {
+    error.value = null;
+    try {
+      await authStore.apiRequest(
+        `${getApiBaseUrl()}/api/matches/${matchId}/post-match/card/${eventId}`,
+        { method: 'DELETE' }
+      );
+      return { success: true };
+    } catch (err) {
+      console.error('Error removing card:', err);
+      error.value = err.message || 'Failed to remove card';
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Batch save player stats (started, minutes_played) for a team.
    */
   async function savePlayerStats(teamId, entries) {
@@ -199,6 +238,8 @@ export function usePostMatchStats(matchId, matchData) {
     removeGoal,
     addSubstitution,
     removeSubstitution,
+    addCard,
+    removeCard,
     savePlayerStats,
   };
 }

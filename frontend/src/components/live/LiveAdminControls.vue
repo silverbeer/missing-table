@@ -90,13 +90,16 @@
       </button>
     </div>
 
-    <!-- Goal Button - only when clock is running (1st or 2nd half) -->
+    <!-- Goal & Card Buttons - only when clock is running (1st or 2nd half) -->
     <div
       v-if="matchPeriod === '1st Half' || matchPeriod === '2nd Half'"
       class="goal-controls"
     >
       <button @click="showGoalModal = true" class="control-button goal">
         + Goal
+      </button>
+      <button @click="showCardModal = true" class="control-button card">
+        + Card
       </button>
     </div>
 
@@ -250,6 +253,112 @@
         </div>
       </div>
     </div>
+    <!-- Card Modal -->
+    <div
+      v-if="showCardModal"
+      class="modal-overlay"
+      @click.self="closeCardModal"
+    >
+      <div class="modal-content">
+        <h3 class="modal-title">Record Card</h3>
+
+        <div class="form-group">
+          <label>Team</label>
+          <div class="team-selector">
+            <button
+              @click="selectCardTeam(matchState.home_team_id)"
+              :class="[
+                'team-button',
+                { selected: cardTeamId === matchState.home_team_id },
+              ]"
+            >
+              {{ matchState.home_team_name }}
+            </button>
+            <button
+              @click="selectCardTeam(matchState.away_team_id)"
+              :class="[
+                'team-button',
+                { selected: cardTeamId === matchState.away_team_id },
+              ]"
+            >
+              {{ matchState.away_team_name }}
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Card Type</label>
+          <div class="team-selector">
+            <button
+              @click="selectedCardType = 'yellow_card'"
+              :class="[
+                'team-button card-yellow',
+                { selected: selectedCardType === 'yellow_card' },
+              ]"
+            >
+              Yellow
+            </button>
+            <button
+              @click="selectedCardType = 'red_card'"
+              :class="[
+                'team-button card-red',
+                { selected: selectedCardType === 'red_card' },
+              ]"
+            >
+              Red
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="card-player-select">Player</label>
+          <div v-if="rostersLoading" class="roster-loading">
+            Loading roster...
+          </div>
+          <select
+            v-else-if="cardTeamRoster.length > 0"
+            id="card-player-select"
+            v-model="cardPlayerId"
+            class="player-select"
+          >
+            <option :value="null">Select player...</option>
+            <option
+              v-for="player in cardTeamRoster"
+              :key="player.id"
+              :value="player.id"
+            >
+              {{ formatPlayerOption(player) }}
+            </option>
+          </select>
+          <div v-else class="no-roster-message">No roster available</div>
+        </div>
+
+        <div class="form-group">
+          <label for="card-message">Reason (optional)</label>
+          <input
+            id="card-message"
+            v-model="cardMessage"
+            type="text"
+            placeholder="e.g., Dangerous tackle"
+            class="text-input"
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button @click="closeCardModal" class="cancel-button">Cancel</button>
+          <button
+            @click="submitCard"
+            :disabled="!canSubmitCard"
+            class="submit-button"
+            :class="
+              selectedCardType === 'red_card' ? 'submit-red' : 'submit-yellow'
+            "
+          >
+            Record Card
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -292,7 +401,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update-clock', 'post-goal']);
+const emit = defineEmits(['update-clock', 'post-goal', 'post-card']);
 
 // Goal modal state
 const showGoalModal = ref(false);
@@ -306,6 +415,13 @@ const homeRoster = ref([]);
 const awayRoster = ref([]);
 const rostersLoading = ref(false);
 const rostersLoaded = ref(false);
+
+// Card modal state
+const showCardModal = ref(false);
+const cardTeamId = ref(null);
+const cardPlayerId = ref(null);
+const selectedCardType = ref('yellow_card');
+const cardMessage = ref('');
 
 // Start match modal state
 const showStartModal = ref(false);
@@ -412,6 +528,23 @@ watch(showStartModal, newVal => {
   }
 });
 
+// Load rosters when card modal opens
+watch(showCardModal, async newVal => {
+  if (newVal && props.fetchRosters && !rostersLoaded.value) {
+    rostersLoading.value = true;
+    try {
+      const rosters = await props.fetchRosters();
+      homeRoster.value = rosters.home || [];
+      awayRoster.value = rosters.away || [];
+      rostersLoaded.value = true;
+    } catch (err) {
+      console.error('Failed to load rosters:', err);
+    } finally {
+      rostersLoading.value = false;
+    }
+  }
+});
+
 // Load rosters when goal modal opens
 watch(showGoalModal, async newVal => {
   if (newVal && props.fetchRosters && !rostersLoaded.value) {
@@ -469,6 +602,45 @@ function formatPlayerOption(player) {
   }
 
   return `#${jerseyNum} ${displayName}`;
+}
+
+// Card modal computed and functions
+const cardTeamRoster = computed(() => {
+  if (!cardTeamId.value) return [];
+  if (cardTeamId.value === props.matchState.home_team_id) {
+    return homeRoster.value;
+  }
+  return awayRoster.value;
+});
+
+const canSubmitCard = computed(() => {
+  return cardTeamId.value && cardPlayerId.value && selectedCardType.value;
+});
+
+function selectCardTeam(teamId) {
+  cardTeamId.value = teamId;
+  cardPlayerId.value = null;
+}
+
+function closeCardModal() {
+  showCardModal.value = false;
+  cardTeamId.value = null;
+  cardPlayerId.value = null;
+  selectedCardType.value = 'yellow_card';
+  cardMessage.value = '';
+}
+
+function submitCard() {
+  if (!canSubmitCard.value) return;
+
+  emit('post-card', {
+    teamId: cardTeamId.value,
+    playerId: cardPlayerId.value,
+    cardType: selectedCardType.value,
+    message: cardMessage.value.trim() || null,
+  });
+
+  closeCardModal();
 }
 
 function submitGoal() {
@@ -565,6 +737,15 @@ function submitGoal() {
 
 .control-button.goal:hover {
   background: #1e88e5;
+}
+
+.control-button.card {
+  background: #ff9800;
+  color: white;
+}
+
+.control-button.card:hover {
+  background: #f57c00;
 }
 
 /* Modal */
@@ -741,6 +922,25 @@ function submitGoal() {
 .submit-button:disabled {
   background: #666;
   cursor: not-allowed;
+}
+
+.submit-button.submit-yellow {
+  background: #f9a825;
+  color: black;
+}
+
+.submit-button.submit-red {
+  background: #d32f2f;
+}
+
+.team-button.card-yellow.selected {
+  border-color: #f9a825;
+  background: rgba(249, 168, 37, 0.2);
+}
+
+.team-button.card-red.selected {
+  border-color: #d32f2f;
+  background: rgba(211, 47, 47, 0.2);
 }
 
 /* Player selection styles */

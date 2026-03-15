@@ -351,6 +351,40 @@ class MatchEventDAO(BaseDAO):
             logger.exception("Error getting goal events")
             return []
 
+    def get_card_events_for_matches(self, match_ids: list[int]) -> dict[int, list[dict]]:
+        """Get card events (red/yellow) for multiple matches in one query.
+
+        Args:
+            match_ids: List of match IDs
+
+        Returns:
+            Dict mapping match_id to list of card event dicts
+        """
+        if not match_ids:
+            return {}
+
+        try:
+            response = (
+                self.client.table("match_events")
+                .select("match_id, event_type, team_id, player_name")
+                .in_("match_id", match_ids)
+                .in_("event_type", ["red_card", "yellow_card"])
+                .eq("is_deleted", False)
+                .execute()
+            )
+
+            result: dict[int, list[dict]] = {}
+            for event in response.data or []:
+                mid = event["match_id"]
+                if mid not in result:
+                    result[mid] = []
+                result[mid].append(event)
+            return result
+
+        except Exception:
+            logger.exception("Error fetching card events for matches")
+            return {}
+
     def get_events_count(self, match_id: int) -> int:
         """Get total count of active events for a match.
 

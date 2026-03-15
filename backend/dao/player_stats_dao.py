@@ -78,6 +78,7 @@ class PlayerStatsDAO(BaseDAO):
                         "player_id": player_id,
                         "match_id": match_id,
                         "started": False,
+                        "played": False,
                         "minutes_played": 0,
                         "goals": 0,
                     }
@@ -123,8 +124,8 @@ class PlayerStatsDAO(BaseDAO):
 
             stats = response.data or []
 
-            # Aggregate
-            games_played = len(stats)
+            # Aggregate - only count games where player actually participated
+            games_played = sum(1 for s in stats if s.get("played") or s.get("started"))
             games_started = sum(1 for s in stats if s.get("started"))
             total_minutes = sum(s.get("minutes_played", 0) for s in stats)
             total_goals = sum(s.get("goals", 0) for s in stats)
@@ -228,6 +229,8 @@ class PlayerStatsDAO(BaseDAO):
                 .select("""
                     player_id,
                     goals,
+                    started,
+                    played,
                     match:matches!inner(
                         id,
                         season_id,
@@ -313,7 +316,8 @@ class PlayerStatsDAO(BaseDAO):
                     }
 
                 player_goals[player_id]["goals"] += goals
-                player_goals[player_id]["games_played"] += 1
+                if stat.get("played") or stat.get("started"):
+                    player_goals[player_id]["games_played"] += 1
 
             # Filter out players with 0 goals and sort
             result = [p for p in player_goals.values() if p["goals"] > 0]
@@ -437,8 +441,11 @@ class PlayerStatsDAO(BaseDAO):
                     "first_name": player.get("first_name"),
                     "last_name": player.get("last_name"),
                     "started": stats.get("started", False),
+                    "played": stats.get("played", False),
                     "minutes_played": stats.get("minutes_played", 0),
                     "goals": stats.get("goals", 0),
+                    "yellow_cards": stats.get("yellow_cards", 0),
+                    "red_cards": stats.get("red_cards", 0),
                 })
 
             return result
@@ -470,10 +477,14 @@ class PlayerStatsDAO(BaseDAO):
                 # Ensure record exists
                 self.get_or_create_match_stats(player_id, match_id)
 
-                # Update started and minutes
+                # Update started, played, minutes, and cards
+                played = entry.get("played", False) or entry["started"]
                 self.client.table("player_match_stats").update({
                     "started": entry["started"],
+                    "played": played,
                     "minutes_played": entry["minutes_played"],
+                    "yellow_cards": entry.get("yellow_cards", 0),
+                    "red_cards": entry.get("red_cards", 0),
                 }).eq("player_id", player_id).eq("match_id", match_id).execute()
 
             logger.info(
@@ -517,7 +528,7 @@ class PlayerStatsDAO(BaseDAO):
 
             response = (
                 self.client.table("player_match_stats")
-                .update({"goals": current_goals + 1})
+                .update({"goals": current_goals + 1, "played": True})
                 .eq("player_id", player_id)
                 .eq("match_id", match_id)
                 .execute()
@@ -598,9 +609,13 @@ class PlayerStatsDAO(BaseDAO):
             # Ensure record exists
             self.get_or_create_match_stats(player_id, match_id)
 
+            update_data = {"started": started}
+            if started:
+                update_data["played"] = True
+
             response = (
                 self.client.table("player_match_stats")
-                .update({"started": started})
+                .update(update_data)
                 .eq("player_id", player_id)
                 .eq("match_id", match_id)
                 .execute()
@@ -675,7 +690,7 @@ class PlayerStatsDAO(BaseDAO):
 
             response = (
                 self.client.table("player_match_stats")
-                .update({"started": started, "minutes_played": minutes})
+                .update({"started": started, "played": True, "minutes_played": minutes})
                 .eq("player_id", player_id)
                 .eq("match_id", match_id)
                 .execute()

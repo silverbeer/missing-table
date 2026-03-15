@@ -42,6 +42,7 @@ from models import (
     LeagueCreate,
     LeagueUpdate,
     LineupSave,
+    LiveCardEvent,
     LiveMatchClock,
     MatchPatch,
     MatchSubmissionData,
@@ -49,6 +50,7 @@ from models import (
     PlayerCustomization,
     PlayerHistoryCreate,
     PlayerHistoryUpdate,
+    PostMatchCard,
     PostMatchGoal,
     PostMatchSubstitution,
     ProfilePhotoSlot,
@@ -2065,6 +2067,21 @@ async def get_matches(
                 m for m in matches if m.get("home_team_id") in club_team_ids or m.get("away_team_id") in club_team_ids
             ]
 
+        # Enrich matches with card event data
+        match_ids = [m["id"] for m in matches if m.get("id")]
+        if match_ids:
+            card_events = match_event_dao.get_card_events_for_matches(match_ids)
+            for m in matches:
+                cards = card_events.get(m["id"], [])
+                m["red_cards"] = [
+                    {"team_id": c["team_id"], "player_name": c["player_name"]}
+                    for c in cards if c["event_type"] == "red_card"
+                ]
+                m["yellow_cards"] = [
+                    {"team_id": c["team_id"], "player_name": c["player_name"]}
+                    for c in cards if c["event_type"] == "yellow_card"
+                ]
+
         return matches
     except Exception as e:
         logger.error(f"Error retrieving matches: {e!s}", exc_info=True)
@@ -2338,8 +2355,25 @@ async def get_matches_by_team(
     """Get matches for a specific team."""
     try:
         matches = match_dao.get_matches_by_team(team_id, season_id=season_id, age_group_id=age_group_id)
-        # Return empty array if no matches found - this is not an error condition
-        return matches if matches else []
+        if not matches:
+            return []
+
+        # Enrich matches with card event data
+        match_ids = [m["id"] for m in matches if m.get("id")]
+        if match_ids:
+            card_events = match_event_dao.get_card_events_for_matches(match_ids)
+            for m in matches:
+                cards = card_events.get(m["id"], [])
+                m["red_cards"] = [
+                    {"team_id": c["team_id"], "player_name": c["player_name"]}
+                    for c in cards if c["event_type"] == "red_card"
+                ]
+                m["yellow_cards"] = [
+                    {"team_id": c["team_id"], "player_name": c["player_name"]}
+                    for c in cards if c["event_type"] == "yellow_card"
+                ]
+
+        return matches
     except Exception as e:
         logger.error(f"Error retrieving matches for team '{team_id}': {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -2594,6 +2628,89 @@ async def post_goal(
         raise
     except Exception as e:
         logger.error(f"Error posting goal: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/matches/{match_id}/live/card")
+async def post_live_card(
+    match_id: int,
+    card: LiveCardEvent,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Record a card event during a live match.
+
+    Creates a card event in the match timeline and updates player_match_stats.
+    The match minute is auto-calculated from the match clock.
+    """
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        if card.team_id not in [current_match["home_team_id"], current_match["away_team_id"]]:
+            raise HTTPException(status_code=400, detail="Team must be one of the match participants")
+
+        # Validate player exists and is on the team
+        player = roster_dao.get_player_by_id(card.player_id)
+        if not player:
+            raise HTTPException(status_code=400, detail="Player not found")
+        if player["team_id"] != card.team_id:
+            raise HTTPException(status_code=400, detail="Player must be on the specified team")
+
+        player_name = player.get("display_name", f"#{player['jersey_number']}")
+        card_label = "RED CARD" if card.card_type == "red_card" else "YELLOW CARD"
+
+        card_message = f"{card_label}: {player_name}"
+        if card.message:
+            card_message += f" ({card.message})"
+
+        # Auto-calculate match minute
+        match_minute, extra_time = calculate_match_minute(current_match)
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        event = match_event_dao.create_event(
+            match_id=match_id,
+            event_type=card.card_type,
+            message=card_message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+            team_id=card.team_id,
+            player_name=player_name,
+            player_id=card.player_id,
+            match_minute=match_minute,
+            extra_time=extra_time,
+        )
+
+        if not event:
+            raise HTTPException(status_code=500, detail="Failed to create card event")
+
+        # Update player card stats
+        stats = player_stats_dao.get_or_create_match_stats(card.player_id, match_id)
+        if stats:
+            card_field = "red_cards" if card.card_type == "red_card" else "yellow_cards"
+            current_count = stats.get(card_field, 0)
+            player_stats_dao.client.table("player_match_stats").update(
+                {card_field: current_count + 1, "played": True}
+            ).eq("player_id", card.player_id).eq("match_id", match_id).execute()
+
+        logger.info(
+            "live_card_recorded",
+            match_id=match_id,
+            player_id=card.player_id,
+            card_type=card.card_type,
+            minute=match_minute,
+        )
+
+        return event
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording live card: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -3068,6 +3185,141 @@ async def post_match_remove_substitution(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.post("/api/matches/{match_id}/post-match/card")
+async def post_match_add_card(
+    match_id: int,
+    card: PostMatchCard,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Record a card (yellow or red) for a completed match.
+
+    Creates a card event and updates the player's card count in player_match_stats.
+    """
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        validate_post_match_access(current_user, current_match, card.team_id)
+
+        # Validate player exists and is on the team
+        player = roster_dao.get_player_by_id(card.player_id)
+        if not player:
+            raise HTTPException(status_code=400, detail="Player not found")
+        if player["team_id"] != card.team_id:
+            raise HTTPException(status_code=400, detail="Player must be on the specified team")
+
+        player_name = player.get("display_name", f"#{player['jersey_number']}")
+        card_label = "RED CARD" if card.card_type == "red_card" else "YELLOW CARD"
+
+        card_message = f"{card_label}: {player_name}"
+        if card.message:
+            card_message += f" ({card.message})"
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        event = match_event_dao.create_event(
+            match_id=match_id,
+            event_type=card.card_type,
+            message=card_message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+            team_id=card.team_id,
+            player_name=player_name,
+            player_id=card.player_id,
+            match_minute=card.match_minute,
+            extra_time=card.extra_time,
+        )
+
+        if not event:
+            raise HTTPException(status_code=500, detail="Failed to create card event")
+
+        # Update player card stats
+        stats = player_stats_dao.get_or_create_match_stats(card.player_id, match_id)
+        if stats:
+            card_field = "red_cards" if card.card_type == "red_card" else "yellow_cards"
+            current_count = stats.get(card_field, 0)
+            player_stats_dao.client.table("player_match_stats").update(
+                {card_field: current_count + 1, "played": True}
+            ).eq("player_id", card.player_id).eq("match_id", match_id).execute()
+
+        logger.info(
+            "post_match_card_recorded",
+            match_id=match_id,
+            player_id=card.player_id,
+            card_type=card.card_type,
+            minute=card.match_minute,
+        )
+
+        return event
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording post-match card: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/matches/{match_id}/post-match/card/{event_id}")
+async def post_match_remove_card(
+    match_id: int,
+    event_id: int,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Remove a card event from a completed match."""
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        event = match_event_dao.get_event_by_id(event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        if event.get("match_id") != match_id:
+            raise HTTPException(status_code=400, detail="Event does not belong to this match")
+        if event.get("event_type") not in ("red_card", "yellow_card"):
+            raise HTTPException(status_code=400, detail="Event is not a card")
+
+        team_id = event.get("team_id")
+        if team_id:
+            validate_post_match_access(current_user, current_match, team_id)
+        else:
+            if not auth_manager.can_edit_match(
+                current_user, current_match["home_team_id"], current_match["away_team_id"]
+            ):
+                raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        # Decrement player card stats
+        player_id = event.get("player_id")
+        if player_id:
+            stats = player_stats_dao.get_match_stats(player_id, match_id)
+            if stats:
+                card_field = "red_cards" if event["event_type"] == "red_card" else "yellow_cards"
+                new_count = max(0, stats.get(card_field, 0) - 1)
+                player_stats_dao.client.table("player_match_stats").update(
+                    {card_field: new_count}
+                ).eq("player_id", player_id).eq("match_id", match_id).execute()
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+        success = match_event_dao.soft_delete_event(event_id, deleted_by=user_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete card event")
+
+        logger.info(
+            "post_match_card_removed",
+            match_id=match_id,
+            event_id=event_id,
+        )
+
+        return {"detail": "Card removed"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing post-match card: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.get("/api/matches/{match_id}/post-match/stats/{team_id}")
 async def post_match_get_stats(
     match_id: int,
@@ -3112,7 +3364,10 @@ async def post_match_update_stats(
             {
                 "player_id": entry.player_id,
                 "started": entry.started,
+                "played": entry.played,
                 "minutes_played": entry.minutes_played,
+                "yellow_cards": entry.yellow_cards,
+                "red_cards": entry.red_cards,
             }
             for entry in batch.players
         ]

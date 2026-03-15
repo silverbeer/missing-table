@@ -194,6 +194,66 @@
               </div>
             </div>
           </div>
+
+          <!-- Cards -->
+          <div
+            v-if="homeCards.length || awayCards.length"
+            class="flex justify-center gap-4 mt-2 pt-2 border-t border-slate-700"
+          >
+            <div class="flex-1 text-right max-w-[140px]">
+              <div
+                v-for="card in homeCards"
+                :key="card.id"
+                class="text-xs text-slate-300 mb-1"
+              >
+                {{ card.player_name }}
+                <svg
+                  width="10"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  class="inline-block align-middle mx-0.5"
+                >
+                  <rect
+                    x="4"
+                    width="16"
+                    height="24"
+                    rx="2"
+                    :fill="
+                      card.event_type === 'red_card' ? '#EA3323' : '#FBBF24'
+                    "
+                  />
+                </svg>
+                {{ formatMinute(card) }}
+              </div>
+            </div>
+            <div class="w-px bg-slate-600 flex-shrink-0"></div>
+            <div class="flex-1 text-left max-w-[140px]">
+              <div
+                v-for="card in awayCards"
+                :key="card.id"
+                class="text-xs text-slate-300 mb-1"
+              >
+                {{ card.player_name }}
+                <svg
+                  width="10"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  class="inline-block align-middle mx-0.5"
+                >
+                  <rect
+                    x="4"
+                    width="16"
+                    height="24"
+                    rx="2"
+                    :fill="
+                      card.event_type === 'red_card' ? '#EA3323' : '#FBBF24'
+                    "
+                  />
+                </svg>
+                {{ formatMinute(card) }}
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Match Details Card -->
@@ -562,6 +622,27 @@ export default {
         .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
     });
 
+    // Filter cards by team
+    const homeCards = computed(() => {
+      return events.value
+        .filter(
+          e =>
+            ['red_card', 'yellow_card'].includes(e.event_type) &&
+            e.team_id === match.value?.home_team_id
+        )
+        .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
+    });
+
+    const awayCards = computed(() => {
+      return events.value
+        .filter(
+          e =>
+            ['red_card', 'yellow_card'].includes(e.event_type) &&
+            e.team_id === match.value?.away_team_id
+        )
+        .sort((a, b) => (a.match_minute || 0) - (b.match_minute || 0));
+    });
+
     // Format minute display (e.g., "22'" or "90+5'")
     const formatMinute = goal => {
       if (!goal.match_minute) return '';
@@ -790,6 +871,8 @@ export default {
       events,
       homeGoals,
       awayGoals,
+      homeCards,
+      awayCards,
       homeTeamColor,
       awayTeamColor,
       leagueName,
