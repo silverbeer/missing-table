@@ -173,7 +173,7 @@ class DatabaseTask(Task):
             # Update match_date if changed (rescheduled match)
             new_date = new_data.get("match_date")
             existing_date = existing_match.get("match_date")
-            if new_date and new_date != existing_date:
+            if new_date and existing_date and new_date != existing_date:
                 update_data["match_date"] = new_date
                 logger.info(f"Match {match_id} rescheduled: {existing_date} → {new_date}")
 
