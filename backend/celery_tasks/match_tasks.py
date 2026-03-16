@@ -131,6 +131,13 @@ class DatabaseTask(Task):
                 )
                 return True
 
+        # Check if match_date changed (rescheduled match)
+        existing_date = existing_match.get("match_date")
+        new_date = new_data.get("match_date")
+        if new_date and existing_date and new_date != existing_date:
+            logger.debug(f"match_date changed: {existing_date} → {new_date}")
+            return True
+
         # Check if scheduled_kickoff can be set/updated from match_time
         new_kickoff = self._build_scheduled_kickoff(new_data)
         existing_kickoff = existing_match.get("scheduled_kickoff")
@@ -162,6 +169,13 @@ class DatabaseTask(Task):
             # Update status if provided
             if new_data.get("match_status"):
                 update_data["match_status"] = new_data["match_status"]
+
+            # Update match_date if changed (rescheduled match)
+            new_date = new_data.get("match_date")
+            existing_date = existing_match.get("match_date")
+            if new_date and existing_date and new_date != existing_date:
+                update_data["match_date"] = new_date
+                logger.info(f"Match {match_id} rescheduled: {existing_date} → {new_date}")
 
             # Update scheduled_kickoff if match_time provided and different
             new_kickoff = self._build_scheduled_kickoff(new_data)

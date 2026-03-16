@@ -109,6 +109,30 @@ class TestCheckNeedsUpdate:
         new_data = {"match_status": "scheduled", "match_date": "2026-03-01", "match_time": None}
         assert task._check_needs_update(existing, new_data) is False
 
+    def test_rescheduled_match_date_returns_true(self, task):
+        """Match rescheduled to a different date → needs update."""
+        existing = {
+            "match_status": "scheduled",
+            "home_score": None,
+            "away_score": None,
+            "match_date": "2026-03-01",
+            "scheduled_kickoff": None,
+        }
+        new_data = {"match_status": "scheduled", "match_date": "2026-06-08"}
+        assert task._check_needs_update(existing, new_data) is True
+
+    def test_same_match_date_returns_false(self, task):
+        """Same date, same everything → no update needed."""
+        existing = {
+            "match_status": "scheduled",
+            "home_score": None,
+            "away_score": None,
+            "match_date": "2026-03-01",
+            "scheduled_kickoff": None,
+        }
+        new_data = {"match_status": "scheduled", "match_date": "2026-03-01"}
+        assert task._check_needs_update(existing, new_data) is False
+
 
 # ── _update_match_scores ─────────────────────────────────────────────
 
@@ -143,6 +167,17 @@ class TestUpdateMatchScores:
 
         result = task._update_match_scores(existing, new_data)
         assert result is False
+
+    def test_updates_rescheduled_match_date(self, task):
+        """Rescheduled match → match_date should be in the update payload."""
+        existing = {"id": 42, "match_date": "2026-03-01", "scheduled_kickoff": None}
+        new_data = {"match_date": "2026-06-08", "match_status": "scheduled"}
+
+        task._update_match_scores(existing, new_data)
+
+        update_payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert update_payload["match_date"] == "2026-06-08"
+        assert update_payload["match_status"] == "scheduled"
 
     def test_includes_scores_and_kickoff(self, task):
         """Score update + kickoff backfill in one call."""
