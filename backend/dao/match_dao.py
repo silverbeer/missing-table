@@ -512,11 +512,7 @@ class MatchDAO(BaseDAO):
                 if md < today and status in ("scheduled", "tbd") and m.get("home_score") is None:
                     needs_score += 1
 
-                if (
-                    status in ("scheduled", "tbd")
-                    and today <= md <= kickoff_horizon
-                    and not m.get("scheduled_kickoff")
-                ):
+                if status in ("scheduled", "tbd") and today <= md <= kickoff_horizon and not m.get("scheduled_kickoff"):
                     needs_kickoff += 1
 
                 if status == "played" and (last_played is None or md > last_played):
@@ -1199,6 +1195,128 @@ class MatchDAO(BaseDAO):
         except Exception:
             logger.exception("Error updating match score", match_id=match_id)
             return None
+
+    def get_agent_matches(
+        self,
+        team: str,
+        age_group: str,
+        league: str,
+        division: str,
+        season: str,
+    ) -> list[dict]:
+        """Get individual match records for the audit agent's comparison step.
+
+        Returns matches involving the specified team (home or away) in the
+        given age-group/league/division/season. Used by GET /api/agent/matches.
+
+        Args:
+            team:      MT canonical team name, e.g. "IFA".
+            age_group: e.g. "U14".
+            league:    e.g. "Homegrown".
+            division:  e.g. "Northeast".
+            season:    e.g. "2025-2026".
+
+        Returns:
+            List of match dicts with fields the audit comparator expects.
+        """
+        # Resolve IDs for the reference dimensions
+        season_resp = self.client.table("seasons").select("id").eq("name", season).limit(1).execute()
+        if not season_resp.data:
+            logger.warning("get_agent_matches.season_not_found", season=season)
+            return []
+        season_id = season_resp.data[0]["id"]
+
+        ag_resp = self.client.table("age_groups").select("id").eq("name", age_group).limit(1).execute()
+        if not ag_resp.data:
+            logger.warning("get_agent_matches.age_group_not_found", age_group=age_group)
+            return []
+        age_group_id = ag_resp.data[0]["id"]
+
+        # Resolve division_id via league join
+        div_resp = (
+            self.client.table("divisions")
+            .select("id, leagues!divisions_league_id_fkey(name)")
+            .eq("name", division)
+            .execute()
+        )
+        division_id = None
+        for row in div_resp.data or []:
+            if row.get("leagues") and row["leagues"].get("name") == league:
+                division_id = row["id"]
+                break
+        if division_id is None:
+            logger.warning("get_agent_matches.division_not_found", division=division, league=league)
+            return []
+
+        # Resolve team IDs matching the given name
+        team_resp = self.client.table("teams").select("id").eq("name", team).execute()
+        team_ids = [r["id"] for r in (team_resp.data or [])]
+        if not team_ids:
+            logger.warning("get_agent_matches.team_not_found", team=team)
+            return []
+
+        # Build OR filter for home/away team membership
+        or_filter = ",".join(
+            [f"home_team_id.eq.{tid}" for tid in team_ids] + [f"away_team_id.eq.{tid}" for tid in team_ids]
+        )
+
+        try:
+            response = (
+                self.client.table("matches")
+                .select(
+                    "match_id, match_date, scheduled_kickoff, home_score, away_score, match_status, "
+                    "home_team:teams!matches_home_team_id_fkey(name), "
+                    "away_team:teams!matches_away_team_id_fkey(name)"
+                )
+                .eq("season_id", season_id)
+                .eq("age_group_id", age_group_id)
+                .eq("division_id", division_id)
+                .or_(or_filter)
+                .order("match_date", desc=False)
+                .execute()
+            )
+        except Exception:
+            logger.exception("get_agent_matches.query_error", team=team)
+            return []
+
+        results = []
+        for m in response.data or []:
+            # Format match_time as "HH:MM" from scheduled_kickoff (UTC)
+            match_time = None
+            if m.get("scheduled_kickoff"):
+                try:
+                    from datetime import datetime
+
+                    kt = datetime.fromisoformat(m["scheduled_kickoff"].replace("Z", "+00:00"))
+                    if kt.hour or kt.minute:
+                        match_time = kt.strftime("%H:%M")
+                except (ValueError, AttributeError):
+                    pass
+
+            results.append(
+                {
+                    "external_match_id": m.get("match_id"),
+                    "home_team": m["home_team"]["name"] if m.get("home_team") else None,
+                    "away_team": m["away_team"]["name"] if m.get("away_team") else None,
+                    "match_date": m["match_date"],
+                    "match_time": match_time,
+                    "home_score": m.get("home_score"),
+                    "away_score": m.get("away_score"),
+                    "match_status": m.get("match_status"),
+                    "age_group": age_group,
+                    "league": league,
+                    "division": division,
+                    "season": season,
+                }
+            )
+
+        logger.info(
+            "get_agent_matches.done",
+            team=team,
+            age_group=age_group,
+            count=len(results),
+        )
+        return results
 
     # Admin CRUD methods for reference data have been moved to:
     # - SeasonDAO (seasons, age_groups)

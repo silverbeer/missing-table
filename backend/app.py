@@ -74,6 +74,7 @@ from services import InviteService
 # Legacy flag kept for backwards compatibility so existing envs keep working.
 DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
 
+from dao.audit_dao import AuditDAO
 from dao.club_dao import ClubDAO
 from dao.exceptions import DuplicateRecordError
 from dao.league_dao import LeagueDAO
@@ -209,6 +210,7 @@ season_dao = SeasonDAO(db_conn_holder_obj)
 league_dao = LeagueDAO(db_conn_holder_obj)
 match_type_dao = MatchTypeDAO(db_conn_holder_obj)
 playoff_dao = PlayoffDAO(db_conn_holder_obj)
+audit_dao = AuditDAO(db_conn_holder_obj)
 
 
 # === Simple Redis Caching ===
@@ -1589,8 +1591,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
         if role == "team-player":
             teams_data = player_dao.get_all_current_player_teams(current_user["user_id"])
             current_teams = [
-                {"team_id": t.get("team_id"), "team": t.get("team"), "season": t.get("season")}
-                for t in teams_data
+                {"team_id": t.get("team_id"), "team": t.get("team"), "season": t.get("season")} for t in teams_data
             ]
 
         return {
@@ -2075,11 +2076,13 @@ async def get_matches(
                 cards = card_events.get(m["id"], [])
                 m["red_cards"] = [
                     {"team_id": c["team_id"], "player_name": c["player_name"]}
-                    for c in cards if c["event_type"] == "red_card"
+                    for c in cards
+                    if c["event_type"] == "red_card"
                 ]
                 m["yellow_cards"] = [
                     {"team_id": c["team_id"], "player_name": c["player_name"]}
-                    for c in cards if c["event_type"] == "yellow_card"
+                    for c in cards
+                    if c["event_type"] == "yellow_card"
                 ]
 
         return matches
@@ -2366,11 +2369,13 @@ async def get_matches_by_team(
                 cards = card_events.get(m["id"], [])
                 m["red_cards"] = [
                     {"team_id": c["team_id"], "player_name": c["player_name"]}
-                    for c in cards if c["event_type"] == "red_card"
+                    for c in cards
+                    if c["event_type"] == "red_card"
                 ]
                 m["yellow_cards"] = [
                     {"team_id": c["team_id"], "player_name": c["player_name"]}
-                    for c in cards if c["event_type"] == "yellow_card"
+                    for c in cards
+                    if c["event_type"] == "yellow_card"
                 ]
 
         return matches
@@ -2906,9 +2911,7 @@ async def save_lineup(
 # === Post-Match Stats Endpoints ===
 
 
-def validate_post_match_access(
-    user: dict[str, Any], match: dict, team_id: int
-) -> None:
+def validate_post_match_access(user: dict[str, Any], match: dict, team_id: int) -> None:
     """Validate user has access to edit post-match stats for a team.
 
     Checks:
@@ -3254,8 +3257,8 @@ async def post_match_add_card(
                 card_field = "red_cards" if card.card_type == "red_card" else "yellow_cards"
                 current_count = stats.get(card_field, 0)
                 player_stats_dao.client.table("player_match_stats").update(
-                {card_field: current_count + 1, "played": True}
-            ).eq("player_id", player_id).eq("match_id", match_id).execute()
+                    {card_field: current_count + 1, "played": True}
+                ).eq("player_id", player_id).eq("match_id", match_id).execute()
 
         logger.info(
             "post_match_card_recorded",
@@ -3310,9 +3313,9 @@ async def post_match_remove_card(
             if stats:
                 card_field = "red_cards" if event["event_type"] == "red_card" else "yellow_cards"
                 new_count = max(0, stats.get(card_field, 0) - 1)
-                player_stats_dao.client.table("player_match_stats").update(
-                    {card_field: new_count}
-                ).eq("player_id", player_id).eq("match_id", match_id).execute()
+                player_stats_dao.client.table("player_match_stats").update({card_field: new_count}).eq(
+                    "player_id", player_id
+                ).eq("match_id", match_id).execute()
 
         user_id = current_user.get("user_id") or current_user.get("id")
         success = match_event_dao.soft_delete_event(event_id, deleted_by=user_id)
@@ -5026,9 +5029,7 @@ async def advance_playoff_winner_by_manager(
                 raise HTTPException(status_code=400, detail="Match is tied - admin must resolve")
 
             # Determine the winner
-            winner_team_id = (
-                home_team_id if match["home_score"] > match["away_score"] else away_team_id
-            )
+            winner_team_id = home_team_id if match["home_score"] > match["away_score"] else away_team_id
 
             # Check if user's team is the winner
             user_team_id = current_user.get("team_id")
@@ -5045,10 +5046,7 @@ async def advance_playoff_winner_by_manager(
                     user_is_winner = True
 
             if not user_is_winner:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only the winning team's manager can advance the winner"
-                )
+                raise HTTPException(status_code=403, detail="Only the winning team's manager can advance the winner")
 
         # All checks passed, advance the winner
         result = playoff_dao.advance_winner(request.slot_id)
@@ -5111,10 +5109,7 @@ async def forfeit_playoff_match_by_manager(
                     can_forfeit = True
 
             if not can_forfeit:
-                raise HTTPException(
-                    status_code=403,
-                    detail="You can only forfeit your own team"
-                )
+                raise HTTPException(status_code=403, detail="You can only forfeit your own team")
 
         result = playoff_dao.forfeit_match(request.slot_id, request.forfeit_team_id)
         return result or {"message": "Forfeit recorded (final match)"}
@@ -5542,6 +5537,160 @@ async def get_agent_match_summary(
         }
     except Exception as e:
         logger.error("agent_match_summary_failed", error=str(e), season=season)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/agent/matches")
+async def get_agent_matches(
+    team: str = Query(..., description="MT canonical team name, e.g. 'IFA'"),
+    age_group: str = Query(..., description="e.g. 'U14'"),
+    league: str = Query(..., description="e.g. 'Homegrown'"),
+    division: str = Query(..., description="e.g. 'Northeast'"),
+    season: str = Query(..., description="e.g. '2025-2026'"),
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Get individual match records for a team — used by the audit agent for comparison.
+
+    Returns matches involving the specified team (home or away) in the given
+    age-group/league/division/season. Returns 200 with empty list if no matches.
+    """
+    try:
+        matches = match_dao.get_agent_matches(
+            team=team,
+            age_group=age_group,
+            league=league,
+            division=division,
+            season=season,
+        )
+        return {"matches": matches}
+    except Exception as e:
+        logger.error("agent_matches_failed", error=str(e), team=team, season=season)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/agent/audit/next-team")
+async def get_audit_next_team(
+    season: str = Query(..., description="e.g. '2025-2026'"),
+    division: str = Query(..., description="e.g. 'Northeast'"),
+    league: str = Query(..., description="e.g. 'Homegrown'"),
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Return the next team to audit (least recently audited).
+
+    Returns HTTP 204 when all teams were audited within the last 7 days.
+    """
+    try:
+        team = audit_dao.get_next_team(season=season, division=division, league=league)
+    except Exception as e:
+        logger.error("audit_next_team_failed", error=str(e), season=season)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    if team is None:
+        return Response(status_code=204)
+    return team
+
+
+@app.get("/api/agent/audit/teams")
+async def get_audit_teams(
+    season: str = Query(..., description="e.g. '2025-2026'"),
+    division: str = Query(..., description="e.g. 'Northeast'"),
+    league: str = Query(..., description="e.g. 'Homegrown'"),
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Return full team list with audit scheduling state. Used for metrics/reporting."""
+    try:
+        teams = audit_dao.get_audit_teams(season=season, division=division, league=league)
+        return {"teams": teams}
+    except Exception as e:
+        logger.error("audit_teams_failed", error=str(e), season=season)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/agent/audit/events")
+async def post_audit_events(
+    payload: dict[str, Any],
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Submit audit findings for a completed team audit.
+
+    Updates audit_teams.last_audited_at. Stores an audit_events row only when
+    findings is non-empty. Returns 200 with empty findings if audit was clean.
+    """
+    required = ("event_id", "team", "age_group", "league", "division", "season")
+    missing = [f for f in required if not payload.get(f)]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Missing required fields: {missing}")
+
+    try:
+        audit_dao.submit_audit_event(payload)
+    except Exception as e:
+        logger.error("audit_post_events_failed", error=str(e), event_id=payload.get("event_id"))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    findings = payload.get("findings", [])
+    return {
+        "event_id": payload["event_id"],
+        "team": payload["team"],
+        "age_group": payload["age_group"],
+        "findings_stored": len(findings),
+        "status": "findings" if findings else "clean",
+    }
+
+
+@app.get("/api/agent/audit/events")
+async def get_audit_events(
+    season: str = Query(..., description="e.g. '2025-2026'"),
+    status: str = Query("pending", description="pending | processed | ignored"),
+    team: str | None = Query(None),
+    age_group: str | None = Query(None),
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """List audit events. Defaults to pending events for the processor to consume."""
+    try:
+        events = audit_dao.get_events(season=season, status=status, team=team, age_group=age_group)
+        return {"events": events}
+    except Exception as e:
+        logger.error("audit_get_events_failed", error=str(e), season=season)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.patch("/api/agent/audit/events/{event_id}")
+async def patch_audit_event(
+    event_id: str,
+    payload: dict[str, Any],
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Update the status of an audit event after the processor has handled it."""
+    new_status = payload.get("status")
+    if not new_status:
+        raise HTTPException(status_code=422, detail="'status' field required")
+
+    try:
+        audit_dao.update_event_status(
+            event_id=event_id,
+            status=new_status,
+            processed_at=payload.get("processed_at"),
+        )
+    except Exception as e:
+        logger.error("audit_patch_event_failed", error=str(e), event_id=event_id)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    return {"event_id": event_id, "status": new_status}
+
+
+@app.get("/api/agent/audit/summary")
+async def get_audit_summary(
+    season: str = Query(..., description="e.g. '2025-2026'"),
+    division: str = Query(..., description="e.g. 'Northeast'"),
+    league: str = Query(..., description="e.g. 'Homegrown'"),
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Audit coverage metrics: teams audited this week, findings breakdown, overdue teams."""
+    try:
+        summary = audit_dao.get_audit_summary(season=season, division=division, league=league)
+        return summary
+    except Exception as e:
+        logger.error("audit_summary_failed", error=str(e), season=season)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
