@@ -45,7 +45,7 @@ class AuditDAO(BaseDAO):
                 .eq("season", season)
                 .eq("division", division)
                 .eq("league", league)
-                .order("last_audited_at", desc=False, nulls_first=True)
+                .order("last_audited_at", desc=False, nullsfirst=True)
                 .limit(1)
                 .execute()
             )
