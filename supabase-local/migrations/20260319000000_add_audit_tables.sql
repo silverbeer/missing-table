@@ -69,9 +69,10 @@ CREATE INDEX idx_audit_events_pending
 CREATE INDEX idx_audit_events_event_id
     ON public.audit_events (event_id);
 
--- ─── Seed audit_teams from existing Northeast HG match data ──────────────────
--- Derives the team list automatically from matches already in the DB.
--- Covers both home and away teams for U13/U14/U15/U16, Homegrown, Northeast.
+-- ─── Seed audit_teams from existing Northeast HG League match data ─────────────
+-- Derives the team list automatically from League matches already in the DB.
+-- Covers both home and away teams across all age groups in Homegrown, Northeast.
+-- Filters to match_type = 'League' to exclude guest teams from tournaments/friendlies.
 
 INSERT INTO public.audit_teams (team, age_group, league, division, season)
 SELECT DISTINCT
@@ -81,15 +82,16 @@ SELECT DISTINCT
     d.name      AS division,
     s.name      AS season
 FROM public.matches  m
-JOIN public.teams      ht ON ht.id = m.home_team_id
-JOIN public.age_groups ag ON ag.id = m.age_group_id
-JOIN public.divisions   d ON  d.id = m.division_id
-JOIN public.leagues     l ON  l.id = d.league_id
-JOIN public.seasons     s ON  s.id = m.season_id
-WHERE s.name    = '2025-2026'
-  AND d.name    = 'Northeast'
-  AND l.name    = 'Homegrown'
-  AND ag.name  IN ('U13', 'U14', 'U15', 'U16')
+JOIN public.teams       ht ON ht.id = m.home_team_id
+JOIN public.age_groups  ag ON ag.id = m.age_group_id
+JOIN public.divisions    d ON  d.id = m.division_id
+JOIN public.leagues      l ON  l.id = d.league_id
+JOIN public.seasons      s ON  s.id = m.season_id
+JOIN public.match_types mt ON mt.id = m.match_type_id
+WHERE s.name   = '2025-2026'
+  AND d.name   = 'Northeast'
+  AND l.name   = 'Homegrown'
+  AND mt.name  = 'League'
 
 UNION
 
@@ -100,14 +102,15 @@ SELECT DISTINCT
     d.name      AS division,
     s.name      AS season
 FROM public.matches  m
-JOIN public.teams      at_ ON at_.id = m.away_team_id
-JOIN public.age_groups  ag ON  ag.id = m.age_group_id
-JOIN public.divisions    d ON   d.id = m.division_id
-JOIN public.leagues      l ON   l.id = d.league_id
-JOIN public.seasons      s ON   s.id = m.season_id
-WHERE s.name    = '2025-2026'
-  AND d.name    = 'Northeast'
-  AND l.name    = 'Homegrown'
-  AND ag.name  IN ('U13', 'U14', 'U15', 'U16')
+JOIN public.teams       at_ ON at_.id = m.away_team_id
+JOIN public.age_groups   ag ON  ag.id = m.age_group_id
+JOIN public.divisions     d ON   d.id = m.division_id
+JOIN public.leagues       l ON   l.id = d.league_id
+JOIN public.seasons       s ON   s.id = m.season_id
+JOIN public.match_types  mt ON  mt.id = m.match_type_id
+WHERE s.name   = '2025-2026'
+  AND d.name   = 'Northeast'
+  AND l.name   = 'Homegrown'
+  AND mt.name  = 'League'
 
 ON CONFLICT (team, age_group, league, division, season) DO NOTHING;
