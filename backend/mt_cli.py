@@ -592,9 +592,26 @@ def status(
 
     console.print(table)
 
-    if live.get("recent_events"):
-        console.print("\n[bold]Recent Events:[/bold]")
-        for event in live["recent_events"][-5:]:
+    # Fetch full event list and filter out status-change noise so every goal is shown.
+    # The /live endpoint returns events newest-first; using [-N:] on that list would
+    # show only the oldest entries, hiding recent goals (the original bug).
+    events_to_show: list[dict] = []
+    try:
+        all_events = client.get_match_events(match_id)
+        # all_events is newest-first; reverse to chronological order.
+        # Exclude status_change events (kickoff, halftime, etc.) from the CLI display —
+        # those are already surfaced via the Period/Status rows above.
+        _SKIP_TYPES = {"status_change"}
+        events_to_show = [e for e in reversed(all_events) if e.get("event_type") not in _SKIP_TYPES]
+    except Exception:
+        # Graceful fallback: use whatever recent_events the /live response included,
+        # but fix the ordering bug by taking the first (newest) entries, not the last.
+        raw = live.get("recent_events") or []
+        events_to_show = list(reversed(raw[:10]))
+
+    if events_to_show:
+        console.print("\n[bold]Match Events:[/bold]")
+        for event in events_to_show:
             event_type = event.get("event_type", "")
             msg = event.get("message", "")
             minute = event.get("match_minute")
