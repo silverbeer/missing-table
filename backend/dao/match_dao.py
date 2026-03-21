@@ -454,11 +454,21 @@ class MatchDAO(BaseDAO):
             logger.exception("Error querying matches")
             return []
 
-    def get_match_summary(self, season_name: str) -> list[dict]:
+    def get_match_summary(
+        self,
+        season_name: str,
+        score_from: str | None = None,
+        score_to: str | None = None,
+    ) -> list[dict]:
         """Get match summary statistics grouped by age group, league, and division.
 
         Used by the match-scraper-agent to understand what MT already has
         and make smart decisions about what to scrape.
+
+        Args:
+            season_name: Season name, e.g. '2025-2026'.
+            score_from: If set, only count needs_score for matches >= this date.
+            score_to: If set, only count needs_score for matches <= this date.
         """
         from collections import defaultdict
         from datetime import date, timedelta
@@ -510,7 +520,9 @@ class MatchDAO(BaseDAO):
                 dates.append(md)
 
                 if md < today and status in ("scheduled", "tbd") and m.get("home_score") is None:
-                    needs_score += 1
+                    in_window = (not score_from or md >= score_from) and (not score_to or md <= score_to)
+                    if in_window:
+                        needs_score += 1
 
                 if status in ("scheduled", "tbd") and today <= md <= kickoff_horizon and not m.get("scheduled_kickoff"):
                     needs_kickoff += 1
