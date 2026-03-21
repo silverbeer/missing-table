@@ -70,6 +70,7 @@ class TestGetMatchSummary:
             elif name == "matches":
                 mock.select.return_value = mock
                 mock.eq.return_value = mock
+                mock.neq.return_value = mock
                 mock.execute.return_value = MagicMock(data=matches_data)
             return mock
 
@@ -126,6 +127,7 @@ class TestGetMatchSummary:
             elif name == "matches":
                 mock.select.return_value = mock
                 mock.eq.return_value = mock
+                mock.neq.return_value = mock
                 mock.execute.return_value = MagicMock(data=matches_data)
             return mock
 
