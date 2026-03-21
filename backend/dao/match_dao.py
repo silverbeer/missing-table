@@ -1216,6 +1216,8 @@ class MatchDAO(BaseDAO):
         league: str,
         division: str,
         season: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> list[dict]:
         """Get individual match records for the audit agent's comparison step.
 
@@ -1223,11 +1225,13 @@ class MatchDAO(BaseDAO):
         given age-group/league/division/season. Used by GET /api/agent/matches.
 
         Args:
-            team:      MT canonical team name, e.g. "IFA".
-            age_group: e.g. "U14".
-            league:    e.g. "Homegrown".
-            division:  e.g. "Northeast".
-            season:    e.g. "2025-2026".
+            team:       MT canonical team name, e.g. "IFA".
+            age_group:  e.g. "U14".
+            league:     e.g. "Homegrown".
+            division:   e.g. "Northeast".
+            season:     e.g. "2025-2026".
+            start_date: If set, only return matches on or after this date (YYYY-MM-DD).
+            end_date:   If set, only return matches on or before this date (YYYY-MM-DD).
 
         Returns:
             List of match dicts with fields the audit comparator expects.
@@ -1274,7 +1278,7 @@ class MatchDAO(BaseDAO):
         )
 
         try:
-            response = (
+            query = (
                 self.client.table("matches")
                 .select(
                     "match_id, match_date, scheduled_kickoff, home_score, away_score, match_status, "
@@ -1285,10 +1289,12 @@ class MatchDAO(BaseDAO):
                 .eq("age_group_id", age_group_id)
                 .eq("division_id", division_id)
                 .neq("match_status", "cancelled")
-                .or_(or_filter)
-                .order("match_date", desc=False)
-                .execute()
             )
+            if start_date:
+                query = query.gte("match_date", start_date)
+            if end_date:
+                query = query.lte("match_date", end_date)
+            response = query.or_(or_filter).order("match_date", desc=False).execute()
         except Exception:
             logger.exception("get_agent_matches.query_error", team=team)
             return []
