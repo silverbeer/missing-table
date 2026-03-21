@@ -5600,7 +5600,8 @@ async def cancel_agent_match(
             season=payload["season"],
         )
     except Exception as e:
-        logger.error("cancel_match_failed", error=str(e), match=f"{payload.get('home_team')} vs {payload.get('away_team')}")
+        match_label = f"{payload.get('home_team')} vs {payload.get('away_team')}"
+        logger.error("cancel_match_failed", error=str(e), match=match_label)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not found:
