@@ -5573,6 +5573,45 @@ async def get_agent_matches(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.patch("/api/agent/matches/cancel")
+async def cancel_agent_match(
+    payload: dict[str, Any],
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Mark a match as cancelled based on natural key.
+
+    Called by the audit processor when an extra_in_mt match is confirmed gone
+    after the 7-day threshold. Sets match_status='cancelled' to hide it from
+    the planner and future audit comparisons. Refuses to cancel scored matches.
+    """
+    required = ("home_team", "away_team", "match_date", "age_group", "league", "division", "season")
+    missing = [f for f in required if not payload.get(f)]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Missing required fields: {missing}")
+
+    try:
+        found = match_dao.cancel_match(
+            home_team=payload["home_team"],
+            away_team=payload["away_team"],
+            match_date=payload["match_date"],
+            age_group=payload["age_group"],
+            league=payload["league"],
+            division=payload["division"],
+            season=payload["season"],
+        )
+    except Exception as e:
+        logger.error("cancel_match_failed", error=str(e), match=f"{payload.get('home_team')} vs {payload.get('away_team')}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    if not found:
+        raise HTTPException(status_code=404, detail="Match not found or already has a score")
+
+    return {
+        "status": "cancelled",
+        "match": f"{payload['home_team']} vs {payload['away_team']} {payload['match_date']}",
+    }
+
+
 @app.get("/api/agent/audit/next-team")
 async def get_audit_next_team(
     season: str = Query(..., description="e.g. '2025-2026'"),
