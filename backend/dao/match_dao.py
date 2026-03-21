@@ -482,7 +482,7 @@ class MatchDAO(BaseDAO):
             return []
         season_id = season_resp.data[0]["id"]
 
-        # Fetch all matches for this season with joins
+        # Fetch all non-cancelled matches for this season with joins
         response = (
             self.client.table("matches")
             .select("""
@@ -491,6 +491,7 @@ class MatchDAO(BaseDAO):
                 division:divisions(name, league_id, leagues:leagues!divisions_league_id_fkey(name))
             """)
             .eq("season_id", season_id)
+            .neq("match_status", "cancelled")
             .execute()
         )
 
@@ -1283,6 +1284,7 @@ class MatchDAO(BaseDAO):
                 .eq("season_id", season_id)
                 .eq("age_group_id", age_group_id)
                 .eq("division_id", division_id)
+                .neq("match_status", "cancelled")
                 .or_(or_filter)
                 .order("match_date", desc=False)
                 .execute()
@@ -1329,6 +1331,97 @@ class MatchDAO(BaseDAO):
             count=len(results),
         )
         return results
+
+    def cancel_match(
+        self,
+        home_team: str,
+        away_team: str,
+        match_date: str,
+        age_group: str,
+        league: str,
+        division: str,
+        season: str,
+    ) -> bool:
+        """Mark a match as cancelled by natural key.
+
+        Only cancels matches with no score (home_score IS NULL) to avoid
+        accidentally cancelling completed matches.
+
+        Returns True if a match was found and cancelled, False if not found.
+        """
+        # Resolve dimension IDs (same pattern as get_agent_matches)
+        season_resp = self.client.table("seasons").select("id").eq("name", season).limit(1).execute()
+        if not season_resp.data:
+            logger.warning("cancel_match.season_not_found", season=season)
+            return False
+        season_id = season_resp.data[0]["id"]
+
+        ag_resp = self.client.table("age_groups").select("id").eq("name", age_group).limit(1).execute()
+        if not ag_resp.data:
+            logger.warning("cancel_match.age_group_not_found", age_group=age_group)
+            return False
+        age_group_id = ag_resp.data[0]["id"]
+
+        div_resp = (
+            self.client.table("divisions")
+            .select("id, leagues!divisions_league_id_fkey(name)")
+            .eq("name", division)
+            .execute()
+        )
+        division_id = None
+        for row in div_resp.data or []:
+            if row.get("leagues") and row["leagues"].get("name") == league:
+                division_id = row["id"]
+                break
+        if division_id is None:
+            logger.warning("cancel_match.division_not_found", division=division, league=league)
+            return False
+
+        home_resp = self.client.table("teams").select("id").eq("name", home_team).execute()
+        home_ids = [r["id"] for r in (home_resp.data or [])]
+        away_resp = self.client.table("teams").select("id").eq("name", away_team).execute()
+        away_ids = [r["id"] for r in (away_resp.data or [])]
+        if not home_ids or not away_ids:
+            logger.warning("cancel_match.team_not_found", home_team=home_team, away_team=away_team)
+            return False
+
+        or_parts = [
+            f"and(home_team_id.eq.{hid},away_team_id.eq.{aid})"
+            for hid in home_ids
+            for aid in away_ids
+        ]
+        resp = (
+            self.client.table("matches")
+            .select("id, home_score")
+            .eq("season_id", season_id)
+            .eq("age_group_id", age_group_id)
+            .eq("division_id", division_id)
+            .eq("match_date", match_date)
+            .is_("home_score", "null")  # safety: never cancel scored matches
+            .or_(",".join(or_parts))
+            .limit(1)
+            .execute()
+        )
+
+        if not resp.data:
+            logger.warning(
+                "cancel_match.not_found",
+                home_team=home_team,
+                away_team=away_team,
+                match_date=match_date,
+            )
+            return False
+
+        internal_id = resp.data[0]["id"]
+        self.client.table("matches").update({"match_status": "cancelled"}).eq("id", internal_id).execute()
+        logger.info(
+            "cancel_match.done",
+            internal_id=internal_id,
+            home_team=home_team,
+            away_team=away_team,
+            match_date=match_date,
+        )
+        return True
 
     # Admin CRUD methods for reference data have been moved to:
     # - SeasonDAO (seasons, age_groups)
