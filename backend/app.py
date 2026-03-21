@@ -5521,15 +5521,20 @@ async def full_health_check():
 @app.get("/api/agent/match-summary")
 async def get_agent_match_summary(
     season: str = Query(..., description="Season name, e.g. '2025-26'"),
+    score_from: str | None = Query(None, description="needs_score window start (YYYY-MM-DD)"),
+    score_to: str | None = Query(None, description="needs_score window end (YYYY-MM-DD)"),
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Get match summary for agent decision-making.
 
     Returns match counts grouped by age group, league, and division
     with status breakdowns to help the agent decide what to scrape.
+
+    Optional score_from/score_to params narrow the needs_score calculation
+    to a specific date window (e.g. last weekend only).
     """
     try:
-        targets = match_dao.get_match_summary(season)
+        targets = match_dao.get_match_summary(season, score_from=score_from, score_to=score_to)
         return {
             "season": season,
             "generated_at": datetime.now(UTC).isoformat(),
