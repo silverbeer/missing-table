@@ -10,19 +10,14 @@ class TestGetMatchSummary:
     """Tests for MatchDAO.get_match_summary()."""
 
     def _make_dao(self):
-        from unittest.mock import patch
-
         from dao.match_dao import MatchDAO
 
-        mock_client = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.get_client.return_value = mock_client
-
-        with patch.object(MatchDAO, "__init__", lambda self, conn: None):
-            dao = MatchDAO(mock_conn)
-            dao.connection_holder = mock_conn
-            dao.client = mock_client
-
+        # Use object.__new__ to create the instance without calling __init__,
+        # avoiding patch.object on the inherited BaseDAO.__init__ which can
+        # interact with class state under parallel test execution (pytest-xdist).
+        dao = object.__new__(MatchDAO)
+        dao.connection_holder = MagicMock()
+        dao.client = MagicMock()
         return dao
 
     def test_returns_empty_for_unknown_season(self):
