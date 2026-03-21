@@ -5552,12 +5552,16 @@ async def get_agent_matches(
     league: str = Query(..., description="e.g. 'Homegrown'"),
     division: str = Query(..., description="e.g. 'Northeast'"),
     season: str = Query(..., description="e.g. '2025-2026'"),
+    start_date: str | None = Query(None, description="Filter matches on or after this date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="Filter matches on or before this date (YYYY-MM-DD)"),
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Get individual match records for a team — used by the audit agent for comparison.
 
     Returns matches involving the specified team (home or away) in the given
-    age-group/league/division/season. Returns 200 with empty list if no matches.
+    age-group/league/division/season. Optional start_date/end_date narrow the
+    results to a specific segment (e.g. spring only) to avoid false extra_in_mt
+    findings from matches in a different season segment.
     """
     try:
         matches = match_dao.get_agent_matches(
@@ -5566,6 +5570,8 @@ async def get_agent_matches(
             league=league,
             division=division,
             season=season,
+            start_date=start_date,
+            end_date=end_date,
         )
         return {"matches": matches}
     except Exception as e:
