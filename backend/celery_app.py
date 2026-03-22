@@ -70,6 +70,10 @@ app.conf.update(
         Queue("match_processing", Exchange("match_processing"), routing_key="match.*"),
         Queue("validation", Exchange("validation"), routing_key="validation.*"),
         Queue("celery", Exchange("celery"), routing_key="celery"),  # Default queue
+        # Legacy direct queue: MSA pods configured with AGENT_QUEUE_NAME=matches.prod
+        # bypass the fanout exchange and publish here. Worker must consume both until
+        # all pods are switched back to using the matches-fanout exchange.
+        Queue("matches.prod"),
     ),
     # Monitoring
     task_send_sent_event=True,  # Enable task-sent events
