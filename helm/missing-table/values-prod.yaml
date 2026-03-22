@@ -7,7 +7,7 @@ namespace: missing-table
 # Version information - updated by CI workflow
 version: "1.2.2" # version-tag
 buildId: "479" # build-id
-commitSha: "fd2172ea6a51e42bdcdbd237c880e3fc59e476dc" # commit-sha
+commitSha: "fd2172ea6a51e42bdcdbd237c880e3fc59e476dc" # commit-sha  #pragma: allowlist secret
 buildDate: "2026-03-21T21:33:25Z" # build-date
 
 backend:
@@ -35,8 +35,8 @@ celeryWorker:
   replicaCount: 1
 
   rabbitmq:
-    username: "guest"
-    password: "guest"  #pragma: allowlist secret
+    username: "admin"
+    password: "admin123"  #pragma: allowlist secret
     host: "rabbitmq.match-scraper.svc.cluster.local"
     port: 5672
 
