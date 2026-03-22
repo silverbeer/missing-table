@@ -95,11 +95,18 @@ class DatabaseTask(Task):
             return utc_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         return None
 
-    def _check_needs_update(self, existing_match: dict[str, Any], new_data: dict[str, Any]) -> bool:
+    def _check_needs_update(
+        self,
+        existing_match: dict[str, Any],
+        new_data: dict[str, Any],
+        home_team_id: int,
+        away_team_id: int,
+    ) -> bool:
         """
         Check if the existing match needs to be updated based on new data.
 
         Returns True if any of these conditions are met:
+        - Home/away teams swapped (home_team_id or away_team_id differ)
         - Status changed (scheduled → tbd, tbd → completed, etc.)
         - Scores changed (were null, now have values)
         - Scores were updated (different values)
@@ -110,6 +117,14 @@ class DatabaseTask(Task):
         - tbd → completed: Score posted (update with scores)
         - scheduled → completed: Direct completion (skip tbd)
         """
+        # Check home/away team swap
+        if existing_match.get("home_team_id") != home_team_id or existing_match.get("away_team_id") != away_team_id:
+            logger.debug(
+                f"Team assignment changed: home {existing_match.get('home_team_id')} → {home_team_id}, "
+                f"away {existing_match.get('away_team_id')} → {away_team_id}"
+            )
+            return True
+
         # Check status change
         existing_status = existing_match.get("match_status", "scheduled")
         new_status = new_data.get("match_status", "scheduled")
@@ -147,18 +162,36 @@ class DatabaseTask(Task):
 
         return False
 
-    def _update_match_scores(self, existing_match: dict[str, Any], new_data: dict[str, Any]) -> bool:
+    def _update_match_scores(
+        self,
+        existing_match: dict[str, Any],
+        new_data: dict[str, Any],
+        home_team_id: int | None = None,
+        away_team_id: int | None = None,
+    ) -> bool:
         """
-        Update an existing match's scores and status.
+        Update an existing match's scores, status, and team assignments.
 
-        This is a simplified update that only changes scores and status,
-        preserving all other match data.
+        Updates scores, status, match_date, scheduled_kickoff, and
+        home_team_id/away_team_id when a home/away swap is detected.
         """
         try:
             match_id = existing_match["id"]
 
             # Prepare update data
             update_data = {}
+
+            # Correct home/away team swap if team IDs differ
+            if home_team_id is not None and home_team_id != existing_match.get("home_team_id"):
+                update_data["home_team_id"] = home_team_id
+                logger.info(
+                    f"Match {match_id} home_team_id corrected: {existing_match.get('home_team_id')} → {home_team_id}"
+                )
+            if away_team_id is not None and away_team_id != existing_match.get("away_team_id"):
+                update_data["away_team_id"] = away_team_id
+                logger.info(
+                    f"Match {match_id} away_team_id corrected: {existing_match.get('away_team_id')} → {away_team_id}"
+                )
 
             # Update scores if provided
             if new_data.get("home_score") is not None:
@@ -335,14 +368,14 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         # Step 4: Insert or update match
         if existing_match:
             # Check if this is a score update
-            needs_update = self._check_needs_update(existing_match, match_data)
+            needs_update = self._check_needs_update(existing_match, match_data, home_team["id"], away_team["id"])
 
             if needs_update:
                 logger.info(
                     f"Updating existing match DB ID {existing_match['id']} (MLS ID: {external_match_id}): "
                     f"{home_team_name} vs {away_team_name}"
                 )
-                success = self._update_match_scores(existing_match, match_data)
+                success = self._update_match_scores(existing_match, match_data, home_team["id"], away_team["id"])
 
                 if success:
                     result = {

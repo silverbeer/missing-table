@@ -53,91 +53,115 @@ class TestBuildScheduledKickoff:
 
 
 class TestCheckNeedsUpdate:
+    # Helpers: existing match with matching team IDs (no swap)
+    HOME_ID = 10
+    AWAY_ID = 20
+
+    def _existing(self, **kwargs):
+        base = {
+            "match_status": "scheduled",
+            "home_score": None,
+            "away_score": None,
+            "scheduled_kickoff": None,
+            "home_team_id": self.HOME_ID,
+            "away_team_id": self.AWAY_ID,
+        }
+        base.update(kwargs)
+        return base
+
     def test_no_changes_returns_false(self, task):
-        existing = {"match_status": "scheduled", "home_score": None, "away_score": None, "scheduled_kickoff": None}
+        existing = self._existing()
         new_data = {"match_status": "scheduled", "home_score": None, "away_score": None}
-        assert task._check_needs_update(existing, new_data) is False
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is False
+
+    def test_home_away_swap_returns_true(self, task):
+        """Scraped data has home/away reversed → needs update."""
+        existing = self._existing()
+        new_data = {"match_status": "completed", "home_score": 7, "away_score": 0}
+        # Teams are swapped: scraper says AWAY_ID is home, HOME_ID is away
+        assert task._check_needs_update(existing, new_data, self.AWAY_ID, self.HOME_ID) is True
+
+    def test_home_team_id_unchanged_returns_false(self, task):
+        """Same team IDs, no other changes → no update needed."""
+        existing = self._existing(match_status="completed", home_score=7, away_score=0)
+        new_data = {"match_status": "completed", "home_score": 7, "away_score": 0}
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is False
 
     def test_status_change_returns_true(self, task):
-        existing = {"match_status": "scheduled", "home_score": None, "away_score": None, "scheduled_kickoff": None}
+        existing = self._existing()
         new_data = {"match_status": "completed", "home_score": 2, "away_score": 1}
-        assert task._check_needs_update(existing, new_data) is True
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is True
 
     def test_score_change_returns_true(self, task):
-        existing = {"match_status": "completed", "home_score": 1, "away_score": 0, "scheduled_kickoff": None}
+        existing = self._existing(match_status="completed", home_score=1, away_score=0)
         new_data = {"match_status": "completed", "home_score": 2, "away_score": 0}
-        assert task._check_needs_update(existing, new_data) is True
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is True
 
     def test_kickoff_backfill_returns_true(self, task):
         """New data has match_time, existing has no scheduled_kickoff → needs update."""
-        existing = {"match_status": "scheduled", "home_score": None, "away_score": None, "scheduled_kickoff": None}
+        existing = self._existing()
         new_data = {"match_status": "scheduled", "match_date": "2026-03-01", "match_time": "14:00"}
-        assert task._check_needs_update(existing, new_data) is True
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is True
 
     def test_kickoff_changed_returns_true(self, task):
         """Kickoff time changed (rescheduled) → needs update."""
-        existing = {
-            "match_status": "scheduled",
-            "home_score": None,
-            "away_score": None,
-            "scheduled_kickoff": "2026-03-01T19:00:00+00:00",
-        }
+        existing = self._existing(scheduled_kickoff="2026-03-01T19:00:00+00:00")
         new_data = {"match_status": "scheduled", "match_date": "2026-03-01", "match_time": "16:00"}
         # 16:00 EST = 21:00 UTC ≠ 19:00 UTC → True
-        assert task._check_needs_update(existing, new_data) is True
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is True
 
     def test_kickoff_unchanged_returns_false(self, task):
         """Same kickoff time, same everything → no update needed."""
-        existing = {
-            "match_status": "scheduled",
-            "home_score": None,
-            "away_score": None,
-            "scheduled_kickoff": "2026-03-01T19:00:00+00:00",
-        }
+        existing = self._existing(scheduled_kickoff="2026-03-01T19:00:00+00:00")
         new_data = {"match_status": "scheduled", "match_date": "2026-03-01", "match_time": "14:00"}
         # 14:00 EST = 19:00 UTC == 19:00 UTC → False
-        assert task._check_needs_update(existing, new_data) is False
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is False
 
     def test_no_match_time_in_new_data_returns_false(self, task):
         """New data has no match_time → don't clear existing kickoff."""
-        existing = {
-            "match_status": "scheduled",
-            "home_score": None,
-            "away_score": None,
-            "scheduled_kickoff": "2026-03-01T19:00:00+00:00",
-        }
+        existing = self._existing(scheduled_kickoff="2026-03-01T19:00:00+00:00")
         new_data = {"match_status": "scheduled", "match_date": "2026-03-01", "match_time": None}
-        assert task._check_needs_update(existing, new_data) is False
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is False
 
     def test_rescheduled_match_date_returns_true(self, task):
         """Match rescheduled to a different date → needs update."""
-        existing = {
-            "match_status": "scheduled",
-            "home_score": None,
-            "away_score": None,
-            "match_date": "2026-03-01",
-            "scheduled_kickoff": None,
-        }
+        existing = self._existing(match_date="2026-03-01")
         new_data = {"match_status": "scheduled", "match_date": "2026-06-08"}
-        assert task._check_needs_update(existing, new_data) is True
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is True
 
     def test_same_match_date_returns_false(self, task):
         """Same date, same everything → no update needed."""
-        existing = {
-            "match_status": "scheduled",
-            "home_score": None,
-            "away_score": None,
-            "match_date": "2026-03-01",
-            "scheduled_kickoff": None,
-        }
+        existing = self._existing(match_date="2026-03-01")
         new_data = {"match_status": "scheduled", "match_date": "2026-03-01"}
-        assert task._check_needs_update(existing, new_data) is False
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is False
 
 
 # ── _update_match_scores ─────────────────────────────────────────────
 
 
 class TestUpdateMatchScores:
+    def test_corrects_home_away_swap(self, task):
+        """Home/away team IDs swapped → both corrected in update payload."""
+        existing = {"id": 42, "home_team_id": 10, "away_team_id": 20, "scheduled_kickoff": None}
+        new_data = {"home_score": 7, "away_score": 0, "match_status": "completed"}
+
+        task._update_match_scores(existing, new_data, home_team_id=20, away_team_id=10)
+
+        update_payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert update_payload["home_team_id"] == 20
+        assert update_payload["away_team_id"] == 10
+
+    def test_no_team_change_skips_team_fields(self, task):
+        """Same team IDs → home_team_id/away_team_id not in update payload."""
+        existing = {"id": 42, "home_team_id": 10, "away_team_id": 20, "scheduled_kickoff": None}
+        new_data = {"home_score": 2, "away_score": 1, "match_status": "completed"}
+
+        task._update_match_scores(existing, new_data, home_team_id=10, away_team_id=20)
+
+        update_payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert "home_team_id" not in update_payload
+        assert "away_team_id" not in update_payload
+
     def test_updates_scheduled_kickoff(self, task):
         """scheduled_kickoff should be in the update payload when match_time provided."""
         existing = {"id": 42, "scheduled_kickoff": None}
