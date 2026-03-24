@@ -50,6 +50,7 @@ dependencies = [
     "rembg>=2.0.50",
     "email-validator>=2.3.0",
     "debugpy>=1.8.17",
+    "resend>=2.0.0",
 ]
 
 [project.optional-dependencies]

@@ -12,7 +12,7 @@ class UserSignup(BaseModel):
 
     username: str  # Primary login credential (e.g., gabe_ifa_35)
     password: str
-    email: str | None = None  # Optional for notifications
+    email: str  # Required for password recovery
     phone_number: str | None = None  # Optional for SMS
     display_name: str | None = None
     invite_code: str | None = None
@@ -28,12 +28,9 @@ class UserSignup(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v):
-        """Validate email format if provided."""
-        # Convert empty string to None
-        if v == "":
-            return None
-        if v is not None and "@" not in v:
-            raise ValueError("Invalid email format")
+        """Validate email format."""
+        if not v or "@" not in v:
+            raise ValueError("A valid email address is required")
         return v
 
 
@@ -86,6 +83,43 @@ class UserProfileUpdate(BaseModel):
     username: str | None = None
     display_name: str | None = None
     email: str | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Model for forgot-password requests."""
+
+    identifier: str  # Username or email address
+    email: str | None = None  # Real email, supplied when account has none on file
+
+    @field_validator("identifier")
+    @classmethod
+    def validate_identifier(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("identifier must not be empty")
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str | None) -> str | None:
+        if v == "":
+            return None
+        if v is not None and "@" not in v:
+            raise ValueError("Invalid email format")
+        return v
+
+
+class ResetPasswordRequest(BaseModel):
+    """Model for password-reset submission."""
+
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_length(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
 
 
 class RefreshTokenRequest(BaseModel):

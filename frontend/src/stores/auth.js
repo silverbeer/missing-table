@@ -771,6 +771,77 @@ export const useAuthStore = () => {
     return apiCall(url, { ...options, headers });
   };
 
+  const requestPasswordReset = async (identifier, email = null) => {
+    try {
+      setLoading(true);
+      clearError();
+
+      const body = { identifier };
+      if (email) body.email = email;
+
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/auth/forgot-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getTraceHeaders(),
+          },
+          body: JSON.stringify(body),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Request failed');
+      }
+
+      return {
+        success: true,
+        needsEmail: !!data.needs_email,
+        message: data.message,
+      };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async (token, newPassword) => {
+    try {
+      setLoading(true);
+      clearError();
+
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/auth/reset-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getTraceHeaders(),
+          },
+          body: JSON.stringify({ token, new_password: newPassword }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Password reset failed');
+      }
+
+      return { success: true, message: data.message };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const checkUsernameAvailability = async username => {
     try {
       const response = await fetch(
@@ -836,5 +907,7 @@ export const useAuthStore = () => {
     refreshSession,
     isTokenExpiringSoon,
     checkUsernameAvailability,
+    requestPasswordReset,
+    resetPassword,
   };
 };

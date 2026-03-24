@@ -22,6 +22,7 @@ backend:
     environment: "production"
     logLevel: "info"
     disableSecurity: "false"
+    appBaseUrl: "https://missingtable.com"
     extra:
       CACHE_ENABLED: "true"
 
