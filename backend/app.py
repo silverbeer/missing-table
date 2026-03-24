@@ -981,6 +981,10 @@ async def update_profile(profile_data: UserProfile, current_user: dict[str, Any]
                     profile_data.email, exclude_user_id=current_user["user_id"]
                 )
                 if existing:
+                    logger.warning(
+                        f"Email conflict: {profile_data.email!r} already on profile {existing.get('id')} "
+                        f"(requesting user: {current_user['user_id']})"
+                    )
                     raise HTTPException(status_code=409, detail="Email already in use")
 
             update_data["email"] = profile_data.email if profile_data.email.strip() else None
@@ -1018,6 +1022,8 @@ async def update_profile(profile_data: UserProfile, current_user: dict[str, Any]
 
         return {"message": "Profile updated successfully"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Update profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update profile") from e
