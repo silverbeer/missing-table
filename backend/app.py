@@ -35,6 +35,7 @@ from models import (
     DivisionUpdate,
     EnhancedMatch,
     ForfeitMatchRequest,
+    ForgotPasswordRequest,
     GenerateBracketRequest,
     GoalEvent,
     GoalEventUpdate,
@@ -55,6 +56,7 @@ from models import (
     PostMatchSubstitution,
     ProfilePhotoSlot,
     RefreshTokenRequest,
+    ResetPasswordRequest,
     RoleUpdate,
     RosterPlayerCreate,
     RosterPlayerUpdate,
@@ -69,7 +71,7 @@ from models import (
     UserProfileUpdate,
     UserSignup,
 )
-from services import InviteService
+from services import EmailService, InviteService
 
 # Legacy flag kept for backwards compatibility so existing envs keep working.
 DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
@@ -547,6 +549,93 @@ async def login(request: Request, user_data: UserLogin):
         auth_logger.error("auth_login_error", error=str(e))
         logger.error(f"Login error: {e}", exc_info=True)
         raise HTTPException(status_code=401, detail="Invalid credentials") from e
+
+
+@app.post("/api/auth/forgot-password")
+async def forgot_password(request: Request, body: ForgotPasswordRequest):
+    """
+    Initiate password reset flow.
+
+    - If user has an email on file: generate token, send reset email.
+    - If user has NO email: return ``needs_email: true`` so frontend can collect it.
+    - If user supplies an email in the body alongside a no-email account: save email first, then send.
+    - User not found: return generic success to prevent username enumeration.
+    """
+    client_ip = get_client_ip(request)
+    pw_logger = logger.bind(flow="forgot_password", client_ip=client_ip)
+
+    _GENERIC_RESPONSE = {"message": "If an account exists, a reset link has been sent."}
+
+    try:
+        user = player_dao.get_user_for_password_reset(body.identifier)
+
+        if not user:
+            # Generic response — don't reveal whether account exists
+            pw_logger.info("forgot_password_user_not_found")
+            return _GENERIC_RESPONSE
+
+        user_id: str = user["id"]
+        username: str = user.get("username", body.identifier)
+        email_on_file: str | None = user.get("email")
+
+        # Case: no email stored, and none provided in this request
+        if not email_on_file and not body.email:
+            pw_logger.info("forgot_password_needs_email", user_id=user_id)
+            return {"needs_email": True}
+
+        # Case: no email stored, but user just provided one
+        if not email_on_file and body.email:
+            # Persist it so future flows work too
+            try:
+                auth_service_client.table("user_profiles").update({"email": body.email}).eq("id", user_id).execute()
+                email_on_file = body.email
+                pw_logger.info("forgot_password_email_saved", user_id=user_id)
+            except Exception as save_err:
+                pw_logger.error("forgot_password_email_save_failed", user_id=user_id, error=str(save_err))
+                raise HTTPException(status_code=500, detail="Failed to save email") from save_err
+
+        # Generate reset token and send email
+        reset_token = auth_manager.create_password_reset_token(user_id)
+        try:
+            email_service = EmailService()
+            email_service.send_password_reset(email_on_file, reset_token, username)
+        except Exception as email_err:
+            pw_logger.error("forgot_password_email_send_failed", user_id=user_id, error=str(email_err))
+            # Don't leak the failure to the caller — still return generic success
+            return _GENERIC_RESPONSE
+
+        pw_logger.info("forgot_password_email_sent", user_id=user_id)
+        return _GENERIC_RESPONSE
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        pw_logger.error("forgot_password_error", error=str(e))
+        logger.error(f"Forgot password error: {e}", exc_info=True)
+        return _GENERIC_RESPONSE  # Always return generic to prevent leaking info
+
+
+@app.post("/api/auth/reset-password")
+async def reset_password(request: Request, body: ResetPasswordRequest):
+    """
+    Complete password reset: validate token and update the user's password.
+    No authentication header required — the token is the proof of identity.
+    """
+    client_ip = get_client_ip(request)
+    pw_logger = logger.bind(flow="reset_password", client_ip=client_ip)
+
+    user_id = auth_manager.verify_password_reset_token(body.token)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link. Please request a new one.")
+
+    try:
+        auth_service_client.auth.admin.update_user_by_id(user_id, {"password": body.new_password})
+        pw_logger.info("reset_password_success", user_id=user_id)
+        return {"message": "Password updated successfully. You can now log in with your new password."}
+    except Exception as e:
+        pw_logger.error("reset_password_failed", user_id=user_id, error=str(e))
+        logger.error(f"Password reset update failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update password. Please try again.") from e
 
 
 @app.get("/api/auth/username-available/{username}")

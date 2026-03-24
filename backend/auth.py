@@ -213,6 +213,41 @@ class AuthManager:
             logger.error(f"Error verifying service account token: {e}")
             return None
 
+    def create_password_reset_token(self, user_id: str) -> str:
+        """Create a short-lived JWT for password reset (1 hour)."""
+        expiration = datetime.now(UTC) + timedelta(hours=1)
+
+        payload = {
+            "sub": user_id,
+            "iss": "missing-table",
+            "aud": "password-reset",
+            "exp": int(expiration.timestamp()),
+            "iat": int(datetime.now(UTC).timestamp()),
+        }
+
+        return jwt.encode(payload, self.service_account_secret, algorithm="HS256")
+
+    def verify_password_reset_token(self, token: str) -> str | None:
+        """Verify a password reset JWT and return the user_id, or None if invalid/expired."""
+        try:
+            payload = jwt.decode(
+                token,
+                self.service_account_secret,
+                algorithms=["HS256"],
+                audience="password-reset",
+            )
+            user_id = payload.get("sub")
+            return user_id if user_id else None
+        except jwt.ExpiredSignatureError:
+            logger.warning("Password reset token has expired")
+            return None
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid password reset token: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error verifying password reset token: {e}")
+            return None
+
     def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
         """FastAPI dependency to get current authenticated user or service account."""
         if not credentials:

@@ -107,6 +107,39 @@ class PlayerDAO(BaseDAO):
             logger.error(f"Error checking user profile by username: {e}")
             return None
 
+    def get_user_for_password_reset(self, identifier: str) -> dict | None:
+        """
+        Look up a user by username or email for the password reset flow.
+
+        If ``@`` appears in the identifier it is treated as an email address;
+        otherwise it is treated as a username (lowercased).
+
+        Selects only ``id``, ``username``, and ``email`` — no caching because
+        this is used in an auth-sensitive path.
+
+        Args:
+            identifier: Username or email address supplied by the user
+
+        Returns:
+            Dict with ``id``, ``username``, ``email`` keys, or None if not found
+        """
+        try:
+            if "@" in identifier:
+                query = self.client.table("user_profiles").select("id, username, email").eq("email", identifier)
+            else:
+                query = (
+                    self.client.table("user_profiles")
+                    .select("id, username, email")
+                    .eq("username", identifier.lower())
+                )
+            response = query.execute()
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error looking up user for password reset: {e}")
+            return None
+
     @dao_cache("players:all")
     def get_all_user_profiles(self) -> list[dict]:
         """

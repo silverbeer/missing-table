@@ -7,7 +7,25 @@
     <div v-if="showLoginModal" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <button @click="closeModal" class="modal-close">×</button>
-        <LoginForm @login-success="handleLoginSuccess" />
+        <ResetPasswordForm
+          v-if="resetToken"
+          :token="resetToken"
+          @back-to-login="
+            () => {
+              resetToken = null;
+              showForgotPassword = false;
+            }
+          "
+        />
+        <ForgotPasswordForm
+          v-else-if="showForgotPassword"
+          @back-to-login="showForgotPassword = false"
+        />
+        <LoginForm
+          v-else
+          @login-success="handleLoginSuccess"
+          @show-forgot-password="showForgotPassword = true"
+        />
       </div>
     </div>
 
@@ -350,6 +368,8 @@ import MatchesView from './components/MatchesView.vue';
 import GoalsLeaderboard from './components/GoalsLeaderboard.vue';
 import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
+import ForgotPasswordForm from './components/ForgotPasswordForm.vue';
+import ResetPasswordForm from './components/ResetPasswordForm.vue';
 import ProfileRouter from './components/ProfileRouter.vue';
 import TeamRosterRouter from './components/profiles/TeamRosterRouter.vue';
 import AdminPanel from './components/AdminPanel.vue';
@@ -365,6 +385,8 @@ export default {
     GoalsLeaderboard,
     AuthNav,
     LoginForm,
+    ForgotPasswordForm,
+    ResetPasswordForm,
     ProfileRouter,
     TeamRosterRouter,
     AdminPanel,
@@ -387,6 +409,8 @@ export default {
       key: 0, // Used to force re-render when filters change
     });
     const showLoginModal = ref(false);
+    const showForgotPassword = ref(false);
+    const resetToken = ref(null);
     const showInviteRequestModal = ref(false);
     const inviteRequest = ref({
       email: '',
@@ -503,6 +527,8 @@ export default {
 
     const closeModal = () => {
       showLoginModal.value = false;
+      showForgotPassword.value = false;
+      resetToken.value = null;
     };
 
     const handleLoginSuccess = () => {
@@ -634,6 +660,18 @@ export default {
         showLoginModal.value = true;
       }
 
+      // Check for password reset token in URL
+      const resetTokenParam = urlParams.get('reset_token');
+      if (resetTokenParam) {
+        resetToken.value = resetTokenParam;
+        showLoginModal.value = true;
+        // Clean token from URL without triggering a reload
+        const cleanUrl =
+          window.location.pathname +
+          (urlParams.get('code') ? `?code=${urlParams.get('code')}` : '');
+        window.history.replaceState({}, '', cleanUrl);
+      }
+
       // Start live match polling if authenticated
       if (authStore.isAuthenticated.value) {
         startLiveMatchPolling();
@@ -694,6 +732,8 @@ export default {
       matchesFilters,
       availableTabs,
       showLoginModal,
+      showForgotPassword,
+      resetToken,
       showInviteRequestModal,
       inviteRequest,
       inviteRequestSubmitting,

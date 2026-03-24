@@ -68,13 +68,14 @@
         </div>
 
         <div v-if="showInviteSignup" class="form-group">
-          <label for="email">Email (optional):</label>
+          <label for="email">Email:</label>
           <input
             id="email"
             v-model="form.email"
             type="email"
+            required
             :disabled="authStore.state.loading"
-            placeholder="Enter your email (for notifications)"
+            placeholder="Enter your email (for password recovery)"
           />
         </div>
 
@@ -183,6 +184,15 @@
             Click here to Sign Up
           </button>
         </p>
+        <p v-if="!showInviteSignup">
+          <button
+            @click="$emit('show-forgot-password')"
+            class="link-btn"
+            data-testid="forgot-password-link"
+          >
+            Forgot password?
+          </button>
+        </p>
         <p v-if="showInviteSignup">
           Already have an account?
           <button
@@ -250,7 +260,7 @@ import { getApiBaseUrl } from '../config/api';
 
 export default {
   name: 'LoginForm',
-  emits: ['login-success'],
+  emits: ['login-success', 'show-forgot-password'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const isSignup = ref(false);
