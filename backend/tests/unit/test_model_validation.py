@@ -30,7 +30,7 @@ class TestUsernameValidation:
         ("a" * 50, "a" * 50),  # Maximum length
     ])
     def test_valid_usernames(self, username, expected):
-        result = UserSignup(username=username, password="Test123!")
+        result = UserSignup(username=username, password="Test123!", email="test@example.com")
         assert result.username == expected
 
     @pytest.mark.parametrize("username", [
@@ -43,7 +43,7 @@ class TestUsernameValidation:
     ])
     def test_invalid_usernames(self, username):
         with pytest.raises(ValidationError):
-            UserSignup(username=username, password="Test123!")
+            UserSignup(username=username, password="Test123!", email="test@example.com")
 
 
 @pytest.mark.unit
