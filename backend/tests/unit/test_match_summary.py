@@ -39,7 +39,7 @@ class TestGetMatchSummary:
         matches_data = [
             {
                 "match_date": "2026-03-01",
-                "match_status": "played",
+                "match_status": "completed",
                 "home_score": 2,
                 "away_score": 1,
                 "age_group": {"name": "U14"},
@@ -78,7 +78,7 @@ class TestGetMatchSummary:
         assert group["league"] == "Homegrown"
         assert group["division"] == "Northeast"
         assert group["total"] == 2
-        assert group["by_status"]["played"] == 1
+        assert group["by_status"]["completed"] == 1
         assert group["by_status"]["scheduled"] == 1
         assert group["last_played_date"] == "2026-03-01"
 
