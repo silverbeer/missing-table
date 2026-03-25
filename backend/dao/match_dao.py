@@ -528,7 +528,7 @@ class MatchDAO(BaseDAO):
                 if status in ("scheduled", "tbd") and today <= md <= kickoff_horizon and not m.get("scheduled_kickoff"):
                     needs_kickoff += 1
 
-                if status == "played" and (last_played is None or md > last_played):
+                if status in ("completed", "forfeit") and (last_played is None or md > last_played):
                     last_played = md
 
             summaries.append(
