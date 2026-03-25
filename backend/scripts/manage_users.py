@@ -162,9 +162,10 @@ def list_users(supabase):
             show_lines=True,  # Show lines between rows
             box=box.ROUNDED,  # Rounded box with borders and lighter row separators
             row_styles=["", "dim"],  # Alternate row styling for better readability
-            width=150,  # Set reasonable max width
+            width=180,  # Set reasonable max width
         )
         table.add_column("Username/Email", style="green", max_width=25)
+        table.add_column("Account Email", style="magenta", max_width=30)
         table.add_column("ID", style="dim", max_width=12, overflow="ellipsis")  # Truncate UUID
         table.add_column("Role", style="yellow", max_width=15)
         table.add_column("Display Name", style="cyan", max_width=20)
@@ -232,8 +233,14 @@ def list_users(supabase):
             else:
                 role_display = role
 
+            # Show account email (hide internal @missingtable.local addresses)
+            account_email = (
+                auth_email if auth_email and not auth_email.endswith("@missingtable.local") else "N/A"
+            )
+
             table.add_row(
                 identifier or "N/A",
+                account_email,
                 user_id[:8] if user_id else "N/A",  # Show first 8 chars of UUID
                 role_display,
                 display_name,
