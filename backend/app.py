@@ -522,6 +522,18 @@ async def login(request: Request, user_data: UserLogin):
 
             auth_logger.info("auth_login_success", user_id=response.user.id)
 
+            # Record login event
+            try:
+                auth_service_client.table("login_events").insert({
+                    "user_id": str(response.user.id),
+                    "username": user_data.username,
+                    "client_ip": client_ip,
+                    "success": True,
+                    "role": profile.get("role"),
+                }).execute()
+            except Exception as log_err:
+                logger.warning(f"Failed to record login event: {log_err}")
+
             return {
                 "access_token": response.session.access_token,
                 "refresh_token": response.session.refresh_token,
@@ -541,6 +553,16 @@ async def login(request: Request, user_data: UserLogin):
             }
         else:
             auth_logger.warning("auth_login_failed", reason="invalid_credentials")
+            # Record failed login event
+            try:
+                auth_service_client.table("login_events").insert({
+                    "username": user_data.username,
+                    "client_ip": client_ip,
+                    "success": False,
+                    "failure_reason": "invalid_credentials",
+                }).execute()
+            except Exception as log_err:
+                logger.warning(f"Failed to record login event: {log_err}")
             raise HTTPException(status_code=401, detail="Invalid username or password")
 
     except HTTPException:
@@ -548,6 +570,16 @@ async def login(request: Request, user_data: UserLogin):
     except Exception as e:
         auth_logger.error("auth_login_error", error=str(e))
         logger.error(f"Login error: {e}", exc_info=True)
+        # Record failed login event
+        try:
+            auth_service_client.table("login_events").insert({
+                "username": user_data.username,
+                "client_ip": client_ip,
+                "success": False,
+                "failure_reason": "account_error",
+            }).execute()
+        except Exception as log_err:
+            logger.warning(f"Failed to record login event: {log_err}")
         raise HTTPException(status_code=401, detail="Invalid credentials") from e
 
 
@@ -5496,6 +5528,82 @@ async def clear_cache_by_type(
         return {"message": f"{cache_type} cache cleared", "deleted": deleted}
     except Exception as e:
         logger.error(f"Error clearing {cache_type} cache: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# =============================================================================
+# User Login Activity Endpoints (Admin Only)
+# =============================================================================
+
+
+@app.get("/api/admin/users")
+async def get_all_users(current_user: dict[str, Any] = Depends(require_admin)):
+    """Get all users with their last login time (admin only)."""
+    try:
+        profiles_resp = auth_service_client.table("user_profiles").select(
+            "id, username, display_name, role, email, team_id, club_id, created_at"
+        ).order("username").execute()
+        profiles = profiles_resp.data or []
+
+        # Get last login time for each user
+        if profiles:
+            user_ids = [p["id"] for p in profiles]
+            # Fetch most recent login event per user_id
+            events_resp = auth_service_client.table("login_events").select(
+                "user_id, success, created_at"
+            ).in_("user_id", user_ids).order("created_at", desc=True).execute()
+            events = events_resp.data or []
+
+            # Build a map of user_id -> last login info
+            last_login_map: dict[str, dict] = {}
+            for ev in events:
+                uid = ev["user_id"]
+                if uid not in last_login_map:
+                    last_login_map[uid] = {
+                        "last_login_at": ev["created_at"],
+                        "last_login_success": ev["success"],
+                    }
+
+            for profile in profiles:
+                info = last_login_map.get(profile["id"], {})
+                profile["last_login_at"] = info.get("last_login_at")
+                profile["last_login_success"] = info.get("last_login_success")
+
+        return {"users": profiles, "total": len(profiles)}
+    except Exception as e:
+        logger.error(f"Error fetching users: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/admin/users/login-events")
+async def get_login_events(
+    limit: int = 100,
+    offset: int = 0,
+    username: str | None = None,
+    success: bool | None = None,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Get login events with optional filters (admin only)."""
+    try:
+        query = auth_service_client.table("login_events").select(
+            "id, user_id, username, client_ip, success, failure_reason, role, created_at",
+            count="exact",
+        ).order("created_at", desc=True).range(offset, offset + limit - 1)
+
+        if username:
+            query = query.ilike("username", f"%{username}%")
+        if success is not None:
+            query = query.eq("success", success)
+
+        resp = query.execute()
+        return {
+            "events": resp.data or [],
+            "total": resp.count or 0,
+            "limit": limit,
+            "offset": offset,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching login events: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
