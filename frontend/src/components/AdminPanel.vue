@@ -158,6 +158,15 @@
           <AdminInvites />
         </div>
 
+        <!-- Tournaments Management -->
+        <div
+          v-if="currentSection === 'tournaments'"
+          class="p-6"
+          data-testid="admin-section-tournaments"
+        >
+          <AdminTournaments />
+        </div>
+
         <!-- Cache Management -->
         <div
           v-if="currentSection === 'cache'"
@@ -197,6 +206,7 @@ import AdminInviteRequests from './admin/AdminInviteRequests.vue';
 import AdminPlayoffs from './admin/AdminPlayoffs.vue';
 import AdminCache from './admin/AdminCache.vue';
 import AdminUsers from './admin/AdminUsers.vue';
+import AdminTournaments from './admin/AdminTournaments.vue';
 
 export default {
   name: 'AdminPanel',
@@ -215,6 +225,7 @@ export default {
     AdminPlayoffs,
     AdminCache,
     AdminUsers,
+    AdminTournaments,
   },
   setup() {
     const authStore = useAuthStore();
@@ -233,6 +244,7 @@ export default {
       { id: 'matches', name: 'Matches', adminOnly: false },
       { id: 'goals', name: 'Goals', adminOnly: false },
       { id: 'playoffs', name: 'Playoffs', adminOnly: true },
+      { id: 'tournaments', name: 'Tournaments', adminOnly: true },
       { id: 'invites', name: 'Invites', adminOnly: false },
       { id: 'cache', name: 'Cache', adminOnly: true },
       { id: 'users', name: 'Users', adminOnly: true },
