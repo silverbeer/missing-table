@@ -475,7 +475,7 @@ export default {
     const allTabs = [
       { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
-      { id: 'match-center', name: 'Match Center', requiresAuth: true },
+      { id: 'match-center', name: 'Tournaments', requiresAuth: true },
       { id: 'leaderboard', name: 'Leaderboard', requiresAuth: true },
       {
         id: 'add-match',

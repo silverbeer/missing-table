@@ -372,7 +372,7 @@
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="t in leagueTeams" :key="t.id" :value="t.id">
-                    {{ t.name }}
+                    {{ t.name }}{{ t.league_name ? ` (${t.league_name})` : '' }}
                   </option>
                 </select>
               </div>
@@ -606,10 +606,14 @@ export default {
     const seasons = ref([]);
     const allTeams = ref([]);
 
-    // league teams = teams that have a league association (our tracked teams)
-    const leagueTeams = computed(() =>
-      allTeams.value.filter(t => t.league_id != null)
-    );
+    // League teams = teams with a league association (league_id or league_name set
+    // by DAO processing). Falls back to all teams so the dropdown is never empty.
+    const leagueTeams = computed(() => {
+      const withLeague = allTeams.value.filter(
+        t => t.league_id != null || t.league_name
+      );
+      return withLeague.length > 0 ? withLeague : allTeams.value;
+    });
 
     // ── tournament list ──
     const tournaments = ref([]);
