@@ -263,6 +263,11 @@
             />
           </div>
 
+          <!-- Match Center -->
+          <div v-if="currentTab === 'match-center'" class="p-4">
+            <TournamentMatchCenter />
+          </div>
+
           <!-- Leaderboard -->
           <div v-if="currentTab === 'leaderboard'" class="p-4">
             <GoalsLeaderboard />
@@ -373,6 +378,7 @@ import ResetPasswordForm from './components/ResetPasswordForm.vue';
 import ProfileRouter from './components/ProfileRouter.vue';
 import TeamRosterRouter from './components/profiles/TeamRosterRouter.vue';
 import AdminPanel from './components/AdminPanel.vue';
+import TournamentMatchCenter from './components/TournamentMatchCenter.vue';
 import VersionFooter from './components/VersionFooter.vue';
 import { LiveMatchView } from './components/live';
 
@@ -390,6 +396,7 @@ export default {
     ProfileRouter,
     TeamRosterRouter,
     AdminPanel,
+    TournamentMatchCenter,
     VersionFooter,
     LiveMatchView,
   },
@@ -468,6 +475,7 @@ export default {
     const allTabs = [
       { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
+      { id: 'match-center', name: 'Match Center', requiresAuth: true },
       { id: 'leaderboard', name: 'Leaderboard', requiresAuth: true },
       {
         id: 'add-match',
