@@ -91,6 +91,7 @@ from dao.playoff_dao import PlayoffDAO
 from dao.roster_dao import RosterDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
+from dao.tournament_dao import TournamentDAO
 
 
 # Load environment variables with environment-specific support
@@ -213,6 +214,7 @@ league_dao = LeagueDAO(db_conn_holder_obj)
 match_type_dao = MatchTypeDAO(db_conn_holder_obj)
 playoff_dao = PlayoffDAO(db_conn_holder_obj)
 audit_dao = AuditDAO(db_conn_holder_obj)
+tournament_dao = TournamentDAO(db_conn_holder_obj)
 
 
 # === Simple Redis Caching ===
@@ -5945,6 +5947,221 @@ async def get_audit_summary(
         return summary
     except Exception as e:
         logger.error("audit_summary_failed", error=str(e), season=season)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# =============================================================================
+# Tournament Endpoints
+# =============================================================================
+
+
+class TournamentCreate(BaseModel):
+    name: str
+    start_date: str
+    end_date: str | None = None
+    location: str | None = None
+    description: str | None = None
+    age_group_id: int | None = None
+    is_active: bool = True
+
+
+class TournamentUpdate(BaseModel):
+    name: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    location: str | None = None
+    description: str | None = None
+    age_group_id: int | None = None
+    is_active: bool | None = None
+
+
+class TournamentMatchCreate(BaseModel):
+    our_team_id: int
+    opponent_name: str
+    match_date: str
+    age_group_id: int
+    season_id: int
+    is_home: bool = True
+    home_score: int | None = None
+    away_score: int | None = None
+    match_status: str = "scheduled"
+    tournament_group: str | None = None
+    tournament_round: str | None = None
+    scheduled_kickoff: str | None = None
+
+
+class TournamentMatchUpdate(BaseModel):
+    home_score: int | None = None
+    away_score: int | None = None
+    match_status: str | None = None
+    tournament_group: str | None = None
+    tournament_round: str | None = None
+    scheduled_kickoff: str | None = None
+    match_date: str | None = None
+
+
+@app.get("/api/tournaments")
+async def get_tournaments():
+    """List all active tournaments (public)."""
+    try:
+        return tournament_dao.get_active_tournaments()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/tournaments/{tournament_id}")
+async def get_tournament(tournament_id: int):
+    """Get tournament detail with matches (public)."""
+    try:
+        tournament = tournament_dao.get_tournament_by_id(tournament_id)
+        if not tournament:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        return tournament
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/admin/tournaments")
+async def admin_get_tournaments(
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """List all tournaments including inactive ones (admin)."""
+    try:
+        return tournament_dao.get_all_tournaments()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/admin/tournaments", status_code=201)
+async def admin_create_tournament(
+    payload: TournamentCreate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Create a new tournament (admin)."""
+    try:
+        return tournament_dao.create_tournament(
+            name=payload.name,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            location=payload.location,
+            description=payload.description,
+            age_group_id=payload.age_group_id,
+            is_active=payload.is_active,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.put("/api/admin/tournaments/{tournament_id}")
+async def admin_update_tournament(
+    tournament_id: int,
+    payload: TournamentUpdate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Update tournament metadata (admin)."""
+    try:
+        updated = tournament_dao.update_tournament(
+            tournament_id=tournament_id,
+            name=payload.name,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            location=payload.location,
+            description=payload.description,
+            age_group_id=payload.age_group_id,
+            is_active=payload.is_active,
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        return updated
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/admin/tournaments/{tournament_id}", status_code=204)
+async def admin_delete_tournament(
+    tournament_id: int,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Delete a tournament (admin). Matches are unlinked, not deleted."""
+    try:
+        tournament_dao.delete_tournament(tournament_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/admin/tournaments/{tournament_id}/matches", status_code=201)
+async def admin_create_tournament_match(
+    tournament_id: int,
+    payload: TournamentMatchCreate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Add a match to a tournament (admin)."""
+    try:
+        return tournament_dao.create_tournament_match(
+            tournament_id=tournament_id,
+            our_team_id=payload.our_team_id,
+            opponent_name=payload.opponent_name,
+            match_date=payload.match_date,
+            age_group_id=payload.age_group_id,
+            season_id=payload.season_id,
+            is_home=payload.is_home,
+            home_score=payload.home_score,
+            away_score=payload.away_score,
+            match_status=payload.match_status,
+            tournament_group=payload.tournament_group,
+            tournament_round=payload.tournament_round,
+            scheduled_kickoff=payload.scheduled_kickoff,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.put("/api/admin/tournaments/{tournament_id}/matches/{match_id}")
+async def admin_update_tournament_match(
+    tournament_id: int,
+    match_id: int,
+    payload: TournamentMatchUpdate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Update score, status, or context on a tournament match (admin)."""
+    try:
+        updated = tournament_dao.update_tournament_match(
+            match_id=match_id,
+            home_score=payload.home_score,
+            away_score=payload.away_score,
+            match_status=payload.match_status,
+            tournament_group=payload.tournament_group,
+            tournament_round=payload.tournament_round,
+            scheduled_kickoff=payload.scheduled_kickoff,
+            match_date=payload.match_date,
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail="Match not found")
+        return updated
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/admin/tournaments/{tournament_id}/matches/{match_id}", status_code=204)
+async def admin_delete_tournament_match(
+    tournament_id: int,
+    match_id: int,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Remove a match from a tournament (admin). Deletes the match record."""
+    try:
+        tournament_dao.delete_tournament_match(match_id)
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
