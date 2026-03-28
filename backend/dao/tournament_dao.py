@@ -150,6 +150,7 @@ class TournamentDAO(BaseDAO):
                     away_score,
                     tournament_group,
                     tournament_round,
+                    age_group:age_groups!matches_age_group_id_fkey(id, name),
                     home_team:teams!matches_home_team_id_fkey(id, name),
                     away_team:teams!matches_away_team_id_fkey(id, name)
                 """)
