@@ -6024,6 +6024,23 @@ async def get_tournament(tournament_id: int):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/admin/teams/lookup")
+async def admin_team_lookup(
+    name: str,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Look up a team by name and return exact + similar matches without creating anything.
+
+    Used by the load-tournament-matches skill to confirm team resolution before POSTing matches.
+    Returns:
+      { exact: team | null, similar: [team, ...] }
+    """
+    try:
+        return tournament_dao.lookup_teams_by_name(name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.get("/api/admin/tournaments")
 async def admin_get_tournaments(
     current_user: dict[str, Any] = Depends(require_admin),
