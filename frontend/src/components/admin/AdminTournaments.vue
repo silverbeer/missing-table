@@ -366,7 +366,21 @@
           </h3>
           <form @submit.prevent="saveMatch">
             <!-- Our team + opponent -->
-            <div class="grid grid-cols-2 gap-4 mb-4">
+            <!-- Edit mode: show teams as read-only text -->
+            <div
+              v-if="editingMatch"
+              class="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200 flex items-center justify-between"
+            >
+              <span class="text-sm font-medium text-gray-900">{{
+                editingMatch.home_team?.name
+              }}</span>
+              <span class="text-xs text-gray-400 font-mono px-2">vs</span>
+              <span class="text-sm font-medium text-gray-900">{{
+                editingMatch.away_team?.name
+              }}</span>
+            </div>
+            <!-- Add mode: team selector + opponent input -->
+            <div v-else class="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1"
                   >Our Team *</label
@@ -374,8 +388,7 @@
                 <select
                   v-model="mForm.our_team_id"
                   required
-                  :disabled="!!editingMatch"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="t in leagueTeams" :key="t.id" :value="t.id">
@@ -391,11 +404,10 @@
                   v-model="mForm.opponent_name"
                   type="text"
                   required
-                  :disabled="!!editingMatch"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Opponent team name"
                 />
-                <p v-if="!editingMatch" class="text-xs text-gray-400 mt-1">
+                <p class="text-xs text-gray-400 mt-1">
                   Created automatically if not in system
                 </p>
               </div>
