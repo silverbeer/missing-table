@@ -131,11 +131,66 @@
               Group Stage
             </h3>
             <div class="space-y-2">
-              <MatchCard
+              <div
                 v-for="match in groupStageMatches"
                 :key="match.id"
-                :match="match"
-              />
+                class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors"
+              >
+                <div class="w-24 shrink-0 text-xs text-gray-400">
+                  {{ formatMatchDate(match.match_date) }}
+                </div>
+                <div class="flex gap-1 shrink-0">
+                  <span
+                    v-if="match.tournament_group"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                    >{{ match.tournament_group }}</span
+                  >
+                </div>
+                <div
+                  class="flex-1 flex items-center justify-center gap-3 min-w-0"
+                >
+                  <span
+                    class="text-sm font-medium text-gray-900 text-right truncate flex-1"
+                    >{{ match.home_team?.name }}</span
+                  >
+                  <span
+                    :class="[
+                      'text-sm font-mono px-2 py-0.5 rounded shrink-0',
+                      match.home_score != null
+                        ? 'bg-gray-900 text-white font-bold'
+                        : 'text-gray-400',
+                    ]"
+                  >
+                    {{
+                      match.home_score != null && match.away_score != null
+                        ? `${match.home_score} – ${match.away_score}`
+                        : 'vs'
+                    }}
+                  </span>
+                  <span
+                    class="text-sm font-medium text-gray-900 text-left truncate flex-1"
+                    >{{ match.away_team?.name }}</span
+                  >
+                </div>
+                <div class="w-20 shrink-0 text-right">
+                  <span
+                    v-if="match.match_status === 'completed'"
+                    class="text-xs text-green-600 font-medium"
+                    >Final</span
+                  >
+                  <span
+                    v-else-if="match.match_status === 'in_progress'"
+                    class="text-xs text-blue-600 font-medium animate-pulse"
+                    >Live</span
+                  >
+                  <span
+                    v-else-if="match.match_status === 'cancelled'"
+                    class="text-xs text-red-500"
+                    >Cancelled</span
+                  >
+                  <span v-else class="text-xs text-gray-400">Scheduled</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -147,11 +202,71 @@
               Knockout Rounds
             </h3>
             <div class="space-y-2">
-              <MatchCard
+              <div
                 v-for="match in knockoutMatches"
                 :key="match.id"
-                :match="match"
-              />
+                class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors"
+              >
+                <div class="w-24 shrink-0 text-xs text-gray-400">
+                  {{ formatMatchDate(match.match_date) }}
+                </div>
+                <div class="flex gap-1 shrink-0">
+                  <span
+                    v-if="roundLabel(match)"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
+                    >{{ roundLabel(match) }}</span
+                  >
+                  <span
+                    v-if="match.tournament_group"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                    >{{ match.tournament_group }}</span
+                  >
+                </div>
+                <div
+                  class="flex-1 flex items-center justify-center gap-3 min-w-0"
+                >
+                  <span
+                    class="text-sm font-medium text-gray-900 text-right truncate flex-1"
+                    >{{ match.home_team?.name }}</span
+                  >
+                  <span
+                    :class="[
+                      'text-sm font-mono px-2 py-0.5 rounded shrink-0',
+                      match.home_score != null
+                        ? 'bg-gray-900 text-white font-bold'
+                        : 'text-gray-400',
+                    ]"
+                  >
+                    {{
+                      match.home_score != null && match.away_score != null
+                        ? `${match.home_score} – ${match.away_score}`
+                        : 'vs'
+                    }}
+                  </span>
+                  <span
+                    class="text-sm font-medium text-gray-900 text-left truncate flex-1"
+                    >{{ match.away_team?.name }}</span
+                  >
+                </div>
+                <div class="w-20 shrink-0 text-right">
+                  <span
+                    v-if="match.match_status === 'completed'"
+                    class="text-xs text-green-600 font-medium"
+                    >Final</span
+                  >
+                  <span
+                    v-else-if="match.match_status === 'in_progress'"
+                    class="text-xs text-blue-600 font-medium animate-pulse"
+                    >Live</span
+                  >
+                  <span
+                    v-else-if="match.match_status === 'cancelled'"
+                    class="text-xs text-red-500"
+                    >Cancelled</span
+                  >
+                  <span v-else class="text-xs text-gray-400">Scheduled</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -163,11 +278,59 @@
               Matches
             </h3>
             <div class="space-y-2">
-              <MatchCard
+              <div
                 v-for="match in untaggedMatches"
                 :key="match.id"
-                :match="match"
-              />
+                class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors"
+              >
+                <div class="w-24 shrink-0 text-xs text-gray-400">
+                  {{ formatMatchDate(match.match_date) }}
+                </div>
+                <div
+                  class="flex-1 flex items-center justify-center gap-3 min-w-0"
+                >
+                  <span
+                    class="text-sm font-medium text-gray-900 text-right truncate flex-1"
+                    >{{ match.home_team?.name }}</span
+                  >
+                  <span
+                    :class="[
+                      'text-sm font-mono px-2 py-0.5 rounded shrink-0',
+                      match.home_score != null
+                        ? 'bg-gray-900 text-white font-bold'
+                        : 'text-gray-400',
+                    ]"
+                  >
+                    {{
+                      match.home_score != null && match.away_score != null
+                        ? `${match.home_score} – ${match.away_score}`
+                        : 'vs'
+                    }}
+                  </span>
+                  <span
+                    class="text-sm font-medium text-gray-900 text-left truncate flex-1"
+                    >{{ match.away_team?.name }}</span
+                  >
+                </div>
+                <div class="w-20 shrink-0 text-right">
+                  <span
+                    v-if="match.match_status === 'completed'"
+                    class="text-xs text-green-600 font-medium"
+                    >Final</span
+                  >
+                  <span
+                    v-else-if="match.match_status === 'in_progress'"
+                    class="text-xs text-blue-600 font-medium animate-pulse"
+                    >Live</span
+                  >
+                  <span
+                    v-else-if="match.match_status === 'cancelled'"
+                    class="text-xs text-red-500"
+                    >Cancelled</span
+                  >
+                  <span v-else class="text-xs text-gray-400">Scheduled</span>
+                </div>
+              </div>
             </div>
           </div>
         </template>
@@ -176,9 +339,6 @@
   </div>
 </template>
 
-<!-- ─────────────────────────────────────────────────────────────── -->
-<!-- Match card sub-component (defined inline for locality)         -->
-<!-- ─────────────────────────────────────────────────────────────── -->
 <script>
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
@@ -201,97 +361,8 @@ const ROUND_LABELS = {
   final: 'Final',
 };
 
-// ── MatchCard ──────────────────────────────────────────────────────
-const MatchCard = {
-  name: 'MatchCard',
-  props: { match: Object },
-  setup(props) {
-    const formatMatchDate = d =>
-      d
-        ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-          })
-        : '';
-
-    const scoreDisplay = computed(() => {
-      const m = props.match;
-      if (m.home_score != null && m.away_score != null) {
-        return `${m.home_score} – ${m.away_score}`;
-      }
-      return 'vs';
-    });
-
-    const isResult = computed(() => props.match.home_score != null);
-
-    const roundLabel = computed(
-      () => ROUND_LABELS[props.match.tournament_round] || null
-    );
-
-    return { formatMatchDate, scoreDisplay, isResult, roundLabel };
-  },
-  template: `
-    <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors">
-      <!-- Date -->
-      <div class="w-24 shrink-0 text-xs text-gray-400">
-        {{ formatMatchDate(match.match_date) }}
-      </div>
-
-      <!-- Badges -->
-      <div class="flex gap-1 shrink-0">
-        <span
-          v-if="roundLabel"
-          class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
-        >{{ roundLabel }}</span>
-        <span
-          v-if="match.tournament_group"
-          class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-        >{{ match.tournament_group }}</span>
-      </div>
-
-      <!-- Teams + score -->
-      <div class="flex-1 flex items-center justify-center gap-3 min-w-0">
-        <span class="text-sm font-medium text-gray-900 text-right truncate flex-1">
-          {{ match.home_team?.name }}
-        </span>
-        <span
-          :class="[
-            'text-sm font-mono px-2 py-0.5 rounded shrink-0',
-            isResult ? 'bg-gray-900 text-white font-bold' : 'text-gray-400',
-          ]"
-        >
-          {{ scoreDisplay }}
-        </span>
-        <span class="text-sm font-medium text-gray-900 text-left truncate flex-1">
-          {{ match.away_team?.name }}
-        </span>
-      </div>
-
-      <!-- Status -->
-      <div class="w-20 shrink-0 text-right">
-        <span
-          v-if="match.match_status === 'completed'"
-          class="text-xs text-green-600 font-medium"
-        >Final</span>
-        <span
-          v-else-if="match.match_status === 'in_progress'"
-          class="text-xs text-blue-600 font-medium animate-pulse"
-        >Live</span>
-        <span
-          v-else-if="match.match_status === 'cancelled'"
-          class="text-xs text-red-500"
-        >Cancelled</span>
-        <span v-else class="text-xs text-gray-400">Scheduled</span>
-      </div>
-    </div>
-  `,
-};
-
-// ── TournamentMatchCenter ──────────────────────────────────────────
 export default {
   name: 'TournamentMatchCenter',
-  components: { MatchCard },
   setup() {
     const authStore = useAuthStore();
 
@@ -315,6 +386,17 @@ export default {
             year: 'numeric',
           })
         : '';
+
+    const formatMatchDate = d =>
+      d
+        ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          })
+        : '';
+
+    const roundLabel = match => ROUND_LABELS[match.tournament_round] || null;
 
     // ── data ──
 
@@ -413,6 +495,8 @@ export default {
       knockoutMatches,
       untaggedMatches,
       formatDate,
+      formatMatchDate,
+      roundLabel,
       selectTournament,
     };
   },

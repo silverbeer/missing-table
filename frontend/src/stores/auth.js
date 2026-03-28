@@ -657,6 +657,12 @@ export const useAuthStore = () => {
               retryResponse.status,
               retryDuration
             );
+            if (
+              retryResponse.status === 204 ||
+              retryResponse.headers.get('content-length') === '0'
+            ) {
+              return null;
+            }
             return retryResponse.json();
           }
           recordHttpRequest(
@@ -695,6 +701,12 @@ export const useAuthStore = () => {
       throw new Error(errorMessage);
     }
 
+    if (
+      response.status === 204 ||
+      response.headers.get('content-length') === '0'
+    ) {
+      return null;
+    }
     return response.json();
   };
 
