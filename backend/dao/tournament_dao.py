@@ -54,6 +54,30 @@ class TournamentDAO(BaseDAO):
             t["age_groups"] = by_tid[t["id"]]
         return tournaments
 
+    def _attach_match_counts(self, tournaments: list[dict]) -> list[dict]:
+        """Fetch match counts from the matches table and attach to each tournament."""
+        if not tournaments:
+            return tournaments
+        ids = [t["id"] for t in tournaments]
+        try:
+            rows = (
+                self.client.table("matches")
+                .select("tournament_id")
+                .in_("tournament_id", ids)
+                .execute()
+            ).data or []
+        except Exception:
+            logger.exception("Error fetching tournament match counts")
+            rows = []
+        counts: dict[int, int] = {t["id"]: 0 for t in tournaments}
+        for row in rows:
+            tid = row.get("tournament_id")
+            if tid in counts:
+                counts[tid] += 1
+        for t in tournaments:
+            t["match_count"] = counts[t["id"]]
+        return tournaments
+
     def _sync_age_groups(self, tournament_id: int, age_group_ids: list[int]) -> None:
         """Replace all age group links for a tournament."""
         self.client.table("tournament_age_groups").delete().eq("tournament_id", tournament_id).execute()
@@ -72,7 +96,8 @@ class TournamentDAO(BaseDAO):
                 .order("start_date", desc=True)
                 .execute()
             )
-            return self._attach_age_groups(response.data or [])
+            data = self._attach_age_groups(response.data or [])
+            return self._attach_match_counts(data)
         except Exception:
             logger.exception("Error fetching active tournaments")
             return []
@@ -87,7 +112,8 @@ class TournamentDAO(BaseDAO):
                 .order("start_date", desc=True)
                 .execute()
             )
-            return self._attach_age_groups(response.data or [])
+            data = self._attach_age_groups(response.data or [])
+            return self._attach_match_counts(data)
         except Exception:
             logger.exception("Error fetching all tournaments")
             return []
@@ -397,6 +423,7 @@ class TournamentDAO(BaseDAO):
         tournament_round: str | None = None,
         scheduled_kickoff: str | None = None,
         match_date: str | None = None,
+        swap_home_away: bool = False,
     ) -> dict | None:
         """Update score, status, or context fields on a tournament match."""
         if tournament_round and tournament_round not in VALID_ROUNDS:
@@ -417,6 +444,19 @@ class TournamentDAO(BaseDAO):
             updates["scheduled_kickoff"] = scheduled_kickoff
         if match_date is not None:
             updates["match_date"] = match_date
+
+        if swap_home_away:
+            # Fetch current team IDs to swap them
+            current = (
+                self.client.table("matches")
+                .select("home_team_id, away_team_id")
+                .eq("id", match_id)
+                .single()
+                .execute()
+            ).data
+            if current:
+                updates["home_team_id"] = current["away_team_id"]
+                updates["away_team_id"] = current["home_team_id"]
 
         if not updates:
             return None

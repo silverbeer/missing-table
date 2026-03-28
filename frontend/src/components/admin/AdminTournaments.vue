@@ -71,8 +71,8 @@
           </div>
           <div class="flex items-center gap-3">
             <span class="text-sm text-gray-500">
-              {{ matchCountFor(tournament.id) }} match{{
-                matchCountFor(tournament.id) !== 1 ? 'es' : ''
+              {{ tournament.match_count ?? 0 }} match{{
+                (tournament.match_count ?? 0) !== 1 ? 'es' : ''
               }}
             </span>
             <button
@@ -366,18 +366,27 @@
           </h3>
           <form @submit.prevent="saveMatch">
             <!-- Our team + opponent -->
-            <!-- Edit mode: show teams as read-only text -->
+            <!-- Edit mode: show teams as read-only text with swap option -->
             <div
               v-if="editingMatch"
-              class="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200 flex items-center justify-between"
+              class="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200 flex items-center gap-2"
             >
-              <span class="text-sm font-medium text-gray-900">{{
-                editingMatch.home_team?.name
-              }}</span>
-              <span class="text-xs text-gray-400 font-mono px-2">vs</span>
-              <span class="text-sm font-medium text-gray-900">{{
+              <span
+                class="text-sm font-medium text-gray-900 flex-1 text-right"
+                >{{ editingMatch.home_team?.name }}</span
+              >
+              <span class="text-xs text-gray-400 font-mono">vs</span>
+              <span class="text-sm font-medium text-gray-900 flex-1">{{
                 editingMatch.away_team?.name
               }}</span>
+              <button
+                type="button"
+                @click="swapHomeAway"
+                class="ml-2 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded px-2 py-0.5"
+                title="Swap home and away teams"
+              >
+                ⇄ Swap
+              </button>
             </div>
             <!-- Add mode: team selector + opponent input -->
             <div v-else class="grid grid-cols-2 gap-4 mb-4">
@@ -768,6 +777,9 @@ export default {
         );
         selectedMatches.value = data?.matches || [];
         matchCountCache.value[tournamentId] = selectedMatches.value.length;
+        // Keep tournament.match_count in sync for the accordion header
+        const t = tournaments.value.find(x => x.id === tournamentId);
+        if (t) t.match_count = selectedMatches.value.length;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -904,6 +916,21 @@ export default {
       showMatchModal.value = true;
     };
 
+    const swapHomeAway = () => {
+      if (!editingMatch.value) return;
+      const m = editingMatch.value;
+      // Swap the team objects in the local match record (display only)
+      const tmp = m.home_team;
+      m.home_team = m.away_team;
+      m.away_team = tmp;
+      // Also swap scores if set
+      const tmpScore = mForm.value.home_score;
+      mForm.value.home_score = mForm.value.away_score;
+      mForm.value.away_score = tmpScore;
+      // Flag for the save payload
+      mForm.value._swap_teams = !mForm.value._swap_teams;
+    };
+
     const saveMatch = async () => {
       mFormLoading.value = true;
       try {
@@ -912,7 +939,7 @@ export default {
             ? `${mForm.value.match_date}T${t}:00`
             : t || null;
         if (editingMatch.value) {
-          // Update: only score/status/round/group/date fields
+          // Update: score/status/round/group/date fields; optionally swap teams
           const payload = {
             match_date: mForm.value.match_date,
             home_score: mForm.value.home_score,
@@ -921,6 +948,7 @@ export default {
             tournament_round: mForm.value.tournament_round || null,
             tournament_group: mForm.value.tournament_group || null,
             scheduled_kickoff: kickoffDatetime(mForm.value.scheduled_kickoff),
+            ...(mForm.value._swap_teams ? { swap_home_away: true } : {}),
           };
           await authStore.apiRequest(
             `${getApiBaseUrl()}/api/admin/tournaments/${selectedTournamentId.value}/matches/${editingMatch.value.id}`,
@@ -1018,6 +1046,7 @@ export default {
       // match actions
       openAddMatch,
       openEditMatch,
+      swapHomeAway,
       saveMatch,
       deleteMatch,
       closeMatchModal,
