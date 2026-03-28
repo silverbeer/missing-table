@@ -459,7 +459,7 @@
                 >
                 <input
                   v-model="mForm.scheduled_kickoff"
-                  type="datetime-local"
+                  type="time"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -891,7 +891,7 @@ export default {
         is_home: true,
         match_date: match.match_date,
         scheduled_kickoff: match.scheduled_kickoff
-          ? match.scheduled_kickoff.slice(0, 16)
+          ? match.scheduled_kickoff.slice(11, 16)
           : '',
         tournament_round: match.tournament_round || '',
         tournament_group: match.tournament_group || '',
@@ -907,6 +907,10 @@ export default {
     const saveMatch = async () => {
       mFormLoading.value = true;
       try {
+        const kickoffDatetime = t =>
+          t && mForm.value.match_date
+            ? `${mForm.value.match_date}T${t}:00`
+            : t || null;
         if (editingMatch.value) {
           // Update: only score/status/round/group/date fields
           const payload = {
@@ -916,7 +920,7 @@ export default {
             match_status: mForm.value.match_status,
             tournament_round: mForm.value.tournament_round || null,
             tournament_group: mForm.value.tournament_group || null,
-            scheduled_kickoff: mForm.value.scheduled_kickoff || null,
+            scheduled_kickoff: kickoffDatetime(mForm.value.scheduled_kickoff),
           };
           await authStore.apiRequest(
             `${getApiBaseUrl()}/api/admin/tournaments/${selectedTournamentId.value}/matches/${editingMatch.value.id}`,
@@ -932,7 +936,7 @@ export default {
             season_id: mForm.value.season_id,
             tournament_round: mForm.value.tournament_round || null,
             tournament_group: mForm.value.tournament_group || null,
-            scheduled_kickoff: mForm.value.scheduled_kickoff || null,
+            scheduled_kickoff: kickoffDatetime(mForm.value.scheduled_kickoff),
             home_score: mForm.value.home_score,
             away_score: mForm.value.away_score,
             match_status: mForm.value.match_status,
