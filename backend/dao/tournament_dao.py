@@ -150,6 +150,7 @@ class TournamentDAO(BaseDAO):
                     away_score,
                     tournament_group,
                     tournament_round,
+                    age_group:age_groups!matches_age_group_id_fkey(id, name),
                     home_team:teams!matches_home_team_id_fkey(id, name),
                     away_team:teams!matches_away_team_id_fkey(id, name)
                 """)
@@ -270,6 +271,51 @@ class TournamentDAO(BaseDAO):
     # Tournament match management
     # =========================================================================
 
+    @staticmethod
+    def _normalize_team_name(name: str) -> str:
+        """Normalize a team name for comparison (trim, collapse whitespace)."""
+        return " ".join(name.strip().split())
+
+    def lookup_teams_by_name(self, name: str) -> dict:
+        """Look up teams by name without creating anything.
+
+        Returns a dict with:
+          - exact: team dict if an exact (case-insensitive) match exists, else None
+          - similar: list of team dicts whose names contain any word from the query
+        """
+        normalized = self._normalize_team_name(name)
+
+        # Exact case-insensitive match
+        exact_response = (
+            self.client.table("teams")
+            .select("id, name, league_id, division_id, club_id")
+            .ilike("name", normalized)
+            .limit(1)
+            .execute()
+        )
+        exact = exact_response.data[0] if exact_response.data else None
+
+        # Similar: name contains any significant word (>= 4 chars) from query
+        similar: list[dict] = []
+        if not exact:
+            _skip = {"city", "club", "team", "boys", "girls", "academy", "united", "soccer", "football"}
+            words = [w for w in normalized.split() if len(w) >= 4 and w.lower() not in _skip]
+            seen_ids: set[int] = set()
+            for word in words:
+                rows = (
+                    self.client.table("teams")
+                    .select("id, name, league_id, division_id, club_id")
+                    .ilike("name", f"%{word}%")
+                    .limit(5)
+                    .execute()
+                ).data or []
+                for row in rows:
+                    if row["id"] not in seen_ids:
+                        seen_ids.add(row["id"])
+                        similar.append(row)
+
+        return {"exact": exact, "similar": similar}
+
     def get_or_create_opponent_team(self, name: str, age_group_id: int) -> int:
         """Find an existing team by name or create a lightweight tournament-only team.
 
@@ -283,17 +329,19 @@ class TournamentDAO(BaseDAO):
         Returns:
             Team ID (existing or newly created)
         """
-        # Look for existing team with this exact name (case-insensitive)
+        normalized = self._normalize_team_name(name)
+
+        # Exact case-insensitive match
         response = (
             self.client.table("teams")
             .select("id, name")
-            .ilike("name", name)
+            .ilike("name", normalized)
             .limit(1)
             .execute()
         )
         if response.data:
             team_id = response.data[0]["id"]
-            logger.info("Found existing team for tournament opponent", name=name, team_id=team_id)
+            logger.info("Found existing team for tournament opponent", name=normalized, team_id=team_id)
             return team_id
 
         # Create lightweight team: no league, division, or club

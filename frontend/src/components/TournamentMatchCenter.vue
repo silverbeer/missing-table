@@ -93,6 +93,37 @@
         </div>
 
         <template v-else-if="selected.matches">
+          <!-- Age group filter -->
+          <div
+            v-if="availableAgeGroups.length > 1"
+            class="mb-4 flex flex-wrap gap-2"
+          >
+            <button
+              @click="ageGroupFilter = null"
+              :class="[
+                'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                ageGroupFilter === null
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+              ]"
+            >
+              All Ages
+            </button>
+            <button
+              v-for="ag in availableAgeGroups"
+              :key="ag.id"
+              @click="ageGroupFilter = ag.id"
+              :class="[
+                'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                ageGroupFilter === ag.id
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+              ]"
+            >
+              {{ ag.name }}
+            </button>
+          </div>
+
           <!-- Team filter -->
           <div class="mb-4 flex items-center gap-3">
             <input
@@ -107,11 +138,14 @@
               }}</span
             >
             <button
-              v-if="teamFilter"
-              @click="teamFilter = ''"
+              v-if="teamFilter || ageGroupFilter"
+              @click="
+                teamFilter = '';
+                ageGroupFilter = null;
+              "
               class="text-sm text-blue-600 hover:text-blue-800"
             >
-              clear
+              clear all
             </button>
           </div>
 
@@ -140,6 +174,11 @@
                   {{ formatMatchDate(match.match_date) }}
                 </div>
                 <div class="flex gap-1 shrink-0">
+                  <span
+                    v-if="match.age_group"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                    >{{ match.age_group.name }}</span
+                  >
                   <span
                     v-if="match.tournament_group"
                     class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
@@ -211,6 +250,11 @@
                   {{ formatMatchDate(match.match_date) }}
                 </div>
                 <div class="flex gap-1 shrink-0">
+                  <span
+                    v-if="match.age_group"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                    >{{ match.age_group.name }}</span
+                  >
                   <span
                     v-if="roundLabel(match)"
                     class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
@@ -285,6 +329,13 @@
               >
                 <div class="w-24 shrink-0 text-xs text-gray-400">
                   {{ formatMatchDate(match.match_date) }}
+                </div>
+                <div class="flex gap-1 shrink-0">
+                  <span
+                    v-if="match.age_group"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                    >{{ match.age_group.name }}</span
+                  >
                 </div>
                 <div
                   class="flex-1 flex items-center justify-center gap-3 min-w-0"
@@ -375,6 +426,7 @@ export default {
     const matchesLoading = ref(false);
 
     const teamFilter = ref('');
+    const ageGroupFilter = ref(null);
 
     // ── helpers ──
 
@@ -423,6 +475,7 @@ export default {
       selectedId.value = id;
       matchesLoading.value = true;
       teamFilter.value = '';
+      ageGroupFilter.value = null;
       try {
         const data = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/tournaments/${id}`,
@@ -438,8 +491,22 @@ export default {
 
     // ── filtered + sectioned matches ──
 
-    const filteredMatches = computed(() => {
+    const availableAgeGroups = computed(() => {
       const matches = selected.value?.matches ?? [];
+      const seen = new Map();
+      for (const m of matches) {
+        if (m.age_group && !seen.has(m.age_group.id)) {
+          seen.set(m.age_group.id, m.age_group);
+        }
+      }
+      return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    const filteredMatches = computed(() => {
+      let matches = selected.value?.matches ?? [];
+      if (ageGroupFilter.value !== null) {
+        matches = matches.filter(m => m.age_group?.id === ageGroupFilter.value);
+      }
       if (!teamFilter.value) return matches;
       const q = teamFilter.value.toLowerCase();
       return matches.filter(
@@ -490,6 +557,8 @@ export default {
       selected,
       matchesLoading,
       teamFilter,
+      ageGroupFilter,
+      availableAgeGroups,
       filteredMatches,
       groupStageMatches,
       knockoutMatches,
