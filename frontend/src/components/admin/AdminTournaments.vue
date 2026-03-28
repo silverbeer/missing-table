@@ -51,10 +51,11 @@
                   Inactive
                 </span>
                 <span
-                  v-if="tournament.age_group"
+                  v-for="ag in tournament.age_groups || []"
+                  :key="ag.id"
                   class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700"
                 >
-                  {{ tournament.age_group.name }}
+                  {{ ag.name }}
                 </span>
               </div>
               <div class="text-sm text-gray-500 mt-0.5">
@@ -281,20 +282,26 @@
               />
             </div>
 
-            <!-- Age Group -->
+            <!-- Age Groups (multi-select) -->
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-1"
-                >Age Group</label
+                >Age Groups</label
               >
-              <select
-                v-model="tForm.age_group_id"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option :value="null">— select —</option>
-                <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
-                  {{ ag.name }}
-                </option>
-              </select>
+              <div class="flex flex-wrap gap-3">
+                <label
+                  v-for="ag in ageGroups"
+                  :key="ag.id"
+                  class="inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    :value="ag.id"
+                    v-model="tForm.age_group_ids"
+                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span class="text-sm text-gray-700">{{ ag.name }}</span>
+                </label>
+              </div>
             </div>
 
             <!-- Description -->
@@ -651,7 +658,7 @@ export default {
         end_date: '',
         location: '',
         description: '',
-        age_group_id: null,
+        age_group_ids: [],
         is_active: true,
       };
     }
@@ -788,7 +795,7 @@ export default {
         end_date: tournament.end_date || '',
         location: tournament.location || '',
         description: tournament.description || '',
-        age_group_id: tournament.age_group_id ?? null,
+        age_group_ids: (tournament.age_groups || []).map(ag => ag.id),
         is_active: tournament.is_active,
       };
       showTournamentModal.value = true;

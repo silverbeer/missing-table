@@ -5961,7 +5961,7 @@ class TournamentCreate(BaseModel):
     end_date: str | None = None
     location: str | None = None
     description: str | None = None
-    age_group_id: int | None = None
+    age_group_ids: list[int] = []
     is_active: bool = True
 
 
@@ -5971,7 +5971,7 @@ class TournamentUpdate(BaseModel):
     end_date: str | None = None
     location: str | None = None
     description: str | None = None
-    age_group_id: int | None = None
+    age_group_ids: list[int] | None = None
     is_active: bool | None = None
 
 
@@ -6047,7 +6047,7 @@ async def admin_create_tournament(
             end_date=payload.end_date,
             location=payload.location,
             description=payload.description,
-            age_group_id=payload.age_group_id,
+            age_group_ids=payload.age_group_ids,
             is_active=payload.is_active,
         )
     except Exception as e:
@@ -6069,7 +6069,7 @@ async def admin_update_tournament(
             end_date=payload.end_date,
             location=payload.location,
             description=payload.description,
-            age_group_id=payload.age_group_id,
+            age_group_ids=payload.age_group_ids,
             is_active=payload.is_active,
         )
         if not updated:

@@ -28,21 +28,51 @@ class TournamentDAO(BaseDAO):
     # Public read
     # =========================================================================
 
+    def _attach_age_groups(self, tournaments: list[dict]) -> list[dict]:
+        """Fetch age groups from the junction table and attach to each tournament."""
+        if not tournaments:
+            return tournaments
+        ids = [t["id"] for t in tournaments]
+        try:
+            rows = (
+                self.client.table("tournament_age_groups")
+                .select("tournament_id, age_group:age_groups(id, name)")
+                .in_("tournament_id", ids)
+                .execute()
+            ).data or []
+        except Exception:
+            logger.exception("Error fetching tournament age groups")
+            rows = []
+
+        by_tid: dict[int, list] = {t["id"]: [] for t in tournaments}
+        for row in rows:
+            tid = row["tournament_id"]
+            if tid in by_tid:
+                by_tid[tid].append(row["age_group"])
+
+        for t in tournaments:
+            t["age_groups"] = by_tid[t["id"]]
+        return tournaments
+
+    def _sync_age_groups(self, tournament_id: int, age_group_ids: list[int]) -> None:
+        """Replace all age group links for a tournament."""
+        self.client.table("tournament_age_groups").delete().eq("tournament_id", tournament_id).execute()
+        if age_group_ids:
+            rows = [{"tournament_id": tournament_id, "age_group_id": ag_id} for ag_id in age_group_ids]
+            self.client.table("tournament_age_groups").insert(rows).execute()
+
     @dao_cache("tournaments:active")
     def get_active_tournaments(self) -> list[dict]:
         """Return all active tournaments ordered by start date descending."""
         try:
             response = (
                 self.client.table("tournaments")
-                .select(
-                    "id, name, start_date, end_date, location, description,"
-                    " age_group_id, is_active, age_group:age_groups(id, name)"
-                )
+                .select("id, name, start_date, end_date, location, description, is_active")
                 .eq("is_active", True)
                 .order("start_date", desc=True)
                 .execute()
             )
-            return response.data
+            return self._attach_age_groups(response.data or [])
         except Exception:
             logger.exception("Error fetching active tournaments")
             return []
@@ -53,14 +83,11 @@ class TournamentDAO(BaseDAO):
         try:
             response = (
                 self.client.table("tournaments")
-                .select(
-                    "id, name, start_date, end_date, location, description,"
-                    " age_group_id, is_active, age_group:age_groups(id, name)"
-                )
+                .select("id, name, start_date, end_date, location, description, is_active")
                 .order("start_date", desc=True)
                 .execute()
             )
-            return response.data
+            return self._attach_age_groups(response.data or [])
         except Exception:
             logger.exception("Error fetching all tournaments")
             return []
@@ -75,10 +102,7 @@ class TournamentDAO(BaseDAO):
         try:
             t_response = (
                 self.client.table("tournaments")
-                .select(
-                    "id, name, start_date, end_date, location, description,"
-                    " age_group_id, is_active, age_group:age_groups(id, name)"
-                )
+                .select("id, name, start_date, end_date, location, description, is_active")
                 .eq("id", tournament_id)
                 .single()
                 .execute()
@@ -86,7 +110,7 @@ class TournamentDAO(BaseDAO):
             if not t_response.data:
                 return None
 
-            tournament = t_response.data
+            tournament = self._attach_age_groups([t_response.data])[0]
 
             # Fetch matches linked to this tournament
             m_response = (
@@ -127,7 +151,7 @@ class TournamentDAO(BaseDAO):
         end_date: str | None = None,
         location: str | None = None,
         description: str | None = None,
-        age_group_id: int | None = None,
+        age_group_ids: list[int] | None = None,
         is_active: bool = True,
     ) -> dict:
         """Create a new tournament.
@@ -138,11 +162,11 @@ class TournamentDAO(BaseDAO):
             end_date: ISO date string (optional)
             location: Venue/city (optional)
             description: Free text notes (optional)
-            age_group_id: Primary age group (optional)
+            age_group_ids: Age groups for the tournament (optional)
             is_active: Controls public visibility (default True)
 
         Returns:
-            Created tournament record
+            Created tournament record with age_groups list
         """
         data = {
             "name": name,
@@ -155,12 +179,13 @@ class TournamentDAO(BaseDAO):
             data["location"] = location
         if description:
             data["description"] = description
-        if age_group_id:
-            data["age_group_id"] = age_group_id
 
         try:
             response = self.client.table("tournaments").insert(data).execute()
-            return response.data[0]
+            tournament = response.data[0]
+            if age_group_ids:
+                self._sync_age_groups(tournament["id"], age_group_ids)
+            return self._attach_age_groups([tournament])[0]
         except Exception:
             logger.exception("Error creating tournament", name=name)
             raise
@@ -174,10 +199,13 @@ class TournamentDAO(BaseDAO):
         end_date: str | None = None,
         location: str | None = None,
         description: str | None = None,
-        age_group_id: int | None = None,
+        age_group_ids: list[int] | None = None,
         is_active: bool | None = None,
     ) -> dict | None:
-        """Update tournament fields. Only provided (non-None) fields are changed."""
+        """Update tournament fields. Only provided (non-None) fields are changed.
+
+        age_group_ids replaces all existing age group links when provided.
+        """
         updates: dict = {}
         if name is not None:
             updates["name"] = name
@@ -189,22 +217,15 @@ class TournamentDAO(BaseDAO):
             updates["location"] = location
         if description is not None:
             updates["description"] = description
-        if age_group_id is not None:
-            updates["age_group_id"] = age_group_id
         if is_active is not None:
             updates["is_active"] = is_active
 
-        if not updates:
-            return self.get_tournament_by_id(tournament_id)
-
         try:
-            response = (
-                self.client.table("tournaments")
-                .update(updates)
-                .eq("id", tournament_id)
-                .execute()
-            )
-            return response.data[0] if response.data else None
+            if updates:
+                self.client.table("tournaments").update(updates).eq("id", tournament_id).execute()
+            if age_group_ids is not None:
+                self._sync_age_groups(tournament_id, age_group_ids)
+            return self.get_tournament_by_id(tournament_id)
         except Exception:
             logger.exception("Error updating tournament", tournament_id=tournament_id)
             raise

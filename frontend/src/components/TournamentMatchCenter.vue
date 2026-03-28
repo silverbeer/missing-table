@@ -65,10 +65,11 @@
                 </span>
                 <span v-if="selected.location">📍 {{ selected.location }}</span>
                 <span
-                  v-if="selected.age_group"
+                  v-for="ag in selected.age_groups || []"
+                  :key="ag.id"
                   class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700"
                 >
-                  {{ selected.age_group.name }}
+                  {{ ag.name }}
                 </span>
               </div>
               <p v-if="selected.description" class="mt-3 text-sm text-gray-600">
