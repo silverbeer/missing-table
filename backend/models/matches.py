@@ -25,6 +25,8 @@ class EnhancedMatch(BaseModel):
     source: str = "manual"  # Source: manual, match-scraper, import
     external_match_id: str | None = None  # External match identifier (e.g., from match-scraper)
     scheduled_kickoff: datetime | None = None  # Scheduled kickoff datetime in UTC
+    home_penalty_score: int | None = None  # Penalty shootout score (only when regulation ends in draw)
+    away_penalty_score: int | None = None
 
 
 class MatchPatch(BaseModel):
@@ -43,6 +45,8 @@ class MatchPatch(BaseModel):
     status: str | None = None
     external_match_id: str | None = None  # External match identifier
     scheduled_kickoff: datetime | None = None  # Scheduled kickoff datetime in UTC
+    home_penalty_score: int | None = None  # Penalty shootout score (only when regulation ends in draw)
+    away_penalty_score: int | None = None
 
     class Config:
         # Validation for scores

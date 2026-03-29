@@ -45,6 +45,12 @@
                   tournament.name
                 }}</span>
                 <span
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-yellow-50 text-yellow-700 border border-yellow-200 select-all"
+                  :title="tournament.id"
+                >
+                  {{ tournament.id }}
+                </span>
+                <span
                   v-if="!tournament.is_active"
                   class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
                 >
@@ -169,6 +175,15 @@
                   <td class="py-2 pr-4 text-gray-700 font-mono">
                     <span v-if="match.home_score != null">
                       {{ match.home_score }} – {{ match.away_score }}
+                      <span
+                        v-if="match.home_penalty_score != null"
+                        class="text-xs text-gray-500 ml-1"
+                      >
+                        ({{ match.home_penalty_score }}–{{
+                          match.away_penalty_score
+                        }}
+                        pens)
+                      </span>
                     </span>
                     <span v-else class="text-gray-400">vs</span>
                   </td>
@@ -541,7 +556,7 @@
             </div>
 
             <!-- Score + Status -->
-            <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-3 gap-4 mb-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1"
                   >Home Score</label
@@ -580,6 +595,45 @@
                 </select>
               </div>
             </div>
+
+            <!-- Penalty Shootout Scores (only shown when regulation ends in a draw) -->
+            <div
+              v-if="
+                mForm.home_score != null &&
+                mForm.away_score != null &&
+                mForm.home_score === mForm.away_score
+              "
+              class="grid grid-cols-2 gap-4 mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-md"
+            >
+              <div class="col-span-2 text-xs font-medium text-yellow-800 mb-1">
+                Draw after regulation — enter penalty shootout scores (optional)
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Home PK Score</label
+                >
+                <input
+                  v-model.number="mForm.home_penalty_score"
+                  type="number"
+                  min="0"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="—"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Away PK Score</label
+                >
+                <input
+                  v-model.number="mForm.away_penalty_score"
+                  type="number"
+                  min="0"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="—"
+                />
+              </div>
+            </div>
+            <div v-else class="mb-6"></div>
 
             <div class="flex justify-end gap-3">
               <button
@@ -697,6 +751,8 @@ export default {
         season_id: null,
         home_score: null,
         away_score: null,
+        home_penalty_score: null,
+        away_penalty_score: null,
         match_status: 'scheduled',
       };
     }
@@ -911,6 +967,8 @@ export default {
         season_id: null,
         home_score: match.home_score ?? null,
         away_score: match.away_score ?? null,
+        home_penalty_score: match.home_penalty_score ?? null,
+        away_penalty_score: match.away_penalty_score ?? null,
         match_status: match.match_status,
       };
       showMatchModal.value = true;
@@ -940,10 +998,16 @@ export default {
             : t || null;
         if (editingMatch.value) {
           // Update: score/status/round/group/date fields; optionally swap teams
+          const isDrawn =
+            mForm.value.home_score != null &&
+            mForm.value.away_score != null &&
+            mForm.value.home_score === mForm.value.away_score;
           const payload = {
             match_date: mForm.value.match_date,
             home_score: mForm.value.home_score,
             away_score: mForm.value.away_score,
+            home_penalty_score: isDrawn ? mForm.value.home_penalty_score : null,
+            away_penalty_score: isDrawn ? mForm.value.away_penalty_score : null,
             match_status: mForm.value.match_status,
             tournament_round: mForm.value.tournament_round || null,
             tournament_group: mForm.value.tournament_group || null,
@@ -955,6 +1019,10 @@ export default {
             { method: 'PUT', body: JSON.stringify(payload) }
           );
         } else {
+          const isDrawn =
+            mForm.value.home_score != null &&
+            mForm.value.away_score != null &&
+            mForm.value.home_score === mForm.value.away_score;
           const payload = {
             our_team_id: mForm.value.our_team_id,
             opponent_name: mForm.value.opponent_name,
@@ -967,6 +1035,8 @@ export default {
             scheduled_kickoff: kickoffDatetime(mForm.value.scheduled_kickoff),
             home_score: mForm.value.home_score,
             away_score: mForm.value.away_score,
+            home_penalty_score: isDrawn ? mForm.value.home_penalty_score : null,
+            away_penalty_score: isDrawn ? mForm.value.away_penalty_score : null,
             match_status: mForm.value.match_status,
           };
           await authStore.apiRequest(

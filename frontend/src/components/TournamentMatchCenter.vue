@@ -202,7 +202,9 @@
                   >
                     {{
                       match.home_score != null && match.away_score != null
-                        ? `${match.home_score} – ${match.away_score}`
+                        ? match.home_penalty_score != null
+                          ? `${match.home_score} – ${match.away_score} (${match.home_penalty_score}–${match.away_penalty_score} pens)`
+                          : `${match.home_score} – ${match.away_score}`
                         : 'vs'
                     }}
                   </span>
@@ -283,7 +285,9 @@
                   >
                     {{
                       match.home_score != null && match.away_score != null
-                        ? `${match.home_score} – ${match.away_score}`
+                        ? match.home_penalty_score != null
+                          ? `${match.home_score} – ${match.away_score} (${match.home_penalty_score}–${match.away_penalty_score} pens)`
+                          : `${match.home_score} – ${match.away_score}`
                         : 'vs'
                     }}
                   </span>
@@ -354,7 +358,9 @@
                   >
                     {{
                       match.home_score != null && match.away_score != null
-                        ? `${match.home_score} – ${match.away_score}`
+                        ? match.home_penalty_score != null
+                          ? `${match.home_score} – ${match.away_score} (${match.home_penalty_score}–${match.away_penalty_score} pens)`
+                          : `${match.home_score} – ${match.away_score}`
                         : 'vs'
                     }}
                   </span>
