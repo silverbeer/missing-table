@@ -5984,6 +5984,8 @@ class TournamentMatchCreate(BaseModel):
     is_home: bool = True
     home_score: int | None = None
     away_score: int | None = None
+    home_penalty_score: int | None = None
+    away_penalty_score: int | None = None
     match_status: str = "scheduled"
     tournament_group: str | None = None
     tournament_round: str | None = None
@@ -5993,6 +5995,8 @@ class TournamentMatchCreate(BaseModel):
 class TournamentMatchUpdate(BaseModel):
     home_score: int | None = None
     away_score: int | None = None
+    home_penalty_score: int | None = None
+    away_penalty_score: int | None = None
     match_status: str | None = None
     tournament_group: str | None = None
     tournament_round: str | None = None
@@ -6129,6 +6133,8 @@ async def admin_create_tournament_match(
             is_home=payload.is_home,
             home_score=payload.home_score,
             away_score=payload.away_score,
+            home_penalty_score=payload.home_penalty_score,
+            away_penalty_score=payload.away_penalty_score,
             match_status=payload.match_status,
             tournament_group=payload.tournament_group,
             tournament_round=payload.tournament_round,
@@ -6153,6 +6159,8 @@ async def admin_update_tournament_match(
             match_id=match_id,
             home_score=payload.home_score,
             away_score=payload.away_score,
+            home_penalty_score=payload.home_penalty_score,
+            away_penalty_score=payload.away_penalty_score,
             match_status=payload.match_status,
             tournament_group=payload.tournament_group,
             tournament_round=payload.tournament_round,
