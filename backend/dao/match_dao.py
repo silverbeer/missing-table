@@ -42,14 +42,11 @@ def load_environment():
     # Load environment-specific file
     env_file = f".env.{app_env}"
     if os.path.exists(env_file):
-        load_dotenv(env_file, override=True)
+        load_dotenv(env_file, override=False)
     else:
         # Fallback to .env.local for backwards compatibility
         if os.path.exists(".env.local"):
-            load_dotenv(".env.local", override=True)
-
-
-load_environment()
+            load_dotenv(".env.local", override=False)
 
 
 class SupabaseConnection:
@@ -57,6 +54,7 @@ class SupabaseConnection:
 
     def __init__(self):
         """Initialize Supabase client with custom SSL configuration."""
+        load_environment()
         self.url = os.getenv("SUPABASE_URL")
         # Backend should always use SERVICE_KEY for administrative operations
         service_key = os.getenv("SUPABASE_SERVICE_KEY")
