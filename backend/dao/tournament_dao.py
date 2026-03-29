@@ -18,7 +18,19 @@ TOURNAMENTS_CACHE_PATTERN = "mt:dao:tournaments:*"
 # match_type_id=2 is "Tournament" (seed data)
 TOURNAMENT_MATCH_TYPE_ID = 2
 
-VALID_ROUNDS = {"group_stage", "round_of_16", "quarterfinal", "semifinal", "final", "third_place"}
+VALID_ROUNDS = {
+    "group_stage",
+    "round_of_16",
+    "quarterfinal",
+    "semifinal",
+    "final",
+    "third_place",
+    "wildcard",
+    "silver_semifinal",
+    "bronze_semifinal",
+    "silver_final",
+    "bronze_final",
+}
 
 
 class TournamentDAO(BaseDAO):
@@ -148,6 +160,8 @@ class TournamentDAO(BaseDAO):
                     match_status,
                     home_score,
                     away_score,
+                    home_penalty_score,
+                    away_penalty_score,
                     tournament_group,
                     tournament_round,
                     age_group:age_groups!matches_age_group_id_fkey(id, name),
@@ -384,6 +398,8 @@ class TournamentDAO(BaseDAO):
         is_home: bool = True,
         home_score: int | None = None,
         away_score: int | None = None,
+        home_penalty_score: int | None = None,
+        away_penalty_score: int | None = None,
         match_status: str = "scheduled",
         tournament_group: str | None = None,
         tournament_round: str | None = None,
@@ -436,6 +452,10 @@ class TournamentDAO(BaseDAO):
             data["home_score"] = home_score
         if away_score is not None:
             data["away_score"] = away_score
+        if home_penalty_score is not None:
+            data["home_penalty_score"] = home_penalty_score
+        if away_penalty_score is not None:
+            data["away_penalty_score"] = away_penalty_score
         if tournament_group:
             data["tournament_group"] = tournament_group
         if tournament_round:
@@ -466,6 +486,8 @@ class TournamentDAO(BaseDAO):
         match_id: int,
         home_score: int | None = None,
         away_score: int | None = None,
+        home_penalty_score: int | None = None,
+        away_penalty_score: int | None = None,
         match_status: str | None = None,
         tournament_group: str | None = None,
         tournament_round: str | None = None,
@@ -482,6 +504,10 @@ class TournamentDAO(BaseDAO):
             updates["home_score"] = home_score
         if away_score is not None:
             updates["away_score"] = away_score
+        if home_penalty_score is not None:
+            updates["home_penalty_score"] = home_penalty_score
+        if away_penalty_score is not None:
+            updates["away_penalty_score"] = away_penalty_score
         if match_status is not None:
             updates["match_status"] = match_status
         if tournament_group is not None:
