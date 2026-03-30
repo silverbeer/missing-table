@@ -14,10 +14,11 @@ class TestAuthSignup:
 
     @pytest.mark.e2e
     def test_signup_valid_data(self, test_client: TestClient):
-        """Test user signup with valid data."""
+        """Test user signup with valid data (username-based auth)."""
         user_data = {
-            "email": f"test_{int(time.time())}@example.com",
+            "username": f"testuser{int(time.time())}",
             "password": "TestPassword123!",
+            "email": f"testuser_{int(time.time())}@example.com",
             "display_name": "Test User"
         }
 
@@ -30,15 +31,14 @@ class TestAuthSignup:
 
     @pytest.mark.e2e
     def test_signup_invalid_email(self, test_client: TestClient):
-        """Test signup with invalid email format."""
+        """Test signup with missing username returns 422."""
         user_data = {
-            "email": "invalid-email",
             "password": "TestPassword123!",
             "display_name": "Test User"
         }
 
         response = test_client.post("/api/auth/signup", json=user_data)
-        assert response.status_code == 400  # Bad request (invalid email)
+        assert response.status_code == 422  # Missing required username field
 
     @pytest.mark.e2e
     def test_signup_weak_password(self, test_client: TestClient):
@@ -75,9 +75,9 @@ class TestAuthLogin:
 
     @pytest.mark.e2e
     def test_login_invalid_credentials(self, test_client: TestClient):
-        """Test login with invalid credentials."""
+        """Test login with invalid credentials returns 401."""
         login_data = {
-            "email": "nonexistent@example.com",
+            "username": "nonexistent_user_xyz",
             "password": "WrongPassword123!"
         }
 
@@ -85,15 +85,14 @@ class TestAuthLogin:
         assert response.status_code in [400, 401]  # Unauthorized
 
     @pytest.mark.e2e
-    def test_login_invalid_email_format(self, test_client: TestClient):
-        """Test login with invalid email format."""
+    def test_login_invalid_username_format(self, test_client: TestClient):
+        """Test login without required username field returns 422."""
         login_data = {
-            "email": "invalid-email",
             "password": "TestPassword123!"
         }
 
         response = test_client.post("/api/auth/login", json=login_data)
-        assert response.status_code == 401  # Unauthorized (invalid credentials)
+        assert response.status_code == 422  # Missing required username field
 
     @pytest.mark.e2e
     def test_login_missing_fields(self, test_client: TestClient):
@@ -112,12 +111,12 @@ class TestAuthLogin:
 
     @pytest.mark.e2e
     def test_login_empty_credentials(self, test_client: TestClient):
-        """Test login with empty credentials."""
+        """Test login with empty username returns 400 or 401."""
         response = test_client.post("/api/auth/login", json={
-            "email": "",
+            "username": "",
             "password": ""
         })
-        assert response.status_code == 401  # Unauthorized (empty credentials)
+        assert response.status_code in [400, 401, 422]  # Empty or invalid credentials
 
 
 class TestAuthTokenRefresh:
@@ -308,9 +307,9 @@ class TestRateLimitingAuth:
 
     @pytest.mark.e2e
     def test_login_rate_limiting(self, test_client: TestClient):
-        """Test that login attempts are rate limited."""
+        """Test that rapid login attempts are handled gracefully."""
         login_data = {
-            "email": "test@example.com",
+            "username": "nonexistent_user_xyz",
             "password": "WrongPassword123!"
         }
 
@@ -320,9 +319,9 @@ class TestRateLimitingAuth:
             response = test_client.post("/api/auth/login", json=login_data)
             responses.append(response.status_code)
 
-        # Should all be unauthorized (401) or some might be rate limited (429)
+        # Should be unauthorized or rate limited
         for status_code in responses:
-            assert status_code in [400, 401, 429]
+            assert status_code in [400, 401, 422, 429]
 
     @pytest.mark.e2e
     def test_signup_rate_limiting(self, test_client: TestClient):

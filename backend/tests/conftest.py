@@ -385,6 +385,75 @@ def mock_auth_headers():
     }
 
 
+@pytest.fixture(scope="function")
+def authenticated_client():
+    """TestClient with auth dependency overridden to return a mock regular user.
+
+    Use this fixture for tests that call auth-protected endpoints and only care
+    about business logic, not authentication itself.
+    """
+    from app import app
+    from auth import get_current_user_required
+
+    test_mode = os.getenv("TEST_MODE", "false").lower()
+    if test_mode != "true":
+        pytest.skip("Tests must run in TEST_MODE=true environment.")
+
+    mock_user = {
+        "user_id": "test-user-001",
+        "username": "testuser",
+        "email": "testuser@example.com",
+        "role": "user",
+        "team_id": None,
+        "club_id": None,
+        "display_name": "Test User",
+    }
+
+    def override_get_current_user():
+        return mock_user
+
+    app.dependency_overrides[get_current_user_required] = override_get_current_user
+    try:
+        with TestClient(app) as client:
+            yield client
+    finally:
+        app.dependency_overrides.pop(get_current_user_required, None)
+
+
+@pytest.fixture(scope="function")
+def admin_client():
+    """TestClient with auth dependency overridden to return a mock admin user.
+
+    Use this fixture for tests that require admin-level access.
+    """
+    from app import app
+    from auth import get_current_user_required
+
+    test_mode = os.getenv("TEST_MODE", "false").lower()
+    if test_mode != "true":
+        pytest.skip("Tests must run in TEST_MODE=true environment.")
+
+    mock_admin = {
+        "user_id": "test-admin-001",
+        "username": "testadmin",
+        "email": "admin@example.com",
+        "role": "admin",
+        "team_id": None,
+        "club_id": None,
+        "display_name": "Test Admin",
+    }
+
+    def override_get_current_user():
+        return mock_admin
+
+    app.dependency_overrides[get_current_user_required] = override_get_current_user
+    try:
+        with TestClient(app) as client:
+            yield client
+    finally:
+        app.dependency_overrides.pop(get_current_user_required, None)
+
+
 # ============================================================================
 # Test Cleanup & Database Utilities
 # ============================================================================
