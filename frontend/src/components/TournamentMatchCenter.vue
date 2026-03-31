@@ -125,12 +125,12 @@
           </div>
 
           <!-- Team filter -->
-          <div class="mb-4 flex items-center gap-3">
+          <div class="mb-4 flex flex-wrap items-center gap-3">
             <input
               v-model="teamFilter"
               type="text"
               placeholder="Filter by team…"
-              class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+              class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-48"
             />
             <span class="text-sm text-gray-500"
               >{{ filteredMatches.length }} match{{
@@ -168,68 +168,107 @@
               <div
                 v-for="match in groupStageMatches"
                 :key="match.id"
-                class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors"
+                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-gray-300 transition-colors"
               >
-                <div class="w-24 shrink-0 text-xs text-gray-400">
-                  {{ formatMatchDate(match.match_date) }}
+                <!-- Mobile meta row -->
+                <div class="flex items-center justify-between mb-1.5 sm:hidden">
+                  <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span class="text-xs text-gray-400">{{
+                      formatMatchDate(match.match_date)
+                    }}</span>
+                    <span
+                      v-if="match.age_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                      >{{ match.age_group.name }}</span
+                    >
+                    <span
+                      v-if="match.tournament_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                      >{{ match.tournament_group }}</span
+                    >
+                  </div>
+                  <div class="shrink-0 ml-2">
+                    <span
+                      v-if="match.match_status === 'completed'"
+                      class="text-xs text-green-600 font-medium"
+                      >Final</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'in_progress'"
+                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      >Live</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'cancelled'"
+                      class="text-xs text-red-500"
+                      >Cancelled</span
+                    >
+                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                  </div>
                 </div>
-                <div class="flex gap-1 shrink-0">
-                  <span
-                    v-if="match.age_group"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                    >{{ match.age_group.name }}</span
+                <!-- Main row -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                  <div
+                    class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
                   >
-                  <span
-                    v-if="match.tournament_group"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-                    >{{ match.tournament_group }}</span
-                  >
-                </div>
-                <div
-                  class="flex-1 flex items-center justify-center gap-3 min-w-0"
-                >
-                  <span
-                    class="text-sm font-medium text-gray-900 text-right truncate flex-1"
-                    >{{ match.home_team?.name }}</span
-                  >
-                  <span
-                    :class="[
-                      'text-sm font-mono px-2 py-0.5 rounded shrink-0',
-                      match.home_score != null
-                        ? 'bg-gray-900 text-white font-bold'
-                        : 'text-gray-400',
-                    ]"
-                  >
-                    {{
-                      match.home_score != null && match.away_score != null
-                        ? match.home_penalty_score != null
-                          ? `${match.home_score} – ${match.away_score} (${match.home_penalty_score}–${match.away_penalty_score} pens)`
-                          : `${match.home_score} – ${match.away_score}`
-                        : 'vs'
-                    }}
-                  </span>
-                  <span
-                    class="text-sm font-medium text-gray-900 text-left truncate flex-1"
-                    >{{ match.away_team?.name }}</span
-                  >
-                </div>
-                <div class="w-20 shrink-0 text-right">
-                  <span
-                    v-if="match.match_status === 'completed'"
-                    class="text-xs text-green-600 font-medium"
-                    >Final</span
-                  >
-                  <span
-                    v-else-if="match.match_status === 'in_progress'"
-                    class="text-xs text-blue-600 font-medium animate-pulse"
-                    >Live</span
-                  >
-                  <span
-                    v-else-if="match.match_status === 'cancelled'"
-                    class="text-xs text-red-500"
-                    >Cancelled</span
-                  >
-                  <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    {{ formatMatchDate(match.match_date) }}
+                  </div>
+                  <div class="hidden sm:flex gap-1 shrink-0">
+                    <span
+                      v-if="match.age_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                      >{{ match.age_group.name }}</span
+                    >
+                    <span
+                      v-if="match.tournament_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                      >{{ match.tournament_group }}</span
+                    >
+                  </div>
+                  <div class="flex-1 flex items-center gap-2 min-w-0">
+                    <span
+                      class="text-sm font-medium text-gray-900 text-right truncate flex-1"
+                      >{{ match.home_team?.name }}</span
+                    >
+                    <span
+                      :class="[
+                        'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
+                        match.home_score != null
+                          ? 'bg-gray-900 text-white font-bold'
+                          : 'text-gray-400',
+                      ]"
+                    >
+                      {{
+                        match.home_score != null && match.away_score != null
+                          ? match.home_penalty_score != null
+                            ? `${match.home_score}–${match.away_score} (${match.home_penalty_score}-${match.away_penalty_score}pk)`
+                            : `${match.home_score}–${match.away_score}`
+                          : 'vs'
+                      }}
+                    </span>
+                    <span
+                      class="text-sm font-medium text-gray-900 text-left truncate flex-1"
+                      >{{ match.away_team?.name }}</span
+                    >
+                  </div>
+                  <div class="hidden sm:block w-20 shrink-0 text-right">
+                    <span
+                      v-if="match.match_status === 'completed'"
+                      class="text-xs text-green-600 font-medium"
+                      >Final</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'in_progress'"
+                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      >Live</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'cancelled'"
+                      class="text-xs text-red-500"
+                      >Cancelled</span
+                    >
+                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -246,73 +285,112 @@
               <div
                 v-for="match in knockoutMatches"
                 :key="match.id"
-                class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors"
+                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-gray-300 transition-colors"
               >
-                <div class="w-24 shrink-0 text-xs text-gray-400">
-                  {{ formatMatchDate(match.match_date) }}
+                <!-- Mobile meta row -->
+                <div class="flex items-center justify-between mb-1.5 sm:hidden">
+                  <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span class="text-xs text-gray-400">{{
+                      formatMatchDate(match.match_date)
+                    }}</span>
+                    <span
+                      v-if="match.age_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                      >{{ match.age_group.name }}</span
+                    >
+                    <span
+                      v-if="roundLabel(match)"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
+                      >{{ roundLabel(match) }}</span
+                    >
+                  </div>
+                  <div class="shrink-0 ml-2">
+                    <span
+                      v-if="match.match_status === 'completed'"
+                      class="text-xs text-green-600 font-medium"
+                      >Final</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'in_progress'"
+                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      >Live</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'cancelled'"
+                      class="text-xs text-red-500"
+                      >Cancelled</span
+                    >
+                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                  </div>
                 </div>
-                <div class="flex gap-1 shrink-0">
-                  <span
-                    v-if="match.age_group"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                    >{{ match.age_group.name }}</span
+                <!-- Main row -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                  <div
+                    class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
                   >
-                  <span
-                    v-if="roundLabel(match)"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
-                    >{{ roundLabel(match) }}</span
-                  >
-                  <span
-                    v-if="match.tournament_group"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-                    >{{ match.tournament_group }}</span
-                  >
-                </div>
-                <div
-                  class="flex-1 flex items-center justify-center gap-3 min-w-0"
-                >
-                  <span
-                    class="text-sm font-medium text-gray-900 text-right truncate flex-1"
-                    >{{ match.home_team?.name }}</span
-                  >
-                  <span
-                    :class="[
-                      'text-sm font-mono px-2 py-0.5 rounded shrink-0',
-                      match.home_score != null
-                        ? 'bg-gray-900 text-white font-bold'
-                        : 'text-gray-400',
-                    ]"
-                  >
-                    {{
-                      match.home_score != null && match.away_score != null
-                        ? match.home_penalty_score != null
-                          ? `${match.home_score} – ${match.away_score} (${match.home_penalty_score}–${match.away_penalty_score} pens)`
-                          : `${match.home_score} – ${match.away_score}`
-                        : 'vs'
-                    }}
-                  </span>
-                  <span
-                    class="text-sm font-medium text-gray-900 text-left truncate flex-1"
-                    >{{ match.away_team?.name }}</span
-                  >
-                </div>
-                <div class="w-20 shrink-0 text-right">
-                  <span
-                    v-if="match.match_status === 'completed'"
-                    class="text-xs text-green-600 font-medium"
-                    >Final</span
-                  >
-                  <span
-                    v-else-if="match.match_status === 'in_progress'"
-                    class="text-xs text-blue-600 font-medium animate-pulse"
-                    >Live</span
-                  >
-                  <span
-                    v-else-if="match.match_status === 'cancelled'"
-                    class="text-xs text-red-500"
-                    >Cancelled</span
-                  >
-                  <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    {{ formatMatchDate(match.match_date) }}
+                  </div>
+                  <div class="hidden sm:flex gap-1 shrink-0">
+                    <span
+                      v-if="match.age_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                      >{{ match.age_group.name }}</span
+                    >
+                    <span
+                      v-if="roundLabel(match)"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
+                      >{{ roundLabel(match) }}</span
+                    >
+                    <span
+                      v-if="match.tournament_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                      >{{ match.tournament_group }}</span
+                    >
+                  </div>
+                  <div class="flex-1 flex items-center gap-2 min-w-0">
+                    <span
+                      class="text-sm font-medium text-gray-900 text-right truncate flex-1"
+                      >{{ match.home_team?.name }}</span
+                    >
+                    <span
+                      :class="[
+                        'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
+                        match.home_score != null
+                          ? 'bg-gray-900 text-white font-bold'
+                          : 'text-gray-400',
+                      ]"
+                    >
+                      {{
+                        match.home_score != null && match.away_score != null
+                          ? match.home_penalty_score != null
+                            ? `${match.home_score}–${match.away_score} (${match.home_penalty_score}-${match.away_penalty_score}pk)`
+                            : `${match.home_score}–${match.away_score}`
+                          : 'vs'
+                      }}
+                    </span>
+                    <span
+                      class="text-sm font-medium text-gray-900 text-left truncate flex-1"
+                      >{{ match.away_team?.name }}</span
+                    >
+                  </div>
+                  <div class="hidden sm:block w-20 shrink-0 text-right">
+                    <span
+                      v-if="match.match_status === 'completed'"
+                      class="text-xs text-green-600 font-medium"
+                      >Final</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'in_progress'"
+                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      >Live</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'cancelled'"
+                      class="text-xs text-red-500"
+                      >Cancelled</span
+                    >
+                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -329,63 +407,97 @@
               <div
                 v-for="match in untaggedMatches"
                 :key="match.id"
-                class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3 hover:border-gray-300 transition-colors"
+                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-gray-300 transition-colors"
               >
-                <div class="w-24 shrink-0 text-xs text-gray-400">
-                  {{ formatMatchDate(match.match_date) }}
+                <!-- Mobile meta row -->
+                <div class="flex items-center justify-between mb-1.5 sm:hidden">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-xs text-gray-400">{{
+                      formatMatchDate(match.match_date)
+                    }}</span>
+                    <span
+                      v-if="match.age_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                      >{{ match.age_group.name }}</span
+                    >
+                  </div>
+                  <div class="shrink-0 ml-2">
+                    <span
+                      v-if="match.match_status === 'completed'"
+                      class="text-xs text-green-600 font-medium"
+                      >Final</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'in_progress'"
+                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      >Live</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'cancelled'"
+                      class="text-xs text-red-500"
+                      >Cancelled</span
+                    >
+                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                  </div>
                 </div>
-                <div class="flex gap-1 shrink-0">
-                  <span
-                    v-if="match.age_group"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                    >{{ match.age_group.name }}</span
+                <!-- Main row -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                  <div
+                    class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
                   >
-                </div>
-                <div
-                  class="flex-1 flex items-center justify-center gap-3 min-w-0"
-                >
-                  <span
-                    class="text-sm font-medium text-gray-900 text-right truncate flex-1"
-                    >{{ match.home_team?.name }}</span
-                  >
-                  <span
-                    :class="[
-                      'text-sm font-mono px-2 py-0.5 rounded shrink-0',
-                      match.home_score != null
-                        ? 'bg-gray-900 text-white font-bold'
-                        : 'text-gray-400',
-                    ]"
-                  >
-                    {{
-                      match.home_score != null && match.away_score != null
-                        ? match.home_penalty_score != null
-                          ? `${match.home_score} – ${match.away_score} (${match.home_penalty_score}–${match.away_penalty_score} pens)`
-                          : `${match.home_score} – ${match.away_score}`
-                        : 'vs'
-                    }}
-                  </span>
-                  <span
-                    class="text-sm font-medium text-gray-900 text-left truncate flex-1"
-                    >{{ match.away_team?.name }}</span
-                  >
-                </div>
-                <div class="w-20 shrink-0 text-right">
-                  <span
-                    v-if="match.match_status === 'completed'"
-                    class="text-xs text-green-600 font-medium"
-                    >Final</span
-                  >
-                  <span
-                    v-else-if="match.match_status === 'in_progress'"
-                    class="text-xs text-blue-600 font-medium animate-pulse"
-                    >Live</span
-                  >
-                  <span
-                    v-else-if="match.match_status === 'cancelled'"
-                    class="text-xs text-red-500"
-                    >Cancelled</span
-                  >
-                  <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    {{ formatMatchDate(match.match_date) }}
+                  </div>
+                  <div class="hidden sm:flex gap-1 shrink-0">
+                    <span
+                      v-if="match.age_group"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
+                      >{{ match.age_group.name }}</span
+                    >
+                  </div>
+                  <div class="flex-1 flex items-center gap-2 min-w-0">
+                    <span
+                      class="text-sm font-medium text-gray-900 text-right truncate flex-1"
+                      >{{ match.home_team?.name }}</span
+                    >
+                    <span
+                      :class="[
+                        'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
+                        match.home_score != null
+                          ? 'bg-gray-900 text-white font-bold'
+                          : 'text-gray-400',
+                      ]"
+                    >
+                      {{
+                        match.home_score != null && match.away_score != null
+                          ? match.home_penalty_score != null
+                            ? `${match.home_score}–${match.away_score} (${match.home_penalty_score}-${match.away_penalty_score}pk)`
+                            : `${match.home_score}–${match.away_score}`
+                          : 'vs'
+                      }}
+                    </span>
+                    <span
+                      class="text-sm font-medium text-gray-900 text-left truncate flex-1"
+                      >{{ match.away_team?.name }}</span
+                    >
+                  </div>
+                  <div class="hidden sm:block w-20 shrink-0 text-right">
+                    <span
+                      v-if="match.match_status === 'completed'"
+                      class="text-xs text-green-600 font-medium"
+                      >Final</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'in_progress'"
+                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      >Live</span
+                    >
+                    <span
+                      v-else-if="match.match_status === 'cancelled'"
+                      class="text-xs text-red-500"
+                      >Cancelled</span
+                    >
+                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                  </div>
                 </div>
               </div>
             </div>
