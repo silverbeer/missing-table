@@ -28,6 +28,7 @@ logger = structlog.get_logger()
 # Cache patterns for invalidation
 MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
 PLAYOFF_CACHE_PATTERN = "mt:dao:playoffs:*"
+TOURNAMENTS_CACHE_PATTERN = "mt:dao:tournaments:*"
 
 
 # Load environment variables with environment-specific support
@@ -720,7 +721,7 @@ class MatchDAO(BaseDAO):
             external_match_id=external_match_id,
         )
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def update_match(
         self,
         match_id: int,
@@ -779,6 +780,7 @@ class MatchDAO(BaseDAO):
             # but get_match_by_id uses @dao_cache and would hit stale cache.
             clear_cache(MATCHES_CACHE_PATTERN)
             clear_cache(PLAYOFF_CACHE_PATTERN)
+            clear_cache(TOURNAMENTS_CACHE_PATTERN)
 
             # Get the updated match to return with full relations
             return self.get_match_by_id(match_id)
@@ -872,7 +874,7 @@ class MatchDAO(BaseDAO):
             logger.exception("Error retrieving match by ID")
             return None
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def delete_match(self, match_id: int) -> bool:
         """Delete a match."""
         try:
@@ -1095,7 +1097,7 @@ class MatchDAO(BaseDAO):
             logger.exception("Error getting live match state", match_id=match_id)
             return None
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def update_match_clock(
         self,
         match_id: int,
@@ -1161,7 +1163,7 @@ class MatchDAO(BaseDAO):
             logger.exception("Error updating match clock", match_id=match_id, action=action)
             return None
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def update_match_score(
         self,
         match_id: int,
