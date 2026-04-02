@@ -2679,8 +2679,12 @@ export default {
       if (a.match_status === 'live' && b.match_status !== 'live') return -1;
       if (a.match_status !== 'live' && b.match_status === 'live') return 1;
 
-      // For non-LIVE matches (or both LIVE), sort by date
-      return new Date(a.match_date) - new Date(b.match_date);
+      // For non-LIVE matches (or both LIVE), sort by date then kickoff time
+      const dateDiff = new Date(a.match_date) - new Date(b.match_date);
+      if (dateDiff !== 0) return dateDiff;
+      const aTime = a.scheduled_kickoff ? new Date(a.scheduled_kickoff) : new Date(0);
+      const bTime = b.scheduled_kickoff ? new Date(b.scheduled_kickoff) : new Date(0);
+      return aTime - bTime;
     };
 
     // Get filtered games based on match type
@@ -2804,9 +2808,13 @@ export default {
         );
       }
 
-      sortedGames = sortedGames.sort(
-        (a, b) => new Date(a.match_date) - new Date(b.match_date)
-      );
+      sortedGames = sortedGames.sort((a, b) => {
+        const dateDiff = new Date(a.match_date) - new Date(b.match_date);
+        if (dateDiff !== 0) return dateDiff;
+        const aTime = a.scheduled_kickoff ? new Date(a.scheduled_kickoff) : new Date(0);
+        const bTime = b.scheduled_kickoff ? new Date(b.scheduled_kickoff) : new Date(0);
+        return aTime - bTime;
+      });
 
       // Collect all match results first
       const allResults = [];
