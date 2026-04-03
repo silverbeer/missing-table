@@ -959,7 +959,10 @@ export default {
         is_home: true,
         match_date: match.match_date,
         scheduled_kickoff: match.scheduled_kickoff
-          ? match.scheduled_kickoff.slice(11, 16)
+          ? (() => {
+              const d = new Date(match.scheduled_kickoff);
+              return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            })()
           : '',
         tournament_round: match.tournament_round || '',
         tournament_group: match.tournament_group || '',
@@ -994,7 +997,7 @@ export default {
       try {
         const kickoffDatetime = t =>
           t && mForm.value.match_date
-            ? `${mForm.value.match_date}T${t}:00`
+            ? new Date(`${mForm.value.match_date}T${t}:00`).toISOString()
             : t || null;
         if (editingMatch.value) {
           // Update: score/status/round/group/date fields; optionally swap teams
