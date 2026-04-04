@@ -4,6 +4,7 @@ Comprehensive database backup script for MLS Next development.
 Creates JSON backups of all tables with timestamp.
 """
 
+import gzip
 import json
 import os
 import sys
@@ -129,7 +130,7 @@ def create_backup(backup_dir: Path | None = None):
         backup_dir = Path(__file__).parent.parent / 'backups'
     backup_dir.mkdir(parents=True, exist_ok=True)
     
-    backup_file = backup_dir / f"database_backup_{timestamp}.json"
+    backup_file = backup_dir / f"database_backup_{timestamp}.json.gz"
     
     print(f"Creating database backup: {backup_file}")
     print("=" * 50)
@@ -248,9 +249,9 @@ def create_backup(backup_dir: Path | None = None):
     except Exception as e:
         print(f"  ✗ Error backing up auth.users: {e}")
     
-    # Save backup to file
+    # Save backup to file (gzip compressed)
     try:
-        with open(backup_file, 'w') as f:
+        with gzip.open(backup_file, 'wt', encoding='utf-8') as f:
             json.dump(backup_data, f, indent=2, default=str)
         
         print("=" * 50)
@@ -278,7 +279,7 @@ def list_backups():
         return []
 
     # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
-    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
+    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json.gz"))
     backup_files.sort(reverse=True)  # Most recent first
     
     if not backup_files:
@@ -290,7 +291,7 @@ def list_backups():
     
     for i, backup_file in enumerate(backup_files):
         try:
-            with open(backup_file, 'r') as f:
+            with gzip.open(backup_file, 'rt', encoding='utf-8') as f:
                 data = json.load(f)
                 info = data.get('backup_info', {})
                 created = info.get('created_at', 'Unknown')
@@ -330,7 +331,7 @@ def cleanup_old_backups(
         return
 
     backup_files = sorted(
-        backup_dir.glob("database_backup_[0-9]*.json"),
+        backup_dir.glob("database_backup_[0-9]*.json.gz"),
         reverse=True,  # most recent first
     )
 
