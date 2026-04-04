@@ -31,7 +31,7 @@ print_error() {
 # Check that a recent backup exists (less than 4 hours old)
 # Returns 0 if a recent backup exists, 1 otherwise
 check_recent_backup() {
-    local backup_dir="$PROJECT_ROOT/backups"
+    local backup_dir="${HOME}/backups/missing-table"
     local max_age_minutes=240  # 4 hours
 
     if [ ! -d "$backup_dir" ]; then
@@ -39,15 +39,14 @@ check_recent_backup() {
         return 1
     fi
 
-    # Find backup files modified within the last 4 hours
-    # Only match timestamp-formatted backups (database_backup_[0-9]*.json)
+    # Find backup files modified within the last 4 hours (compressed backups)
     local recent_backups
-    recent_backups=$(find "$backup_dir" -maxdepth 1 -name "database_backup_[0-9]*.json" -mmin -${max_age_minutes} 2>/dev/null | sort -r | head -1)
+    recent_backups=$(find "$backup_dir" -maxdepth 1 -name "database_backup_[0-9]*.json.gz" -mmin -${max_age_minutes} 2>/dev/null | sort -r | head -1)
 
     if [ -z "$recent_backups" ]; then
         # Find the most recent backup to show how old it is
         local latest_backup
-        latest_backup=$(ls -t "$backup_dir"/database_backup_[0-9]*.json 2>/dev/null | head -1)
+        latest_backup=$(ls -t "$backup_dir"/database_backup_[0-9]*.json.gz 2>/dev/null | head -1)
         if [ -n "$latest_backup" ]; then
             local file_age_seconds
             file_age_seconds=$(( $(date +%s) - $(stat -f %m "$latest_backup") ))
@@ -109,9 +108,9 @@ backup_database() {
 
     cd "$PROJECT_ROOT/backend" || exit 1
 
-    # Create Python JSON backup
+    # Create Python JSON backup (compressed, stored to ~/backups/missing-table/)
     print_warning "Creating JSON backup (Python)..."
-    uv run python ../scripts/backup_database.py
+    uv run python ../scripts/backup_database.py --backup-dir "${HOME}/backups/missing-table"
 
     if [ $? -ne 0 ]; then
         print_error "Python backup failed"
