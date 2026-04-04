@@ -43,6 +43,7 @@ EXCLUDED_TABLES = {
     'user_profiles',    # Managed per-environment (different auth.users UUIDs)
     'schema_version',   # Internal tracking, recreated by migrations
     'service_accounts', # Contains API keys - managed per-environment
+    # FreeRADIUS tables were dropped in migration 20260404201640_drop_radius_tables.sql
 }
 
 
@@ -93,27 +94,40 @@ def check_for_new_tables(tables_to_backup: list) -> list:
 
 
 def backup_table(table_name: str, select_columns: str = '*'):
-    """Backup a single table to JSON."""
+    """Backup a single table to JSON, paginating to fetch all rows."""
     try:
         print(f"Backing up {table_name}...")
-        result = supabase.table(table_name).select(select_columns).execute()
-        
-        if result.data:
-            print(f"  ✓ {len(result.data)} records")
-            return result.data
-        else:
-            print(f"  ✓ 0 records (empty table)")
-            return []
-            
+        all_data = []
+        page_size = 1000
+        offset = 0
+
+        while True:
+            result = (
+                supabase.table(table_name)
+                .select(select_columns)
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            if not result.data:
+                break
+            all_data.extend(result.data)
+            if len(result.data) < page_size:
+                break
+            offset += page_size
+
+        print(f"  ✓ {len(all_data)} records")
+        return all_data
+
     except Exception as e:
         print(f"  ✗ Error backing up {table_name}: {e}")
         return None
 
-def create_backup():
+def create_backup(backup_dir: Path | None = None):
     """Create a complete database backup."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_dir = Path(__file__).parent.parent / 'backups'
-    backup_dir.mkdir(exist_ok=True)
+    if backup_dir is None:
+        backup_dir = Path(__file__).parent.parent / 'backups'
+    backup_dir.mkdir(parents=True, exist_ok=True)
     
     backup_file = backup_dir / f"database_backup_{timestamp}.json"
     
@@ -163,6 +177,15 @@ def create_backup():
         'match_lineups',
         'player_match_stats',
 
+        # Tournaments (depends on seasons, age_groups, leagues)
+        'tournaments',
+        'tournament_age_groups',
+
+        # Audit and activity logs
+        'audit_events',
+        'audit_teams',
+        'login_events',
+
         # Invitations
         'invitations',
         'invite_requests',
@@ -171,6 +194,7 @@ def create_backup():
         # - user_profiles: managed per-environment (different auth.users UUIDs)
         # - service_accounts: contains API keys, managed per-environment
         # - schema_version: internal tracking, recreated by migrations
+        # - rad* tables: FreeRADIUS protocol tables, not application data
     ]
 
     # Safety check: warn if database has tables not in backup list
@@ -192,15 +216,37 @@ def create_backup():
         if data is not None:
             backup_data['tables'][table] = data
     
-    # Special handling for auth.users (metadata only, no sensitive data)
-    print("Backing up auth.users metadata...")
+    # Special handling for auth.users via Admin API (not accessible via REST)
+    print("Backing up auth.users...")
     try:
-        auth_users = supabase.table('auth.users').select('id, email, created_at, last_sign_in_at').execute()
-        if auth_users.data:
-            print(f"  ✓ {len(auth_users.data)} user records (metadata only)")
-            backup_data['tables']['auth_users_metadata'] = auth_users.data
+        all_users = []
+        page = 1
+        per_page = 1000
+        while True:
+            response = supabase.auth.admin.list_users(page=page, per_page=per_page)
+            # SDK returns a list of User objects
+            users = response if isinstance(response, list) else getattr(response, 'users', [])
+            if not users:
+                break
+            for u in users:
+                # Serialize to dict, keeping only non-sensitive identity fields
+                all_users.append({
+                    'id': str(u.id),
+                    'email': u.email,
+                    'role': getattr(u, 'role', None),
+                    'email_confirmed_at': str(u.email_confirmed_at) if u.email_confirmed_at else None,
+                    'created_at': str(u.created_at) if u.created_at else None,
+                    'last_sign_in_at': str(u.last_sign_in_at) if u.last_sign_in_at else None,
+                    'user_metadata': getattr(u, 'user_metadata', {}),
+                    'app_metadata': getattr(u, 'app_metadata', {}),
+                })
+            if len(users) < per_page:
+                break
+            page += 1
+        print(f"  ✓ {len(all_users)} auth users")
+        backup_data['tables']['auth_users'] = all_users
     except Exception as e:
-        print(f"  ✗ Error backing up auth users: {e}")
+        print(f"  ✗ Error backing up auth.users: {e}")
     
     # Save backup to file
     try:
@@ -261,52 +307,124 @@ def list_backups():
     
     return backup_files
 
-def cleanup_old_backups(keep_count: int = 10):
-    """Keep only the most recent N backups."""
-    backup_dir = Path(__file__).parent.parent / 'backups'
+def cleanup_old_backups(
+    backup_dir: Path | None = None,
+    keep_days: int = 30,
+    keep_monthly: bool = True,
+):
+    """
+    Retention policy:
+      - Keep all backups from the last `keep_days` days.
+      - For older backups, keep one per calendar month (the most recent of that month).
+      - Delete everything else.
+
+    Both `keep_days` and `keep_monthly` are configurable.
+    """
+    import re
+    from datetime import timedelta
+
+    if backup_dir is None:
+        backup_dir = Path(__file__).parent.parent / 'backups'
 
     if not backup_dir.exists():
         return
 
-    # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
-    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
-    backup_files.sort(reverse=True)  # Most recent first
-    
-    if len(backup_files) <= keep_count:
-        print(f"Only {len(backup_files)} backups found, keeping all.")
+    backup_files = sorted(
+        backup_dir.glob("database_backup_[0-9]*.json"),
+        reverse=True,  # most recent first
+    )
+
+    if not backup_files:
+        print("No backups to clean up.")
         return
-    
-    files_to_delete = backup_files[keep_count:]
-    print(f"Cleaning up {len(files_to_delete)} old backup files...")
-    
-    for backup_file in files_to_delete:
+
+    cutoff = datetime.now() - timedelta(days=keep_days)
+    monthly_kept: dict[str, Path] = {}  # "YYYY-MM" -> file to keep
+    to_delete: list[Path] = []
+
+    for f in backup_files:
+        m = re.match(r'database_backup_(\d{4})(\d{2})(\d{2})_', f.name)
+        if not m:
+            continue
+        file_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+        if file_date >= cutoff:
+            continue  # within daily retention window — always keep
+
+        if keep_monthly:
+            month_key = f"{m.group(1)}-{m.group(2)}"
+            if month_key not in monthly_kept:
+                monthly_kept[month_key] = f  # keep most recent of this month
+                continue
+
+        to_delete.append(f)
+
+    if not to_delete:
+        print(f"No backups to delete (keeping {len(backup_files)} files).")
+        return
+
+    print(f"Cleaning up {len(to_delete)} backup(s) outside retention policy...")
+    for f in to_delete:
         try:
-            backup_file.unlink()
-            print(f"  ✓ Deleted {backup_file.name}")
+            f.unlink()
+            print(f"  ✓ Deleted {f.name}")
         except Exception as e:
-            print(f"  ✗ Error deleting {backup_file.name}: {e}")
+            print(f"  ✗ Error deleting {f.name}: {e}")
+
+    kept = len(backup_files) - len(to_delete)
+    print(f"Retention: {kept} backup(s) kept ({keep_days}-day daily + {'monthly archive' if keep_monthly else 'no monthly archive'})")
 
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Database backup utility")
     parser.add_argument('--list', action='store_true', help='List available backups')
-    parser.add_argument('--cleanup', type=int, metavar='N', help='Keep only N most recent backups')
-    
+    parser.add_argument('--cleanup', action='store_true', help='Run retention cleanup')
+    parser.add_argument(
+        '--backup-dir',
+        type=Path,
+        default=None,
+        help='Directory to store backups (default: ~/backups/missing-table)',
+    )
+    parser.add_argument(
+        '--keep-days',
+        type=int,
+        default=30,
+        help='Number of days to keep daily backups (default: 30)',
+    )
+    parser.add_argument(
+        '--no-monthly',
+        action='store_true',
+        help='Disable monthly archive retention',
+    )
+
     args = parser.parse_args()
-    
+
+    # Resolve backup directory
+    backup_dir = args.backup_dir or Path.home() / 'backups' / 'missing-table'
+
     try:
         if args.list:
             list_backups()
         elif args.cleanup:
-            cleanup_old_backups(args.cleanup)
+            cleanup_old_backups(
+                backup_dir=backup_dir,
+                keep_days=args.keep_days,
+                keep_monthly=not args.no_monthly,
+            )
         else:
-            # Default: create backup
-            backup_file = create_backup()
+            # Default: create backup then clean up
+            backup_file = create_backup(backup_dir=backup_dir)
             if backup_file:
                 print(f"\n💡 To restore this backup, run:")
                 print(f"   python scripts/restore_database.py {backup_file.name}")
-                
+                print()
+                cleanup_old_backups(
+                    backup_dir=backup_dir,
+                    keep_days=args.keep_days,
+                    keep_monthly=not args.no_monthly,
+                )
+
     except KeyboardInterrupt:
         print("\n❌ Backup cancelled by user")
     except Exception as e:
