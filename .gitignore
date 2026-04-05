@@ -161,6 +161,8 @@ crew_testing/*.md
 .coverage
 coverage.json
 **/coverage.json
+coverage_audit.json
+**/coverage_audit.json
 test-catalog.json
 **/test-catalog.json
 .hypothesis/

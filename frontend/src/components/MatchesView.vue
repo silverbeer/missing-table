@@ -2682,8 +2682,12 @@ export default {
       // For non-LIVE matches (or both LIVE), sort by date then kickoff time
       const dateDiff = new Date(a.match_date) - new Date(b.match_date);
       if (dateDiff !== 0) return dateDiff;
-      const aTime = a.scheduled_kickoff ? new Date(a.scheduled_kickoff) : new Date(0);
-      const bTime = b.scheduled_kickoff ? new Date(b.scheduled_kickoff) : new Date(0);
+      const aTime = a.scheduled_kickoff
+        ? new Date(a.scheduled_kickoff)
+        : new Date(0);
+      const bTime = b.scheduled_kickoff
+        ? new Date(b.scheduled_kickoff)
+        : new Date(0);
       return aTime - bTime;
     };
 
@@ -2811,8 +2815,12 @@ export default {
       sortedGames = sortedGames.sort((a, b) => {
         const dateDiff = new Date(a.match_date) - new Date(b.match_date);
         if (dateDiff !== 0) return dateDiff;
-        const aTime = a.scheduled_kickoff ? new Date(a.scheduled_kickoff) : new Date(0);
-        const bTime = b.scheduled_kickoff ? new Date(b.scheduled_kickoff) : new Date(0);
+        const aTime = a.scheduled_kickoff
+          ? new Date(a.scheduled_kickoff)
+          : new Date(0);
+        const bTime = b.scheduled_kickoff
+          ? new Date(b.scheduled_kickoff)
+          : new Date(0);
         return aTime - bTime;
       });
 
