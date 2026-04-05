@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-100">
+  <div class="min-h-screen bg-slate-50">
     <!-- Navigation -->
     <AuthNav @show-login="showLoginModal = true" @logout="handleLogout" />
 
@@ -31,17 +31,6 @@
 
     <!-- Main Content -->
     <div class="container mx-auto px-4 py-8">
-      <!-- Hero Section -->
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-blue-600 mb-2">
-          The table you've been missing.
-        </h1>
-        <p class="text-lg text-gray-600">
-          Community-built standings, tracking the top youth soccer leagues in
-          the US
-        </p>
-      </div>
-
       <!-- Loading indicator -->
       <div v-if="authStore.state.loading" class="loading-container">
         <div class="loading-spinner"></div>
@@ -56,28 +45,77 @@
 
       <!-- Content based on auth status -->
       <div v-if="!authStore.state.loading">
-        <!-- Show welcome message if not authenticated -->
+        <!-- Unauthenticated view -->
         <div v-if="!authStore.state.session" class="max-w-4xl mx-auto">
+          <!-- Hero (inside loading guard — renders exactly once) -->
+          <div
+            class="text-center mb-8 bg-gradient-to-br from-brand-700 to-slate-600 rounded-2xl py-14 px-6 text-white shadow-lg"
+          >
+            <div
+              class="inline-flex items-center justify-center w-14 h-14 bg-white/15 rounded-full mb-5"
+            >
+              <svg
+                class="w-7 h-7 text-white/80"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+                />
+              </svg>
+            </div>
+            <h1 class="text-4xl font-bold mb-3 tracking-tight">
+              The table you've been missing.
+            </h1>
+            <p class="text-lg text-slate-300 max-w-xl mx-auto">
+              Community-built standings, tracking the top youth soccer leagues
+              in the US
+            </p>
+          </div>
           <!-- Main Card -->
-          <div class="bg-white rounded-lg shadow p-8 text-center mb-6">
-            <div class="text-6xl mb-4">🔒</div>
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+          <div
+            class="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200/60 p-8 text-center mb-6"
+          >
+            <div
+              class="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-5"
+            >
+              <svg
+                class="w-8 h-8 text-slate-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                />
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-3">
               Invite-Only Platform
             </h2>
-            <p class="text-gray-600 mb-6">
+            <p class="text-slate-500 mb-7 max-w-md mx-auto">
               Missing Table is an invite-only community platform for tracking
               youth soccer league standings and games.
             </p>
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 @click="showLoginModal = true"
-                class="bg-blue-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-blue-700 transition-colors text-lg"
+                class="bg-brand-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand-600 transition-colors text-base shadow-sm"
               >
                 Log In
               </button>
               <button
                 @click="showInviteRequestModal = true"
-                class="bg-gray-100 text-gray-700 px-8 py-3 rounded-md font-semibold hover:bg-gray-200 transition-colors text-lg border border-gray-300"
+                class="bg-white text-slate-700 px-8 py-3 rounded-lg font-semibold hover:bg-slate-50 transition-colors text-base border border-slate-300 shadow-sm"
               >
                 Request Invite
               </button>
@@ -86,25 +124,82 @@
 
           <!-- Features Section -->
           <div class="grid md:grid-cols-3 gap-4">
-            <div class="bg-white rounded-lg shadow p-6 text-center">
-              <div class="text-3xl mb-3">📊</div>
-              <h3 class="font-semibold text-gray-800 mb-2">Live Standings</h3>
-              <p class="text-sm text-gray-600">
+            <div
+              class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200/60 p-6 text-center"
+            >
+              <div
+                class="inline-flex items-center justify-center w-12 h-12 bg-brand-50 rounded-xl mb-4"
+              >
+                <svg
+                  class="w-6 h-6 text-brand-500"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+                  />
+                </svg>
+              </div>
+              <h3 class="font-semibold text-slate-800 mb-2">Live Standings</h3>
+              <p class="text-sm text-slate-500">
                 Real-time league tables with automatic point calculations and
                 rankings
               </p>
             </div>
-            <div class="bg-white rounded-lg shadow p-6 text-center">
-              <div class="text-3xl mb-3">📅</div>
-              <h3 class="font-semibold text-gray-800 mb-2">Match Tracking</h3>
-              <p class="text-sm text-gray-600">
+            <div
+              class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200/60 p-6 text-center"
+            >
+              <div
+                class="inline-flex items-center justify-center w-12 h-12 bg-sky-50 rounded-xl mb-4"
+              >
+                <svg
+                  class="w-6 h-6 text-sky-600"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                  />
+                </svg>
+              </div>
+              <h3 class="font-semibold text-slate-800 mb-2">Match Tracking</h3>
+              <p class="text-sm text-slate-500">
                 Track scores, schedules, and results for your team's games
               </p>
             </div>
-            <div class="bg-white rounded-lg shadow p-6 text-center">
-              <div class="text-3xl mb-3">👥</div>
-              <h3 class="font-semibold text-gray-800 mb-2">Team Management</h3>
-              <p class="text-sm text-gray-600">
+            <div
+              class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200/60 p-6 text-center"
+            >
+              <div
+                class="inline-flex items-center justify-center w-12 h-12 bg-violet-50 rounded-xl mb-4"
+              >
+                <svg
+                  class="w-6 h-6 text-violet-600"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+                  />
+                </svg>
+              </div>
+              <h3 class="font-semibold text-slate-800 mb-2">Team Management</h3>
+              <p class="text-sm text-slate-500">
                 Manage rosters, match types, and team information all in one
                 place
               </p>
@@ -218,8 +313,11 @@
         </div>
 
         <!-- Tabs for authenticated users -->
-        <div v-else class="mb-4">
-          <nav class="flex space-x-4" aria-label="Tabs">
+        <div v-else class="mb-0">
+          <nav
+            class="flex space-x-1 border-b border-slate-200 overflow-x-auto"
+            aria-label="Tabs"
+          >
             <button
               v-for="tab in availableTabs"
               :key="tab.id"
@@ -228,11 +326,11 @@
               "
               :class="[
                 currentTab === tab.id
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'border-b-2 border-brand-500 text-brand-500 bg-white'
                   : tab.isLive
-                    ? 'bg-red-100 text-red-700 live-tab-pulse'
-                    : 'text-gray-500 hover:text-gray-700',
-                'px-3 py-2 font-medium text-sm rounded-md',
+                    ? 'text-red-600 hover:text-red-700 live-tab-pulse border-b-2 border-transparent'
+                    : 'text-slate-500 hover:text-slate-700 border-b-2 border-transparent hover:border-slate-300',
+                'px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors',
               ]"
             >
               <span v-if="tab.isLive" class="live-dot"></span>
@@ -242,7 +340,10 @@
         </div>
 
         <!-- Tab Content (only for authenticated users) -->
-        <div v-if="authStore.state.session" class="bg-white rounded-lg shadow">
+        <div
+          v-if="authStore.state.session"
+          class="bg-white rounded-b-xl shadow-sm ring-1 ring-slate-200/60 ring-t-0"
+        >
           <!-- Standings -->
           <div v-if="currentTab === 'table'" class="p-4">
             <LeagueTable
@@ -782,11 +883,12 @@ export default {
 .modal-content {
   position: relative;
   background: white;
-  border-radius: 8px;
-  max-width: 500px;
+  border-radius: 12px;
+  max-width: 460px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .modal-close {
@@ -817,8 +919,8 @@ export default {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #007bff;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #2563eb;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -862,18 +964,18 @@ export default {
 }
 
 .login-prompt-btn {
-  background-color: #007bff;
+  background-color: #2563eb;
   color: white;
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   margin-top: 1rem;
 }
 
 .login-prompt-btn:hover {
-  background-color: #0056b3;
+  background-color: #1d4ed8;
 }
 
 /* Live Tab Styles */

@@ -7,8 +7,12 @@
           alt="Missing Table"
           class="login-logo"
         />
+        <p class="login-tagline">
+          {{
+            showInviteSignup ? 'Create your account' : 'Sign in to your account'
+          }}
+        </p>
       </div>
-      <h2>{{ showInviteSignup ? 'Sign Up with Invite' : 'Login' }}</h2>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
@@ -205,7 +209,7 @@
         </p>
       </div>
 
-      <!-- Role Selection for Admins (after successful signup) -->
+      <!-- Role Selection (after successful signup) -->
       <div v-if="showRoleSelection" class="role-selection">
         <h3>Select Your Role</h3>
         <div class="role-options">
@@ -469,35 +473,31 @@ export default {
 <style scoped>
 .login-form {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 60vh;
-  padding: 20px;
+  flex-direction: column;
 }
 
 .form-container {
+  padding: 2rem 2rem 2rem;
   background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 400px;
-}
-
-.form-container h2 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  color: #333;
 }
 
 .logo-container {
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .login-logo {
-  max-width: 280px;
+  max-width: 220px;
   height: auto;
+}
+
+.login-tagline {
+  margin: 0.75rem 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .auth-form {
@@ -505,102 +505,121 @@ export default {
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   font-weight: 600;
-  color: #555;
+  font-size: 0.875rem;
+  color: #374151;
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  background: #f9fafb;
+  color: #111827;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  border-color: #0257fe;
+  box-shadow: 0 0 0 3px rgba(2, 87, 254, 0.15);
+  background: white;
 }
 
 .form-group input:disabled {
-  background-color: #f8f9fa;
+  background-color: #f3f4f6;
+  color: #9ca3af;
   cursor: not-allowed;
 }
 
 .error-message {
-  background-color: #f8d7da;
-  color: #721c24;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
   padding: 0.75rem;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-bottom: 1rem;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
 .form-actions {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 .submit-btn {
   width: 100%;
-  background-color: #007bff;
+  background-color: #0257fe;
   color: white;
   padding: 0.75rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
+  letter-spacing: 0.01em;
 }
 
 .submit-btn:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: #0047d4;
 }
 
 .submit-btn:disabled {
-  background-color: #6c757d;
+  background-color: #9ca3af;
   cursor: not-allowed;
 }
 
 .form-footer {
   text-align: center;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #f3f4f6;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.form-footer p {
+  margin: 0.35rem 0;
 }
 
 .link-btn {
   background: none;
   border: none;
-  color: #007bff;
+  color: #0257fe;
   cursor: pointer;
   text-decoration: underline;
   font-size: inherit;
+  font-weight: 500;
 }
 
 .link-btn:hover {
-  color: #0056b3;
+  color: #0047d4;
 }
 
 .role-selection {
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #f3f4f6;
 }
 
 .role-selection h3 {
   margin-bottom: 1rem;
-  color: #333;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .role-options {
@@ -611,28 +630,34 @@ export default {
   display: block;
   padding: 0.75rem;
   margin-bottom: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
 .role-option:hover {
-  background-color: #f8f9fa;
+  background-color: #e8f0ff;
+  border-color: #0257fe;
 }
 
 .role-option input[type='radio'] {
   margin-right: 0.5rem;
+  accent-color: #0257fe;
 }
 
 .role-option span {
   font-weight: 600;
   display: block;
+  color: #111827;
+  font-size: 0.9rem;
 }
 
 .role-option small {
-  color: #666;
-  font-size: 0.85rem;
+  color: #6b7280;
+  font-size: 0.8rem;
 }
 
 .team-selection {
@@ -643,35 +668,33 @@ export default {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
+  font-size: 0.875rem;
+  color: #374151;
 }
 
 .invite-info {
   margin-top: 0.5rem;
-  padding: 0.75rem;
-  background-color: #d4edda;
-  border: 1px solid #c3e6cb;
-  border-radius: 4px;
-  font-size: 0.9rem;
+  padding: 0.65rem 0.75rem;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  font-size: 0.875rem;
 }
 
 .invite-info p {
-  margin: 0.25rem 0;
-  color: #155724;
+  margin: 0;
+  color: #166534;
+  font-weight: 500;
 }
 
-.invite-info strong {
-  color: #0f4c20;
-}
-
-/* Social Login Styles */
+/* Social Login */
 .social-login {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 .divider {
   display: flex;
   align-items: center;
-  text-align: center;
   margin: 1rem 0;
 }
 
@@ -679,13 +702,14 @@ export default {
 .divider::after {
   content: '';
   flex: 1;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .divider span {
   padding: 0 0.75rem;
-  color: #6c757d;
-  font-size: 0.875rem;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .google-btn {
@@ -694,30 +718,31 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 0.7rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   background-color: white;
-  color: #333;
-  font-size: 1rem;
+  color: #374151;
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .google-btn:hover:not(:disabled) {
-  background-color: #f8f9fa;
-  border-color: #ccc;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .google-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .google-icon {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
 }
 </style>

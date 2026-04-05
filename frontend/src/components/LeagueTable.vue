@@ -11,10 +11,10 @@
             :key="ageGroup.id"
             @click="selectedAgeGroupId = ageGroup.id"
             :class="[
-              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedAgeGroupId === ageGroup.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
             ]"
             :data-testid="`age-group-${ageGroup.name}`"
           >
@@ -32,10 +32,10 @@
             :key="league.id"
             @click="selectedLeagueId = league.id"
             :class="[
-              'px-4 py-2 text-sm rounded-md font-medium transition-colors',
+              'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedLeagueId === league.id
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
             ]"
           >
             {{ league.name }}
@@ -52,7 +52,7 @@
           <h3 class="text-sm font-medium text-gray-700 mb-3">Season</h3>
           <select
             v-model="selectedSeasonId"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             data-testid="season-filter"
           >
             <option
@@ -70,7 +70,7 @@
           <h3 class="text-sm font-medium text-gray-700 mb-3">Division</h3>
           <select
             v-model="selectedDivisionId"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             data-testid="division-filter"
           >
             <option
@@ -135,81 +135,92 @@
       <!-- Table -->
       <table
         v-else
-        class="min-w-full divide-y divide-gray-200"
+        class="min-w-full divide-y divide-slate-200"
         data-testid="standings-table"
       >
-        <thead class="bg-gray-50">
+        <thead class="bg-brand-500">
           <tr>
             <th
-              class="px-1 sm:px-2 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-1 sm:px-2 md:px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Rank"
             >
               #
             </th>
             <th
-              class="hidden md:table-cell px-1 sm:px-2 md:px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-              title="Position movement"
+              class="hidden md:table-cell px-1 sm:px-2 md:px-3 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Position change since last week"
             >
               +/-
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-[100px] sm:max-w-[140px] md:max-w-none"
+              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider max-w-[100px] sm:max-w-[140px] md:max-w-none"
             >
               Team
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Games Played"
             >
               GP
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Wins"
             >
               W
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Draws"
             >
               D
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Losses"
             >
               L
             </th>
             <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Goals For"
             >
               GF
             </th>
             <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Goals Against"
             >
               GA
             </th>
             <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Goal Difference"
             >
               GD
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-brand-200 uppercase tracking-wider"
+              title="Points"
             >
               Pts
             </th>
             <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              title="Last 5 results"
             >
               Form
             </th>
           </tr>
         </thead>
         <tbody
-          class="bg-white divide-y divide-gray-200"
+          class="bg-white divide-y divide-slate-100"
           data-testid="standings-body"
         >
           <tr
             v-for="(team, index) in tableData"
             :key="team.team"
+            class="hover:bg-slate-50 transition-colors"
             data-testid="standings-row"
           >
             <td
@@ -284,7 +295,7 @@
               {{ team.goal_difference }}
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-bold text-brand-600"
             >
               {{ team.points }}
             </td>

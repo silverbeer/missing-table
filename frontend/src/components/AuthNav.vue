@@ -194,8 +194,8 @@ export default {
 
 <style scoped>
 .auth-nav {
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   position: relative;
   z-index: 1000;
 }
@@ -273,15 +273,15 @@ export default {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .user-dropdown:hover {
-  background-color: #e9ecef;
+  background-color: #f1f5f9;
 }
 
 .user-info {
@@ -292,7 +292,7 @@ export default {
 
 .user-name {
   font-weight: 600;
-  color: #333;
+  color: #1e293b;
   font-size: 0.9rem;
 }
 
@@ -321,8 +321,24 @@ export default {
 
 .dropdown-arrow {
   font-size: 0.7rem;
-  color: #666;
+  color: #94a3b8;
   transition: transform 0.2s;
+}
+
+.user-role.role-admin {
+  color: #dc2626;
+}
+
+.user-role.role-manager {
+  color: #2563eb;
+}
+
+.user-role.role-player {
+  color: #16a34a;
+}
+
+.user-role.role-fan {
+  color: #64748b;
 }
 
 .user-dropdown.active .dropdown-arrow {
@@ -334,9 +350,9 @@ export default {
   top: 100%;
   right: 0;
   background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   min-width: 150px;
   z-index: 1001;
   margin-top: 0.5rem;
@@ -347,7 +363,7 @@ export default {
   width: 100%;
   padding: 0.75rem 1rem;
   text-decoration: none;
-  color: #333;
+  color: #374151;
   border: none;
   background: none;
   text-align: left;
@@ -356,46 +372,46 @@ export default {
 }
 
 .dropdown-item:hover {
-  background-color: #f8f9fa;
+  background-color: #f8fafc;
 }
 
 .dropdown-divider {
   height: 1px;
-  background-color: #dee2e6;
+  background-color: #e2e8f0;
   margin: 0.5rem 0;
 }
 
 .logout-item {
-  color: #dc3545;
+  color: #dc2626;
   font-weight: 500;
 }
 
 .logout-item:hover {
-  background-color: #f8d7da;
+  background-color: #fef2f2;
 }
 
 .login-btn {
-  background-color: #007bff;
+  background-color: #0257fe;
   color: white;
   border: none;
   padding: 0.5rem 1.5rem;
-  border-radius: 4px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .login-btn:hover {
-  background-color: #0056b3;
+  background-color: #0047d4;
 }
 
 .loading-bar {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #007bff, #0056b3);
+  background: linear-gradient(90deg, #0257fe, #99b8ff);
   animation: loading 1.5s ease-in-out infinite;
 }
 
