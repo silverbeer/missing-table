@@ -110,8 +110,8 @@ describe('LoginForm', () => {
       // Arrange & Act: Mount the component
       const wrapper = mountLoginForm();
 
-      // Assert: Check the heading says "Login"
-      expect(wrapper.find('h2').text()).toBe('Login');
+      // Assert: Check the submit button says "Login"
+      expect(wrapper.find('[data-testid="login-button"]').text()).toBe('Login');
 
       // Assert: Check form inputs exist using data-testid attributes
       // (data-testid is a convention for targeting elements in tests)
@@ -165,13 +165,15 @@ describe('LoginForm', () => {
       const wrapper = mountLoginForm();
 
       // Initially shows "Login"
-      expect(wrapper.find('h2').text()).toBe('Login');
+      expect(wrapper.find('[data-testid="login-button"]').text()).toBe('Login');
 
       // Click the signup link
       await wrapper.find('[data-testid="signup-link"]').trigger('click');
 
-      // Now shows "Sign Up with Invite"
-      expect(wrapper.find('h2').text()).toBe('Sign Up with Invite');
+      // Now shows "Sign Up"
+      expect(wrapper.find('[data-testid="login-button"]').text()).toBe(
+        'Sign Up'
+      );
 
       // Invite code field should now be visible
       expect(wrapper.find('#inviteCode').exists()).toBe(true);
@@ -185,11 +187,13 @@ describe('LoginForm', () => {
 
       // Switch to signup
       await wrapper.find('[data-testid="signup-link"]').trigger('click');
-      expect(wrapper.find('h2').text()).toBe('Sign Up with Invite');
+      expect(wrapper.find('[data-testid="login-button"]').text()).toBe(
+        'Sign Up'
+      );
 
       // Switch back to login
       await wrapper.find('[data-testid="login-link"]').trigger('click');
-      expect(wrapper.find('h2').text()).toBe('Login');
+      expect(wrapper.find('[data-testid="login-button"]').text()).toBe('Login');
     });
 
     /**
@@ -504,7 +508,9 @@ describe('LoginForm', () => {
       await flushPromises();
 
       // Should be in signup mode
-      expect(wrapper.find('h2').text()).toBe('Sign Up with Invite');
+      expect(wrapper.find('[data-testid="login-button"]').text()).toBe(
+        'Sign Up'
+      );
 
       // Invite code should be pre-filled
       const inviteInput = wrapper.find('#inviteCode');
