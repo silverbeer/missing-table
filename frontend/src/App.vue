@@ -51,7 +51,7 @@
           <div
             class="text-center mb-8 rounded-2xl py-14 px-6 text-white shadow-lg relative overflow-hidden"
             style="
-              background-image: url('/src/assets/hero-goal.png');
+              background-image: url('/hero-goal.png');
               background-size: cover;
               background-position: center;
             "
