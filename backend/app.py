@@ -1348,6 +1348,11 @@ async def update_player_customization(
             update_data["snapchat_handle"] = customization.snapchat_handle
         if customization.tiktok_handle is not None:
             update_data["tiktok_handle"] = customization.tiktok_handle
+        # Telegram/Discord handles
+        if customization.telegram_handle is not None:
+            update_data["telegram_handle"] = customization.telegram_handle
+        if customization.discord_handle is not None:
+            update_data["discord_handle"] = customization.discord_handle
 
         if len(update_data) > 1:  # More than just updated_at
             player_dao.update_user_profile(user_id, update_data)

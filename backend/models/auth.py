@@ -163,6 +163,9 @@ class PlayerCustomization(BaseModel):
     instagram_handle: str | None = None
     snapchat_handle: str | None = None
     tiktok_handle: str | None = None
+    # Telegram/Discord handles for channel access
+    telegram_handle: str | None = None
+    discord_handle: str | None = None
 
     @field_validator("instagram_handle", "snapchat_handle", "tiktok_handle")
     @classmethod

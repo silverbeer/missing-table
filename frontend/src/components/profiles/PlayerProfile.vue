@@ -398,6 +398,123 @@
       <h3>Join a Team</h3>
       <p>Contact a team manager or administrator to get assigned to a team.</p>
     </div>
+
+    <!-- Live Match Updates (Telegram / Discord channel access) -->
+    <div v-if="authStore.state.profile?.team_id" class="channel-section">
+      <h3 class="channel-title">Live Match Updates</h3>
+      <p class="channel-desc">
+        Follow your team's matches live via Telegram and Discord — get goal
+        alerts and chat with other fans. Set your handles in
+        <button class="inline-link" @click="showEditor = true">
+          Customize Profile
+        </button>
+        then request access below.
+      </p>
+      <div class="channel-platforms">
+        <div class="channel-item">
+          <div class="channel-item-header">
+            <span class="channel-name">✈️ Telegram</span>
+            <span
+              :class="channelStatusClass(channelAccess.telegram_status)"
+              class="channel-pill"
+            >
+              {{ channelStatusLabel(channelAccess.telegram_status) }}
+            </span>
+          </div>
+          <div
+            v-if="authStore.state.profile?.telegram_handle"
+            class="channel-handle"
+          >
+            @{{ authStore.state.profile.telegram_handle }}
+          </div>
+          <div v-else class="channel-handle-missing">
+            No handle set — add it in Customize Profile
+          </div>
+          <div v-if="channelAccess.telegram_status !== 'approved'">
+            <button
+              v-if="canRequest('telegram')"
+              @click="requestChannelAccess('telegram')"
+              :disabled="requestingChannel === 'telegram'"
+              class="request-access-btn"
+            >
+              {{
+                requestingChannel === 'telegram'
+                  ? 'Requesting...'
+                  : 'Request Telegram Access'
+              }}
+            </button>
+            <p
+              v-if="channelAccess.telegram_status === 'pending'"
+              class="channel-status-msg"
+            >
+              Pending — an admin will add you and approve your request.
+            </p>
+            <p
+              v-if="channelAccess.telegram_status === 'denied'"
+              class="channel-status-msg denied"
+            >
+              Request denied. Update your handle and request again.
+            </p>
+          </div>
+          <div v-else class="channel-approved-msg">
+            You've been added to the Telegram channel
+          </div>
+        </div>
+
+        <div class="channel-item">
+          <div class="channel-item-header">
+            <span class="channel-name">🎮 Discord</span>
+            <span
+              :class="channelStatusClass(channelAccess.discord_status)"
+              class="channel-pill"
+            >
+              {{ channelStatusLabel(channelAccess.discord_status) }}
+            </span>
+          </div>
+          <div
+            v-if="authStore.state.profile?.discord_handle"
+            class="channel-handle"
+          >
+            {{ authStore.state.profile.discord_handle }}
+          </div>
+          <div v-else class="channel-handle-missing">
+            No handle set — add it in Customize Profile
+          </div>
+          <div v-if="channelAccess.discord_status !== 'approved'">
+            <button
+              v-if="canRequest('discord')"
+              @click="requestChannelAccess('discord')"
+              :disabled="requestingChannel === 'discord'"
+              class="request-access-btn"
+            >
+              {{
+                requestingChannel === 'discord'
+                  ? 'Requesting...'
+                  : 'Request Discord Access'
+              }}
+            </button>
+            <p
+              v-if="channelAccess.discord_status === 'pending'"
+              class="channel-status-msg"
+            >
+              Pending — an admin will add you and approve your request.
+            </p>
+            <p
+              v-if="channelAccess.discord_status === 'denied'"
+              class="channel-status-msg denied"
+            >
+              Request denied. Update your handle and request again.
+            </p>
+          </div>
+          <div v-else class="channel-approved-msg">
+            You've been added to the Discord server
+          </div>
+        </div>
+      </div>
+      <p v-if="channelRequestError" class="channel-error-msg">
+        {{ channelRequestError }}
+      </p>
+    </div>
   </div>
 </template>
 
@@ -434,6 +551,12 @@ export default {
     const editableDisplayName = ref('');
     const individualStats = ref(null);
     const loadingStats = ref(false);
+    const channelAccess = ref({
+      telegram_status: 'none',
+      discord_status: 'none',
+    });
+    const requestingChannel = ref(null);
+    const channelRequestError = ref('');
 
     const profilePhotoUrl = computed(() => {
       const profile = authStore.state.profile;
@@ -796,6 +919,78 @@ export default {
       }
     };
 
+    const fetchChannelAccess = async () => {
+      if (!authStore.state.profile?.team_id) return;
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/channel-requests/me`
+        );
+        if (response && !response.error) {
+          channelAccess.value.telegram_status =
+            response.telegram_status || 'none';
+          channelAccess.value.discord_status =
+            response.discord_status || 'none';
+        }
+      } catch {
+        // 404 = no request yet
+      }
+    };
+
+    const channelStatusLabel = status => {
+      return (
+        {
+          none: 'Not requested',
+          pending: 'Pending',
+          approved: 'Added',
+          denied: 'Denied',
+        }[status] || status
+      );
+    };
+
+    const channelStatusClass = status => ({
+      'pill-none': status === 'none',
+      'pill-pending': status === 'pending',
+      'pill-approved': status === 'approved',
+      'pill-denied': status === 'denied',
+    });
+
+    const canRequest = platform => {
+      const status = channelAccess.value[`${platform}_status`];
+      const handle = authStore.state.profile?.[`${platform}_handle`];
+      return handle && (status === 'none' || status === 'denied');
+    };
+
+    const requestChannelAccess = async platform => {
+      channelRequestError.value = '';
+      requestingChannel.value = platform;
+      try {
+        const handle = authStore.state.profile?.[`${platform}_handle`];
+        const response = await fetch(
+          `${getApiBaseUrl()}/api/channel-requests`,
+          {
+            method: 'POST',
+            headers: {
+              ...authStore.getAuthHeaders(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              [platform]: true,
+              [`${platform}_handle`]: handle,
+            }),
+          }
+        );
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.detail || 'Failed to submit request');
+        }
+        await fetchChannelAccess();
+      } catch (err) {
+        channelRequestError.value = err.message;
+      } finally {
+        requestingChannel.value = null;
+      }
+    };
+
     const fetchIndividualStats = async seasonId => {
       if (!seasonId) return;
       try {
@@ -874,6 +1069,7 @@ export default {
       if (authStore.state.profile?.team) {
         await fetchTeamGames();
       }
+      await fetchChannelAccess();
     });
 
     return {
@@ -923,6 +1119,14 @@ export default {
       savePersonalInfo,
       saveDisplayName,
       saveAllAndClose,
+      // Channel access
+      channelAccess,
+      requestingChannel,
+      channelRequestError,
+      channelStatusLabel,
+      channelStatusClass,
+      canRequest,
+      requestChannelAccess,
     };
   },
 };
@@ -1622,6 +1826,151 @@ export default {
 
   .player-name {
     font-size: 22px;
+  }
+}
+
+/* Channel access section */
+.channel-section {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.channel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0369a1;
+  margin: 0 0 8px 0;
+}
+
+.channel-desc {
+  font-size: 13px;
+  color: #475569;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.inline-link {
+  background: none;
+  border: none;
+  color: #0284c7;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.channel-platforms {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.channel-item {
+  background: white;
+  border: 1px solid #e0f2fe;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.channel-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.channel-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.channel-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.pill-none {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+.pill-pending {
+  background: #fef9c3;
+  color: #a16207;
+}
+.pill-approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+.pill-denied {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.channel-handle {
+  font-size: 13px;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.channel-handle-missing {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.request-access-btn {
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.request-access-btn:hover {
+  background: #0284c7;
+}
+.request-access-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.channel-status-msg {
+  font-size: 12px;
+  color: #64748b;
+  margin: 6px 0 0;
+  font-style: italic;
+}
+
+.channel-status-msg.denied {
+  color: #dc2626;
+}
+
+.channel-approved-msg {
+  font-size: 13px;
+  color: #15803d;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.channel-error-msg {
+  font-size: 13px;
+  color: #dc2626;
+  margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+  .channel-platforms {
+    grid-template-columns: 1fr;
   }
 }
 </style>
