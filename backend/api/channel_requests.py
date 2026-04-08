@@ -132,10 +132,10 @@ async def create_channel_request(
         raise HTTPException(status_code=400, detail="Must request at least one platform (telegram or discord)")
 
     try:
-        # Get user profile to find team_id
+        # Get user profile to find team_id / club_id
         profile_result = (
             service_client.table("user_profiles")
-            .select("team_id, telegram_handle, discord_handle")
+            .select("team_id, club_id, telegram_handle, discord_handle")
             .eq("id", user_id)
             .execute()
         )
@@ -145,6 +145,19 @@ async def create_channel_request(
 
         profile = profile_result.data[0]
         team_id = profile.get("team_id")
+
+        # Club managers may have club_id but no team_id — fall back to first team in their club
+        if not team_id and profile.get("club_id"):
+            teams_result = (
+                service_client.table("teams")
+                .select("id")
+                .eq("club_id", profile["club_id"])
+                .order("id")
+                .limit(1)
+                .execute()
+            )
+            if teams_result.data:
+                team_id = teams_result.data[0]["id"]
 
         if not team_id:
             raise HTTPException(

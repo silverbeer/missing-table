@@ -86,10 +86,10 @@
       </div>
 
       <!-- Live Match Updates section (Telegram / Discord channels) -->
+      <!-- Show for any logged-in user with a team or club assignment -->
       <div
         v-if="
-          authStore.state.profile?.team_id &&
-          authStore.state.profile?.role !== 'admin'
+          authStore.state.profile?.team_id || authStore.state.profile?.club_id
         "
         class="channel-access-section"
       >
@@ -368,7 +368,11 @@ export default {
     };
 
     const fetchChannelAccess = async () => {
-      if (!authStore.state.profile?.team_id) return;
+      if (
+        !authStore.state.profile?.team_id &&
+        !authStore.state.profile?.club_id
+      )
+        return;
       try {
         const response = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/channel-requests/me`
