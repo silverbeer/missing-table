@@ -193,3 +193,21 @@ class InviteRequestStatusUpdate(BaseModel):
 
     status: str = Field(..., pattern="^(pending|approved|rejected)$")
     admin_notes: str | None = Field(None, description="Admin notes about the decision")
+
+
+# Channel access request models
+class ChannelAccessRequestCreate(BaseModel):
+    """Create or update a channel access request (logged-in users)."""
+
+    telegram: bool = False
+    discord: bool = False
+    telegram_handle: str | None = None
+    discord_handle: str | None = None
+
+
+class ChannelAccessStatusUpdate(BaseModel):
+    """Update per-platform status on a channel access request (admin only)."""
+
+    platform: str = Field(..., pattern="^(telegram|discord)$")
+    status: str = Field(..., pattern="^(approved|denied)$")
+    admin_notes: str | None = None

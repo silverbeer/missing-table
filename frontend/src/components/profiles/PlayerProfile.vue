@@ -83,6 +83,22 @@
             placeholder="Your display name"
           />
         </div>
+        <div class="form-group">
+          <label>Telegram Handle</label>
+          <input
+            v-model="editableTelegramHandle"
+            type="text"
+            placeholder="@yourusername"
+          />
+        </div>
+        <div class="form-group">
+          <label>Discord Username</label>
+          <input
+            v-model="editableDiscordHandle"
+            type="text"
+            placeholder="username or username#0000"
+          />
+        </div>
       </div>
       <div class="modal-footer">
         <span
@@ -231,6 +247,8 @@
             Edit Info
           </button>
         </div>
+
+        <LiveUpdatesTeaser variant="hero" />
       </div>
     </div>
 
@@ -398,6 +416,8 @@
       <h3>Join a Team</h3>
       <p>Contact a team manager or administrator to get assigned to a team.</p>
     </div>
+
+    <LiveUpdatesSection />
   </div>
 </template>
 
@@ -408,12 +428,16 @@ import PlayerProfileEditor from './PlayerProfileEditor.vue';
 import { getApiBaseUrl } from '../../config/api';
 import { PLAYER_POSITIONS } from '@/constants/positions';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
+import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
+import LiveUpdatesSection from './LiveUpdatesSection.vue';
 
 export default {
   name: 'PlayerProfile',
   components: {
     PlayerProfileEditor,
     ClubLogo,
+    LiveUpdatesTeaser,
+    LiveUpdatesSection,
   },
   setup() {
     const authStore = useAuthStore();
@@ -434,6 +458,8 @@ export default {
     const editableDisplayName = ref('');
     const individualStats = ref(null);
     const loadingStats = ref(false);
+    const editableTelegramHandle = ref('');
+    const editableDiscordHandle = ref('');
 
     const profilePhotoUrl = computed(() => {
       const profile = authStore.state.profile;
@@ -739,14 +765,22 @@ export default {
           console.log('Save result:', result);
         }
 
-        // Save display name if changed
+        // Save display name + social handles if changed
         const currentDisplayName = profile?.display_name || '';
-        if (editableDisplayName.value !== currentDisplayName) {
+        const currentTelegram = profile?.telegram_handle || '';
+        const currentDiscord = profile?.discord_handle || '';
+        const profileChanged =
+          editableDisplayName.value !== currentDisplayName ||
+          editableTelegramHandle.value !== currentTelegram ||
+          editableDiscordHandle.value !== currentDiscord;
+        if (profileChanged) {
           await authStore.apiRequest(`${getApiBaseUrl()}/api/auth/profile`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               display_name: editableDisplayName.value || null,
+              telegram_handle: editableTelegramHandle.value || null,
+              discord_handle: editableDiscordHandle.value || null,
             }),
           });
         }
@@ -923,6 +957,8 @@ export default {
       savePersonalInfo,
       saveDisplayName,
       saveAllAndClose,
+      editableTelegramHandle,
+      editableDiscordHandle,
     };
   },
 };
@@ -1104,6 +1140,25 @@ export default {
   gap: 12px;
   margin-top: auto;
   padding-top: 12px;
+}
+
+.live-updates-teaser {
+  margin-top: 10px;
+}
+
+.live-updates-link {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.5);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.live-updates-link:hover {
+  color: white;
+  border-bottom-color: white;
 }
 
 .action-btn {
@@ -1622,6 +1677,170 @@ export default {
 
   .player-name {
     font-size: 22px;
+  }
+}
+
+/* Channel access section */
+.channel-section {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.channel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0369a1;
+  margin: 0 0 8px 0;
+}
+
+.channel-desc {
+  font-size: 13px;
+  color: #475569;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.inline-link {
+  background: none;
+  border: none;
+  color: #0284c7;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.channel-platforms {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.channel-item {
+  background: white;
+  border: 1px solid #e0f2fe;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.channel-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.channel-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.channel-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.pill-none {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+.pill-pending {
+  background: #fef9c3;
+  color: #a16207;
+}
+.pill-approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+.pill-denied {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.channel-handle {
+  font-size: 13px;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.channel-handle-missing {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.channel-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.channel-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.channel-input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.request-access-btn {
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.request-access-btn:hover {
+  background: #0284c7;
+}
+.request-access-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.channel-status-msg {
+  font-size: 12px;
+  color: #64748b;
+  margin: 6px 0 0;
+  font-style: italic;
+}
+
+.channel-status-msg.denied {
+  color: #dc2626;
+}
+
+.channel-approved-msg {
+  font-size: 13px;
+  color: #15803d;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.channel-error-msg {
+  font-size: 13px;
+  color: #dc2626;
+  margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+  .channel-platforms {
+    grid-template-columns: 1fr;
   }
 }
 </style>

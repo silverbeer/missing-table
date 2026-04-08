@@ -8,6 +8,7 @@
 #   - tom_ifa (team_manager) - Manager for IFA team
 #   - tom_ifa_fan (user) - Regular user/fan for IFA team
 #   - tom_club (club_manager) - Manager for IFA Club
+#   - gabe35 (team-player) - Player for IFA team
 #
 # Usage:
 #   ./scripts/seed_test_users.sh [local|dev|prod]
@@ -58,6 +59,7 @@ PASSWORD_TOM="${TEST_USER_PASSWORD_TOM:-testpass123}"
 PASSWORD_TOM_IFA="${TEST_USER_PASSWORD_TOM_IFA:-testpass123}"
 PASSWORD_TOM_IFA_FAN="${TEST_USER_PASSWORD_TOM_IFA_FAN:-testpass123}"
 PASSWORD_TOM_CLUB="${TEST_USER_PASSWORD_TOM_CLUB:-testpass123}"
+PASSWORD_GABE35="${TEST_USER_PASSWORD_GABE35:-play123}"
 
 echo -e "${YELLOW}Creating/updating test users...${NC}"
 echo ""
@@ -210,6 +212,44 @@ echo -e "  ${GREEN}✓ tom_club (club_manager) ready${NC}"
 echo ""
 
 ##############################################################################
+# User 5: gabe35 (team-player)
+##############################################################################
+echo -e "${BLUE}User 5: gabe35 (team-player for IFA)${NC}"
+echo "  - Username: gabe35"
+echo "  - Internal Email: gabe35@missingtable.local"
+echo "  - Role: team-player"
+echo "  - Password: ${PASSWORD_GABE35}"
+echo "  - Team: IFA (will be assigned if team exists)"
+
+echo -e "  ${YELLOW}Setting role to team-player...${NC}"
+if uv run python scripts/manage_users.py role --user gabe35 --role team-player --confirm 2>&1 | grep -q "not found"; then
+    echo -e "  ${GREEN}User doesn't exist, creating...${NC}"
+    uv run python scripts/manage_users.py create \
+        --email gabe35@missingtable.local \
+        --password "${PASSWORD_GABE35}" \
+        --role team-player \
+        --confirm
+else
+    echo -e "  ${GREEN}Role updated (or profile created)${NC}"
+    echo -e "  ${YELLOW}Resetting password...${NC}"
+    uv run python scripts/manage_users.py password \
+        --email gabe35@missingtable.local \
+        --password "${PASSWORD_GABE35}" \
+        --confirm
+fi
+
+# Try to assign to IFA team (use same team ID as tom_ifa)
+if [ -n "$IFA_TEAM_ID" ]; then
+    echo -e "  ${YELLOW}Assigning to IFA team (ID: ${IFA_TEAM_ID})...${NC}"
+    uv run python scripts/manage_users.py team --user gabe35 --team-id "${IFA_TEAM_ID}" --confirm || echo -e "  ${YELLOW}Could not assign team${NC}"
+else
+    echo -e "  ${YELLOW}No IFA team found - user created but not assigned to team${NC}"
+fi
+
+echo -e "  ${GREEN}✓ gabe35 (team-player) ready${NC}"
+echo ""
+
+##############################################################################
 # Summary
 ##############################################################################
 echo -e "${GREEN}========================================${NC}"
@@ -221,6 +261,7 @@ echo "  1. Username: tom / Password: ${PASSWORD_TOM} (admin)"
 echo "  2. Username: tom_ifa / Password: ${PASSWORD_TOM_IFA} (team-manager)"
 echo "  3. Username: tom_ifa_fan / Password: ${PASSWORD_TOM_IFA_FAN} (team-fan)"
 echo "  4. Username: tom_club / Password: ${PASSWORD_TOM_CLUB} (club_manager - IFA Club)"
+echo "  5. Username: gabe35 / Password: ${PASSWORD_GABE35} (team-player - IFA)"
 echo ""
 echo -e "${YELLOW}Note:${NC} If team assignments failed, users exist but aren't"
 echo "linked to teams yet. Sign in to the app first, then re-run this script."

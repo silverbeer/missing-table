@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Respo
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from api.channel_requests import router as channel_requests_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
 from auth import (
@@ -249,6 +250,7 @@ def get_client_ip(request: Request) -> str:
 # === Include API Routers ===
 app.include_router(invites_router)
 app.include_router(invite_requests_router)
+app.include_router(channel_requests_router)
 
 # Version endpoint
 import contextlib
@@ -981,6 +983,9 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             "instagram_handle": profile.get("instagram_handle"),
             "snapchat_handle": profile.get("snapchat_handle"),
             "tiktok_handle": profile.get("tiktok_handle"),
+            # Telegram/Discord handles
+            "telegram_handle": profile.get("telegram_handle"),
+            "discord_handle": profile.get("discord_handle"),
             # Personal info
             "first_name": profile.get("first_name"),
             "last_name": profile.get("last_name"),
@@ -1041,6 +1046,12 @@ async def update_profile(profile_data: UserProfile, current_user: dict[str, Any]
             update_data["text_color"] = profile_data.text_color
         if profile_data.accent_color is not None:
             update_data["accent_color"] = profile_data.accent_color
+
+        # Telegram/Discord handles
+        if profile_data.telegram_handle is not None:
+            update_data["telegram_handle"] = profile_data.telegram_handle or None
+        if profile_data.discord_handle is not None:
+            update_data["discord_handle"] = profile_data.discord_handle or None
 
         # Only allow role updates by admins
         if profile_data.role is not None:
@@ -1337,6 +1348,11 @@ async def update_player_customization(
             update_data["snapchat_handle"] = customization.snapchat_handle
         if customization.tiktok_handle is not None:
             update_data["tiktok_handle"] = customization.tiktok_handle
+        # Telegram/Discord handles
+        if customization.telegram_handle is not None:
+            update_data["telegram_handle"] = customization.telegram_handle
+        if customization.discord_handle is not None:
+            update_data["discord_handle"] = customization.discord_handle
 
         if len(update_data) > 1:  # More than just updated_at
             player_dao.update_user_profile(user_id, update_data)
@@ -1756,6 +1772,9 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     "instagram_handle": profile.get("instagram_handle"),
                     "snapchat_handle": profile.get("snapchat_handle"),
                     "tiktok_handle": profile.get("tiktok_handle"),
+                    # Telegram/Discord handles
+                    "telegram_handle": profile.get("telegram_handle"),
+                    "discord_handle": profile.get("discord_handle"),
                     # Personal info
                     "first_name": profile.get("first_name"),
                     "last_name": profile.get("last_name"),

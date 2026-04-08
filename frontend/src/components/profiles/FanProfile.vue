@@ -94,6 +94,7 @@
             Edit Profile
           </button>
         </div>
+        <LiveUpdatesTeaser variant="hero" />
       </div>
     </div>
 
@@ -254,6 +255,7 @@
         </div>
       </div>
     </div>
+    <LiveUpdatesSection />
   </div>
 </template>
 
@@ -261,9 +263,12 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
+import LiveUpdatesSection from './LiveUpdatesSection.vue';
 
 export default {
   name: 'FanProfile',
+  components: { LiveUpdatesTeaser, LiveUpdatesSection },
   emits: ['logout', 'navigate'],
   setup(props, { emit }) {
     const authStore = useAuthStore();

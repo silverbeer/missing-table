@@ -85,6 +85,8 @@
         <slot name="profile-fields"></slot>
       </div>
 
+      <LiveUpdatesTeaser variant="light" />
+
       <div class="profile-actions">
         <button v-if="!isEditing" @click="startEditing" class="edit-btn">
           Edit Profile
@@ -111,6 +113,8 @@
         :saving="saving"
       ></slot>
 
+      <LiveUpdatesSection />
+
       <div v-if="authStore.state.error" class="error-message">
         {{ authStore.state.error }}
       </div>
@@ -122,9 +126,12 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
+import LiveUpdatesSection from './LiveUpdatesSection.vue';
 
 export default {
   name: 'BaseProfile',
+  components: { LiveUpdatesTeaser, LiveUpdatesSection },
   props: {
     title: {
       type: String,
@@ -148,6 +155,8 @@ export default {
       team_id: null,
       player_number: null,
       positions: [],
+      telegram_handle: '',
+      discord_handle: '',
     });
 
     const roleClass = computed(() => {
@@ -218,6 +227,9 @@ export default {
         editForm.team_id = authStore.state.profile.team_id || null;
         editForm.player_number = authStore.state.profile.player_number || null;
         editForm.positions = authStore.state.profile.positions || [];
+        editForm.telegram_handle =
+          authStore.state.profile.telegram_handle || '';
+        editForm.discord_handle = authStore.state.profile.discord_handle || '';
       }
     };
 
@@ -241,6 +253,8 @@ export default {
       editForm.team_id = null;
       editForm.player_number = null;
       editForm.positions = [];
+      editForm.telegram_handle = '';
+      editForm.discord_handle = '';
     };
 
     const saveChanges = async () => {
@@ -257,6 +271,8 @@ export default {
         const updateData = {
           display_name: editForm.display_name,
           email: editForm.email,
+          telegram_handle: editForm.telegram_handle,
+          discord_handle: editForm.discord_handle,
         };
 
         if (editForm.team_id !== null) {
@@ -527,5 +543,123 @@ export default {
 .input-valid:focus {
   outline: 2px solid #059669;
   outline-offset: 2px;
+}
+
+/* Channel access section */
+.channel-access-section {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.channel-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0369a1;
+  margin: 0 0 8px 0;
+}
+
+.channel-section-desc {
+  font-size: 13px;
+  color: #475569;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.channel-platform {
+  background: white;
+  border: 1px solid #e0f2fe;
+  border-radius: 6px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.channel-platform-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.channel-platform-name {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.channel-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.channel-badge-none {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+}
+
+.channel-badge-pending {
+  background-color: #fef9c3;
+  color: #a16207;
+}
+
+.channel-badge-approved {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.channel-badge-denied {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.channel-action {
+  margin-top: 8px;
+}
+
+.request-btn {
+  background-color: #0ea5e9;
+  color: white;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.request-btn:hover {
+  background-color: #0284c7;
+}
+
+.request-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.channel-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 6px 0 0 0;
+  font-style: italic;
+}
+
+.channel-hint-denied {
+  color: #dc2626;
+}
+
+.channel-approved {
+  font-size: 13px;
+  color: #15803d;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.channel-error {
+  font-size: 13px;
+  color: #dc2626;
+  margin-top: 10px;
 }
 </style>
