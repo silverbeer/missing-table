@@ -222,32 +222,6 @@
                 class="form-input"
               />
             </div>
-            <div class="form-group social-input-group">
-              <label for="telegram">
-                <span class="social-icon">✈️</span> Telegram
-              </label>
-              <input
-                id="telegram"
-                type="text"
-                v-model="localState.telegram_handle"
-                placeholder="@username"
-                maxlength="64"
-                class="form-input"
-              />
-            </div>
-            <div class="form-group social-input-group">
-              <label for="discord">
-                <span class="social-icon">🎮</span> Discord
-              </label>
-              <input
-                id="discord"
-                type="text"
-                v-model="localState.discord_handle"
-                placeholder="username or username#0000"
-                maxlength="64"
-                class="form-input"
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -344,8 +318,6 @@ export default {
         instagram_handle: profile.instagram_handle || '',
         snapchat_handle: profile.snapchat_handle || '',
         tiktok_handle: profile.tiktok_handle || '',
-        telegram_handle: profile.telegram_handle || '',
-        discord_handle: profile.discord_handle || '',
       };
     };
 
@@ -450,8 +422,6 @@ export default {
           instagram_handle: localState.value.instagram_handle || null,
           snapchat_handle: localState.value.snapchat_handle || null,
           tiktok_handle: localState.value.tiktok_handle || null,
-          telegram_handle: localState.value.telegram_handle || null,
-          discord_handle: localState.value.discord_handle || null,
         };
 
         await authStore.apiRequest(
