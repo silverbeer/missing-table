@@ -19,7 +19,7 @@ ALTER TABLE public.user_profiles
 -- ============================================================
 CREATE TABLE public.channel_access_requests (
     id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id                 uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id                 uuid NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
     team_id                 integer NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
     telegram_handle         varchar(64),
     discord_handle          varchar(64),
