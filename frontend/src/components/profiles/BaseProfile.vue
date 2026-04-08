@@ -85,138 +85,7 @@
         <slot name="profile-fields"></slot>
       </div>
 
-      <!-- Live Match Updates section (Telegram / Discord channels) -->
-      <!-- Show for any logged-in user with a team or club assignment -->
-      <div
-        v-if="
-          authStore.state.profile?.team_id || authStore.state.profile?.club_id
-        "
-        class="channel-access-section"
-      >
-        <h3 class="channel-section-title">Live Match Updates</h3>
-        <p class="channel-section-desc">
-          Follow your team's matches live via Telegram and Discord — get goal
-          alerts on your phone and chat with other fans in real time.
-        </p>
-
-        <!-- Telegram -->
-        <div class="channel-platform">
-          <div class="channel-platform-header">
-            <span class="channel-platform-name">Telegram</span>
-            <span
-              :class="channelStatusClass(channelAccess.telegram_status)"
-              class="channel-badge"
-            >
-              {{ channelStatusLabel(channelAccess.telegram_status) }}
-            </span>
-          </div>
-          <div class="info-group">
-            <label>Handle:</label>
-            <input
-              v-model="editForm.telegram_handle"
-              type="text"
-              :disabled="!isEditing"
-              class="profile-input"
-              placeholder="@yourusername"
-            />
-          </div>
-          <div
-            v-if="channelAccess.telegram_status !== 'approved'"
-            class="channel-action"
-          >
-            <button
-              v-if="canRequest('telegram')"
-              @click="requestChannelAccess('telegram')"
-              :disabled="requestingChannel"
-              class="request-btn"
-            >
-              {{
-                requestingChannel === 'telegram'
-                  ? 'Requesting...'
-                  : 'Request Telegram Access'
-              }}
-            </button>
-            <p
-              v-if="channelAccess.telegram_status === 'pending'"
-              class="channel-hint"
-            >
-              Your request is pending. An admin will add you to the channel and
-              approve your request.
-            </p>
-            <p
-              v-if="channelAccess.telegram_status === 'denied'"
-              class="channel-hint channel-hint-denied"
-            >
-              Your request was not approved. Update your handle and request
-              again if needed.
-            </p>
-          </div>
-          <div v-else class="channel-approved">
-            You've been added to the Telegram channel
-          </div>
-        </div>
-
-        <!-- Discord -->
-        <div class="channel-platform">
-          <div class="channel-platform-header">
-            <span class="channel-platform-name">Discord</span>
-            <span
-              :class="channelStatusClass(channelAccess.discord_status)"
-              class="channel-badge"
-            >
-              {{ channelStatusLabel(channelAccess.discord_status) }}
-            </span>
-          </div>
-          <div class="info-group">
-            <label>Username:</label>
-            <input
-              v-model="editForm.discord_handle"
-              type="text"
-              :disabled="!isEditing"
-              class="profile-input"
-              placeholder="username#0000 or username"
-            />
-          </div>
-          <div
-            v-if="channelAccess.discord_status !== 'approved'"
-            class="channel-action"
-          >
-            <button
-              v-if="canRequest('discord')"
-              @click="requestChannelAccess('discord')"
-              :disabled="requestingChannel"
-              class="request-btn"
-            >
-              {{
-                requestingChannel === 'discord'
-                  ? 'Requesting...'
-                  : 'Request Discord Access'
-              }}
-            </button>
-            <p
-              v-if="channelAccess.discord_status === 'pending'"
-              class="channel-hint"
-            >
-              Your request is pending. An admin will add you to the channel and
-              approve your request.
-            </p>
-            <p
-              v-if="channelAccess.discord_status === 'denied'"
-              class="channel-hint channel-hint-denied"
-            >
-              Your request was not approved. Update your handle and request
-              again if needed.
-            </p>
-          </div>
-          <div v-else class="channel-approved">
-            You've been added to the Discord server
-          </div>
-        </div>
-
-        <p v-if="channelRequestError" class="channel-error">
-          {{ channelRequestError }}
-        </p>
-      </div>
+      <LiveUpdatesTeaser variant="light" />
 
       <div class="profile-actions">
         <button v-if="!isEditing" @click="startEditing" class="edit-btn">
@@ -244,6 +113,8 @@
         :saving="saving"
       ></slot>
 
+      <LiveUpdatesSection />
+
       <div v-if="authStore.state.error" class="error-message">
         {{ authStore.state.error }}
       </div>
@@ -255,9 +126,12 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
+import LiveUpdatesSection from './LiveUpdatesSection.vue';
 
 export default {
   name: 'BaseProfile',
+  components: { LiveUpdatesTeaser, LiveUpdatesSection },
   props: {
     title: {
       type: String,
@@ -284,14 +158,6 @@ export default {
       telegram_handle: '',
       discord_handle: '',
     });
-
-    // Channel access state
-    const channelAccess = reactive({
-      telegram_status: 'none',
-      discord_status: 'none',
-    });
-    const requestingChannel = ref(null);
-    const channelRequestError = ref('');
 
     const roleClass = computed(() => {
       const role = authStore.state.profile?.role;
@@ -364,25 +230,6 @@ export default {
         editForm.telegram_handle =
           authStore.state.profile.telegram_handle || '';
         editForm.discord_handle = authStore.state.profile.discord_handle || '';
-      }
-    };
-
-    const fetchChannelAccess = async () => {
-      if (
-        !authStore.state.profile?.team_id &&
-        !authStore.state.profile?.club_id
-      )
-        return;
-      try {
-        const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/channel-requests/me`
-        );
-        if (response && !response.error) {
-          channelAccess.telegram_status = response.telegram_status || 'none';
-          channelAccess.discord_status = response.discord_status || 'none';
-        }
-      } catch {
-        // 404 = no request yet, that's fine
       }
     };
 
@@ -465,69 +312,9 @@ export default {
       }
     };
 
-    // Channel access helpers
-    const channelStatusLabel = status => {
-      const labels = {
-        none: 'Not requested',
-        pending: 'Pending approval',
-        approved: 'Added to channel',
-        denied: 'Request denied',
-      };
-      return labels[status] || status;
-    };
-
-    const channelStatusClass = status => ({
-      'channel-badge-none': status === 'none',
-      'channel-badge-pending': status === 'pending',
-      'channel-badge-approved': status === 'approved',
-      'channel-badge-denied': status === 'denied',
-    });
-
-    const canRequest = platform => {
-      const status = channelAccess[`${platform}_status`];
-      const handle = editForm[`${platform}_handle`];
-      return handle && (status === 'none' || status === 'denied');
-    };
-
-    const requestChannelAccess = async platform => {
-      channelRequestError.value = '';
-      requestingChannel.value = platform;
-      try {
-        const body = {
-          [platform]: true,
-          [`${platform}_handle`]: editForm[`${platform}_handle`],
-        };
-
-        const response = await fetch(
-          `${getApiBaseUrl()}/api/channel-requests`,
-          {
-            method: 'POST',
-            headers: {
-              ...authStore.getAuthHeaders(),
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-          }
-        );
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.detail || 'Failed to submit request');
-        }
-
-        // Refresh channel status
-        await fetchChannelAccess();
-      } catch (err) {
-        channelRequestError.value = err.message;
-      } finally {
-        requestingChannel.value = null;
-      }
-    };
-
     // Initialize edit form when component mounts
-    onMounted(async () => {
+    onMounted(() => {
       initializeEditForm();
-      await fetchChannelAccess();
     });
 
     // Watch for profile changes and update edit form
@@ -554,14 +341,6 @@ export default {
       cancelEditing,
       saveChanges,
       handleLogout,
-      // Channel access
-      channelAccess,
-      requestingChannel,
-      channelRequestError,
-      channelStatusLabel,
-      channelStatusClass,
-      canRequest,
-      requestChannelAccess,
     };
   },
 };

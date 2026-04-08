@@ -99,6 +99,7 @@
             Edit Profile
           </button>
         </div>
+        <LiveUpdatesTeaser variant="hero" />
       </div>
     </div>
 
@@ -169,6 +170,7 @@
         to get assigned.
       </p>
     </div>
+    <LiveUpdatesSection />
   </div>
 </template>
 
@@ -176,9 +178,12 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
+import LiveUpdatesSection from './LiveUpdatesSection.vue';
 
 export default {
   name: 'ClubManagerProfile',
+  components: { LiveUpdatesTeaser, LiveUpdatesSection },
   emits: ['switch-tab'],
   setup(props, { emit }) {
     const authStore = useAuthStore();

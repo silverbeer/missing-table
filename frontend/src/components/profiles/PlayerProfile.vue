@@ -248,18 +248,7 @@
           </button>
         </div>
 
-        <div
-          v-if="authStore.state.profile?.team_id"
-          class="live-updates-teaser"
-        >
-          <a
-            href="#"
-            @click.prevent="scrollToLiveUpdates"
-            class="live-updates-link"
-          >
-            📡 Want live match updates? →
-          </a>
-        </div>
+        <LiveUpdatesTeaser variant="hero" />
       </div>
     </div>
 
@@ -428,136 +417,7 @@
       <p>Contact a team manager or administrator to get assigned to a team.</p>
     </div>
 
-    <!-- Live Match Updates (Telegram / Discord channel access) -->
-    <div
-      ref="liveUpdatesSection"
-      v-if="authStore.state.profile?.team_id"
-      class="channel-section"
-    >
-      <h3 class="channel-title">Live Match Updates</h3>
-      <p class="channel-desc">
-        Get goal alerts and follow your team live. Enter your handle and request
-        access — an admin will add you to the channel.
-      </p>
-      <div class="channel-platforms">
-        <!-- Telegram -->
-        <div class="channel-item">
-          <div class="channel-item-header">
-            <span class="channel-name">✈️ Telegram</span>
-            <span
-              :class="channelStatusClass(channelAccess.telegram_status)"
-              class="channel-pill"
-            >
-              {{ channelStatusLabel(channelAccess.telegram_status) }}
-            </span>
-          </div>
-          <div
-            v-if="channelAccess.telegram_status === 'approved'"
-            class="channel-approved-msg"
-          >
-            Added to channel as @{{ authStore.state.profile.telegram_handle }}
-          </div>
-          <div v-else>
-            <div class="channel-input-row">
-              <input
-                v-model="editableTelegramHandle"
-                type="text"
-                placeholder="@yourusername"
-                class="channel-input"
-                :disabled="channelAccess.telegram_status === 'pending'"
-              />
-              <button
-                v-if="channelAccess.telegram_status !== 'pending'"
-                @click="requestChannelAccess('telegram')"
-                :disabled="
-                  !editableTelegramHandle.trim() ||
-                  requestingChannel === 'telegram'
-                "
-                class="request-access-btn"
-              >
-                {{
-                  requestingChannel === 'telegram'
-                    ? 'Requesting...'
-                    : 'Request Access'
-                }}
-              </button>
-            </div>
-            <p
-              v-if="channelAccess.telegram_status === 'pending'"
-              class="channel-status-msg"
-            >
-              Request pending — an admin will add you to the channel.
-            </p>
-            <p
-              v-if="channelAccess.telegram_status === 'denied'"
-              class="channel-status-msg denied"
-            >
-              Request denied. Update your handle and try again.
-            </p>
-          </div>
-        </div>
-
-        <!-- Discord -->
-        <div class="channel-item">
-          <div class="channel-item-header">
-            <span class="channel-name">🎮 Discord</span>
-            <span
-              :class="channelStatusClass(channelAccess.discord_status)"
-              class="channel-pill"
-            >
-              {{ channelStatusLabel(channelAccess.discord_status) }}
-            </span>
-          </div>
-          <div
-            v-if="channelAccess.discord_status === 'approved'"
-            class="channel-approved-msg"
-          >
-            Added to server as {{ authStore.state.profile.discord_handle }}
-          </div>
-          <div v-else>
-            <div class="channel-input-row">
-              <input
-                v-model="editableDiscordHandle"
-                type="text"
-                placeholder="username or username#0000"
-                class="channel-input"
-                :disabled="channelAccess.discord_status === 'pending'"
-              />
-              <button
-                v-if="channelAccess.discord_status !== 'pending'"
-                @click="requestChannelAccess('discord')"
-                :disabled="
-                  !editableDiscordHandle.trim() ||
-                  requestingChannel === 'discord'
-                "
-                class="request-access-btn"
-              >
-                {{
-                  requestingChannel === 'discord'
-                    ? 'Requesting...'
-                    : 'Request Access'
-                }}
-              </button>
-            </div>
-            <p
-              v-if="channelAccess.discord_status === 'pending'"
-              class="channel-status-msg"
-            >
-              Request pending — an admin will add you to the server.
-            </p>
-            <p
-              v-if="channelAccess.discord_status === 'denied'"
-              class="channel-status-msg denied"
-            >
-              Request denied. Update your handle and try again.
-            </p>
-          </div>
-        </div>
-      </div>
-      <p v-if="channelRequestError" class="channel-error-msg">
-        {{ channelRequestError }}
-      </p>
-    </div>
+    <LiveUpdatesSection />
   </div>
 </template>
 
@@ -568,12 +428,16 @@ import PlayerProfileEditor from './PlayerProfileEditor.vue';
 import { getApiBaseUrl } from '../../config/api';
 import { PLAYER_POSITIONS } from '@/constants/positions';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
+import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
+import LiveUpdatesSection from './LiveUpdatesSection.vue';
 
 export default {
   name: 'PlayerProfile',
   components: {
     PlayerProfileEditor,
     ClubLogo,
+    LiveUpdatesTeaser,
+    LiveUpdatesSection,
   },
   setup() {
     const authStore = useAuthStore();
@@ -594,12 +458,6 @@ export default {
     const editableDisplayName = ref('');
     const individualStats = ref(null);
     const loadingStats = ref(false);
-    const channelAccess = ref({
-      telegram_status: 'none',
-      discord_status: 'none',
-    });
-    const requestingChannel = ref(null);
-    const channelRequestError = ref('');
     const editableTelegramHandle = ref('');
     const editableDiscordHandle = ref('');
 
@@ -972,85 +830,6 @@ export default {
       }
     };
 
-    const fetchChannelAccess = async () => {
-      if (!authStore.state.profile?.team_id) return;
-      // Pre-populate handles from profile
-      editableTelegramHandle.value =
-        authStore.state.profile?.telegram_handle || '';
-      editableDiscordHandle.value =
-        authStore.state.profile?.discord_handle || '';
-      try {
-        const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/channel-requests/me`
-        );
-        if (response && !response.error) {
-          channelAccess.value.telegram_status =
-            response.telegram_status || 'none';
-          channelAccess.value.discord_status =
-            response.discord_status || 'none';
-          // Sync handles from the request row if set
-          if (response.telegram_handle)
-            editableTelegramHandle.value = response.telegram_handle;
-          if (response.discord_handle)
-            editableDiscordHandle.value = response.discord_handle;
-        }
-      } catch {
-        // 404 = no request yet, that's fine
-      }
-    };
-
-    const channelStatusLabel = status => {
-      return (
-        {
-          none: 'Not requested',
-          pending: 'Pending',
-          approved: 'Added',
-          denied: 'Denied',
-        }[status] || status
-      );
-    };
-
-    const channelStatusClass = status => ({
-      'pill-none': status === 'none',
-      'pill-pending': status === 'pending',
-      'pill-approved': status === 'approved',
-      'pill-denied': status === 'denied',
-    });
-
-    const requestChannelAccess = async platform => {
-      channelRequestError.value = '';
-      requestingChannel.value = platform;
-      try {
-        const handle =
-          platform === 'telegram'
-            ? editableTelegramHandle.value.trim()
-            : editableDiscordHandle.value.trim();
-        const response = await fetch(
-          `${getApiBaseUrl()}/api/channel-requests`,
-          {
-            method: 'POST',
-            headers: {
-              ...authStore.getAuthHeaders(),
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              [platform]: true,
-              [`${platform}_handle`]: handle,
-            }),
-          }
-        );
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.detail || 'Failed to submit request');
-        }
-        await fetchChannelAccess();
-      } catch (err) {
-        channelRequestError.value = err.message;
-      } finally {
-        requestingChannel.value = null;
-      }
-    };
-
     const fetchIndividualStats = async seasonId => {
       if (!seasonId) return;
       try {
@@ -1129,16 +908,7 @@ export default {
       if (authStore.state.profile?.team) {
         await fetchTeamGames();
       }
-      await fetchChannelAccess();
     });
-
-    const liveUpdatesSection = ref(null);
-    const scrollToLiveUpdates = () => {
-      liveUpdatesSection.value?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    };
 
     return {
       authStore,
@@ -1187,18 +957,8 @@ export default {
       savePersonalInfo,
       saveDisplayName,
       saveAllAndClose,
-      // Channel access
-      channelAccess,
-      requestingChannel,
-      channelRequestError,
       editableTelegramHandle,
       editableDiscordHandle,
-      channelStatusLabel,
-      channelStatusClass,
-      requestChannelAccess,
-      // Live updates scroll
-      liveUpdatesSection,
-      scrollToLiveUpdates,
     };
   },
 };
