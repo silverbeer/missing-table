@@ -247,6 +247,19 @@
             Edit Info
           </button>
         </div>
+
+        <div
+          v-if="authStore.state.profile?.team_id"
+          class="live-updates-teaser"
+        >
+          <a
+            href="#"
+            @click.prevent="scrollToLiveUpdates"
+            class="live-updates-link"
+          >
+            📡 Want live match updates? →
+          </a>
+        </div>
       </div>
     </div>
 
@@ -416,7 +429,11 @@
     </div>
 
     <!-- Live Match Updates (Telegram / Discord channel access) -->
-    <div v-if="authStore.state.profile?.team_id" class="channel-section">
+    <div
+      ref="liveUpdatesSection"
+      v-if="authStore.state.profile?.team_id"
+      class="channel-section"
+    >
       <h3 class="channel-title">Live Match Updates</h3>
       <p class="channel-desc">
         Get goal alerts and follow your team live. Enter your handle and request
@@ -1115,6 +1132,14 @@ export default {
       await fetchChannelAccess();
     });
 
+    const liveUpdatesSection = ref(null);
+    const scrollToLiveUpdates = () => {
+      liveUpdatesSection.value?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    };
+
     return {
       authStore,
       playerHistory,
@@ -1171,6 +1196,9 @@ export default {
       channelStatusLabel,
       channelStatusClass,
       requestChannelAccess,
+      // Live updates scroll
+      liveUpdatesSection,
+      scrollToLiveUpdates,
     };
   },
 };
@@ -1352,6 +1380,25 @@ export default {
   gap: 12px;
   margin-top: auto;
   padding-top: 12px;
+}
+
+.live-updates-teaser {
+  margin-top: 10px;
+}
+
+.live-updates-link {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.5);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.live-updates-link:hover {
+  color: white;
+  border-bottom-color: white;
 }
 
 .action-btn {
