@@ -33,6 +33,8 @@ from .models import (
     AgeGroupUpdate,
     BulkRenumberRequest,
     BulkRosterCreate,
+    ChannelAccessRequestCreate,
+    ChannelAccessStatusUpdate,
     DivisionCreate,
     DivisionUpdate,
     EnhancedGame,
@@ -1168,6 +1170,67 @@ class MissingTableClient:
     def delete_invite_request(self, request_id: str) -> dict[str, Any]:
         """Delete an invite request (admin only)."""
         response = self._request("DELETE", f"/api/invite-requests/{request_id}")
+        return response.json()
+
+    # Channel access requests
+
+    def get_my_channel_request(self) -> dict[str, Any]:
+        """Get the current user's channel access request."""
+        response = self._request("GET", "/api/channel-requests/me")
+        return response.json()
+
+    def create_channel_request(self, request: ChannelAccessRequestCreate) -> dict[str, Any]:
+        """Submit or update a channel access request (logged-in users)."""
+        response = self._request("POST", "/api/channel-requests", json_data=request.model_dump(exclude_none=True))
+        return response.json()
+
+    def list_channel_requests(
+        self,
+        status: str | None = None,
+        platform: str | None = None,
+        team_id: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """List channel access requests (admin/club_manager only)."""
+        params: dict[str, Any] = {}
+        if status:
+            params["status"] = status
+        if platform:
+            params["platform"] = platform
+        if team_id:
+            params["team_id"] = team_id
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        response = self._request("GET", "/api/channel-requests", params=params)
+        return response.json()
+
+    def get_channel_request_stats(self) -> dict[str, Any]:
+        """Get channel access request statistics (admin/club_manager only)."""
+        response = self._request("GET", "/api/channel-requests/stats")
+        return response.json()
+
+    def get_channel_request(self, request_id: str) -> dict[str, Any]:
+        """Get a specific channel access request (admin/club_manager only)."""
+        response = self._request("GET", f"/api/channel-requests/{request_id}")
+        return response.json()
+
+    def update_channel_request_status(
+        self, request_id: str, update: ChannelAccessStatusUpdate
+    ) -> dict[str, Any]:
+        """Update per-platform status on a channel access request (admin/club_manager only)."""
+        response = self._request(
+            "PUT",
+            f"/api/channel-requests/{request_id}/status",
+            json_data=update.model_dump(exclude_none=True),
+        )
+        return response.json()
+
+    def delete_channel_request(self, request_id: str) -> dict[str, Any]:
+        """Delete a channel access request (admin only)."""
+        response = self._request("DELETE", f"/api/channel-requests/{request_id}")
         return response.json()
 
     # Playoffs

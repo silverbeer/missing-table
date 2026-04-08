@@ -59,6 +59,15 @@
           <AdminInviteRequests />
         </div>
 
+        <!-- Channel Access Requests -->
+        <div
+          v-if="currentSection === 'channel-requests'"
+          class="p-6"
+          data-testid="admin-section-channel-requests"
+        >
+          <AdminChannelRequests />
+        </div>
+
         <!-- Age Groups Management -->
         <div
           v-if="currentSection === 'age-groups'"
@@ -202,6 +211,7 @@ import AdminPlayers from './admin/AdminPlayers.vue';
 import AdminMatches from './admin/AdminMatches.vue';
 import AdminGoals from './admin/AdminGoals.vue';
 import AdminInvites from './admin/AdminInvites.vue';
+import AdminChannelRequests from './admin/AdminChannelRequests.vue';
 import AdminInviteRequests from './admin/AdminInviteRequests.vue';
 import AdminPlayoffs from './admin/AdminPlayoffs.vue';
 import AdminCache from './admin/AdminCache.vue';
@@ -221,6 +231,7 @@ export default {
     AdminMatches,
     AdminGoals,
     AdminInvites,
+    AdminChannelRequests,
     AdminInviteRequests,
     AdminPlayoffs,
     AdminCache,
@@ -234,6 +245,7 @@ export default {
     // Define all sections with role requirements
     const allAdminSections = [
       { id: 'invite-requests', name: 'Requests', adminOnly: true },
+      { id: 'channel-requests', name: 'Channel Requests', adminOnly: false },
       { id: 'age-groups', name: 'Age Groups', adminOnly: true },
       { id: 'seasons', name: 'Seasons', adminOnly: true },
       { id: 'leagues', name: 'Leagues', adminOnly: true },

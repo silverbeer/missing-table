@@ -191,6 +191,9 @@ def create_backup(backup_dir: Path | None = None):
         'invitations',
         'invite_requests',
 
+        # Channel access requests (Telegram/Discord)
+        'channel_access_requests',
+
         # Intentionally excluded (see EXCLUDED_TABLES):
         # - user_profiles: managed per-environment (different auth.users UUIDs)
         # - service_accounts: contains API keys, managed per-environment

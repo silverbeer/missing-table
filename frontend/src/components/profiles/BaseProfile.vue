@@ -85,6 +85,139 @@
         <slot name="profile-fields"></slot>
       </div>
 
+      <!-- Live Match Updates section (Telegram / Discord channels) -->
+      <div
+        v-if="
+          authStore.state.profile?.team_id &&
+          authStore.state.profile?.role !== 'admin'
+        "
+        class="channel-access-section"
+      >
+        <h3 class="channel-section-title">Live Match Updates</h3>
+        <p class="channel-section-desc">
+          Follow your team's matches live via Telegram and Discord — get goal
+          alerts on your phone and chat with other fans in real time.
+        </p>
+
+        <!-- Telegram -->
+        <div class="channel-platform">
+          <div class="channel-platform-header">
+            <span class="channel-platform-name">Telegram</span>
+            <span
+              :class="channelStatusClass(channelAccess.telegram_status)"
+              class="channel-badge"
+            >
+              {{ channelStatusLabel(channelAccess.telegram_status) }}
+            </span>
+          </div>
+          <div class="info-group">
+            <label>Handle:</label>
+            <input
+              v-model="editForm.telegram_handle"
+              type="text"
+              :disabled="!isEditing"
+              class="profile-input"
+              placeholder="@yourusername"
+            />
+          </div>
+          <div
+            v-if="channelAccess.telegram_status !== 'approved'"
+            class="channel-action"
+          >
+            <button
+              v-if="canRequest('telegram')"
+              @click="requestChannelAccess('telegram')"
+              :disabled="requestingChannel"
+              class="request-btn"
+            >
+              {{
+                requestingChannel === 'telegram'
+                  ? 'Requesting...'
+                  : 'Request Telegram Access'
+              }}
+            </button>
+            <p
+              v-if="channelAccess.telegram_status === 'pending'"
+              class="channel-hint"
+            >
+              Your request is pending. An admin will add you to the channel and
+              approve your request.
+            </p>
+            <p
+              v-if="channelAccess.telegram_status === 'denied'"
+              class="channel-hint channel-hint-denied"
+            >
+              Your request was not approved. Update your handle and request
+              again if needed.
+            </p>
+          </div>
+          <div v-else class="channel-approved">
+            You've been added to the Telegram channel
+          </div>
+        </div>
+
+        <!-- Discord -->
+        <div class="channel-platform">
+          <div class="channel-platform-header">
+            <span class="channel-platform-name">Discord</span>
+            <span
+              :class="channelStatusClass(channelAccess.discord_status)"
+              class="channel-badge"
+            >
+              {{ channelStatusLabel(channelAccess.discord_status) }}
+            </span>
+          </div>
+          <div class="info-group">
+            <label>Username:</label>
+            <input
+              v-model="editForm.discord_handle"
+              type="text"
+              :disabled="!isEditing"
+              class="profile-input"
+              placeholder="username#0000 or username"
+            />
+          </div>
+          <div
+            v-if="channelAccess.discord_status !== 'approved'"
+            class="channel-action"
+          >
+            <button
+              v-if="canRequest('discord')"
+              @click="requestChannelAccess('discord')"
+              :disabled="requestingChannel"
+              class="request-btn"
+            >
+              {{
+                requestingChannel === 'discord'
+                  ? 'Requesting...'
+                  : 'Request Discord Access'
+              }}
+            </button>
+            <p
+              v-if="channelAccess.discord_status === 'pending'"
+              class="channel-hint"
+            >
+              Your request is pending. An admin will add you to the channel and
+              approve your request.
+            </p>
+            <p
+              v-if="channelAccess.discord_status === 'denied'"
+              class="channel-hint channel-hint-denied"
+            >
+              Your request was not approved. Update your handle and request
+              again if needed.
+            </p>
+          </div>
+          <div v-else class="channel-approved">
+            You've been added to the Discord server
+          </div>
+        </div>
+
+        <p v-if="channelRequestError" class="channel-error">
+          {{ channelRequestError }}
+        </p>
+      </div>
+
       <div class="profile-actions">
         <button v-if="!isEditing" @click="startEditing" class="edit-btn">
           Edit Profile
@@ -148,7 +281,17 @@ export default {
       team_id: null,
       player_number: null,
       positions: [],
+      telegram_handle: '',
+      discord_handle: '',
     });
+
+    // Channel access state
+    const channelAccess = reactive({
+      telegram_status: 'none',
+      discord_status: 'none',
+    });
+    const requestingChannel = ref(null);
+    const channelRequestError = ref('');
 
     const roleClass = computed(() => {
       const role = authStore.state.profile?.role;
@@ -218,6 +361,24 @@ export default {
         editForm.team_id = authStore.state.profile.team_id || null;
         editForm.player_number = authStore.state.profile.player_number || null;
         editForm.positions = authStore.state.profile.positions || [];
+        editForm.telegram_handle =
+          authStore.state.profile.telegram_handle || '';
+        editForm.discord_handle = authStore.state.profile.discord_handle || '';
+      }
+    };
+
+    const fetchChannelAccess = async () => {
+      if (!authStore.state.profile?.team_id) return;
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/channel-requests/me`
+        );
+        if (response && !response.error) {
+          channelAccess.telegram_status = response.telegram_status || 'none';
+          channelAccess.discord_status = response.discord_status || 'none';
+        }
+      } catch {
+        // 404 = no request yet, that's fine
       }
     };
 
@@ -241,6 +402,8 @@ export default {
       editForm.team_id = null;
       editForm.player_number = null;
       editForm.positions = [];
+      editForm.telegram_handle = '';
+      editForm.discord_handle = '';
     };
 
     const saveChanges = async () => {
@@ -257,6 +420,8 @@ export default {
         const updateData = {
           display_name: editForm.display_name,
           email: editForm.email,
+          telegram_handle: editForm.telegram_handle,
+          discord_handle: editForm.discord_handle,
         };
 
         if (editForm.team_id !== null) {
@@ -296,9 +461,69 @@ export default {
       }
     };
 
+    // Channel access helpers
+    const channelStatusLabel = status => {
+      const labels = {
+        none: 'Not requested',
+        pending: 'Pending approval',
+        approved: 'Added to channel',
+        denied: 'Request denied',
+      };
+      return labels[status] || status;
+    };
+
+    const channelStatusClass = status => ({
+      'channel-badge-none': status === 'none',
+      'channel-badge-pending': status === 'pending',
+      'channel-badge-approved': status === 'approved',
+      'channel-badge-denied': status === 'denied',
+    });
+
+    const canRequest = platform => {
+      const status = channelAccess[`${platform}_status`];
+      const handle = editForm[`${platform}_handle`];
+      return handle && (status === 'none' || status === 'denied');
+    };
+
+    const requestChannelAccess = async platform => {
+      channelRequestError.value = '';
+      requestingChannel.value = platform;
+      try {
+        const body = {
+          [platform]: true,
+          [`${platform}_handle`]: editForm[`${platform}_handle`],
+        };
+
+        const response = await fetch(
+          `${getApiBaseUrl()}/api/channel-requests`,
+          {
+            method: 'POST',
+            headers: {
+              ...authStore.getAuthHeaders(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+          }
+        );
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.detail || 'Failed to submit request');
+        }
+
+        // Refresh channel status
+        await fetchChannelAccess();
+      } catch (err) {
+        channelRequestError.value = err.message;
+      } finally {
+        requestingChannel.value = null;
+      }
+    };
+
     // Initialize edit form when component mounts
-    onMounted(() => {
+    onMounted(async () => {
       initializeEditForm();
+      await fetchChannelAccess();
     });
 
     // Watch for profile changes and update edit form
@@ -325,6 +550,14 @@ export default {
       cancelEditing,
       saveChanges,
       handleLogout,
+      // Channel access
+      channelAccess,
+      requestingChannel,
+      channelRequestError,
+      channelStatusLabel,
+      channelStatusClass,
+      canRequest,
+      requestChannelAccess,
     };
   },
 };
@@ -527,5 +760,123 @@ export default {
 .input-valid:focus {
   outline: 2px solid #059669;
   outline-offset: 2px;
+}
+
+/* Channel access section */
+.channel-access-section {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.channel-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0369a1;
+  margin: 0 0 8px 0;
+}
+
+.channel-section-desc {
+  font-size: 13px;
+  color: #475569;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.channel-platform {
+  background: white;
+  border: 1px solid #e0f2fe;
+  border-radius: 6px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.channel-platform-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.channel-platform-name {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.channel-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.channel-badge-none {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+}
+
+.channel-badge-pending {
+  background-color: #fef9c3;
+  color: #a16207;
+}
+
+.channel-badge-approved {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.channel-badge-denied {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.channel-action {
+  margin-top: 8px;
+}
+
+.request-btn {
+  background-color: #0ea5e9;
+  color: white;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.request-btn:hover {
+  background-color: #0284c7;
+}
+
+.request-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.channel-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 6px 0 0 0;
+  font-style: italic;
+}
+
+.channel-hint-denied {
+  color: #dc2626;
+}
+
+.channel-approved {
+  font-size: 13px;
+  color: #15803d;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.channel-error {
+  font-size: 13px;
+  color: #dc2626;
+  margin-top: 10px;
 }
 </style>

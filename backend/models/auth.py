@@ -66,6 +66,9 @@ class UserProfile(BaseModel):
     primary_color: str = "#3B82F6"
     text_color: str = "#FFFFFF"
     accent_color: str = "#1D4ED8"
+    # Telegram/Discord handles for channel access
+    telegram_handle: str | None = None
+    discord_handle: str | None = None
 
 
 class RoleUpdate(BaseModel):
