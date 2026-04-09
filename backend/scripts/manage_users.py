@@ -692,6 +692,9 @@ def get_user_info(supabase, email):
 
             console.print(f"  Telegram:     {p.get('telegram_handle') or 'N/A'}")
             console.print(f"  Discord:      {p.get('discord_handle') or 'N/A'}")
+            console.print(f"  Instagram:    {p.get('instagram_handle') or 'N/A'}")
+            console.print(f"  Snapchat:     {p.get('snapchat_handle') or 'N/A'}")
+            console.print(f"  TikTok:       {p.get('tiktok_handle') or 'N/A'}")
         else:
             console.print("\n[yellow]⚠️  No profile record found[/yellow]")
 
