@@ -164,12 +164,12 @@ def list_users(supabase):
             row_styles=["", "dim"],  # Alternate row styling for better readability
             width=180,  # Set reasonable max width
         )
-        table.add_column("Username/Email", style="green", max_width=25)
-        table.add_column("Account Email", style="magenta", max_width=30)
-        table.add_column("ID", style="dim", max_width=12, overflow="ellipsis")  # Truncate UUID
+        table.add_column("Username", style="green", max_width=20)
+        table.add_column("Email", style="magenta", max_width=28)
+        table.add_column("ID", style="dim", max_width=12, overflow="ellipsis")
         table.add_column("Role", style="yellow", max_width=15)
+        table.add_column("Team / Club", style="blue", max_width=28)
         table.add_column("Display Name", style="cyan", max_width=20)
-        table.add_column("Team", style="blue", max_width=25)
         table.add_column("Created", style="dim", max_width=10, no_wrap=True)
 
         for user in users_list:
@@ -177,74 +177,70 @@ def list_users(supabase):
             auth_email = user.email if hasattr(user, "email") else user.get("email")
             created_at = user.created_at if hasattr(user, "created_at") else user.get("created_at")
 
-            # Get profile info with team details
+            # Get profile info with team and club details
             try:
-                # Try to select email column, but it might not exist in all schemas
                 profile_result = (
                     supabase.table("user_profiles")
-                    .select("username, role, display_name, team_id, teams(id, name)")
+                    .select("username, email, role, display_name, team_id, club_id, teams(id, name), clubs(id, name)")
                     .eq("id", user_id)
                     .execute()
                 )
                 if profile_result.data:
                     profile = profile_result.data[0]
-                    username = profile.get("username", "N/A")
-                    role = profile.get("role", "No role")
-                    display_name = profile.get("display_name", "No display name")
+                    username = profile.get("username") or "N/A"
+                    role = profile.get("role") or "No role"
+                    display_name = profile.get("display_name") or ""
                     team_id = profile.get("team_id")
+                    club_id = profile.get("club_id")
 
-                    # Determine identifier to show (username > email > auth_email)
-                    # Username authentication users will have username field
-                    # Legacy email users will have email in auth but not username
-                    if username and username != "N/A":
-                        identifier = username
-                    elif profile.get("email"):
-                        identifier = profile.get("email")
+                    # Email: prefer profile email, fall back to auth email (hide internal ones)
+                    profile_email = profile.get("email")
+                    if profile_email:
+                        email_display = profile_email
+                    elif auth_email and not auth_email.endswith("@missingtable.local"):
+                        email_display = auth_email
                     else:
-                        # Fallback to auth email (might be internal format like user@missingtable.local)
-                        identifier = (
-                            auth_email if auth_email and not auth_email.endswith("@missingtable.local") else "N/A"
-                        )
+                        email_display = "N/A"
 
-                    # Format team display (ID + Name for team-manager/team-player/team-fan)
+                    # Team / Club assignment
                     if team_id and profile.get("teams"):
                         team_name = profile["teams"].get("name", "Unknown")
-                        team_display = f"[{team_id}] {team_name}"
+                        assignment = f"Team: {team_name}"
+                    elif club_id and profile.get("clubs"):
+                        club_name = profile["clubs"].get("name", "Unknown")
+                        assignment = f"Club: {club_name}"
                     elif team_id:
-                        team_display = f"[{team_id}] (name unknown)"
+                        assignment = f"Team: [{team_id}]"
+                    elif club_id:
+                        assignment = f"Club: [{club_id}]"
                     else:
-                        team_display = "No team"
+                        assignment = "—"
                 else:
-                    identifier = auth_email if auth_email else "N/A"
-                    role = display_name = team_display = "No profile"
+                    username = auth_email if auth_email else "N/A"
+                    email_display = role = display_name = assignment = "No profile"
             except Exception as e:
-                identifier = auth_email if auth_email else "N/A"
-                role = display_name = team_display = f"Error: {str(e)[:30]}"
+                username = auth_email if auth_email else "N/A"
+                email_display = role = display_name = assignment = f"Error: {str(e)[:30]}"
 
             # Color code roles
             if role == "admin":
                 role_display = f"[bold red]{role}[/bold red]"
-            elif role == "team-manager":
+            elif role in ("team-manager", "club_manager"):
                 role_display = f"[bold yellow]{role}[/bold yellow]"
             elif role == "team-player":
                 role_display = f"[bold blue]{role}[/bold blue]"
-            elif role == "team-fan":
+            elif role in ("team-fan", "club-fan"):
                 role_display = f"[bold green]{role}[/bold green]"
             else:
                 role_display = role
 
-            # Show account email (hide internal @missingtable.local addresses)
-            account_email = (
-                auth_email if auth_email and not auth_email.endswith("@missingtable.local") else "N/A"
-            )
-
             table.add_row(
-                identifier or "N/A",
-                account_email,
-                user_id[:8] if user_id else "N/A",  # Show first 8 chars of UUID
+                username,
+                email_display,
+                user_id[:8] if user_id else "N/A",
                 role_display,
+                assignment,
                 display_name,
-                team_display,
                 str(created_at)[:10] if created_at else "Unknown",
             )
 
