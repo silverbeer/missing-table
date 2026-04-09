@@ -653,10 +653,10 @@ def get_user_info(supabase, email):
         auth_email = user_found.email if hasattr(user_found, "email") else user_found.get("email")
         created_at = user_found.created_at if hasattr(user_found, "created_at") else user_found.get("created_at")
 
-        # Get profile info with team and club
+        # Get profile info with team, club, age group, and division
         profile_result = (
             supabase.table("user_profiles")
-            .select("*, teams(id, name), clubs(id, name)")
+            .select("*, teams(id, name, age_groups(name), divisions(name)), clubs(id, name)")
             .eq("id", user_id)
             .execute()
         )
@@ -677,7 +677,14 @@ def get_user_info(supabase, email):
             team = p.get("teams")
             club = p.get("clubs")
             if team:
-                console.print(f"  Team:         [blue]{team.get('name')} (ID: {p.get('team_id')})[/blue]")
+                age_group = team.get("age_groups", {}) or {}
+                division = team.get("divisions", {}) or {}
+                team_parts = [team.get("name")]
+                if age_group.get("name"):
+                    team_parts.append(age_group["name"])
+                if division.get("name"):
+                    team_parts.append(division["name"])
+                console.print(f"  Team:         [blue]{' · '.join(team_parts)} (ID: {p.get('team_id')})[/blue]")
             elif p.get("team_id"):
                 console.print(f"  Team ID:      [blue]{p.get('team_id')}[/blue]")
             else:
