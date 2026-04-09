@@ -39,7 +39,8 @@ class PlayerDAO(BaseDAO):
                 self.client.table("user_profiles")
                 .select("""
                 *,
-                team:teams(id, name, city)
+                team:teams(id, name, city, club:clubs(id, name, primary_color, secondary_color, logo_url)),
+                club:clubs(id, name, primary_color, secondary_color, logo_url)
             """)
                 .eq("id", user_id)
                 .execute()
