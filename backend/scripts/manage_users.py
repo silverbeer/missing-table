@@ -634,7 +634,7 @@ def list_teams(supabase):
 def get_user_info(supabase, email):
     """Get detailed information about a user."""
     try:
-        # Find user by email
+        # Find user by email in auth
         response = supabase.auth.admin.list_users()
         users_list = response if isinstance(response, list) else getattr(response, "data", {}).get("users", [])
 
@@ -646,22 +646,59 @@ def get_user_info(supabase, email):
                 break
 
         if not user_found:
+            console.print(f"[red]❌ No auth user found with email: {email}[/red]")
             return False
 
         user_id = user_found.id if hasattr(user_found, "id") else user_found.get("id")
-        user_found.created_at if hasattr(user_found, "created_at") else user_found.get("created_at")
+        auth_email = user_found.email if hasattr(user_found, "email") else user_found.get("email")
+        created_at = user_found.created_at if hasattr(user_found, "created_at") else user_found.get("created_at")
 
-        # Get profile info
-        profile_result = supabase.table("user_profiles").select("*").eq("id", user_id).execute()
+        # Get profile info with team and club
+        profile_result = (
+            supabase.table("user_profiles")
+            .select("*, teams(id, name), clubs(id, name)")
+            .eq("id", user_id)
+            .execute()
+        )
+
+        console.print(f"\n[bold cyan]👤 User Info[/bold cyan]")
+        console.print(f"  Auth ID:    [dim]{user_id}[/dim]")
+        console.print(f"  Auth Email: [magenta]{auth_email}[/magenta]")
+        console.print(f"  Created:    {str(created_at)[:10] if created_at else 'Unknown'}")
 
         if profile_result.data:
-            profile_result.data[0]
+            p = profile_result.data[0]
+            console.print(f"\n[bold cyan]📋 Profile[/bold cyan]")
+            console.print(f"  Username:     [green]{p.get('username') or 'N/A'}[/green]")
+            console.print(f"  Display Name: {p.get('display_name') or 'N/A'}")
+            console.print(f"  Email:        [magenta]{p.get('email') or 'N/A'}[/magenta]")
+            console.print(f"  Role:         [yellow]{p.get('role') or 'N/A'}[/yellow]")
+
+            team = p.get("teams")
+            club = p.get("clubs")
+            if team:
+                console.print(f"  Team:         [blue]{team.get('name')} (ID: {p.get('team_id')})[/blue]")
+            elif p.get("team_id"):
+                console.print(f"  Team ID:      [blue]{p.get('team_id')}[/blue]")
+            else:
+                console.print(f"  Team:         —")
+
+            if club:
+                console.print(f"  Club:         [blue]{club.get('name')} (ID: {p.get('club_id')})[/blue]")
+            elif p.get("club_id"):
+                console.print(f"  Club ID:      [blue]{p.get('club_id')}[/blue]")
+            else:
+                console.print(f"  Club:         —")
+
+            console.print(f"  Telegram:     {p.get('telegram_handle') or 'N/A'}")
+            console.print(f"  Discord:      {p.get('discord_handle') or 'N/A'}")
         else:
-            pass
+            console.print("\n[yellow]⚠️  No profile record found[/yellow]")
 
         return True
 
-    except Exception:
+    except Exception as e:
+        console.print(f"[red]❌ Error fetching user info: {e}[/red]")
         return False
 
 
