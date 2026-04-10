@@ -223,9 +223,12 @@ describe('MatchEditModal', () => {
       await flushPromises();
 
       expect(mockAuthStore.apiRequest).toHaveBeenCalled();
-      const callArgs = mockAuthStore.apiRequest.mock.calls[0];
-      expect(callArgs[0]).toContain('/api/matches/');
-      expect(callArgs[1].method).toBe('PATCH');
+      const patchCall = mockAuthStore.apiRequest.mock.calls.find(
+        call => call[1]?.method === 'PATCH'
+      );
+      expect(patchCall).toBeTruthy();
+      expect(patchCall[0]).toContain('/api/matches/');
+      expect(patchCall[1].method).toBe('PATCH');
     });
 
     it('emits updated and close on successful submit', async () => {
