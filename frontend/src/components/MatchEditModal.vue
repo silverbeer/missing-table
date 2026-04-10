@@ -304,9 +304,10 @@ export default {
       if (match.age_group_id) params.append('age_group_id', match.age_group_id);
       if (match.division_id) params.append('division_id', match.division_id);
       try {
-        availableTeams.value = await authStore.apiRequest(
+        const result = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/teams?${params.toString()}`
         );
+        availableTeams.value = Array.isArray(result) ? result : props.teams;
       } catch {
         // Fall back to the teams passed by the parent
         availableTeams.value = props.teams;
