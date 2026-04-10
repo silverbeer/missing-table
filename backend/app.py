@@ -2187,10 +2187,7 @@ async def get_matches(
     start_date: str | None = Query(None, description="Filter by start date (YYYY-MM-DD)"),
     end_date: str | None = Query(None, description="Filter by end date (YYYY-MM-DD)"),
 ):
-    """Get all matches with optional filters (requires authentication).
-
-    Note: Club managers only see matches involving their club's teams.
-    """
+    """Get all matches with optional filters (requires authentication)."""
     try:
         matches = match_dao.get_all_matches(
             season_id=season_id,
@@ -2201,20 +2198,6 @@ async def get_matches(
             start_date=start_date,
             end_date=end_date,
         )
-
-        # Club managers only see matches involving their club's teams
-        user_role = current_user.get("role")
-        user_club_id = current_user.get("club_id")
-
-        if user_role == "club_manager" and user_club_id:
-            # Get the team IDs for this club
-            club_teams = team_dao.get_club_teams(user_club_id)
-            club_team_ids = {team["id"] for team in club_teams}
-
-            # Filter matches to only those involving club's teams
-            matches = [
-                m for m in matches if m.get("home_team_id") in club_team_ids or m.get("away_team_id") in club_team_ids
-            ]
 
         # Enrich matches with card event data
         match_ids = [m["id"] for m in matches if m.get("id")]
