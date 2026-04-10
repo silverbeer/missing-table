@@ -106,7 +106,11 @@
                 data-testid="home-team-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option v-for="team in teams" :key="team.id" :value="team.id">
+                <option
+                  v-for="team in availableTeams"
+                  :key="team.id"
+                  :value="team.id"
+                >
                   {{ team.name }}
                 </option>
               </select>
@@ -121,7 +125,11 @@
                 data-testid="away-team-select"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option v-for="team in teams" :key="team.id" :value="team.id">
+                <option
+                  v-for="team in availableTeams"
+                  :key="team.id"
+                  :value="team.id"
+                >
                   {{ team.name }}
                 </option>
               </select>
@@ -286,6 +294,24 @@ export default {
     const authStore = useAuthStore();
     const loading = ref(false);
     const error = ref(null);
+    const availableTeams = ref([]);
+
+    const fetchTeamsForMatch = async match => {
+      if (!match) return;
+      const params = new URLSearchParams({ for_match_edit: 'true' });
+      if (match.match_type_id)
+        params.append('match_type_id', match.match_type_id);
+      if (match.age_group_id) params.append('age_group_id', match.age_group_id);
+      if (match.division_id) params.append('division_id', match.division_id);
+      try {
+        availableTeams.value = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/teams?${params.toString()}`
+        );
+      } catch {
+        // Fall back to the teams passed by the parent
+        availableTeams.value = props.teams;
+      }
+    };
 
     const formData = ref({
       match_date: '',
@@ -313,7 +339,7 @@ export default {
       });
     };
 
-    // Watch for match prop changes to populate form
+    // Watch for match prop changes to populate form and fetch relevant teams
     watch(
       () => props.match,
       newMatch => {
@@ -332,6 +358,7 @@ export default {
             match_status: newMatch.match_status || 'scheduled',
           };
           error.value = null;
+          fetchTeamsForMatch(newMatch);
         }
       },
       { immediate: true }
@@ -452,6 +479,7 @@ export default {
       formData,
       loading,
       error,
+      availableTeams,
       isAdmin: authStore.isAdmin,
       updateMatch,
       formatDate,
