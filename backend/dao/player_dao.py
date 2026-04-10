@@ -377,7 +377,6 @@ class PlayerDAO(BaseDAO):
                 *,
                 team:teams(id, name, city,
                     club:clubs(id, name, logo_url, primary_color, secondary_color),
-                    age_group:age_groups(id, name),
                     league:leagues(id, name),
                     division:divisions(id, name)
                 ),
@@ -427,18 +426,24 @@ class PlayerDAO(BaseDAO):
             Created/updated history entry dict, or None on error
         """
         try:
-            # Get team details for age_group_id, league_id, division_id
+            # Get team details for league_id, division_id
             team_response = (
-                self.client.table("teams").select("age_group_id, league_id, division_id").eq("id", team_id).execute()
+                self.client.table("teams").select("league_id, division_id").eq("id", team_id).execute()
             )
 
             team_data = team_response.data[0] if team_response.data else {}
+
+            # Get age_group_id from team_mappings (teams.age_group_id is deprecated/never populated)
+            mapping_response = (
+                self.client.table("team_mappings").select("age_group_id").eq("team_id", team_id).limit(1).execute()
+            )
+            age_group_id = mapping_response.data[0]["age_group_id"] if mapping_response.data else None
 
             upsert_data = {
                 "player_id": player_id,
                 "team_id": team_id,
                 "season_id": season_id,
-                "age_group_id": team_data.get("age_group_id"),
+                "age_group_id": age_group_id,
                 "league_id": team_data.get("league_id"),
                 "division_id": team_data.get("division_id"),
                 "jersey_number": jersey_number,
