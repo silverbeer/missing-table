@@ -360,6 +360,18 @@ class InviteService:
                     league_id = league_id or team.get("league_id")
                     division_id = division_id or team.get("division_id")
 
+            # Get age_group_id from team_mappings if not provided by the invite
+            if team_id and age_group_id is None:
+                mapping_response = (
+                    self.supabase.table("team_mappings")
+                    .select("age_group_id")
+                    .eq("team_id", team_id)
+                    .limit(1)
+                    .execute()
+                )
+                if mapping_response.data:
+                    age_group_id = mapping_response.data[0]["age_group_id"]
+
             # Update the players table to link user_profile_id
             response = self.supabase.table("players").update({"user_profile_id": user_id}).eq("id", player_id).execute()
 
@@ -447,6 +459,18 @@ class InviteService:
             if team_response.data:
                 league_id = team_response.data[0].get("league_id")
                 division_id = team_response.data[0].get("division_id")
+
+            # Get age_group_id from team_mappings if not provided by the invite
+            if age_group_id is None:
+                mapping_response = (
+                    self.supabase.table("team_mappings")
+                    .select("age_group_id")
+                    .eq("team_id", team_id)
+                    .limit(1)
+                    .execute()
+                )
+                if mapping_response.data:
+                    age_group_id = mapping_response.data[0]["age_group_id"]
 
             # Check if a player with this jersey number already exists
             existing_response = (
