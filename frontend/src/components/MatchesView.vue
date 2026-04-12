@@ -514,6 +514,8 @@
                   v-for="(match, index) in homegrownMatches"
                   :key="`homegrown-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
+                  class="cursor-pointer hover:bg-blue-50"
+                  @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
                   <td class="border-b text-center text-sm text-gray-600">
@@ -679,7 +681,7 @@
                     </button>
                     <button
                       v-if="canEditGame(match)"
-                      @click="editMatch(match)"
+                      @click.stop="editMatch(match)"
                       class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
                       Edit
@@ -700,6 +702,8 @@
                   v-for="(match, index) in academyMatches"
                   :key="`academy-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
+                  class="cursor-pointer hover:bg-blue-50"
+                  @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
                   <td class="border-b text-center text-sm text-gray-600">
@@ -865,7 +869,7 @@
                     </button>
                     <button
                       v-if="canEditGame(match)"
-                      @click="editMatch(match)"
+                      @click.stop="editMatch(match)"
                       class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
                       Edit
@@ -886,6 +890,8 @@
                   v-for="(match, index) in otherMatches"
                   :key="`other-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
+                  class="cursor-pointer hover:bg-blue-50"
+                  @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
                   <td class="border-b text-center text-sm text-gray-600">
@@ -1051,7 +1057,7 @@
                     </button>
                     <button
                       v-if="canEditGame(match)"
-                      @click="editMatch(match)"
+                      @click.stop="editMatch(match)"
                       class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
                       Edit
@@ -1066,6 +1072,8 @@
                 v-for="(match, index) in sortedGames"
                 :key="match.id"
                 :class="{ 'bg-gray-100': index % 2 === 0 }"
+                class="cursor-pointer hover:bg-blue-50"
+                @click="viewMatch(match)"
               >
                 <td
                   v-if="selectedViewTab === 'myclub'"
@@ -1211,7 +1219,7 @@
                   </button>
                   <button
                     v-if="canEditGame(match)"
-                    @click="editMatch(match)"
+                    @click.stop="editMatch(match)"
                     class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
                     Edit
@@ -1235,7 +1243,8 @@
               <div
                 v-for="(match, index) in homegrownMatches"
                 :key="`homegrown-${match.id}`"
-                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+                @click="viewMatch(match)"
               >
                 <!-- Match Number and Date -->
                 <div
@@ -1415,7 +1424,7 @@
                   </button>
                   <button
                     v-if="canEditGame(match)"
-                    @click="editMatch(match)"
+                    @click.stop="editMatch(match)"
                     class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
                   >
                     Edit Match
@@ -1433,7 +1442,8 @@
               <div
                 v-for="(match, index) in academyMatches"
                 :key="`academy-${match.id}`"
-                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+                @click="viewMatch(match)"
               >
                 <!-- Match Number and Date -->
                 <div
@@ -1613,7 +1623,7 @@
                   </button>
                   <button
                     v-if="canEditGame(match)"
-                    @click="editMatch(match)"
+                    @click.stop="editMatch(match)"
                     class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
                   >
                     Edit Match
@@ -1631,7 +1641,8 @@
               <div
                 v-for="(match, index) in otherMatches"
                 :key="`other-${match.id}`"
-                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+                @click="viewMatch(match)"
               >
                 <!-- Match Number and Date -->
                 <div
@@ -1811,7 +1822,7 @@
                   </button>
                   <button
                     v-if="canEditGame(match)"
-                    @click="editMatch(match)"
+                    @click.stop="editMatch(match)"
                     class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
                   >
                     Edit Match
@@ -1825,7 +1836,8 @@
               v-else
               v-for="(match, index) in sortedGames"
               :key="match.id"
-              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+              @click="viewMatch(match)"
             >
               <!-- Match Number and Date -->
               <div
@@ -1966,7 +1978,7 @@
                   </button>
                   <button
                     v-if="canEditGame(match)"
-                    @click="editMatch(match)"
+                    @click.stop="editMatch(match)"
                     class="text-blue-600 font-medium text-sm active:text-blue-800"
                   >
                     Edit
