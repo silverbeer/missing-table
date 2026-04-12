@@ -616,6 +616,156 @@ class MatchDAO(BaseDAO):
             logger.exception("Error querying matches by team")
             return []
 
+    def get_match_preview(
+        self,
+        home_team_id: int,
+        away_team_id: int,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        recent_count: int = 5,
+    ) -> dict:
+        """Get match preview data: recent form, common opponents, and head-to-head history.
+
+        Args:
+            home_team_id: ID of the home team in the upcoming match
+            away_team_id: ID of the away team in the upcoming match
+            season_id: Season for recent form and common opponents (None = all seasons)
+            age_group_id: Optional filter to restrict to a specific age group
+            recent_count: How many recent matches to return per team
+
+        Returns:
+            Dict with home_team_recent, away_team_recent, common_opponents, head_to_head
+        """
+        select_str = """
+            *,
+            home_team:teams!matches_home_team_id_fkey(id, name),
+            away_team:teams!matches_away_team_id_fkey(id, name),
+            season:seasons(id, name),
+            age_group:age_groups(id, name),
+            match_type:match_types(id, name),
+            division:divisions(id, name)
+        """
+
+        def flatten(match: dict) -> dict:
+            return {
+                "id": match["id"],
+                "match_date": match["match_date"],
+                "scheduled_kickoff": match.get("scheduled_kickoff"),
+                "home_team_id": match["home_team_id"],
+                "away_team_id": match["away_team_id"],
+                "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+                "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+                "home_score": match["home_score"],
+                "away_score": match["away_score"],
+                "season_id": match["season_id"],
+                "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+                "age_group_id": match["age_group_id"],
+                "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                "match_type_id": match["match_type_id"],
+                "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
+                "division_id": match.get("division_id"),
+                "division_name": match["division"]["name"] if match.get("division") else "Unknown",
+                "match_status": match.get("match_status"),
+                "source": match.get("source", "manual"),
+                "match_id": match.get("match_id"),
+                "created_at": match.get("created_at"),
+                "updated_at": match.get("updated_at"),
+            }
+
+        def build_base_query(team_id: int):
+            q = (
+                self.client.table("matches")
+                .select(select_str)
+                .or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
+                .in_("match_status", ["completed", "forfeit"])
+            )
+            if season_id:
+                q = q.eq("season_id", season_id)
+            if age_group_id:
+                q = q.eq("age_group_id", age_group_id)
+            return q
+
+        try:
+            # --- Recent form for each team ---
+            home_resp = build_base_query(home_team_id).order("match_date", desc=True).limit(recent_count).execute()
+            away_resp = build_base_query(away_team_id).order("match_date", desc=True).limit(recent_count).execute()
+            home_recent = [flatten(m) for m in (home_resp.data or [])]
+            away_recent = [flatten(m) for m in (away_resp.data or [])]
+
+            # --- Common opponents (season-scoped) ---
+            # Fetch all season matches for both teams to find shared opponents
+            home_all_resp = build_base_query(home_team_id).order("match_date", desc=True).execute()
+            away_all_resp = build_base_query(away_team_id).order("match_date", desc=True).execute()
+            home_all = [flatten(m) for m in (home_all_resp.data or [])]
+            away_all = [flatten(m) for m in (away_all_resp.data or [])]
+
+            def extract_opponents(matches: list[dict], team_id: int) -> dict[int, str]:
+                """Return {opponent_id: opponent_name} excluding the two preview teams."""
+                opps: dict[int, str] = {}
+                for m in matches:
+                    if m["home_team_id"] == team_id:
+                        opp_id, opp_name = m["away_team_id"], m["away_team_name"]
+                    else:
+                        opp_id, opp_name = m["home_team_id"], m["home_team_name"]
+                    # Exclude head-to-head matches between the two preview teams
+                    if opp_id not in (home_team_id, away_team_id):
+                        opps[opp_id] = opp_name
+                return opps
+
+            home_opps = extract_opponents(home_all, home_team_id)
+            away_opps = extract_opponents(away_all, away_team_id)
+            common_ids = sorted(set(home_opps) & set(away_opps), key=lambda i: home_opps[i])
+
+            common_opponents = []
+            for opp_id in common_ids:
+                home_vs = [m for m in home_all if opp_id in (m["home_team_id"], m["away_team_id"])]
+                away_vs = [m for m in away_all if opp_id in (m["home_team_id"], m["away_team_id"])]
+                common_opponents.append(
+                    {
+                        "opponent_id": opp_id,
+                        "opponent_name": home_opps[opp_id],
+                        "home_team_matches": home_vs,
+                        "away_team_matches": away_vs,
+                    }
+                )
+
+            # --- Head-to-head history (all seasons, cross-season) ---
+            # Fetch all matches for home_team and filter to those against away_team
+            h2h_query = (
+                self.client.table("matches")
+                .select(select_str)
+                .or_(f"home_team_id.eq.{home_team_id},away_team_id.eq.{home_team_id}")
+                .in_("match_status", ["completed", "forfeit"])
+            )
+            if age_group_id:
+                h2h_query = h2h_query.eq("age_group_id", age_group_id)
+            h2h_resp = h2h_query.order("match_date", desc=True).execute()
+            head_to_head = [
+                flatten(m)
+                for m in (h2h_resp.data or [])
+                if away_team_id in (m["home_team_id"], m["away_team_id"])
+            ]
+
+            return {
+                "home_team_id": home_team_id,
+                "away_team_id": away_team_id,
+                "home_team_recent": home_recent,
+                "away_team_recent": away_recent,
+                "common_opponents": common_opponents,
+                "head_to_head": head_to_head,
+            }
+
+        except Exception:
+            logger.exception("Error building match preview")
+            return {
+                "home_team_id": home_team_id,
+                "away_team_id": away_team_id,
+                "home_team_recent": [],
+                "away_team_recent": [],
+                "common_opponents": [],
+                "head_to_head": [],
+            }
+
     @invalidates_cache(MATCHES_CACHE_PATTERN)
     def add_match(
         self,

@@ -2241,6 +2241,34 @@ async def get_live_matches(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/matches/preview/{home_team_id}/{away_team_id}")
+async def get_match_preview(
+    home_team_id: int,
+    away_team_id: int,
+    season_id: int | None = Query(None, description="Season ID for recent form and common opponents"),
+    age_group_id: int | None = Query(None, description="Filter by age group"),
+    recent_count: int = Query(5, ge=1, le=20, description="Number of recent matches per team"),
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Get match preview data for two teams.
+
+    Returns recent form for each team, common opponents (with match results), and
+    head-to-head history spanning all seasons.
+    """
+    try:
+        preview = match_dao.get_match_preview(
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            season_id=season_id,
+            age_group_id=age_group_id,
+            recent_count=recent_count,
+        )
+        return preview
+    except Exception as e:
+        logger.error(f"Error building match preview: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.get("/api/matches/{match_id}")
 async def get_match(
     request: Request,
