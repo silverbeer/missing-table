@@ -394,12 +394,12 @@ const tabs = computed(() => [
   {
     id: 'common',
     label: 'Common Opponents',
-    count: preview.value ? preview.value.common_opponents.length : null,
+    count: preview.value ? (preview.value.common_opponents?.length ?? 0) : null,
   },
   {
     id: 'h2h',
     label: 'Head-to-Head',
-    count: preview.value ? preview.value.head_to_head.length : null,
+    count: preview.value ? (preview.value.head_to_head?.length ?? 0) : null,
   },
 ]);
 
@@ -434,7 +434,22 @@ async function fetchPreview() {
     params.set('recent_count', props.recentCount);
 
     const url = `${getApiBaseUrl()}/api/matches/preview/${props.homeTeamId}/${props.awayTeamId}?${params}`;
-    preview.value = await authStore.apiRequest(url);
+    const data = await authStore.apiRequest(url);
+    // Normalize to guarantee expected arrays are always present
+    preview.value = {
+      home_team_id: data?.home_team_id ?? props.homeTeamId,
+      away_team_id: data?.away_team_id ?? props.awayTeamId,
+      home_team_recent: Array.isArray(data?.home_team_recent)
+        ? data.home_team_recent
+        : [],
+      away_team_recent: Array.isArray(data?.away_team_recent)
+        ? data.away_team_recent
+        : [],
+      common_opponents: Array.isArray(data?.common_opponents)
+        ? data.common_opponents
+        : [],
+      head_to_head: Array.isArray(data?.head_to_head) ? data.head_to_head : [],
+    };
   } catch (err) {
     error.value = err.message || 'Failed to load match preview';
   } finally {

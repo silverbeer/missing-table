@@ -67,6 +67,16 @@ const createMockApiRequestForMatch = (match, events = []) => {
     if (url.includes('/live/events')) {
       return Promise.resolve(events);
     }
+    if (url.includes('/preview/')) {
+      return Promise.resolve({
+        home_team_id: match.home_team_id,
+        away_team_id: match.away_team_id,
+        home_team_recent: [],
+        away_team_recent: [],
+        common_opponents: [],
+        head_to_head: [],
+      });
+    }
     return Promise.resolve(match);
   });
 };
