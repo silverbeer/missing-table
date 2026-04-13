@@ -481,22 +481,32 @@ class MatchDAO(BaseDAO):
             return []
         season_id = season_resp.data[0]["id"]
 
-        # Fetch all non-cancelled matches for this season with joins
-        response = (
-            self.client.table("matches")
-            .select("""
-                match_date, match_status, home_score, away_score, scheduled_kickoff,
-                age_group:age_groups(name),
-                division:divisions(name, league_id, leagues:leagues!divisions_league_id_fkey(name))
-            """)
-            .eq("season_id", season_id)
-            .neq("match_status", "cancelled")
-            .execute()
-        )
+        # Fetch all non-cancelled matches for this season with joins.
+        # Supabase defaults to 1000 rows — paginate to get the full season.
+        _page_size = 1000
+        _offset = 0
+        all_matches: list[dict] = []
+        while True:
+            response = (
+                self.client.table("matches")
+                .select("""
+                    match_date, match_status, home_score, away_score, scheduled_kickoff,
+                    age_group:age_groups(name),
+                    division:divisions(name, league_id, leagues:leagues!divisions_league_id_fkey(name))
+                """)
+                .eq("season_id", season_id)
+                .neq("match_status", "cancelled")
+                .range(_offset, _offset + _page_size - 1)
+                .execute()
+            )
+            all_matches.extend(response.data)
+            if len(response.data) < _page_size:
+                break
+            _offset += _page_size
 
         # Group by (age_group, league, division)
         groups = defaultdict(list)
-        for m in response.data:
+        for m in all_matches:
             ag = m["age_group"]["name"] if m.get("age_group") else "Unknown"
             div_name = m["division"]["name"] if m.get("division") else "Unknown"
             league_name = (
