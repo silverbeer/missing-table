@@ -66,6 +66,7 @@ class TestGetMatchSummary:
                 mock.select.return_value = mock
                 mock.eq.return_value = mock
                 mock.neq.return_value = mock
+                mock.range.return_value = mock
                 mock.execute.return_value = MagicMock(data=matches_data)
             return mock
 
@@ -123,6 +124,7 @@ class TestGetMatchSummary:
                 mock.select.return_value = mock
                 mock.eq.return_value = mock
                 mock.neq.return_value = mock
+                mock.range.return_value = mock
                 mock.execute.return_value = MagicMock(data=matches_data)
             return mock
 
@@ -130,6 +132,78 @@ class TestGetMatchSummary:
 
         result = dao.get_match_summary("2025-26")
         assert result[0]["needs_score"] == 2  # Only past matches count
+
+    def test_paginates_beyond_1000_rows(self):
+        """Regression test: query must paginate past Supabase's 1000-row default limit."""
+        dao = self._make_dao()
+
+        # Simulate two pages: first returns 1000 rows (all U14), second returns 2 rows (U16)
+        page1 = [
+            {
+                "match_date": "2026-03-01",
+                "match_status": "completed",
+                "home_score": 1,
+                "away_score": 0,
+                "scheduled_kickoff": None,
+                "age_group": {"name": "U14"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            }
+        ] * 1000
+        page2 = [
+            {
+                "match_date": "2026-04-11",
+                "match_status": "scheduled",
+                "home_score": None,
+                "away_score": None,
+                "scheduled_kickoff": None,
+                "age_group": {"name": "U16"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            },
+            {
+                "match_date": "2026-04-12",
+                "match_status": "scheduled",
+                "home_score": None,
+                "away_score": None,
+                "scheduled_kickoff": None,
+                "age_group": {"name": "U16"},
+                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+            },
+        ]
+
+        call_count = 0
+
+        def table_side_effect(name):
+            nonlocal call_count
+            mock = MagicMock()
+            if name == "seasons":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.limit.return_value = mock
+                mock.execute.return_value = MagicMock(data=[{"id": 1}])
+            elif name == "matches":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.neq.return_value = mock
+                mock.range.return_value = mock
+
+                def execute_side_effect():
+                    nonlocal call_count
+                    call_count += 1
+                    return MagicMock(data=page1 if call_count == 1 else page2)
+
+                mock.execute.side_effect = execute_side_effect
+            return mock
+
+        dao.client.table = table_side_effect
+
+        result = dao.get_match_summary("2025-2026")
+
+        assert call_count == 2, "Expected exactly two paginated fetches"
+        groups = {r["age_group"]: r for r in result}
+        assert "U14" in groups
+        assert "U16" in groups, "U16 matches from page 2 must appear in the summary"
+        assert groups["U16"]["total"] == 2
+        assert groups["U16"]["needs_score"] == 2  # Both are past unscored matches
 
 
 @pytest.mark.unit
