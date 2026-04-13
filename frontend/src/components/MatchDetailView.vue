@@ -417,6 +417,24 @@
         </button>
       </div>
 
+      <!-- Match Preview (scheduled/tbd matches only) -->
+      <div
+        v-if="
+          match.match_status === 'scheduled' || match.match_status === 'tbd'
+        "
+        class="mt-4"
+        data-testid="match-preview-section"
+      >
+        <MatchPreview
+          :homeTeamId="match.home_team_id"
+          :homeTeamName="match.home_team_name"
+          :awayTeamId="match.away_team_id"
+          :awayTeamName="match.away_team_name"
+          :seasonId="match.season_id"
+          :ageGroupId="match.age_group_id"
+        />
+      </div>
+
       <!-- Pre-match Lineup Section (scheduled matches, authorized users only) -->
       <div
         v-if="canManageLineup && match.match_status === 'scheduled'"
@@ -556,12 +574,14 @@ import html2canvas from 'html2canvas';
 import { useMatchLineup } from '../composables/useMatchLineup';
 import LineupManager from './live/LineupManager.vue';
 import PostMatchEditor from './PostMatchEditor.vue';
+import MatchPreview from './MatchPreview.vue';
 
 export default {
   name: 'MatchDetailView',
   components: {
     LineupManager,
     PostMatchEditor,
+    MatchPreview,
   },
   props: {
     matchId: {
