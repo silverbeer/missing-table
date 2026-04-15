@@ -107,12 +107,29 @@
               No recent matches
             </div>
             <div
-              v-for="match in preview.home_team_recent"
-              :key="match.id"
-              class="mb-2"
+              v-for="m in preview.home_team_recent"
+              :key="m.id"
+              class="flex items-center gap-1.5 p-1.5 rounded bg-slate-700 border border-slate-600 text-xs mb-2"
               data-testid="home-recent-match"
             >
-              <MatchResultCard :match="match" :perspectiveTeamId="homeTeamId" />
+              <span
+                :class="[
+                  'font-bold w-5 text-center shrink-0 rounded-sm py-0.5',
+                  matchOutcomeClass(m, homeTeamId),
+                ]"
+                >{{ matchOutcome(m, homeTeamId) }}</span
+              >
+              <span class="font-mono font-semibold text-slate-200 shrink-0"
+                >{{ m.home_score }}–{{ m.away_score }}</span
+              >
+              <span class="text-slate-300 truncate flex-1">{{
+                m.home_team_id === homeTeamId
+                  ? m.away_team_name
+                  : m.home_team_name
+              }}</span>
+              <span class="text-slate-500 shrink-0">{{
+                shortDate(m.match_date)
+              }}</span>
             </div>
           </div>
 
@@ -130,12 +147,29 @@
               No recent matches
             </div>
             <div
-              v-for="match in preview.away_team_recent"
-              :key="match.id"
-              class="mb-2"
+              v-for="m in preview.away_team_recent"
+              :key="m.id"
+              class="flex items-center gap-1.5 p-1.5 rounded bg-slate-700 border border-slate-600 text-xs mb-2"
               data-testid="away-recent-match"
             >
-              <MatchResultCard :match="match" :perspectiveTeamId="awayTeamId" />
+              <span
+                :class="[
+                  'font-bold w-5 text-center shrink-0 rounded-sm py-0.5',
+                  matchOutcomeClass(m, awayTeamId),
+                ]"
+                >{{ matchOutcome(m, awayTeamId) }}</span
+              >
+              <span class="font-mono font-semibold text-slate-200 shrink-0"
+                >{{ m.home_score }}–{{ m.away_score }}</span
+              >
+              <span class="text-slate-300 truncate flex-1">{{
+                m.home_team_id === awayTeamId
+                  ? m.away_team_name
+                  : m.home_team_name
+              }}</span>
+              <span class="text-slate-500 shrink-0">{{
+                shortDate(m.match_date)
+              }}</span>
             </div>
           </div>
         </div>
@@ -167,65 +201,70 @@
         <div
           v-for="opp in preview.common_opponents"
           :key="opp.opponent_id"
-          class="mb-5"
+          class="mb-4"
           data-testid="common-opponent-section"
         >
           <!-- Opponent header -->
           <div
-            class="flex items-center gap-2 mb-2 pb-1 border-b border-slate-600"
+            class="text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide"
           >
-            <span class="inline-block w-2 h-2 rounded-full bg-slate-500"></span>
-            <span class="text-sm font-semibold text-slate-200"
-              >vs {{ opp.opponent_name }}</span
-            >
+            vs {{ opp.opponent_name }}
           </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <!-- Home team vs opponent -->
-            <div>
-              <p class="text-xs text-slate-400 mb-1 truncate">
-                {{ homeTeamName }}
-              </p>
-              <div
-                v-if="opp.home_team_matches.length === 0"
-                class="text-xs text-slate-500 italic"
+          <!-- Stacked match rows: home team then away team -->
+          <div class="space-y-1">
+            <div
+              v-for="m in opp.home_team_matches"
+              :key="m.id"
+              class="flex items-center gap-2 px-2 py-1.5 rounded bg-slate-700 border border-slate-600 text-xs"
+              data-testid="common-home-match"
+            >
+              <span
+                :class="[
+                  'font-bold w-5 text-center shrink-0 rounded-sm py-0.5',
+                  matchOutcomeClass(m, homeTeamId),
+                ]"
+                >{{ matchOutcome(m, homeTeamId) }}</span
               >
-                No matches
-              </div>
-              <div
-                v-for="match in opp.home_team_matches"
-                :key="match.id"
-                class="mb-1.5"
+              <span class="font-mono font-semibold text-slate-200 shrink-0"
+                >{{ m.home_score }}–{{ m.away_score }}</span
               >
-                <MatchResultCard
-                  :match="match"
-                  :perspectiveTeamId="homeTeamId"
-                  compact
-                />
-              </div>
+              <span class="text-slate-300 truncate flex-1">{{
+                homeTeamName
+              }}</span>
+              <span class="text-slate-500 shrink-0">{{
+                shortDate(m.match_date)
+              }}</span>
             </div>
-            <!-- Away team vs opponent -->
-            <div>
-              <p class="text-xs text-slate-400 mb-1 truncate">
-                {{ awayTeamName }}
-              </p>
-              <div
-                v-if="opp.away_team_matches.length === 0"
-                class="text-xs text-slate-500 italic"
+            <div
+              v-for="m in opp.away_team_matches"
+              :key="m.id + '-away'"
+              class="flex items-center gap-2 px-2 py-1.5 rounded bg-slate-700/50 border border-slate-600/50 text-xs"
+              data-testid="common-away-match"
+            >
+              <span
+                :class="[
+                  'font-bold w-5 text-center shrink-0 rounded-sm py-0.5',
+                  matchOutcomeClass(m, awayTeamId),
+                ]"
+                >{{ matchOutcome(m, awayTeamId) }}</span
               >
-                No matches
-              </div>
-              <div
-                v-for="match in opp.away_team_matches"
-                :key="match.id"
-                class="mb-1.5"
+              <span class="font-mono font-semibold text-slate-200 shrink-0"
+                >{{ m.home_score }}–{{ m.away_score }}</span
               >
-                <MatchResultCard
-                  :match="match"
-                  :perspectiveTeamId="awayTeamId"
-                  compact
-                />
-              </div>
+              <span class="text-slate-400 truncate flex-1">{{
+                awayTeamName
+              }}</span>
+              <span class="text-slate-500 shrink-0">{{
+                shortDate(m.match_date)
+              }}</span>
+            </div>
+            <div
+              v-if="
+                !opp.home_team_matches.length && !opp.away_team_matches.length
+              "
+              class="text-xs text-slate-500 italic px-2 py-1"
+            >
+              No match data
             </div>
           </div>
         </div>
@@ -288,14 +327,31 @@
         <div
           v-for="match in preview.head_to_head"
           :key="match.id"
-          class="mb-2"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-xs mb-2"
           data-testid="h2h-match"
         >
-          <H2HMatchRow
-            :match="match"
-            :homeTeamId="homeTeamId"
-            :awayTeamId="awayTeamId"
-          />
+          <span
+            :class="[
+              'flex-1 text-right truncate',
+              h2hWinnerClass(match, match.home_team_id),
+            ]"
+            >{{ match.home_team_name }}</span
+          >
+          <span
+            class="font-mono font-semibold text-slate-200 shrink-0 bg-slate-600 px-2 py-0.5 rounded"
+            >{{ match.home_score ?? '-' }} – {{ match.away_score ?? '-' }}</span
+          >
+          <span
+            :class="[
+              'flex-1 truncate',
+              h2hWinnerClass(match, match.away_team_id),
+            ]"
+            >{{ match.away_team_name }}</span
+          >
+          <div class="text-right shrink-0 ml-2">
+            <div class="text-slate-400">{{ longDate(match.match_date) }}</div>
+            <div class="text-slate-500">{{ match.season_name }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -307,118 +363,51 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 
-// ─── Sub-components defined inline ────────────────────────────────────────────
+// ─── Template helpers ─────────────────────────────────────────────────────────
 
-/**
- * MatchResultCard - compact match result from one team's perspective.
- * Shows: W/L/D chip | score | opponent name | date
- */
-const MatchResultCard = {
-  props: {
-    match: { type: Object, required: true },
-    perspectiveTeamId: { type: Number, required: true },
-    compact: { type: Boolean, default: false },
-  },
-  setup(props) {
-    const outcome = computed(() => {
-      const m = props.match;
-      if (m.home_score === null || m.away_score === null) return null;
-      const isHome = m.home_team_id === props.perspectiveTeamId;
-      const teamScore = isHome ? m.home_score : m.away_score;
-      const oppScore = isHome ? m.away_score : m.home_score;
-      if (teamScore > oppScore) return 'W';
-      if (teamScore < oppScore) return 'L';
-      return 'D';
-    });
+function matchOutcome(m, teamId) {
+  if (m.home_score === null || m.away_score === null) return '?';
+  const isHome = m.home_team_id === teamId;
+  const teamScore = isHome ? m.home_score : m.away_score;
+  const oppScore = isHome ? m.away_score : m.home_score;
+  if (teamScore > oppScore) return 'W';
+  if (teamScore < oppScore) return 'L';
+  return 'D';
+}
 
-    const opponent = computed(() => {
-      const m = props.match;
-      return m.home_team_id === props.perspectiveTeamId
-        ? m.away_team_name
-        : m.home_team_name;
-    });
+function matchOutcomeClass(m, teamId) {
+  const o = matchOutcome(m, teamId);
+  if (o === 'W') return 'bg-green-900/60 text-green-400';
+  if (o === 'L') return 'bg-red-900/60 text-red-400';
+  if (o === 'D') return 'bg-slate-600 text-slate-300';
+  return 'bg-slate-600 text-slate-400';
+}
 
-    const scoreDisplay = computed(() => {
-      const m = props.match;
-      if (m.home_score === null || m.away_score === null) return '- : -';
-      return `${m.home_score} - ${m.away_score}`;
-    });
+function shortDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
-    const outcomeClass = computed(() => {
-      if (outcome.value === 'W') return 'bg-green-900/60 text-green-400';
-      if (outcome.value === 'L') return 'bg-red-900/60 text-red-400';
-      if (outcome.value === 'D') return 'bg-slate-600 text-slate-300';
-      return 'bg-slate-600 text-slate-400';
-    });
+function longDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
-    const formattedDate = computed(() => {
-      if (!props.match.match_date) return '';
-      const d = new Date(props.match.match_date + 'T00:00:00');
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
-
-    return { outcome, opponent, scoreDisplay, outcomeClass, formattedDate };
-  },
-  template: `
-    <div class="flex items-center gap-1.5 p-1.5 rounded bg-slate-700 border border-slate-600 text-xs">
-      <span :class="['font-bold w-4 text-center shrink-0', outcomeClass]" style="border-radius:2px">
-        {{ outcome ?? '?' }}
-      </span>
-      <span class="font-mono font-semibold text-slate-200 shrink-0">{{ scoreDisplay }}</span>
-      <span class="text-slate-300 truncate flex-1">{{ opponent }}</span>
-      <span class="text-slate-500 shrink-0">{{ formattedDate }}</span>
-    </div>
-  `,
-};
-
-/**
- * H2HMatchRow - single head-to-head match row.
- * Shows home and away team with score centred, plus season and date.
- */
-const H2HMatchRow = {
-  props: {
-    match: { type: Object, required: true },
-    homeTeamId: { type: Number, required: true },
-    awayTeamId: { type: Number, required: true },
-  },
-  setup(props) {
-    const formattedDate = computed(() => {
-      if (!props.match.match_date) return '';
-      const d = new Date(props.match.match_date + 'T00:00:00');
-      return d.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    });
-
-    const winnerClass = teamId => {
-      const m = props.match;
-      if (m.home_score === null || m.away_score === null) return '';
-      const isHome = m.home_team_id === teamId;
-      const score = isHome ? m.home_score : m.away_score;
-      const opp = isHome ? m.away_score : m.home_score;
-      if (score > opp) return 'font-bold text-white';
-      if (score < opp) return 'text-slate-500';
-      return 'text-slate-300';
-    };
-
-    return { formattedDate, winnerClass };
-  },
-  template: `
-    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-xs">
-      <span :class="['flex-1 text-right truncate', winnerClass(match.home_team_id)]">{{ match.home_team_name }}</span>
-      <span class="font-mono font-semibold text-slate-200 shrink-0 bg-slate-600 px-2 py-0.5 rounded">
-        {{ match.home_score ?? '-' }} – {{ match.away_score ?? '-' }}
-      </span>
-      <span :class="['flex-1 truncate', winnerClass(match.away_team_id)]">{{ match.away_team_name }}</span>
-      <div class="text-right shrink-0 ml-2">
-        <div class="text-slate-400">{{ formattedDate }}</div>
-        <div class="text-slate-500">{{ match.season_name }}</div>
-      </div>
-    </div>
-  `,
-};
+function h2hWinnerClass(m, teamId) {
+  if (m.home_score === null || m.away_score === null) return 'text-slate-300';
+  const isHome = m.home_team_id === teamId;
+  const score = isHome ? m.home_score : m.away_score;
+  const opp = isHome ? m.away_score : m.home_score;
+  if (score > opp) return 'font-bold text-white';
+  if (score < opp) return 'text-slate-500';
+  return 'text-slate-300';
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

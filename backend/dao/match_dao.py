@@ -739,16 +739,15 @@ class MatchDAO(BaseDAO):
                     }
                 )
 
-            # --- Head-to-head history (all seasons, cross-season) ---
-            # Fetch all matches for home_team and filter to those against away_team
+            # --- Head-to-head history (all seasons, all age groups) ---
+            # Intentionally NOT filtered by season or age group — teams age up each
+            # year so cross-age-group history is meaningful and expected.
             h2h_query = (
                 self.client.table("matches")
                 .select(select_str)
                 .or_(f"home_team_id.eq.{home_team_id},away_team_id.eq.{home_team_id}")
                 .in_("match_status", ["completed", "forfeit"])
             )
-            if age_group_id:
-                h2h_query = h2h_query.eq("age_group_id", age_group_id)
             h2h_resp = h2h_query.order("match_date", desc=True).execute()
             head_to_head = [
                 flatten(m)
