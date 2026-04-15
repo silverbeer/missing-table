@@ -48,6 +48,7 @@ class InviteService:
         player_id: int | None = None,
         jersey_number: int | None = None,
         expires_in_days: int = 7,
+        note: str | None = None,
     ) -> dict:
         """
         Create a new invitation
@@ -103,6 +104,7 @@ class InviteService:
                 "jersey_number": jersey_number,
                 "status": "pending",
                 "expires_at": expires_at.isoformat(),
+                "note": note,
             }
 
             response = self.supabase.table("invitations").insert(invitation_data).execute()
@@ -695,7 +697,7 @@ class InviteService:
             user_id: ID of the user
 
         Returns:
-            List of invitations
+            List of invitations, with used_by_user profile info merged in for used invites
         """
         try:
             response = (
@@ -706,7 +708,29 @@ class InviteService:
                 .execute()
             )
 
-            return response.data if response.data else []
+            invitations = response.data if response.data else []
+
+            # Fetch user profiles for any "used" invites so we can show who redeemed them
+            used_user_ids = list({
+                inv["used_by_user_id"]
+                for inv in invitations
+                if inv.get("used_by_user_id")
+            })
+
+            if used_user_ids:
+                profiles_response = (
+                    self.supabase.table("user_profiles")
+                    .select("id, username, display_name")
+                    .in_("id", used_user_ids)
+                    .execute()
+                )
+                profiles_by_id = {p["id"]: p for p in (profiles_response.data or [])}
+
+                for inv in invitations:
+                    uid = inv.get("used_by_user_id")
+                    inv["used_by_user"] = profiles_by_id.get(uid) if uid else None
+
+            return invitations
 
         except Exception as e:
             logger.error(f"Error getting user invitations: {e}")
