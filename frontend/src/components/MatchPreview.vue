@@ -1,5 +1,5 @@
 <template>
-  <div class="match-preview">
+  <div class="match-preview bg-slate-800 rounded-lg p-3">
     <!-- Loading -->
     <div
       v-if="loading"
@@ -7,9 +7,9 @@
       data-testid="preview-loading"
     >
       <div
-        class="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mb-3"
+        class="w-8 h-8 border-2 border-slate-500 border-t-blue-400 rounded-full animate-spin mb-3"
       ></div>
-      <p class="text-gray-500 text-sm">Loading match preview...</p>
+      <p class="text-slate-400 text-sm">Loading match preview...</p>
     </div>
 
     <!-- Error -->
@@ -19,11 +19,11 @@
       data-testid="preview-error"
     >
       <div
-        class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-500 font-bold mb-3"
+        class="w-10 h-10 rounded-full bg-red-900/50 flex items-center justify-center text-red-400 font-bold mb-3"
       >
         !
       </div>
-      <p class="text-gray-500 text-sm mb-3">{{ error }}</p>
+      <p class="text-slate-400 text-sm mb-3">{{ error }}</p>
       <button
         @click="fetchPreview"
         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
@@ -35,7 +35,7 @@
     <!-- Content -->
     <div v-else-if="preview" data-testid="preview-content">
       <!-- Tab bar -->
-      <div class="border-b border-gray-200 mb-4">
+      <div class="border-b border-slate-600 mb-4">
         <nav class="flex space-x-1" aria-label="Match preview sections">
           <button
             v-for="tab in tabs"
@@ -45,8 +45,8 @@
             :class="[
               'py-2 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
               activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                ? 'border-blue-400 text-blue-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500',
             ]"
           >
             {{ tab.label }}
@@ -55,8 +55,8 @@
               class="ml-1 text-xs px-1.5 py-0.5 rounded-full"
               :class="
                 activeTab === tab.id
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-500'
+                  ? 'bg-blue-900/50 text-blue-300'
+                  : 'bg-slate-700 text-slate-400'
               "
               >{{ tab.count }}</span
             >
@@ -66,17 +66,43 @@
 
       <!-- ── Recent Form ── -->
       <div v-if="activeTab === 'form'" data-testid="tab-panel-form">
-        <div class="grid grid-cols-2 gap-3">
+        <!-- Both teams empty -->
+        <div
+          v-if="
+            preview.home_team_recent.length === 0 &&
+            preview.away_team_recent.length === 0
+          "
+          class="flex flex-col items-center py-10 text-slate-500"
+          data-testid="form-empty"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            class="w-10 h-10 mb-3 text-slate-600"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          <p class="text-sm">No recent form data available.</p>
+        </div>
+        <!-- At least one team has data -->
+        <div v-else class="grid grid-cols-2 gap-3">
           <!-- Home team column -->
           <div>
             <h3
-              class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 truncate"
+              class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2 truncate"
             >
               {{ homeTeamName }}
             </h3>
             <div
               v-if="preview.home_team_recent.length === 0"
-              class="text-xs text-gray-400 italic"
+              class="text-xs text-slate-500 italic"
             >
               No recent matches
             </div>
@@ -93,13 +119,13 @@
           <!-- Away team column -->
           <div>
             <h3
-              class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 truncate"
+              class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2 truncate"
             >
               {{ awayTeamName }}
             </h3>
             <div
               v-if="preview.away_team_recent.length === 0"
-              class="text-xs text-gray-400 italic"
+              class="text-xs text-slate-500 italic"
             >
               No recent matches
             </div>
@@ -119,9 +145,24 @@
       <div v-else-if="activeTab === 'common'" data-testid="tab-panel-common">
         <div
           v-if="preview.common_opponents.length === 0"
-          class="text-sm text-gray-500 text-center py-8"
+          class="flex flex-col items-center py-10 text-slate-500"
+          data-testid="common-empty"
         >
-          No common opponents found for this season.
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            class="w-10 h-10 mb-3 text-slate-600"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+          <p class="text-sm">No common opponents found this season.</p>
         </div>
         <div
           v-for="opp in preview.common_opponents"
@@ -131,10 +172,10 @@
         >
           <!-- Opponent header -->
           <div
-            class="flex items-center gap-2 mb-2 pb-1 border-b border-gray-100"
+            class="flex items-center gap-2 mb-2 pb-1 border-b border-slate-600"
           >
-            <span class="inline-block w-2 h-2 rounded-full bg-gray-400"></span>
-            <span class="text-sm font-semibold text-gray-800"
+            <span class="inline-block w-2 h-2 rounded-full bg-slate-500"></span>
+            <span class="text-sm font-semibold text-slate-200"
               >vs {{ opp.opponent_name }}</span
             >
           </div>
@@ -142,12 +183,12 @@
           <div class="grid grid-cols-2 gap-3">
             <!-- Home team vs opponent -->
             <div>
-              <p class="text-xs text-gray-400 mb-1 truncate">
+              <p class="text-xs text-slate-400 mb-1 truncate">
                 {{ homeTeamName }}
               </p>
               <div
                 v-if="opp.home_team_matches.length === 0"
-                class="text-xs text-gray-400 italic"
+                class="text-xs text-slate-500 italic"
               >
                 No matches
               </div>
@@ -165,12 +206,12 @@
             </div>
             <!-- Away team vs opponent -->
             <div>
-              <p class="text-xs text-gray-400 mb-1 truncate">
+              <p class="text-xs text-slate-400 mb-1 truncate">
                 {{ awayTeamName }}
               </p>
               <div
                 v-if="opp.away_team_matches.length === 0"
-                class="text-xs text-gray-400 italic"
+                class="text-xs text-slate-500 italic"
               >
                 No matches
               </div>
@@ -194,35 +235,50 @@
       <div v-else-if="activeTab === 'h2h'" data-testid="tab-panel-h2h">
         <div
           v-if="preview.head_to_head.length === 0"
-          class="text-sm text-gray-500 text-center py-8"
+          class="flex flex-col items-center py-10 text-slate-500"
+          data-testid="h2h-empty"
         >
-          No previous meetings found.
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            class="w-10 h-10 mb-3 text-slate-600"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            />
+          </svg>
+          <p class="text-sm">No previous meetings found.</p>
         </div>
 
         <!-- Summary row -->
         <div
           v-if="preview.head_to_head.length > 0"
-          class="flex justify-around text-center mb-4 p-3 bg-gray-50 rounded-lg"
+          class="flex justify-around text-center mb-4 p-3 bg-slate-700/50 rounded-lg"
         >
           <div>
-            <span class="block text-xl font-bold text-blue-600">{{
+            <span class="block text-xl font-bold text-blue-400">{{
               h2hStats.homeWins
             }}</span>
-            <span class="text-xs text-gray-500 truncate block max-w-[80px]">{{
+            <span class="text-xs text-slate-400 truncate block max-w-[80px]">{{
               homeTeamName
             }}</span>
           </div>
           <div>
-            <span class="block text-xl font-bold text-gray-500">{{
+            <span class="block text-xl font-bold text-slate-400">{{
               h2hStats.draws
             }}</span>
-            <span class="text-xs text-gray-500">Draws</span>
+            <span class="text-xs text-slate-400">Draws</span>
           </div>
           <div>
-            <span class="block text-xl font-bold text-red-500">{{
+            <span class="block text-xl font-bold text-red-400">{{
               h2hStats.awayWins
             }}</span>
-            <span class="text-xs text-gray-500 truncate block max-w-[80px]">{{
+            <span class="text-xs text-slate-400 truncate block max-w-[80px]">{{
               awayTeamName
             }}</span>
           </div>
@@ -289,10 +345,10 @@ const MatchResultCard = {
     });
 
     const outcomeClass = computed(() => {
-      if (outcome.value === 'W') return 'bg-green-100 text-green-700';
-      if (outcome.value === 'L') return 'bg-red-100 text-red-700';
-      if (outcome.value === 'D') return 'bg-gray-100 text-gray-600';
-      return 'bg-gray-100 text-gray-400';
+      if (outcome.value === 'W') return 'bg-green-900/60 text-green-400';
+      if (outcome.value === 'L') return 'bg-red-900/60 text-red-400';
+      if (outcome.value === 'D') return 'bg-slate-600 text-slate-300';
+      return 'bg-slate-600 text-slate-400';
     });
 
     const formattedDate = computed(() => {
@@ -304,13 +360,13 @@ const MatchResultCard = {
     return { outcome, opponent, scoreDisplay, outcomeClass, formattedDate };
   },
   template: `
-    <div class="flex items-center gap-1.5 p-1.5 rounded bg-white border border-gray-100 shadow-sm text-xs">
+    <div class="flex items-center gap-1.5 p-1.5 rounded bg-slate-700 border border-slate-600 text-xs">
       <span :class="['font-bold w-4 text-center shrink-0', outcomeClass]" style="border-radius:2px">
         {{ outcome ?? '?' }}
       </span>
-      <span class="font-mono font-semibold text-gray-700 shrink-0">{{ scoreDisplay }}</span>
-      <span class="text-gray-600 truncate flex-1">{{ opponent }}</span>
-      <span class="text-gray-400 shrink-0">{{ formattedDate }}</span>
+      <span class="font-mono font-semibold text-slate-200 shrink-0">{{ scoreDisplay }}</span>
+      <span class="text-slate-300 truncate flex-1">{{ opponent }}</span>
+      <span class="text-slate-500 shrink-0">{{ formattedDate }}</span>
     </div>
   `,
 };
@@ -342,23 +398,23 @@ const H2HMatchRow = {
       const isHome = m.home_team_id === teamId;
       const score = isHome ? m.home_score : m.away_score;
       const opp = isHome ? m.away_score : m.home_score;
-      if (score > opp) return 'font-bold text-gray-900';
-      if (score < opp) return 'text-gray-400';
-      return 'text-gray-700';
+      if (score > opp) return 'font-bold text-white';
+      if (score < opp) return 'text-slate-500';
+      return 'text-slate-300';
     };
 
     return { formattedDate, winnerClass };
   },
   template: `
-    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-100 shadow-sm text-xs">
+    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 border border-slate-600 text-xs">
       <span :class="['flex-1 text-right truncate', winnerClass(match.home_team_id)]">{{ match.home_team_name }}</span>
-      <span class="font-mono font-semibold text-gray-800 shrink-0 bg-gray-50 px-2 py-0.5 rounded">
+      <span class="font-mono font-semibold text-slate-200 shrink-0 bg-slate-600 px-2 py-0.5 rounded">
         {{ match.home_score ?? '-' }} – {{ match.away_score ?? '-' }}
       </span>
       <span :class="['flex-1 truncate', winnerClass(match.away_team_id)]">{{ match.away_team_name }}</span>
       <div class="text-right shrink-0 ml-2">
-        <div class="text-gray-400">{{ formattedDate }}</div>
-        <div class="text-gray-300">{{ match.season_name }}</div>
+        <div class="text-slate-400">{{ formattedDate }}</div>
+        <div class="text-slate-500">{{ match.season_name }}</div>
       </div>
     </div>
   `,
@@ -450,6 +506,18 @@ async function fetchPreview() {
         : [],
       head_to_head: Array.isArray(data?.head_to_head) ? data.head_to_head : [],
     };
+
+    // Auto-select the tab with the most content
+    const { home_team_recent, away_team_recent, common_opponents } =
+      preview.value;
+    const hasForm = home_team_recent.length > 0 || away_team_recent.length > 0;
+    if (hasForm) {
+      activeTab.value = 'form';
+    } else if (common_opponents.length > 0) {
+      activeTab.value = 'common';
+    } else {
+      activeTab.value = 'h2h';
+    }
   } catch (err) {
     error.value = err.message || 'Failed to load match preview';
   } finally {
