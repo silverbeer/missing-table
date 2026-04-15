@@ -1,5 +1,34 @@
 <template>
   <footer class="version-footer">
+    <!-- Error banner (teleported to body) -->
+    <Teleport to="body">
+      <div
+        v-if="status === 'error' && !errorDismissed"
+        class="fixed top-0 inset-x-0 z-50 bg-red-900 text-white text-sm px-4 py-2 flex items-center justify-between gap-4"
+        data-testid="api-error-banner"
+      >
+        <span
+          >⚠ Could not reach the API server — some features may be
+          unavailable.</span
+        >
+        <div class="flex items-center gap-3 shrink-0">
+          <button
+            @click="retryFetch"
+            class="underline hover:no-underline font-medium"
+          >
+            Retry
+          </button>
+          <button
+            @click="errorDismissed = true"
+            class="font-bold hover:opacity-75"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </Teleport>
+
     <div class="version-container">
       <!-- Version info (left side) -->
       <div class="version-info">
@@ -15,14 +44,12 @@
       <!-- Copyright/branding (center) -->
       <div class="copyright">© {{ currentYear }} Missing Table</div>
 
-      <!-- Status indicator (right side) -->
+      <!-- Status indicator (right side) — only show when healthy -->
       <div class="status-indicator">
-        <span
-          v-if="status === 'healthy'"
-          class="status-dot status-healthy"
-        ></span>
-        <span v-else class="status-dot status-error"></span>
-        <span class="status-text">{{ status }}</span>
+        <template v-if="status === 'healthy'">
+          <span class="status-dot status-healthy"></span>
+          <span class="status-text">Healthy</span>
+        </template>
       </div>
     </div>
   </footer>
@@ -38,6 +65,7 @@ export default {
     const environment = ref('unknown');
     const status = ref('healthy');
     const currentYear = computed(() => new Date().getFullYear());
+    const errorDismissed = ref(false);
 
     // Determine environment based on current hostname
     const determineEnvironment = () => {
@@ -56,9 +84,14 @@ export default {
     };
 
     const fetchVersion = async () => {
+      errorDismissed.value = false;
       try {
-        // Use relative URL - works with ingress routing on same domain
-        const response = await fetch('/api/version');
+        const apiBase =
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:8000'
+            : '';
+        const response = await fetch(`${apiBase}/api/version`);
 
         if (response.ok) {
           const data = await response.json();
@@ -78,6 +111,11 @@ export default {
       }
     };
 
+    const retryFetch = () => {
+      errorDismissed.value = false;
+      fetchVersion();
+    };
+
     onMounted(() => {
       fetchVersion();
     });
@@ -87,6 +125,9 @@ export default {
       environment,
       status,
       currentYear,
+      errorDismissed,
+      fetchVersion,
+      retryFetch,
     };
   },
 };
@@ -167,11 +208,6 @@ export default {
 .status-healthy {
   background-color: #28a745;
   box-shadow: 0 0 4px rgba(40, 167, 69, 0.5);
-}
-
-.status-error {
-  background-color: #dc3545;
-  box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
 }
 
 .status-text {

@@ -59,492 +59,594 @@
     </div>
 
     <!-- Match content -->
-    <div v-else-if="match" class="max-w-sm mx-auto" data-testid="match-content">
-      <!-- Capture container for share -->
+    <div v-else-if="match" class="max-w-5xl" data-testid="match-content">
       <div
-        ref="scoreboardRef"
-        class="bg-slate-800 rounded-lg p-2"
-        data-testid="scoreboard"
+        class="flex flex-col md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:items-start"
       >
-        <!-- Stadium Scoreboard -->
-        <div
-          class="scoreboard bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 rounded-lg p-3 mb-2"
-        >
-          <!-- LIVE indicator -->
-          <div
-            v-if="match.match_status === 'live'"
-            class="flex justify-center mb-3"
-          >
-            <div
-              class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600 text-white font-bold uppercase tracking-wider text-xs animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.7)]"
-              data-testid="status-badge"
-            >
-              <span
-                class="w-1.5 h-1.5 rounded-full bg-white animate-ping"
-              ></span>
-              LIVE
-            </div>
-          </div>
-
-          <!-- Status badge for non-live matches -->
-          <div v-else class="flex justify-center mb-3">
-            <div
-              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider"
-              :class="statusBadgeClass"
-              data-testid="status-badge"
-            >
-              {{ match.match_status || 'scheduled' }}
-            </div>
-          </div>
-
-          <!-- Teams and Score -->
-          <div class="flex flex-row items-start justify-center gap-4 lg:gap-8">
-            <!-- Home Team -->
-            <div class="flex flex-col items-center text-center flex-1 min-w-0">
-              <!-- Club Logo -->
+        <!-- Left column: scoreboard + share -->
+        <div>
+          <!-- Capture container for share -->
+          <div class="bg-slate-800 rounded-lg overflow-hidden">
+            <div ref="scoreboardRef" class="p-2" data-testid="scoreboard">
+              <!-- Stadium Scoreboard -->
               <div
-                class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500 flex-shrink-0"
-                :style="{ boxShadow: `0 0 20px ${homeTeamColor}40` }"
+                class="scoreboard bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 rounded-lg p-3 mb-2"
               >
-                <img
-                  v-if="match.home_team_club?.logo_url"
-                  :src="match.home_team_club.logo_url"
-                  :alt="`${match.home_team_name} logo`"
-                  class="w-12 h-12 lg:w-14 lg:h-14 object-contain"
-                />
-                <div v-else class="text-lg lg:text-xl font-bold text-slate-400">
-                  {{ getTeamInitials(match.home_team_name) }}
+                <!-- LIVE indicator -->
+                <div
+                  v-if="match.match_status === 'live'"
+                  class="flex justify-center mb-3"
+                >
+                  <div
+                    class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600 text-white font-bold uppercase tracking-wider text-xs animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.7)]"
+                    data-testid="status-badge"
+                  >
+                    <span
+                      class="w-1.5 h-1.5 rounded-full bg-white animate-ping"
+                    ></span>
+                    LIVE
+                  </div>
+                </div>
+
+                <!-- Status badge for non-live matches -->
+                <div v-else class="flex justify-center mb-3">
+                  <div
+                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider"
+                    :class="statusBadgeClass"
+                    data-testid="status-badge"
+                  >
+                    {{ match.match_status || 'scheduled' }}
+                  </div>
+                </div>
+
+                <!-- Countdown to kickoff -->
+                <div
+                  v-if="
+                    (match.match_status === 'scheduled' ||
+                      match.match_status === 'tbd') &&
+                    match.scheduled_kickoff &&
+                    !countdown.expired
+                  "
+                  class="flex justify-center gap-4 mb-3"
+                  data-testid="countdown"
+                >
+                  <div v-if="countdown.days > 0" class="text-center">
+                    <span class="text-2xl font-bold text-white block">{{
+                      countdown.days
+                    }}</span>
+                    <span
+                      class="text-[10px] text-slate-400 uppercase tracking-wider"
+                      >days</span
+                    >
+                  </div>
+                  <div class="text-center">
+                    <span class="text-2xl font-bold text-white block">{{
+                      String(countdown.hours).padStart(2, '0')
+                    }}</span>
+                    <span
+                      class="text-[10px] text-slate-400 uppercase tracking-wider"
+                      >hrs</span
+                    >
+                  </div>
+                  <div class="text-center">
+                    <span class="text-2xl font-bold text-white block">{{
+                      String(countdown.minutes).padStart(2, '0')
+                    }}</span>
+                    <span
+                      class="text-[10px] text-slate-400 uppercase tracking-wider"
+                      >min</span
+                    >
+                  </div>
+                </div>
+
+                <!-- Teams and Score -->
+                <div
+                  class="flex flex-row items-start justify-center gap-4 lg:gap-8"
+                >
+                  <!-- Home Team -->
+                  <div
+                    class="flex flex-col items-center text-center flex-1 min-w-0"
+                  >
+                    <!-- Club Logo -->
+                    <div
+                      class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500 flex-shrink-0"
+                      :style="{ boxShadow: `0 0 20px ${homeTeamColor}40` }"
+                    >
+                      <img
+                        v-if="match.home_team_club?.logo_url"
+                        :src="match.home_team_club.logo_url"
+                        :alt="`${match.home_team_name} logo`"
+                        class="w-12 h-12 lg:w-14 lg:h-14 object-contain"
+                      />
+                      <div
+                        v-else
+                        class="text-lg lg:text-xl font-bold text-slate-400"
+                      >
+                        {{ getTeamInitials(match.home_team_name) }}
+                      </div>
+                    </div>
+                    <h2
+                      class="text-sm font-bold text-white mb-0.5 line-clamp-2"
+                    >
+                      {{ match.home_team_name }}
+                    </h2>
+                    <span
+                      class="text-[10px] text-slate-400 uppercase tracking-wider"
+                      >Home</span
+                    >
+                  </div>
+
+                  <!-- Score Display -->
+                  <div class="flex items-center gap-2 lg:gap-3 pt-4 lg:pt-5">
+                    <span
+                      class="score-number text-3xl lg:text-5xl font-bold text-white"
+                      data-testid="home-score"
+                    >
+                      {{ match.home_score ?? '-' }}
+                    </span>
+                    <span class="text-xl lg:text-2xl font-light text-slate-500"
+                      >-</span
+                    >
+                    <span
+                      class="score-number text-3xl lg:text-5xl font-bold text-white"
+                      data-testid="away-score"
+                    >
+                      {{ match.away_score ?? '-' }}
+                    </span>
+                  </div>
+
+                  <!-- Away Team -->
+                  <div
+                    class="flex flex-col items-center text-center flex-1 min-w-0"
+                  >
+                    <!-- Club Logo -->
+                    <div
+                      class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500 flex-shrink-0"
+                      :style="{ boxShadow: `0 0 20px ${awayTeamColor}40` }"
+                    >
+                      <img
+                        v-if="match.away_team_club?.logo_url"
+                        :src="match.away_team_club.logo_url"
+                        :alt="`${match.away_team_name} logo`"
+                        class="w-12 h-12 lg:w-14 lg:h-14 object-contain"
+                      />
+                      <div
+                        v-else
+                        class="text-lg lg:text-xl font-bold text-slate-400"
+                      >
+                        {{ getTeamInitials(match.away_team_name) }}
+                      </div>
+                    </div>
+                    <h2
+                      class="text-sm font-bold text-white mb-0.5 line-clamp-2"
+                    >
+                      {{ match.away_team_name }}
+                    </h2>
+                    <span
+                      class="text-[10px] text-slate-400 uppercase tracking-wider"
+                      >Away</span
+                    >
+                  </div>
+                </div>
+
+                <!-- Goal Scorers -->
+                <div
+                  v-if="homeGoals.length || awayGoals.length"
+                  class="flex justify-center gap-4 mt-3 pt-3 border-t border-slate-600"
+                >
+                  <div class="flex-1 text-right max-w-[140px]">
+                    <div
+                      v-for="goal in homeGoals"
+                      :key="goal.id"
+                      class="text-xs text-slate-300 mb-1"
+                    >
+                      {{ goal.player_name }} {{ formatMinute(goal) }}
+                    </div>
+                  </div>
+                  <div class="w-px bg-slate-600 flex-shrink-0"></div>
+                  <div class="flex-1 text-left max-w-[140px]">
+                    <div
+                      v-for="goal in awayGoals"
+                      :key="goal.id"
+                      class="text-xs text-slate-300 mb-1"
+                    >
+                      {{ goal.player_name }} {{ formatMinute(goal) }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cards -->
+                <div
+                  v-if="homeCards.length || awayCards.length"
+                  class="flex justify-center gap-4 mt-2 pt-2 border-t border-slate-700"
+                >
+                  <div class="flex-1 text-right max-w-[140px]">
+                    <div
+                      v-for="card in homeCards"
+                      :key="card.id"
+                      class="text-xs text-slate-300 mb-1"
+                    >
+                      {{ card.player_name }}
+                      <svg
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle mx-0.5"
+                      >
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          :fill="
+                            card.event_type === 'red_card'
+                              ? '#EA3323'
+                              : '#FBBF24'
+                          "
+                        />
+                      </svg>
+                      {{ formatMinute(card) }}
+                    </div>
+                  </div>
+                  <div class="w-px bg-slate-600 flex-shrink-0"></div>
+                  <div class="flex-1 text-left max-w-[140px]">
+                    <div
+                      v-for="card in awayCards"
+                      :key="card.id"
+                      class="text-xs text-slate-300 mb-1"
+                    >
+                      {{ card.player_name }}
+                      <svg
+                        width="10"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        class="inline-block align-middle mx-0.5"
+                      >
+                        <rect
+                          x="4"
+                          width="16"
+                          height="24"
+                          rx="2"
+                          :fill="
+                            card.event_type === 'red_card'
+                              ? '#EA3323'
+                              : '#FBBF24'
+                          "
+                        />
+                      </svg>
+                      {{ formatMinute(card) }}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <h2 class="text-sm lg:text-base font-bold text-white mb-0.5">
-                {{ match.home_team_name }}
-              </h2>
-              <span class="text-[10px] text-slate-400 uppercase tracking-wider"
-                >Home</span
-              >
-            </div>
 
-            <!-- Score Display -->
-            <div class="flex items-center gap-2 lg:gap-3 pt-4 lg:pt-5">
-              <span
-                class="score-number text-3xl lg:text-5xl font-bold text-white"
-                data-testid="home-score"
-              >
-                {{ match.home_score ?? '-' }}
-              </span>
-              <span class="text-xl lg:text-2xl font-light text-slate-500"
-                >-</span
-              >
-              <span
-                class="score-number text-3xl lg:text-5xl font-bold text-white"
-                data-testid="away-score"
-              >
-                {{ match.away_score ?? '-' }}
-              </span>
-            </div>
-
-            <!-- Away Team -->
-            <div class="flex flex-col items-center text-center flex-1 min-w-0">
-              <!-- Club Logo -->
-              <div
-                class="w-14 h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm overflow-hidden mb-2 border border-slate-500 flex-shrink-0"
-                :style="{ boxShadow: `0 0 20px ${awayTeamColor}40` }"
-              >
-                <img
-                  v-if="match.away_team_club?.logo_url"
-                  :src="match.away_team_club.logo_url"
-                  :alt="`${match.away_team_name} logo`"
-                  class="w-12 h-12 lg:w-14 lg:h-14 object-contain"
-                />
-                <div v-else class="text-lg lg:text-xl font-bold text-slate-400">
-                  {{ getTeamInitials(match.away_team_name) }}
+              <!-- Match Details Card -->
+              <div class="bg-slate-700/50 rounded-lg p-3">
+                <h3 class="text-sm font-semibold text-white mb-3">
+                  Match Details
+                </h3>
+                <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div class="detail-item">
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >Date</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      formatDate(match.match_date)
+                    }}</span>
+                  </div>
+                  <div
+                    v-if="formatLocalTime(match.scheduled_kickoff)"
+                    class="detail-item"
+                  >
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >Kickoff</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      formatLocalTime(match.scheduled_kickoff)
+                    }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >Type</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      match.match_type_name || 'League'
+                    }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >Season</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      match.season_name
+                    }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >Age Group</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      match.age_group_name
+                    }}</span>
+                  </div>
+                  <div
+                    v-if="
+                      match.division_name &&
+                      match.match_type_name !== 'Friendly'
+                    "
+                    class="detail-item"
+                  >
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >Division</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      match.division_name
+                    }}</span>
+                  </div>
+                  <div v-if="leagueName" class="detail-item">
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >League</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      leagueName
+                    }}</span>
+                  </div>
                 </div>
               </div>
-              <h2 class="text-sm lg:text-base font-bold text-white mb-0.5">
-                {{ match.away_team_name }}
-              </h2>
-              <span class="text-[10px] text-slate-400 uppercase tracking-wider"
-                >Away</span
-              >
             </div>
-          </div>
+            <!-- End inner capture area -->
 
-          <!-- Goal Scorers -->
-          <div
-            v-if="homeGoals.length || awayGoals.length"
-            class="flex justify-center gap-4 mt-3 pt-3 border-t border-slate-600"
-          >
-            <div class="flex-1 text-right max-w-[140px]">
-              <div
-                v-for="goal in homeGoals"
-                :key="goal.id"
-                class="text-xs text-slate-300 mb-1"
+            <!-- Copy button footer inside wrapper card -->
+            <div
+              class="px-3 pb-2 pt-2 border-t border-slate-700 flex justify-end"
+            >
+              <button
+                @click="shareScoreboard"
+                :disabled="shareStatus === 'copying'"
+                data-testid="share-button"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                :class="{
+                  'bg-green-600 text-white': shareStatus === 'success',
+                  'bg-red-600 text-white': shareStatus === 'error',
+                  'bg-gray-200 text-gray-700 hover:bg-gray-300':
+                    !shareStatus || shareStatus === 'copying',
+                }"
               >
-                {{ goal.player_name }} {{ formatMinute(goal) }}
-              </div>
-            </div>
-            <div class="w-px bg-slate-600 flex-shrink-0"></div>
-            <div class="flex-1 text-left max-w-[140px]">
-              <div
-                v-for="goal in awayGoals"
-                :key="goal.id"
-                class="text-xs text-slate-300 mb-1"
-              >
-                {{ goal.player_name }} {{ formatMinute(goal) }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Cards -->
-          <div
-            v-if="homeCards.length || awayCards.length"
-            class="flex justify-center gap-4 mt-2 pt-2 border-t border-slate-700"
-          >
-            <div class="flex-1 text-right max-w-[140px]">
-              <div
-                v-for="card in homeCards"
-                :key="card.id"
-                class="text-xs text-slate-300 mb-1"
-              >
-                {{ card.player_name }}
+                <!-- Copy icon -->
                 <svg
-                  width="10"
-                  height="14"
+                  v-if="!shareStatus"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
                   viewBox="0 0 24 24"
-                  class="inline-block align-middle mx-0.5"
+                  stroke="currentColor"
+                  class="w-3.5 h-3.5"
                 >
-                  <rect
-                    x="4"
-                    width="16"
-                    height="24"
-                    rx="2"
-                    :fill="
-                      card.event_type === 'red_card' ? '#EA3323' : '#FBBF24'
-                    "
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                   />
                 </svg>
-                {{ formatMinute(card) }}
-              </div>
-            </div>
-            <div class="w-px bg-slate-600 flex-shrink-0"></div>
-            <div class="flex-1 text-left max-w-[140px]">
-              <div
-                v-for="card in awayCards"
-                :key="card.id"
-                class="text-xs text-slate-300 mb-1"
-              >
-                {{ card.player_name }}
+                <!-- Loading spinner -->
                 <svg
-                  width="10"
-                  height="14"
+                  v-else-if="shareStatus === 'copying'"
+                  class="w-3.5 h-3.5 animate-spin"
+                  fill="none"
                   viewBox="0 0 24 24"
-                  class="inline-block align-middle mx-0.5"
                 >
-                  <rect
-                    x="4"
-                    width="16"
-                    height="24"
-                    rx="2"
-                    :fill="
-                      card.event_type === 'red_card' ? '#EA3323' : '#FBBF24'
-                    "
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  ></circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  ></path>
+                </svg>
+                <!-- Check icon -->
+                <svg
+                  v-else-if="shareStatus === 'success'"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  class="w-3.5 h-3.5"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 13l4 4L19 7"
                   />
                 </svg>
-                {{ formatMinute(card) }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Match Details Card -->
-        <div class="bg-slate-700/50 rounded-lg p-3">
-          <h3 class="text-sm font-semibold text-white mb-3">Match Details</h3>
-          <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
-            <div class="detail-item">
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
-                >Date</span
-              >
-              <span class="text-xs font-medium text-white">{{
-                formatDate(match.match_date)
-              }}</span>
-            </div>
-            <div
-              v-if="formatLocalTime(match.scheduled_kickoff)"
-              class="detail-item"
-            >
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
-                >Kickoff</span
-              >
-              <span class="text-xs font-medium text-white">{{
-                formatLocalTime(match.scheduled_kickoff)
-              }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
-                >Type</span
-              >
-              <span class="text-xs font-medium text-white">{{
-                match.match_type_name || 'League'
-              }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
-                >Season</span
-              >
-              <span class="text-xs font-medium text-white">{{
-                match.season_name
-              }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
-                >Age Group</span
-              >
-              <span class="text-xs font-medium text-white">{{
-                match.age_group_name
-              }}</span>
-            </div>
-            <div
-              v-if="match.division_name && match.match_type_name !== 'Friendly'"
-              class="detail-item"
-            >
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
-                >Division</span
-              >
-              <span class="text-xs font-medium text-white">{{
-                match.division_name
-              }}</span>
-            </div>
-            <div v-if="leagueName" class="detail-item">
-              <span class="text-[10px] text-slate-500 uppercase tracking-wider"
-                >League</span
-              >
-              <span class="text-xs font-medium text-white">{{
-                leagueName
-              }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- End capture container -->
-
-      <!-- Share Button (at bottom, not captured in image) -->
-      <div class="flex justify-center mt-3">
-        <button
-          @click="shareScoreboard"
-          :disabled="shareStatus === 'copying'"
-          data-testid="share-button"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
-          :class="{
-            'bg-green-600 text-white': shareStatus === 'success',
-            'bg-red-600 text-white': shareStatus === 'error',
-            'bg-gray-200 text-gray-700 hover:bg-gray-300':
-              !shareStatus || shareStatus === 'copying',
-          }"
-        >
-          <!-- Copy icon -->
-          <svg
-            v-if="!shareStatus"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            class="w-3.5 h-3.5"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-            />
-          </svg>
-          <!-- Loading spinner -->
-          <svg
-            v-else-if="shareStatus === 'copying'"
-            class="w-3.5 h-3.5 animate-spin"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            ></path>
-          </svg>
-          <!-- Check icon -->
-          <svg
-            v-else-if="shareStatus === 'success'"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            class="w-3.5 h-3.5"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          <!-- Error icon -->
-          <svg
-            v-else-if="shareStatus === 'error'"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            class="w-3.5 h-3.5"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-          <span v-if="!shareStatus">Copy to Clipboard</span>
-          <span v-else-if="shareStatus === 'copying'">Copying...</span>
-          <span v-else-if="shareStatus === 'success'">Copied!</span>
-          <span v-else-if="shareStatus === 'error'">Failed</span>
-        </button>
-      </div>
-
-      <!-- Match Preview (scheduled/tbd matches only) -->
-      <div
-        v-if="
-          match.match_status === 'scheduled' || match.match_status === 'tbd'
-        "
-        class="mt-4"
-        data-testid="match-preview-section"
-      >
-        <MatchPreview
-          :homeTeamId="match.home_team_id"
-          :homeTeamName="match.home_team_name"
-          :awayTeamId="match.away_team_id"
-          :awayTeamName="match.away_team_name"
-          :seasonId="match.season_id"
-          :ageGroupId="match.age_group_id"
-        />
-      </div>
-
-      <!-- Pre-match Lineup Section (scheduled matches, authorized users only) -->
-      <div
-        v-if="canManageLineup && match.match_status === 'scheduled'"
-        class="mt-3"
-        data-testid="lineup-section"
-      >
-        <button
-          @click="toggleLineupSection"
-          data-testid="lineup-toggle"
-          class="w-full flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
-          :class="{ 'bg-slate-600': showLineupSection }"
-        >
-          <span class="text-base font-bold w-5 text-center">{{
-            showLineupSection ? '-' : '+'
-          }}</span>
-          Starting Lineup
-        </button>
-
-        <div v-if="showLineupSection" class="mt-2 bg-slate-800 rounded-lg p-3">
-          <!-- No roster for either team -->
-          <div
-            v-if="rostersLoaded && !homeRoster.length && !awayRoster.length"
-            class="text-slate-400 text-sm text-center py-4"
-            data-testid="no-roster-message"
-          >
-            No roster available for either team. Add players to a team roster
-            before setting lineups.
-          </div>
-
-          <!-- Loading state -->
-          <div
-            v-else-if="lineupDataLoading"
-            class="text-slate-400 text-sm text-center py-4"
-          >
-            Loading lineups...
-          </div>
-
-          <!-- Team tabs + LineupManager -->
-          <template v-else-if="rostersLoaded">
-            <div class="flex gap-2 mb-3">
-              <button
-                @click="activeLineupTab = 'home'"
-                data-testid="lineup-tab-home"
-                class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
-                :class="
-                  activeLineupTab === 'home'
-                    ? 'border-blue-500 bg-blue-500/20 text-white'
-                    : 'border-slate-600 text-slate-400 hover:border-slate-500'
-                "
-              >
-                {{ match.home_team_name }}
-              </button>
-              <button
-                @click="activeLineupTab = 'away'"
-                data-testid="lineup-tab-away"
-                class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
-                :class="
-                  activeLineupTab === 'away'
-                    ? 'border-blue-500 bg-blue-500/20 text-white'
-                    : 'border-slate-600 text-slate-400 hover:border-slate-500'
-                "
-              >
-                {{ match.away_team_name }}
+                <!-- Error icon -->
+                <svg
+                  v-else-if="shareStatus === 'error'"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  class="w-3.5 h-3.5"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                <span v-if="!shareStatus">Copy Scoreboard</span>
+                <span v-else-if="shareStatus === 'copying'">Copying...</span>
+                <span v-else-if="shareStatus === 'success'">Copied!</span>
+                <span v-else-if="shareStatus === 'error'">Failed</span>
               </button>
             </div>
-
-            <!-- Home team tab -->
-            <div v-if="activeLineupTab === 'home'">
-              <div
-                v-if="!homeRoster.length"
-                class="text-slate-400 text-sm text-center py-4"
-                data-testid="no-roster-home"
-              >
-                No roster available for {{ match.home_team_name }}.
-              </div>
-              <LineupManager
-                v-else
-                :team-id="match.home_team_id"
-                :team-name="match.home_team_name"
-                :roster="homeRoster"
-                :initial-lineup="homeLineup"
-                :saving="savingLineup"
-                :sport-type="sportType"
-                @save="handleSaveLineup(match.home_team_id, $event)"
-              />
-            </div>
-
-            <!-- Away team tab -->
-            <div v-if="activeLineupTab === 'away'">
-              <div
-                v-if="!awayRoster.length"
-                class="text-slate-400 text-sm text-center py-4"
-                data-testid="no-roster-away"
-              >
-                No roster available for {{ match.away_team_name }}.
-              </div>
-              <LineupManager
-                v-else
-                :team-id="match.away_team_id"
-                :team-name="match.away_team_name"
-                :roster="awayRoster"
-                :initial-lineup="awayLineup"
-                :saving="savingLineup"
-                :sport-type="sportType"
-                @save="handleSaveLineup(match.away_team_id, $event)"
-              />
-            </div>
-          </template>
+          </div>
+          <!-- End capture container wrapper -->
         </div>
+        <!-- End left column -->
+
+        <!-- Right column: preview + lineup (expands to fill available space) -->
+        <div class="mt-4 md:mt-0">
+          <!-- Match Preview (scheduled/tbd matches only) -->
+          <div
+            v-if="
+              match.match_status === 'scheduled' || match.match_status === 'tbd'
+            "
+            data-testid="match-preview-section"
+          >
+            <MatchPreview
+              :homeTeamId="match.home_team_id"
+              :homeTeamName="match.home_team_name"
+              :awayTeamId="match.away_team_id"
+              :awayTeamName="match.away_team_name"
+              :seasonId="match.season_id"
+              :ageGroupId="match.age_group_id"
+            />
+          </div>
+
+          <!-- Pre-match Lineup Section (scheduled matches, authorized users only) -->
+          <div
+            v-if="canManageLineup && match.match_status === 'scheduled'"
+            class="mt-3"
+            data-testid="lineup-section"
+          >
+            <button
+              @click="toggleLineupSection"
+              data-testid="lineup-toggle"
+              class="w-full flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-lg transition-colors"
+              :class="{ 'bg-slate-600': showLineupSection }"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                class="w-4 h-4 transition-transform flex-shrink-0"
+                :class="{ 'rotate-180': showLineupSection }"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+              Starting Lineup
+            </button>
+
+            <div
+              v-if="showLineupSection"
+              class="mt-2 bg-slate-800 rounded-lg p-3"
+            >
+              <!-- No roster for either team -->
+              <div
+                v-if="rostersLoaded && !homeRoster.length && !awayRoster.length"
+                class="text-slate-400 text-sm text-center py-4"
+                data-testid="no-roster-message"
+              >
+                No roster available for either team. Add players to a team
+                roster before setting lineups.
+              </div>
+
+              <!-- Loading state -->
+              <div
+                v-else-if="lineupDataLoading"
+                class="text-slate-400 text-sm text-center py-4"
+              >
+                Loading lineups...
+              </div>
+
+              <!-- Team tabs + LineupManager -->
+              <template v-else-if="rostersLoaded">
+                <div class="flex gap-2 mb-3">
+                  <button
+                    @click="activeLineupTab = 'home'"
+                    data-testid="lineup-tab-home"
+                    class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
+                    :class="
+                      activeLineupTab === 'home'
+                        ? 'border-blue-500 bg-blue-500/20 text-white'
+                        : 'border-slate-600 text-slate-400 hover:border-slate-500'
+                    "
+                  >
+                    {{ match.home_team_name }}
+                  </button>
+                  <button
+                    @click="activeLineupTab = 'away'"
+                    data-testid="lineup-tab-away"
+                    class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
+                    :class="
+                      activeLineupTab === 'away'
+                        ? 'border-blue-500 bg-blue-500/20 text-white'
+                        : 'border-slate-600 text-slate-400 hover:border-slate-500'
+                    "
+                  >
+                    {{ match.away_team_name }}
+                  </button>
+                </div>
+
+                <!-- Home team tab -->
+                <div v-if="activeLineupTab === 'home'">
+                  <div
+                    v-if="!homeRoster.length"
+                    class="text-slate-400 text-sm text-center py-4"
+                    data-testid="no-roster-home"
+                  >
+                    No roster available for {{ match.home_team_name }}.
+                  </div>
+                  <LineupManager
+                    v-else
+                    :team-id="match.home_team_id"
+                    :team-name="match.home_team_name"
+                    :roster="homeRoster"
+                    :initial-lineup="homeLineup"
+                    :saving="savingLineup"
+                    :sport-type="sportType"
+                    @save="handleSaveLineup(match.home_team_id, $event)"
+                  />
+                </div>
+
+                <!-- Away team tab -->
+                <div v-if="activeLineupTab === 'away'">
+                  <div
+                    v-if="!awayRoster.length"
+                    class="text-slate-400 text-sm text-center py-4"
+                    data-testid="no-roster-away"
+                  >
+                    No roster available for {{ match.away_team_name }}.
+                  </div>
+                  <LineupManager
+                    v-else
+                    :team-id="match.away_team_id"
+                    :team-name="match.away_team_name"
+                    :roster="awayRoster"
+                    :initial-lineup="awayLineup"
+                    :saving="savingLineup"
+                    :sport-type="sportType"
+                    @save="handleSaveLineup(match.away_team_id, $event)"
+                  />
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <!-- End right column -->
       </div>
+      <!-- End flex row -->
 
       <!-- Post-Match Stats Editor (completed matches, authorized users only) -->
       <PostMatchEditor
@@ -567,7 +669,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import html2canvas from 'html2canvas';
@@ -598,6 +700,27 @@ export default {
     const events = ref([]);
     const scoreboardRef = ref(null);
     const shareStatus = ref(null); // 'copying', 'success', 'error'
+
+    // Countdown timer for upcoming matches
+    const countdown = ref({ days: 0, hours: 0, minutes: 0, expired: false });
+    let countdownTimer = null;
+
+    const updateCountdown = () => {
+      const kickoff = match.value?.scheduled_kickoff;
+      if (!kickoff) return;
+      const diff = new Date(kickoff) - Date.now();
+      if (diff <= 0) {
+        countdown.value = { days: 0, hours: 0, minutes: 0, expired: true };
+        clearInterval(countdownTimer);
+        return;
+      }
+      countdown.value = {
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff % 86400000) / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        expired: false,
+      };
+    };
 
     // Get home team primary color for glow effect
     const homeTeamColor = computed(() => {
@@ -769,9 +892,23 @@ export default {
       }
     );
 
+    // Start/stop countdown timer as match loads
+    watch(match, m => {
+      clearInterval(countdownTimer);
+      if (
+        m?.scheduled_kickoff &&
+        (m.match_status === 'scheduled' || m.match_status === 'tbd')
+      ) {
+        updateCountdown();
+        countdownTimer = setInterval(updateCountdown, 30000);
+      }
+    });
+
     onMounted(() => {
       fetchMatch();
     });
+
+    onUnmounted(() => clearInterval(countdownTimer));
 
     // Share scoreboard as image to clipboard
     const shareScoreboard = async () => {
@@ -842,11 +979,26 @@ export default {
     });
 
     // Lineup UI state
-    const showLineupSection = ref(false);
+    const showLineupSection = ref(true);
     const activeLineupTab = ref('home');
     const rostersLoaded = ref(false);
     const lineupDataLoading = ref(false);
     const savingLineup = ref(false);
+
+    // Auto-load rosters once canManageLineup is known and section is open
+    watch(canManageLineup, async canManage => {
+      if (canManage && showLineupSection.value && !rostersLoaded.value) {
+        lineupDataLoading.value = true;
+        try {
+          await Promise.all([fetchTeamRosters(), fetchLineups()]);
+          rostersLoaded.value = true;
+        } catch (err) {
+          console.error('Failed to load lineups and rosters:', err);
+        } finally {
+          lineupDataLoading.value = false;
+        }
+      }
+    });
 
     // Toggle lineup section and lazy-load rosters/lineups
     const toggleLineupSection = async () => {
@@ -889,6 +1041,7 @@ export default {
       error,
       match,
       events,
+      countdown,
       homeGoals,
       awayGoals,
       homeCards,

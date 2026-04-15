@@ -417,7 +417,7 @@ describe('MatchDetailView', () => {
       expect(wrapper.find('[data-testid="share-button"]').exists()).toBe(true);
     });
 
-    it('shows "Copy to Clipboard" text initially', async () => {
+    it('shows "Copy Scoreboard" text initially', async () => {
       mockAuthStore.apiRequest = vi.fn(() =>
         Promise.resolve(createMockMatch())
       );
@@ -425,7 +425,7 @@ describe('MatchDetailView', () => {
       await flushPromises();
 
       expect(wrapper.find('[data-testid="share-button"]').text()).toContain(
-        'Copy to Clipboard'
+        'Copy Scoreboard'
       );
     });
   });
@@ -540,7 +540,7 @@ describe('MatchDetailView', () => {
       );
     });
 
-    it('toggle button expands lineup content', async () => {
+    it('lineup section is open by default and loads rosters automatically', async () => {
       mockAuthStore.apiRequest = vi.fn(url => {
         if (url.includes('/roster')) return Promise.resolve({ roster: [] });
         if (url.includes('/lineup')) return Promise.resolve(null);
@@ -549,18 +549,17 @@ describe('MatchDetailView', () => {
       const wrapper = mountMatchDetailView();
       await flushPromises();
 
-      // Lineup content should not be visible initially
-      expect(wrapper.find('[data-testid="lineup-tab-home"]').exists()).toBe(
-        false
+      // Lineup section open by default; rosters auto-load → no-roster message visible
+      expect(wrapper.find('[data-testid="no-roster-message"]').exists()).toBe(
+        true
       );
 
-      // Click toggle
+      // Clicking the toggle collapses the section
       await wrapper.find('[data-testid="lineup-toggle"]').trigger('click');
       await flushPromises();
 
-      // After expanding and loading, should show no-roster message (empty rosters)
       expect(wrapper.find('[data-testid="no-roster-message"]').exists()).toBe(
-        true
+        false
       );
     });
   });
