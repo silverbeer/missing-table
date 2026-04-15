@@ -328,8 +328,15 @@ def _create_auth_user(
 def _create_user_profile(supabase: Client, profile_data: dict) -> bool:
     """Create a user profile in Supabase."""
     try:
-        # Remove None values
         clean_data = {k: v for k, v in profile_data.items() if v is not None}
+        # Remove any orphaned profile rows sharing the same email or username
+        # with a different ID (defensive cleanup before insert)
+        if clean_data.get("email"):
+            with contextlib.suppress(Exception):
+                supabase.table("user_profiles").delete().eq("email", clean_data["email"]).neq("id", clean_data["id"]).execute()
+        if clean_data.get("username"):
+            with contextlib.suppress(Exception):
+                supabase.table("user_profiles").delete().eq("username", clean_data["username"]).neq("id", clean_data["id"]).execute()
         supabase.table("user_profiles").insert(clean_data).execute()
         return True
     except Exception as e:
@@ -367,17 +374,51 @@ def _create_player_team_history(supabase: Client, player_history: list[dict]) ->
 def _delete_existing_user(supabase: Client, user_id: str, username: str) -> None:
     """Delete an existing user from local Supabase."""
     console.print(f"[yellow]Deleting existing user: {username}...[/yellow]")
+    # Delete related table rows (suppress individual failures)
+    for table, col in [
+        ("player_team_history", "player_id"),
+        ("team_manager_assignments", "user_id"),
+        ("user_profiles", "id"),
+    ]:
+        with contextlib.suppress(Exception):
+            supabase.table(table).delete().eq(col, user_id).execute()
+
+    # Also remove any orphaned user_profiles rows with the same internal email
+    # or username but a different UUID (can happen when a previous sync created
+    # a row with a different UUID and left it behind)
+    internal_email = f"{username}@missingtable.local"
+    with contextlib.suppress(Exception):
+        supabase.table("user_profiles").delete().eq("email", internal_email).neq("id", user_id).execute()
+    with contextlib.suppress(Exception):
+        supabase.table("user_profiles").delete().eq("username", username).neq("id", user_id).execute()
+
+    # Delete auth user by ID first
     try:
-        # Delete player team history first (FK constraint)
-        supabase.table("player_team_history").delete().eq("player_id", user_id).execute()
-        # Delete team manager assignments
-        supabase.table("team_manager_assignments").delete().eq("user_id", user_id).execute()
-        # Delete user profile
-        supabase.table("user_profiles").delete().eq("id", user_id).execute()
-        # Delete auth user
         supabase.auth.admin.delete_user(user_id)
+        return
+    except Exception:
+        pass
+
+    # Fallback: find and delete by internal email (handles UUID mismatch)
+    try:
+        page, per_page = 1, 100
+        while True:
+            resp = supabase.auth.admin.list_users(page=page, per_page=per_page)
+            page_users = _get_users_list(resp)
+            if not page_users:
+                break
+            for u in page_users:
+                u_email = u.email if hasattr(u, "email") else u.get("email", "")
+                u_id = u.id if hasattr(u, "id") else u.get("id", "")
+                if u_email == internal_email:
+                    console.print(f"[dim]Found auth user by email ({u_email}), deleting...[/dim]")
+                    with contextlib.suppress(Exception):
+                        supabase.auth.admin.delete_user(u_id)
+            if len(page_users) < per_page:
+                break
+            page += 1
     except Exception as e:
-        console.print(f"[dim]Delete cleanup: {e}[/dim]")
+        console.print(f"[dim]Auth delete fallback failed: {e}[/dim]")
 
 
 def sync_user_to_local(
@@ -401,12 +442,34 @@ def sync_user_to_local(
         console.print(f"[dim]Would sync: {username} ({role}) -> {password}[/dim]")
         return True
 
-    # Check if user already exists
+    # Check if user already exists (profile OR auth)
     try:
         existing = local_supabase.table("user_profiles").select("id").eq("id", user_id).execute()
         user_exists = bool(existing.data)
     except Exception:
         user_exists = False
+
+    if not user_exists:
+        # Also check auth — handles the case where a previous run created the auth
+        # user but failed before writing the profile (leaves orphaned auth state)
+        internal_email = f"{username}@missingtable.local"
+        try:
+            page = 1
+            while not user_exists:
+                resp = local_supabase.auth.admin.list_users(page=page, per_page=100)
+                page_users = _get_users_list(resp)
+                if not page_users:
+                    break
+                for u in page_users:
+                    u_email = u.email if hasattr(u, "email") else u.get("email", "")
+                    if u_email == internal_email:
+                        user_exists = True
+                        break
+                if len(page_users) < 100:
+                    break
+                page += 1
+        except Exception:
+            pass
 
     if user_exists:
         if force:
