@@ -985,6 +985,21 @@ export default {
     const lineupDataLoading = ref(false);
     const savingLineup = ref(false);
 
+    // Auto-load rosters once canManageLineup is known and section is open
+    watch(canManageLineup, async canManage => {
+      if (canManage && showLineupSection.value && !rostersLoaded.value) {
+        lineupDataLoading.value = true;
+        try {
+          await Promise.all([fetchTeamRosters(), fetchLineups()]);
+          rostersLoaded.value = true;
+        } catch (err) {
+          console.error('Failed to load lineups and rosters:', err);
+        } finally {
+          lineupDataLoading.value = false;
+        }
+      }
+    });
+
     // Toggle lineup section and lazy-load rosters/lineups
     const toggleLineupSection = async () => {
       showLineupSection.value = !showLineupSection.value;
