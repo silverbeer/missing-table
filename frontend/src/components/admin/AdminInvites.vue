@@ -146,6 +146,24 @@
           />
         </div>
 
+        <!-- Note (Optional) -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Note (Optional)</label
+          >
+          <input
+            v-model="newInvite.note"
+            type="text"
+            maxlength="500"
+            placeholder="Who is this invite for? e.g., John Smith - U13 coach"
+            data-testid="invite-note-input"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            Personal reminder — visible only to you, not sent to the recipient.
+          </p>
+        </div>
+
         <!-- Submit Button -->
         <button
           type="submit"
@@ -188,6 +206,10 @@
           <p v-if="createdInvite.jersey_number">
             <span class="font-medium">Jersey Number:</span>
             #{{ createdInvite.jersey_number }}
+          </p>
+          <p v-if="createdInvite.note">
+            <span class="font-medium">Note:</span>
+            {{ createdInvite.note }}
           </p>
           <p>
             <span class="font-medium">Expires:</span>
@@ -300,6 +322,15 @@
                 {{ invite.teams?.name }} - {{ invite.age_groups?.name }}
               </template>
             </p>
+            <p v-if="invite.used_by_user">
+              <span class="text-gray-500">Used by:</span>
+              {{
+                invite.used_by_user.display_name || invite.used_by_user.username
+              }}
+            </p>
+            <p v-if="invite.note" class="text-gray-700 text-xs italic">
+              {{ invite.note }}
+            </p>
             <p class="text-gray-500 text-xs">
               {{ formatDate(invite.created_at) }}
             </p>
@@ -352,6 +383,16 @@
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
+                Used By
+              </th>
+              <th
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Note
+              </th>
+              <th
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Created
               </th>
               <th
@@ -400,6 +441,24 @@
                 >
                   {{ invite.status }}
                 </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                <template v-if="invite.used_by_user">
+                  {{
+                    invite.used_by_user.display_name ||
+                    invite.used_by_user.username
+                  }}
+                </template>
+                <span v-else class="text-gray-300">-</span>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                <span
+                  v-if="invite.note"
+                  :title="invite.note"
+                  class="truncate block"
+                  >{{ invite.note }}</span
+                >
+                <span v-else class="text-gray-300">-</span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {{ formatDate(invite.created_at) }}
@@ -516,6 +575,7 @@ const newInvite = ref({
   ageGroupId: '',
   email: '',
   jerseyNumber: null,
+  note: '',
 });
 
 // Fetch teams, age groups, and clubs
@@ -581,6 +641,7 @@ const createInvite = async () => {
       body = JSON.stringify({
         club_id: parseInt(newInvite.value.clubId),
         email: newInvite.value.email || null,
+        note: newInvite.value.note || null,
       });
     } else if (newInvite.value.inviteType === 'club_fan') {
       // Club managers use their own endpoint, admins use admin endpoint
@@ -591,6 +652,7 @@ const createInvite = async () => {
       body = JSON.stringify({
         club_id: parseInt(newInvite.value.clubId),
         email: newInvite.value.email || null,
+        note: newInvite.value.note || null,
       });
     } else {
       endpoint = '/api/invites/admin/';
@@ -604,6 +666,7 @@ const createInvite = async () => {
         team_id: parseInt(newInvite.value.teamId),
         age_group_id: parseInt(newInvite.value.ageGroupId),
         email: newInvite.value.email || null,
+        note: newInvite.value.note || null,
       };
       // Add jersey_number for team_player invites
       if (
@@ -636,6 +699,7 @@ const createInvite = async () => {
       ageGroupId: '',
       email: '',
       jerseyNumber: null,
+      note: '',
     };
 
     // Refresh invites list

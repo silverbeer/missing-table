@@ -42,11 +42,13 @@ class CreateInviteRequest(BaseModel):
     email: str | None = None
     player_id: int | None = None  # Links to existing roster entry (for team_player invites)
     jersey_number: int | None = Field(None, ge=1, le=99)  # Creates roster entry on redemption
+    note: str | None = Field(None, max_length=500)  # Personal note about who the invite was sent to
 
 
 class CreateClubManagerInviteRequest(BaseModel):
     club_id: int
     email: str | None = None
+    note: str | None = Field(None, max_length=500)  # Personal note about who the invite was sent to
 
 
 class ClubManagerInviteResponse(BaseModel):
@@ -117,6 +119,7 @@ async def create_club_manager_invite(
             invite_type="club_manager",
             club_id=request.club_id,
             email=request.email,
+            note=request.note,
         )
 
         return invitation
@@ -155,6 +158,7 @@ async def create_team_manager_invite(request: CreateInviteRequest, current_user=
             team_id=request.team_id,
             age_group_id=request.age_group_id,
             email=request.email,
+            note=request.note,
         )
 
         return invitation
@@ -186,6 +190,7 @@ async def create_club_fan_invite_admin(
             invite_type="club_fan",
             club_id=request.club_id,
             email=request.email,
+            note=request.note,
         )
 
         return invitation
@@ -216,6 +221,7 @@ async def create_team_fan_invite_admin(request: CreateInviteRequest, current_use
             team_id=request.team_id,
             age_group_id=request.age_group_id,
             email=request.email,
+            note=request.note,
         )
 
         return invitation
@@ -256,6 +262,7 @@ async def create_team_player_invite_admin(
             email=request.email,
             player_id=request.player_id,
             jersey_number=request.jersey_number,
+            note=request.note,
         )
 
         return invitation
@@ -293,6 +300,7 @@ async def create_club_fan_invite_club_manager(
             invite_type="club_fan",
             club_id=request.club_id,
             email=request.email,
+            note=request.note,
         )
 
         return invitation
@@ -333,6 +341,7 @@ async def create_team_fan_invite(request: CreateInviteRequest, current_user=Depe
             team_id=request.team_id,
             age_group_id=request.age_group_id,
             email=request.email,
+            note=request.note,
         )
 
         return invitation
@@ -380,6 +389,7 @@ async def create_team_player_invite(request: CreateInviteRequest, current_user=D
             email=request.email,
             player_id=request.player_id,
             jersey_number=request.jersey_number,
+            note=request.note,
         )
 
         return invitation
