@@ -189,6 +189,12 @@ if [ "$RESTORE_DATA" = true ]; then
     if [ -f "$SCRIPT_DIR/db_tools.sh" ]; then
         # CRITICAL: Explicitly set APP_ENV=local to prevent accidental prod writes
         APP_ENV=local bash "$SCRIPT_DIR/db_tools.sh" restore
+        restore_exit=$?
+        if [ $restore_exit -ne 0 ]; then
+            echo -e "${RED}Data restore failed (exit $restore_exit). Local DB may be empty.${NC}"
+            echo -e "${YELLOW}Check backup files in ~/backups/missing-table/ and retry.${NC}"
+            exit 1
+        fi
         echo -e "${GREEN}Data restore complete${NC}"
 
         # Fix sport_type for Futsal leagues (backup may not have this set)

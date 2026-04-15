@@ -152,14 +152,15 @@ restore_database() {
 
     local current_env=$(get_current_environment)
 
+    local default_backup_dir="${HOME}/backups/missing-table"
     if [ -n "$backup_file" ]; then
         print_header "Restoring Database from $backup_file ($current_env environment)"
         cd "$PROJECT_ROOT/backend" || exit 1
-        uv run python ../scripts/restore_database.py "$backup_file"
+        uv run python ../scripts/restore_database.py "$backup_file" --backup-dir "$default_backup_dir"
     else
         print_header "Restoring Database from Latest Backup ($current_env environment)"
         cd "$PROJECT_ROOT/backend" || exit 1
-        uv run python ../scripts/restore_database.py --latest
+        uv run python ../scripts/restore_database.py --latest --backup-dir "$default_backup_dir"
     fi
 
     if [ $? -eq 0 ]; then

@@ -4,6 +4,7 @@ Database restore script for MLS Next development.
 Restores database from JSON backup files.
 """
 
+import gzip
 import json
 import os
 import sys
@@ -47,70 +48,89 @@ def get_local_user_profile_ids() -> set:
 
 
 # UUID columns per table that reference user_profiles.
-# These must be nulled out when the referenced UUID doesn't exist locally,
-# otherwise the FK constraint causes the entire insert to fail silently.
-USER_PROFILE_FK_COLUMNS = {
-    'players': ['created_by', 'user_profile_id'],
-    'player_team_history': ['player_id'],  # references user_profiles via UUID
-    'match_lineups': ['created_by', 'updated_by'],
-    'match_events': ['created_by'],
-    'player_match_stats': ['player_id'],
-    'team_manager_assignments': ['user_id'],
-    'invitations': ['created_by', 'claimed_by'],
-    'invite_requests': ['user_id'],
+# nullable=True  → safe to null out when the UUID isn't present locally
+# nullable=False → record must be dropped entirely (column is NOT NULL)
+USER_PROFILE_FK_COLUMNS: dict[str, list[tuple[str, bool]]] = {
+    'players':                  [('created_by', True), ('user_profile_id', True)],
+    'player_team_history':      [('player_id', False)],   # NOT NULL — drop record
+    'match_lineups':            [('created_by', True), ('updated_by', True)],
+    'match_events':             [('created_by', True)],
+    'player_match_stats':       [('player_id', False)],   # NOT NULL — drop record
+    'team_manager_assignments': [('user_id', False)],     # NOT NULL — drop record
+    'invitations':              [('created_by', True), ('claimed_by', True)],
+    'invite_requests':          [('user_id', False)],     # NOT NULL — drop record
 }
 
 
 def sanitize_user_profile_refs(table_name: str, data: list, local_ids: set) -> list:
-    """Null out UUID columns that reference user_profiles not present locally.
+    """Null out or drop records with user_profile FK refs not present locally.
 
-    Prod and local have different auth.users UUIDs, so any FK pointing at
-    user_profiles will break if the UUID doesn't exist in the target env.
-    Both created_by and user_profile_id FKs are nullable (ON DELETE SET NULL),
-    so setting them to None is safe.
+    Prod and local have different auth.users UUIDs. For nullable FK columns we
+    set the value to None. For NOT NULL FK columns the record must be dropped —
+    inserting NULL would violate the constraint.
     """
     columns = USER_PROFILE_FK_COLUMNS.get(table_name)
     if not columns:
         return data
 
+    kept = []
     nulled_count = 0
+    dropped_count = 0
+
     for record in data:
-        for col in columns:
+        drop = False
+        for col, nullable in columns:
             val = record.get(col)
             if val and val not in local_ids:
-                record[col] = None
-                nulled_count += 1
+                if nullable:
+                    record[col] = None
+                    nulled_count += 1
+                else:
+                    drop = True
+                    break
+        if drop:
+            dropped_count += 1
+        else:
+            kept.append(record)
 
     if nulled_count:
-        print(f"  ℹ️  Cleared {nulled_count} user_profile reference(s) not found locally")
+        print(f"  ℹ️  Cleared {nulled_count} nullable user_profile reference(s) not found locally")
+    if dropped_count:
+        print(f"  ℹ️  Dropped {dropped_count} record(s) with non-nullable user_profile ref not found locally")
 
-    return data
+    return kept
 
 
 def clear_table(table_name: str):
-    """Clear all data from a table."""
+    """Clear all data from a table, paginating to handle >1000 rows."""
     try:
         print(f"Clearing {table_name}...")
-        
-        # First, get all records to delete them by ID
-        result = supabase.table(table_name).select('id').execute()
-        
-        if result.data:
-            # Delete in batches to avoid timeout
+        total_deleted = 0
+        page_size = 1000
+
+        while True:
+            # Fetch up to page_size IDs at a time (Supabase caps at 1000 per request)
+            result = supabase.table(table_name).select('id').limit(page_size).execute()
+            if not result.data:
+                break
+
+            ids = [record['id'] for record in result.data]
+            # Delete in sub-batches to avoid URI length limits
             batch_size = 100
-            total_records = len(result.data)
-            
-            for i in range(0, total_records, batch_size):
-                batch = result.data[i:i + batch_size]
-                ids = [record['id'] for record in batch]
-                
-                delete_result = supabase.table(table_name).delete().in_('id', ids).execute()
-                print(f"  ✓ Deleted {len(ids)} records from {table_name}")
-                
-            print(f"  ✓ Cleared {total_records} total records from {table_name}")
+            for i in range(0, len(ids), batch_size):
+                chunk = ids[i:i + batch_size]
+                supabase.table(table_name).delete().in_('id', chunk).execute()
+                total_deleted += len(chunk)
+                print(f"  ✓ Deleted {len(chunk)} records from {table_name}")
+
+            if len(result.data) < page_size:
+                break  # no more rows
+
+        if total_deleted:
+            print(f"  ✓ Cleared {total_deleted} total records from {table_name}")
         else:
             print(f"  ✓ {table_name} was already empty")
-            
+
     except Exception as e:
         print(f"  ✗ Error clearing {table_name}: {e}")
 
@@ -224,8 +244,12 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         return False
     
     try:
-        with open(backup_file, 'r') as f:
-            backup_data = json.load(f)
+        if backup_file.suffix == '.gz':
+            with gzip.open(backup_file, 'rt', encoding='utf-8') as f:
+                backup_data = json.load(f)
+        else:
+            with open(backup_file, 'r') as f:
+                backup_data = json.load(f)
     except Exception as e:
         print(f"❌ Error reading backup file: {e}")
         return False
@@ -277,13 +301,17 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         'players',
         'player_team_history',
 
-        # 6. Matches (depend on teams, seasons, etc.)
+        # 6. Tournaments (matches may reference tournaments via tournament_id FK)
+        'tournaments',
+        'tournament_age_groups',
+
+        # 7. Matches (depend on teams, seasons, tournaments)
         'matches',
 
-        # 7. Playoff brackets (depend on matches)
+        # 8. Playoff brackets (depend on matches)
         'playoff_bracket_slots',
 
-        # 8. Tables that depend on matches/teams/clubs/players
+        # 9. Tables that depend on matches/teams/clubs/players
         # These are cleared FIRST (reverse order) before their parents
         'match_events',
         'match_lineups',
@@ -387,54 +415,63 @@ def list_available_backups():
 if __name__ == "__main__":
     import argparse
     
+    # Default backup dir matches backup_database.py default: ~/backups/missing-table
+    DEFAULT_BACKUP_DIR = Path.home() / 'backups' / 'missing-table'
+
     parser = argparse.ArgumentParser(description="Database restore utility")
     parser.add_argument('backup_file', nargs='?', help='Backup file to restore from')
     parser.add_argument('--list', action='store_true', help='List available backup files')
-    parser.add_argument('--no-clear', action='store_true', help='Don\'t clear existing data before restore')
+    parser.add_argument('--no-clear', action='store_true', help="Don't clear existing data before restore")
     parser.add_argument('--latest', action='store_true', help='Restore from the most recent backup')
-    
+    parser.add_argument(
+        '--backup-dir',
+        type=Path,
+        default=DEFAULT_BACKUP_DIR,
+        help=f'Directory containing backup files (default: {DEFAULT_BACKUP_DIR})',
+    )
+
     args = parser.parse_args()
-    
+    backup_dir: Path = args.backup_dir
+
+    def find_latest_backup(directory: Path) -> Path | None:
+        """Find the most recent timestamped backup (.json.gz or .json)."""
+        candidates = sorted(
+            list(directory.glob("database_backup_[0-9]*.json.gz")) +
+            list(directory.glob("database_backup_[0-9]*.json")),
+            reverse=True,
+        )
+        return candidates[0] if candidates else None
+
     try:
         if args.list:
             list_available_backups()
-            
+
         elif args.latest:
-            backup_dir = Path(__file__).parent.parent / 'backups'
-            # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
-            # This avoids picking up old manually-named files like database_backup_prod_mapped.json
-            backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
-
-            if not backup_files:
-                print("❌ No backup files found")
+            latest_backup = find_latest_backup(backup_dir)
+            if not latest_backup:
+                print(f"❌ No backup files found in {backup_dir}")
                 sys.exit(1)
-
-            # Get most recent backup by sorting filenames (timestamps sort correctly)
-            backup_files.sort(reverse=True)
-            latest_backup = backup_files[0]
-            
             print(f"Using latest backup: {latest_backup.name}")
             clear_existing = not args.no_clear
             restore_from_backup(latest_backup, clear_existing)
-            
+
         elif args.backup_file:
-            backup_dir = Path(__file__).parent.parent / 'backups'
-            
             # Handle both full path and just filename
             if '/' in args.backup_file:
                 backup_file = Path(args.backup_file)
             else:
                 backup_file = backup_dir / args.backup_file
-            
+
             clear_existing = not args.no_clear
             restore_from_backup(backup_file, clear_existing)
-            
+
         else:
             print("❌ Please specify a backup file or use --list to see available backups")
             print("Usage examples:")
             print("  python scripts/restore_database.py --list")
             print("  python scripts/restore_database.py --latest")
-            print("  python scripts/restore_database.py database_backup_20231220_143022.json")
+            print(f"  python scripts/restore_database.py --backup-dir {DEFAULT_BACKUP_DIR} --latest")
+            print("  python scripts/restore_database.py database_backup_20231220_143022.json.gz")
             sys.exit(1)
             
     except KeyboardInterrupt:
