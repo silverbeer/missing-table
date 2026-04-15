@@ -2247,6 +2247,7 @@ async def get_match_preview(
     away_team_id: int,
     season_id: int | None = Query(None, description="Season ID for recent form and common opponents"),
     age_group_id: int | None = Query(None, description="Filter by age group"),
+    match_type_id: int | None = Query(None, description="Filter recent form and common opponents by match type"),
     recent_count: int = Query(5, ge=1, le=20, description="Number of recent matches per team"),
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
@@ -2261,6 +2262,7 @@ async def get_match_preview(
             away_team_id=away_team_id,
             season_id=season_id,
             age_group_id=age_group_id,
+            match_type_id=match_type_id,
             recent_count=recent_count,
         )
         return preview

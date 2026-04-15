@@ -432,6 +432,8 @@ const props = defineProps({
   seasonId: { type: Number, default: null },
   /** Optional: narrow to a specific age group */
   ageGroupId: { type: Number, default: null },
+  /** Optional: restrict recent form and common opponents to this match type (e.g. 1 = League) */
+  matchTypeId: { type: Number, default: null },
   /** How many recent matches to fetch per team */
   recentCount: { type: Number, default: 5 },
 });
@@ -488,6 +490,7 @@ async function fetchPreview() {
     const params = new URLSearchParams();
     if (props.seasonId) params.set('season_id', props.seasonId);
     if (props.ageGroupId) params.set('age_group_id', props.ageGroupId);
+    if (props.matchTypeId) params.set('match_type_id', props.matchTypeId);
     params.set('recent_count', props.recentCount);
 
     const url = `${getApiBaseUrl()}/api/matches/preview/${props.homeTeamId}/${props.awayTeamId}?${params}`;
@@ -528,7 +531,13 @@ async function fetchPreview() {
 
 // Refetch when key props change
 watch(
-  () => [props.homeTeamId, props.awayTeamId, props.seasonId, props.ageGroupId],
+  () => [
+    props.homeTeamId,
+    props.awayTeamId,
+    props.seasonId,
+    props.ageGroupId,
+    props.matchTypeId,
+  ],
   () => fetchPreview(),
   { immediate: false }
 );

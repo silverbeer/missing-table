@@ -632,6 +632,7 @@ class MatchDAO(BaseDAO):
         away_team_id: int,
         season_id: int | None = None,
         age_group_id: int | None = None,
+        match_type_id: int | None = None,
         recent_count: int = 5,
     ) -> dict:
         """Get match preview data: recent form, common opponents, and head-to-head history.
@@ -641,6 +642,7 @@ class MatchDAO(BaseDAO):
             away_team_id: ID of the away team in the upcoming match
             season_id: Season for recent form and common opponents (None = all seasons)
             age_group_id: Optional filter to restrict to a specific age group
+            match_type_id: If provided, restrict recent form and common opponents to this match type
             recent_count: How many recent matches to return per team
 
         Returns:
@@ -693,6 +695,8 @@ class MatchDAO(BaseDAO):
                 q = q.eq("season_id", season_id)
             if age_group_id:
                 q = q.eq("age_group_id", age_group_id)
+            if match_type_id:
+                q = q.eq("match_type_id", match_type_id)
             return q
 
         try:
