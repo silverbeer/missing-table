@@ -207,6 +207,7 @@ class PlayerHistoryCreate(BaseModel):
     positions: list[str] | None = None
     notes: str | None = None
     is_current: bool = False
+    age_group_id: int | None = None
 
     @field_validator("jersey_number")
     @classmethod
@@ -258,6 +259,7 @@ class AdminPlayerTeamAssignment(BaseModel):
     jersey_number: int | None = None
     start_date: str | None = None
     is_current: bool = True
+    age_group_id: int | None = None
 
     @field_validator("jersey_number")
     @classmethod
