@@ -402,6 +402,7 @@ class PlayerDAO(BaseDAO):
         positions: list[str] | None = None,
         notes: str | None = None,
         is_current: bool = False,
+        age_group_id: int | None = None,
     ) -> dict | None:
         """
         Create or update a player team history entry.
@@ -421,6 +422,9 @@ class PlayerDAO(BaseDAO):
             positions: Optional list of positions played
             notes: Optional notes about the assignment
             is_current: Whether this is the current assignment
+            age_group_id: Explicit age group override. Required for clubs with multiple
+                age groups (e.g. IFA runs U13/U14/U15/U16). When omitted, falls back
+                to the first team_mapping row — unreliable for multi-age-group clubs.
 
         Returns:
             Created/updated history entry dict, or None on error
@@ -433,11 +437,20 @@ class PlayerDAO(BaseDAO):
 
             team_data = team_response.data[0] if team_response.data else {}
 
-            # Get age_group_id from team_mappings (teams.age_group_id is deprecated/never populated)
-            mapping_response = (
-                self.client.table("team_mappings").select("age_group_id").eq("team_id", team_id).limit(1).execute()
-            )
-            age_group_id = mapping_response.data[0]["age_group_id"] if mapping_response.data else None
+            # Resolve age_group_id: use caller-supplied value when available.
+            # Falling back to team_mappings is only reliable for teams with a single
+            # age-group mapping; clubs like IFA have multiple rows and limit(1) is
+            # non-deterministic without an explicit age_group_id.
+            if age_group_id is None:
+                mapping_response = (
+                    self.client.table("team_mappings")
+                    .select("age_group_id")
+                    .eq("team_id", team_id)
+                    .order("age_group_id")
+                    .limit(1)
+                    .execute()
+                )
+                age_group_id = mapping_response.data[0]["age_group_id"] if mapping_response.data else None
 
             upsert_data = {
                 "player_id": player_id,

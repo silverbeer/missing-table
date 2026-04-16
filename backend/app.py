@@ -1448,6 +1448,7 @@ async def create_player_history(
             positions=history_data.positions,
             notes=history_data.notes,
             is_current=history_data.is_current,
+            age_group_id=history_data.age_group_id,
         )
 
         if entry:
@@ -1607,6 +1608,7 @@ async def add_admin_player_team(
             season_id=data.season_id,
             jersey_number=data.jersey_number,
             is_current=data.is_current,
+            age_group_id=data.age_group_id,
         )
 
         if not entry:
