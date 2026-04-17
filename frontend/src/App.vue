@@ -382,6 +382,11 @@
             <GoalsLeaderboard />
           </div>
 
+          <!-- QoP Rankings -->
+          <div v-if="currentTab === 'qop'" class="p-4">
+            <QoPStandings />
+          </div>
+
           <!-- Add Match Form (auth required) -->
           <div v-if="currentTab === 'add-match'" class="p-4">
             <div v-if="!authStore.isAuthenticated" class="auth-required">
@@ -488,6 +493,7 @@ import ProfileRouter from './components/ProfileRouter.vue';
 import TeamRosterRouter from './components/profiles/TeamRosterRouter.vue';
 import AdminPanel from './components/AdminPanel.vue';
 import TournamentMatchCenter from './components/TournamentMatchCenter.vue';
+import QoPStandings from './components/QoPStandings.vue';
 import VersionFooter from './components/VersionFooter.vue';
 import { LiveMatchView } from './components/live';
 
@@ -506,6 +512,7 @@ export default {
     TeamRosterRouter,
     AdminPanel,
     TournamentMatchCenter,
+    QoPStandings,
     VersionFooter,
     LiveMatchView,
   },
@@ -586,6 +593,7 @@ export default {
       { id: 'scores', name: 'Matches', requiresAuth: true },
       { id: 'match-center', name: 'Tournaments', requiresAuth: true },
       { id: 'leaderboard', name: 'Leaderboard', requiresAuth: true },
+      { id: 'qop', name: 'QoP', requiresAuth: true },
       {
         id: 'add-match',
         name: 'Add Match',

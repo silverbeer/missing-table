@@ -211,8 +211,13 @@
             >
               Form
             </th>
-            <th v-if="hasQopData" class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              <span title="Quality of Play rank — updated weekly by MLS Next">QoP</span>
+            <th
+              v-if="hasQopData"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
+            >
+              <span title="Quality of Play rank — updated weekly by MLS Next"
+                >QoP</span
+              >
             </th>
           </tr>
         </thead>
@@ -323,11 +328,22 @@
                 </span>
               </div>
             </td>
-            <td v-if="hasQopData" class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center">
+            <td
+              v-if="hasQopData"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center"
+            >
               <template v-if="team.qop_rank != null">
                 <span class="font-medium">#{{ team.qop_rank }}</span>
-                <span v-if="team.qop_rank_change > 0" class="ml-1 text-xs text-green-600">▲{{ team.qop_rank_change }}</span>
-                <span v-else-if="team.qop_rank_change < 0" class="ml-1 text-xs text-red-600">▼{{ Math.abs(team.qop_rank_change) }}</span>
+                <span
+                  v-if="team.qop_rank_change > 0"
+                  class="ml-1 text-xs text-green-600"
+                  >▲{{ team.qop_rank_change }}</span
+                >
+                <span
+                  v-else-if="team.qop_rank_change < 0"
+                  class="ml-1 text-xs text-red-600"
+                  >▼{{ Math.abs(team.qop_rank_change) }}</span
+                >
                 <span v-else class="ml-1 text-xs text-gray-400">—</span>
               </template>
               <span v-else class="text-gray-400">—</span>
