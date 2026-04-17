@@ -6,6 +6,9 @@ Tests:
 - get_latest_with_delta: no data returns has_data=False
 - rank delta: prior rank 5, current rank 3 → rank_change = 2 (moved up)
 - new entry with no prior week → rank_change = None
+- match preview: no QoP data → has_qop_data=False, all QoP fields null
+- match preview: QoP data available → correct ranks attached to home/away
+- match preview: teams from different divisions → has_qop_data=False
 """
 
 from unittest.mock import MagicMock, Mock, patch
@@ -256,3 +259,210 @@ class TestGetLatestWithDelta:
         assert result["has_data"] is True
         assert result["prior_week_of"] is None
         assert result["rankings"][0]["rank_change"] is None
+
+
+# ─── Match Preview QoP enrichment ──────────────────────────────────────────────
+
+def _make_preview_base(home_team_id=1, away_team_id=2):
+    """Return a minimal preview dict as returned by match_dao.get_match_preview."""
+    return {
+        "home_team_id": home_team_id,
+        "away_team_id": away_team_id,
+        "home_team_recent": [],
+        "away_team_recent": [],
+        "common_opponents": [],
+        "head_to_head": [],
+    }
+
+
+def _make_team_with_details(team_id, name, division_id, age_group_id):
+    return {
+        "id": team_id,
+        "name": name,
+        "division": {"id": division_id, "name": "Northeast"},
+        "age_group": {"id": age_group_id, "name": "U14"},
+    }
+
+
+@pytest.mark.unit
+class TestMatchPreviewQoP:
+    """Tests for QoP data enrichment on the match preview endpoint."""
+
+    def _call_preview(self, home_team_id, away_team_id, mock_match_dao, mock_team_dao, mock_qop):
+        """
+        Simulate the QoP enrichment logic from the get_match_preview endpoint
+        without spinning up the full FastAPI app.
+        """
+        from backend.dao.qop_rankings_dao import QoPRankingsDAO
+
+        preview = mock_match_dao.get_match_preview(
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            season_id=None,
+            age_group_id=None,
+            recent_count=5,
+        )
+
+        qop_defaults = {
+            "has_qop_data": False,
+            "home_qop_rank": None,
+            "home_qop_rank_change": None,
+            "away_qop_rank": None,
+            "away_qop_rank_change": None,
+        }
+
+        try:
+            home_team = mock_team_dao.get_team_with_details(home_team_id)
+            away_team = mock_team_dao.get_team_with_details(away_team_id)
+
+            home_division = home_team.get("division") if home_team else None
+            away_division = away_team.get("division") if away_team else None
+            home_division_id = home_division.get("id") if home_division else None
+            away_division_id = away_division.get("id") if away_division else None
+            home_age_group = home_team.get("age_group") if home_team else None
+            home_age_group_id = home_age_group.get("id") if home_age_group else None
+
+            if (
+                home_division_id is None
+                or away_division_id is None
+                or home_division_id != away_division_id
+                or home_age_group_id is None
+            ):
+                preview.update(qop_defaults)
+            else:
+                qop_data = mock_qop(mock_match_dao.client, home_division_id, home_age_group_id)
+                if not qop_data.get("has_data"):
+                    preview.update(qop_defaults)
+                else:
+                    rankings = qop_data["rankings"]
+
+                    def find_team_rank(team_id, team_name):
+                        for entry in rankings:
+                            if entry.get("team_id") == team_id:
+                                return entry["rank"], entry.get("rank_change")
+                        if team_name:
+                            for entry in rankings:
+                                if entry.get("team_name", "").lower() == team_name.lower():
+                                    return entry["rank"], entry.get("rank_change")
+                        return None, None
+
+                    home_name = home_team.get("name") if home_team else None
+                    away_name = away_team.get("name") if away_team else None
+                    home_rank, home_rank_change = find_team_rank(home_team_id, home_name)
+                    away_rank, away_rank_change = find_team_rank(away_team_id, away_name)
+
+                    preview.update({
+                        "has_qop_data": True,
+                        "home_qop_rank": home_rank,
+                        "home_qop_rank_change": home_rank_change,
+                        "away_qop_rank": away_rank,
+                        "away_qop_rank_change": away_rank_change,
+                    })
+        except Exception:
+            preview.update(qop_defaults)
+
+        return preview
+
+    def test_no_qop_data_returns_false_with_null_fields(self):
+        """When QoPRankingsDAO returns has_data=False, preview gets has_qop_data=False and null fields."""
+        home_id, away_id = 1, 2
+        mock_match_dao = MagicMock()
+        mock_match_dao.get_match_preview.return_value = _make_preview_base(home_id, away_id)
+
+        mock_team_dao = MagicMock()
+        mock_team_dao.get_team_with_details.side_effect = lambda tid: _make_team_with_details(
+            tid, f"Team {tid}", division_id=10, age_group_id=20
+        )
+
+        mock_qop = MagicMock(return_value={"has_data": False, "week_of": None, "rankings": []})
+
+        result = self._call_preview(home_id, away_id, mock_match_dao, mock_team_dao, mock_qop)
+
+        assert result["has_qop_data"] is False
+        assert result["home_qop_rank"] is None
+        assert result["home_qop_rank_change"] is None
+        assert result["away_qop_rank"] is None
+        assert result["away_qop_rank_change"] is None
+        # Existing fields still present
+        assert result["home_team_recent"] == []
+        assert result["head_to_head"] == []
+
+    def test_qop_data_attaches_correct_ranks(self):
+        """When QoP data exists, preview includes correct rank and rank_change for each team."""
+        home_id, away_id = 7, 11
+        mock_match_dao = MagicMock()
+        mock_match_dao.get_match_preview.return_value = _make_preview_base(home_id, away_id)
+
+        mock_team_dao = MagicMock()
+        mock_team_dao.get_team_with_details.side_effect = lambda tid: _make_team_with_details(
+            tid, "Home FC" if tid == home_id else "Away United", division_id=10, age_group_id=20
+        )
+
+        rankings = [
+            {"rank": 8, "team_id": home_id, "team_name": "Home FC", "rank_change": 1},
+            {"rank": 11, "team_id": away_id, "team_name": "Away United", "rank_change": 0},
+        ]
+        mock_qop = MagicMock(return_value={
+            "has_data": True,
+            "week_of": "2026-04-14",
+            "rankings": rankings,
+        })
+
+        result = self._call_preview(home_id, away_id, mock_match_dao, mock_team_dao, mock_qop)
+
+        assert result["has_qop_data"] is True
+        assert result["home_qop_rank"] == 8
+        assert result["home_qop_rank_change"] == 1
+        assert result["away_qop_rank"] == 11
+        assert result["away_qop_rank_change"] == 0
+
+    def test_different_divisions_returns_no_qop_data(self):
+        """Teams in different divisions → has_qop_data=False, no QoP lookup performed."""
+        home_id, away_id = 3, 4
+        mock_match_dao = MagicMock()
+        mock_match_dao.get_match_preview.return_value = _make_preview_base(home_id, away_id)
+
+        mock_team_dao = MagicMock()
+        # Home team in division 10, away team in division 99 (different)
+        mock_team_dao.get_team_with_details.side_effect = lambda tid: _make_team_with_details(
+            tid, f"Team {tid}", division_id=10 if tid == home_id else 99, age_group_id=20
+        )
+
+        mock_qop = MagicMock()  # Should NOT be called
+
+        result = self._call_preview(home_id, away_id, mock_match_dao, mock_team_dao, mock_qop)
+
+        assert result["has_qop_data"] is False
+        assert result["home_qop_rank"] is None
+        assert result["away_qop_rank"] is None
+        mock_qop.assert_not_called()
+
+    def test_qop_lookup_by_name_fallback(self):
+        """If team_id not in rankings, falls back to name match."""
+        home_id, away_id = 5, 6
+        mock_match_dao = MagicMock()
+        mock_match_dao.get_match_preview.return_value = _make_preview_base(home_id, away_id)
+
+        mock_team_dao = MagicMock()
+        mock_team_dao.get_team_with_details.side_effect = lambda tid: _make_team_with_details(
+            tid, "Alpha FC" if tid == home_id else "Beta SC", division_id=10, age_group_id=20
+        )
+
+        # Rankings have team_id=None (name-only entries, as can happen with unresolved teams)
+        rankings = [
+            {"rank": 3, "team_id": None, "team_name": "Alpha FC", "rank_change": 2},
+            {"rank": 7, "team_id": None, "team_name": "Beta SC", "rank_change": -1},
+        ]
+        mock_qop = MagicMock(return_value={
+            "has_data": True,
+            "week_of": "2026-04-14",
+            "rankings": rankings,
+        })
+
+        result = self._call_preview(home_id, away_id, mock_match_dao, mock_team_dao, mock_qop)
+
+        assert result["has_qop_data"] is True
+        assert result["home_qop_rank"] == 3
+        assert result["home_qop_rank_change"] == 2
+        assert result["away_qop_rank"] == 7
+        assert result["away_qop_rank_change"] == -1

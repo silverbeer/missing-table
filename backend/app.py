@@ -2256,8 +2256,8 @@ async def get_match_preview(
 ):
     """Get match preview data for two teams.
 
-    Returns recent form for each team, common opponents (with match results), and
-    head-to-head history spanning all seasons.
+    Returns recent form for each team, common opponents (with match results),
+    head-to-head history spanning all seasons, and QoP ranking data for both teams.
     """
     try:
         preview = match_dao.get_match_preview(
@@ -2267,6 +2267,69 @@ async def get_match_preview(
             age_group_id=age_group_id,
             recent_count=recent_count,
         )
+
+        # Augment preview with QoP ranking data
+        qop_defaults = {
+            "has_qop_data": False,
+            "home_qop_rank": None,
+            "home_qop_rank_change": None,
+            "away_qop_rank": None,
+            "away_qop_rank_change": None,
+        }
+        try:
+            home_team = team_dao.get_team_with_details(home_team_id)
+            away_team = team_dao.get_team_with_details(away_team_id)
+
+            home_division = home_team.get("division") if home_team else None
+            away_division = away_team.get("division") if away_team else None
+            home_division_id = home_division.get("id") if home_division else None
+            away_division_id = away_division.get("id") if away_division else None
+            home_age_group = home_team.get("age_group") if home_team else None
+            home_age_group_id = home_age_group.get("id") if home_age_group else None
+
+            if (
+                home_division_id is None
+                or away_division_id is None
+                or home_division_id != away_division_id
+                or home_age_group_id is None
+            ):
+                preview.update(qop_defaults)
+            else:
+                qop_data = QoPRankingsDAO.get_latest_with_delta(
+                    match_dao.client, home_division_id, home_age_group_id
+                )
+                if not qop_data.get("has_data"):
+                    preview.update(qop_defaults)
+                else:
+                    rankings = qop_data["rankings"]
+
+                    def find_team_rank(team_id: int, team_name: str | None) -> tuple[int | None, int | None]:
+                        """Find rank and rank_change for a team, by team_id first then name."""
+                        for entry in rankings:
+                            if entry.get("team_id") == team_id:
+                                return entry["rank"], entry.get("rank_change")
+                        if team_name:
+                            for entry in rankings:
+                                if entry.get("team_name", "").lower() == team_name.lower():
+                                    return entry["rank"], entry.get("rank_change")
+                        return None, None
+
+                    home_name = home_team.get("name") if home_team else None
+                    away_name = away_team.get("name") if away_team else None
+                    home_rank, home_rank_change = find_team_rank(home_team_id, home_name)
+                    away_rank, away_rank_change = find_team_rank(away_team_id, away_name)
+
+                    preview.update({
+                        "has_qop_data": True,
+                        "home_qop_rank": home_rank,
+                        "home_qop_rank_change": home_rank_change,
+                        "away_qop_rank": away_rank,
+                        "away_qop_rank_change": away_rank_change,
+                    })
+        except Exception:
+            logger.warning("Failed to fetch QoP data for match preview", exc_info=True)
+            preview.update(qop_defaults)
+
         return preview
     except Exception as e:
         logger.error(f"Error building match preview: {e!s}", exc_info=True)
@@ -3614,7 +3677,67 @@ async def get_table(
             rows_returned=len(table) if isinstance(table, list) else "N/A",
         )
 
-        return table
+        # Enrich standings with QoP rankings data when division and age group are known
+        has_qop_data = False
+        qop_week_of = None
+        if division_id and age_group_id:
+            try:
+                qop_data = QoPRankingsDAO.get_latest_with_delta(
+                    match_dao.client, division_id, age_group_id
+                )
+                has_qop_data = qop_data.get("has_data", False)
+                qop_week_of = qop_data.get("week_of")
+
+                if has_qop_data:
+                    # Build lookups: team_id -> entry and team_name -> entry
+                    qop_by_team_id: dict[int, dict] = {}
+                    qop_by_team_name: dict[str, dict] = {}
+                    for entry in qop_data.get("rankings", []):
+                        tid = entry.get("team_id")
+                        if tid is not None:
+                            qop_by_team_id[tid] = entry
+                        tname = entry.get("team_name", "")
+                        if tname:
+                            qop_by_team_name[tname.lower()] = entry
+
+                    for row in table:
+                        qop_entry = None
+                        # Try team_id first
+                        row_team_id = row.get("team_id")
+                        if row_team_id is not None:
+                            qop_entry = qop_by_team_id.get(row_team_id)
+                        # Fallback to team_name (case-insensitive)
+                        if qop_entry is None:
+                            row_team_name = (row.get("team") or "").lower()
+                            qop_entry = qop_by_team_name.get(row_team_name)
+
+                        row["qop_rank"] = qop_entry["rank"] if qop_entry else None
+                        row["qop_rank_change"] = qop_entry["rank_change"] if qop_entry else None
+                else:
+                    for row in table:
+                        row["qop_rank"] = None
+                        row["qop_rank_change"] = None
+            except Exception:
+                logger.exception(
+                    "qop_enrichment_error",
+                    division_id=division_id,
+                    age_group_id=age_group_id,
+                )
+                has_qop_data = False
+                qop_week_of = None
+                for row in table:
+                    row["qop_rank"] = None
+                    row["qop_rank_change"] = None
+        else:
+            for row in table:
+                row["qop_rank"] = None
+                row["qop_rank_change"] = None
+
+        return {
+            "has_qop_data": has_qop_data,
+            "qop_week_of": qop_week_of,
+            "standings": table,
+        }
     except Exception as e:
         logger.error(f"Error generating league table: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
