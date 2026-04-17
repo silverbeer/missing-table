@@ -211,6 +211,9 @@
             >
               Form
             </th>
+            <th v-if="hasQopData" class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <span title="Quality of Play rank — updated weekly by MLS Next">QoP</span>
+            </th>
           </tr>
         </thead>
         <tbody
@@ -320,6 +323,15 @@
                 </span>
               </div>
             </td>
+            <td v-if="hasQopData" class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center">
+              <template v-if="team.qop_rank != null">
+                <span class="font-medium">#{{ team.qop_rank }}</span>
+                <span v-if="team.qop_rank_change > 0" class="ml-1 text-xs text-green-600">▲{{ team.qop_rank_change }}</span>
+                <span v-else-if="team.qop_rank_change < 0" class="ml-1 text-xs text-red-600">▼{{ Math.abs(team.qop_rank_change) }}</span>
+                <span v-else class="ml-1 text-xs text-gray-400">—</span>
+              </template>
+              <span v-else class="text-gray-400">—</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -370,6 +382,10 @@ export default {
     const selectedSeasonId = ref(2); // Default to 2024-2025
     const error = ref(null);
     const loading = ref(true);
+
+    // QoP state
+    const hasQopData = ref(false);
+    const qopWeekOf = ref(null);
 
     // Playoff bracket state
     const bracketExists = ref(false);
@@ -548,7 +564,17 @@ export default {
         const data = await authStore.apiRequest(url);
         console.log('Table data received:', data);
 
-        tableData.value = data;
+        // Unwrap new response shape: { has_qop_data, qop_week_of, standings: [...] }
+        if (data && typeof data === 'object' && 'standings' in data) {
+          tableData.value = data.standings;
+          hasQopData.value = data.has_qop_data ?? false;
+          qopWeekOf.value = data.qop_week_of ?? null;
+        } else {
+          // Fallback for bare-array responses (backwards compat)
+          tableData.value = data;
+          hasQopData.value = false;
+          qopWeekOf.value = null;
+        }
         console.log('Table data set:', tableData.value);
       } catch (err) {
         console.error('Error fetching table data:', err);
@@ -700,6 +726,8 @@ export default {
 
     return {
       tableData,
+      hasQopData,
+      qopWeekOf,
       ageGroups,
       leagues,
       divisions,
