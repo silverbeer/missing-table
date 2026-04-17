@@ -16,6 +16,7 @@ from auth import (
     AuthManager,
     get_current_user_required,
     require_admin,
+    require_admin_or_service_account,
     require_match_management_permission,
     require_team_manager_or_admin,
 )
@@ -92,6 +93,7 @@ from dao.playoff_dao import PlayoffDAO
 from dao.roster_dao import RosterDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
+from dao.qop_rankings_dao import QoPRankingsDAO
 from dao.tournament_dao import TournamentDAO
 
 
@@ -6221,6 +6223,49 @@ async def admin_delete_tournament_match(
     try:
         tournament_dao.delete_tournament_match(match_id)
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# === QoP Rankings Endpoints ===
+
+
+class QoPSnapshot(BaseModel):
+    """Request body for POST /api/qop-rankings."""
+
+    week_of: str
+    division: str
+    age_group: str
+    scraped_at: str | None = None
+    rankings: list[dict]
+
+
+@app.post("/api/qop-rankings")
+async def ingest_qop_rankings(
+    snapshot: QoPSnapshot,
+    current_user: dict[str, Any] = Depends(require_admin_or_service_account),
+):
+    """Ingest a weekly QoP rankings snapshot (admin or service account only)."""
+    try:
+        count = QoPRankingsDAO.upsert_snapshot(match_dao.client, snapshot.model_dump())
+        return {"inserted": count, "week_of": snapshot.week_of}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error ingesting QoP rankings: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/qop-rankings")
+async def get_qop_rankings(
+    division_id: int = Query(..., description="Division ID"),
+    age_group_id: int = Query(..., description="Age group ID"),
+):
+    """Get the latest QoP rankings for a division/age_group with week-over-week rank delta."""
+    try:
+        result = QoPRankingsDAO.get_latest_with_delta(match_dao.client, division_id, age_group_id)
+        return result
+    except Exception as e:
+        logger.error(f"Error retrieving QoP rankings: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
