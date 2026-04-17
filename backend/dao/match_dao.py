@@ -575,8 +575,9 @@ class MatchDAO(BaseDAO):
                 match_type:match_types(id, name),
                 division:divisions(id, name)
             """)
-                .or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
             )
+
+            query = query.or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
 
             if season_id:
                 query = query.eq("season_id", season_id)

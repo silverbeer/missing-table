@@ -2824,6 +2824,13 @@ export default {
         );
       }
 
+      // Apply division filter so season summary is consistent with the displayed match list
+      if (selectedDivisionId.value !== null) {
+        sortedGames = sortedGames.filter(
+          match => match.division_id === selectedDivisionId.value
+        );
+      }
+
       sortedGames = sortedGames.sort((a, b) => {
         const dateDiff = new Date(a.match_date) - new Date(b.match_date);
         if (dateDiff !== 0) return dateDiff;
