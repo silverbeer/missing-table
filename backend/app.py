@@ -90,10 +90,10 @@ from dao.match_type_dao import MatchTypeDAO
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
 from dao.playoff_dao import PlayoffDAO
+from dao.qop_rankings_dao import QoPRankingsDAO
 from dao.roster_dao import RosterDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
-from dao.qop_rankings_dao import QoPRankingsDAO
 from dao.tournament_dao import TournamentDAO
 
 

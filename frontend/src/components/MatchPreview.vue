@@ -97,14 +97,32 @@
           <div>
             <h3
               class="text-xs font-semibold text-slate-400 uppercase tracking-wide truncate"
-              :class="preview.has_qop_data && preview.home_qop_rank != null ? 'mb-0.5' : 'mb-2'"
+              :class="
+                preview.has_qop_data && preview.home_qop_rank != null
+                  ? 'mb-0.5'
+                  : 'mb-2'
+              "
             >
               {{ homeTeamName }}
             </h3>
-            <div v-if="preview.has_qop_data && preview.home_qop_rank != null" class="text-xs text-slate-500 mb-2">
-              QoP <span class="font-medium text-slate-400">#{{ preview.home_qop_rank }}</span>
-              <span v-if="preview.home_qop_rank_change > 0" class="text-green-500 ml-1">▲{{ preview.home_qop_rank_change }}</span>
-              <span v-else-if="preview.home_qop_rank_change < 0" class="text-red-500 ml-1">▼{{ Math.abs(preview.home_qop_rank_change) }}</span>
+            <div
+              v-if="preview.has_qop_data && preview.home_qop_rank != null"
+              class="text-xs text-slate-500 mb-2"
+            >
+              QoP
+              <span class="font-medium text-slate-400"
+                >#{{ preview.home_qop_rank }}</span
+              >
+              <span
+                v-if="preview.home_qop_rank_change > 0"
+                class="text-green-500 ml-1"
+                >▲{{ preview.home_qop_rank_change }}</span
+              >
+              <span
+                v-else-if="preview.home_qop_rank_change < 0"
+                class="text-red-500 ml-1"
+                >▼{{ Math.abs(preview.home_qop_rank_change) }}</span
+              >
             </div>
             <div
               v-if="preview.home_team_recent.length === 0"
@@ -143,14 +161,32 @@
           <div>
             <h3
               class="text-xs font-semibold text-slate-400 uppercase tracking-wide truncate"
-              :class="preview.has_qop_data && preview.away_qop_rank != null ? 'mb-0.5' : 'mb-2'"
+              :class="
+                preview.has_qop_data && preview.away_qop_rank != null
+                  ? 'mb-0.5'
+                  : 'mb-2'
+              "
             >
               {{ awayTeamName }}
             </h3>
-            <div v-if="preview.has_qop_data && preview.away_qop_rank != null" class="text-xs text-slate-500 mb-2">
-              QoP <span class="font-medium text-slate-400">#{{ preview.away_qop_rank }}</span>
-              <span v-if="preview.away_qop_rank_change > 0" class="text-green-500 ml-1">▲{{ preview.away_qop_rank_change }}</span>
-              <span v-else-if="preview.away_qop_rank_change < 0" class="text-red-500 ml-1">▼{{ Math.abs(preview.away_qop_rank_change) }}</span>
+            <div
+              v-if="preview.has_qop_data && preview.away_qop_rank != null"
+              class="text-xs text-slate-500 mb-2"
+            >
+              QoP
+              <span class="font-medium text-slate-400"
+                >#{{ preview.away_qop_rank }}</span
+              >
+              <span
+                v-if="preview.away_qop_rank_change > 0"
+                class="text-green-500 ml-1"
+                >▲{{ preview.away_qop_rank_change }}</span
+              >
+              <span
+                v-else-if="preview.away_qop_rank_change < 0"
+                class="text-red-500 ml-1"
+                >▼{{ Math.abs(preview.away_qop_rank_change) }}</span
+              >
             </div>
             <div
               v-if="preview.away_team_recent.length === 0"
