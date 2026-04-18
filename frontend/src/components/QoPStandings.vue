@@ -123,52 +123,104 @@
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-slate-100">
-          <tr
-            v-for="entry in rankings"
-            :key="entry.rank"
-            class="hover:bg-slate-50 transition-colors"
-          >
-            <td class="px-3 py-3 text-sm text-gray-500">
-              {{ entry.rank }}
-            </td>
-            <td class="px-3 py-3 text-xs text-center">
-              <span
-                v-if="entry.rank_change > 0"
-                class="text-green-600 font-medium"
-                :title="`Up ${entry.rank_change}`"
-              >
-                ▲{{ entry.rank_change }}
-              </span>
-              <span
-                v-else-if="entry.rank_change < 0"
-                class="text-red-600 font-medium"
-                :title="`Down ${Math.abs(entry.rank_change)}`"
-              >
-                ▼{{ Math.abs(entry.rank_change) }}
-              </span>
-              <span v-else class="text-gray-400">—</span>
-            </td>
-            <td class="px-4 py-3 text-sm font-medium text-gray-900">
-              {{ entry.team_name }}
-            </td>
-            <td class="px-4 py-3 text-sm text-center text-gray-500">
-              {{ entry.matches_played ?? '—' }}
-            </td>
-            <td
-              class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
-            >
-              {{ entry.att_score != null ? entry.att_score.toFixed(1) : '—' }}
-            </td>
-            <td
-              class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
-            >
-              {{ entry.def_score != null ? entry.def_score.toFixed(1) : '—' }}
-            </td>
-            <td class="px-4 py-3 text-sm text-center font-bold text-brand-600">
-              {{ entry.qop_score != null ? entry.qop_score.toFixed(1) : '—' }}
+        <tbody class="bg-white">
+          <!-- Championship Qualification label before first row -->
+          <tr v-if="rankings.length" class="border-0">
+            <td colspan="7" class="px-0 py-0">
+              <div class="flex items-center gap-2 pb-1 pt-1 px-3 bg-blue-50">
+                <span
+                  class="text-xs font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap"
+                  >Championship Qualification</span
+                >
+              </div>
             </td>
           </tr>
+          <template v-for="entry in rankings" :key="entry.rank">
+            <tr
+              class="hover:bg-slate-50 transition-colors border-b border-slate-100"
+            >
+              <td class="px-3 py-3 text-sm text-gray-500">
+                {{ entry.rank }}
+              </td>
+              <td class="px-3 py-3 text-xs text-center">
+                <span
+                  v-if="entry.rank_change > 0"
+                  class="text-green-600 font-medium"
+                  :title="`Up ${entry.rank_change}`"
+                >
+                  ▲{{ entry.rank_change }}
+                </span>
+                <span
+                  v-else-if="entry.rank_change < 0"
+                  class="text-red-600 font-medium"
+                  :title="`Down ${Math.abs(entry.rank_change)}`"
+                >
+                  ▼{{ Math.abs(entry.rank_change) }}
+                </span>
+                <span v-else class="text-gray-400">—</span>
+              </td>
+              <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                {{ entry.team_name }}
+              </td>
+              <td class="px-4 py-3 text-sm text-center text-gray-500">
+                {{ entry.matches_played ?? '—' }}
+              </td>
+              <td
+                class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
+              >
+                {{ entry.att_score != null ? entry.att_score.toFixed(1) : '—' }}
+              </td>
+              <td
+                class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
+              >
+                {{ entry.def_score != null ? entry.def_score.toFixed(1) : '—' }}
+              </td>
+              <td
+                class="px-4 py-3 text-sm text-center font-bold text-brand-600"
+              >
+                {{ entry.qop_score != null ? entry.qop_score.toFixed(1) : '—' }}
+                <span
+                  v-if="entry.qop_change != null && entry.qop_change > 0"
+                  class="ml-1 text-xs font-normal text-green-600"
+                  :title="`QoP up ${entry.qop_change} from prior week`"
+                  >+{{ entry.qop_change.toFixed(1) }}</span
+                >
+                <span
+                  v-else-if="entry.qop_change != null && entry.qop_change < 0"
+                  class="ml-1 text-xs font-normal text-red-500"
+                  :title="`QoP down ${Math.abs(entry.qop_change)} from prior week`"
+                  >{{ entry.qop_change.toFixed(1) }}</span
+                >
+              </td>
+            </tr>
+            <!-- Championship Qualification cutoff: after rank 5 -->
+            <tr v-if="entry.rank === 5" class="border-0">
+              <td colspan="7" class="px-0 py-0">
+                <div
+                  class="flex items-center gap-2 border-t-2 border-blue-500 pt-1 pb-1 px-3"
+                >
+                  <span
+                    class="text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap"
+                    >Premier Qualification</span
+                  >
+                </div>
+              </td>
+            </tr>
+            <!-- Tournament cutoff: after rank 10 -->
+            <tr v-if="entry.rank === 10" class="border-0">
+              <td colspan="7" class="px-0 py-0">
+                <div
+                  class="flex items-center gap-2 border-t-2 border-red-400 pt-1 pb-1 px-3"
+                >
+                  <span
+                    class="text-xs font-semibold text-red-500 uppercase tracking-wide whitespace-nowrap"
+                    >Not Invited — MLS NEXT Cup Tournament · Salt Lake City,
+                    UT</span
+                  >
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>

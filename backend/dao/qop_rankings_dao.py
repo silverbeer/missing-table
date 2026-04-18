@@ -344,21 +344,30 @@ class QoPRankingsDAO:
             current_rows = current_rows_resp.data or []
 
             prior_rank_by_team: dict[str, int] = {}
+            prior_qop_by_team: dict[str, float] = {}
             if prior is not None:
                 prior_rows_resp = (
                     client.table("qop_rankings")
-                    .select("rank, team_name")
+                    .select("rank, team_name, qop_score")
                     .eq("snapshot_id", prior["id"])
                     .execute()
                 )
                 for row in prior_rows_resp.data or []:
                     prior_rank_by_team[row["team_name"]] = row["rank"]
+                    if row.get("qop_score") is not None:
+                        prior_qop_by_team[row["team_name"]] = row["qop_score"]
 
             rankings = []
             for row in current_rows:
                 prior_rank = prior_rank_by_team.get(row["team_name"])
                 rank_change = (
                     (prior_rank - row["rank"]) if prior_rank is not None else None
+                )
+                prior_qop = prior_qop_by_team.get(row["team_name"])
+                qop_change = (
+                    round(row["qop_score"] - prior_qop, 1)
+                    if prior_qop is not None and row.get("qop_score") is not None
+                    else None
                 )
                 rankings.append(
                     {
@@ -370,6 +379,7 @@ class QoPRankingsDAO:
                         "def_score": row.get("def_score"),
                         "qop_score": row["qop_score"],
                         "rank_change": rank_change,
+                        "qop_change": qop_change,
                     }
                 )
 
