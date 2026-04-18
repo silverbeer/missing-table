@@ -6353,12 +6353,18 @@ async def admin_delete_tournament_match(
 
 
 class QoPSnapshot(BaseModel):
-    """Request body for POST /api/qop-rankings."""
+    """Request body for POST /api/qop-rankings.
 
-    week_of: str
+    `detected_at` is the ISO date the scraper first observed this set of
+    rankings.  The backend compares the rankings against the most recent
+    stored snapshot and only writes a new row when the data has changed.
+    """
+
+    detected_at: str
     division: str
     age_group: str
     scraped_at: str | None = None
+    source: str | None = None
     rankings: list[dict]
 
 
@@ -6367,10 +6373,15 @@ async def ingest_qop_rankings(
     snapshot: QoPSnapshot,
     current_user: dict[str, Any] = Depends(require_admin_or_service_account),
 ):
-    """Ingest a weekly QoP rankings snapshot (admin or service account only)."""
+    """Ingest a QoP rankings snapshot (admin or service account only).
+
+    Idempotent — if the incoming rankings match the most recent stored
+    snapshot for the same (division, age_group), no row is written and
+    the response reports `status="unchanged"`.
+    """
     try:
-        count = QoPRankingsDAO.upsert_snapshot(match_dao.client, snapshot.model_dump())
-        return {"inserted": count, "week_of": snapshot.week_of}
+        result = QoPRankingsDAO.record_snapshot(match_dao.client, snapshot.model_dump())
+        return result
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except Exception as e:
