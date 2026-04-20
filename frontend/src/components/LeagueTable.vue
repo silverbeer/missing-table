@@ -581,6 +581,7 @@ export default {
       if (!row.team_id) return;
       emit('navigate-to-team', {
         teamId: row.team_id,
+        clubId: row.club_id,
         ageGroupId: selectedAgeGroupId.value,
         leagueId: selectedLeagueId.value,
         divisionId: selectedDivisionId.value,

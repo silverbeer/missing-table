@@ -2029,6 +2029,7 @@ export default {
     initialAgeGroupId: { type: Number, default: null },
     initialLeagueId: { type: Number, default: null },
     initialDivisionId: { type: Number, default: null },
+    initialClubId: { type: Number, default: null },
     initialTeamId: { type: Number, default: null },
     initialSeasonId: { type: Number, default: null },
     initialMatchTypeId: { type: Number, default: null },
@@ -3115,33 +3116,37 @@ export default {
         if (props.initialAgeGroupId) {
           selectedAgeGroupId.value = props.initialAgeGroupId;
         }
-
         if (props.initialSeasonId) {
           selectedSeasonId.value = props.initialSeasonId;
         }
-
         if (props.initialMatchTypeId !== null) {
           selectedMatchTypeId.value = props.initialMatchTypeId;
         }
+        if (props.initialLeagueId) {
+          selectedLeagueId.value = props.initialLeagueId;
+        }
+        if (props.initialDivisionId) {
+          selectedDivisionId.value = props.initialDivisionId;
+        }
+        if (props.initialClubId) {
+          selectedClubId.value = props.initialClubId;
+        }
 
-        // If a specific team was clicked, select its club + team directly.
-        // This wins over the league/division-based lookup below.
+        // Resolve team. Prefer explicit team id; fall back to
+        // (club_id, age_group_id, league_id, division_id) lookup.
+        let resolvedTeam = null;
         if (props.initialTeamId) {
-          const team = teams.value.find(
+          resolvedTeam = teams.value.find(
             t => Number(t.id) === Number(props.initialTeamId)
           );
-          if (team) {
-            selectedClubId.value = team.club_id;
-            selectedTeam.value = String(team.id);
-          }
-        } else if (props.initialLeagueId && selectedClubId.value) {
-          // Fallback: find the team that matches the league/division for this age group
-          const matchingTeam = teams.value.find(team => {
-            if (team.club_id !== selectedClubId.value) return false;
+        }
+        if (!resolvedTeam && selectedClubId.value && props.initialLeagueId) {
+          resolvedTeam = teams.value.find(team => {
+            if (Number(team.club_id) !== Number(selectedClubId.value))
+              return false;
             const division =
               team.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
             if (!division) return false;
-            // Match by league_id (and optionally division_id if provided)
             const leagueMatch =
               Number(division.league_id) === Number(props.initialLeagueId);
             const divisionMatch = props.initialDivisionId
@@ -3149,10 +3154,12 @@ export default {
               : true;
             return leagueMatch && divisionMatch;
           });
-
-          if (matchingTeam) {
-            selectedTeam.value = String(matchingTeam.id);
+        }
+        if (resolvedTeam) {
+          if (!selectedClubId.value) {
+            selectedClubId.value = resolvedTeam.club_id;
           }
+          selectedTeam.value = String(resolvedTeam.id);
         }
       }
 

@@ -369,6 +369,7 @@
               :initial-age-group-id="matchesFilters.ageGroupId"
               :initial-league-id="matchesFilters.leagueId"
               :initial-division-id="matchesFilters.divisionId"
+              :initial-club-id="matchesFilters.clubId"
               :initial-team-id="matchesFilters.teamId"
               :initial-season-id="matchesFilters.seasonId"
               :initial-match-type-id="matchesFilters.matchTypeId"
@@ -533,6 +534,7 @@ export default {
       ageGroupId: null,
       leagueId: null,
       divisionId: null,
+      clubId: null,
       teamId: null,
       seasonId: null,
       matchTypeId: null,
@@ -710,6 +712,7 @@ export default {
         ageGroupId: filters.ageGroupId || null,
         leagueId: filters.leagueId || null,
         divisionId: filters.divisionId || null,
+        clubId: filters.clubId || null,
         teamId: filters.teamId || null,
         seasonId: filters.seasonId || null,
         matchTypeId: 1, // League
