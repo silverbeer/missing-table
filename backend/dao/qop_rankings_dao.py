@@ -345,10 +345,12 @@ class QoPRankingsDAO:
 
             prior_rank_by_team: dict[str, int] = {}
             prior_qop_by_team: dict[str, float] = {}
+            prior_att_by_team: dict[str, float] = {}
+            prior_def_by_team: dict[str, float] = {}
             if prior is not None:
                 prior_rows_resp = (
                     client.table("qop_rankings")
-                    .select("rank, team_name, qop_score")
+                    .select("rank, team_name, att_score, def_score, qop_score")
                     .eq("snapshot_id", prior["id"])
                     .execute()
                 )
@@ -356,6 +358,10 @@ class QoPRankingsDAO:
                     prior_rank_by_team[row["team_name"]] = row["rank"]
                     if row.get("qop_score") is not None:
                         prior_qop_by_team[row["team_name"]] = row["qop_score"]
+                    if row.get("att_score") is not None:
+                        prior_att_by_team[row["team_name"]] = row["att_score"]
+                    if row.get("def_score") is not None:
+                        prior_def_by_team[row["team_name"]] = row["def_score"]
 
             rankings = []
             for row in current_rows:
@@ -369,6 +375,18 @@ class QoPRankingsDAO:
                     if prior_qop is not None and row.get("qop_score") is not None
                     else None
                 )
+                prior_att = prior_att_by_team.get(row["team_name"])
+                att_change = (
+                    round(row["att_score"] - prior_att, 1)
+                    if prior_att is not None and row.get("att_score") is not None
+                    else None
+                )
+                prior_def = prior_def_by_team.get(row["team_name"])
+                def_change = (
+                    round(row["def_score"] - prior_def, 1)
+                    if prior_def is not None and row.get("def_score") is not None
+                    else None
+                )
                 rankings.append(
                     {
                         "rank": row["rank"],
@@ -380,6 +398,8 @@ class QoPRankingsDAO:
                         "qop_score": row["qop_score"],
                         "rank_change": rank_change,
                         "qop_change": qop_change,
+                        "att_change": att_change,
+                        "def_change": def_change,
                     }
                 )
 

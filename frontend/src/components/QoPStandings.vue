@@ -169,11 +169,35 @@
                 class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
               >
                 {{ entry.att_score != null ? entry.att_score.toFixed(1) : '—' }}
+                <span
+                  v-if="entry.att_change != null && entry.att_change > 0"
+                  class="ml-1 text-xs font-normal text-green-600"
+                  :title="`ATT up ${entry.att_change} from prior week`"
+                  >+{{ entry.att_change.toFixed(1) }}</span
+                >
+                <span
+                  v-else-if="entry.att_change != null && entry.att_change < 0"
+                  class="ml-1 text-xs font-normal text-red-500"
+                  :title="`ATT down ${Math.abs(entry.att_change)} from prior week`"
+                  >{{ entry.att_change.toFixed(1) }}</span
+                >
               </td>
               <td
                 class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
               >
                 {{ entry.def_score != null ? entry.def_score.toFixed(1) : '—' }}
+                <span
+                  v-if="entry.def_change != null && entry.def_change > 0"
+                  class="ml-1 text-xs font-normal text-green-600"
+                  :title="`DEF up ${entry.def_change} from prior week`"
+                  >+{{ entry.def_change.toFixed(1) }}</span
+                >
+                <span
+                  v-else-if="entry.def_change != null && entry.def_change < 0"
+                  class="ml-1 text-xs font-normal text-red-500"
+                  :title="`DEF down ${Math.abs(entry.def_change)} from prior week`"
+                  >{{ entry.def_change.toFixed(1) }}</span
+                >
               </td>
               <td
                 class="px-4 py-3 text-sm text-center font-bold text-brand-600"
