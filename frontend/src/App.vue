@@ -359,6 +359,7 @@
               :initial-league-id="tableFilters.leagueId"
               :initial-division-id="tableFilters.divisionId"
               :filter-key="tableFilters.key"
+              @navigate-to-team="handleNavigateToTeam"
             />
           </div>
 
@@ -368,6 +369,9 @@
               :initial-age-group-id="matchesFilters.ageGroupId"
               :initial-league-id="matchesFilters.leagueId"
               :initial-division-id="matchesFilters.divisionId"
+              :initial-team-id="matchesFilters.teamId"
+              :initial-season-id="matchesFilters.seasonId"
+              :initial-match-type-id="matchesFilters.matchTypeId"
               :filter-key="matchesFilters.key"
             />
           </div>
@@ -529,6 +533,9 @@ export default {
       ageGroupId: null,
       leagueId: null,
       divisionId: null,
+      teamId: null,
+      seasonId: null,
+      matchTypeId: null,
       key: 0, // Used to force re-render when filters change
     });
     const showLoginModal = ref(false);
@@ -689,9 +696,25 @@ export default {
           ageGroupId: filters.ageGroupId || null,
           leagueId: filters.leagueId || null,
           divisionId: filters.divisionId || null,
+          teamId: filters.teamId || null,
+          seasonId: filters.seasonId || null,
+          matchTypeId: filters.matchTypeId || null,
           key: matchesFilters.value.key + 1, // Force re-render
         };
       }
+    };
+
+    const handleNavigateToTeam = filters => {
+      currentTab.value = 'scores';
+      matchesFilters.value = {
+        ageGroupId: filters.ageGroupId || null,
+        leagueId: filters.leagueId || null,
+        divisionId: filters.divisionId || null,
+        teamId: filters.teamId || null,
+        seasonId: filters.seasonId || null,
+        matchTypeId: 1, // League
+        key: matchesFilters.value.key + 1,
+      };
     };
 
     const submitInviteRequest = async () => {
@@ -868,6 +891,7 @@ export default {
       handleLoginSuccess,
       handleLogout,
       handleSwitchTab,
+      handleNavigateToTeam,
       submitInviteRequest,
       // Live match
       liveMatches,

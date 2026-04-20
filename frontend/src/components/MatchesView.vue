@@ -2029,6 +2029,9 @@ export default {
     initialAgeGroupId: { type: Number, default: null },
     initialLeagueId: { type: Number, default: null },
     initialDivisionId: { type: Number, default: null },
+    initialTeamId: { type: Number, default: null },
+    initialSeasonId: { type: Number, default: null },
+    initialMatchTypeId: { type: Number, default: null },
     filterKey: { type: Number, default: 0 },
   },
   setup(props) {
@@ -3103,7 +3106,8 @@ export default {
         selectedClubId.value = authStore.userClubId.value;
       }
 
-      // Apply initial filters from props if provided (navigation from FanProfile)
+      // Apply initial filters from props if provided (navigation from FanProfile
+      // or from clicking a team on the League Table)
       if (props.filterKey > 0) {
         // Switch to My Club tab when filters are specified
         selectedViewTab.value = 'myclub';
@@ -3112,9 +3116,26 @@ export default {
           selectedAgeGroupId.value = props.initialAgeGroupId;
         }
 
-        // If league/division is specified, try to auto-select the matching team
-        if (props.initialLeagueId && selectedClubId.value) {
-          // Find the team that matches the league/division for this age group
+        if (props.initialSeasonId) {
+          selectedSeasonId.value = props.initialSeasonId;
+        }
+
+        if (props.initialMatchTypeId !== null) {
+          selectedMatchTypeId.value = props.initialMatchTypeId;
+        }
+
+        // If a specific team was clicked, select its club + team directly.
+        // This wins over the league/division-based lookup below.
+        if (props.initialTeamId) {
+          const team = teams.value.find(
+            t => Number(t.id) === Number(props.initialTeamId)
+          );
+          if (team) {
+            selectedClubId.value = team.club_id;
+            selectedTeam.value = String(team.id);
+          }
+        } else if (props.initialLeagueId && selectedClubId.value) {
+          // Fallback: find the team that matches the league/division for this age group
           const matchingTeam = teams.value.find(team => {
             if (team.club_id !== selectedClubId.value) return false;
             const division =
