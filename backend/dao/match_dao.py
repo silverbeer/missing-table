@@ -634,6 +634,7 @@ class MatchDAO(BaseDAO):
         season_id: int | None = None,
         age_group_id: int | None = None,
         recent_count: int = 5,
+        match_type_id: int | None = None,
     ) -> dict:
         """Get match preview data: recent form, common opponents, and head-to-head history.
 
@@ -643,6 +644,7 @@ class MatchDAO(BaseDAO):
             season_id: Season for recent form and common opponents (None = all seasons)
             age_group_id: Optional filter to restrict to a specific age group
             recent_count: How many recent matches to return per team
+            match_type_id: If set, restricts recent form to matches of this type
 
         Returns:
             Dict with home_team_recent, away_team_recent, common_opponents, head_to_head
@@ -683,7 +685,7 @@ class MatchDAO(BaseDAO):
                 "updated_at": match.get("updated_at"),
             }
 
-        def build_base_query(team_id: int):
+        def build_base_query(team_id: int, filter_match_type: bool = False):
             q = (
                 self.client.table("matches")
                 .select(select_str)
@@ -694,12 +696,24 @@ class MatchDAO(BaseDAO):
                 q = q.eq("season_id", season_id)
             if age_group_id:
                 q = q.eq("age_group_id", age_group_id)
+            if filter_match_type and match_type_id:
+                q = q.eq("match_type_id", match_type_id)
             return q
 
         try:
-            # --- Recent form for each team ---
-            home_resp = build_base_query(home_team_id).order("match_date", desc=True).limit(recent_count).execute()
-            away_resp = build_base_query(away_team_id).order("match_date", desc=True).limit(recent_count).execute()
+            # --- Recent form for each team (filtered to the same match type) ---
+            home_resp = (
+                build_base_query(home_team_id, filter_match_type=True)
+                .order("match_date", desc=True)
+                .limit(recent_count)
+                .execute()
+            )
+            away_resp = (
+                build_base_query(away_team_id, filter_match_type=True)
+                .order("match_date", desc=True)
+                .limit(recent_count)
+                .execute()
+            )
             home_recent = [flatten(m) for m in (home_resp.data or [])]
             away_recent = [flatten(m) for m in (away_resp.data or [])]
 
