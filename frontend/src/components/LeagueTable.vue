@@ -264,7 +264,16 @@
                   :name="team.team"
                   size="xs"
                 />
-                <span>{{ getTeamDisplayName(team.team) }}</span>
+                <button
+                  v-if="team.team_id"
+                  type="button"
+                  @click="handleTeamClick(team)"
+                  data-testid="standings-team-link"
+                  class="text-left text-brand-600 hover:text-brand-700 hover:underline focus:outline-none focus:underline"
+                >
+                  {{ getTeamDisplayName(team.team) }}
+                </button>
+                <span v-else>{{ getTeamDisplayName(team.team) }}</span>
               </div>
             </td>
             <td
@@ -383,7 +392,8 @@ export default {
       default: 0,
     },
   },
-  setup(props) {
+  emits: ['navigate-to-team'],
+  setup(props, { emit }) {
     const authStore = useAuthStore();
     const tableData = ref([]);
     const teams = ref([]); // Store all teams for name→id mapping
@@ -565,6 +575,17 @@ export default {
     // Teams are scoped by league in the new clubs architecture
     const getTeamDisplayName = teamName => {
       return teamName;
+    };
+
+    const handleTeamClick = row => {
+      if (!row.team_id) return;
+      emit('navigate-to-team', {
+        teamId: row.team_id,
+        ageGroupId: selectedAgeGroupId.value,
+        leagueId: selectedLeagueId.value,
+        divisionId: selectedDivisionId.value,
+        seasonId: selectedSeasonId.value,
+      });
     };
 
     const fetchTableData = async () => {
@@ -755,6 +776,7 @@ export default {
       selectedSeasonId,
       formatSeasonDates,
       getTeamDisplayName,
+      handleTeamClick,
       error,
       loading,
       bracketExists,
