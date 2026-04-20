@@ -515,6 +515,7 @@
               :awayTeamName="match.away_team_name"
               :seasonId="match.season_id"
               :ageGroupId="match.age_group_id"
+              :matchTypeId="match.match_type_id"
             />
           </div>
 
