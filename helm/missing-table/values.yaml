@@ -28,6 +28,26 @@ limitRange:
     cpu: "100m"
     memory: "128Mi"
 
+# PostSync cache flush hook
+# Deletes DAO cache keys after every ArgoCD sync so that response-shape
+# changes in a new release aren't masked by stale cached payloads.
+# Only runs when redis.enabled is true.
+cacheFlushHook:
+  enabled: true
+  # Scan + delete only DAO keys. Non-DAO keys (rate limits, sessions)
+  # are preserved. Use "*" for a full flush.
+  keyPattern: "mt:dao:*"
+  backoffLimit: 2
+  # Auto-clean the Job object 10 minutes after it finishes.
+  ttlSecondsAfterFinished: 600
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 # Redis configuration
 # For local K3s development, set enabled: true to enable caching
 # See also: backend.env.extra.CACHE_ENABLED to enable the caching layer

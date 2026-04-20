@@ -1,0 +1,51 @@
+{{- if and .Values.redis.enabled .Values.cacheFlushHook.enabled }}
+# PostSync hook: flush DAO Redis cache after every ArgoCD sync so that
+# response-shape changes in a new release don't get masked by stale cached
+# payloads. See issue #313.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Include commit SHA in the name so ArgoCD creates a fresh Job per deploy
+  # instead of failing on "job already exists".
+  name: {{ include "missing-table.fullname" . }}-cache-flush-{{ .Values.commitSha | default "sync" | trunc 7 }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: cache-flush-hook
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: {{ .Values.cacheFlushHook.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.cacheFlushHook.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "missing-table.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: cache-flush-hook
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: redis-flush
+        image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+        imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+        env:
+        - name: REDIS_HOST
+          value: {{ include "missing-table.fullname" . }}-redis
+        - name: KEY_PATTERN
+          value: {{ .Values.cacheFlushHook.keyPattern | quote }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Flushing Redis keys matching pattern: $KEY_PATTERN"
+          DELETED=$(redis-cli -h "$REDIS_HOST" --scan --pattern "$KEY_PATTERN" \
+            | xargs -r redis-cli -h "$REDIS_HOST" DEL \
+            | awk '{s+=$1} END {print s+0}')
+          echo "Deleted $DELETED key(s)."
+        resources:
+          {{- toYaml .Values.cacheFlushHook.resources | nindent 10 }}
+{{- end }}
