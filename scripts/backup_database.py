@@ -154,6 +154,9 @@ def create_backup(backup_dir: Path | None = None):
         # Clubs (before teams - teams have club_id foreign key)
         'clubs',
 
+        # Per-club notification channels (Telegram/Discord) for live match updates
+        'club_notification_channels',
+
         # Teams and mappings
         'teams',
         'team_mappings',
