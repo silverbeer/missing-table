@@ -42,7 +42,7 @@ DROP TRIGGER IF EXISTS handle_updated_at ON public.club_notification_channels;
 CREATE TRIGGER handle_updated_at
     BEFORE UPDATE ON public.club_notification_channels
     FOR EACH ROW
-    EXECUTE PROCEDURE moddatetime(updated_at);
+    EXECUTE PROCEDURE extensions.moddatetime(updated_at);
 
 -- ----------------------------------------------------------------------------
 -- 4) Row-level security.
