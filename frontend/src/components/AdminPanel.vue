@@ -68,6 +68,15 @@
           <AdminChannelRequests />
         </div>
 
+        <!-- Live Match Notifications (per-club Telegram/Discord) -->
+        <div
+          v-if="currentSection === 'club-notifications'"
+          class="p-6"
+          data-testid="admin-section-club-notifications"
+        >
+          <AdminClubNotifications />
+        </div>
+
         <!-- Age Groups Management -->
         <div
           v-if="currentSection === 'age-groups'"
@@ -212,6 +221,7 @@ import AdminMatches from './admin/AdminMatches.vue';
 import AdminGoals from './admin/AdminGoals.vue';
 import AdminInvites from './admin/AdminInvites.vue';
 import AdminChannelRequests from './admin/AdminChannelRequests.vue';
+import AdminClubNotifications from './admin/AdminClubNotifications.vue';
 import AdminInviteRequests from './admin/AdminInviteRequests.vue';
 import AdminPlayoffs from './admin/AdminPlayoffs.vue';
 import AdminCache from './admin/AdminCache.vue';
@@ -232,6 +242,7 @@ export default {
     AdminGoals,
     AdminInvites,
     AdminChannelRequests,
+    AdminClubNotifications,
     AdminInviteRequests,
     AdminPlayoffs,
     AdminCache,
@@ -246,6 +257,11 @@ export default {
     const allAdminSections = [
       { id: 'invite-requests', name: 'Requests', adminOnly: true },
       { id: 'channel-requests', name: 'Channel Requests', adminOnly: false },
+      {
+        id: 'club-notifications',
+        name: 'Live Match Notifications',
+        adminOnly: false,
+      },
       { id: 'age-groups', name: 'Age Groups', adminOnly: true },
       { id: 'seasons', name: 'Seasons', adminOnly: true },
       { id: 'leagues', name: 'Leagues', adminOnly: true },
