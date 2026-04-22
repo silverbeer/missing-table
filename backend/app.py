@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from api.channel_requests import router as channel_requests_router
+from api.club_notifications import router as club_notifications_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
 from auth import (
@@ -253,6 +254,7 @@ def get_client_ip(request: Request) -> str:
 app.include_router(invites_router)
 app.include_router(invite_requests_router)
 app.include_router(channel_requests_router)
+app.include_router(club_notifications_router)
 
 # Version endpoint
 import contextlib
