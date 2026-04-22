@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -74,6 +74,7 @@ from models import (
     UserProfileUpdate,
     UserSignup,
 )
+from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
 
 # Legacy flag kept for backwards compatibility so existing envs keep working.
@@ -2702,6 +2703,7 @@ async def get_live_match_state(
 async def update_match_clock(
     match_id: int,
     clock: LiveMatchClock,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Update match clock (start match, halftime, second half, end match).
@@ -2760,6 +2762,16 @@ async def update_match_clock(
 
             clear_cache("mt:dao:stats:*")
 
+        # Fire notification for kickoff / halftime / fulltime (skip second_half)
+        clock_to_event_type = {
+            "start_first_half": "kickoff",
+            "start_halftime": "halftime",
+            "end_match": "fulltime",
+        }
+        notify_event = clock_to_event_type.get(clock.action)
+        if notify_event:
+            background_tasks.add_task(notify_event_task, notify_event, match_id, None)
+
         return result
     except HTTPException:
         raise
@@ -2772,6 +2784,7 @@ async def update_match_clock(
 async def post_goal(
     match_id: int,
     goal: GoalEvent,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Post a goal event and update the match score.
@@ -2858,6 +2871,18 @@ async def post_goal(
         if player_id:
             player_stats_dao.increment_goals(player_id, match_id)
 
+        background_tasks.add_task(
+            notify_event_task,
+            "goal",
+            match_id,
+            {
+                "team_id": goal.team_id,
+                "player_name": player_name,
+                "match_minute": match_minute,
+                "extra_time": extra_time,
+            },
+        )
+
         return result
     except HTTPException:
         raise
@@ -2870,6 +2895,7 @@ async def post_goal(
 async def post_live_card(
     match_id: int,
     card: LiveCardEvent,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Record a card event during a live match.
@@ -2938,6 +2964,18 @@ async def post_live_card(
             player_id=card.player_id,
             card_type=card.card_type,
             minute=match_minute,
+        )
+
+        background_tasks.add_task(
+            notify_event_task,
+            card.card_type,  # "yellow_card" or "red_card"
+            match_id,
+            {
+                "team_id": card.team_id,
+                "player_name": player_name,
+                "match_minute": match_minute,
+                "extra_time": extra_time,
+            },
         )
 
         return event

@@ -198,8 +198,18 @@ def _to_response(row: dict) -> ChannelResponse:
 
 
 def _send_test_message(platform: str, destination: str) -> None:
-    """Send a test notification. Replaced in Phase 5."""
-    raise NotImplementedError("Notification sending lands in Phase 5 (#320)")
+    """Send a test notification to verify a destination works.
+
+    Phase 5 wiring: delegates to the notification subsystem's sender helper
+    so behavior matches real live-event delivery.
+    """
+    from notifications.senders import send_to
+
+    send_to(
+        platform,
+        destination,
+        "✅ MissingTable notification test — your channel is configured correctly.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -292,12 +302,6 @@ def test_send_channel(
 
     try:
         _send_test_message(platform, row["destination"])
-    except NotImplementedError as exc:
-        # Phase 3 only — Phase 5 replaces the stub with real sending.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=str(exc),
-        ) from None
     except Exception as exc:
         logger.exception(
             "test_send_failed",
