@@ -51,7 +51,13 @@ dependencies = [
     "email-validator>=2.3.0",
     "debugpy>=1.8.17",
     "resend>=2.0.0",
+    "telegram-notify",
+    "discord-notify",
 ]
+
+[tool.uv.sources]
+telegram-notify = { git = "https://github.com/silverbeer/telegram-notify", rev = "main" }
+discord-notify = { git = "https://github.com/silverbeer/discord-notify", rev = "main" }
 
 [project.optional-dependencies]
 dev = [

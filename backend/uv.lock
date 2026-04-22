@@ -793,6 +793,14 @@ wheels = [
 ]
 
 [[package]]
+name = "discord-notify"
+version = "0.1.0"
+source = { git = "https://github.com/silverbeer/discord-notify?rev=main#203235b169a37ecaf5cdef6c8765ee76770bd2ea" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[[package]]
 name = "diskcache"
 version = "5.6.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2030,6 +2038,7 @@ dependencies = [
     { name = "crewai" },
     { name = "cryptography" },
     { name = "debugpy" },
+    { name = "discord-notify" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "flask" },
@@ -2069,6 +2078,7 @@ dependencies = [
     { name = "slowapi" },
     { name = "structlog" },
     { name = "supabase" },
+    { name = "telegram-notify" },
     { name = "typer" },
     { name = "user-agents" },
     { name = "uvicorn" },
@@ -2121,6 +2131,7 @@ requires-dist = [
     { name = "crewai", specifier = ">=0.28.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "debugpy", specifier = ">=1.8.17" },
+    { name = "discord-notify", git = "https://github.com/silverbeer/discord-notify?rev=main" },
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fastapi", specifier = ">=0.115.4" },
     { name = "flask", specifier = ">=3.0.3" },
@@ -2166,6 +2177,7 @@ requires-dist = [
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "structlog", specifier = ">=25.4.0" },
     { name = "supabase", specifier = ">=2.10.0" },
+    { name = "telegram-notify", git = "https://github.com/silverbeer/telegram-notify?rev=main" },
     { name = "typer", specifier = ">=0.9.0" },
     { name = "types-python-dateutil", marker = "extra == 'dev'", specifier = ">=2.9.0" },
     { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.32.0" },
@@ -4469,6 +4481,14 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
+]
+
+[[package]]
+name = "telegram-notify"
+version = "0.1.0"
+source = { git = "https://github.com/silverbeer/telegram-notify?rev=main#e152802b6c74d0913599658e45f49c3c3be35b1b" }
+dependencies = [
+    { name = "httpx" },
 ]
 
 [[package]]

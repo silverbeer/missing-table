@@ -268,11 +268,22 @@ class TestDeleteChannel:
 
 
 class TestTestSend:
-    def test_returns_501_when_sender_not_implemented(self, club, notif_dao):
+    def test_surfaces_config_error_when_telegram_token_missing(
+        self, club, notif_dao, monkeypatch
+    ):
+        """Without TELEGRAM_BOT_TOKEN, the sender raises NotificationConfigError.
+
+        The endpoint catches it and returns 200 with success=False so the UI
+        can show a clear error to the operator.
+        """
         notif_dao.upsert(club["id"], "telegram", "-100sendtest1")
+        monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
         with as_user(_fake_user("admin")) as c:
             r = c.post(f"/api/clubs/{club['id']}/notifications/telegram/test")
-        assert r.status_code == 501  # Phase 3 stub raises NotImplementedError
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is False
+        assert body["error"] == "NotificationConfigError"
 
     def test_success_when_sender_mocked(self, club, notif_dao):
         notif_dao.upsert(club["id"], "telegram", "-100sendtest2")
