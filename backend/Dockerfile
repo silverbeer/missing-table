@@ -8,10 +8,13 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
+# `git` is required because uv syncs telegram-notify and discord-notify
+# from git+https sources defined in pyproject.toml's [tool.uv.sources].
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
