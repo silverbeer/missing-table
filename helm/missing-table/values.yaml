@@ -83,12 +83,12 @@ redis:
 # Backend configuration
 backend:
   replicaCount: 1
-  
+
   image:
     repository: missing-table-backend
     tag: ""  # Defaults to chart appVersion
     pullPolicy: Always
-  
+
   env:
     databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:54322/postgres"
     environment: "development"
@@ -132,6 +132,15 @@ backend:
     loadBalancer:
       enabled: false  # Disabled in favor of Ingress for external access
       port: 8000
+
+# Live-match notifications (Telegram / Discord per club).
+# TELEGRAM_BOT_TOKEN is read from the `missing-table-secrets` k8s Secret
+# (populated by External Secrets Operator in prod, or by values.secrets.telegramBotToken
+# locally). The env var is marked optional, so the pod starts even without
+# the key — the dispatcher logs a NotificationConfigError and skips telegram
+# sends until the key is populated.
+notifications:
+  enabled: true
 
 # Frontend configuration
 frontend:

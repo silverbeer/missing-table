@@ -24,6 +24,10 @@ secrets:
   # Application secrets
   serviceAccountSecret: "your-service-account-secret-here"
 
+  # Telegram bot token — for live-match notifications. Leave empty/commented
+  # to disable telegram sends (discord is independent, per-club webhook).
+  # telegramBotToken: "your-telegram-bot-token-here"
+
   # Grafana Cloud OTLP credentials (for frontend telemetry)
   # Get these from: Grafana Cloud -> Connections -> OTLP
   grafanaInstanceId: "your-grafana-instance-id"
