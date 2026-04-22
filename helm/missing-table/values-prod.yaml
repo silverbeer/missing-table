@@ -26,6 +26,13 @@ backend:
     extra:
       CACHE_ENABLED: "true"
 
+# Live-match notifications (explicit override — defaults to true in values.yaml)
+# The TELEGRAM_BOT_TOKEN key inside the ESO-managed missing-table-secrets must
+# exist in AWS Secrets Manager BEFORE any real telegram sends will succeed.
+# Until then, the dispatcher logs NotificationConfigError and skips telegram.
+notifications:
+  enabled: true
+
 # Redis for caching (deployed by this Helm chart)
 redis:
   enabled: true

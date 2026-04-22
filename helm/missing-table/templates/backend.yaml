@@ -79,6 +79,20 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: resend-api-key
               optional: true
+        # Telegram bot token for live-match notifications.
+        # Optional: pod starts even if the key is absent; the dispatcher logs
+        # a NotificationConfigError and skips telegram sends until the key
+        # is populated (by ESO in prod, by values.secrets.telegramBotToken
+        # locally/dev).
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: telegram-bot-token
+              optional: true
+        # Global kill switch for live-match notifications. Defaults to true.
+        - name: NOTIFICATIONS_ENABLED
+          value: {{ .Values.notifications.enabled | default true | quote }}
         # Non-sensitive configuration
         - name: APP_BASE_URL
           value: {{ .Values.backend.env.appBaseUrl | default "https://missingtable.com" | quote }}
