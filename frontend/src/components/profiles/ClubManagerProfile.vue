@@ -170,6 +170,11 @@
         to get assigned.
       </p>
     </div>
+    <!-- Live Match Notification Channels (Telegram / Discord per club) -->
+    <div v-if="club?.id" class="notifications-section">
+      <ClubNotificationChannels :club-id="club.id" />
+    </div>
+
     <LiveUpdatesSection />
   </div>
 </template>
@@ -180,10 +185,15 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
 import LiveUpdatesSection from './LiveUpdatesSection.vue';
+import ClubNotificationChannels from '@/components/notifications/ClubNotificationChannels.vue';
 
 export default {
   name: 'ClubManagerProfile',
-  components: { LiveUpdatesTeaser, LiveUpdatesSection },
+  components: {
+    LiveUpdatesTeaser,
+    LiveUpdatesSection,
+    ClubNotificationChannels,
+  },
   emits: ['switch-tab'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
