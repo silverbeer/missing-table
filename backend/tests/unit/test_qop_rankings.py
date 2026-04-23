@@ -10,6 +10,9 @@ Tests:
 - get_latest_with_delta: no data → has_data=False
 - get_latest_with_delta: two snapshots → rank_change computed
 - get_latest_with_delta: one snapshot only → rank_change=None
+- get_with_delta: snapshot_id pinned to older snapshot → deltas vs. the one before it
+- get_with_delta: nav metadata (prev_snapshot_id / next_snapshot_id) at boundaries
+- get_with_delta: unknown snapshot_id → has_data=False
 - match preview QoP enrichment (unchanged from legacy model)
 """
 
@@ -385,6 +388,9 @@ class TestGetLatestWithDelta:
             "has_data": False,
             "week_of": None,
             "prior_week_of": None,
+            "snapshot_id": None,
+            "prev_snapshot_id": None,
+            "next_snapshot_id": None,
             "rankings": [],
         }
 
@@ -425,6 +431,10 @@ class TestGetLatestWithDelta:
         assert result["prior_week_of"] == "2026-04-10"
         assert result["rankings"][0]["rank"] == 3
         assert result["rankings"][0]["rank_change"] == 2
+        # Viewing latest: prev points at the older snapshot, next is None.
+        assert result["snapshot_id"] == 101
+        assert result["prev_snapshot_id"] == 7
+        assert result["next_snapshot_id"] is None
 
     def test_no_prior_rank_change_is_none(self):
         from backend.dao.qop_rankings_dao import QoPRankingsDAO
@@ -454,6 +464,146 @@ class TestGetLatestWithDelta:
         assert result["has_data"] is True
         assert result["prior_week_of"] is None
         assert result["rankings"][0]["rank_change"] is None
+        # Single snapshot in history → both nav directions closed off.
+        assert result["snapshot_id"] == 101
+        assert result["prev_snapshot_id"] is None
+        assert result["next_snapshot_id"] is None
+
+
+# ─── get_with_delta: snapshot_id navigation ────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestGetWithDeltaNavigation:
+    """Three snapshots exist — caller pins `snapshot_id` to step through them."""
+
+    # newest → oldest (DESC), matching what the DAO queries.
+    _SNAPSHOTS = [
+        {"id": 300, "detected_at": "2026-04-18"},
+        {"id": 200, "detected_at": "2026-04-10"},
+        {"id": 100, "detected_at": "2026-04-03"},
+    ]
+
+    def _client_for_middle_snapshot(self, current_rows, prior_rows):
+        """Mock client where pin=200 → current=snapshot 200, prior=snapshot 100."""
+        return _make_client(
+            {
+                "qop_snapshots": [self._SNAPSHOTS],
+                "qop_rankings": [current_rows, prior_rows],
+            }
+        )
+
+    def test_pinning_middle_snapshot_computes_delta_vs_prior(self):
+        """Pinning the middle snapshot means deltas compare it to snapshot 100,
+        NOT to the newest (snapshot 300). The frontend relies on this so the
+        +/- arrows match whatever week is on screen."""
+        from backend.dao.qop_rankings_dao import QoPRankingsDAO
+
+        current_rows = [
+            {
+                "rank": 2,
+                "team_name": "Team Alpha",
+                "team_id": 42,
+                "matches_played": 12,
+                "att_score": Decimal("85.0"),
+                "def_score": Decimal("80.0"),
+                "qop_score": Decimal("82.5"),
+            }
+        ]
+        # Prior (snapshot 100): rank 4 → current rank 2 means +2.
+        prior_rows = [{"rank": 4, "team_name": "Team Alpha"}]
+
+        client = self._client_for_middle_snapshot(current_rows, prior_rows)
+        result = QoPRankingsDAO.get_with_delta(
+            client, division_id=1, age_group_id=2, snapshot_id=200
+        )
+
+        assert result["has_data"] is True
+        assert result["snapshot_id"] == 200
+        assert result["week_of"] == "2026-04-10"
+        assert result["prior_week_of"] == "2026-04-03"
+        assert result["rankings"][0]["rank_change"] == 2
+        # From middle of history: prev points older, next points newer.
+        assert result["prev_snapshot_id"] == 100
+        assert result["next_snapshot_id"] == 300
+
+    def test_pinning_oldest_snapshot_hides_prev(self):
+        from backend.dao.qop_rankings_dao import QoPRankingsDAO
+
+        current_rows = [
+            {
+                "rank": 1,
+                "team_name": "Team Alpha",
+                "team_id": 42,
+                "matches_played": 5,
+                "att_score": Decimal("70.0"),
+                "def_score": Decimal("65.0"),
+                "qop_score": Decimal("68.0"),
+            }
+        ]
+
+        client = _make_client(
+            {
+                "qop_snapshots": [self._SNAPSHOTS],
+                "qop_rankings": [current_rows],
+            }
+        )
+        result = QoPRankingsDAO.get_with_delta(
+            client, division_id=1, age_group_id=2, snapshot_id=100
+        )
+
+        assert result["snapshot_id"] == 100
+        assert result["prior_week_of"] is None
+        assert result["rankings"][0]["rank_change"] is None
+        # Oldest snapshot → no prev, but next should point to the middle one.
+        assert result["prev_snapshot_id"] is None
+        assert result["next_snapshot_id"] == 200
+
+    def test_unknown_snapshot_id_returns_empty(self):
+        """If the caller pins an id that doesn't belong to this
+        (division, age_group), degrade to empty rather than silently
+        returning the latest — otherwise the UI nav state would lie."""
+        from backend.dao.qop_rankings_dao import QoPRankingsDAO
+
+        client = _make_client({"qop_snapshots": [self._SNAPSHOTS]})
+        result = QoPRankingsDAO.get_with_delta(
+            client, division_id=1, age_group_id=2, snapshot_id=9999
+        )
+        assert result["has_data"] is False
+        assert result["snapshot_id"] is None
+        assert result["prev_snapshot_id"] is None
+        assert result["next_snapshot_id"] is None
+
+    def test_omitting_snapshot_id_returns_latest(self):
+        """Back-compat: callers that don't pass snapshot_id still get the
+        newest snapshot, with prev pointing at the one before it."""
+        from backend.dao.qop_rankings_dao import QoPRankingsDAO
+
+        current_rows = [
+            {
+                "rank": 1,
+                "team_name": "Team Alpha",
+                "team_id": 42,
+                "matches_played": 16,
+                "att_score": Decimal("90.0"),
+                "def_score": Decimal("85.0"),
+                "qop_score": Decimal("87.5"),
+            }
+        ]
+        prior_rows = [{"rank": 1, "team_name": "Team Alpha"}]
+
+        client = _make_client(
+            {
+                "qop_snapshots": [self._SNAPSHOTS],
+                "qop_rankings": [current_rows, prior_rows],
+            }
+        )
+        result = QoPRankingsDAO.get_with_delta(
+            client, division_id=1, age_group_id=2
+        )
+        assert result["snapshot_id"] == 300
+        assert result["next_snapshot_id"] is None
+        assert result["prev_snapshot_id"] == 200
 
 
 # ─── Match Preview QoP enrichment (logic-only; unchanged) ──────────────────────

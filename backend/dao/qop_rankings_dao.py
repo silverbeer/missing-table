@@ -302,17 +302,36 @@ class QoPRankingsDAO:
     def get_latest_with_delta(
         client, division_id: int, age_group_id: int
     ) -> dict:
-        """
-        Fetch the two most recent snapshots and compute per-team rank delta.
+        """Back-compat wrapper around `get_with_delta` for callers that always
+        want the newest snapshot (match preview, /api/table enrichment)."""
+        return QoPRankingsDAO.get_with_delta(client, division_id, age_group_id)
 
-        Response shape is preserved from the legacy API for frontend compat —
-        the `week_of` / `prior_week_of` keys are now semantically *detection
-        dates* rather than ISO-week Mondays, but callers don't need to change.
+    @staticmethod
+    def get_with_delta(
+        client,
+        division_id: int,
+        age_group_id: int,
+        snapshot_id: int | None = None,
+    ) -> dict:
+        """
+        Fetch one snapshot (the latest, or the one pinned by `snapshot_id`)
+        plus the one immediately older, and compute per-team rank/score deltas.
+
+        Also returns `prev_snapshot_id` / `next_snapshot_id` so the caller can
+        step backward/forward through history. Both are `None` at the ends —
+        that's the signal the UI uses to hide the prev/next buttons.
+
+        Response shape is a superset of the legacy `get_latest_with_delta`
+        response — `week_of` / `prior_week_of` are detection dates, not ISO
+        weeks, and are preserved purely for frontend compat.
         """
         empty = {
             "has_data": False,
             "week_of": None,
             "prior_week_of": None,
+            "snapshot_id": None,
+            "prev_snapshot_id": None,
+            "next_snapshot_id": None,
             "rankings": [],
         }
 
@@ -323,14 +342,32 @@ class QoPRankingsDAO:
                 .eq("division_id", division_id)
                 .eq("age_group_id", age_group_id)
                 .order("detected_at", desc=True)
-                .limit(2)
                 .execute()
             )
-            if not snap_resp.data:
+            snapshots = snap_resp.data or []
+            if not snapshots:
                 return empty
 
-            current = snap_resp.data[0]
-            prior = snap_resp.data[1] if len(snap_resp.data) > 1 else None
+            current_index = 0
+            if snapshot_id is not None:
+                current_index = next(
+                    (i for i, s in enumerate(snapshots) if s["id"] == snapshot_id),
+                    -1,
+                )
+                if current_index == -1:
+                    return empty
+
+            current = snapshots[current_index]
+            # DESC order: older snapshots have higher indices.
+            prior = (
+                snapshots[current_index + 1]
+                if current_index + 1 < len(snapshots)
+                else None
+            )
+            next_snapshot_id = (
+                snapshots[current_index - 1]["id"] if current_index > 0 else None
+            )
+            prev_snapshot_id = prior["id"] if prior is not None else None
 
             current_rows_resp = (
                 client.table("qop_rankings")
@@ -407,13 +444,17 @@ class QoPRankingsDAO:
                 "has_data": True,
                 "week_of": current["detected_at"],
                 "prior_week_of": prior["detected_at"] if prior else None,
+                "snapshot_id": current["id"],
+                "prev_snapshot_id": prev_snapshot_id,
+                "next_snapshot_id": next_snapshot_id,
                 "rankings": rankings,
             }
 
         except Exception:
             logger.exception(
-                "qop_rankings_get_latest_error",
+                "qop_rankings_get_with_delta_error",
                 division_id=division_id,
                 age_group_id=age_group_id,
+                snapshot_id=snapshot_id,
             )
             return empty
