@@ -70,11 +70,38 @@
 
     <!-- Rankings Table -->
     <div v-else class="overflow-x-auto">
-      <div v-if="weekOf" class="text-xs text-gray-400 mb-2">
-        Week of {{ weekOf
-        }}<span v-if="priorWeekOf">
-          &nbsp;·&nbsp; Prior week: {{ priorWeekOf }}</span
+      <div
+        v-if="weekOf"
+        class="flex items-center gap-2 text-xs text-gray-400 mb-2"
+      >
+        <button
+          v-if="prevSnapshotId != null"
+          type="button"
+          @click="goToSnapshot(prevSnapshotId)"
+          :disabled="loading"
+          class="px-2 py-0.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          :title="`Previous week${priorWeekOf ? ' (' + priorWeekOf + ')' : ''}`"
+          aria-label="Previous snapshot"
         >
+          ◀
+        </button>
+        <span>
+          Week of {{ weekOf
+          }}<span v-if="priorWeekOf">
+            &nbsp;·&nbsp; Prior week: {{ priorWeekOf }}</span
+          >
+        </span>
+        <button
+          v-if="nextSnapshotId != null"
+          type="button"
+          @click="goToSnapshot(nextSnapshotId)"
+          :disabled="loading"
+          class="px-2 py-0.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Next week"
+          aria-label="Next snapshot"
+        >
+          ▶
+        </button>
       </div>
 
       <table class="min-w-full divide-y divide-slate-200">
@@ -269,6 +296,9 @@ export default {
     const rankings = ref([]);
     const weekOf = ref(null);
     const priorWeekOf = ref(null);
+    const currentSnapshotId = ref(null);
+    const prevSnapshotId = ref(null);
+    const nextSnapshotId = ref(null);
     const loading = ref(false);
     const error = ref(null);
 
@@ -319,12 +349,18 @@ export default {
           division_id: selectedDivisionId.value,
           age_group_id: selectedAgeGroupId.value,
         });
+        if (currentSnapshotId.value != null) {
+          params.set('snapshot_id', currentSnapshotId.value);
+        }
         const data = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/qop-rankings?${params}`
         );
         rankings.value = data.rankings ?? [];
         weekOf.value = data.week_of ?? null;
         priorWeekOf.value = data.prior_week_of ?? null;
+        currentSnapshotId.value = data.snapshot_id ?? null;
+        prevSnapshotId.value = data.prev_snapshot_id ?? null;
+        nextSnapshotId.value = data.next_snapshot_id ?? null;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -332,7 +368,18 @@ export default {
       }
     };
 
-    watch([selectedAgeGroupId, selectedDivisionId], fetchRankings);
+    const goToSnapshot = id => {
+      currentSnapshotId.value = id;
+      fetchRankings();
+    };
+
+    // Changing filters should always return to the newest snapshot for the
+    // new (division, age_group) pair — otherwise a stale snapshot_id from the
+    // prior selection would 404 and render empty.
+    watch([selectedAgeGroupId, selectedDivisionId], () => {
+      currentSnapshotId.value = null;
+      fetchRankings();
+    });
 
     onMounted(async () => {
       const ok = await resolveIds();
@@ -347,8 +394,11 @@ export default {
       rankings,
       weekOf,
       priorWeekOf,
+      prevSnapshotId,
+      nextSnapshotId,
       loading,
       error,
+      goToSnapshot,
     };
   },
 };

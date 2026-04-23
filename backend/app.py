@@ -6435,10 +6435,23 @@ async def ingest_qop_rankings(
 async def get_qop_rankings(
     division_id: int = Query(..., description="Division ID"),
     age_group_id: int = Query(..., description="Age group ID"),
+    snapshot_id: int | None = Query(
+        None,
+        description="Optional snapshot ID — omit to get the latest snapshot. "
+        "Response includes prev_snapshot_id/next_snapshot_id for navigation.",
+    ),
 ):
-    """Get the latest QoP rankings for a division/age_group with week-over-week rank delta."""
+    """Get QoP rankings for a division/age_group with week-over-week deltas.
+
+    When `snapshot_id` is omitted, returns the latest snapshot. When provided,
+    returns that specific snapshot. In both cases the response carries
+    `prev_snapshot_id` / `next_snapshot_id` (null at boundaries) so the client
+    can step through history.
+    """
     try:
-        result = QoPRankingsDAO.get_latest_with_delta(match_dao.client, division_id, age_group_id)
+        result = QoPRankingsDAO.get_with_delta(
+            match_dao.client, division_id, age_group_id, snapshot_id
+        )
         return result
     except Exception as e:
         logger.error(f"Error retrieving QoP rankings: {e!s}", exc_info=True)
