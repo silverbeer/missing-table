@@ -38,6 +38,7 @@ Missing Table is a **production-ready web application** designed for managing co
 - Support for multiple age groups (U13-U19)
 - Division and game type categorization
 - Real-time standings calculation
+- Live-match [Telegram and Discord notifications](docs/08-integrations/live-match-notifications.md) per club
 
 ### 🔐 Authentication & Security
 - Role-based access control (Admin, Team Manager, User)
