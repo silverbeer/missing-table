@@ -214,7 +214,7 @@ export default {
 }
 
 .nav-logo {
-  height: 52px;
+  height: 72px;
   width: auto;
 }
 
