@@ -27,7 +27,7 @@
             v-model="newInvite.inviteType"
             required
             data-testid="invite-type-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select type...</option>
             <option v-if="isAdmin" value="club_manager">Club Manager</option>
@@ -51,7 +51,7 @@
             v-model="newInvite.clubId"
             required
             data-testid="invite-club-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select club...</option>
             <option v-for="club in clubs" :key="club.id" :value="club.id">
@@ -75,7 +75,7 @@
             v-model="newInvite.teamId"
             required
             data-testid="invite-team-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select team...</option>
             <option v-for="team in teams" :key="team.id" :value="team.id">
@@ -99,7 +99,7 @@
             v-model="newInvite.ageGroupId"
             required
             data-testid="invite-age-group-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select age group...</option>
             <option
@@ -124,7 +124,7 @@
             max="99"
             placeholder="e.g., 10"
             data-testid="invite-jersey-number-input"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <p class="mt-1 text-xs text-gray-500">
             If provided, a roster entry will be created when the invite is
@@ -142,7 +142,7 @@
             type="email"
             placeholder="Pre-fill email for recipient"
             data-testid="invite-email-input"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
 
@@ -157,7 +157,7 @@
             maxlength="500"
             placeholder="Who is this invite for? e.g., John Smith - U13 coach"
             data-testid="invite-note-input"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <p class="mt-1 text-xs text-gray-500">
             Personal reminder — visible only to you, not sent to the recipient.
@@ -169,7 +169,7 @@
           type="submit"
           :disabled="loading"
           data-testid="create-invite-submit"
-          class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          class="w-full bg-brand-600 text-white py-2 px-4 rounded-md hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50"
         >
           {{ loading ? 'Creating...' : 'Create Invite' }}
         </button>
@@ -226,7 +226,7 @@
             <button
               @click="copyInviteMessage"
               data-testid="copy-invite-message-button"
-              class="text-sm bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded flex items-center gap-1"
+              class="text-sm bg-brand-600 text-white hover:bg-brand-700 px-3 py-1 rounded flex items-center gap-1"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -277,7 +277,7 @@
           v-model="statusFilter"
           @change="fetchInvites"
           data-testid="invite-status-filter"
-          class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Invites</option>
           <option value="pending">Pending</option>

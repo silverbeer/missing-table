@@ -154,9 +154,9 @@
           <!-- Championship Qualification label before first row -->
           <tr v-if="rankings.length" class="border-0">
             <td colspan="7" class="px-0 py-0">
-              <div class="flex items-center gap-2 pb-1 pt-1 px-3 bg-blue-50">
+              <div class="flex items-center gap-2 pb-1 pt-1 px-3 bg-brand-50">
                 <span
-                  class="text-xs font-semibold text-blue-700 uppercase tracking-wide whitespace-nowrap"
+                  class="text-xs font-semibold text-brand-700 uppercase tracking-wide whitespace-nowrap"
                   >Championship Qualification</span
                 >
               </div>
@@ -248,10 +248,10 @@
             <tr v-if="entry.rank === 5" class="border-0">
               <td colspan="7" class="px-0 py-0">
                 <div
-                  class="flex items-center gap-2 border-t-2 border-blue-500 pt-1 pb-1 px-3"
+                  class="flex items-center gap-2 border-t-2 border-brand-500 pt-1 pb-1 px-3"
                 >
                   <span
-                    class="text-xs font-semibold text-blue-600 uppercase tracking-wide whitespace-nowrap"
+                    class="text-xs font-semibold text-brand-600 uppercase tracking-wide whitespace-nowrap"
                     >Premier Qualification</span
                   >
                 </div>

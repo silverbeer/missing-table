@@ -59,7 +59,7 @@
                 type="date"
                 required
                 data-testid="date-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
@@ -71,7 +71,7 @@
                 v-model="formData.kickoff_time"
                 type="time"
                 data-testid="kickoff-time-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
@@ -82,7 +82,7 @@
                 v-model="formData.match_type_id"
                 required
                 data-testid="match-type-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="matchType in matchTypes"
@@ -104,7 +104,7 @@
                 v-model="formData.home_team_id"
                 required
                 data-testid="home-team-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="team in availableTeams"
@@ -123,7 +123,7 @@
                 v-model="formData.away_team_id"
                 required
                 data-testid="away-team-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="team in availableTeams"
@@ -145,7 +145,7 @@
                 v-model.number="formData.home_score"
                 type="number"
                 min="0"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Leave empty if not played"
               />
             </div>
@@ -157,7 +157,7 @@
                 v-model.number="formData.away_score"
                 type="number"
                 min="0"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Leave empty if not played"
               />
             </div>
@@ -171,7 +171,7 @@
               <select
                 v-model="formData.season_id"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="season in seasons"
@@ -189,7 +189,7 @@
               <select
                 v-model="formData.age_group_id"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="ageGroup in ageGroups"
@@ -210,7 +210,7 @@
               v-model="formData.match_status"
               required
               data-testid="status-select"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="scheduled">Scheduled</option>
               <option value="live">Live</option>
@@ -245,7 +245,7 @@
               type="submit"
               :disabled="loading"
               data-testid="submit-button"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+              class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
             >
               {{ loading ? 'Updating...' : 'Update Match' }}
             </button>

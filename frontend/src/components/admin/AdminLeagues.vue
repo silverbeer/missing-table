@@ -4,7 +4,7 @@
       <h3 class="text-lg font-semibold text-gray-900">Leagues Management</h3>
       <button
         @click="showAddModal = true"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add League
       </button>
@@ -13,7 +13,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -85,7 +85,7 @@
                 :class="[
                   'inline-flex px-2 py-1 text-xs font-semibold rounded-full',
                   league.sport_type === 'futsal'
-                    ? 'bg-blue-100 text-blue-800'
+                    ? 'bg-brand-100 text-brand-800'
                     : 'bg-green-100 text-green-800',
                 ]"
               >
@@ -115,7 +115,7 @@
             >
               <button
                 @click="editLeague(league)"
-                class="text-blue-600 hover:text-blue-900 mr-3"
+                class="text-brand-600 hover:text-brand-900 mr-3"
               >
                 Edit
               </button>
@@ -164,7 +164,7 @@
                 v-model="formData.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., Homegrown, ECNL, MLS Next..."
               />
             </div>
@@ -176,7 +176,7 @@
               <textarea
                 v-model="formData.description"
                 rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Description of the league..."
               ></textarea>
             </div>
@@ -187,7 +187,7 @@
               >
               <select
                 v-model="formData.sport_type"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="soccer">Soccer (11v11)</option>
                 <option value="futsal">Futsal (5v5)</option>
@@ -199,7 +199,7 @@
                 <input
                   v-model="formData.is_active"
                   type="checkbox"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
                 />
                 <span class="ml-2 text-sm text-gray-700">Active League</span>
               </label>
@@ -219,7 +219,7 @@
               <button
                 type="submit"
                 :disabled="formLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{
                   formLoading

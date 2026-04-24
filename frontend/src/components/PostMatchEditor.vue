@@ -37,7 +37,7 @@
             class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
             :class="
               activeTab === 'home'
-                ? 'border-blue-500 bg-blue-500/20 text-white'
+                ? 'border-brand-500 bg-brand-500/20 text-white'
                 : 'border-slate-600 text-slate-400 hover:border-slate-500'
             "
           >
@@ -49,7 +49,7 @@
             class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
             :class="
               activeTab === 'away'
-                ? 'border-blue-500 bg-blue-500/20 text-white'
+                ? 'border-brand-500 bg-brand-500/20 text-white'
                 : 'border-slate-600 text-slate-400 hover:border-slate-500'
             "
           >

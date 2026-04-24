@@ -29,7 +29,7 @@
           "
           :class="[
             activeTab === 'users'
-              ? 'border-b-2 border-blue-600 text-blue-600'
+              ? 'border-b-2 border-brand-600 text-brand-600'
               : 'text-gray-500 hover:text-gray-700',
             'pb-2 text-sm font-medium',
           ]"
@@ -43,7 +43,7 @@
           "
           :class="[
             activeTab === 'events'
-              ? 'border-b-2 border-blue-600 text-blue-600'
+              ? 'border-b-2 border-brand-600 text-brand-600'
               : 'text-gray-500 hover:text-gray-700',
             'pb-2 text-sm font-medium',
           ]"
@@ -121,12 +121,12 @@
           @input="debouncedFetch"
           type="text"
           placeholder="Filter by username..."
-          class="px-3 py-1.5 text-sm border border-gray-300 rounded w-48 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="px-3 py-1.5 text-sm border border-gray-300 rounded w-48 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
         <select
           v-model="filterSuccess"
           @change="fetchLoginEvents"
-          class="px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
           <option value="">All results</option>
           <option value="true">Success only</option>
@@ -311,7 +311,7 @@ export default {
         admin:
           'bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-medium',
         club_manager:
-          'bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-medium',
+          'bg-brand-100 text-brand-800 px-2 py-0.5 rounded text-xs font-medium',
         team_manager:
           'bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-xs font-medium',
         'team-manager':

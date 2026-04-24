@@ -1,6 +1,6 @@
 <template>
   <nav class="auth-nav" data-testid="main-nav">
-    <div class="nav-content">
+    <div class="nav-content container mx-auto px-4">
       <div class="nav-brand">
         <img
           src="@/assets/logo.png"
@@ -201,12 +201,11 @@ export default {
 }
 
 .nav-content {
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 
 .nav-brand {

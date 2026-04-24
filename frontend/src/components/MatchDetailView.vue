@@ -52,7 +52,7 @@
       <button
         @click="fetchMatch"
         data-testid="retry-button"
-        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors"
+        class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium text-sm transition-colors"
       >
         Try Again
       </button>
@@ -580,7 +580,7 @@
                     class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
                     :class="
                       activeLineupTab === 'home'
-                        ? 'border-blue-500 bg-blue-500/20 text-white'
+                        ? 'border-brand-500 bg-brand-500/20 text-white'
                         : 'border-slate-600 text-slate-400 hover:border-slate-500'
                     "
                   >
@@ -592,7 +592,7 @@
                     class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 transition-colors truncate"
                     :class="
                       activeLineupTab === 'away'
-                        ? 'border-blue-500 bg-blue-500/20 text-white'
+                        ? 'border-brand-500 bg-brand-500/20 text-white'
                         : 'border-slate-600 text-slate-400 hover:border-slate-500'
                     "
                   >
@@ -801,7 +801,7 @@ export default {
       const status = match.value?.match_status || 'scheduled';
       const classes = {
         completed: 'bg-green-900/50 text-green-400 border border-green-700',
-        scheduled: 'bg-blue-900/50 text-blue-400 border border-blue-700',
+        scheduled: 'bg-brand-900/50 text-brand-400 border border-brand-700',
         postponed: 'bg-yellow-900/50 text-yellow-400 border border-yellow-700',
         cancelled: 'bg-red-900/50 text-red-400 border border-red-700',
         forfeit: 'bg-orange-900/50 text-orange-400 border border-orange-700',

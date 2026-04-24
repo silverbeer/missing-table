@@ -4,7 +4,7 @@
       <h3 class="text-lg font-semibold text-gray-900">Divisions Management</h3>
       <button
         @click="showAddModal = true"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add Division
       </button>
@@ -13,7 +13,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -89,7 +89,7 @@
             >
               <button
                 @click="editDivision(division)"
-                class="text-blue-600 hover:text-blue-900 mr-3"
+                class="text-brand-600 hover:text-brand-900 mr-3"
               >
                 Edit
               </button>
@@ -135,7 +135,7 @@
                 v-model="formData.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., Northeast, Southeast, Central..."
               />
             </div>
@@ -147,7 +147,7 @@
               <select
                 v-model="formData.league_id"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option :value="null" disabled>Select a league...</option>
                 <option
@@ -167,7 +167,7 @@
               <textarea
                 v-model="formData.description"
                 rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Description of the division..."
               ></textarea>
             </div>
@@ -183,7 +183,7 @@
               <button
                 type="submit"
                 :disabled="formLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{
                   formLoading

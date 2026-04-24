@@ -4,7 +4,7 @@
       <h3 class="text-lg font-semibold text-gray-900">Seasons Management</h3>
       <button
         @click="showAddModal = true"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add Season
       </button>
@@ -13,7 +13,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -64,7 +64,7 @@
           <tr
             v-for="season in seasons"
             :key="season.id"
-            :class="{ 'bg-blue-50': isCurrentSeason(season) }"
+            :class="{ 'bg-brand-50': isCurrentSeason(season) }"
           >
             <td
               class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
@@ -72,7 +72,7 @@
               {{ season.name }}
               <span
                 v-if="isCurrentSeason(season)"
-                class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
               >
                 Current
               </span>
@@ -91,7 +91,7 @@
             >
               <button
                 @click="editSeason(season)"
-                class="text-blue-600 hover:text-blue-900 mr-3"
+                class="text-brand-600 hover:text-brand-900 mr-3"
               >
                 Edit
               </button>
@@ -134,7 +134,7 @@
                 v-model="formData.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., 2024-2025, 2025-2026..."
               />
             </div>
@@ -148,7 +148,7 @@
                   v-model="formData.start_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
@@ -159,7 +159,7 @@
                   v-model="formData.end_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
@@ -175,7 +175,7 @@
               <button
                 type="submit"
                 :disabled="formLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{
                   formLoading

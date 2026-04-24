@@ -3,7 +3,7 @@
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-12">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -35,8 +35,8 @@
           :class="[
             'px-4 py-2 rounded-full text-sm font-medium transition-colors',
             selectedId === t.id
-              ? 'bg-blue-600 text-white'
-              : 'bg-white border border-gray-300 text-gray-700 hover:border-blue-400',
+              ? 'bg-brand-600 text-white'
+              : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
           ]"
         >
           {{ t.name }}
@@ -67,7 +67,7 @@
                 <span
                   v-for="ag in selected.age_groups || []"
                   :key="ag.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700"
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-700"
                 >
                   {{ ag.name }}
                 </span>
@@ -88,7 +88,7 @@
         <!-- Match loading -->
         <div v-if="matchesLoading" class="flex justify-center py-8">
           <div
-            class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"
+            class="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600"
           ></div>
         </div>
 
@@ -130,7 +130,7 @@
               v-model="teamFilter"
               type="text"
               placeholder="Filter by team…"
-              class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-48"
+              class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-48"
             />
             <span class="text-sm text-gray-500"
               >{{ filteredMatches.length }} match{{
@@ -143,7 +143,7 @@
                 teamFilter = '';
                 ageGroupFilter = null;
               "
-              class="text-sm text-blue-600 hover:text-blue-800"
+              class="text-sm text-brand-600 hover:text-brand-800"
             >
               clear all
             </button>
@@ -195,7 +195,7 @@
                     >
                     <span
                       v-else-if="match.match_status === 'in_progress'"
-                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      class="text-xs text-brand-600 font-medium animate-pulse"
                       >Live</span
                     >
                     <span
@@ -259,7 +259,7 @@
                     >
                     <span
                       v-else-if="match.match_status === 'in_progress'"
-                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      class="text-xs text-brand-600 font-medium animate-pulse"
                       >Live</span
                     >
                     <span
@@ -312,7 +312,7 @@
                     >
                     <span
                       v-else-if="match.match_status === 'in_progress'"
-                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      class="text-xs text-brand-600 font-medium animate-pulse"
                       >Live</span
                     >
                     <span
@@ -381,7 +381,7 @@
                     >
                     <span
                       v-else-if="match.match_status === 'in_progress'"
-                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      class="text-xs text-brand-600 font-medium animate-pulse"
                       >Live</span
                     >
                     <span
@@ -429,7 +429,7 @@
                     >
                     <span
                       v-else-if="match.match_status === 'in_progress'"
-                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      class="text-xs text-brand-600 font-medium animate-pulse"
                       >Live</span
                     >
                     <span
@@ -488,7 +488,7 @@
                     >
                     <span
                       v-else-if="match.match_status === 'in_progress'"
-                      class="text-xs text-blue-600 font-medium animate-pulse"
+                      class="text-xs text-brand-600 font-medium animate-pulse"
                       >Live</span
                     >
                     <span

@@ -61,7 +61,7 @@
       </span>
       <button
         @click="startEditing"
-        class="ml-2 text-gray-400 hover:text-blue-600"
+        class="ml-2 text-gray-400 hover:text-brand-600"
         title="Edit date/time"
       >
         &#9998;
@@ -74,12 +74,12 @@
         <input
           type="date"
           v-model="editDate"
-          class="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
         <input
           type="time"
           v-model="editTime"
-          class="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
       </div>
       <div class="flex justify-end space-x-2">
@@ -92,7 +92,7 @@
         <button
           @click="saveDateTime"
           :disabled="saving"
-          class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          class="text-xs px-2 py-1 bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-50"
         >
           {{ saving ? 'Saving...' : 'Save' }}
         </button>
@@ -108,7 +108,7 @@
         v-if="canAdvance"
         @click="$emit('advance', bracketSlot.id)"
         :disabled="actionLoading"
-        class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+        class="text-xs px-2 py-1 bg-brand-600 text-white rounded hover:bg-brand-700 disabled:opacity-50"
       >
         Advance Winner
       </button>
@@ -176,7 +176,7 @@ export default {
         return 'text-green-600';
       if (props.bracketSlot.match_status === 'live')
         return 'text-red-600 font-bold';
-      return 'text-blue-600';
+      return 'text-brand-600';
     });
 
     // --- Date/Time display helpers ---

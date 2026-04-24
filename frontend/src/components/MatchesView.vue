@@ -29,7 +29,7 @@
               :class="[
                 'py-3 px-4 text-sm font-medium border-b-2 transition-colors',
                 selectedViewTab === 'all'
-                  ? 'border-blue-600 text-blue-600'
+                  ? 'border-brand-600 text-brand-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
               ]"
             >
@@ -41,7 +41,7 @@
               :class="[
                 'py-3 px-4 text-sm font-medium border-b-2 transition-colors',
                 selectedViewTab === 'myclub'
-                  ? 'border-blue-600 text-blue-600'
+                  ? 'border-brand-600 text-brand-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
               ]"
             >
@@ -56,7 +56,7 @@
           <div class="lg:hidden mb-4">
             <button
               @click="showFilters = !showFilters"
-              class="w-full flex items-center justify-between px-4 py-3 bg-blue-600 text-white rounded-lg font-medium"
+              class="w-full flex items-center justify-between px-4 py-3 bg-brand-600 text-white rounded-lg font-medium"
             >
               <span>Filters</span>
               <svg
@@ -90,7 +90,7 @@
                 <select
                   v-model="selectedClubId"
                   data-testid="club-selector"
-                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 >
                   <option :value="null">-- Select a club --</option>
                   <option
@@ -112,7 +112,7 @@
                   v-model="selectedTeam"
                   @change="onTeamChange"
                   data-testid="team-selector"
-                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 >
                   <option value="">-- Select a team --</option>
                   <option
@@ -128,7 +128,7 @@
               <!-- Prompt to select club if none selected -->
               <div
                 v-else
-                class="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm"
+                class="p-4 bg-brand-50 border border-brand-200 rounded-lg text-brand-700 text-sm"
               >
                 Please select a club to view teams and matches.
               </div>
@@ -148,7 +148,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedAgeGroupId === ageGroup.id
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -163,7 +163,7 @@
               <select
                 v-model="selectedSeasonId"
                 data-testid="season-selector"
-                class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                class="block w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               >
                 <option
                   v-for="season in seasons"
@@ -187,7 +187,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 1
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -199,7 +199,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 3
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -211,7 +211,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 2
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -223,7 +223,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === 4
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -235,7 +235,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedMatchTypeId === null
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -256,7 +256,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedDivisionId === null
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -270,7 +270,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     selectedDivisionId === division.id
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300',
                   ]"
                 >
@@ -298,7 +298,7 @@
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     weekOffset === 0
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-100 text-gray-700 active:bg-gray-300 hover:bg-gray-200',
                   ]"
                 >
@@ -335,16 +335,16 @@
               <!-- League Information -->
               <div
                 v-if="selectedTeamLeagueInfo"
-                class="inline-flex items-center space-x-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-md text-sm"
+                class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-50 border border-brand-200 rounded-md text-sm"
               >
-                <span class="font-medium text-blue-800">League:</span>
-                <span class="text-blue-700"
+                <span class="font-medium text-brand-800">League:</span>
+                <span class="text-brand-700"
                   >{{ selectedTeamLeagueInfo.league }} -
                   {{ selectedTeamLeagueInfo.division }} ({{
                     selectedTeamLeagueInfo.ageGroup
                   }})</span
                 >
-                <span class="text-blue-600">• {{ selectedSeasonName }}</span>
+                <span class="text-brand-600">• {{ selectedSeasonName }}</span>
               </div>
             </div>
           </div>
@@ -382,9 +382,9 @@
                   seasonStats.hasFallGames &&
                   selectedTeamLeagueInfo?.sportType !== 'futsal'
                 "
-                class="p-4 bg-blue-50 rounded-lg border border-blue-100"
+                class="p-4 bg-brand-50 rounded-lg border border-brand-100"
               >
-                <h4 class="font-medium text-blue-700 mb-2">Fall Segment</h4>
+                <h4 class="font-medium text-brand-700 mb-2">Fall Segment</h4>
                 <div class="grid grid-cols-3 gap-2 text-sm">
                   <div class="font-medium">
                     W: {{ seasonStats.fallWins || 0 }}
@@ -505,7 +505,7 @@
                 <tr v-if="homegrownMatches.length > 0">
                   <td
                     :colspan="tableColumnCount"
-                    class="bg-blue-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-blue-700"
+                    class="bg-brand-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-brand-700"
                   >
                     HOMEGROWN LEAGUE
                   </td>
@@ -514,7 +514,7 @@
                   v-for="(match, index) in homegrownMatches"
                   :key="`homegrown-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
-                  class="cursor-pointer hover:bg-blue-50"
+                  class="cursor-pointer hover:bg-brand-50"
                   @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
@@ -618,7 +618,7 @@
                         'px-2 py-1 rounded text-xs font-medium': true,
                         'bg-green-100 text-green-800':
                           match.match_status === 'completed',
-                        'bg-blue-100 text-blue-800':
+                        'bg-brand-100 text-brand-800':
                           match.match_status === 'scheduled',
                         'bg-yellow-100 text-yellow-800':
                           match.match_status === 'postponed',
@@ -675,14 +675,14 @@
                   >
                     <button
                       @click="viewMatch(match)"
-                      class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                     >
                       View
                     </button>
                     <button
                       v-if="canEditGame(match)"
                       @click.stop="editMatch(match)"
-                      class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                     >
                       Edit
                     </button>
@@ -702,7 +702,7 @@
                   v-for="(match, index) in academyMatches"
                   :key="`academy-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
-                  class="cursor-pointer hover:bg-blue-50"
+                  class="cursor-pointer hover:bg-brand-50"
                   @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
@@ -806,7 +806,7 @@
                         'px-2 py-1 rounded text-xs font-medium': true,
                         'bg-green-100 text-green-800':
                           match.match_status === 'completed',
-                        'bg-blue-100 text-blue-800':
+                        'bg-brand-100 text-brand-800':
                           match.match_status === 'scheduled',
                         'bg-yellow-100 text-yellow-800':
                           match.match_status === 'postponed',
@@ -863,14 +863,14 @@
                   >
                     <button
                       @click="viewMatch(match)"
-                      class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                     >
                       View
                     </button>
                     <button
                       v-if="canEditGame(match)"
                       @click.stop="editMatch(match)"
-                      class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                     >
                       Edit
                     </button>
@@ -890,7 +890,7 @@
                   v-for="(match, index) in otherMatches"
                   :key="`other-${match.id}`"
                   :class="{ 'bg-gray-100': index % 2 === 0 }"
-                  class="cursor-pointer hover:bg-blue-50"
+                  class="cursor-pointer hover:bg-brand-50"
                   @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
@@ -994,7 +994,7 @@
                         'px-2 py-1 rounded text-xs font-medium': true,
                         'bg-green-100 text-green-800':
                           match.match_status === 'completed',
-                        'bg-blue-100 text-blue-800':
+                        'bg-brand-100 text-brand-800':
                           match.match_status === 'scheduled',
                         'bg-yellow-100 text-yellow-800':
                           match.match_status === 'postponed',
@@ -1051,14 +1051,14 @@
                   >
                     <button
                       @click="viewMatch(match)"
-                      class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                     >
                       View
                     </button>
                     <button
                       v-if="canEditGame(match)"
                       @click.stop="editMatch(match)"
-                      class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                     >
                       Edit
                     </button>
@@ -1072,7 +1072,7 @@
                 v-for="(match, index) in sortedGames"
                 :key="match.id"
                 :class="{ 'bg-gray-100': index % 2 === 0 }"
-                class="cursor-pointer hover:bg-blue-50"
+                class="cursor-pointer hover:bg-brand-50"
                 @click="viewMatch(match)"
               >
                 <td
@@ -1162,7 +1162,7 @@
                       'px-2 py-1 rounded text-xs font-medium': true,
                       'bg-green-100 text-green-800':
                         match.match_status === 'completed',
-                      'bg-blue-100 text-blue-800':
+                      'bg-brand-100 text-brand-800':
                         match.match_status === 'scheduled',
                       'bg-yellow-100 text-yellow-800':
                         match.match_status === 'postponed',
@@ -1213,14 +1213,14 @@
                 >
                   <button
                     @click="viewMatch(match)"
-                    class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                   >
                     View
                   </button>
                   <button
                     v-if="canEditGame(match)"
                     @click.stop="editMatch(match)"
-                    class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    class="text-brand-600 hover:text-brand-800 text-sm font-medium"
                   >
                     Edit
                   </button>
@@ -1236,14 +1236,14 @@
               <!-- Homegrown Section -->
               <div
                 v-if="homegrownMatches.length > 0"
-                class="bg-blue-600 text-white font-bold text-sm py-2 px-4 rounded-lg"
+                class="bg-brand-600 text-white font-bold text-sm py-2 px-4 rounded-lg"
               >
                 HOMEGROWN LEAGUE
               </div>
               <div
                 v-for="(match, index) in homegrownMatches"
                 :key="`homegrown-${match.id}`"
-                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-brand-300"
                 @click="viewMatch(match)"
               >
                 <!-- Match Number and Date -->
@@ -1368,7 +1368,7 @@
                         'px-2 py-1 rounded text-xs font-medium': true,
                         'bg-green-100 text-green-800':
                           match.match_status === 'completed',
-                        'bg-blue-100 text-blue-800':
+                        'bg-brand-100 text-brand-800':
                           match.match_status === 'scheduled',
                         'bg-yellow-100 text-yellow-800':
                           match.match_status === 'postponed',
@@ -1418,14 +1418,14 @@
                 >
                   <button
                     @click="viewMatch(match)"
-                    class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                    class="w-full bg-brand-600 text-white py-2 rounded-lg font-medium hover:bg-brand-700"
                   >
                     View Match
                   </button>
                   <button
                     v-if="canEditGame(match)"
                     @click.stop="editMatch(match)"
-                    class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                    class="w-full bg-brand-600 text-white py-2 rounded-lg font-medium hover:bg-brand-700"
                   >
                     Edit Match
                   </button>
@@ -1442,7 +1442,7 @@
               <div
                 v-for="(match, index) in academyMatches"
                 :key="`academy-${match.id}`"
-                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-brand-300"
                 @click="viewMatch(match)"
               >
                 <!-- Match Number and Date -->
@@ -1567,7 +1567,7 @@
                         'px-2 py-1 rounded text-xs font-medium': true,
                         'bg-green-100 text-green-800':
                           match.match_status === 'completed',
-                        'bg-blue-100 text-blue-800':
+                        'bg-brand-100 text-brand-800':
                           match.match_status === 'scheduled',
                         'bg-yellow-100 text-yellow-800':
                           match.match_status === 'postponed',
@@ -1617,14 +1617,14 @@
                 >
                   <button
                     @click="viewMatch(match)"
-                    class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                    class="w-full bg-brand-600 text-white py-2 rounded-lg font-medium hover:bg-brand-700"
                   >
                     View Match
                   </button>
                   <button
                     v-if="canEditGame(match)"
                     @click.stop="editMatch(match)"
-                    class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                    class="w-full bg-brand-600 text-white py-2 rounded-lg font-medium hover:bg-brand-700"
                   >
                     Edit Match
                   </button>
@@ -1641,7 +1641,7 @@
               <div
                 v-for="(match, index) in otherMatches"
                 :key="`other-${match.id}`"
-                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+                class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-brand-300"
                 @click="viewMatch(match)"
               >
                 <!-- Match Number and Date -->
@@ -1766,7 +1766,7 @@
                         'px-2 py-1 rounded text-xs font-medium': true,
                         'bg-green-100 text-green-800':
                           match.match_status === 'completed',
-                        'bg-blue-100 text-blue-800':
+                        'bg-brand-100 text-brand-800':
                           match.match_status === 'scheduled',
                         'bg-yellow-100 text-yellow-800':
                           match.match_status === 'postponed',
@@ -1816,14 +1816,14 @@
                 >
                   <button
                     @click="viewMatch(match)"
-                    class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                    class="w-full bg-brand-600 text-white py-2 rounded-lg font-medium hover:bg-brand-700"
                   >
                     View Match
                   </button>
                   <button
                     v-if="canEditGame(match)"
                     @click.stop="editMatch(match)"
-                    class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                    class="w-full bg-brand-600 text-white py-2 rounded-lg font-medium hover:bg-brand-700"
                   >
                     Edit Match
                   </button>
@@ -1836,7 +1836,7 @@
               v-else
               v-for="(match, index) in sortedGames"
               :key="match.id"
-              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-blue-300"
+              class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:border-brand-300"
               @click="viewMatch(match)"
             >
               <!-- Match Number and Date -->
@@ -1934,7 +1934,7 @@
                     :class="{
                       'bg-green-100 text-green-800':
                         match.match_status === 'completed',
-                      'bg-blue-100 text-blue-800':
+                      'bg-brand-100 text-brand-800':
                         match.match_status === 'scheduled',
                       'bg-yellow-100 text-yellow-800':
                         match.match_status === 'postponed',
@@ -1972,14 +1972,14 @@
                 >
                   <button
                     @click="viewMatch(match)"
-                    class="text-blue-600 font-medium text-sm active:text-blue-800"
+                    class="text-brand-600 font-medium text-sm active:text-brand-800"
                   >
                     View
                   </button>
                   <button
                     v-if="canEditGame(match)"
                     @click.stop="editMatch(match)"
-                    class="text-blue-600 font-medium text-sm active:text-blue-800"
+                    class="text-brand-600 font-medium text-sm active:text-brand-800"
                   >
                     Edit
                   </button>

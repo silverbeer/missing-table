@@ -7,7 +7,7 @@
         <select
           v-model="filterSeason"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Seasons</option>
           <option v-for="season in seasons" :key="season.id" :value="season.id">
@@ -18,7 +18,7 @@
         <select
           v-model="filterMatchType"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Match Types</option>
           <option
@@ -33,7 +33,7 @@
         <select
           v-model="filterLeague"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Leagues</option>
           <option v-for="league in leagues" :key="league.id" :value="league.id">
@@ -44,7 +44,7 @@
         <select
           v-model="filterAgeGroup"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Age Groups</option>
           <option
@@ -61,7 +61,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -218,7 +218,7 @@
               <div class="flex gap-2 justify-end items-center">
                 <button
                   @click="editMatch(match)"
-                  class="bg-blue-500 text-white px-2 py-1.5 rounded hover:bg-blue-600 font-medium text-xs min-w-[60px]"
+                  class="bg-brand-500 text-white px-2 py-1.5 rounded hover:bg-brand-600 font-medium text-xs min-w-[60px]"
                 >
                   ✏️ Edit
                 </button>
@@ -257,7 +257,7 @@
                   v-model="editFormData.match_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
@@ -268,7 +268,7 @@
                 <input
                   v-model="editFormData.kickoff_time"
                   type="time"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
@@ -278,7 +278,7 @@
                 <select
                   v-model="editFormData.match_type_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option
                     v-for="matchType in matchTypes"
@@ -299,7 +299,7 @@
                 <select
                   v-model="editFormData.home_team_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option v-for="team in teams" :key="team.id" :value="team.id">
                     {{ team.name }}
@@ -313,7 +313,7 @@
                 <select
                   v-model="editFormData.away_team_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option v-for="team in teams" :key="team.id" :value="team.id">
                     {{ team.name }}
@@ -331,7 +331,7 @@
                   v-model.number="editFormData.home_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Leave empty if not played"
                 />
               </div>
@@ -343,7 +343,7 @@
                   v-model.number="editFormData.away_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Leave empty if not played"
                 />
               </div>
@@ -357,7 +357,7 @@
                 <select
                   v-model="editFormData.season_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option
                     v-for="season in seasons"
@@ -375,7 +375,7 @@
                 <select
                   v-model="editFormData.age_group_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option
                     v-for="ageGroup in ageGroups"
@@ -398,7 +398,7 @@
               <input
                 v-model="editFormData.match_id"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-sm"
                 placeholder="e.g., external-match-12345"
               />
             </div>
@@ -414,7 +414,7 @@
               <button
                 type="submit"
                 :disabled="formLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{ formLoading ? 'Updating...' : 'Update Match' }}
               </button>
@@ -588,7 +588,7 @@ export default {
 
     const getMatchTypeClass = matchTypeName => {
       const classes = {
-        League: 'bg-blue-100 text-blue-800',
+        League: 'bg-brand-100 text-brand-800',
         Friendly: 'bg-green-100 text-green-800',
         Tournament: 'bg-purple-100 text-purple-800',
         Playoff: 'bg-orange-100 text-orange-800',

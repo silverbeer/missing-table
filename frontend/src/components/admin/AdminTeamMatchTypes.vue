@@ -15,7 +15,7 @@
           <input
             v-model="newTeam.name"
             type="text"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
             placeholder="e.g., Visiting Club ABC"
           />
         </div>
@@ -26,7 +26,7 @@
           <input
             v-model="newTeam.city"
             type="text"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
             placeholder="e.g., Toronto"
           />
         </div>
@@ -37,7 +37,7 @@
           <select
             v-model="newTeam.teamType"
             @change="onTeamTypeChange"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">Select Team Type</option>
             <option value="league">League Team</option>
@@ -51,7 +51,7 @@
           >
           <select
             v-model="newTeam.ageGroupId"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">Select Age Group</option>
             <option
@@ -80,7 +80,7 @@
                 type="checkbox"
                 :value="matchType.id"
                 v-model="newTeam.matchTypeIds"
-                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
               />
               <span class="ml-2">{{ matchType.name }}</span>
             </label>
@@ -95,7 +95,7 @@
           !newTeam.teamType ||
           newTeam.matchTypeIds.length === 0
         "
-        class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300"
+        class="mt-4 bg-brand-500 text-white px-4 py-2 rounded-md hover:bg-brand-600 disabled:bg-gray-300"
       >
         Add
         {{
@@ -120,7 +120,7 @@
           >
           <select
             v-model="filterAgeGroup"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">All Age Groups</option>
             <option
@@ -138,7 +138,7 @@
           >
           <select
             v-model="filterMatchType"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">All Match Types</option>
             <option
@@ -206,7 +206,7 @@
                 <span
                   v-for="ageGroup in team.age_groups"
                   :key="ageGroup.id"
-                  class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-1"
+                  class="inline-block bg-brand-100 text-brand-800 text-xs px-2 py-1 rounded-full mr-1"
                 >
                   {{ ageGroup.name }}
                 </span>
@@ -233,7 +233,7 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <button
                   @click="editTeam(team)"
-                  class="text-blue-600 hover:text-blue-900 mr-3"
+                  class="text-brand-600 hover:text-brand-900 mr-3"
                 >
                   Edit Participation
                 </button>
