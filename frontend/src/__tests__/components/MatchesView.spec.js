@@ -136,7 +136,7 @@ describe('MatchesView', () => {
 
       const allMatchesTab = wrapper.find('[data-testid="all-matches-tab"]');
       expect(allMatchesTab.exists()).toBe(true);
-      expect(allMatchesTab.classes()).toContain('border-blue-600');
+      expect(allMatchesTab.classes()).toContain('border-brand-600');
     });
 
     it('renders My Club tab', async () => {
@@ -216,7 +216,7 @@ describe('MatchesView', () => {
       await flushPromises();
 
       const myClubTab = wrapper.find('[data-testid="my-club-tab"]');
-      expect(myClubTab.classes()).toContain('border-blue-600');
+      expect(myClubTab.classes()).toContain('border-brand-600');
     });
 
     it('switches back to All Matches tab', async () => {
@@ -233,7 +233,7 @@ describe('MatchesView', () => {
       await flushPromises();
 
       const allMatchesTab = wrapper.find('[data-testid="all-matches-tab"]');
-      expect(allMatchesTab.classes()).toContain('border-blue-600');
+      expect(allMatchesTab.classes()).toContain('border-brand-600');
     });
 
     it('shows club selector only on My Club tab', async () => {
@@ -301,7 +301,7 @@ describe('MatchesView', () => {
       if (ageGroup3.exists()) {
         await ageGroup3.trigger('click');
         await flushPromises();
-        expect(ageGroup3.classes()).toContain('bg-blue-600');
+        expect(ageGroup3.classes()).toContain('bg-brand-600');
       }
     });
 
@@ -320,7 +320,7 @@ describe('MatchesView', () => {
       if (ageGroup2.exists()) {
         await ageGroup2.trigger('click');
         await flushPromises();
-        expect(ageGroup2.classes()).toContain('bg-blue-600');
+        expect(ageGroup2.classes()).toContain('bg-brand-600');
       }
     });
   });
@@ -336,7 +336,7 @@ describe('MatchesView', () => {
       await flushPromises();
 
       const leagueButton = wrapper.find('[data-testid="match-type-1"]');
-      expect(leagueButton.classes()).toContain('bg-blue-600');
+      expect(leagueButton.classes()).toContain('bg-brand-600');
     });
 
     it('switches to Friendly match type', async () => {
@@ -348,7 +348,7 @@ describe('MatchesView', () => {
       await flushPromises();
 
       const friendlyButton = wrapper.find('[data-testid="match-type-3"]');
-      expect(friendlyButton.classes()).toContain('bg-blue-600');
+      expect(friendlyButton.classes()).toContain('bg-brand-600');
     });
 
     it('switches to All Matches type', async () => {
@@ -360,7 +360,7 @@ describe('MatchesView', () => {
       await flushPromises();
 
       const allButton = wrapper.find('[data-testid="match-type-all"]');
-      expect(allButton.classes()).toContain('bg-blue-600');
+      expect(allButton.classes()).toContain('bg-brand-600');
     });
   });
 
@@ -388,7 +388,7 @@ describe('MatchesView', () => {
       await flushPromises();
 
       const currentButton = wrapper.find('[data-testid="week-current"]');
-      expect(currentButton.classes()).toContain('bg-blue-600');
+      expect(currentButton.classes()).toContain('bg-brand-600');
     });
 
     it('Previous button navigates to previous week', async () => {
@@ -408,7 +408,7 @@ describe('MatchesView', () => {
 
       // This Week button should no longer be highlighted
       const currentButton = wrapper.find('[data-testid="week-current"]');
-      expect(currentButton.classes()).not.toContain('bg-blue-600');
+      expect(currentButton.classes()).not.toContain('bg-brand-600');
     });
 
     it('Next button navigates to next week', async () => {
@@ -421,7 +421,7 @@ describe('MatchesView', () => {
 
       // This Week button should no longer be highlighted
       const currentButton = wrapper.find('[data-testid="week-current"]');
-      expect(currentButton.classes()).not.toContain('bg-blue-600');
+      expect(currentButton.classes()).not.toContain('bg-brand-600');
     });
 
     it('This Week button resets offset', async () => {
@@ -438,7 +438,7 @@ describe('MatchesView', () => {
       await flushPromises();
 
       const currentButton = wrapper.find('[data-testid="week-current"]');
-      expect(currentButton.classes()).toContain('bg-blue-600');
+      expect(currentButton.classes()).toContain('bg-brand-600');
     });
   });
 
