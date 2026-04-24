@@ -42,10 +42,10 @@
           </div>
           <div
             v-else
-            class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-4"
+            class="flex-shrink-0 w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center mr-4"
           >
             <svg
-              class="w-6 h-6 text-blue-600"
+              class="w-6 h-6 text-brand-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -145,7 +145,7 @@ export default {
       if (props.variant === 'warning') {
         return `${base} bg-yellow-600 hover:bg-yellow-700`;
       }
-      return `${base} bg-blue-600 hover:bg-blue-700`;
+      return `${base} bg-brand-600 hover:bg-brand-700`;
     });
 
     return {

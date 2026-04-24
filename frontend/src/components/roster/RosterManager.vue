@@ -54,7 +54,7 @@
           </button>
           <button
             @click="showAddModal = true"
-            class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+            class="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md"
             data-testid="add-player-button"
           >
             + Add Player
@@ -69,7 +69,7 @@
         data-testid="roster-loading"
       >
         <div
-          class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+          class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
         ></div>
       </div>
 
@@ -165,7 +165,7 @@
               >
                 <button
                   @click="openEditModal(player)"
-                  class="text-blue-600 hover:text-blue-900"
+                  class="text-brand-600 hover:text-brand-900"
                   title="Edit name/positions"
                   data-testid="edit-player-button"
                 >
@@ -227,7 +227,7 @@
                   min="1"
                   max="99"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="1-99"
                   data-testid="jersey-number-input"
                 />
@@ -240,7 +240,7 @@
                   v-model="addForm.first_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Optional"
                   data-testid="first-name-input"
                 />
@@ -253,7 +253,7 @@
                   v-model="addForm.last_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Optional"
                   data-testid="last-name-input"
                 />
@@ -272,7 +272,7 @@
                       type="checkbox"
                       :value="pos"
                       v-model="addForm.positions"
-                      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                     />
                     <span class="ml-1 text-sm text-gray-700">{{ pos }}</span>
                   </label>
@@ -289,7 +289,7 @@
                 <button
                   type="submit"
                   :disabled="formLoading"
-                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                  class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
                   data-testid="save-player-button"
                 >
                   {{ formLoading ? 'Adding...' : 'Add Player' }}
@@ -325,7 +325,7 @@
                   v-model="editForm.first_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   data-testid="edit-first-name-input"
                 />
               </div>
@@ -337,7 +337,7 @@
                   v-model="editForm.last_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   data-testid="edit-last-name-input"
                 />
               </div>
@@ -355,7 +355,7 @@
                       type="checkbox"
                       :value="pos"
                       v-model="editForm.positions"
-                      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                     />
                     <span class="ml-1 text-sm text-gray-700">{{ pos }}</span>
                   </label>
@@ -372,7 +372,7 @@
                 <button
                   type="submit"
                   :disabled="formLoading"
-                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                  class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
                   data-testid="update-player-button"
                 >
                   {{ formLoading ? 'Saving...' : 'Save Changes' }}
@@ -418,7 +418,7 @@
                   min="1"
                   max="99"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   data-testid="new-jersey-number-input"
                 />
               </div>
@@ -433,7 +433,7 @@
                 <button
                   type="submit"
                   :disabled="formLoading"
-                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                  class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
                   data-testid="confirm-change-number-button"
                 >
                   {{ formLoading ? 'Changing...' : 'Change Number' }}
@@ -469,7 +469,7 @@
                 <textarea
                   v-model="bulkImportText"
                   rows="8"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
                   placeholder="1&#10;7&#10;10&#10;11&#10;23"
                   data-testid="bulk-import-textarea"
                 ></textarea>
@@ -485,7 +485,7 @@
                 <button
                   type="submit"
                   :disabled="formLoading || !bulkImportText.trim()"
-                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                  class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
                   data-testid="confirm-bulk-import-button"
                 >
                   {{ formLoading ? 'Importing...' : 'Import Players' }}
@@ -517,13 +517,13 @@
               Share this code with #{{ invitePlayer?.jersey_number }}:
             </p>
             <div class="bg-gray-100 rounded-lg p-4 mb-4">
-              <code class="text-lg font-mono font-bold text-blue-600">{{
+              <code class="text-lg font-mono font-bold text-brand-600">{{
                 inviteCode
               }}</code>
             </div>
             <button
               @click="copyInviteCode"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md mr-2"
+              class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md mr-2"
             >
               Copy Code
             </button>

@@ -9,7 +9,7 @@
           id="club-picker"
           v-model.number="selectedClubId"
           data-testid="admin-notifications-club-picker"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option :value="null" disabled>Select a club…</option>
           <option v-for="c in clubs" :key="c.id" :value="c.id">

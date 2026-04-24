@@ -30,7 +30,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="container mx-auto px-4 py-8">
+    <div class="container mx-auto px-4 pt-2 pb-8">
       <!-- Loading indicator -->
       <div v-if="authStore.state.loading" class="loading-container">
         <div class="loading-spinner"></div>
@@ -119,7 +119,7 @@
                 @click="showLoginModal = true"
                 class="bg-brand-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand-600 transition-colors text-base shadow-sm"
               >
-                Log In
+                Login
               </button>
               <button
                 @click="showInviteRequestModal = true"
@@ -239,7 +239,7 @@
                   v-model="inviteRequest.email"
                   type="email"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="your@email.com"
                 />
               </div>
@@ -251,7 +251,7 @@
                   v-model="inviteRequest.name"
                   type="text"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Your name"
                 />
               </div>
@@ -262,7 +262,7 @@
                 <input
                   v-model="inviteRequest.team"
                   type="text"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Your team or club name"
                 />
               </div>
@@ -273,7 +273,7 @@
                 <textarea
                   v-model="inviteRequest.reason"
                   rows="3"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Tell us about your interest in Missing Table"
                 ></textarea>
               </div>
@@ -291,7 +291,7 @@
                 <button
                   type="submit"
                   :disabled="inviteRequestSubmitting"
-                  class="flex-1 bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  class="flex-1 bg-brand-600 text-white py-2 rounded-md font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
                 >
                   {{
                     inviteRequestSubmitting ? 'Submitting...' : 'Submit Request'
@@ -320,10 +320,13 @@
           </div>
         </div>
 
-        <!-- Tabs for authenticated users -->
-        <div v-else class="mb-0">
+        <!-- Tabs + Content card (authenticated users) -->
+        <div
+          v-else
+          class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200/60 overflow-hidden"
+        >
           <nav
-            class="flex space-x-1 border-b border-slate-200 overflow-x-auto"
+            class="flex space-x-1 border-b border-slate-200 overflow-x-auto px-2"
             aria-label="Tabs"
           >
             <button
@@ -334,7 +337,7 @@
               "
               :class="[
                 currentTab === tab.id
-                  ? 'border-b-2 border-brand-500 text-brand-500 bg-white'
+                  ? 'border-b-2 border-brand-500 text-brand-500'
                   : tab.isLive
                     ? 'text-red-600 hover:text-red-700 live-tab-pulse border-b-2 border-transparent'
                     : 'text-slate-500 hover:text-slate-700 border-b-2 border-transparent hover:border-slate-300',
@@ -345,13 +348,6 @@
               {{ tab.name }}
             </button>
           </nav>
-        </div>
-
-        <!-- Tab Content (only for authenticated users) -->
-        <div
-          v-if="authStore.state.session"
-          class="bg-white rounded-b-xl shadow-sm ring-1 ring-slate-200/60 ring-t-0"
-        >
           <!-- Standings -->
           <div v-if="currentTab === 'table'" class="p-4">
             <LeagueTable

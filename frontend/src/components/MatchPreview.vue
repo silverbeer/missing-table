@@ -26,7 +26,7 @@
       <p class="text-slate-400 text-sm mb-3">{{ error }}</p>
       <button
         @click="fetchPreview"
-        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+        class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium transition-colors"
       >
         Retry
       </button>
@@ -45,7 +45,7 @@
             :class="[
               'py-2 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
               activeTab === tab.id
-                ? 'border-blue-400 text-blue-400'
+                ? 'border-brand-400 text-brand-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500',
             ]"
           >
@@ -55,7 +55,7 @@
               class="ml-1 text-xs px-1.5 py-0.5 rounded-full"
               :class="
                 activeTab === tab.id
-                  ? 'bg-blue-900/50 text-blue-300'
+                  ? 'bg-brand-900/50 text-brand-300'
                   : 'bg-slate-700 text-slate-400'
               "
               >{{ tab.count }}</span
@@ -358,7 +358,7 @@
           class="flex justify-around text-center mb-4 p-3 bg-slate-700/50 rounded-lg"
         >
           <div>
-            <span class="block text-xl font-bold text-blue-400">{{
+            <span class="block text-xl font-bold text-brand-400">{{
               h2hStats.homeWins
             }}</span>
             <span class="text-xs text-slate-400 truncate block max-w-[80px]">{{

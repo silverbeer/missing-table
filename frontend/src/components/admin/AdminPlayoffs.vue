@@ -7,7 +7,7 @@
         <select
           v-model="selectedLeague"
           @change="onLeagueChange"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">Select League</option>
           <option v-for="league in leagues" :key="league.id" :value="league.id">
@@ -19,7 +19,7 @@
         <select
           v-model="selectedSeason"
           @change="fetchBracket"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">Select Season</option>
           <option v-for="season in seasons" :key="season.id" :value="season.id">
@@ -31,7 +31,7 @@
         <select
           v-model="selectedAgeGroup"
           @change="fetchBracket"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">Select Age Group</option>
           <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
@@ -44,7 +44,7 @@
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -94,7 +94,7 @@
             <label class="block text-sm text-gray-600 mb-1">Bracket Type</label>
             <select
               v-model="configBracketType"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option v-for="bt in bracketTypes" :key="bt.key" :value="bt.key">
                 {{ bt.name }}
@@ -111,7 +111,7 @@
               <label class="block text-sm text-gray-600 mb-1">Division A</label>
               <select
                 v-model="configDivisionA"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select...</option>
                 <option
@@ -128,7 +128,7 @@
               <label class="block text-sm text-gray-600 mb-1">Division B</label>
               <select
                 v-model="configDivisionB"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select...</option>
                 <option
@@ -151,7 +151,7 @@
             <input
               type="date"
               v-model="configStartDate"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
@@ -165,7 +165,7 @@
                 type="text"
                 v-model="configTier1Name"
                 placeholder="Gold Cup"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
@@ -176,7 +176,7 @@
                 type="text"
                 v-model="configTier2Name"
                 placeholder="Silver Cup"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
           </div>
@@ -185,7 +185,7 @@
             <button
               @click="showGenerateConfirm"
               :disabled="actionLoading || !canGenerate"
-              class="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
+              class="w-full px-6 py-3 bg-brand-600 text-white rounded-md hover:bg-brand-700 disabled:opacity-50 font-medium"
             >
               {{ actionLoading ? 'Generating...' : 'Generate Playoff Bracket' }}
             </button>
@@ -290,12 +290,12 @@
     >
       <!-- Bracket Type Header -->
       <div
-        class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-center"
+        class="mb-4 p-3 bg-brand-50 border border-brand-200 rounded-md text-center"
       >
-        <div class="text-lg font-semibold text-blue-900">
+        <div class="text-lg font-semibold text-brand-900">
           {{ selectedBracketType?.name }}
         </div>
-        <div class="text-xs text-blue-700 mt-1">
+        <div class="text-xs text-brand-700 mt-1">
           {{ selectedBracketType?.description }}
         </div>
       </div>

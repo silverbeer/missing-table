@@ -17,7 +17,7 @@
         <select
           v-model="platformFilter"
           @change="fetchRequests"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Platforms</option>
           <option value="telegram">Telegram</option>
@@ -27,7 +27,7 @@
         <select
           v-model="statusFilter"
           @change="fetchRequests"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
@@ -40,7 +40,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-8">
       <div
-        class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
       <p class="mt-2 text-gray-600">Loading requests...</p>
     </div>

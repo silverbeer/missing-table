@@ -196,7 +196,7 @@
             !subForm.player_out_id ||
             !subForm.match_minute
           "
-          class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:text-slate-400 text-white text-sm rounded font-medium transition-colors"
+          class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-600 disabled:text-slate-400 text-white text-sm rounded font-medium transition-colors"
         >
           Add
         </button>
@@ -349,7 +349,7 @@
                   type="checkbox"
                   v-model="player.started"
                   @change="onStartedChanged(player)"
-                  class="rounded bg-slate-700 border-slate-600 text-blue-500"
+                  class="rounded bg-slate-700 border-slate-600 text-brand-500"
                 />
                 <span v-else class="text-slate-300">{{
                   player.started ? 'Y' : '-'
@@ -415,7 +415,7 @@
           <button
             @click="submitStats"
             :disabled="saving"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:text-slate-400 text-white text-sm rounded font-medium transition-colors"
+            class="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-600 disabled:text-slate-400 text-white text-sm rounded font-medium transition-colors"
           >
             {{ saving ? 'Saving...' : 'Save Player Stats' }}
           </button>

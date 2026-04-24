@@ -31,13 +31,13 @@
     <!-- Cache Stats -->
     <div v-else-if="cacheStats.enabled">
       <!-- Summary -->
-      <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
+      <div class="mb-6 p-4 bg-brand-50 border border-brand-200 rounded">
         <div class="flex items-center justify-between">
           <div>
-            <span class="text-2xl font-bold text-blue-700">{{
+            <span class="text-2xl font-bold text-brand-700">{{
               cacheStats.total_keys
             }}</span>
-            <span class="text-blue-600 ml-2">total cached items</span>
+            <span class="text-brand-600 ml-2">total cached items</span>
           </div>
           <button
             @click="clearAllCache"

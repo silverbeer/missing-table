@@ -11,7 +11,7 @@
             type="radio"
             v-model="formType"
             value="schedule"
-            class="form-radio text-blue-600"
+            class="form-radio text-brand-600"
             data-testid="form-type-schedule"
           />
           <span class="ml-2">Schedule New Match</span>
@@ -21,7 +21,7 @@
             type="radio"
             v-model="formType"
             value="score"
-            class="form-radio text-blue-600"
+            class="form-radio text-brand-600"
             data-testid="form-type-score"
           />
           <span class="ml-2">Score Match</span>
@@ -38,7 +38,7 @@
           >
           <select
             v-model="selectedSeason"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="season-select"
           >
             <option
@@ -56,7 +56,7 @@
           >
           <select
             v-model="selectedAgeGroup"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="age-group-select"
           >
             <option
@@ -74,7 +74,7 @@
           >
           <select
             v-model="selectedMatchType"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="match-type-select"
           >
             <option
@@ -91,7 +91,7 @@
       <!-- Division Row (only for League matches) -->
       <div
         v-if="isLeagueMatch"
-        class="p-3 bg-blue-50 rounded-md border border-blue-200"
+        class="p-3 bg-brand-50 rounded-md border border-brand-200"
         data-testid="division-section"
       >
         <div class="grid grid-cols-1 gap-3">
@@ -101,7 +101,7 @@
             >
             <select
               v-model="selectedDivision"
-              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
               required
               data-testid="division-select"
             >
@@ -134,7 +134,7 @@
             >
             <select
               v-model="selectedStatus"
-              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
               required
               data-testid="status-select"
             >
@@ -162,7 +162,7 @@
             v-model="matchData.date"
             id="match_date"
             required
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="date-input"
           />
         </div>
@@ -176,7 +176,7 @@
             type="time"
             v-model="matchData.kickoffTime"
             id="kickoff_time"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="kickoff-time-input"
           />
         </div>
@@ -189,7 +189,7 @@
             v-model="matchData.homeTeam"
             id="home_team"
             required
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="home-team-select"
           >
             <option value="">Select Team</option>
@@ -207,7 +207,7 @@
             v-model="matchData.awayTeam"
             id="away_team"
             required
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="away-team-select"
           >
             <option value="">Select Team</option>
@@ -234,7 +234,7 @@
             id="home_score"
             required
             min="0"
-            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
+            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-center text-lg font-bold"
             data-testid="home-score-input"
           />
         </div>
@@ -251,7 +251,7 @@
             id="away_score"
             required
             min="0"
-            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center text-lg font-bold"
+            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-center text-lg font-bold"
             data-testid="away-score-input"
           />
         </div>
@@ -261,7 +261,7 @@
       <div class="flex justify-end pt-2">
         <button
           type="submit"
-          class="bg-blue-500 text-white px-4 py-1.5 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
+          class="bg-brand-500 text-white px-4 py-1.5 rounded-md hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 text-sm"
           data-testid="submit-button"
         >
           {{ formType === 'schedule' ? 'Schedule Game' : 'Submit Score' }}

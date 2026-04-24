@@ -6,7 +6,7 @@
         <select
           v-model="filterSeason"
           @change="fetchGoals"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Seasons</option>
           <option v-for="season in seasons" :key="season.id" :value="season.id">
@@ -17,7 +17,7 @@
         <select
           v-model="filterAgeGroup"
           @change="fetchGoals"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Age Groups</option>
           <option
@@ -32,7 +32,7 @@
         <select
           v-model="filterMatchType"
           @change="fetchGoals"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Match Types</option>
           <option
@@ -49,7 +49,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -134,7 +134,7 @@
               <div class="flex gap-2 justify-end items-center">
                 <button
                   @click="editGoal(goal)"
-                  class="bg-blue-500 text-white px-2 py-1.5 rounded hover:bg-blue-600 font-medium text-xs min-w-[60px]"
+                  class="bg-brand-500 text-white px-2 py-1.5 rounded hover:bg-brand-600 font-medium text-xs min-w-[60px]"
                 >
                   Edit
                 </button>
@@ -182,7 +182,7 @@
                   type="number"
                   min="0"
                   max="120"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="e.g. 45"
                 />
               </div>
@@ -195,7 +195,7 @@
                   type="number"
                   min="0"
                   max="30"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="e.g. 3"
                 />
               </div>
@@ -209,7 +209,7 @@
                 v-model="editFormData.player_name"
                 type="text"
                 maxlength="200"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Goal scorer name"
               />
             </div>
@@ -225,7 +225,7 @@
               <button
                 type="submit"
                 :disabled="formLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{ formLoading ? 'Saving...' : 'Save Changes' }}
               </button>

@@ -4,7 +4,7 @@
       <h3 class="text-lg font-semibold text-gray-900">Clubs Management</h3>
       <button
         @click="showAddModal = true"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add Club
       </button>
@@ -13,7 +13,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -73,13 +73,13 @@
               <span class="font-medium">Teams:</span>
               <div class="flex items-center gap-2">
                 <span
-                  class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold"
+                  class="bg-brand-100 text-brand-800 px-2 py-1 rounded-full font-semibold"
                 >
                   {{ club.team_count }}
                 </span>
                 <button
                   type="button"
-                  class="text-xs font-medium text-blue-600 hover:text-blue-800"
+                  class="text-xs font-medium text-brand-600 hover:text-brand-800"
                   @click="toggleClubTeams(club.id)"
                 >
                   {{ expandedClubIds[club.id] ? 'Hide teams' : 'Show teams' }}
@@ -138,7 +138,7 @@
                   <span
                     v-for="leagueName in team.mapping_league_names || []"
                     :key="leagueName"
-                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
                   >
                     {{ leagueName }}
                   </span>
@@ -155,7 +155,7 @@
         <div class="bg-gray-50 px-6 py-3 flex justify-end space-x-2">
           <button
             @click="viewClubDetails(club)"
-            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            class="text-brand-600 hover:text-brand-800 text-sm font-medium"
           >
             View Details
           </button>
@@ -194,7 +194,7 @@
       <div class="mt-6">
         <button
           @click="showAddModal = true"
-          class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700"
         >
           Add Club
         </button>
@@ -228,7 +228,7 @@
               v-model="newClub.name"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="e.g., IFA"
             />
           </div>
@@ -241,7 +241,7 @@
               v-model="newClub.city"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="e.g., Weymouth, MA"
             />
           </div>
@@ -253,7 +253,7 @@
             <input
               v-model="newClub.website"
               type="url"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="e.g., https://ifasoccer.com"
             />
           </div>
@@ -265,7 +265,7 @@
             <textarea
               v-model="newClub.description"
               rows="3"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="Brief description of the club"
             ></textarea>
           </div>
@@ -276,7 +276,7 @@
               v-model="newClub.pro_academy"
               type="checkbox"
               id="new_pro_academy"
-              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
             />
             <label
               for="new_pro_academy"
@@ -286,8 +286,8 @@
             </label>
           </div>
 
-          <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
-            <p class="text-sm text-blue-800">
+          <div class="bg-brand-50 border border-brand-200 rounded-md p-3">
+            <p class="text-sm text-brand-800">
               <strong>Note:</strong> After creating a club, you can link teams
               to it in the Teams Management section.
             </p>
@@ -304,7 +304,7 @@
             <button
               type="submit"
               :disabled="saving"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50"
             >
               {{ saving ? 'Creating...' : 'Create Club' }}
             </button>
@@ -342,7 +342,7 @@
               v-model="editClub.name"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             />
           </div>
 
@@ -354,7 +354,7 @@
               v-model="editClub.city"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             />
           </div>
 
@@ -365,7 +365,7 @@
             <input
               v-model="editClub.website"
               type="url"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             />
           </div>
 
@@ -376,7 +376,7 @@
             <textarea
               v-model="editClub.description"
               rows="3"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             ></textarea>
           </div>
 
@@ -386,7 +386,7 @@
               v-model="editClub.pro_academy"
               type="checkbox"
               id="pro_academy"
-              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
             />
             <label
               for="pro_academy"
@@ -515,7 +515,7 @@
             <button
               type="submit"
               :disabled="saving"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              class="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50"
             >
               {{ saving ? 'Saving...' : 'Save Changes' }}
             </button>

@@ -5,7 +5,7 @@
       <button
         @click="showAddModal = true"
         data-testid="add-team-button"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add Team
       </button>
@@ -18,7 +18,7 @@
       data-testid="teams-loading"
     >
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -120,7 +120,7 @@
                 <span
                   v-for="ageGroup in (team.age_groups || []).filter(ag => ag)"
                   :key="ageGroup.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
                 >
                   {{ ageGroup.name }}
                 </span>
@@ -131,7 +131,7 @@
             >
               <button
                 @click="editTeam(team)"
-                class="text-blue-600 hover:text-blue-900 mr-3"
+                class="text-brand-600 hover:text-brand-900 mr-3"
                 data-testid="edit-team-button"
               >
                 Edit
@@ -192,7 +192,7 @@
                 type="text"
                 required
                 data-testid="team-name-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., New York City FC, Boston United..."
               />
             </div>
@@ -205,7 +205,7 @@
                 v-model="formData.city"
                 type="text"
                 data-testid="team-city-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., New York, Boston..."
               />
             </div>
@@ -218,7 +218,7 @@
                 v-model="formData.parentClubId"
                 :disabled="isClubManager()"
                 data-testid="team-club-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option v-if="!isClubManager()" :value="null">
                   Independent Team (No Parent Club)
@@ -248,7 +248,7 @@
                 @change="onTeamTypeChange"
                 :required="!showEditModal"
                 data-testid="team-type-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select Team Type</option>
                 <option value="league">League Team</option>
@@ -275,7 +275,7 @@
                 @change="formData.divisionId = null"
                 required
                 data-testid="team-league-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option :value="null">Select League</option>
                 <option
@@ -306,7 +306,7 @@
                 v-model="formData.divisionId"
                 required
                 data-testid="team-division-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option :value="null">Select Division</option>
                 <option
@@ -331,7 +331,7 @@
                 <span
                   v-for="ageGroup in editingTeam?.age_groups || []"
                   :key="ageGroup.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
                 >
                   {{ ageGroup.name }}
                 </span>
@@ -363,7 +363,7 @@
                     type="checkbox"
                     :value="ageGroup.id"
                     v-model="formData.ageGroupIds"
-                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                   />
                   <span class="ml-2">{{ ageGroup.name }}</span>
                 </label>
@@ -390,7 +390,7 @@
                     type="checkbox"
                     :value="gameType.id"
                     v-model="formData.gameTypeIds"
-                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                   />
                   <span class="ml-2">{{ gameType.name }}</span>
                 </label>
@@ -408,7 +408,7 @@
                 <input
                   type="checkbox"
                   v-model="formData.academyTeam"
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                  class="rounded border-gray-300 text-brand-600 focus:ring-brand-500 mr-2"
                 />
                 Pro Academy Team
               </label>
@@ -430,7 +430,7 @@
                 type="submit"
                 :disabled="formLoading"
                 data-testid="team-modal-submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{
                   formLoading
@@ -514,7 +514,7 @@
                     <select
                       v-model="mappingForm.league_id"
                       required
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <option value="">Select League</option>
                       <option
@@ -534,7 +534,7 @@
                       v-model="mappingForm.division_id"
                       required
                       :disabled="!mappingForm.league_id"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value="">
                         {{
@@ -559,7 +559,7 @@
                     <select
                       v-model="mappingForm.age_group_id"
                       required
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <option value="">Select Age Group</option>
                       <option

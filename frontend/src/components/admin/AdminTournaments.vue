@@ -5,7 +5,7 @@
       <h3 class="text-lg font-semibold text-gray-900">Tournaments</h3>
       <button
         @click="openCreateTournament"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add Tournament
       </button>
@@ -14,7 +14,7 @@
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -59,7 +59,7 @@
                 <span
                   v-for="ag in tournament.age_groups || []"
                   :key="ag.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-700"
                 >
                   {{ ag.name }}
                 </span>
@@ -83,7 +83,7 @@
             </span>
             <button
               @click.stop="openEditTournament(tournament)"
-              class="text-blue-600 hover:text-blue-900 text-sm"
+              class="text-brand-600 hover:text-brand-900 text-sm"
             >
               Edit
             </button>
@@ -104,7 +104,7 @@
           <!-- Loading matches -->
           <div v-if="matchesLoading" class="flex justify-center py-4">
             <div
-              class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"
+              class="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600"
             ></div>
           </div>
 
@@ -198,7 +198,7 @@
                   <td class="py-2 text-right">
                     <button
                       @click="openEditMatch(match)"
-                      class="text-blue-600 hover:text-blue-900 mr-3"
+                      class="text-brand-600 hover:text-brand-900 mr-3"
                     >
                       Edit
                     </button>
@@ -254,7 +254,7 @@
                 v-model="tForm.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g. 2026 Generation adidas Cup"
               />
             </div>
@@ -269,7 +269,7 @@
                   v-model="tForm.start_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
@@ -279,7 +279,7 @@
                 <input
                   v-model="tForm.end_date"
                   type="date"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
@@ -292,7 +292,7 @@
               <input
                 v-model="tForm.location"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g. IMG Academy, Bradenton FL"
               />
             </div>
@@ -312,7 +312,7 @@
                     type="checkbox"
                     :value="ag.id"
                     v-model="tForm.age_group_ids"
-                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                   />
                   <span class="text-sm text-gray-700">{{ ag.name }}</span>
                 </label>
@@ -327,7 +327,7 @@
               <textarea
                 v-model="tForm.description"
                 rows="2"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Optional notes about format, teams, etc."
               ></textarea>
             </div>
@@ -338,7 +338,7 @@
                 v-model="tForm.is_active"
                 id="is_active"
                 type="checkbox"
-                class="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                class="h-4 w-4 text-brand-600 border-gray-300 rounded"
               />
               <label for="is_active" class="text-sm text-gray-700"
                 >Visible to fans (active)</label
@@ -356,7 +356,7 @@
               <button
                 type="submit"
                 :disabled="tFormLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{
                   tFormLoading
@@ -397,7 +397,7 @@
               <button
                 type="button"
                 @click="swapHomeAway"
-                class="ml-2 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded px-2 py-0.5"
+                class="ml-2 text-xs text-brand-600 hover:text-brand-800 border border-brand-300 rounded px-2 py-0.5"
                 title="Swap home and away teams"
               >
                 ⇄ Swap
@@ -412,7 +412,7 @@
                 <select
                   v-model="mForm.our_team_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="t in leagueTeams" :key="t.id" :value="t.id">
@@ -428,7 +428,7 @@
                   v-model="mForm.opponent_name"
                   type="text"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Opponent team name"
                 />
                 <p class="text-xs text-gray-400 mt-1">
@@ -448,7 +448,7 @@
                     v-model="mForm.is_home"
                     type="radio"
                     :value="true"
-                    class="text-blue-600"
+                    class="text-brand-600"
                   />
                   <span class="text-sm">Home</span>
                 </label>
@@ -457,7 +457,7 @@
                     v-model="mForm.is_home"
                     type="radio"
                     :value="false"
-                    class="text-blue-600"
+                    class="text-brand-600"
                   />
                   <span class="text-sm">Away</span>
                 </label>
@@ -474,7 +474,7 @@
                   v-model="mForm.match_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
@@ -484,7 +484,7 @@
                 <input
                   v-model="mForm.scheduled_kickoff"
                   type="time"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
@@ -497,7 +497,7 @@
                 >
                 <select
                   v-model="mForm.tournament_round"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="">— none —</option>
                   <option value="group_stage">Group Stage</option>
@@ -515,7 +515,7 @@
                 <input
                   v-model="mForm.tournament_group"
                   type="text"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="e.g. Group A"
                 />
               </div>
@@ -530,7 +530,7 @@
                 <select
                   v-model="mForm.age_group_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
@@ -545,7 +545,7 @@
                 <select
                   v-model="mForm.season_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="s in seasons" :key="s.id" :value="s.id">
@@ -565,7 +565,7 @@
                   v-model.number="mForm.home_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="—"
                 />
               </div>
@@ -577,7 +577,7 @@
                   v-model.number="mForm.away_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="—"
                 />
               </div>
@@ -587,7 +587,7 @@
                 >
                 <select
                   v-model="mForm.match_status"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="scheduled">Scheduled</option>
                   <option value="completed">Completed</option>
@@ -646,7 +646,7 @@
               <button
                 type="submit"
                 :disabled="mFormLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50"
+                class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
               >
                 {{
                   mFormLoading
@@ -767,7 +767,7 @@ export default {
         scheduled: 'text-gray-500',
         completed: 'text-green-700 font-medium',
         cancelled: 'text-red-500',
-        in_progress: 'text-blue-600 font-medium',
+        in_progress: 'text-brand-600 font-medium',
       };
       return map[status] || 'text-gray-500';
     };

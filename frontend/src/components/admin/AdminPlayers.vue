@@ -11,14 +11,14 @@
           v-model="searchQuery"
           type="text"
           placeholder="Search by name or email..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           @input="debouncedSearch"
         />
       </div>
       <div class="w-48">
         <select
           v-model="selectedClubId"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           @change="fetchPlayers"
         >
           <option :value="null">All Clubs</option>
@@ -30,7 +30,7 @@
       <div class="w-48">
         <select
           v-model="selectedTeamId"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           @change="fetchPlayers"
         >
           <option :value="null">All Teams</option>
@@ -44,7 +44,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
     </div>
 
@@ -126,7 +126,7 @@
                 <span
                   v-for="assignment in player.current_teams"
                   :key="assignment.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
                 >
                   {{ assignment.team?.name || 'Unknown Team' }}
                 </span>
@@ -145,7 +145,7 @@
             >
               <button
                 @click="openEditModal(player)"
-                class="text-blue-600 hover:text-blue-900 mr-3"
+                class="text-brand-600 hover:text-brand-900 mr-3"
               >
                 Edit
               </button>
@@ -247,7 +247,7 @@
               <input
                 v-model="editForm.display_name"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div class="mb-4">
@@ -259,7 +259,7 @@
                 type="number"
                 min="1"
                 max="99"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div class="mb-4">
@@ -276,7 +276,7 @@
                     type="checkbox"
                     :value="pos"
                     v-model="editForm.positions"
-                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                   />
                   <span class="ml-2 text-sm text-gray-700">{{ pos }}</span>
                 </label>
@@ -293,7 +293,7 @@
               <button
                 type="submit"
                 :disabled="formLoading"
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 disabled:opacity-50"
               >
                 {{ formLoading ? 'Saving...' : 'Save' }}
               </button>
@@ -365,7 +365,7 @@
                   <select
                     v-model="assignmentForm.season_id"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option :value="null" disabled>Select season</option>
                     <option
@@ -382,7 +382,7 @@
                   <select
                     v-model="assignmentForm.team_id"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option :value="null" disabled>Select team</option>
                     <option
@@ -405,7 +405,7 @@
                     type="number"
                     min="1"
                     max="99"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
                 <div class="flex items-end">
@@ -413,7 +413,7 @@
                     <input
                       type="checkbox"
                       v-model="assignmentForm.is_current"
-                      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                     />
                     <span class="ml-2 text-sm text-gray-700">Current team</span>
                   </label>
