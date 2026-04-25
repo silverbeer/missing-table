@@ -23,9 +23,27 @@
       </div>
 
       <!-- Admin Navigation -->
-      <div class="mb-8" data-testid="admin-nav">
+      <div class="mb-6 sm:mb-8" data-testid="admin-nav">
+        <!-- Mobile: native select (large tap target, native picker) -->
+        <label for="admin-section-select" class="sr-only">Admin section</label>
+        <select
+          id="admin-section-select"
+          v-model="currentSection"
+          data-testid="admin-section-select"
+          class="sm:hidden block w-full px-3 py-2.5 text-base font-medium bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+        >
+          <option
+            v-for="section in adminSections"
+            :key="section.id"
+            :value="section.id"
+          >
+            {{ section.name }}
+          </option>
+        </select>
+
+        <!-- Desktop: scrollable button row -->
         <nav
-          class="flex space-x-1 bg-gray-100 p-1 rounded-lg"
+          class="hidden sm:flex space-x-1 bg-gray-100 p-1 rounded-lg overflow-x-auto"
           aria-label="Admin sections"
         >
           <button
@@ -37,7 +55,7 @@
               currentSection === section.id
                 ? 'bg-white text-gray-900 shadow'
                 : 'text-gray-600 hover:text-gray-900',
-              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
+              'px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex-shrink-0',
             ]"
           >
             {{ section.name }}
@@ -53,7 +71,7 @@
         <!-- Invite Requests Management -->
         <div
           v-if="currentSection === 'invite-requests'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-invite-requests"
         >
           <AdminInviteRequests />
@@ -62,7 +80,7 @@
         <!-- Channel Access Requests -->
         <div
           v-if="currentSection === 'channel-requests'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-channel-requests"
         >
           <AdminChannelRequests />
@@ -71,7 +89,7 @@
         <!-- Live Match Notifications (per-club Telegram/Discord) -->
         <div
           v-if="currentSection === 'club-notifications'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-club-notifications"
         >
           <AdminClubNotifications />
@@ -80,7 +98,7 @@
         <!-- Age Groups Management -->
         <div
           v-if="currentSection === 'age-groups'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-age-groups"
         >
           <AdminAgeGroups />
@@ -89,7 +107,7 @@
         <!-- Seasons Management -->
         <div
           v-if="currentSection === 'seasons'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-seasons"
         >
           <AdminSeasons />
@@ -98,7 +116,7 @@
         <!-- Leagues Management -->
         <div
           v-if="currentSection === 'leagues'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-leagues"
         >
           <AdminLeagues />
@@ -107,7 +125,7 @@
         <!-- Divisions Management -->
         <div
           v-if="currentSection === 'divisions'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-divisions"
         >
           <AdminDivisions />
@@ -116,7 +134,7 @@
         <!-- Clubs Management -->
         <div
           v-if="currentSection === 'clubs'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-clubs"
         >
           <AdminClubs />
@@ -125,7 +143,7 @@
         <!-- Teams Management -->
         <div
           v-if="currentSection === 'teams'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-teams"
         >
           <AdminTeams />
@@ -134,7 +152,7 @@
         <!-- Players Management -->
         <div
           v-if="currentSection === 'players'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-players"
         >
           <AdminPlayers />
@@ -143,7 +161,7 @@
         <!-- Matches Management -->
         <div
           v-if="currentSection === 'matches'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-matches"
         >
           <AdminMatches />
@@ -152,7 +170,7 @@
         <!-- Goals Management -->
         <div
           v-if="currentSection === 'goals'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-goals"
         >
           <AdminGoals />
@@ -161,7 +179,7 @@
         <!-- Playoffs Management -->
         <div
           v-if="currentSection === 'playoffs'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-playoffs"
         >
           <AdminPlayoffs />
@@ -170,7 +188,7 @@
         <!-- Invites Management -->
         <div
           v-if="currentSection === 'invites'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-invites"
         >
           <AdminInvites />
@@ -179,7 +197,7 @@
         <!-- Tournaments Management -->
         <div
           v-if="currentSection === 'tournaments'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-tournaments"
         >
           <AdminTournaments />
@@ -188,7 +206,7 @@
         <!-- Cache Management -->
         <div
           v-if="currentSection === 'cache'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-cache"
         >
           <AdminCache />
@@ -197,7 +215,7 @@
         <!-- Users / Login Activity -->
         <div
           v-if="currentSection === 'users'"
-          class="p-6"
+          class="p-3 sm:p-6"
           data-testid="admin-section-users"
         >
           <AdminUsers />
