@@ -322,7 +322,7 @@
 
         <!-- Tabs + Content card (authenticated users) -->
         <div
-          v-else
+          v-if="authStore.state.session"
           class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200/60 overflow-hidden"
         >
           <nav
