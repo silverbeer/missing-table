@@ -110,108 +110,107 @@
 
           <template v-else>
             <!-- Matches table -->
-            <table
-              v-if="selectedMatches.length > 0"
-              class="min-w-full mb-4 text-sm"
-            >
-              <thead>
-                <tr class="border-b border-gray-200">
-                  <th
-                    class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Date
-                  </th>
-                  <th
-                    class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Round
-                  </th>
-                  <th
-                    class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Group
-                  </th>
-                  <th
-                    class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Home
-                  </th>
-                  <th
-                    class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Score
-                  </th>
-                  <th
-                    class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Away
-                  </th>
-                  <th
-                    class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Status
-                  </th>
-                  <th
-                    class="text-right py-2 font-medium text-gray-500 text-xs uppercase"
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr v-for="match in selectedMatches" :key="match.id">
-                  <td class="py-2 pr-4 text-gray-700">
-                    {{ formatDate(match.match_date) }}
-                  </td>
-                  <td class="py-2 pr-4 text-gray-500">
-                    {{ formatRound(match.tournament_round) }}
-                  </td>
-                  <td class="py-2 pr-4 text-gray-500">
-                    {{ match.tournament_group || '—' }}
-                  </td>
-                  <td class="py-2 pr-4 font-medium text-gray-900">
-                    {{ match.home_team?.name }}
-                  </td>
-                  <td class="py-2 pr-4 text-gray-700 font-mono">
-                    <span v-if="match.home_score != null">
-                      {{ match.home_score }} – {{ match.away_score }}
-                      <span
-                        v-if="match.home_penalty_score != null"
-                        class="text-xs text-gray-500 ml-1"
-                      >
-                        ({{ match.home_penalty_score }}–{{
-                          match.away_penalty_score
-                        }}
-                        pens)
+            <div v-if="selectedMatches.length > 0" class="overflow-x-auto mb-4">
+              <table class="min-w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-200">
+                    <th
+                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Date
+                    </th>
+                    <th
+                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Round
+                    </th>
+                    <th
+                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Group
+                    </th>
+                    <th
+                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Home
+                    </th>
+                    <th
+                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Score
+                    </th>
+                    <th
+                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Away
+                    </th>
+                    <th
+                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Status
+                    </th>
+                    <th
+                      class="text-right py-2 font-medium text-gray-500 text-xs uppercase"
+                    >
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <tr v-for="match in selectedMatches" :key="match.id">
+                    <td class="py-2 pr-4 text-gray-700">
+                      {{ formatDate(match.match_date) }}
+                    </td>
+                    <td class="py-2 pr-4 text-gray-500">
+                      {{ formatRound(match.tournament_round) }}
+                    </td>
+                    <td class="py-2 pr-4 text-gray-500">
+                      {{ match.tournament_group || '—' }}
+                    </td>
+                    <td class="py-2 pr-4 font-medium text-gray-900">
+                      {{ match.home_team?.name }}
+                    </td>
+                    <td class="py-2 pr-4 text-gray-700 font-mono">
+                      <span v-if="match.home_score != null">
+                        {{ match.home_score }} – {{ match.away_score }}
+                        <span
+                          v-if="match.home_penalty_score != null"
+                          class="text-xs text-gray-500 ml-1"
+                        >
+                          ({{ match.home_penalty_score }}–{{
+                            match.away_penalty_score
+                          }}
+                          pens)
+                        </span>
                       </span>
-                    </span>
-                    <span v-else class="text-gray-400">vs</span>
-                  </td>
-                  <td class="py-2 pr-4 font-medium text-gray-900">
-                    {{ match.away_team?.name }}
-                  </td>
-                  <td class="py-2 pr-4">
-                    <span :class="statusClass(match.match_status)">
-                      {{ match.match_status }}
-                    </span>
-                  </td>
-                  <td class="py-2 text-right">
-                    <button
-                      @click="openEditMatch(match)"
-                      class="text-brand-600 hover:text-brand-900 mr-3"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      @click="deleteMatch(match)"
-                      class="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <span v-else class="text-gray-400">vs</span>
+                    </td>
+                    <td class="py-2 pr-4 font-medium text-gray-900">
+                      {{ match.away_team?.name }}
+                    </td>
+                    <td class="py-2 pr-4">
+                      <span :class="statusClass(match.match_status)">
+                        {{ match.match_status }}
+                      </span>
+                    </td>
+                    <td class="py-2 text-right">
+                      <button
+                        @click="openEditMatch(match)"
+                        class="text-brand-600 hover:text-brand-900 mr-3"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        @click="deleteMatch(match)"
+                        class="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
             <p v-else class="text-gray-500 text-sm mb-4">No matches yet.</p>
 

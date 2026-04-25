@@ -34,7 +34,7 @@
     <!-- Teams Table -->
     <div
       v-else
-      class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
+      class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
       data-testid="teams-table-container"
     >
       <table

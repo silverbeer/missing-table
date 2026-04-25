@@ -59,7 +59,7 @@
     <!-- Players Table -->
     <div
       v-else-if="!loading"
-      class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
+      class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
     >
       <table class="min-w-full divide-y divide-gray-300">
         <thead class="bg-gray-50">
