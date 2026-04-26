@@ -183,6 +183,7 @@ backend/archive/deprecated-user-scripts/
 test-results/
 backend/test-results/
 backend/tests/e2e/playwright/screenshots/
+.playwright-mcp/
 
 # TSC test artifacts (environment-specific registry files)
 backend/tests/tsc/.entity_registry.json
