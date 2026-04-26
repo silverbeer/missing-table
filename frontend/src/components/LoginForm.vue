@@ -19,6 +19,7 @@
           <label for="username">Username:</label>
           <input
             id="username"
+            ref="usernameInput"
             v-model="form.username"
             type="text"
             required
@@ -258,7 +259,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, onMounted, nextTick, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 
@@ -274,6 +275,7 @@ export default {
     const selectedTeamId = ref('');
     const teams = ref([]);
     const inviteInfo = ref(null);
+    const usernameInput = ref(null);
 
     const form = reactive({
       username: '',
@@ -444,6 +446,8 @@ export default {
 
         // Validate the invite code automatically
         validateInviteCode();
+      } else {
+        nextTick(() => usernameInput.value?.focus());
       }
     });
 
@@ -452,6 +456,7 @@ export default {
       isSignup,
       showInviteSignup,
       form,
+      usernameInput,
       showRoleSelection,
       selectedRole,
       selectedTeamId,
