@@ -2780,6 +2780,62 @@ async def update_match_clock(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.post("/api/matches/{match_id}/live/reopen")
+async def reopen_match(
+    match_id: int,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Reopen a match that was ended by mistake.
+
+    Clears match_end_time and reverts match_status to 'live'. Score and existing
+    events are preserved — caller can resume scoring and click End Match again
+    when the match is actually finished.
+
+    Only accessible by admins, club managers, and team managers who can edit this match.
+    """
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        if not auth_manager.can_edit_match(
+            current_user, current_match["home_team_id"], current_match["away_team_id"]
+        ):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        if current_match.get("match_status") != "completed":
+            raise HTTPException(
+                status_code=400,
+                detail="Match is not completed — only completed matches can be reopened",
+            )
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+        result = match_dao.reopen_match(match_id, updated_by=user_id)
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to reopen match")
+
+        match_event_dao.create_event(
+            match_id=match_id,
+            event_type="status_change",
+            message="Match reopened",
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+        )
+
+        # Stats cache was invalidated by end_match; clear again so leaderboard
+        # reflects the now-live state.
+        from dao.base_dao import clear_cache
+
+        clear_cache("mt:dao:stats:*")
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reopening match: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.post("/api/matches/{match_id}/live/goal")
 async def post_goal(
     match_id: int,

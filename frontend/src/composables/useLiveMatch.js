@@ -281,6 +281,23 @@ export function useLiveMatch(matchId) {
     }
   }
 
+  async function reopenMatch() {
+    try {
+      const response = await authStore.apiRequest(
+        `${getApiBaseUrl()}/api/matches/${matchId}/live/reopen`,
+        { method: 'POST' }
+      );
+      if (response) {
+        matchState.value = response;
+        await fetchMatchState();
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('Error reopening match:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   async function postGoal(teamId, playerName, message = null, playerId = null) {
     try {
       const goalData = {
@@ -453,6 +470,7 @@ export function useLiveMatch(matchId) {
 
     // Methods
     updateClock,
+    reopenMatch,
     postGoal,
     postCard,
     postMessage,

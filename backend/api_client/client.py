@@ -1017,6 +1017,11 @@ class MissingTableClient:
         )
         return response.json()
 
+    def reopen_match(self, match_id: int) -> dict[str, Any]:
+        """Reopen a match that was ended by mistake."""
+        response = self._request("POST", f"/api/matches/{match_id}/live/reopen")
+        return response.json()
+
     def post_goal(self, match_id: int, goal: GoalEvent) -> dict[str, Any]:
         """Record a goal event."""
         response = self._request(

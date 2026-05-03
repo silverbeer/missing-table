@@ -49,6 +49,13 @@ class TestLiveMatchWriteContract:
         with pytest.raises((AuthenticationError, AuthorizationError)):
             api_client.update_match_clock(1, clock)
 
+    def test_reopen_match_requires_auth(self, api_client: MissingTableClient):
+        """Test reopening a match requires authentication."""
+        from api_client import AuthenticationError
+
+        with pytest.raises((AuthenticationError, AuthorizationError)):
+            api_client.reopen_match(1)
+
     def test_post_goal_requires_auth(self, api_client: MissingTableClient):
         """Test posting a goal requires authentication."""
         from api_client import AuthenticationError

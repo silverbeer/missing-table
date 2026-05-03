@@ -83,10 +83,18 @@
 
       <button
         v-if="matchPeriod === '2nd Half'"
-        @click="$emit('update-clock', 'end_match')"
+        @click="showEndMatchModal = true"
         class="control-button end"
       >
         End Match
+      </button>
+
+      <button
+        v-if="matchPeriod === 'Full Time'"
+        @click="showReopenModal = true"
+        class="control-button reopen"
+      >
+        Reopen Match
       </button>
     </div>
 
@@ -359,6 +367,59 @@
         </div>
       </div>
     </div>
+
+    <!-- End Match Confirmation Modal -->
+    <div
+      v-if="showEndMatchModal"
+      class="modal-overlay"
+      @click.self="showEndMatchModal = false"
+    >
+      <div class="modal-content">
+        <h3 class="modal-title">End Match?</h3>
+        <p class="confirm-text">
+          Final score:
+          <strong>
+            {{ matchState.home_team_name }} {{ matchState.home_score ?? 0 }} -
+            {{ matchState.away_score ?? 0 }} {{ matchState.away_team_name }}
+          </strong>
+        </p>
+        <p class="confirm-subtext">
+          The match will be marked complete. If you ended it by mistake you can
+          reopen it afterwards.
+        </p>
+        <div class="modal-actions">
+          <button @click="showEndMatchModal = false" class="cancel-button">
+            Cancel
+          </button>
+          <button @click="confirmEndMatch" class="submit-button submit-red">
+            End Match
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reopen Match Confirmation Modal -->
+    <div
+      v-if="showReopenModal"
+      class="modal-overlay"
+      @click.self="showReopenModal = false"
+    >
+      <div class="modal-content">
+        <h3 class="modal-title">Reopen Match?</h3>
+        <p class="confirm-text">
+          The match will return to the 2nd Half so you can keep scoring. The
+          existing score and events are preserved.
+        </p>
+        <div class="modal-actions">
+          <button @click="showReopenModal = false" class="cancel-button">
+            Cancel
+          </button>
+          <button @click="confirmReopen" class="submit-button">
+            Reopen Match
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -401,7 +462,12 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update-clock', 'post-goal', 'post-card']);
+const emit = defineEmits([
+  'update-clock',
+  'post-goal',
+  'post-card',
+  'reopen-match',
+]);
 
 // Goal modal state
 const showGoalModal = ref(false);
@@ -425,6 +491,20 @@ const cardMessage = ref('');
 
 // Start match modal state
 const showStartModal = ref(false);
+
+// End match / reopen confirmation modal state
+const showEndMatchModal = ref(false);
+const showReopenModal = ref(false);
+
+function confirmEndMatch() {
+  showEndMatchModal.value = false;
+  emit('update-clock', 'end_match');
+}
+
+function confirmReopen() {
+  showReopenModal.value = false;
+  emit('reopen-match');
+}
 
 // Lineup section state
 const showLineupSection = ref(false);
@@ -730,6 +810,15 @@ function submitGoal() {
   background: #e53935;
 }
 
+.control-button.reopen {
+  background: #9c27b0;
+  color: white;
+}
+
+.control-button.reopen:hover {
+  background: #8e24aa;
+}
+
 .control-button.goal {
   background: #2196f3;
   color: white;
@@ -777,6 +866,22 @@ function submitGoal() {
   margin-bottom: 20px;
   text-align: center;
   color: white;
+}
+
+.confirm-text {
+  color: white;
+  font-size: 15px;
+  text-align: center;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.confirm-subtext {
+  color: #aaa;
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 8px;
+  line-height: 1.4;
 }
 
 .form-group {
