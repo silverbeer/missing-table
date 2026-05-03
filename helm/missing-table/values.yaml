@@ -190,29 +190,6 @@ frontend:
     type: ClusterIP  # Changed from LoadBalancer - using Ingress for external access
     loadBalancerIP: ""  # Let Rancher Desktop assign
 
-# Celery Worker configuration
-# Enable in values-prod.yaml to run workers in Cloud K8s
-celeryWorker:
-  enabled: false
-  replicaCount: 1
-
-  rabbitmq:
-    username: "guest"
-    password: "guest"  #pragma: allowlist secret
-    host: "rabbitmq.match-scraper.svc.cluster.local"
-    port: 5672
-
-  redis:
-    url: "redis://missing-table-redis:6379/0"
-
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-
 # Service Account configuration
 serviceAccount:
   create: false

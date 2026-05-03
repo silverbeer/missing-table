@@ -37,24 +37,6 @@ notifications:
 redis:
   enabled: true
 
-# Celery Worker — consumes match data from RabbitMQ (match-scraper namespace)
-# Temporarily disabled: RabbitMQ auth is failing (admin/admin123 rejected,
-# 6d23h CrashLoopBackOff with 1900+ restarts) AND its 200m CPU request was
-# blocking rolling updates on the single 2-CPU LKE node. Re-enable once
-# RabbitMQ creds are fixed in the match-scraper namespace.
-celeryWorker:
-  enabled: false
-  replicaCount: 1
-
-  rabbitmq:
-    username: "admin"
-    password: "admin123"  #pragma: allowlist secret
-    host: "rabbitmq.match-scraper.svc.cluster.local"
-    port: 5672
-
-  redis:
-    url: "redis://missing-table-redis:6379/0"
-
 frontend:
   replicaCount: 1
 
