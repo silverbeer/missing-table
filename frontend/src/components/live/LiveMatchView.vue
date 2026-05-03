@@ -50,6 +50,7 @@
         @update-clock="handleUpdateClock"
         @post-goal="handlePostGoal"
         @post-card="handlePostCard"
+        @reopen-match="handleReopenMatch"
       />
 
       <!-- Activity Stream -->
@@ -94,6 +95,7 @@ const {
   matchPeriod,
   canManage,
   updateClock,
+  reopenMatch,
   postGoal,
   postCard,
   postMessage,
@@ -116,6 +118,13 @@ async function handleUpdateClock(action) {
   const result = await updateClock(action);
   if (!result.success) {
     alert(result.error || 'Failed to update clock');
+  }
+}
+
+async function handleReopenMatch() {
+  const result = await reopenMatch();
+  if (!result.success) {
+    alert(result.error || 'Failed to reopen match');
   }
 }
 

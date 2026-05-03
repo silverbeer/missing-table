@@ -1338,6 +1338,54 @@ class MatchDAO(BaseDAO):
             return None
 
     @invalidates_cache(MATCHES_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
+    def reopen_match(
+        self,
+        match_id: int,
+        updated_by: str | None = None,
+    ) -> dict | None:
+        """Reopen a completed match — clear match_end_time, set status back to live.
+
+        Score and existing events are preserved. Used to recover from accidental
+        end_match clicks.
+        """
+        try:
+            current = self.client.table("matches").select(
+                "match_status,match_end_time,second_half_start"
+            ).eq("id", match_id).single().execute()
+
+            if not current.data:
+                logger.warning("Reopen failed - match not found", match_id=match_id)
+                return None
+
+            if current.data.get("match_status") != "completed":
+                logger.warning(
+                    "Reopen rejected - match not completed",
+                    match_id=match_id,
+                    current_status=current.data.get("match_status"),
+                )
+                return None
+
+            data: dict = {
+                "match_end_time": None,
+                "match_status": "live",
+            }
+            if updated_by:
+                data["updated_by"] = updated_by
+
+            response = self.client.table("matches").update(data).eq("id", match_id).execute()
+
+            if not response.data:
+                logger.warning("Reopen failed - no rows affected", match_id=match_id)
+                return None
+
+            logger.info("match_reopened", match_id=match_id, updated_by=updated_by)
+            return self.get_live_match_state(match_id)
+
+        except Exception:
+            logger.exception("Error reopening match", match_id=match_id)
+            return None
+
+    @invalidates_cache(MATCHES_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def update_match_score(
         self,
         match_id: int,
