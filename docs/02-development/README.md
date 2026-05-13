@@ -21,6 +21,7 @@ This section covers daily development workflows, tools, and best practices for w
 | **[Docker Guide](docker-guide.md)** | Building images, platform considerations |
 | **[Logging Standards](logging-standards.md)** | Frontend/backend logging, trace IDs, Grafana Loki |
 | **[API Development](api-development.md)** | Creating new API endpoints |
+| **[Linear Workflow](linear-workflow.md)** | Issue tracking in Linear, GH integration, branch/PR conventions |
 
 ---
 
