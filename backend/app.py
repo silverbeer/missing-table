@@ -5771,7 +5771,7 @@ async def clear_cache_by_type(
     from dao.base_dao import clear_cache
 
     # Validate cache type to prevent arbitrary pattern injection
-    valid_types = ["playoffs", "matches", "players", "clubs", "teams", "standings", "rosters"]
+    valid_types = ["playoffs", "matches", "players", "clubs", "teams", "standings", "rosters", "qop"]
     if cache_type not in valid_types:
         raise HTTPException(
             status_code=400,
@@ -6479,6 +6479,10 @@ async def ingest_qop_rankings(
     """
     try:
         result = QoPRankingsDAO.record_snapshot(match_dao.client, snapshot.model_dump())
+        if result.get("status") == "inserted":
+            from dao.base_dao import clear_cache
+
+            clear_cache("mt:dao:qop:*")
         return result
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
@@ -6503,11 +6507,27 @@ async def get_qop_rankings(
     returns that specific snapshot. In both cases the response carries
     `prev_snapshot_id` / `next_snapshot_id` (null at boundaries) so the client
     can step through history.
+
+    Cached in Redis for 1 hour. Invalidated by POST /api/qop-rankings when a
+    new snapshot is inserted, or via DELETE /api/admin/cache/qop.
     """
+    from dao.base_dao import cache_get, cache_set
+
+    cache_key = (
+        f"mt:dao:qop:{division_id}:{age_group_id}:{snapshot_id}"
+        if snapshot_id is not None
+        else f"mt:dao:qop:{division_id}:{age_group_id}"
+    )
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         result = QoPRankingsDAO.get_with_delta(
             match_dao.client, division_id, age_group_id, snapshot_id
         )
+        if result.get("has_data"):
+            cache_set(cache_key, result, ttl=3600)
         return result
     except Exception as e:
         logger.error(f"Error retrieving QoP rankings: {e!s}", exc_info=True)
