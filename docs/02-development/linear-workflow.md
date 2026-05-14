@@ -29,16 +29,20 @@ Linear Free plan caps at **2 teams** and **250 issues** workspace-wide. With 3 p
 | Team prefix (issue ID) | **SB** (e.g., `SB-12`, `SB-247`) |
 | Workspace | personal (silverbeer) |
 
-All issues — regardless of repo — get `SB-N` IDs. Repo is identified by the `project:*` label below.
+All issues — regardless of repo — get `SB-N` IDs. Repo is identified by the `repo` label group below.
 
 ### Label Groups
 
 Linear supports **label groups** where members are mutually exclusive (pick one). Use them for fields that should not double up.
 
-**`project`** (group, pick one — required):
-- `project:MT` — missing-table
-- `project:QB` — qualityplaybook
-- `project:STK` — myrunstreak
+> Note: Linear reserves the name `project` for its built-in Projects feature, so the repo grouping label is named **`repo`**.
+
+**`repo`** (group, pick one — required):
+- `MT` — missingtable.com
+- `QB` — qualityplaybook.dev
+- `STK` — myrunstreak.run
+- `MS` — match-scraper
+- `MSA` — match-scraper-agent
 
 **`type`** (group, pick one):
 - `bug` — defect / regression
@@ -53,10 +57,10 @@ Linear supports **label groups** where members are mutually exclusive (pick one)
 **Area** (one or more — repo-specific, prefix to disambiguate):
 
 `backend`, `frontend`, `db`, `auth`, `qop`, `scraper-integration` — applies to MT
-`engine`, `ui` — applies to QB
-`ios`, `widget`, `sync` — applies to STK
+`engine`, `ui` — applies to QB (future)
+`ios`, `widget`, `sync` — applies to STK (future)
 
-Use the project label to scope what "frontend" or "ui" means.
+Use the `repo` label to scope what "frontend" or "ui" means.
 
 ### Priority
 
@@ -117,7 +121,7 @@ Fixes SB-300, SB-301, SB-302
 
 ```
 1. Pick / create issue in Linear     →  status: Todo
-   - Apply project:MT|QB|STK label
+   - Apply repo:MT|QB|STK|MS|MSA label
    - Apply type label
    - Set priority
 2. Hit "Copy git branch name"        →  silverbeer/sb-N-slug
@@ -136,7 +140,7 @@ No manual status changes needed for the happy path.
 
 Open GH issues are migrated 1:1 into Linear `silverbeer` team. Each migrated issue:
 
-1. Created in Linear with original title + body + appropriate `project:*` + `type` + area labels
+1. Created in Linear with original title + body + appropriate `repo` + `type` + area labels
 2. Original GH issue closed with comment linking to the new Linear issue
 3. GH issue labeled `migrated-to-linear`
 
@@ -144,33 +148,34 @@ After cutover, **do not file new GitHub Issues** in migrated repos.
 
 ### Cutover Checklist
 
-- [ ] Create Linear team "silverbeer" with prefix `SB`
-- [ ] Create label group `project` with values `MT`, `QB`, `STK`
-- [ ] Create label group `type` with values `bug`, `feature`, `chore`, `docs`, `infra`, `security`
-- [ ] Create area labels (above)
-- [ ] Install Linear GitHub app on each repo (already done for `silverbeer/missing-table`)
-- [ ] Bulk-migrate open GH issues (see [Migration mapping](#migration-mapping))
+- [x] Create Linear team "silverbeer" with prefix `SB`
+- [x] Create label group `repo` with values `MT`, `QB`, `STK`, `MS`, `MSA`
+- [x] Create label group `type` with values `bug`, `feature`, `chore`, `docs`, `infra`, `security`
+- [x] Create area labels (above)
+- [x] Install Linear GitHub app on each repo (already done for `silverbeer/missing-table`)
+- [x] Bulk-migrate open GH issues for `missing-table` (see [Migration mapping](#migration-mapping---missing-table))
 - [ ] Pin a GH notice issue in each repo pointing to Linear
 - [ ] Update each repo README with Linear link
+- [ ] Migrate `qualityplaybook` and `myrunstreak` GH issues when ready
 
 ### Migration Mapping — `missing-table`
 
-Snapshot of open GH issues at cutover (regenerate with `gh issue list --repo silverbeer/missing-table --state open --limit 100 --json number,title,labels`):
+Migrated 2026-05-13 (10 issues). Regenerate snapshot for future migrations with `gh issue list --repo silverbeer/missing-table --state open --limit 100 --json number,title,labels`.
 
-| GH # | Title | Project | Type | Area | Priority |
-|------|-------|---------|------|------|----------|
-| #270 | Remove guest/tournament teams incorrectly associated with U14 HG Northeast division | `MT` | `bug` | `db` | High |
-| #283 | feat: add admin note field to channel access request invites | `MT` | `feature` | `backend` | Low |
-| #284 | fix: improve Admin panel tab bar UX — too many tabs overflowing | `MT` | `bug` | `frontend` | Medium |
-| #298 | feat: Add QoP rankings API endpoints (ingest + query) | `MT` | `feature` | `backend`, `qop` | High |
-| #300 | feat: Extend /api/matches/preview to include QoP ranks | `MT` | `feature` | `backend`, `qop` | Medium |
-| #301 | feat: Add QoP rank column to LeagueTable.vue | `MT` | `feature` | `frontend`, `qop` | Medium |
-| #302 | feat: Show QoP rank in MatchPreview.vue | `MT` | `feature` | `frontend`, `qop` | Medium |
-| #308 | feat: add Redis caching for QoP rankings endpoint | `MT` | `feature` | `backend`, `qop` | Low |
-| #315 | Feature: Live match notifications (Telegram + Discord) | `MT` | `feature` | `backend` (epic) | Medium |
-| #322 | [Phase 7] Smoke test + docs (sub of #315) | `MT` | `docs` | `backend` | Low |
+| GH # | Linear | Title | Repo | Type | Area | Priority |
+|------|--------|-------|------|------|------|----------|
+| #270 | [SB-5](https://linear.app/silverbeer/issue/SB-5) | Remove guest/tournament teams incorrectly associated with U14 HG Northeast division | `MT` | `bug` | `db` | High |
+| #283 | [SB-6](https://linear.app/silverbeer/issue/SB-6) | feat: add admin note field to channel access request invites | `MT` | `feature` | `backend` | Low |
+| #284 | [SB-7](https://linear.app/silverbeer/issue/SB-7) | fix: improve Admin panel tab bar UX — too many tabs overflowing | `MT` | `bug` | `frontend` | Medium |
+| #298 | [SB-8](https://linear.app/silverbeer/issue/SB-8) | feat: Add QoP rankings API endpoints (ingest + query) | `MT` | `feature` | `backend`, `qop` | High |
+| #300 | [SB-9](https://linear.app/silverbeer/issue/SB-9) | feat: Extend /api/matches/preview to include QoP ranks | `MT` | `feature` | `backend`, `qop` | Medium |
+| #301 | [SB-10](https://linear.app/silverbeer/issue/SB-10) | feat: Add QoP rank column to LeagueTable.vue | `MT` | `feature` | `frontend`, `qop` | Medium |
+| #302 | [SB-11](https://linear.app/silverbeer/issue/SB-11) | feat: Show QoP rank in MatchPreview.vue | `MT` | `feature` | `frontend`, `qop` | Medium |
+| #308 | [SB-12](https://linear.app/silverbeer/issue/SB-12) | feat: add Redis caching for QoP rankings endpoint | `MT` | `feature` | `backend`, `qop` | Low |
+| #315 | [SB-13](https://linear.app/silverbeer/issue/SB-13) | Feature: Live match notifications (Telegram + Discord) (epic) | `MT` | `feature` | `backend` | Medium |
+| #322 | [SB-14](https://linear.app/silverbeer/issue/SB-14) | [Phase 7] Smoke test + docs | `MT` | `docs` | `backend` | Low |
 
-`#315` is an epic with sub-issues — in Linear, recreate as a parent issue with `#322` as a sub-issue (Linear has native parent/child support).
+`SB-13` is the epic, `SB-14` is its sub-issue (Linear native parent/child).
 
 ### Migration Mapping — `qualityplaybook` / `myrunstreak`
 
