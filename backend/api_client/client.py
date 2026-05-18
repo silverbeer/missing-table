@@ -58,6 +58,8 @@ from .models import (
     SeasonCreate,
     SeasonUpdate,
     Team,
+    TournamentCreate,
+    TournamentMatchCreate,
     UserProfileUpdate,
 )
 
@@ -867,9 +869,7 @@ class MissingTableClient:
 
     def create_player_history(self, history: PlayerHistoryCreate) -> dict[str, Any]:
         """Create a player history entry."""
-        response = self._request(
-            "POST", "/api/auth/profile/history", json_data=history.model_dump(exclude_none=True)
-        )
+        response = self._request("POST", "/api/auth/profile/history", json_data=history.model_dump(exclude_none=True))
         return response.json()
 
     def update_player_history(self, history_id: int, history: PlayerHistoryUpdate) -> dict[str, Any]:
@@ -929,9 +929,7 @@ class MissingTableClient:
 
     def create_roster_entry(self, team_id: int, entry: RosterPlayerCreate) -> dict[str, Any]:
         """Create a roster entry for a team."""
-        response = self._request(
-            "POST", f"/api/teams/{team_id}/roster", json_data=entry.model_dump(exclude_none=True)
-        )
+        response = self._request("POST", f"/api/teams/{team_id}/roster", json_data=entry.model_dump(exclude_none=True))
         return response.json()
 
     def bulk_create_roster(self, team_id: int, bulk: BulkRosterCreate) -> dict[str, Any]:
@@ -1064,9 +1062,7 @@ class MissingTableClient:
 
     def submit_match_async(self, submission: MatchSubmissionData) -> dict[str, Any]:
         """Submit a match asynchronously via message queue."""
-        response = self._request(
-            "POST", "/api/matches/submit", json_data=submission.model_dump(exclude_none=True)
-        )
+        response = self._request("POST", "/api/matches/submit", json_data=submission.model_dump(exclude_none=True))
         return response.json()
 
     def get_task_status(self, task_id: str) -> dict[str, Any]:
@@ -1163,9 +1159,7 @@ class MissingTableClient:
         response = self._request("GET", f"/api/invite-requests/{request_id}")
         return response.json()
 
-    def update_invite_request_status(
-        self, request_id: str, update: InviteRequestStatusUpdate
-    ) -> dict[str, Any]:
+    def update_invite_request_status(self, request_id: str, update: InviteRequestStatusUpdate) -> dict[str, Any]:
         """Update invite request status (admin only)."""
         response = self._request(
             "PUT", f"/api/invite-requests/{request_id}/status", json_data=update.model_dump(exclude_none=True)
@@ -1222,9 +1216,7 @@ class MissingTableClient:
         response = self._request("GET", f"/api/channel-requests/{request_id}")
         return response.json()
 
-    def update_channel_request_status(
-        self, request_id: str, update: ChannelAccessStatusUpdate
-    ) -> dict[str, Any]:
+    def update_channel_request_status(self, request_id: str, update: ChannelAccessStatusUpdate) -> dict[str, Any]:
         """Update per-platform status on a channel access request (admin/club_manager only)."""
         response = self._request(
             "PUT",
@@ -1240,9 +1232,7 @@ class MissingTableClient:
 
     # Playoffs
 
-    def get_playoff_bracket(
-        self, league_id: int, season_id: int, age_group_id: int
-    ) -> dict[str, Any]:
+    def get_playoff_bracket(self, league_id: int, season_id: int, age_group_id: int) -> dict[str, Any]:
         """Get playoff bracket for a league/season/age group."""
         params = {"league_id": league_id, "season_id": season_id, "age_group_id": age_group_id}
         response = self._request("GET", "/api/playoffs/bracket", params=params)
@@ -1263,12 +1253,40 @@ class MissingTableClient:
         response = self._request("POST", "/api/admin/playoffs/advance", json_data=request.model_dump())
         return response.json()
 
-    def delete_playoff_bracket(
-        self, league_id: int, season_id: int, age_group_id: int
-    ) -> dict[str, Any]:
+    def delete_playoff_bracket(self, league_id: int, season_id: int, age_group_id: int) -> dict[str, Any]:
         """Delete an entire playoff bracket and its matches (admin only)."""
         params = {"league_id": league_id, "season_id": season_id, "age_group_id": age_group_id}
         response = self._request("DELETE", "/api/admin/playoffs/bracket", params=params)
+        return response.json()
+
+    # Tournaments
+
+    def get_active_tournaments(self) -> list[dict[str, Any]]:
+        """Get all active tournaments (public)."""
+        response = self._request("GET", "/api/tournaments")
+        return response.json()
+
+    def lookup_team(self, name: str) -> dict[str, Any]:
+        """Look up a team by name and return exact + similar matches without creating (admin only).
+
+        Returns:
+            {"exact": team | None, "similar": [team, ...]}
+        """
+        response = self._request("GET", "/api/admin/teams/lookup", params={"name": name})
+        return response.json()
+
+    def create_tournament(self, tournament: TournamentCreate) -> dict[str, Any]:
+        """Create a new tournament (admin only)."""
+        response = self._request("POST", "/api/admin/tournaments", json_data=tournament.model_dump())
+        return response.json()
+
+    def create_tournament_match(self, tournament_id: int, match: TournamentMatchCreate) -> dict[str, Any]:
+        """Add a match to a tournament (admin only)."""
+        response = self._request(
+            "POST",
+            f"/api/admin/tournaments/{tournament_id}/matches",
+            json_data=match.model_dump(),
+        )
         return response.json()
 
     # Cache management
