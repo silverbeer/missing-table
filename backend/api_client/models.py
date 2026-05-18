@@ -105,6 +105,35 @@ class Team(BaseModel):
     academy_team: bool | None = Field(False, title="Academy Team")
 
 
+# MANUAL: Tournament request models (mirrors app.py TournamentCreate / TournamentMatchCreate).
+# Kept in sync with backend until OpenAPI schema regeneration covers tournament routes.
+class TournamentCreate(BaseModel):
+    name: str = Field(..., title="Name")
+    start_date: str = Field(..., title="Start Date")
+    end_date: str | None = Field(None, title="End Date")
+    location: str | None = Field(None, title="Location")
+    description: str | None = Field(None, title="Description")
+    age_group_ids: list[int] = Field(default_factory=list, title="Age Group Ids")
+    is_active: bool = Field(True, title="Is Active")
+
+
+class TournamentMatchCreate(BaseModel):
+    our_team_id: int = Field(..., title="Our Team Id")
+    opponent_name: str = Field(..., title="Opponent Name")
+    match_date: str = Field(..., title="Match Date")
+    age_group_id: int = Field(..., title="Age Group Id")
+    season_id: int = Field(..., title="Season Id")
+    is_home: bool = Field(True, title="Is Home")
+    home_score: int | None = Field(None, title="Home Score")
+    away_score: int | None = Field(None, title="Away Score")
+    home_penalty_score: int | None = Field(None, title="Home Penalty Score")
+    away_penalty_score: int | None = Field(None, title="Away Penalty Score")
+    match_status: str = Field("scheduled", title="Match Status")
+    tournament_group: str | None = Field(None, title="Tournament Group")
+    tournament_round: str | None = Field(None, title="Tournament Round")
+    scheduled_kickoff: str | None = Field(None, title="Scheduled Kickoff")
+
+
 class TeamGameTypeMapping(BaseModel):
     game_type_id: int = Field(..., title="Game Type Id")
     age_group_id: int = Field(..., title="Age Group Id")
