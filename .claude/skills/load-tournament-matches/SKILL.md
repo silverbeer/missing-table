@@ -11,12 +11,26 @@ This skill loads a tournament's matches into Missing Table from a screenshot. It
 ## Prerequisites — check these BEFORE doing anything else
 
 1. **A pasted screenshot must be in the current message.** If not, ask the user to paste one.
-2. **`MT_ADMIN_TOKEN` must be set in the environment.** Verify with:
+
+2. **Verify authentication** by running:
    ```bash
-   test -n "$MT_ADMIN_TOKEN" && echo "ok" || echo "missing"
+   cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py auth status
    ```
-   If missing, STOP and tell the user: "This skill needs an admin bearer token in `MT_ADMIN_TOKEN`. The agent service-account token (`AGENT_TABLE_API_TOKEN`) is service-scope only and won't work here."
-3. **`MT_API_BASE_URL`** is optional (defaults to `http://localhost:8000`). For prod, set it to `https://api.missingtable.com`.
+
+   The response is JSON. Possible outcomes:
+
+   - `{"authenticated": true, "role": "admin", ...}` → proceed.
+   - `{"authenticated": true, "role": "not_admin", ...}` → STOP. The cached token belongs to a non-admin user (e.g. team-manager). Admin endpoints will fail. Tell the user to log out and log in again as an admin:
+     ```
+     ! cd backend && uv run python mt_cli.py logout && uv run python mt_cli.py login <admin-username>
+     ```
+   - `{"authenticated": false, "hint": "..."}` → ask the user which MT admin username they want to log in as, then tell them to run (note the `!` prefix — required so `getpass` can prompt for the password in their terminal):
+     ```
+     ! cd backend && uv run python mt_cli.py login <username>
+     ```
+     Once they confirm login succeeded, re-run `auth status` to verify.
+
+3. **`MT_API_BASE_URL`** (optional, defaults to `http://localhost:8000`). The skill **shares its token with `backend/mt_cli.py`** via `backend/.mt-cli-state.json` — log in once with `mt_cli`, both tools use it. `MT_ADMIN_TOKEN` env var overrides the cached token if you want to use a different one for the skill specifically.
 
 ## Tool location
 
@@ -32,6 +46,7 @@ Quick subcommand map:
 
 | Goal | Command |
 |------|---------|
+| Check authentication + admin role | `auth status` |
 | Show age groups, divisions, seasons, active tournaments in one shot | `refdata show` |
 | Find a club by name (local fuzzy match) | `club find "<name>"` |
 | Create a club | `club create --name --city [--description]` |

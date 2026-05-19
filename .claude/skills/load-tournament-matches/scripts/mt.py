@@ -34,6 +34,7 @@ from api_client.models import (
 )
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
+auth_app = typer.Typer(no_args_is_help=True, add_completion=False)
 club_app = typer.Typer(no_args_is_help=True, add_completion=False)
 team_app = typer.Typer(no_args_is_help=True, add_completion=False)
 tournament_app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -41,6 +42,7 @@ match_app = typer.Typer(no_args_is_help=True, add_completion=False)
 logo_app = typer.Typer(no_args_is_help=True, add_completion=False)
 refdata_app = typer.Typer(no_args_is_help=True, add_completion=False)
 
+app.add_typer(auth_app, name="auth")
 app.add_typer(club_app, name="club")
 app.add_typer(team_app, name="team")
 app.add_typer(tournament_app, name="tournament")
@@ -49,13 +51,38 @@ app.add_typer(logo_app, name="logo")
 app.add_typer(refdata_app, name="refdata")
 
 
+# Shared with backend/mt_cli.py — both tools read/write the same login state.
+_MT_CLI_STATE_FILE = _REPO_ROOT / "backend" / ".mt-cli-state.json"
+
+
+def _load_cached_token() -> tuple[str | None, str | None]:
+    """Return (access_token, username) from the shared mt_cli state file."""
+    if not _MT_CLI_STATE_FILE.exists():
+        return None, None
+    try:
+        data = json.loads(_MT_CLI_STATE_FILE.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None, None
+    return data.get("access_token"), data.get("username")
+
+
 def _client() -> MissingTableClient:
     base_url = os.environ.get("MT_API_BASE_URL", "http://localhost:8000")
     token = os.environ.get("MT_ADMIN_TOKEN")
     if not token:
+        token, _username = _load_cached_token()
+    if not token:
         typer.echo(
-            "MT_ADMIN_TOKEN env var is not set. Generate an admin bearer token "
-            "and export MT_ADMIN_TOKEN before running this skill.",
+            json.dumps(
+                {
+                    "error": "not_authenticated",
+                    "detail": (
+                        "No token found. Either export MT_ADMIN_TOKEN, or run "
+                        "the mt_cli login (in your terminal, not via Claude): "
+                        "cd backend && uv run python mt_cli.py login <username>"
+                    ),
+                }
+            ),
             err=True,
         )
         raise typer.Exit(code=2)
@@ -75,6 +102,70 @@ def _err_exit(msg: str, exc: Exception | None = None) -> None:
         payload["detail"] = str(exc)
     typer.echo(json.dumps(payload, default=str), err=True)
     raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+@auth_app.command("status")
+def auth_status() -> None:
+    """Report whether a token is available and (when possible) the user's role.
+
+    Resolution order: MT_ADMIN_TOKEN env var → backend/.mt-cli-state.json.
+    """
+    env_token = os.environ.get("MT_ADMIN_TOKEN")
+    cached_token, cached_username = _load_cached_token()
+    source = None
+    username = None
+    if env_token:
+        source = "env"
+    elif cached_token:
+        source = "mt_cli_state"
+        username = cached_username
+    base_url = os.environ.get("MT_API_BASE_URL", "http://localhost:8000")
+
+    if source is None:
+        _out(
+            {
+                "authenticated": False,
+                "source": None,
+                "username": None,
+                "base_url": base_url,
+                "hint": (
+                    "Ask the user to run `! cd backend && uv run python mt_cli.py login <username>` "
+                    "in their terminal (the `!` prefix runs interactively so getpass can prompt for "
+                    "the password). Pick an admin user — admin endpoints reject non-admin tokens."
+                ),
+            }
+        )
+        return
+
+    # Probe role by hitting an admin-only endpoint that returns the cheapest payload.
+    role: str | None = None
+    role_check: str
+    try:
+        with _client() as c:
+            c.lookup_team(name="__role_probe__")
+        role = "admin"
+        role_check = "ok"
+    except APIError as exc:
+        if exc.status_code in (401, 403):
+            role = "not_admin"
+            role_check = f"{exc.status_code}"
+        else:
+            role_check = f"error:{exc.status_code}"
+    _out(
+        {
+            "authenticated": True,
+            "source": source,
+            "username": username,
+            "base_url": base_url,
+            "role": role,
+            "role_check": role_check,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
