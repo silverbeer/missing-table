@@ -168,9 +168,12 @@ class TestClubsTeamsIntegration:
         assert team_response.status_code == 200, f"Failed to create team: {team_response.text}"
 
         team = team_response.json()
-        # The response might be a message dict, check if it has an id or if we need to fetch it
-        if "message" in team:
-            # Need to fetch the team to get its ID
+        # POST /api/teams returns {"message": "...", "team": {row}} since the
+        # idempotency fix; use team["team"] for the row.
+        if "team" in team:
+            team = team["team"]
+        elif "message" in team:
+            # Legacy fallback — should be unreachable now, kept for safety.
             teams_response = client.get("/api/teams", headers=self.headers)
             assert teams_response.status_code == 200
             teams = teams_response.json()
@@ -392,6 +395,59 @@ class TestClubsTeamsIntegration:
             "Expected to find 'Test Team With Parent' in club teams"
 
         print("✅ All tests passed!")
+
+    def test_create_club_idempotent_on_duplicate_name(self):
+        """POST /api/clubs with a duplicate name returns the existing club (HTTP 200), not 409.
+
+        Regression test for SB-23. Lets the load-tournament-matches skill (and
+        any other caller) re-run without hand-rolling a `club find` prefix.
+        """
+        club_data = {
+            "name": "Test Idempotent Club",
+            "city": "Boston, MA",
+            "description": "Idempotency regression test"
+        }
+
+        first = client.post("/api/clubs", json=club_data, headers=self.headers)
+        assert first.status_code == 200, f"First create failed: {first.text}"
+        first_id = first.json()["id"]
+        self.created_club_id = first_id
+
+        second = client.post("/api/clubs", json=club_data, headers=self.headers)
+        assert second.status_code == 200, f"Second create returned {second.status_code}: {second.text}"
+        assert second.json()["id"] == first_id, "Idempotent create returned a different id"
+
+    def test_create_team_idempotent_in_same_division(self):
+        """POST /api/teams with a duplicate (name, division_id) returns the existing team."""
+        # Get/create a division + age group to test against.
+        divisions = client.get("/api/divisions", headers=self.headers).json()
+        assert divisions, "Need at least one division for this test"
+        division_id = divisions[0]["id"]
+        age_groups = client.get("/api/age-groups", headers=self.headers).json()
+        assert age_groups, "Need at least one age group for this test"
+        age_group_id = age_groups[0]["id"]
+
+        team_data = {
+            "name": "Test Idempotent Team",
+            "city": "Boston, MA",
+            "age_group_ids": [age_group_id],
+            "division_id": division_id,
+            "academy_team": False,
+        }
+
+        first = client.post("/api/teams", json=team_data, headers=self.headers)
+        assert first.status_code == 200, f"First team create failed: {first.text}"
+        first_body = first.json()
+        assert "team" in first_body, "Success response should include the team row"
+        first_id = first_body["team"]["id"]
+        self.created_team_ids.append(first_id)
+
+        second = client.post("/api/teams", json=team_data, headers=self.headers)
+        assert second.status_code == 200, f"Second team create returned {second.status_code}: {second.text}"
+        second_body = second.json()
+        assert "team" in second_body
+        assert second_body["team"]["id"] == first_id, "Idempotent team create returned a different id"
+        assert second_body.get("message") == "Team already exists"
 
 
 if __name__ == "__main__":

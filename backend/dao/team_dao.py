@@ -183,6 +183,26 @@ class TeamDAO(BaseDAO):
             return response.data[0]
         return None
 
+    def get_team_by_name_and_division(self, name: str, division_id: int | None) -> dict | None:
+        """Get a team by name (exact match, case-sensitive) within a specific division.
+
+        Matches the teams_name_division_unique DB constraint exactly: team
+        names are unique within a division (and within the (name, NULL) slot
+        for guest/tournament teams with no division). The constraint is
+        case-sensitive, so this lookup is too — anything else risks returning
+        the wrong row when two rows differ only by case. Used by the
+        create-team endpoint to recover the existing row when the DB raises
+        that unique violation, so the endpoint becomes idempotent.
+
+        Returns the full team row if found, None otherwise.
+        """
+        query = self.client.table("teams").select("*").eq("name", name)
+        query = query.is_("division_id", "null") if division_id is None else query.eq("division_id", division_id)
+        response = query.limit(1).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
+
     @dao_cache("teams:by_id:{team_id}")
     def get_team_by_id(self, team_id: int) -> dict | None:
         """Get a team by ID.
@@ -356,7 +376,7 @@ class TeamDAO(BaseDAO):
         division_id: int | None = None,
         club_id: int | None = None,
         academy_team: bool = False,
-    ) -> bool:
+    ) -> dict | None:
         """Add a new team with age groups, division, and optional club.
 
         Args:
@@ -367,6 +387,10 @@ class TeamDAO(BaseDAO):
             division_id: Division ID (optional, only required for league teams)
             club_id: Optional club ID
             academy_team: Whether this is an academy team
+
+        Returns:
+            The created team row dict on success, None on failure. Callers
+            that previously checked truthiness (`if add_team(...)`) keep working.
         """
         logger.info(
             "Creating team",
@@ -403,9 +427,10 @@ class TeamDAO(BaseDAO):
         team_response = self.client.table("teams").insert(team_data).execute()
 
         if not team_response.data:
-            return False
+            return None
 
-        team_id = team_response.data[0]["id"]
+        created_team = team_response.data[0]
+        team_id = created_team["id"]
         logger.info("Team record created", team_id=team_id, team_name=name)
 
         # Add age group associations
@@ -436,7 +461,7 @@ class TeamDAO(BaseDAO):
             age_groups=len(age_group_ids),
             match_types=len(match_type_ids) if match_type_ids else 0,
         )
-        return True
+        return created_team
 
     @invalidates_cache(TEAMS_CACHE_PATTERN)
     def update_team(
