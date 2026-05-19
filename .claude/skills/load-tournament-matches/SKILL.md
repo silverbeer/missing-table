@@ -48,12 +48,13 @@ Quick subcommand map:
 |------|---------|
 | Check authentication + admin role | `auth status` |
 | Show age groups, divisions, seasons, active tournaments in one shot | `refdata show` |
+| Look up an MLS NEXT club's division by name + age group | `clubmap lookup --team "<name>" --age-group U14` |
 | Find a club by name (local fuzzy match) | `club find "<name>"` |
 | Create a club | `club create --name --city [--description]` |
 | Crop a logo region out of the screenshot | `logo crop --image --bbox x,y,w,h --output` |
 | Upload a logo to a club | `logo upload --club-id --path` |
 | Look up a team (admin endpoint with exact + similar) | `team lookup "<name>"` |
-| Create a team | `team create --name --city --age-group-id --division-id [--club-id]` |
+| Create a team | `team create --name --city --age-group-id --division-id [--club-id] [--academy-team]` |
 | Find a tournament by name | `tournament find "<name>"` |
 | Create a tournament | `tournament create --name --start-date [--end-date --age-group-ids 1,2,3]` |
 | Add a match to a tournament | `match create --tournament-id --our-team-id --opponent-name --match-date --age-group-id --season-id [--home-score ... --tournament-round ...]` |
@@ -113,13 +114,22 @@ Response shape: `{"exact": team | null, "similar": [team, ...]}`.
 - **`exact` is null, `similar` is non-empty** → show the candidates to the user. **Always wait for explicit confirmation** — never auto-pick a similar match. The user picks one OR says "no, create new".
 - **No matches** → ask the user to confirm creating a new club + team. Then:
 
-  1. **Find the club** the team belongs to. The team name often embeds it (e.g. "Inter Miami CF U14" → club "Inter Miami CF"). Run:
+  1. **Look up the team in the MLS NEXT clubs mapping** to find its canonical division and pro-academy status. The mapping (`backend/data/mls-next-clubs.json`) covers all current MLS NEXT Allstate Homegrown + Pro Player Pathway teams:
+     ```bash
+     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py clubmap lookup \
+       --team "<team name>" --age-group U14
+     ```
+     - **`match` is non-null** → use `match.division` as the division for team creation (find its `id` via `refdata show`'s divisions list — match by name; if the MT division doesn't exist yet, surface that to the user). Use `match.is_pro_academy` to set `--academy-team`.
+     - **`match` is null, `all_age_groups_for_team` is non-empty** → the team plays at *other* age groups but not this one. Surface to the user — the screenshot may have a typo or the roster has changed.
+     - **No matches at all** → not an MLS NEXT Allstate Homegrown / PPP team. Ask the user for division + whether it's a pro academy.
+
+  2. **Find the club** the team belongs to. The team name often embeds it (e.g. "Inter Miami CF U14" → club "Inter Miami CF"). Run:
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py club find "<club name>"
      ```
      If it exists, reuse its `id`. Otherwise:
 
-  2. **Crop the logo** out of the screenshot using the bbox you extracted in Step 1:
+  3. **Crop the logo** out of the screenshot using the bbox you extracted in Step 1:
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py logo crop \
        --image /path/to/pasted-screenshot.png \
@@ -127,25 +137,26 @@ Response shape: `{"exact": team | null, "similar": [team, ...]}`.
        --output /tmp/logo_<slug>.png
      ```
 
-  3. **Create the club**:
+  4. **Create the club**:
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py club create \
        --name "..." --city "..."
      ```
      Capture the returned `id`.
 
-  4. **Upload the logo**:
+  5. **Upload the logo**:
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py logo upload \
        --club-id <id> --path /tmp/logo_<slug>.png
      ```
 
-  5. **Create the team**:
+  6. **Create the team**:
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py team create \
        --name "..." --city "..." \
        --age-group-id <id> --division-id <id> \
-       --club-id <club_id>
+       --club-id <club_id> \
+       [--academy-team]    # pass if clubmap.match.is_pro_academy was true
      ```
 
 Keep a running map of resolved `team name → team id` so you don't lookup the same team twice across multiple matches.

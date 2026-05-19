@@ -41,6 +41,7 @@ tournament_app = typer.Typer(no_args_is_help=True, add_completion=False)
 match_app = typer.Typer(no_args_is_help=True, add_completion=False)
 logo_app = typer.Typer(no_args_is_help=True, add_completion=False)
 refdata_app = typer.Typer(no_args_is_help=True, add_completion=False)
+clubmap_app = typer.Typer(no_args_is_help=True, add_completion=False)
 
 app.add_typer(auth_app, name="auth")
 app.add_typer(club_app, name="club")
@@ -49,6 +50,7 @@ app.add_typer(tournament_app, name="tournament")
 app.add_typer(match_app, name="match")
 app.add_typer(logo_app, name="logo")
 app.add_typer(refdata_app, name="refdata")
+app.add_typer(clubmap_app, name="clubmap")
 
 
 # Shared with backend/mt_cli.py — both tools read/write the same login state.
@@ -188,6 +190,43 @@ def refdata_show() -> None:
             )
         except APIError as exc:
             _err_exit("failed to load reference data", exc)
+
+
+# ---------------------------------------------------------------------------
+# Local club mapping (MLS NEXT)
+# ---------------------------------------------------------------------------
+
+_CLUBMAP_PATH = _REPO_ROOT / "backend" / "data" / "mls-next-clubs.json"
+
+
+@clubmap_app.command("lookup")
+def clubmap_lookup(
+    team: str = typer.Option(..., "--team"),
+    age_group: str = typer.Option(..., "--age-group", help="e.g. U13, U14, U15, U16, U17, U19"),
+) -> None:
+    """Look up an MLS NEXT club in backend/data/mls-next-clubs.json.
+
+    Match is case-insensitive on team name. Returns:
+      {
+        "match": {age_group, division, team, is_pro_academy} | null,
+        "all_age_groups_for_team": [...rows for that team across all age groups...]
+      }
+
+    Use this when the API team_lookup returns no exact match — it gives the
+    correct (division, is_pro_academy) defaults for team creation without
+    having to ask the user to guess.
+    """
+    try:
+        data = json.loads(_CLUBMAP_PATH.read_text())
+    except FileNotFoundError:
+        _err_exit(f"clubmap file not found at {_CLUBMAP_PATH}")
+    except json.JSONDecodeError as exc:
+        _err_exit("clubmap file is not valid JSON", exc)
+
+    team_lower = team.lower()
+    same_team = [r for r in data.get("teams", []) if r["team"].lower() == team_lower]
+    match = next((r for r in same_team if r["age_group"] == age_group), None)
+    _out({"match": match, "all_age_groups_for_team": same_team})
 
 
 # ---------------------------------------------------------------------------
