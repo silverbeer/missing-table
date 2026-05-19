@@ -329,6 +329,7 @@ def tournament_create(
 
 VALID_ROUNDS = {
     "group_stage",
+    "round_of_32",
     "round_of_16",
     "quarterfinal",
     "semifinal",

@@ -514,6 +514,7 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 
 const KNOCKOUT_ROUNDS = new Set([
+  'round_of_32',
   'round_of_16',
   'quarterfinal',
   'semifinal',
@@ -523,6 +524,7 @@ const KNOCKOUT_ROUNDS = new Set([
 
 const ROUND_LABELS = {
   group_stage: 'Group Stage',
+  round_of_32: 'R32',
   round_of_16: 'R16',
   quarterfinal: 'QF',
   semifinal: 'SF',
@@ -643,6 +645,7 @@ export default {
         .filter(m => KNOCKOUT_ROUNDS.has(m.tournament_round))
         .sort((a, b) => {
           const order = [
+            'round_of_32',
             'round_of_16',
             'quarterfinal',
             'semifinal',
