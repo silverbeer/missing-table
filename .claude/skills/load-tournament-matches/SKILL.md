@@ -166,7 +166,7 @@ cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt
   [--home-score 2 --away-score 1] \
   [--home-penalty-score 5 --away-penalty-score 4] \
   [--match-status completed|scheduled|in_progress] \
-  [--tournament-round group_stage|round_of_16|quarterfinal|semifinal|final|third_place|wildcard|silver_semifinal|bronze_semifinal|silver_final|bronze_final] \
+  [--tournament-round group_stage|round_of_32|round_of_16|quarterfinal|semifinal|final|third_place|wildcard|silver_semifinal|bronze_semifinal|silver_final|bronze_final] \
   [--tournament-group "A"] \
   [--scheduled-kickoff "2026-06-21T15:00:00Z"]
 ```

@@ -500,6 +500,7 @@
                 >
                   <option value="">— none —</option>
                   <option value="group_stage">Group Stage</option>
+                  <option value="round_of_32">Round of 32</option>
                   <option value="round_of_16">Round of 16</option>
                   <option value="quarterfinal">Quarterfinal</option>
                   <option value="semifinal">Semifinal</option>
@@ -670,6 +671,7 @@ import { getApiBaseUrl } from '../../config/api';
 
 const ROUND_LABELS = {
   group_stage: 'Group Stage',
+  round_of_32: 'Round of 32',
   round_of_16: 'Round of 16',
   quarterfinal: 'Quarterfinal',
   semifinal: 'Semifinal',
