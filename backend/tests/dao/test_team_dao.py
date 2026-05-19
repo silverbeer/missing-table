@@ -83,7 +83,7 @@ def test_team_factory(team_dao, test_data_ids):
         if division_id is _UNSET:
             division_id = test_data_ids['division_id']
 
-        success = team_dao.add_team(
+        team = team_dao.add_team(
             name=name,
             city=city,
             age_group_ids=age_group_ids,
@@ -93,12 +93,9 @@ def test_team_factory(team_dao, test_data_ids):
             academy_team=academy_team
         )
 
-        if success:
-            # Get the team ID
-            team = team_dao.get_team_by_name(name)
-            if team:
-                created_team_ids.append(team['id'])
-                return team['id']
+        if team:
+            created_team_ids.append(team['id'])
+            return team['id']
 
         return None
 
@@ -256,7 +253,7 @@ class TestTeamCRUD:
             club_id=test_data_ids['club_id']
         )
 
-        assert success is True
+        assert success is not None
 
         # Verify team was created
         team = team_dao.get_team_by_name("Test Team CRUD Create")
@@ -277,7 +274,7 @@ class TestTeamCRUD:
             division_id=test_data_ids['division_id']
         )
 
-        assert success is True
+        assert success is not None
 
         # Verify team has both age groups
         team = team_dao.get_team_by_name("Test Multi Age Group Team")
@@ -302,7 +299,7 @@ class TestTeamCRUD:
             club_id=None
         )
 
-        assert success is True
+        assert success is not None
 
         # Verify team was created
         team = team_dao.get_team_by_name("Test Guest Team")

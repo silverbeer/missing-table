@@ -71,6 +71,19 @@ class ClubDAO(BaseDAO):
             return club_response.data[0]
         return None
 
+    def get_club_by_name(self, name: str) -> dict | None:
+        """Get a club by name (exact match, case-sensitive).
+
+        Matches the clubs_name_unique DB constraint, which is `UNIQUE (name)`
+        case-sensitively. Used by the create-club endpoint to recover the
+        existing row when the DB raises that unique violation. Returns the
+        full club row if found, None otherwise.
+        """
+        response = self.client.table("clubs").select("*").eq("name", name).limit(1).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
+
     # === Club CRUD Methods ===
 
     @invalidates_cache(CLUBS_CACHE_PATTERN)

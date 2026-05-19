@@ -2151,7 +2151,7 @@ async def add_team(
             team.club_id = user_club_id
 
         # Call add_team with keyword arguments
-        success = team_dao.add_team(
+        created = team_dao.add_team(
             name=team.name,
             city=team.city,
             age_group_ids=team.age_group_ids,
@@ -2160,15 +2160,30 @@ async def add_team(
             club_id=team.club_id,
             academy_team=team.academy_team,
         )
-        if success:
-            return {"message": "Team added successfully"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to add team")
+        if created:
+            return {"message": "Team added successfully", "team": created}
+        raise HTTPException(status_code=500, detail="Failed to add team")
     except Exception as e:
         error_str = str(e)
+
+        # Idempotency: teams.(name, division_id) is unique. If we hit that
+        # constraint, the caller asked to add a team that already exists in
+        # the same division — fetch the existing row and return it with 200
+        # so the skill (and other callers) can recover deterministically.
+        is_div_dup = "teams_name_division_unique" in error_str
+        if is_div_dup:
+            existing = team_dao.get_team_by_name_and_division(team.name, team.division_id)
+            if existing:
+                logger.info(
+                    f"Returning existing team: {existing['name']} (id={existing['id']}, division_id={team.division_id})"
+                )
+                return {"message": "Team already exists", "team": existing}
+            logger.error(
+                f"Duplicate (name, division_id) for '{team.name}'/{team.division_id} but lookup found nothing"
+            )
+
         logger.error(f"Error adding team: {error_str}", exc_info=True)
 
-        # Check for duplicate team constraint violation
         if (
             "teams_name_division_unique" in error_str
             or "teams_name_academy_unique" in error_str
@@ -4261,7 +4276,13 @@ async def get_club_teams(
 
 @app.post("/api/clubs")
 async def create_club(club: Club, current_user: dict[str, Any] = Depends(require_admin)):
-    """Create a new club (admin only)."""
+    """Create a new club, or return the existing club if one with the same name exists.
+
+    Idempotent on the club's name (case-insensitive). A duplicate-name insert
+    is recovered by looking up the existing row and returning it with HTTP 200
+    instead of 409. This lets the load-tournament-matches skill (and any other
+    caller) re-run safely without having to look up first.
+    """
     try:
         new_club = club_dao.create_club(
             name=club.name,
@@ -4276,19 +4297,27 @@ async def create_club(club: Club, current_user: dict[str, Any] = Depends(require
         return new_club
     except Exception as e:
         error_str = str(e)
+
+        # Idempotency: clubs.name is unique. If we hit that constraint, the
+        # caller asked to create a club that's already there — fetch the
+        # existing row and return it with 200 instead of 409.
+        is_name_dup = (
+            "duplicate key value violates unique constraint" in error_str.lower()
+            and ("clubs_name_unique" in error_str.lower() or "clubs_name_key" in error_str.lower())
+        )
+        if is_name_dup:
+            existing = club_dao.get_club_by_name(club.name)
+            if existing:
+                logger.info(f"Returning existing club: {existing['name']} (id={existing['id']})")
+                return existing
+            # Should be unreachable, but fall through to the explicit 409 below.
+            logger.error(f"Duplicate-name conflict for '{club.name}' but lookup found nothing")
+
         logger.error(f"Error creating club: {error_str}", exc_info=True)
 
-        # Check for duplicate key constraint violation
         if "duplicate key value violates unique constraint" in error_str.lower():
-            if "clubs_name_unique" in error_str.lower() or "clubs_name_key" in error_str.lower():
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"A club with the name '{club.name}' already exists. Please use a different name.",
-                ) from e
-            else:
-                raise HTTPException(status_code=409, detail="A club with this information already exists.") from e
+            raise HTTPException(status_code=409, detail="A club with this information already exists.") from e
 
-        # For any other unexpected errors, return 500
         raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the club.") from e
 
 

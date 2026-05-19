@@ -123,13 +123,7 @@ Response shape: `{"exact": team | null, "similar": [team, ...]}`.
      - **`match` is null, `all_age_groups_for_team` is non-empty** → the team plays at *other* age groups but not this one. Surface to the user — the screenshot may have a typo or the roster has changed.
      - **No matches at all** → not an MLS NEXT Allstate Homegrown / PPP team. Ask the user for division + whether it's a pro academy.
 
-  2. **Find the club** the team belongs to. The team name often embeds it (e.g. "Inter Miami CF U14" → club "Inter Miami CF"). Run:
-     ```bash
-     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py club find "<club name>"
-     ```
-     If it exists, reuse its `id`. Otherwise:
-
-  3. **Crop the logo** out of the screenshot using the bbox you extracted in Step 1:
+  2. **Crop the logo** out of the screenshot using the bbox you extracted in Step 1:
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py logo crop \
        --image /path/to/pasted-screenshot.png \
@@ -137,20 +131,20 @@ Response shape: `{"exact": team | null, "similar": [team, ...]}`.
        --output /tmp/logo_<slug>.png
      ```
 
-  4. **Create the club**:
+  3. **Create the club** (idempotent — duplicate name returns the existing club row with HTTP 200):
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py club create \
        --name "..." --city "..."
      ```
-     Capture the returned `id`.
+     Capture the returned `id`. No need for `club find` first — the endpoint handles duplicates.
 
-  5. **Upload the logo**:
+  4. **Upload the logo**:
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py logo upload \
        --club-id <id> --path /tmp/logo_<slug>.png
      ```
 
-  6. **Create the team**:
+  5. **Create the team** (idempotent — duplicate `(name, division_id)` returns the existing team row):
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py team create \
        --name "..." --city "..." \
@@ -158,6 +152,7 @@ Response shape: `{"exact": team | null, "similar": [team, ...]}`.
        --club-id <club_id> \
        [--academy-team]    # pass if clubmap.match.is_pro_academy was true
      ```
+     The response is `{"message": "...", "team": {row}}`. Parse `team.id` directly — no follow-up `team lookup` needed.
 
 Keep a running map of resolved `team name → team id` so you don't lookup the same team twice across multiple matches.
 
