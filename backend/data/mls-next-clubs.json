@@ -3,758 +3,4960 @@
     "source": "https://www.modular11.com/standings (iframe embedded on https://www.mlssoccer.com/mlsnext/standings/<age-group>/)",
     "scraped_at": "2026-05-19",
     "season": "2025-2026",
-    "scope": "MLS NEXT Allstate Homegrown Division only",
-    "excluded": "Pro Player Pathway divisions (Central/West/Southeast/Northeast) — these are the Academy Division side, present in U16/U17/U19 widgets only. Excluded per scope: 'Homegrown only'.",
+    "scope": "MLS NEXT Allstate Homegrown Division + Pro Player Pathway (Academy Division, U16/U17/U19 only). Each row has is_pro_academy=true if the club fields a team in the Pro Player Pathway divisions at any age group.",
     "notes": [
       "Each row is a unique (age_group, division, team) triple.",
       "Not every club fields a team in every age group (sparse coverage).",
-      "Division names have been stripped of the 'U<NN> ' age-group prefix (e.g. 'U15 Mid-Atlantic' → 'Mid-Atlantic').",
-      "Team names are as they appear in the widget — minor variants may exist between age groups (e.g. 'Los Angeles SC' vs 'Los Angeles Soccer Club')."
+      "Homegrown division names have been stripped of the 'U<NN> ' age-group prefix.",
+      "Pro Player Pathway division names keep their '(Pro Player Pathway)' suffix to disambiguate from the similarly-named Homegrown divisions (Southeast/Northeast).",
+      "is_pro_academy=true marks teams whose club has an MLS Pro Player Pathway academy team at some age group. This includes their Homegrown rows at U13-U15.",
+      "Team names are as they appear in the widget \u2014 minor variants may exist between age groups (e.g. 'Los Angeles SC' vs 'Los Angeles Soccer Club')."
     ]
   },
   "teams": [
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Philadelphia Union"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Real Futbol Academy"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Northern Virginia Alliance"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Springfield SYC"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Baltimore Armour"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "FC DELCO"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Alexandria SA"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Cedar Stars Academy Monmouth"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "The Football Academy"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Players Development Academy"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Bethesda SC"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Keystone FC"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "PA Classics"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Sporting Athletic Club"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Achilles FC"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "Beadling SC"},
-    {"age_group": "U13", "division": "Mid-Atlantic", "team": "West Virginia Soccer"},
-    {"age_group": "U13", "division": "Mid-America", "team": "St. Louis Scott Gallagher"},
-    {"age_group": "U13", "division": "Mid-America", "team": "FC Cincinnati"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Lou Fusz Athletic"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Cincinnati United Soccer Club"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Indy Eleven"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Michigan Wolves"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Michigan Jaguars"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Chicago FC United"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Hoosier Premier"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Bavarian United SC"},
-    {"age_group": "U13", "division": "Mid-America", "team": "SC Wave"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Michigan Futbol Academy"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Midwest United FC"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Vardar Soccer Club"},
-    {"age_group": "U13", "division": "Mid-America", "team": "Sockers FC Chicago"},
-    {"age_group": "U13", "division": "Frontier", "team": "FC Dallas"},
-    {"age_group": "U13", "division": "Frontier", "team": "Austin FC"},
-    {"age_group": "U13", "division": "Frontier", "team": "ALBION SC Colorado"},
-    {"age_group": "U13", "division": "Frontier", "team": "Tulsa Greenwood SC"},
-    {"age_group": "U13", "division": "Frontier", "team": "AC River"},
-    {"age_group": "U13", "division": "Frontier", "team": "Global Football Innovation Academy"},
-    {"age_group": "U13", "division": "Frontier", "team": "Houston Rangers"},
-    {"age_group": "U13", "division": "Frontier", "team": "Colorado Rapids"},
-    {"age_group": "U13", "division": "Frontier", "team": "Dallas Hornets"},
-    {"age_group": "U13", "division": "Frontier", "team": "Capital City SC"},
-    {"age_group": "U13", "division": "Northwest", "team": "Sacramento Republic FC"},
-    {"age_group": "U13", "division": "Northwest", "team": "Silicon Valley Soccer Academy"},
-    {"age_group": "U13", "division": "Northwest", "team": "FC Bay Area Surf"},
-    {"age_group": "U13", "division": "Northwest", "team": "Modesto Ajax United"},
-    {"age_group": "U13", "division": "Northwest", "team": "The Town FC Academy"},
-    {"age_group": "U13", "division": "Northwest", "team": "De Anza Force"},
-    {"age_group": "U13", "division": "Northwest", "team": "San Francisco Glens SC"},
-    {"age_group": "U13", "division": "Northwest", "team": "Ballistic United"},
-    {"age_group": "U13", "division": "Northwest", "team": "Sacramento United"},
-    {"age_group": "U13", "division": "Northwest", "team": "ALBION SC Merced"},
-    {"age_group": "U13", "division": "Northwest", "team": "Napa United"},
-    {"age_group": "U13", "division": "Northwest", "team": "Atletico Santa Rosa"},
-    {"age_group": "U13", "division": "Northwest", "team": "San Francisco Seals"},
-    {"age_group": "U13", "division": "Northwest", "team": "Lamorinda Soccer Club"},
-    {"age_group": "U13", "division": "Northwest", "team": "Woodside Soccer Club Crush"},
-    {"age_group": "U13", "division": "Southwest", "team": "LA Galaxy"},
-    {"age_group": "U13", "division": "Southwest", "team": "Strikers FC"},
-    {"age_group": "U13", "division": "Southwest", "team": "Los Angeles Football Club"},
-    {"age_group": "U13", "division": "Southwest", "team": "Total Futbol Academy"},
-    {"age_group": "U13", "division": "Southwest", "team": "San Diego FC"},
-    {"age_group": "U13", "division": "Southwest", "team": "RSL Arizona"},
-    {"age_group": "U13", "division": "Southwest", "team": "Los Angeles Soccer Club"},
-    {"age_group": "U13", "division": "Southwest", "team": "Chula Vista FC"},
-    {"age_group": "U13", "division": "Southwest", "team": "ALBION SC Los Angeles"},
-    {"age_group": "U13", "division": "Southwest", "team": "Los Angeles Surf"},
-    {"age_group": "U13", "division": "Southwest", "team": "City SC San Diego"},
-    {"age_group": "U13", "division": "Southwest", "team": "FC Golden State"},
-    {"age_group": "U13", "division": "Southwest", "team": "ALBION SC Las Vegas"},
-    {"age_group": "U13", "division": "Southwest", "team": "Santa Barbara Soccer Club"},
-    {"age_group": "U13", "division": "Southwest", "team": "ALBION SC San Diego"},
-    {"age_group": "U13", "division": "Southwest", "team": "City SC Southwest"},
-    {"age_group": "U13", "division": "Southwest", "team": "Las Vegas Sports Academy"},
-    {"age_group": "U13", "division": "Southwest", "team": "Phoenix Rising FC"},
-    {"age_group": "U13", "division": "Southwest", "team": "SoCal Reds FC"},
-    {"age_group": "U13", "division": "Southwest", "team": "LA Bulls"},
-    {"age_group": "U13", "division": "Southwest", "team": "RSL Arizona Mesa"},
-    {"age_group": "U13", "division": "Southwest", "team": "SC Del Sol"},
-    {"age_group": "U13", "division": "Southwest", "team": "Ventura County Fusion"},
-    {"age_group": "U13", "division": "Florida", "team": "Orlando City SC"},
-    {"age_group": "U13", "division": "Florida", "team": "Inter Miami CF"},
-    {"age_group": "U13", "division": "Florida", "team": "Weston FC"},
-    {"age_group": "U13", "division": "Florida", "team": "South Florida Football Academy"},
-    {"age_group": "U13", "division": "Florida", "team": "Tampa Bay United"},
-    {"age_group": "U13", "division": "Florida", "team": "Jacksonville FC"},
-    {"age_group": "U13", "division": "Florida", "team": "IdeaSport SA"},
-    {"age_group": "U13", "division": "Florida", "team": "Miami Futbol Academy Rush"},
-    {"age_group": "U13", "division": "Florida", "team": "IMG"},
-    {"age_group": "U13", "division": "Florida", "team": "Orlando City Soccer School South"},
-    {"age_group": "U13", "division": "Florida", "team": "West Florida Flames"},
-    {"age_group": "U13", "division": "Florida", "team": "Athletum FC Academy"},
-    {"age_group": "U13", "division": "Florida", "team": "Sol SC Florida"},
-    {"age_group": "U13", "division": "Florida", "team": "Orlando City Youth SC"},
-    {"age_group": "U13", "division": "Florida", "team": "Chargers Soccer Club"},
-    {"age_group": "U13", "division": "Southeast", "team": "Atlanta United"},
-    {"age_group": "U13", "division": "Southeast", "team": "Carolina Core FC"},
-    {"age_group": "U13", "division": "Southeast", "team": "Inter Atlanta FC"},
-    {"age_group": "U13", "division": "Southeast", "team": "Queen City Mutiny FC"},
-    {"age_group": "U13", "division": "Southeast", "team": "Wake FC"},
-    {"age_group": "U13", "division": "Southeast", "team": "Charlotte Independence"},
-    {"age_group": "U13", "division": "Southeast", "team": "Southern Soccer Academy"},
-    {"age_group": "U13", "division": "Southeast", "team": "Nashville United Soccer Academy"},
-    {"age_group": "U13", "division": "Southeast", "team": "AFC Lightning"},
-    {"age_group": "U13", "division": "Southeast", "team": "Lanier Soccer Association"},
-    {"age_group": "U13", "division": "Southeast", "team": "Chattanooga FC"},
-    {"age_group": "U13", "division": "Southeast", "team": "Huntsville City FC"},
-    {"age_group": "U13", "division": "Southeast", "team": "Triangle United Soccer Association"},
-    {"age_group": "U13", "division": "Southeast", "team": "Hoover-Vestavia Soccer"},
-    {"age_group": "U13", "division": "Southeast", "team": "KSA"},
-    {"age_group": "U13", "division": "Northeast", "team": "New York Red Bulls"},
-    {"age_group": "U13", "division": "Northeast", "team": "New York City FC"},
-    {"age_group": "U13", "division": "Northeast", "team": "Cedar Stars Academy Bergen"},
-    {"age_group": "U13", "division": "Northeast", "team": "New York SC"},
-    {"age_group": "U13", "division": "Northeast", "team": "NEFC"},
-    {"age_group": "U13", "division": "Northeast", "team": "Beachside of Connecticut"},
-    {"age_group": "U13", "division": "Northeast", "team": "FC Greater Boston Bolts"},
-    {"age_group": "U13", "division": "Northeast", "team": "FC Westchester"},
-    {"age_group": "U13", "division": "Northeast", "team": "Long Island Soccer Club"},
-    {"age_group": "U13", "division": "Northeast", "team": "TSF Academy"},
-    {"age_group": "U13", "division": "Northeast", "team": "New England Revolution"},
-    {"age_group": "U13", "division": "Northeast", "team": "Downtown United Soccer Club"},
-    {"age_group": "U13", "division": "Northeast", "team": "Blau Weiss Gottschee"},
-    {"age_group": "U13", "division": "Northeast", "team": "Intercontinental Football Academy of New England"},
-    {"age_group": "U13", "division": "Northeast", "team": "Seacoast United"},
-    {"age_group": "U13", "division": "Northeast", "team": "Oakwood Soccer Club"},
-    {"age_group": "U13", "division": "Northeast", "team": "Metropolitan Oval"},
-    {"age_group": "U13", "division": "Northeast", "team": "FA Euro New York"},
-    {"age_group": "U13", "division": "Northeast", "team": "Ironbound Soccer Club"},
-    {"age_group": "U13", "division": "Northeast", "team": "Valeo Futbol Club"},
-    {"age_group": "U13", "division": "Northeast", "team": "Rochester NY FC"},
-    {"age_group": "U13", "division": "Northeast", "team": "Bayside FC"},
-
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Philadelphia Union"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Springfield SYC"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "FC DELCO"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Sporting Athletic Club"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Alexandria SA"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Bethesda SC"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Real Futbol Academy"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Baltimore Armour"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Players Development Academy"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "The Football Academy"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Achilles FC"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Keystone FC"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Beadling SC"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "West Virginia Soccer"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Northern Virginia Alliance"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "Cedar Stars Academy Monmouth"},
-    {"age_group": "U14", "division": "Mid-Atlantic", "team": "PA Classics"},
-    {"age_group": "U14", "division": "Mid-America", "team": "FC Cincinnati"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Bavarian United SC"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Michigan Jaguars"},
-    {"age_group": "U14", "division": "Mid-America", "team": "St. Louis Scott Gallagher"},
-    {"age_group": "U14", "division": "Mid-America", "team": "St. Louis CITY SC"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Vardar Soccer Club"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Michigan Wolves"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Hoosier Premier"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Chicago FC United"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Cincinnati United Soccer Club"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Lou Fusz Athletic"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Sockers FC Chicago"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Michigan Futbol Academy"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Indy Eleven"},
-    {"age_group": "U14", "division": "Mid-America", "team": "Midwest United FC"},
-    {"age_group": "U14", "division": "Mid-America", "team": "SC Wave"},
-    {"age_group": "U14", "division": "Frontier", "team": "Houston Dynamo FC"},
-    {"age_group": "U14", "division": "Frontier", "team": "Colorado Rapids"},
-    {"age_group": "U14", "division": "Frontier", "team": "FC Dallas"},
-    {"age_group": "U14", "division": "Frontier", "team": "Austin FC"},
-    {"age_group": "U14", "division": "Frontier", "team": "ALBION SC Colorado"},
-    {"age_group": "U14", "division": "Frontier", "team": "Tulsa Greenwood SC"},
-    {"age_group": "U14", "division": "Frontier", "team": "Houston Rangers"},
-    {"age_group": "U14", "division": "Frontier", "team": "Dallas Hornets"},
-    {"age_group": "U14", "division": "Frontier", "team": "Global Football Innovation Academy"},
-    {"age_group": "U14", "division": "Frontier", "team": "AC River"},
-    {"age_group": "U14", "division": "Frontier", "team": "Capital City SC"},
-    {"age_group": "U14", "division": "Northwest", "team": "San Jose Earthquakes"},
-    {"age_group": "U14", "division": "Northwest", "team": "Sacramento Republic FC"},
-    {"age_group": "U14", "division": "Northwest", "team": "Silicon Valley Soccer Academy"},
-    {"age_group": "U14", "division": "Northwest", "team": "The Town FC Academy"},
-    {"age_group": "U14", "division": "Northwest", "team": "FC Bay Area Surf"},
-    {"age_group": "U14", "division": "Northwest", "team": "Modesto Ajax United"},
-    {"age_group": "U14", "division": "Northwest", "team": "San Francisco Glens SC"},
-    {"age_group": "U14", "division": "Northwest", "team": "De Anza Force"},
-    {"age_group": "U14", "division": "Northwest", "team": "Woodside Soccer Club Crush"},
-    {"age_group": "U14", "division": "Northwest", "team": "Sacramento United"},
-    {"age_group": "U14", "division": "Northwest", "team": "Ballistic United"},
-    {"age_group": "U14", "division": "Northwest", "team": "Atletico Santa Rosa"},
-    {"age_group": "U14", "division": "Northwest", "team": "Napa United"},
-    {"age_group": "U14", "division": "Northwest", "team": "Lamorinda Soccer Club"},
-    {"age_group": "U14", "division": "Northwest", "team": "ALBION SC Merced"},
-    {"age_group": "U14", "division": "Northwest", "team": "San Francisco Seals"},
-    {"age_group": "U14", "division": "Southwest", "team": "Los Angeles Football Club"},
-    {"age_group": "U14", "division": "Southwest", "team": "LA Galaxy"},
-    {"age_group": "U14", "division": "Southwest", "team": "Strikers FC"},
-    {"age_group": "U14", "division": "Southwest", "team": "FC Golden State"},
-    {"age_group": "U14", "division": "Southwest", "team": "Total Futbol Academy"},
-    {"age_group": "U14", "division": "Southwest", "team": "RSL Arizona"},
-    {"age_group": "U14", "division": "Southwest", "team": "Chula Vista FC"},
-    {"age_group": "U14", "division": "Southwest", "team": "LA Bulls"},
-    {"age_group": "U14", "division": "Southwest", "team": "Los Angeles Soccer Club"},
-    {"age_group": "U14", "division": "Southwest", "team": "Phoenix Rising FC"},
-    {"age_group": "U14", "division": "Southwest", "team": "City SC San Diego"},
-    {"age_group": "U14", "division": "Southwest", "team": "ALBION SC San Diego"},
-    {"age_group": "U14", "division": "Southwest", "team": "SoCal Reds FC"},
-    {"age_group": "U14", "division": "Southwest", "team": "ALBION SC Las Vegas"},
-    {"age_group": "U14", "division": "Southwest", "team": "Santa Barbara Soccer Club"},
-    {"age_group": "U14", "division": "Southwest", "team": "ALBION SC Los Angeles"},
-    {"age_group": "U14", "division": "Southwest", "team": "Los Angeles Surf"},
-    {"age_group": "U14", "division": "Southwest", "team": "Ventura County Fusion"},
-    {"age_group": "U14", "division": "Southwest", "team": "SC Del Sol"},
-    {"age_group": "U14", "division": "Southwest", "team": "City SC Southwest"},
-    {"age_group": "U14", "division": "Southwest", "team": "Las Vegas Sports Academy"},
-    {"age_group": "U14", "division": "Southwest", "team": "RSL Arizona Mesa"},
-    {"age_group": "U14", "division": "Florida", "team": "Orlando City SC"},
-    {"age_group": "U14", "division": "Florida", "team": "Inter Miami CF"},
-    {"age_group": "U14", "division": "Florida", "team": "Weston FC"},
-    {"age_group": "U14", "division": "Florida", "team": "Miami Futbol Academy Rush"},
-    {"age_group": "U14", "division": "Florida", "team": "Tampa Bay United"},
-    {"age_group": "U14", "division": "Florida", "team": "South Florida Football Academy"},
-    {"age_group": "U14", "division": "Florida", "team": "IMG"},
-    {"age_group": "U14", "division": "Florida", "team": "IdeaSport SA"},
-    {"age_group": "U14", "division": "Florida", "team": "Athletum FC Academy"},
-    {"age_group": "U14", "division": "Florida", "team": "Orlando City Soccer School South"},
-    {"age_group": "U14", "division": "Florida", "team": "Jacksonville FC"},
-    {"age_group": "U14", "division": "Florida", "team": "Sol SC Florida"},
-    {"age_group": "U14", "division": "Florida", "team": "West Florida Flames"},
-    {"age_group": "U14", "division": "Florida", "team": "Orlando City Youth SC"},
-    {"age_group": "U14", "division": "Florida", "team": "Chargers Soccer Club"},
-    {"age_group": "U14", "division": "Southeast", "team": "Charlotte FC"},
-    {"age_group": "U14", "division": "Southeast", "team": "Carolina Core FC"},
-    {"age_group": "U14", "division": "Southeast", "team": "Atlanta United"},
-    {"age_group": "U14", "division": "Southeast", "team": "Wake FC"},
-    {"age_group": "U14", "division": "Southeast", "team": "Inter Atlanta FC"},
-    {"age_group": "U14", "division": "Southeast", "team": "Southern Soccer Academy"},
-    {"age_group": "U14", "division": "Southeast", "team": "Triangle United Soccer Association"},
-    {"age_group": "U14", "division": "Southeast", "team": "Queen City Mutiny FC"},
-    {"age_group": "U14", "division": "Southeast", "team": "Charlotte Independence"},
-    {"age_group": "U14", "division": "Southeast", "team": "Lanier Soccer Association"},
-    {"age_group": "U14", "division": "Southeast", "team": "Nashville United Soccer Academy"},
-    {"age_group": "U14", "division": "Southeast", "team": "Chattanooga FC"},
-    {"age_group": "U14", "division": "Southeast", "team": "AFC Lightning"},
-    {"age_group": "U14", "division": "Southeast", "team": "Hoover-Vestavia Soccer"},
-    {"age_group": "U14", "division": "Southeast", "team": "KSA"},
-    {"age_group": "U14", "division": "Southeast", "team": "Huntsville City FC"},
-    {"age_group": "U14", "division": "Northeast", "team": "New York Red Bulls"},
-    {"age_group": "U14", "division": "Northeast", "team": "New York City FC"},
-    {"age_group": "U14", "division": "Northeast", "team": "Cedar Stars Academy Bergen"},
-    {"age_group": "U14", "division": "Northeast", "team": "Beachside of Connecticut"},
-    {"age_group": "U14", "division": "Northeast", "team": "Metropolitan Oval"},
-    {"age_group": "U14", "division": "Northeast", "team": "FC Westchester"},
-    {"age_group": "U14", "division": "Northeast", "team": "New England Revolution"},
-    {"age_group": "U14", "division": "Northeast", "team": "NEFC"},
-    {"age_group": "U14", "division": "Northeast", "team": "Ironbound Soccer Club"},
-    {"age_group": "U14", "division": "Northeast", "team": "Blau Weiss Gottschee"},
-    {"age_group": "U14", "division": "Northeast", "team": "Long Island Soccer Club"},
-    {"age_group": "U14", "division": "Northeast", "team": "New York SC"},
-    {"age_group": "U14", "division": "Northeast", "team": "Intercontinental Football Academy of New England"},
-    {"age_group": "U14", "division": "Northeast", "team": "TSF Academy"},
-    {"age_group": "U14", "division": "Northeast", "team": "Rochester NY FC"},
-    {"age_group": "U14", "division": "Northeast", "team": "Seacoast United"},
-    {"age_group": "U14", "division": "Northeast", "team": "FC Greater Boston Bolts"},
-    {"age_group": "U14", "division": "Northeast", "team": "Bayside FC"},
-    {"age_group": "U14", "division": "Northeast", "team": "Downtown United Soccer Club"},
-    {"age_group": "U14", "division": "Northeast", "team": "FA Euro New York"},
-    {"age_group": "U14", "division": "Northeast", "team": "Valeo Futbol Club"},
-    {"age_group": "U14", "division": "Northeast", "team": "Oakwood Soccer Club"},
-
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "FC DELCO"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Sporting Athletic Club"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "The Football Academy"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Springfield SYC"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Players Development Academy"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Beadling SC"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Keystone FC"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Real Futbol Academy"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Bethesda SC"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Baltimore Armour"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Northern Virginia Alliance"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Alexandria SA"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Cedar Stars Academy Monmouth"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "PA Classics"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "Achilles FC"},
-    {"age_group": "U15", "division": "Mid-Atlantic", "team": "West Virginia Soccer"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Sockers FC Chicago"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Chicago FC United"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Cincinnati United Soccer Club"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Vardar Soccer Club"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Michigan Futbol Academy"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Michigan Wolves"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Lou Fusz Athletic"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Midwest United FC"},
-    {"age_group": "U15", "division": "Mid-America", "team": "St. Louis Scott Gallagher"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Bavarian United SC"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Indy Eleven"},
-    {"age_group": "U15", "division": "Mid-America", "team": "SC Wave"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Michigan Jaguars"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Hoosier Premier"},
-    {"age_group": "U15", "division": "Mid-America", "team": "Shattuck-St. Mary's"},
-    {"age_group": "U15", "division": "Frontier", "team": "Houston Rangers"},
-    {"age_group": "U15", "division": "Frontier", "team": "Global Football Innovation Academy"},
-    {"age_group": "U15", "division": "Frontier", "team": "Dallas Hornets"},
-    {"age_group": "U15", "division": "Frontier", "team": "ALBION SC Colorado"},
-    {"age_group": "U15", "division": "Frontier", "team": "AC River"},
-    {"age_group": "U15", "division": "Frontier", "team": "Capital City SC"},
-    {"age_group": "U15", "division": "Frontier", "team": "Tulsa Greenwood SC"},
-    {"age_group": "U15", "division": "Frontier", "team": "IDEA Toros Fútbol Academy"},
-    {"age_group": "U15", "division": "Northwest", "team": "Woodside Soccer Club Crush"},
-    {"age_group": "U15", "division": "Northwest", "team": "Atletico Santa Rosa"},
-    {"age_group": "U15", "division": "Northwest", "team": "San Francisco Glens SC"},
-    {"age_group": "U15", "division": "Northwest", "team": "FC Bay Area Surf"},
-    {"age_group": "U15", "division": "Northwest", "team": "Lamorinda Soccer Club"},
-    {"age_group": "U15", "division": "Northwest", "team": "Silicon Valley Soccer Academy"},
-    {"age_group": "U15", "division": "Northwest", "team": "Sacramento Republic FC"},
-    {"age_group": "U15", "division": "Northwest", "team": "De Anza Force"},
-    {"age_group": "U15", "division": "Northwest", "team": "The Town FC Academy"},
-    {"age_group": "U15", "division": "Northwest", "team": "Napa United"},
-    {"age_group": "U15", "division": "Northwest", "team": "ALBION SC Merced"},
-    {"age_group": "U15", "division": "Northwest", "team": "Modesto Ajax United"},
-    {"age_group": "U15", "division": "Northwest", "team": "Sacramento United"},
-    {"age_group": "U15", "division": "Northwest", "team": "San Francisco Seals"},
-    {"age_group": "U15", "division": "Northwest", "team": "Ballistic United"},
-    {"age_group": "U15", "division": "Southwest", "team": "ALBION SC San Diego"},
-    {"age_group": "U15", "division": "Southwest", "team": "Strikers FC"},
-    {"age_group": "U15", "division": "Southwest", "team": "Barca Residency Academy"},
-    {"age_group": "U15", "division": "Southwest", "team": "City SC San Diego"},
-    {"age_group": "U15", "division": "Southwest", "team": "Total Futbol Academy"},
-    {"age_group": "U15", "division": "Southwest", "team": "ALBION SC Los Angeles"},
-    {"age_group": "U15", "division": "Southwest", "team": "RSL Arizona"},
-    {"age_group": "U15", "division": "Southwest", "team": "Phoenix Rising FC"},
-    {"age_group": "U15", "division": "Southwest", "team": "FC Golden State"},
-    {"age_group": "U15", "division": "Southwest", "team": "Ventura County Fusion"},
-    {"age_group": "U15", "division": "Southwest", "team": "Las Vegas Sports Academy"},
-    {"age_group": "U15", "division": "Southwest", "team": "City SC Southwest"},
-    {"age_group": "U15", "division": "Southwest", "team": "Los Angeles SC"},
-    {"age_group": "U15", "division": "Southwest", "team": "Chula Vista FC"},
-    {"age_group": "U15", "division": "Southwest", "team": "SoCal Reds FC"},
-    {"age_group": "U15", "division": "Southwest", "team": "SC Del Sol"},
-    {"age_group": "U15", "division": "Southwest", "team": "LA Bulls"},
-    {"age_group": "U15", "division": "Southwest", "team": "Santa Barbara Soccer Club"},
-    {"age_group": "U15", "division": "Southwest", "team": "ALBION SC Las Vegas"},
-    {"age_group": "U15", "division": "Southwest", "team": "Los Angeles Surf"},
-    {"age_group": "U15", "division": "Florida", "team": "Orlando City Soccer School South"},
-    {"age_group": "U15", "division": "Florida", "team": "IdeaSport SA"},
-    {"age_group": "U15", "division": "Florida", "team": "Athletum FC Academy"},
-    {"age_group": "U15", "division": "Florida", "team": "Tampa Bay United"},
-    {"age_group": "U15", "division": "Florida", "team": "Weston FC"},
-    {"age_group": "U15", "division": "Florida", "team": "IMG"},
-    {"age_group": "U15", "division": "Florida", "team": "Miami Futbol Academy Rush"},
-    {"age_group": "U15", "division": "Florida", "team": "Sol SC Florida"},
-    {"age_group": "U15", "division": "Florida", "team": "South Florida Football Academy"},
-    {"age_group": "U15", "division": "Florida", "team": "Jacksonville FC"},
-    {"age_group": "U15", "division": "Florida", "team": "West Florida Flames"},
-    {"age_group": "U15", "division": "Florida", "team": "Orlando City Youth SC"},
-    {"age_group": "U15", "division": "Florida", "team": "Chargers Soccer Club"},
-    {"age_group": "U15", "division": "Southeast", "team": "Inter Atlanta FC"},
-    {"age_group": "U15", "division": "Southeast", "team": "Carolina Core FC"},
-    {"age_group": "U15", "division": "Southeast", "team": "Chattanooga FC"},
-    {"age_group": "U15", "division": "Southeast", "team": "KSA"},
-    {"age_group": "U15", "division": "Southeast", "team": "Southern Soccer Academy"},
-    {"age_group": "U15", "division": "Southeast", "team": "AFC Lightning"},
-    {"age_group": "U15", "division": "Southeast", "team": "Wake FC"},
-    {"age_group": "U15", "division": "Southeast", "team": "Queen City Mutiny FC"},
-    {"age_group": "U15", "division": "Southeast", "team": "Lanier Soccer Association"},
-    {"age_group": "U15", "division": "Southeast", "team": "Charlotte Independence"},
-    {"age_group": "U15", "division": "Southeast", "team": "Nashville United Soccer Academy"},
-    {"age_group": "U15", "division": "Southeast", "team": "Triangle United Soccer Association"},
-    {"age_group": "U15", "division": "Southeast", "team": "Hoover-Vestavia Soccer"},
-    {"age_group": "U15", "division": "Northeast", "team": "Cedar Stars Academy Bergen"},
-    {"age_group": "U15", "division": "Northeast", "team": "Intercontinental Football Academy of New England"},
-    {"age_group": "U15", "division": "Northeast", "team": "NEFC"},
-    {"age_group": "U15", "division": "Northeast", "team": "TSF Academy"},
-    {"age_group": "U15", "division": "Northeast", "team": "Metropolitan Oval"},
-    {"age_group": "U15", "division": "Northeast", "team": "FC Greater Boston Bolts"},
-    {"age_group": "U15", "division": "Northeast", "team": "New York SC"},
-    {"age_group": "U15", "division": "Northeast", "team": "Connecticut United FC"},
-    {"age_group": "U15", "division": "Northeast", "team": "Bayside FC"},
-    {"age_group": "U15", "division": "Northeast", "team": "FA Euro New York"},
-    {"age_group": "U15", "division": "Northeast", "team": "Ironbound Soccer Club"},
-    {"age_group": "U15", "division": "Northeast", "team": "Seacoast United"},
-    {"age_group": "U15", "division": "Northeast", "team": "Blau Weiss Gottschee"},
-    {"age_group": "U15", "division": "Northeast", "team": "Beachside of Connecticut"},
-    {"age_group": "U15", "division": "Northeast", "team": "Long Island Soccer Club"},
-    {"age_group": "U15", "division": "Northeast", "team": "Downtown United Soccer Club"},
-    {"age_group": "U15", "division": "Northeast", "team": "Oakwood Soccer Club"},
-    {"age_group": "U15", "division": "Northeast", "team": "Valeo Futbol Club"},
-    {"age_group": "U15", "division": "Northeast", "team": "FC Westchester"},
-    {"age_group": "U15", "division": "Northeast", "team": "Rochester NY FC"},
-
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Players Development Academy"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "FC DELCO"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Bethesda SC"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Baltimore Armour"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Sporting Athletic Club"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Real Futbol Academy"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Springfield SYC"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Northern Virginia Alliance"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Keystone FC"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Cedar Stars Academy Monmouth"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Beadling SC"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "The Football Academy"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Achilles FC"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "PA Classics"},
-    {"age_group": "U16", "division": "Mid-Atlantic", "team": "Alexandria SA"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Michigan Wolves"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Indy Eleven"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Sockers FC Chicago"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Vardar Soccer Club"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Midwest United FC"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Chicago FC United"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Cincinnati United Soccer Club"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Michigan Futbol Academy"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Michigan Jaguars"},
-    {"age_group": "U16", "division": "Mid-America", "team": "St. Louis Scott Gallagher"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Hoosier Premier"},
-    {"age_group": "U16", "division": "Mid-America", "team": "SC Wave"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Shattuck-St. Mary's"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Lou Fusz Athletic"},
-    {"age_group": "U16", "division": "Mid-America", "team": "Bavarian United SC"},
-    {"age_group": "U16", "division": "Frontier", "team": "Capital City SC"},
-    {"age_group": "U16", "division": "Frontier", "team": "Global Football Innovation Academy"},
-    {"age_group": "U16", "division": "Frontier", "team": "ALBION SC Colorado"},
-    {"age_group": "U16", "division": "Frontier", "team": "Houston Rangers"},
-    {"age_group": "U16", "division": "Frontier", "team": "Tulsa Greenwood SC"},
-    {"age_group": "U16", "division": "Frontier", "team": "Dallas Hornets"},
-    {"age_group": "U16", "division": "Frontier", "team": "AC River"},
-    {"age_group": "U16", "division": "Frontier", "team": "IDEA Toros Fútbol Academy"},
-    {"age_group": "U16", "division": "Northwest", "team": "Sacramento Republic FC"},
-    {"age_group": "U16", "division": "Northwest", "team": "FC Bay Area Surf"},
-    {"age_group": "U16", "division": "Northwest", "team": "Silicon Valley Soccer Academy"},
-    {"age_group": "U16", "division": "Northwest", "team": "De Anza Force"},
-    {"age_group": "U16", "division": "Northwest", "team": "Lamorinda Soccer Club"},
-    {"age_group": "U16", "division": "Northwest", "team": "The Town FC Academy"},
-    {"age_group": "U16", "division": "Northwest", "team": "ALBION SC Merced"},
-    {"age_group": "U16", "division": "Northwest", "team": "Atletico Santa Rosa"},
-    {"age_group": "U16", "division": "Northwest", "team": "Ballistic United"},
-    {"age_group": "U16", "division": "Northwest", "team": "San Francisco Glens SC"},
-    {"age_group": "U16", "division": "Northwest", "team": "Sacramento United"},
-    {"age_group": "U16", "division": "Northwest", "team": "Modesto Ajax United"},
-    {"age_group": "U16", "division": "Northwest", "team": "Napa United"},
-    {"age_group": "U16", "division": "Northwest", "team": "Woodside Soccer Club Crush"},
-    {"age_group": "U16", "division": "Northwest", "team": "San Francisco Seals"},
-    {"age_group": "U16", "division": "Southwest", "team": "Total Futbol Academy"},
-    {"age_group": "U16", "division": "Southwest", "team": "ALBION SC Los Angeles"},
-    {"age_group": "U16", "division": "Southwest", "team": "Barca Residency Academy"},
-    {"age_group": "U16", "division": "Southwest", "team": "Los Angeles SC"},
-    {"age_group": "U16", "division": "Southwest", "team": "ALBION SC San Diego"},
-    {"age_group": "U16", "division": "Southwest", "team": "LA Bulls"},
-    {"age_group": "U16", "division": "Southwest", "team": "Strikers FC"},
-    {"age_group": "U16", "division": "Southwest", "team": "Phoenix Rising FC"},
-    {"age_group": "U16", "division": "Southwest", "team": "Chula Vista FC"},
-    {"age_group": "U16", "division": "Southwest", "team": "FC Golden State"},
-    {"age_group": "U16", "division": "Southwest", "team": "ALBION SC Las Vegas"},
-    {"age_group": "U16", "division": "Southwest", "team": "Santa Barbara Soccer Club"},
-    {"age_group": "U16", "division": "Southwest", "team": "SC Del Sol"},
-    {"age_group": "U16", "division": "Southwest", "team": "RSL Arizona"},
-    {"age_group": "U16", "division": "Southwest", "team": "Las Vegas Sports Academy"},
-    {"age_group": "U16", "division": "Southwest", "team": "SoCal Reds FC"},
-    {"age_group": "U16", "division": "Southwest", "team": "Los Angeles Surf"},
-    {"age_group": "U16", "division": "Southwest", "team": "Ventura County Fusion"},
-    {"age_group": "U16", "division": "Southwest", "team": "City SC San Diego"},
-    {"age_group": "U16", "division": "Southwest", "team": "City SC Southwest"},
-    {"age_group": "U16", "division": "Florida", "team": "Miami Futbol Academy Rush"},
-    {"age_group": "U16", "division": "Florida", "team": "Orlando City Youth SC"},
-    {"age_group": "U16", "division": "Florida", "team": "Weston FC"},
-    {"age_group": "U16", "division": "Florida", "team": "Tampa Bay United"},
-    {"age_group": "U16", "division": "Florida", "team": "South Florida Football Academy"},
-    {"age_group": "U16", "division": "Florida", "team": "Jacksonville Armada FC"},
-    {"age_group": "U16", "division": "Florida", "team": "Orlando City Soccer School South"},
-    {"age_group": "U16", "division": "Florida", "team": "IMG"},
-    {"age_group": "U16", "division": "Florida", "team": "West Florida Flames"},
-    {"age_group": "U16", "division": "Florida", "team": "Athletum FC Academy"},
-    {"age_group": "U16", "division": "Florida", "team": "Sol SC Florida"},
-    {"age_group": "U16", "division": "Florida", "team": "IdeaSport SA"},
-    {"age_group": "U16", "division": "Florida", "team": "Chargers Soccer Club"},
-    {"age_group": "U16", "division": "Southeast", "team": "Wake FC"},
-    {"age_group": "U16", "division": "Southeast", "team": "Inter Atlanta FC"},
-    {"age_group": "U16", "division": "Southeast", "team": "KSA"},
-    {"age_group": "U16", "division": "Southeast", "team": "Queen City Mutiny FC"},
-    {"age_group": "U16", "division": "Southeast", "team": "Charlotte Independence"},
-    {"age_group": "U16", "division": "Southeast", "team": "Triangle United Soccer Association"},
-    {"age_group": "U16", "division": "Southeast", "team": "Southern Soccer Academy"},
-    {"age_group": "U16", "division": "Southeast", "team": "AFC Lightning"},
-    {"age_group": "U16", "division": "Southeast", "team": "Hoover-Vestavia Soccer"},
-    {"age_group": "U16", "division": "Southeast", "team": "Nashville United Soccer Academy"},
-    {"age_group": "U16", "division": "Southeast", "team": "Lanier Soccer Association"},
-    {"age_group": "U16", "division": "Northeast", "team": "Blau Weiss Gottschee"},
-    {"age_group": "U16", "division": "Northeast", "team": "Metropolitan Oval"},
-    {"age_group": "U16", "division": "Northeast", "team": "Intercontinental Football Academy of New England"},
-    {"age_group": "U16", "division": "Northeast", "team": "FA Euro New York"},
-    {"age_group": "U16", "division": "Northeast", "team": "Ironbound Soccer Club"},
-    {"age_group": "U16", "division": "Northeast", "team": "Beachside of Connecticut"},
-    {"age_group": "U16", "division": "Northeast", "team": "Valeo Futbol Club"},
-    {"age_group": "U16", "division": "Northeast", "team": "TSF Academy"},
-    {"age_group": "U16", "division": "Northeast", "team": "Cedar Stars Academy Bergen"},
-    {"age_group": "U16", "division": "Northeast", "team": "Connecticut United FC"},
-    {"age_group": "U16", "division": "Northeast", "team": "Rochester NY FC"},
-    {"age_group": "U16", "division": "Northeast", "team": "FC Greater Boston Bolts"},
-    {"age_group": "U16", "division": "Northeast", "team": "NEFC"},
-    {"age_group": "U16", "division": "Northeast", "team": "New York SC"},
-    {"age_group": "U16", "division": "Northeast", "team": "Oakwood Soccer Club"},
-    {"age_group": "U16", "division": "Northeast", "team": "Seacoast United"},
-    {"age_group": "U16", "division": "Northeast", "team": "Long Island Soccer Club"},
-    {"age_group": "U16", "division": "Northeast", "team": "FC Westchester"},
-    {"age_group": "U16", "division": "Northeast", "team": "Downtown United Soccer Club"},
-    {"age_group": "U16", "division": "Northeast", "team": "Bayside FC"},
-
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Real Futbol Academy"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Bethesda SC"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "FC DELCO"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "PA Classics"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Players Development Academy"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Baltimore Armour"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Achilles FC"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Alexandria SA"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Springfield SYC"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Northern Virginia Alliance"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Cedar Stars Academy Monmouth"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Sporting Athletic Club"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Keystone FC"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "The Football Academy"},
-    {"age_group": "U17", "division": "Mid-Atlantic", "team": "Beadling SC"},
-    {"age_group": "U17", "division": "Mid-America", "team": "St. Louis Scott Gallagher"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Michigan Wolves"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Indy Eleven"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Sockers FC Chicago"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Shattuck-St. Mary's"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Chicago FC United"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Bavarian United SC"},
-    {"age_group": "U17", "division": "Mid-America", "team": "SC Wave"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Cincinnati United Soccer Club"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Hoosier Premier"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Michigan Jaguars"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Michigan Futbol Academy"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Midwest United FC"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Lou Fusz Athletic"},
-    {"age_group": "U17", "division": "Mid-America", "team": "Vardar Soccer Club"},
-    {"age_group": "U17", "division": "Frontier", "team": "Capital City SC"},
-    {"age_group": "U17", "division": "Frontier", "team": "Global Football Innovation Academy"},
-    {"age_group": "U17", "division": "Frontier", "team": "FC Dallas"},
-    {"age_group": "U17", "division": "Frontier", "team": "Dallas Hornets"},
-    {"age_group": "U17", "division": "Frontier", "team": "AC River"},
-    {"age_group": "U17", "division": "Frontier", "team": "Houston Rangers"},
-    {"age_group": "U17", "division": "Frontier", "team": "ALBION SC Colorado"},
-    {"age_group": "U17", "division": "Frontier", "team": "IDEA Toros Fútbol Academy"},
-    {"age_group": "U17", "division": "Frontier", "team": "Tulsa Greenwood SC"},
-    {"age_group": "U17", "division": "Northwest", "team": "FC Bay Area Surf"},
-    {"age_group": "U17", "division": "Northwest", "team": "ALBION SC Merced"},
-    {"age_group": "U17", "division": "Northwest", "team": "Sacramento Republic FC"},
-    {"age_group": "U17", "division": "Northwest", "team": "San Francisco Glens SC"},
-    {"age_group": "U17", "division": "Northwest", "team": "De Anza Force"},
-    {"age_group": "U17", "division": "Northwest", "team": "Silicon Valley Soccer Academy"},
-    {"age_group": "U17", "division": "Northwest", "team": "Sacramento United"},
-    {"age_group": "U17", "division": "Northwest", "team": "Woodside Soccer Club Crush"},
-    {"age_group": "U17", "division": "Northwest", "team": "Modesto Ajax United"},
-    {"age_group": "U17", "division": "Northwest", "team": "Ballistic United"},
-    {"age_group": "U17", "division": "Northwest", "team": "Atletico Santa Rosa"},
-    {"age_group": "U17", "division": "Northwest", "team": "Napa United"},
-    {"age_group": "U17", "division": "Northwest", "team": "The Town FC Academy"},
-    {"age_group": "U17", "division": "Northwest", "team": "Lamorinda Soccer Club"},
-    {"age_group": "U17", "division": "Northwest", "team": "San Francisco Seals"},
-    {"age_group": "U17", "division": "Southwest", "team": "Barca Residency Academy"},
-    {"age_group": "U17", "division": "Southwest", "team": "ALBION SC San Diego"},
-    {"age_group": "U17", "division": "Southwest", "team": "Strikers FC"},
-    {"age_group": "U17", "division": "Southwest", "team": "Total Futbol Academy"},
-    {"age_group": "U17", "division": "Southwest", "team": "ALBION SC Los Angeles"},
-    {"age_group": "U17", "division": "Southwest", "team": "Ventura County Fusion"},
-    {"age_group": "U17", "division": "Southwest", "team": "SoCal Reds FC"},
-    {"age_group": "U17", "division": "Southwest", "team": "Santa Barbara Soccer Club"},
-    {"age_group": "U17", "division": "Southwest", "team": "City SC Southwest"},
-    {"age_group": "U17", "division": "Southwest", "team": "City SC San Diego"},
-    {"age_group": "U17", "division": "Southwest", "team": "Los Angeles SC"},
-    {"age_group": "U17", "division": "Southwest", "team": "ALBION SC Las Vegas"},
-    {"age_group": "U17", "division": "Southwest", "team": "Chula Vista FC"},
-    {"age_group": "U17", "division": "Southwest", "team": "SC Del Sol"},
-    {"age_group": "U17", "division": "Southwest", "team": "Phoenix Rising FC"},
-    {"age_group": "U17", "division": "Southwest", "team": "Los Angeles Surf"},
-    {"age_group": "U17", "division": "Southwest", "team": "RSL Arizona"},
-    {"age_group": "U17", "division": "Southwest", "team": "LA Bulls"},
-    {"age_group": "U17", "division": "Southwest", "team": "FC Golden State"},
-    {"age_group": "U17", "division": "Southwest", "team": "Las Vegas Sports Academy"},
-    {"age_group": "U17", "division": "Florida", "team": "Weston FC"},
-    {"age_group": "U17", "division": "Florida", "team": "Orlando City Youth SC"},
-    {"age_group": "U17", "division": "Florida", "team": "Miami Futbol Academy Rush"},
-    {"age_group": "U17", "division": "Florida", "team": "IMG"},
-    {"age_group": "U17", "division": "Florida", "team": "Inter Miami CF"},
-    {"age_group": "U17", "division": "Florida", "team": "Tampa Bay United"},
-    {"age_group": "U17", "division": "Florida", "team": "Jacksonville Armada FC"},
-    {"age_group": "U17", "division": "Florida", "team": "Athletum FC Academy"},
-    {"age_group": "U17", "division": "Florida", "team": "South Florida Football Academy"},
-    {"age_group": "U17", "division": "Florida", "team": "Orlando City Soccer School South"},
-    {"age_group": "U17", "division": "Florida", "team": "Sol SC Florida"},
-    {"age_group": "U17", "division": "Florida", "team": "IdeaSport SA"},
-    {"age_group": "U17", "division": "Florida", "team": "West Florida Flames"},
-    {"age_group": "U17", "division": "Florida", "team": "Chargers Soccer Club"},
-    {"age_group": "U17", "division": "Southeast", "team": "Inter Atlanta FC"},
-    {"age_group": "U17", "division": "Southeast", "team": "Wake FC"},
-    {"age_group": "U17", "division": "Southeast", "team": "Southern Soccer Academy"},
-    {"age_group": "U17", "division": "Southeast", "team": "Queen City Mutiny FC"},
-    {"age_group": "U17", "division": "Southeast", "team": "Triangle United Soccer Association"},
-    {"age_group": "U17", "division": "Southeast", "team": "Charlotte Independence"},
-    {"age_group": "U17", "division": "Southeast", "team": "AFC Lightning"},
-    {"age_group": "U17", "division": "Southeast", "team": "Nashville United Soccer Academy"},
-    {"age_group": "U17", "division": "Southeast", "team": "Lanier Soccer Association"},
-    {"age_group": "U17", "division": "Southeast", "team": "KSA"},
-    {"age_group": "U17", "division": "Southeast", "team": "Hoover-Vestavia Soccer"},
-    {"age_group": "U17", "division": "Northeast", "team": "TSF Academy"},
-    {"age_group": "U17", "division": "Northeast", "team": "Intercontinental Football Academy of New England"},
-    {"age_group": "U17", "division": "Northeast", "team": "Cedar Stars Academy Bergen"},
-    {"age_group": "U17", "division": "Northeast", "team": "FC Greater Boston Bolts"},
-    {"age_group": "U17", "division": "Northeast", "team": "Metropolitan Oval"},
-    {"age_group": "U17", "division": "Northeast", "team": "New York SC"},
-    {"age_group": "U17", "division": "Northeast", "team": "Seacoast United"},
-    {"age_group": "U17", "division": "Northeast", "team": "NEFC"},
-    {"age_group": "U17", "division": "Northeast", "team": "Blau Weiss Gottschee"},
-    {"age_group": "U17", "division": "Northeast", "team": "Bayside FC"},
-    {"age_group": "U17", "division": "Northeast", "team": "Beachside of Connecticut"},
-    {"age_group": "U17", "division": "Northeast", "team": "FC Westchester"},
-    {"age_group": "U17", "division": "Northeast", "team": "Long Island Soccer Club"},
-    {"age_group": "U17", "division": "Northeast", "team": "Ironbound Soccer Club"},
-    {"age_group": "U17", "division": "Northeast", "team": "Downtown United Soccer Club"},
-    {"age_group": "U17", "division": "Northeast", "team": "FA Euro New York"},
-    {"age_group": "U17", "division": "Northeast", "team": "Oakwood Soccer Club"},
-    {"age_group": "U17", "division": "Northeast", "team": "Rochester NY FC"},
-    {"age_group": "U17", "division": "Northeast", "team": "Valeo Futbol Club"},
-
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "FC DELCO"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Players Development Academy"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Baltimore Armour"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Bethesda SC"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Northern Virginia Alliance"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Springfield SYC"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Real Futbol Academy"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Cedar Stars Academy Monmouth"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Sporting Athletic Club"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Beadling SC"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Keystone FC"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Achilles FC"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "Alexandria SA"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "The Football Academy"},
-    {"age_group": "U19", "division": "Mid-Atlantic", "team": "PA Classics"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Indy Eleven"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Sockers FC Chicago"},
-    {"age_group": "U19", "division": "Mid-America", "team": "St. Louis Scott Gallagher"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Chicago FC United"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Midwest United FC"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Shattuck-St. Mary's"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Michigan Wolves"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Michigan Futbol Academy"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Cincinnati United Soccer Club"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Hoosier Premier"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Bavarian United SC"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Lou Fusz Athletic"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Vardar Soccer Club"},
-    {"age_group": "U19", "division": "Mid-America", "team": "SC Wave"},
-    {"age_group": "U19", "division": "Mid-America", "team": "Michigan Jaguars"},
-    {"age_group": "U19", "division": "Frontier", "team": "Global Football Innovation Academy"},
-    {"age_group": "U19", "division": "Frontier", "team": "Dallas Hornets"},
-    {"age_group": "U19", "division": "Frontier", "team": "Capital City SC"},
-    {"age_group": "U19", "division": "Frontier", "team": "ALBION SC Colorado"},
-    {"age_group": "U19", "division": "Frontier", "team": "Houston Rangers"},
-    {"age_group": "U19", "division": "Frontier", "team": "AC River"},
-    {"age_group": "U19", "division": "Frontier", "team": "Tulsa Greenwood SC"},
-    {"age_group": "U19", "division": "Frontier", "team": "IDEA Toros Fútbol Academy"},
-    {"age_group": "U19", "division": "Northwest", "team": "Sacramento Republic FC"},
-    {"age_group": "U19", "division": "Northwest", "team": "De Anza Force"},
-    {"age_group": "U19", "division": "Northwest", "team": "Sacramento United"},
-    {"age_group": "U19", "division": "Northwest", "team": "Silicon Valley Soccer Academy"},
-    {"age_group": "U19", "division": "Northwest", "team": "San Francisco Glens SC"},
-    {"age_group": "U19", "division": "Northwest", "team": "FC Bay Area Surf"},
-    {"age_group": "U19", "division": "Northwest", "team": "Woodside Soccer Club Crush"},
-    {"age_group": "U19", "division": "Northwest", "team": "Ballistic United"},
-    {"age_group": "U19", "division": "Northwest", "team": "The Town FC Academy"},
-    {"age_group": "U19", "division": "Northwest", "team": "Lamorinda Soccer Club"},
-    {"age_group": "U19", "division": "Northwest", "team": "Atletico Santa Rosa"},
-    {"age_group": "U19", "division": "Northwest", "team": "Napa United"},
-    {"age_group": "U19", "division": "Northwest", "team": "Modesto Ajax United"},
-    {"age_group": "U19", "division": "Northwest", "team": "ALBION SC Merced"},
-    {"age_group": "U19", "division": "Northwest", "team": "San Francisco Seals"},
-    {"age_group": "U19", "division": "Southwest", "team": "Barca Residency Academy"},
-    {"age_group": "U19", "division": "Southwest", "team": "Ventura County Fusion"},
-    {"age_group": "U19", "division": "Southwest", "team": "Strikers FC"},
-    {"age_group": "U19", "division": "Southwest", "team": "SC Del Sol"},
-    {"age_group": "U19", "division": "Southwest", "team": "Los Angeles Surf"},
-    {"age_group": "U19", "division": "Southwest", "team": "ALBION SC San Diego"},
-    {"age_group": "U19", "division": "Southwest", "team": "Santa Barbara Soccer Club"},
-    {"age_group": "U19", "division": "Southwest", "team": "Total Futbol Academy"},
-    {"age_group": "U19", "division": "Southwest", "team": "Chula Vista FC"},
-    {"age_group": "U19", "division": "Southwest", "team": "ALBION SC Los Angeles"},
-    {"age_group": "U19", "division": "Southwest", "team": "FC Golden State"},
-    {"age_group": "U19", "division": "Southwest", "team": "Los Angeles SC"},
-    {"age_group": "U19", "division": "Southwest", "team": "ALBION SC Las Vegas"},
-    {"age_group": "U19", "division": "Southwest", "team": "City SC San Diego"},
-    {"age_group": "U19", "division": "Southwest", "team": "RSL Arizona"},
-    {"age_group": "U19", "division": "Southwest", "team": "Las Vegas Sports Academy"},
-    {"age_group": "U19", "division": "Southwest", "team": "Phoenix Rising FC"},
-    {"age_group": "U19", "division": "Southwest", "team": "SoCal Reds FC"},
-    {"age_group": "U19", "division": "Southwest", "team": "City SC Southwest"},
-    {"age_group": "U19", "division": "Southwest", "team": "LA Bulls"},
-    {"age_group": "U19", "division": "Florida", "team": "IMG"},
-    {"age_group": "U19", "division": "Florida", "team": "Orlando City Youth SC"},
-    {"age_group": "U19", "division": "Florida", "team": "Miami Futbol Academy Rush"},
-    {"age_group": "U19", "division": "Florida", "team": "Weston FC"},
-    {"age_group": "U19", "division": "Florida", "team": "Jacksonville Armada FC"},
-    {"age_group": "U19", "division": "Florida", "team": "IdeaSport SA"},
-    {"age_group": "U19", "division": "Florida", "team": "Athletum FC Academy"},
-    {"age_group": "U19", "division": "Florida", "team": "South Florida Football Academy"},
-    {"age_group": "U19", "division": "Florida", "team": "Tampa Bay United"},
-    {"age_group": "U19", "division": "Florida", "team": "Orlando City Soccer School South"},
-    {"age_group": "U19", "division": "Florida", "team": "Sol SC Florida"},
-    {"age_group": "U19", "division": "Florida", "team": "West Florida Flames"},
-    {"age_group": "U19", "division": "Florida", "team": "Chargers Soccer Club"},
-    {"age_group": "U19", "division": "Southeast", "team": "Queen City Mutiny FC"},
-    {"age_group": "U19", "division": "Southeast", "team": "Charlotte Independence"},
-    {"age_group": "U19", "division": "Southeast", "team": "Southern Soccer Academy"},
-    {"age_group": "U19", "division": "Southeast", "team": "KSA"},
-    {"age_group": "U19", "division": "Southeast", "team": "Wake FC"},
-    {"age_group": "U19", "division": "Southeast", "team": "Lanier Soccer Association"},
-    {"age_group": "U19", "division": "Southeast", "team": "Nashville United Soccer Academy"},
-    {"age_group": "U19", "division": "Southeast", "team": "Triangle United Soccer Association"},
-    {"age_group": "U19", "division": "Southeast", "team": "Hoover-Vestavia Soccer"},
-    {"age_group": "U19", "division": "Southeast", "team": "AFC Lightning"},
-    {"age_group": "U19", "division": "Southeast", "team": "Inter Atlanta FC"},
-    {"age_group": "U19", "division": "Northeast", "team": "Blau Weiss Gottschee"},
-    {"age_group": "U19", "division": "Northeast", "team": "Cedar Stars Academy Bergen"},
-    {"age_group": "U19", "division": "Northeast", "team": "FC Greater Boston Bolts"},
-    {"age_group": "U19", "division": "Northeast", "team": "Long Island Soccer Club"},
-    {"age_group": "U19", "division": "Northeast", "team": "TSF Academy"},
-    {"age_group": "U19", "division": "Northeast", "team": "Metropolitan Oval"},
-    {"age_group": "U19", "division": "Northeast", "team": "NEFC"},
-    {"age_group": "U19", "division": "Northeast", "team": "Beachside of Connecticut"},
-    {"age_group": "U19", "division": "Northeast", "team": "Seacoast United"},
-    {"age_group": "U19", "division": "Northeast", "team": "Bayside FC"},
-    {"age_group": "U19", "division": "Northeast", "team": "Intercontinental Football Academy of New England"},
-    {"age_group": "U19", "division": "Northeast", "team": "Connecticut United FC"},
-    {"age_group": "U19", "division": "Northeast", "team": "FC Westchester"},
-    {"age_group": "U19", "division": "Northeast", "team": "New York SC"},
-    {"age_group": "U19", "division": "Northeast", "team": "Downtown United Soccer Club"},
-    {"age_group": "U19", "division": "Northeast", "team": "Ironbound Soccer Club"},
-    {"age_group": "U19", "division": "Northeast", "team": "FA Euro New York"},
-    {"age_group": "U19", "division": "Northeast", "team": "Oakwood Soccer Club"},
-    {"age_group": "U19", "division": "Northeast", "team": "Rochester NY FC"}
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Philadelphia Union",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Real Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Northern Virginia Alliance",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Springfield SYC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Baltimore Armour",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "FC DELCO",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Alexandria SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Cedar Stars Academy Monmouth",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "The Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Players Development Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Bethesda SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Keystone FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "PA Classics",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Sporting Athletic Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Achilles FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "Beadling SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-Atlantic",
+      "team": "West Virginia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "St. Louis Scott Gallagher",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "FC Cincinnati",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Lou Fusz Athletic",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Cincinnati United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Indy Eleven",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Michigan Wolves",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Michigan Jaguars",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Chicago FC United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Hoosier Premier",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Bavarian United SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "SC Wave",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Michigan Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Midwest United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Vardar Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Mid-America",
+      "team": "Sockers FC Chicago",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "FC Dallas",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "Austin FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "ALBION SC Colorado",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "Tulsa Greenwood SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "AC River",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "Global Football Innovation Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "Houston Rangers",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "Colorado Rapids",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "Dallas Hornets",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Frontier",
+      "team": "Capital City SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Sacramento Republic FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Silicon Valley Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "FC Bay Area Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Modesto Ajax United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "The Town FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "De Anza Force",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "San Francisco Glens SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Ballistic United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Sacramento United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "ALBION SC Merced",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Napa United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Atletico Santa Rosa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "San Francisco Seals",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Lamorinda Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northwest",
+      "team": "Woodside Soccer Club Crush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "LA Galaxy",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Strikers FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Los Angeles Football Club",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Total Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "San Diego FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "RSL Arizona",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Los Angeles Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Chula Vista FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "ALBION SC Los Angeles",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Los Angeles Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "City SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "FC Golden State",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "ALBION SC Las Vegas",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Santa Barbara Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "ALBION SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "City SC Southwest",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Las Vegas Sports Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Phoenix Rising FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "SoCal Reds FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "LA Bulls",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "RSL Arizona Mesa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "SC Del Sol",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southwest",
+      "team": "Ventura County Fusion",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Orlando City SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Inter Miami CF",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Weston FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "South Florida Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Tampa Bay United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Jacksonville FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "IdeaSport SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Miami Futbol Academy Rush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "IMG",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Orlando City Soccer School South",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "West Florida Flames",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Athletum FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Sol SC Florida",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Orlando City Youth SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Florida",
+      "team": "Chargers Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Atlanta United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Carolina Core FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Inter Atlanta FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Queen City Mutiny FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Wake FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Charlotte Independence",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Southern Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Nashville United Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "AFC Lightning",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Lanier Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Chattanooga FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Huntsville City FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Triangle United Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "Hoover-Vestavia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Southeast",
+      "team": "KSA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "New York Red Bulls",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "New York City FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Cedar Stars Academy Bergen",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "New York SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "NEFC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Beachside of Connecticut",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "FC Greater Boston Bolts",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "FC Westchester",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Long Island Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "TSF Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "New England Revolution",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Downtown United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Blau Weiss Gottschee",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Intercontinental Football Academy of New England",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Seacoast United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Oakwood Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Metropolitan Oval",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "FA Euro New York",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Ironbound Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Valeo Futbol Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Rochester NY FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U13",
+      "division": "Northeast",
+      "team": "Bayside FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Philadelphia Union",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Springfield SYC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "FC DELCO",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Sporting Athletic Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Alexandria SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Bethesda SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Real Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Baltimore Armour",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Players Development Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "The Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Achilles FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Keystone FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Beadling SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "West Virginia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Northern Virginia Alliance",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "Cedar Stars Academy Monmouth",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-Atlantic",
+      "team": "PA Classics",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "FC Cincinnati",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Bavarian United SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Michigan Jaguars",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "St. Louis Scott Gallagher",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "St. Louis CITY SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Vardar Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Michigan Wolves",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Hoosier Premier",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Chicago FC United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Cincinnati United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Lou Fusz Athletic",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Sockers FC Chicago",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Michigan Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Indy Eleven",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "Midwest United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Mid-America",
+      "team": "SC Wave",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Houston Dynamo FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Colorado Rapids",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "FC Dallas",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Austin FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "ALBION SC Colorado",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Tulsa Greenwood SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Houston Rangers",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Dallas Hornets",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Global Football Innovation Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "AC River",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Frontier",
+      "team": "Capital City SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "San Jose Earthquakes",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Sacramento Republic FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Silicon Valley Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "The Town FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "FC Bay Area Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Modesto Ajax United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "San Francisco Glens SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "De Anza Force",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Woodside Soccer Club Crush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Sacramento United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Ballistic United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Atletico Santa Rosa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Napa United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "Lamorinda Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "ALBION SC Merced",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northwest",
+      "team": "San Francisco Seals",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Los Angeles Football Club",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "LA Galaxy",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Strikers FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "FC Golden State",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Total Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "RSL Arizona",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Chula Vista FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "LA Bulls",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Los Angeles Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Phoenix Rising FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "City SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "ALBION SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "SoCal Reds FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "ALBION SC Las Vegas",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Santa Barbara Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "ALBION SC Los Angeles",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Los Angeles Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Ventura County Fusion",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "SC Del Sol",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "City SC Southwest",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "Las Vegas Sports Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southwest",
+      "team": "RSL Arizona Mesa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Orlando City SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Inter Miami CF",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Weston FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Miami Futbol Academy Rush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Tampa Bay United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "South Florida Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "IMG",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "IdeaSport SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Athletum FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Orlando City Soccer School South",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Jacksonville FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Sol SC Florida",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "West Florida Flames",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Orlando City Youth SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Florida",
+      "team": "Chargers Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Charlotte FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Carolina Core FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Atlanta United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Wake FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Inter Atlanta FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Southern Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Triangle United Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Queen City Mutiny FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Charlotte Independence",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Lanier Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Nashville United Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Chattanooga FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "AFC Lightning",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Hoover-Vestavia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "KSA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Southeast",
+      "team": "Huntsville City FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "New York Red Bulls",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "New York City FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Cedar Stars Academy Bergen",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Beachside of Connecticut",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Metropolitan Oval",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "FC Westchester",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "New England Revolution",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "NEFC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Ironbound Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Blau Weiss Gottschee",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Long Island Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "New York SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Intercontinental Football Academy of New England",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "TSF Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Rochester NY FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Seacoast United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "FC Greater Boston Bolts",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Bayside FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Downtown United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "FA Euro New York",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Valeo Futbol Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U14",
+      "division": "Northeast",
+      "team": "Oakwood Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "FC DELCO",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Sporting Athletic Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "The Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Springfield SYC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Players Development Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Beadling SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Keystone FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Real Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Bethesda SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Baltimore Armour",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Northern Virginia Alliance",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Alexandria SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Cedar Stars Academy Monmouth",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "PA Classics",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "Achilles FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-Atlantic",
+      "team": "West Virginia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Sockers FC Chicago",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Chicago FC United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Cincinnati United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Vardar Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Michigan Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Michigan Wolves",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Lou Fusz Athletic",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Midwest United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "St. Louis Scott Gallagher",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Bavarian United SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Indy Eleven",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "SC Wave",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Michigan Jaguars",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Hoosier Premier",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Mid-America",
+      "team": "Shattuck-St. Mary's",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "Houston Rangers",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "Global Football Innovation Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "Dallas Hornets",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "ALBION SC Colorado",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "AC River",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "Capital City SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "Tulsa Greenwood SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Frontier",
+      "team": "IDEA Toros F\u00fatbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Woodside Soccer Club Crush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Atletico Santa Rosa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "San Francisco Glens SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "FC Bay Area Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Lamorinda Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Silicon Valley Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Sacramento Republic FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "De Anza Force",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "The Town FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Napa United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "ALBION SC Merced",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Modesto Ajax United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Sacramento United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "San Francisco Seals",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northwest",
+      "team": "Ballistic United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "ALBION SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Strikers FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Barca Residency Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "City SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Total Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "ALBION SC Los Angeles",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "RSL Arizona",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Phoenix Rising FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "FC Golden State",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Ventura County Fusion",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Las Vegas Sports Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "City SC Southwest",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Los Angeles SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Chula Vista FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "SoCal Reds FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "SC Del Sol",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "LA Bulls",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Santa Barbara Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "ALBION SC Las Vegas",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southwest",
+      "team": "Los Angeles Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Orlando City Soccer School South",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "IdeaSport SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Athletum FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Tampa Bay United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Weston FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "IMG",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Miami Futbol Academy Rush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Sol SC Florida",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "South Florida Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Jacksonville FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "West Florida Flames",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Orlando City Youth SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Florida",
+      "team": "Chargers Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Inter Atlanta FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Carolina Core FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Chattanooga FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "KSA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Southern Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "AFC Lightning",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Wake FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Queen City Mutiny FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Lanier Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Charlotte Independence",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Nashville United Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Triangle United Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Southeast",
+      "team": "Hoover-Vestavia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Cedar Stars Academy Bergen",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Intercontinental Football Academy of New England",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "NEFC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "TSF Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Metropolitan Oval",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "FC Greater Boston Bolts",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "New York SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Connecticut United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Bayside FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "FA Euro New York",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Ironbound Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Seacoast United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Blau Weiss Gottschee",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Beachside of Connecticut",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Long Island Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Downtown United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Oakwood Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Valeo Futbol Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "FC Westchester",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U15",
+      "division": "Northeast",
+      "team": "Rochester NY FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Players Development Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "FC DELCO",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Bethesda SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Baltimore Armour",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Sporting Athletic Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Real Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Springfield SYC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Northern Virginia Alliance",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Keystone FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Cedar Stars Academy Monmouth",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Beadling SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "The Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Achilles FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "PA Classics",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-Atlantic",
+      "team": "Alexandria SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Michigan Wolves",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Indy Eleven",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Sockers FC Chicago",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Vardar Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Midwest United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Chicago FC United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Cincinnati United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Michigan Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Michigan Jaguars",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "St. Louis Scott Gallagher",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Hoosier Premier",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "SC Wave",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Shattuck-St. Mary's",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Lou Fusz Athletic",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Mid-America",
+      "team": "Bavarian United SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "Capital City SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "Global Football Innovation Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "ALBION SC Colorado",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "Houston Rangers",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "Tulsa Greenwood SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "Dallas Hornets",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "AC River",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Frontier",
+      "team": "IDEA Toros F\u00fatbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Sacramento Republic FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "FC Bay Area Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Silicon Valley Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "De Anza Force",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Lamorinda Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "The Town FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "ALBION SC Merced",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Atletico Santa Rosa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Ballistic United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "San Francisco Glens SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Sacramento United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Modesto Ajax United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Napa United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "Woodside Soccer Club Crush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northwest",
+      "team": "San Francisco Seals",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Total Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "ALBION SC Los Angeles",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Barca Residency Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Los Angeles SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "ALBION SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "LA Bulls",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Strikers FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Phoenix Rising FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Chula Vista FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "FC Golden State",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "ALBION SC Las Vegas",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Santa Barbara Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "SC Del Sol",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "RSL Arizona",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Las Vegas Sports Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "SoCal Reds FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Los Angeles Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "Ventura County Fusion",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "City SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southwest",
+      "team": "City SC Southwest",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Miami Futbol Academy Rush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Orlando City Youth SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Weston FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Tampa Bay United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "South Florida Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Jacksonville Armada FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Orlando City Soccer School South",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "IMG",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "West Florida Flames",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Athletum FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Sol SC Florida",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "IdeaSport SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Florida",
+      "team": "Chargers Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Wake FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Inter Atlanta FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "KSA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Queen City Mutiny FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Charlotte Independence",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Triangle United Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Southern Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "AFC Lightning",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Hoover-Vestavia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Nashville United Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast",
+      "team": "Lanier Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Blau Weiss Gottschee",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Metropolitan Oval",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Intercontinental Football Academy of New England",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "FA Euro New York",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Ironbound Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Beachside of Connecticut",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Valeo Futbol Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "TSF Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Cedar Stars Academy Bergen",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Connecticut United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Rochester NY FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "FC Greater Boston Bolts",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "NEFC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "New York SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Oakwood Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Seacoast United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Long Island Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "FC Westchester",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Downtown United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast",
+      "team": "Bayside FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Real Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Bethesda SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "FC DELCO",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "PA Classics",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Players Development Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Baltimore Armour",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Achilles FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Alexandria SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Springfield SYC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Northern Virginia Alliance",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Cedar Stars Academy Monmouth",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Sporting Athletic Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Keystone FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "The Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-Atlantic",
+      "team": "Beadling SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "St. Louis Scott Gallagher",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Michigan Wolves",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Indy Eleven",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Sockers FC Chicago",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Shattuck-St. Mary's",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Chicago FC United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Bavarian United SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "SC Wave",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Cincinnati United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Hoosier Premier",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Michigan Jaguars",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Michigan Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Midwest United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Lou Fusz Athletic",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Mid-America",
+      "team": "Vardar Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "Capital City SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "Global Football Innovation Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "FC Dallas",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "Dallas Hornets",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "AC River",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "Houston Rangers",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "ALBION SC Colorado",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "IDEA Toros F\u00fatbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Frontier",
+      "team": "Tulsa Greenwood SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "FC Bay Area Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "ALBION SC Merced",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Sacramento Republic FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "San Francisco Glens SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "De Anza Force",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Silicon Valley Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Sacramento United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Woodside Soccer Club Crush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Modesto Ajax United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Ballistic United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Atletico Santa Rosa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Napa United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "The Town FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "Lamorinda Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northwest",
+      "team": "San Francisco Seals",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Barca Residency Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "ALBION SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Strikers FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Total Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "ALBION SC Los Angeles",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Ventura County Fusion",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "SoCal Reds FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Santa Barbara Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "City SC Southwest",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "City SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Los Angeles SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "ALBION SC Las Vegas",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Chula Vista FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "SC Del Sol",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Phoenix Rising FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Los Angeles Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "RSL Arizona",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "LA Bulls",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "FC Golden State",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southwest",
+      "team": "Las Vegas Sports Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Weston FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Orlando City Youth SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Miami Futbol Academy Rush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "IMG",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Inter Miami CF",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Tampa Bay United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Jacksonville Armada FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Athletum FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "South Florida Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Orlando City Soccer School South",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Sol SC Florida",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "IdeaSport SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "West Florida Flames",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Florida",
+      "team": "Chargers Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Inter Atlanta FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Wake FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Southern Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Queen City Mutiny FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Triangle United Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Charlotte Independence",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "AFC Lightning",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Nashville United Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Lanier Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "KSA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast",
+      "team": "Hoover-Vestavia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "TSF Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Intercontinental Football Academy of New England",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Cedar Stars Academy Bergen",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "FC Greater Boston Bolts",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Metropolitan Oval",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "New York SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Seacoast United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "NEFC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Blau Weiss Gottschee",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Bayside FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Beachside of Connecticut",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "FC Westchester",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Long Island Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Ironbound Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Downtown United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "FA Euro New York",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Oakwood Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Rochester NY FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast",
+      "team": "Valeo Futbol Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "FC DELCO",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Players Development Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Baltimore Armour",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Bethesda SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Northern Virginia Alliance",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Springfield SYC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Real Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Cedar Stars Academy Monmouth",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Sporting Athletic Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Beadling SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Keystone FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Achilles FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "Alexandria SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "The Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-Atlantic",
+      "team": "PA Classics",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Indy Eleven",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Sockers FC Chicago",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "St. Louis Scott Gallagher",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Chicago FC United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Midwest United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Shattuck-St. Mary's",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Michigan Wolves",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Michigan Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Cincinnati United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Hoosier Premier",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Bavarian United SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Lou Fusz Athletic",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Vardar Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "SC Wave",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Mid-America",
+      "team": "Michigan Jaguars",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "Global Football Innovation Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "Dallas Hornets",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "Capital City SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "ALBION SC Colorado",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "Houston Rangers",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "AC River",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "Tulsa Greenwood SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Frontier",
+      "team": "IDEA Toros F\u00fatbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Sacramento Republic FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "De Anza Force",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Sacramento United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Silicon Valley Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "San Francisco Glens SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "FC Bay Area Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Woodside Soccer Club Crush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Ballistic United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "The Town FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Lamorinda Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Atletico Santa Rosa",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Napa United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "Modesto Ajax United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "ALBION SC Merced",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northwest",
+      "team": "San Francisco Seals",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Barca Residency Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Ventura County Fusion",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Strikers FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "SC Del Sol",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Los Angeles Surf",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "ALBION SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Santa Barbara Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Total Futbol Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Chula Vista FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "ALBION SC Los Angeles",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "FC Golden State",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Los Angeles SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "ALBION SC Las Vegas",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "City SC San Diego",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "RSL Arizona",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Las Vegas Sports Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "Phoenix Rising FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "SoCal Reds FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "City SC Southwest",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southwest",
+      "team": "LA Bulls",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "IMG",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Orlando City Youth SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Miami Futbol Academy Rush",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Weston FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Jacksonville Armada FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "IdeaSport SA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Athletum FC Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "South Florida Football Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Tampa Bay United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Orlando City Soccer School South",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Sol SC Florida",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "West Florida Flames",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Florida",
+      "team": "Chargers Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Queen City Mutiny FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Charlotte Independence",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Southern Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "KSA",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Wake FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Lanier Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Nashville United Soccer Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Triangle United Soccer Association",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Hoover-Vestavia Soccer",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "AFC Lightning",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast",
+      "team": "Inter Atlanta FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Blau Weiss Gottschee",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Cedar Stars Academy Bergen",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "FC Greater Boston Bolts",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Long Island Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "TSF Academy",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Metropolitan Oval",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "NEFC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Beachside of Connecticut",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Seacoast United",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Bayside FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Intercontinental Football Academy of New England",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Connecticut United FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "FC Westchester",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "New York SC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Downtown United Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Ironbound Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "FA Euro New York",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Oakwood Soccer Club",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast",
+      "team": "Rochester NY FC",
+      "is_pro_academy": false
+    },
+    {
+      "age_group": "U16",
+      "division": "Central (Pro Player Pathway)",
+      "team": "FC Cincinnati",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Colorado Rapids",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Chicago Fire FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Columbus Crew",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Central (Pro Player Pathway)",
+      "team": "St. Louis CITY SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Sporting Kansas City",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Minnesota United FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "West (Pro Player Pathway)",
+      "team": "San Jose Earthquakes",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "West (Pro Player Pathway)",
+      "team": "Los Angeles Football Club",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "West (Pro Player Pathway)",
+      "team": "Seattle Sounders FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "West (Pro Player Pathway)",
+      "team": "LA Galaxy",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "West (Pro Player Pathway)",
+      "team": "Real Salt Lake",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "West (Pro Player Pathway)",
+      "team": "Portland Timbers",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Houston Dynamo FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Orlando City SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Atlanta United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Inter Miami CF",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "FC Dallas",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Austin FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Nashville SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Charlotte FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New England Revolution",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "Toronto FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "Philadelphia Union",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New York City FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New York Red Bulls",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "D.C. United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U16",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "CF Montreal",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Central (Pro Player Pathway)",
+      "team": "St. Louis CITY SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Columbus Crew",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Sporting Kansas City",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Minnesota United FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Central (Pro Player Pathway)",
+      "team": "FC Cincinnati",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Chicago Fire FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Colorado Rapids",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "West (Pro Player Pathway)",
+      "team": "Seattle Sounders FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "West (Pro Player Pathway)",
+      "team": "Los Angeles Football Club",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "West (Pro Player Pathway)",
+      "team": "Real Salt Lake",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "West (Pro Player Pathway)",
+      "team": "Vancouver Whitecaps FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "West (Pro Player Pathway)",
+      "team": "LA Galaxy",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "West (Pro Player Pathway)",
+      "team": "San Jose Earthquakes",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "West (Pro Player Pathway)",
+      "team": "Portland Timbers",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Orlando City SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Atlanta United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Inter Miami CF",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Austin FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Houston Dynamo FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "FC Dallas",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Charlotte FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Nashville SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "Philadelphia Union",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "Toronto FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New York Red Bulls",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "CF Montreal",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New England Revolution",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "D.C. United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U17",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New York City FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Columbus Crew",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Colorado Rapids",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Chicago Fire FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Central (Pro Player Pathway)",
+      "team": "St. Louis CITY SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Central (Pro Player Pathway)",
+      "team": "FC Cincinnati",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Sporting Kansas City",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Central (Pro Player Pathway)",
+      "team": "Minnesota United FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "West (Pro Player Pathway)",
+      "team": "Real Salt Lake",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "West (Pro Player Pathway)",
+      "team": "Los Angeles Football Club",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "West (Pro Player Pathway)",
+      "team": "Portland Timbers",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "West (Pro Player Pathway)",
+      "team": "LA Galaxy",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "West (Pro Player Pathway)",
+      "team": "San Jose Earthquakes",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "West (Pro Player Pathway)",
+      "team": "Seattle Sounders FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "West (Pro Player Pathway)",
+      "team": "Vancouver Whitecaps FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Orlando City SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Charlotte FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Inter Miami CF",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Houston Dynamo FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Atlanta United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Austin FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "Nashville SC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Southeast (Pro Player Pathway)",
+      "team": "FC Dallas",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New York Red Bulls",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "Philadelphia Union",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New England Revolution",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "Toronto FC",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "D.C. United",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "CF Montreal",
+      "is_pro_academy": true
+    },
+    {
+      "age_group": "U19",
+      "division": "Northeast (Pro Player Pathway)",
+      "team": "New York City FC",
+      "is_pro_academy": true
+    }
   ]
 }
