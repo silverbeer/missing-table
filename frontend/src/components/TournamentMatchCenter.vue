@@ -1,5 +1,7 @@
 <template>
-  <div class="max-w-4xl mx-auto">
+  <div
+    :class="viewMode === 'bracket' ? 'max-w-7xl mx-auto' : 'max-w-4xl mx-auto'"
+  >
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-12">
       <div
@@ -76,11 +78,43 @@
                 {{ selected.description }}
               </p>
             </div>
-            <div class="text-right text-sm text-gray-500">
-              <div class="text-2xl font-bold text-gray-800">
-                {{ selected.matches?.length ?? 0 }}
+            <div class="flex flex-col items-end gap-3">
+              <div class="text-right text-sm text-gray-500">
+                <div class="text-2xl font-bold text-gray-800">
+                  {{ selected.matches?.length ?? 0 }}
+                </div>
+                <div>matches tracked</div>
               </div>
-              <div>matches tracked</div>
+              <!-- View toggle: only shown when the tournament has bracket rounds tagged -->
+              <div
+                v-if="hasBracketRounds"
+                class="inline-flex rounded-md border border-gray-300 bg-white p-0.5"
+              >
+                <button
+                  type="button"
+                  @click="viewMode = 'list'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    viewMode === 'list'
+                      ? 'bg-brand-600 text-white'
+                      : 'text-gray-600 hover:text-gray-900',
+                  ]"
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  @click="viewMode = 'bracket'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    viewMode === 'bracket'
+                      ? 'bg-brand-600 text-white'
+                      : 'text-gray-600 hover:text-gray-900',
+                  ]"
+                >
+                  Bracket
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -92,7 +126,7 @@
           ></div>
         </div>
 
-        <template v-else-if="selected.matches">
+        <template v-else-if="selected.matches && viewMode === 'list'">
           <!-- Age group filter -->
           <div
             v-if="availableAgeGroups.length > 1"
@@ -503,15 +537,71 @@
             </div>
           </div>
         </template>
+
+        <!-- ── Bracket view ── -->
+        <template v-else-if="selected.matches && viewMode === 'bracket'">
+          <!-- Selectors: age group + bracket group -->
+          <div
+            class="mb-5 flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-3"
+          >
+            <div
+              v-if="bracketAgeGroups.length > 0"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <span
+                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                >Age</span
+              >
+              <button
+                v-for="ag in bracketAgeGroups"
+                :key="`bag-${ag.id}`"
+                @click="bracketAgeGroupId = ag.id"
+                :class="[
+                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                  bracketAgeGroupId === ag.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+                ]"
+              >
+                {{ ag.name }}
+              </button>
+            </div>
+            <div
+              v-if="bracketGroups.length > 1"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <span
+                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                >Bracket</span
+              >
+              <button
+                v-for="g in bracketGroups"
+                :key="`bg-${g}`"
+                @click="bracketGroup = g"
+                :class="[
+                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                  bracketGroup === g
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+                ]"
+              >
+                {{ g }}
+              </button>
+            </div>
+          </div>
+
+          <TournamentBracket :matches="bracketMatches" />
+        </template>
       </div>
     </template>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import TournamentBracket from './TournamentBracket.vue';
 
 const KNOCKOUT_ROUNDS = new Set([
   'round_of_32',
@@ -519,6 +609,14 @@ const KNOCKOUT_ROUNDS = new Set([
   'quarterfinal',
   'semifinal',
   'third_place',
+  'final',
+]);
+
+const BRACKET_ROUNDS = new Set([
+  'round_of_32',
+  'round_of_16',
+  'quarterfinal',
+  'semifinal',
   'final',
 ]);
 
@@ -534,6 +632,7 @@ const ROUND_LABELS = {
 
 export default {
   name: 'TournamentMatchCenter',
+  components: { TournamentBracket },
   setup() {
     const authStore = useAuthStore();
 
@@ -547,6 +646,11 @@ export default {
 
     const teamFilter = ref('');
     const ageGroupFilter = ref(null);
+
+    // ── view mode + bracket selectors ──
+    const viewMode = ref('list'); // 'list' | 'bracket'
+    const bracketAgeGroupId = ref(null);
+    const bracketGroup = ref(null);
 
     // ── helpers ──
 
@@ -668,6 +772,90 @@ export default {
       )
     );
 
+    // ── bracket-mode computed state ──
+
+    // True when the selected tournament has at least one match tagged with
+    // a single-elimination bracket round (drives the List|Bracket toggle).
+    const hasBracketRounds = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      return matches.some(m => BRACKET_ROUNDS.has(m.tournament_round));
+    });
+
+    const bracketAgeGroups = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      const seen = new Map();
+      for (const m of matches) {
+        if (m.age_group && BRACKET_ROUNDS.has(m.tournament_round)) {
+          seen.set(m.age_group.id, m.age_group);
+        }
+      }
+      return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    const bracketGroups = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      const groups = new Set();
+      for (const m of matches) {
+        if (
+          BRACKET_ROUNDS.has(m.tournament_round) &&
+          (bracketAgeGroupId.value == null ||
+            m.age_group?.id === bracketAgeGroupId.value) &&
+          m.tournament_group
+        ) {
+          groups.add(m.tournament_group);
+        }
+      }
+      // Stable order: Championship first if present, then alphabetical.
+      const arr = [...groups];
+      arr.sort((a, b) => {
+        if (a === 'Championship') return -1;
+        if (b === 'Championship') return 1;
+        return a.localeCompare(b);
+      });
+      return arr;
+    });
+
+    const bracketMatches = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      return matches.filter(
+        m =>
+          BRACKET_ROUNDS.has(m.tournament_round) &&
+          (bracketAgeGroupId.value == null ||
+            m.age_group?.id === bracketAgeGroupId.value) &&
+          (bracketGroup.value == null ||
+            m.tournament_group === bracketGroup.value)
+      );
+    });
+
+    // Seed defaults when a tournament loads or its match set changes.
+    watch(
+      () => selected.value?.matches,
+      () => {
+        if (!hasBracketRounds.value) return;
+        if (
+          bracketAgeGroupId.value == null &&
+          bracketAgeGroups.value.length > 0
+        ) {
+          bracketAgeGroupId.value = bracketAgeGroups.value[0].id;
+        }
+        if (bracketGroup.value == null && bracketGroups.value.length > 0) {
+          bracketGroup.value = bracketGroups.value[0];
+        }
+      },
+      { immediate: true }
+    );
+
+    // If user changes age group and the prior bracket group isn't available
+    // for the new age group, fall back to the first available.
+    watch(bracketAgeGroupId, () => {
+      if (
+        bracketGroup.value != null &&
+        !bracketGroups.value.includes(bracketGroup.value)
+      ) {
+        bracketGroup.value = bracketGroups.value[0] ?? null;
+      }
+    });
+
     onMounted(fetchTournaments);
 
     return {
@@ -688,6 +876,13 @@ export default {
       formatMatchDate,
       roundLabel,
       selectTournament,
+      viewMode,
+      hasBracketRounds,
+      bracketAgeGroups,
+      bracketAgeGroupId,
+      bracketGroups,
+      bracketGroup,
+      bracketMatches,
     };
   },
 };
