@@ -200,7 +200,7 @@ export default {
 }
 
 .brand-band-badge {
-  height: 56px;
+  height: 84px;
   margin-left: auto;
   margin-right: 24px;
 }

@@ -231,7 +231,7 @@ export default {
 
 .ig-mls-badge {
   margin-left: auto;
-  height: 72px;
+  height: 108px;
 }
 
 .ig-chip {

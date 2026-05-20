@@ -245,7 +245,7 @@ export default {
 }
 
 .mls-badge {
-  height: 56px;
+  height: 88px;
   flex-shrink: 0;
 }
 
