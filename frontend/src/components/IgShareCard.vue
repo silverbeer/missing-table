@@ -59,7 +59,8 @@
         <div class="ig-team ig-team-home">
           <div
             class="ig-logo"
-            :style="{ boxShadow: `0 0 48px ${homeColor}66` }"
+            :class="{ 'ig-logo-filled': !homeLogoUrl }"
+            :style="{ boxShadow: `0 0 56px ${homeColor}88` }"
           >
             <img
               v-if="homeLogoUrl"
@@ -100,7 +101,8 @@
         <div class="ig-team ig-team-away">
           <div
             class="ig-logo"
-            :style="{ boxShadow: `0 0 48px ${awayColor}66` }"
+            :class="{ 'ig-logo-filled': !awayLogoUrl }"
+            :style="{ boxShadow: `0 0 56px ${awayColor}88` }"
           >
             <img
               v-if="awayLogoUrl"
@@ -408,24 +410,37 @@ export default {
 }
 
 .ig-logo {
-  width: 200px;
-  height: 200px;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.96);
   display: flex;
   align-items: center;
   justify-content: center;
+  /* No background fill by default — many club logos are self-contained
+     badges (e.g. IFA's gold-on-black crest) and a white circle behind
+     them creates an ugly halo. The boxShadow glow provides separation
+     from the photo. */
+}
+
+/* The white circle is only used when we're rendering team initials,
+   since text needs a high-contrast background to be legible on top of
+   the photo. */
+.ig-logo-filled {
+  background: rgba(255, 255, 255, 0.96);
   overflow: hidden;
 }
 
 .ig-logo-img {
-  width: 88%;
-  height: 88%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  /* A soft drop-shadow gives logos with light edges some definition
+     against the photo without re-introducing the halo. */
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
 }
 
 .ig-logo-initials {
-  font-size: 72px;
+  font-size: 78px;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: 0.04em;
