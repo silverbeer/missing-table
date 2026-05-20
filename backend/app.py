@@ -9,6 +9,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import r2_client
 from api.channel_requests import router as channel_requests_router
 from api.club_notifications import router as club_notifications_router
 from api.invite_requests import router as invite_requests_router
@@ -2584,6 +2585,20 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
         if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
             raise HTTPException(status_code=403, detail="You don't have permission to delete this match")
 
+        # Best-effort cleanup of the R2 match photo. We don't want a failed R2
+        # delete to block the match deletion — orphans are recoverable, lost
+        # match deletions are not. Logged so they're auditable.
+        photo_key = current_match.get("photo_key")
+        if photo_key and r2_client.is_configured():
+            try:
+                r2_client.delete_photo(photo_key)
+            except Exception:
+                logger.warning(
+                    "Failed to delete R2 photo on match delete (continuing)",
+                    extra={"match_id": match_id, "photo_key": photo_key},
+                    exc_info=True,
+                )
+
         success = match_dao.delete_match(match_id)
         if success:
             return {"message": "Match deleted successfully"}
@@ -2592,6 +2607,155 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
     except Exception as e:
         logger.error(f"Error deleting match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ---------------------------------------------------------------------------
+# Match photo upload/delete (SB-31). Photos are stored in Cloudflare R2 and
+# used as the background of the Instagram share-image card (SB-32).
+# ---------------------------------------------------------------------------
+
+_MATCH_PHOTO_ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png"}
+_MATCH_PHOTO_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+_MATCH_PHOTO_RESIZE_MAX = (1920, 1920)  # bounded storage growth on R2
+_MATCH_PHOTO_JPEG_QUALITY = 85
+
+
+def _resize_photo_to_jpeg(content: bytes) -> bytes:
+    """Resize to fit within 1920x1920, encode as JPEG q85. Bounds storage cost."""
+    from io import BytesIO
+
+    from PIL import Image as PILImage
+
+    img = PILImage.open(BytesIO(content))
+    # Drop alpha channel — JPEG can't represent it and Pillow errors otherwise.
+    if img.mode in ("RGBA", "LA", "P"):
+        img = img.convert("RGB")
+    img.thumbnail(_MATCH_PHOTO_RESIZE_MAX, PILImage.LANCZOS)
+    buf = BytesIO()
+    img.save(buf, "JPEG", quality=_MATCH_PHOTO_JPEG_QUALITY, optimize=True)
+    return buf.getvalue()
+
+
+@app.post("/api/matches/{match_id}/photo")
+async def upload_match_photo(
+    match_id: int,
+    file: UploadFile = File(...),
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Upload a match photo to R2; returns a signed URL.
+
+    Permission: admin OR team-manager whose team is in the match.
+    Accepted formats: PNG, JPG/JPEG. Max upload: 5MB. Server-side resized to
+    max 1920x1920 JPEG q85 before upload.
+    """
+    if not r2_client.is_configured():
+        raise HTTPException(status_code=503, detail=r2_client.R2_NOT_CONFIGURED_MSG)
+
+    if file.content_type not in _MATCH_PHOTO_ALLOWED_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: PNG, JPG. Got: {file.content_type}",
+        )
+
+    current_match = match_dao.get_match_by_id(match_id)
+    if not current_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+        raise HTTPException(status_code=403, detail="You don't have permission to manage this match's photo")
+
+    content = await file.read()
+    if len(content) > _MATCH_PHOTO_MAX_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max 5MB. Got: {len(content) / 1024 / 1024:.2f}MB",
+        )
+
+    try:
+        resized = _resize_photo_to_jpeg(content)
+    except Exception as e:
+        logger.error(f"Failed to resize match photo: {e!s}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Could not process image file") from e
+
+    import uuid
+
+    key = f"matches/{match_id}/{uuid.uuid4().hex}.jpg"
+
+    # If there was a previous photo, drop it to avoid orphans. Best-effort.
+    old_key = current_match.get("photo_key")
+    if old_key:
+        try:
+            r2_client.delete_photo(old_key)
+        except Exception:
+            logger.warning(
+                "Failed to delete previous match photo (continuing)",
+                extra={"match_id": match_id, "old_key": old_key},
+                exc_info=True,
+            )
+
+    try:
+        signed_url = r2_client.upload_photo(key, resized, content_type="image/jpeg")
+    except Exception as e:
+        logger.error(f"R2 upload failed for match {match_id}: {e!s}", exc_info=True)
+        raise HTTPException(status_code=502, detail="Failed to upload photo to storage") from e
+
+    # Persist photo_key (canonical) and photo_url (cache of latest signed URL).
+    # photo_url is the convenient form for the immediate IG-card generation;
+    # callers needing a fresh URL later should re-mint from photo_key.
+    response = (
+        match_dao.client.table("matches")
+        .update({"photo_url": signed_url, "photo_key": key})
+        .eq("id", match_id)
+        .execute()
+    )
+    if not response.data:
+        raise HTTPException(status_code=500, detail="Failed to persist photo metadata")
+
+    return {
+        "photo_url": signed_url,
+        "photo_key": key,
+        "expires_in": r2_client.DEFAULT_SIGNED_URL_TTL_SECONDS,
+        "bytes": len(resized),
+    }
+
+
+@app.delete("/api/matches/{match_id}/photo")
+async def delete_match_photo(
+    match_id: int,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """Delete a match's photo from R2 and clear photo_url/photo_key on the match."""
+    current_match = match_dao.get_match_by_id(match_id)
+    if not current_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+        raise HTTPException(status_code=403, detail="You don't have permission to manage this match's photo")
+
+    photo_key = current_match.get("photo_key")
+    if not photo_key:
+        return {"message": "No photo to delete"}
+
+    if r2_client.is_configured():
+        try:
+            r2_client.delete_photo(photo_key)
+        except Exception:
+            logger.warning(
+                "Failed to delete R2 photo (continuing with DB cleanup)",
+                extra={"match_id": match_id, "photo_key": photo_key},
+                exc_info=True,
+            )
+
+    response = (
+        match_dao.client.table("matches")
+        .update({"photo_url": None, "photo_key": None})
+        .eq("id", match_id)
+        .execute()
+    )
+    if not response.data:
+        raise HTTPException(status_code=500, detail="Failed to clear photo metadata")
+
+    return {"message": "Photo deleted"}
 
 
 @app.get("/api/matches/team/{team_id}")
