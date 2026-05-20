@@ -128,6 +128,21 @@ describe('IgTournamentRound template', () => {
   });
 });
 
+describe('tagline', () => {
+  const expected = 'Check out missingtable.com for live match updates';
+  for (const template of ['overlay', 'split', 'tournament-round', 'stadium']) {
+    it(`renders the CTA tagline on the ${template} template`, () => {
+      const wrapper = mountCard(template, {
+        match: createMockMatch({
+          tournament_round: template === 'tournament-round' ? 'final' : null,
+          tournament_name: template === 'tournament-round' ? 'Cup' : null,
+        }),
+      });
+      expect(wrapper.find('[data-testid="ig-tagline"]').text()).toBe(expected);
+    });
+  }
+});
+
 describe('MLS Next badge gating', () => {
   const homegrownMatch = (overrides = {}) =>
     createMockMatch({
@@ -143,15 +158,15 @@ describe('MLS Next badge gating', () => {
   for (const template of ['overlay', 'split', 'stadium']) {
     it(`shows MLS Next badge in ${template} when league is Homegrown`, () => {
       const wrapper = mountCard(template, { match: homegrownMatch() });
-      expect(
-        wrapper.find('[data-testid="ig-mls-next-badge"]').exists()
-      ).toBe(true);
+      expect(wrapper.find('[data-testid="ig-mls-next-badge"]').exists()).toBe(
+        true
+      );
     });
     it(`hides MLS Next badge in ${template} for non-Homegrown leagues`, () => {
       const wrapper = mountCard(template, { match: academyMatch() });
-      expect(
-        wrapper.find('[data-testid="ig-mls-next-badge"]').exists()
-      ).toBe(false);
+      expect(wrapper.find('[data-testid="ig-mls-next-badge"]').exists()).toBe(
+        false
+      );
     });
   }
 

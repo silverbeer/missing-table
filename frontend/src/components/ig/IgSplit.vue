@@ -89,11 +89,16 @@
       </div>
 
       <div class="footer-band">
-        <div class="footer-date" data-testid="ig-date">
-          {{ shortDateLabel
-          }}<span v-if="kickoffLabel"> · {{ kickoffLabel }}</span>
+        <div class="footer-row">
+          <div class="footer-date" data-testid="ig-date">
+            {{ shortDateLabel
+            }}<span v-if="kickoffLabel"> · {{ kickoffLabel }}</span>
+          </div>
+          <div class="footer-handle" data-testid="ig-handle">@missingtable</div>
         </div>
-        <div class="footer-handle" data-testid="ig-handle">@missingtable</div>
+        <div class="footer-tagline" data-testid="ig-tagline">
+          {{ tagline }}
+        </div>
       </div>
     </div>
 
@@ -116,7 +121,7 @@
 
 <script>
 import { computed, ref, toRefs } from 'vue';
-import { useIgShareData } from '@/composables/useIgShareData';
+import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
 
 export default {
@@ -139,7 +144,7 @@ export default {
     const photoCrossOrigin = computed(() =>
       props.photoIsCrossOrigin ? 'anonymous' : null
     );
-    return { root, ...data, photoCrossOrigin };
+    return { root, ...data, photoCrossOrigin, tagline: IG_SHARE_TAGLINE };
   },
 };
 </script>
@@ -318,14 +323,20 @@ export default {
 .footer-band {
   background: #dc2626;
   margin: 0 -48px -48px;
-  padding: 22px 48px;
+  padding: 18px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.footer-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #ffffff;
   font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 .footer-date {
@@ -334,6 +345,14 @@ export default {
 
 .footer-handle {
   font-size: 22px;
+}
+
+.footer-tagline {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .accent-stripe {

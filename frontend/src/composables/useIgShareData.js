@@ -11,6 +11,11 @@
 
 import { computed } from 'vue';
 
+// Promotional CTA shown at the bottom of every IG share-card template.
+// Single source so copy changes are one edit.
+export const IG_SHARE_TAGLINE =
+  'Check out missingtable.com for live match updates';
+
 const initialsFor = name => {
   if (!name) return '?';
   return name

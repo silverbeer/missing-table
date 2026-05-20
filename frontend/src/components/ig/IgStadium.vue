@@ -122,14 +122,14 @@
     <!-- Bottom brand band -->
     <div class="brand-band-bottom">
       <span class="handle" data-testid="ig-handle">@missingtable</span>
-      <span class="footer-tagline">MLS NEXT · YOUTH SOCCER</span>
+      <span class="footer-tagline" data-testid="ig-tagline">{{ tagline }}</span>
     </div>
   </div>
 </template>
 
 <script>
 import { ref, toRefs } from 'vue';
-import { useIgShareData } from '@/composables/useIgShareData';
+import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
 
 export default {
@@ -151,7 +151,7 @@ export default {
     const root = ref(null);
     const { match, mode } = toRefs(props);
     const data = useIgShareData(match, mode);
-    return { root, ...data };
+    return { root, ...data, tagline: IG_SHARE_TAGLINE };
   },
 };
 </script>
@@ -217,10 +217,10 @@ export default {
 }
 
 .footer-tagline {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .stage {

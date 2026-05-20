@@ -119,13 +119,14 @@
         <span class="ig-date" data-testid="ig-date">{{ dateLabel }}</span>
         <span class="ig-brand" data-testid="ig-brand">missingtable.com</span>
       </div>
+      <div class="ig-tagline" data-testid="ig-tagline">{{ tagline }}</div>
     </div>
   </div>
 </template>
 
 <script>
 import { computed, ref, toRefs } from 'vue';
-import { useIgShareData } from '@/composables/useIgShareData';
+import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
 
 export default {
@@ -148,7 +149,7 @@ export default {
     const photoCrossOrigin = computed(() =>
       props.photoIsCrossOrigin ? 'anonymous' : null
     );
-    return { root, ...data, photoCrossOrigin };
+    return { root, ...data, photoCrossOrigin, tagline: IG_SHARE_TAGLINE };
   },
 };
 </script>
@@ -404,5 +405,15 @@ export default {
 
 .ig-brand {
   letter-spacing: 0.05em;
+}
+
+.ig-tagline {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  padding-top: 4px;
 }
 </style>
