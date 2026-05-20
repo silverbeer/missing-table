@@ -405,8 +405,45 @@
 
             <!-- Copy button footer inside wrapper card -->
             <div
-              class="px-3 pb-2 pt-2 border-t border-slate-700 flex justify-end"
+              class="px-3 pb-2 pt-2 border-t border-slate-700 flex justify-end gap-2"
             >
+              <!-- SB-32: Instagram share. Gated to admin/club-mgr/team-mgr
+                   for either team — same as backend can_edit_match. -->
+              <button
+                v-if="canShareMatchPhoto"
+                @click="openIgShare"
+                data-testid="ig-share-button"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-pink-600 hover:bg-pink-700 text-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  class="w-3.5 h-3.5"
+                >
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="5"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="4"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
+                </svg>
+                <span>Instagram</span>
+              </button>
               <button
                 @click="shareScoreboard"
                 :disabled="shareStatus === 'copying'"
@@ -665,6 +702,14 @@
         status: {{ match.match_status || 'scheduled' }}.
         {{ match.match_type_name }} match on {{ formatDate(match.match_date) }}.
       </span>
+
+      <!-- SB-32: Instagram share modal -->
+      <IgShareModal
+        :open="igShareOpen"
+        :match="match"
+        @close="closeIgShare"
+        @photo-uploaded="onPhotoUploaded"
+      />
     </div>
   </div>
 </template>
@@ -678,6 +723,7 @@ import { useMatchLineup } from '../composables/useMatchLineup';
 import LineupManager from './live/LineupManager.vue';
 import PostMatchEditor from './PostMatchEditor.vue';
 import MatchPreview from './MatchPreview.vue';
+import IgShareModal from './IgShareModal.vue';
 
 export default {
   name: 'MatchDetailView',
@@ -685,6 +731,7 @@ export default {
     LineupManager,
     PostMatchEditor,
     MatchPreview,
+    IgShareModal,
   },
   props: {
     matchId: {
@@ -701,6 +748,7 @@ export default {
     const events = ref([]);
     const scoreboardRef = ref(null);
     const shareStatus = ref(null); // 'copying', 'success', 'error'
+    const igShareOpen = ref(false);
 
     // Countdown timer for upcoming matches
     const countdown = ref({ days: 0, hours: 0, minutes: 0, expired: false });
@@ -979,6 +1027,28 @@ export default {
       return false;
     });
 
+    // SB-32: Same permission gates the Instagram share. Mirrors the backend
+    // can_edit_match check that protects POST /api/matches/{id}/photo.
+    const canShareMatchPhoto = canManageLineup;
+
+    const openIgShare = () => {
+      igShareOpen.value = true;
+    };
+    const closeIgShare = () => {
+      igShareOpen.value = false;
+    };
+    const onPhotoUploaded = uploaded => {
+      // Mirror the persisted photo back onto the local match so subsequent
+      // refreshes show it without a refetch.
+      if (match.value && uploaded?.photo_key) {
+        match.value = {
+          ...match.value,
+          photo_url: uploaded.photo_url,
+          photo_key: uploaded.photo_key,
+        };
+      }
+    };
+
     // Lineup UI state
     const showLineupSection = ref(true);
     const activeLineupTab = ref('home');
@@ -1060,6 +1130,12 @@ export default {
       scoreboardRef,
       shareStatus,
       shareScoreboard,
+      // IG share (SB-32)
+      igShareOpen,
+      canShareMatchPhoto,
+      openIgShare,
+      closeIgShare,
+      onPhotoUploaded,
       // Lineup
       canManageLineup,
       showLineupSection,
