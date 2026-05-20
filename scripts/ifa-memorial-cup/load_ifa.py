@@ -33,9 +33,10 @@ import httpx
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOKEN_FILE = REPO_ROOT / "backend" / ".mt-cli-state.json"
 
-TOURNAMENT_NAME = "IFA Memorial Cup 2026"
+TOURNAMENT_NAME = "2026 IFA MEMORIAL DAY CUP"
 TOURNAMENT_START = "2026-05-23"
 TOURNAMENT_END = "2026-05-25"
+TOURNAMENT_LOCATION = "MA"
 TOURNAMENT_DESC = (
     "IFA Memorial Day weekend tournament (loaded: U14 Boys Diamond Bracket A)"
 )
@@ -159,6 +160,7 @@ def main():
                     "name": TOURNAMENT_NAME,
                     "start_date": TOURNAMENT_START,
                     "end_date": TOURNAMENT_END,
+                    "location": TOURNAMENT_LOCATION,
                     "age_group_ids": [AGE_GROUP_ID_U14],
                     "description": TOURNAMENT_DESC,
                 }
