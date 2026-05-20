@@ -187,11 +187,25 @@ export default {
 
     const ageGroupLabel = computed(() => props.match.age_group_name || 'MATCH');
 
+    // The backend uses the literal "Unknown" as a fallback for missing
+    // relations (tournament matches have no division, etc.) — never let
+    // that bleed into the share card.
+    const cleanName = v => (v && v !== 'Unknown' && v !== 'unknown' ? v : null);
+
     const metaLabel = computed(() => {
       const parts = [];
-      if (props.match.match_type_name) parts.push(props.match.match_type_name);
-      if (props.match.division_name) parts.push(props.match.division_name);
-      else if (props.match.season_name) parts.push(props.match.season_name);
+      const matchType = cleanName(props.match.match_type_name);
+      if (matchType) parts.push(matchType);
+
+      // For tournament matches, the tournament name beats division/season.
+      const tournamentName = cleanName(props.match.tournament_name);
+      const divisionName = cleanName(props.match.division_name);
+      const seasonName = cleanName(props.match.season_name);
+
+      if (tournamentName) parts.push(tournamentName);
+      else if (divisionName) parts.push(divisionName);
+      else if (seasonName) parts.push(seasonName);
+
       return parts.join(' · ').toUpperCase();
     });
 

@@ -983,7 +983,8 @@ class MatchDAO(BaseDAO):
                     season:seasons(id, name),
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
-                    division:divisions(id, name, leagues(id, name, sport_type))
+                    division:divisions(id, name, leagues(id, name, sport_type)),
+                    tournament:tournaments(id, name)
                 """)
                 .eq("id", match_id)
                 .execute()
@@ -1002,6 +1003,8 @@ class MatchDAO(BaseDAO):
                     team_div = home_team.get("division") or {}
                     team_league = team_div.get("leagues") or {}
                     sport_type = team_league.get("sport_type", "soccer")
+
+                tournament = match.get("tournament") or None
 
                 # Flatten the response to match the format from get_all_matches
                 flat_match = {
@@ -1025,6 +1028,10 @@ class MatchDAO(BaseDAO):
                     "division_id": match.get("division_id"),
                     "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
+                    "tournament_id": match.get("tournament_id"),
+                    "tournament_name": tournament["name"] if tournament else None,
+                    "tournament_group": match.get("tournament_group"),
+                    "tournament_round": match.get("tournament_round"),
                     "sport_type": sport_type,
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),

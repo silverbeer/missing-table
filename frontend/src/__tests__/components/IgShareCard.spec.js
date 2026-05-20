@@ -143,6 +143,34 @@ describe('IgShareCard', () => {
         '2025-2026'
       );
     });
+
+    it('prefers tournament_name over division for tournament matches', () => {
+      const wrapper = mountCard({
+        match: createMockMatch({
+          match_type_name: 'Tournament',
+          tournament_name: 'Generation Cup',
+          // Backend sets these to the literal "Unknown" string when null:
+          division_name: 'Unknown',
+          division: null,
+        }),
+      });
+      expect(wrapper.find('[data-testid="ig-meta"]').text()).toBe(
+        'TOURNAMENT · GENERATION CUP'
+      );
+    });
+
+    it('filters out the literal "Unknown" sentinel from the meta line', () => {
+      const wrapper = mountCard({
+        match: createMockMatch({
+          match_type_name: 'Tournament',
+          tournament_name: null,
+          division_name: 'Unknown', // backend default
+          season_name: 'Unknown',
+        }),
+      });
+      // Should NOT contain UNKNOWN — only TOURNAMENT.
+      expect(wrapper.find('[data-testid="ig-meta"]').text()).toBe('TOURNAMENT');
+    });
   });
 
   describe('layout invariants', () => {
