@@ -84,14 +84,15 @@ describe('IgShareCard', () => {
       expect(wrapper.find('[data-testid="ig-photo"]').exists()).toBe(false);
     });
 
-    it('sets crossorigin only when photoIsCrossOrigin is true', () => {
-      const wrapper = mountCard({
-        photoSrc: 'https://example.com/p.jpg',
-        photoIsCrossOrigin: true,
-      });
-      expect(
-        wrapper.find('[data-testid="ig-photo"]').attributes('crossorigin')
-      ).toBe('anonymous');
+    it('renders the photo as a CSS background-image (not <img>)', () => {
+      // Photo lives in CSS background-image because html2canvas does not
+      // honor object-fit:cover on <img> — it would stretch portrait
+      // photos to fill 1080×1080. Backgrounds are cropped correctly.
+      const wrapper = mountCard({ photoSrc: 'blob:fake/photo' });
+      const node = wrapper.find('[data-testid="ig-photo"]');
+      expect(node.element.tagName).toBe('DIV');
+      expect(node.attributes('style')).toContain('background-image');
+      expect(node.attributes('style')).toContain('blob:fake/photo');
     });
   });
 

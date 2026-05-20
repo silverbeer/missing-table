@@ -12,16 +12,15 @@
     data-template="tournament-round"
     :data-mode="mode"
   >
-    <!-- Photo half (left) -->
+    <!-- Photo half (left). background-image, not <img>, so html2canvas
+         honors cover cropping (it stretches <img object-fit:cover>). -->
     <div class="photo-half">
-      <img
+      <div
         v-if="photoSrc"
-        :src="photoSrc"
         class="photo"
         data-testid="ig-photo"
-        :crossorigin="photoCrossOrigin"
-        alt=""
-      />
+        :style="{ backgroundImage: `url(${photoSrc})` }"
+      ></div>
       <div v-else class="photo-fallback" data-testid="ig-photo-fallback"></div>
     </div>
 
@@ -171,7 +170,12 @@ export default {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+}
+
+.photo {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .photo-fallback {

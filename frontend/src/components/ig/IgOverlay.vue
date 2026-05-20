@@ -10,14 +10,15 @@
     data-template="overlay"
     :data-mode="mode"
   >
-    <img
+    <!-- Use background-image (not <img>) so html2canvas honors cover
+         cropping; <img object-fit:cover> is rendered as fill by the
+         library, stretching portrait photos. -->
+    <div
       v-if="photoSrc"
-      :src="photoSrc"
       class="ig-photo"
       data-testid="ig-photo"
-      :crossorigin="photoCrossOrigin"
-      alt=""
-    />
+      :style="{ backgroundImage: `url(${photoSrc})` }"
+    ></div>
     <div v-else class="ig-photo-fallback" data-testid="ig-photo-fallback">
       <div class="ig-photo-fallback-glow"></div>
     </div>
@@ -169,8 +170,13 @@ export default {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
   z-index: 0;
+}
+
+.ig-photo {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .ig-photo-fallback {
