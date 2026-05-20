@@ -21,6 +21,71 @@
     ></div>
     <div v-else class="ig-photo-fallback" data-testid="ig-photo-fallback">
       <div class="ig-photo-fallback-glow"></div>
+      <!-- Centered watermark so the no-photo state doesn't look empty.
+           Stylized soccer ball + wordmark, both heavily faded. -->
+      <svg
+        class="ig-photo-fallback-ball"
+        viewBox="0 0 200 200"
+        aria-hidden="true"
+      >
+        <circle
+          cx="100"
+          cy="100"
+          r="92"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="3"
+        />
+        <polygon points="100,42 124,60 116,90 84,90 76,60" fill="#ffffff" />
+        <polygon
+          points="100,158 124,140 116,110 84,110 76,140"
+          fill="#ffffff"
+          opacity="0.6"
+        />
+        <polygon
+          points="36,86 60,68 76,90 64,118 40,114"
+          fill="#ffffff"
+          opacity="0.6"
+        />
+        <polygon
+          points="164,86 140,68 124,90 136,118 160,114"
+          fill="#ffffff"
+          opacity="0.6"
+        />
+        <line
+          x1="100"
+          y1="42"
+          x2="100"
+          y2="14"
+          stroke="#ffffff"
+          stroke-width="2"
+        />
+        <line
+          x1="100"
+          y1="158"
+          x2="100"
+          y2="186"
+          stroke="#ffffff"
+          stroke-width="2"
+        />
+        <line
+          x1="36"
+          y1="86"
+          x2="14"
+          y2="70"
+          stroke="#ffffff"
+          stroke-width="2"
+        />
+        <line
+          x1="164"
+          y1="86"
+          x2="186"
+          y2="70"
+          stroke="#ffffff"
+          stroke-width="2"
+        />
+      </svg>
+      <div class="ig-photo-fallback-brand">missingtable.com</div>
     </div>
 
     <div class="ig-top-overlay">
@@ -42,14 +107,14 @@
           class="ig-status ig-status-final"
           data-testid="ig-status"
         >
-          FINAL
+          <span class="ig-status-text">FINAL</span>
         </span>
         <span
           v-else
           class="ig-status ig-status-preview"
           data-testid="ig-status"
         >
-          MATCH PREVIEW
+          <span class="ig-status-text">MATCH PREVIEW</span>
         </span>
       </div>
 
@@ -208,6 +273,29 @@ export default {
   );
 }
 
+.ig-photo-fallback-ball {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  width: 420px;
+  height: 420px;
+  opacity: 0.1;
+}
+
+.ig-photo-fallback-brand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, 220px);
+  font-size: 48px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.18);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .ig-top-overlay {
   position: absolute;
   top: 0;
@@ -282,23 +370,42 @@ export default {
 }
 
 .ig-status {
-  display: inline-block;
-  padding: 10px 28px;
-  border-radius: 8px;
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
+  display: inline-flex;
+  align-items: stretch;
+  font-size: 30px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.18em;
+  color: #ffffff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+  overflow: hidden;
+  /* Slight skew gives a broadcast lower-third feel. The inner span
+     un-skews so the text stays upright. */
+  transform: skewX(-8deg);
+}
+
+.ig-status::before {
+  content: '';
+  width: 10px;
+  background: #26d3e3;
+  flex-shrink: 0;
+}
+
+.ig-status-text {
+  display: inline-flex;
+  align-items: center;
+  padding: 14px 30px 14px 22px;
+  transform: skewX(8deg);
 }
 
 .ig-status-final {
-  background: #16a34a;
-  color: #ffffff;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
 }
 
 .ig-status-preview {
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  color: #ffffff;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
 }
 
 .ig-teams {
