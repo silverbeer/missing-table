@@ -29,19 +29,24 @@
     <!-- Brand panel (right) -->
     <div class="panel">
       <div class="panel-top">
-        <span class="brand-mark" data-testid="ig-brand-top"
-          >missingtable.com</span
-        >
-        <span
-          v-if="tournamentName"
-          class="tournament"
-          data-testid="ig-tournament"
-        >
-          {{ tournamentName.toUpperCase() }}
-        </span>
-        <span v-if="tournamentGroup" class="group" data-testid="ig-group">
-          {{ tournamentGroup.toUpperCase() }}
-        </span>
+        <div class="panel-top-row">
+          <div class="panel-top-text">
+            <span class="brand-mark" data-testid="ig-brand-top"
+              >missingtable.com</span
+            >
+            <span
+              v-if="tournamentName"
+              class="tournament"
+              data-testid="ig-tournament"
+            >
+              {{ tournamentName.toUpperCase() }}
+            </span>
+            <span v-if="tournamentGroup" class="group" data-testid="ig-group">
+              {{ tournamentGroup.toUpperCase() }}
+            </span>
+          </div>
+          <MlsNextBadge v-if="isHomegrownLeague" class="mls-badge" />
+        </div>
       </div>
 
       <div class="hero">
@@ -117,9 +122,11 @@
 <script>
 import { computed, ref, toRefs } from 'vue';
 import { useIgShareData } from '@/composables/useIgShareData';
+import MlsNextBadge from './MlsNextBadge.vue';
 
 export default {
   name: 'IgTournamentRound',
+  components: { MlsNextBadge },
   props: {
     match: { type: Object, required: true },
     photoSrc: { type: String, default: null },
@@ -215,10 +222,26 @@ export default {
 }
 
 .panel-top {
+  margin-bottom: 24px;
+}
+
+.panel-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panel-top-text {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 24px;
+  min-width: 0;
+}
+
+.mls-badge {
+  height: 56px;
+  flex-shrink: 0;
 }
 
 .brand-mark {

@@ -128,6 +128,46 @@ describe('IgTournamentRound template', () => {
   });
 });
 
+describe('MLS Next badge gating', () => {
+  const homegrownMatch = (overrides = {}) =>
+    createMockMatch({
+      division: { name: 'Northeast', leagues: { name: 'Homegrown' } },
+      ...overrides,
+    });
+  const academyMatch = (overrides = {}) =>
+    createMockMatch({
+      division: { name: 'West', leagues: { name: 'Academy' } },
+      ...overrides,
+    });
+
+  for (const template of ['overlay', 'split', 'stadium']) {
+    it(`shows MLS Next badge in ${template} when league is Homegrown`, () => {
+      const wrapper = mountCard(template, { match: homegrownMatch() });
+      expect(
+        wrapper.find('[data-testid="ig-mls-next-badge"]').exists()
+      ).toBe(true);
+    });
+    it(`hides MLS Next badge in ${template} for non-Homegrown leagues`, () => {
+      const wrapper = mountCard(template, { match: academyMatch() });
+      expect(
+        wrapper.find('[data-testid="ig-mls-next-badge"]').exists()
+      ).toBe(false);
+    });
+  }
+
+  it('shows MLS Next badge in tournament-round template when league is Homegrown', () => {
+    const wrapper = mountCard('tournament-round', {
+      match: homegrownMatch({
+        tournament_round: 'final',
+        tournament_name: 'Cup',
+      }),
+    });
+    expect(wrapper.find('[data-testid="ig-mls-next-badge"]').exists()).toBe(
+      true
+    );
+  });
+});
+
 describe('IgStadium template', () => {
   it('renders top and bottom brand bands with the handle', () => {
     const wrapper = mountCard('stadium');

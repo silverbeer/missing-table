@@ -138,6 +138,14 @@ export function useIgShareData(matchRef, modeRef) {
   // Tournament Round template is offered as an option in the picker.
   const hasTournamentRound = computed(() => !!tournamentRoundLabel.value);
 
+  // The Homegrown league is the user-facing name for the MLS Next
+  // pathway. When true, each template renders an "MLS Next" badge so
+  // the card visually associates the match with the broader league.
+  const leagueName = computed(
+    () => matchRef.value?.division?.leagues?.name || null
+  );
+  const isHomegrownLeague = computed(() => leagueName.value === 'Homegrown');
+
   return {
     homeTeamName,
     awayTeamName,
@@ -159,5 +167,7 @@ export function useIgShareData(matchRef, modeRef) {
     shortDateLabel,
     kickoffLabel,
     isResult,
+    leagueName,
+    isHomegrownLeague,
   };
 }

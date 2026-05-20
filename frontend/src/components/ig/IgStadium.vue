@@ -17,6 +17,7 @@
       <span class="brand-mark" data-testid="ig-brand-top"
         >missingtable.com</span
       >
+      <MlsNextBadge v-if="isHomegrownLeague" class="brand-band-badge" />
       <span class="meta" data-testid="ig-meta">{{ metaLabel }}</span>
     </div>
 
@@ -129,9 +130,11 @@
 <script>
 import { ref, toRefs } from 'vue';
 import { useIgShareData } from '@/composables/useIgShareData';
+import MlsNextBadge from './MlsNextBadge.vue';
 
 export default {
   name: 'IgStadium',
+  components: { MlsNextBadge },
   props: {
     match: { type: Object, required: true },
     // Photo is unused by this template but accepted so the dispatcher
@@ -194,6 +197,12 @@ export default {
 
 .brand-mark {
   font-size: 26px;
+}
+
+.brand-band-badge {
+  height: 56px;
+  margin-left: auto;
+  margin-right: 24px;
 }
 
 .meta {

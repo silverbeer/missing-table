@@ -31,6 +31,7 @@
         <span class="ig-chip-meta" data-testid="ig-meta">
           {{ metaLabel }}
         </span>
+        <MlsNextBadge v-if="isHomegrownLeague" class="ig-mls-badge" />
       </div>
     </div>
 
@@ -125,9 +126,11 @@
 <script>
 import { computed, ref, toRefs } from 'vue';
 import { useIgShareData } from '@/composables/useIgShareData';
+import MlsNextBadge from './MlsNextBadge.vue';
 
 export default {
   name: 'IgOverlay',
+  components: { MlsNextBadge },
   props: {
     match: { type: Object, required: true },
     photoSrc: { type: String, default: null },
@@ -223,6 +226,11 @@ export default {
   display: flex;
   align-items: center;
   gap: 24px;
+}
+
+.ig-mls-badge {
+  margin-left: auto;
+  height: 72px;
 }
 
 .ig-chip {
