@@ -1,5 +1,13 @@
 <template>
+  <!-- Inline match detail: replaces the tournament page when a row is clicked. -->
+  <MatchDetailView
+    v-if="selectedMatchId"
+    :matchId="selectedMatchId"
+    @back="handleBackFromMatchDetail"
+  />
+
   <div
+    v-else
     :class="
       viewMode === 'bracket' || viewMode === 'standings'
         ? 'max-w-7xl mx-auto'
@@ -220,7 +228,8 @@
               <div
                 v-for="match in groupStageMatches"
                 :key="match.id"
-                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-gray-300 transition-colors"
+                @click="viewMatch(match)"
+                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
               >
                 <!-- Mobile meta row -->
                 <div class="flex items-center justify-between mb-1.5 sm:hidden">
@@ -255,7 +264,11 @@
                       class="text-xs text-red-500"
                       >Cancelled</span
                     >
-                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    <span
+                      v-else
+                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      >Preview</span
+                    >
                   </div>
                 </div>
                 <!-- Main row -->
@@ -319,7 +332,11 @@
                       class="text-xs text-red-500"
                       >Cancelled</span
                     >
-                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    <span
+                      v-else
+                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      >Preview</span
+                    >
                   </div>
                 </div>
               </div>
@@ -337,7 +354,8 @@
               <div
                 v-for="match in knockoutMatches"
                 :key="match.id"
-                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-gray-300 transition-colors"
+                @click="viewMatch(match)"
+                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
               >
                 <!-- Mobile meta row -->
                 <div class="flex items-center justify-between mb-1.5 sm:hidden">
@@ -372,7 +390,11 @@
                       class="text-xs text-red-500"
                       >Cancelled</span
                     >
-                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    <span
+                      v-else
+                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      >Preview</span
+                    >
                   </div>
                 </div>
                 <!-- Main row -->
@@ -441,7 +463,11 @@
                       class="text-xs text-red-500"
                       >Cancelled</span
                     >
-                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    <span
+                      v-else
+                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      >Preview</span
+                    >
                   </div>
                 </div>
               </div>
@@ -459,7 +485,8 @@
               <div
                 v-for="match in untaggedMatches"
                 :key="match.id"
-                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-gray-300 transition-colors"
+                @click="viewMatch(match)"
+                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
               >
                 <!-- Mobile meta row -->
                 <div class="flex items-center justify-between mb-1.5 sm:hidden">
@@ -489,7 +516,11 @@
                       class="text-xs text-red-500"
                       >Cancelled</span
                     >
-                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    <span
+                      v-else
+                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      >Preview</span
+                    >
                   </div>
                 </div>
                 <!-- Main row -->
@@ -548,7 +579,11 @@
                       class="text-xs text-red-500"
                       >Cancelled</span
                     >
-                    <span v-else class="text-xs text-gray-400">Scheduled</span>
+                    <span
+                      v-else
+                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      >Preview</span
+                    >
                   </div>
                 </div>
               </div>
@@ -676,6 +711,7 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import TournamentBracket from './TournamentBracket.vue';
 import TournamentStandings from './TournamentStandings.vue';
+import MatchDetailView from './MatchDetailView.vue';
 
 const KNOCKOUT_ROUNDS = new Set([
   'round_of_32',
@@ -706,7 +742,7 @@ const ROUND_LABELS = {
 
 export default {
   name: 'TournamentMatchCenter',
-  components: { TournamentBracket, TournamentStandings },
+  components: { TournamentBracket, TournamentStandings, MatchDetailView },
   setup() {
     const authStore = useAuthStore();
 
@@ -727,6 +763,17 @@ export default {
     const bracketGroup = ref(null);
     const standingsAgeGroupId = ref(null);
     const standingsGroup = ref(null);
+
+    // ── inline match detail (preview) navigation ──
+    // When set, MatchDetailView replaces the tournament page (same pattern
+    // as MatchesView). Back button clears it.
+    const selectedMatchId = ref(null);
+    const viewMatch = match => {
+      selectedMatchId.value = match.id;
+    };
+    const handleBackFromMatchDetail = () => {
+      selectedMatchId.value = null;
+    };
 
     // ── helpers ──
 
@@ -1046,6 +1093,9 @@ export default {
       standingsGroups,
       standingsGroup,
       standingsMatches,
+      selectedMatchId,
+      viewMatch,
+      handleBackFromMatchDetail,
     };
   },
 };
