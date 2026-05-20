@@ -2,45 +2,44 @@
   <!--
     MLS Next league badge for the IG share card.
 
-    The SVG is INLINED via v-html (not <img src>) because html2canvas
-    drops <img>-sourced SVGs from its captured output — they show in
-    the live browser preview but vanish from the downloaded PNG.
-    Inlining the SVG markup makes html2canvas render it like any other
-    DOM, so it shows up in both places.
+    Rendered as a CSS background-image (not <img>) for html2canvas
+    reliability — see [[feedback-html2canvas-object-fit]]. Native logo
+    aspect ratio is preserved by setting the container's aspect-ratio
+    to match the source PNG.
 
-    The ?raw import keeps the file at src/assets/leagues/mls-next.svg as
-    the single source — replace that file to update the badge everywhere.
+    The asset is bundled from src/assets/leagues/mls-next.png — replace
+    that file (PNG, transparent background) to swap to a different
+    official version. If you swap to an SVG, change the import below
+    and the aspect-ratio if the new vector's ratio differs.
   -->
   <div
     class="mls-next-badge"
     data-testid="ig-mls-next-badge"
-    v-html="svgMarkup"
+    :style="{ backgroundImage: `url(${logoUrl})` }"
   ></div>
 </template>
 
 <script>
-import mlsNextSvg from '@/assets/leagues/mls-next.svg?raw';
+import mlsNextLogo from '@/assets/leagues/mls-next.png';
 
 export default {
   name: 'MlsNextBadge',
   setup() {
-    return { svgMarkup: mlsNextSvg };
+    return { logoUrl: mlsNextLogo };
   },
 };
 </script>
 
 <style scoped>
 .mls-next-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  /* Source PNG is 330x258 (≈1.28:1). Container takes its height from the
+     parent template (the .mls-badge / .ig-mls-badge / .brand-band-badge
+     rule); width scales to preserve aspect ratio. */
+  aspect-ratio: 330 / 258;
   height: 100%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.55));
-}
-
-.mls-next-badge :deep(svg) {
-  height: 100%;
-  width: auto;
-  display: block;
 }
 </style>
