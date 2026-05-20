@@ -238,14 +238,17 @@ export default {
 }
 
 .age-chip {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 12px 24px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  color: #0f172a;
-  font-size: 28px;
-  font-weight: 800;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 900;
   letter-spacing: 0.08em;
+  border: 2px solid #26d3e3;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 .status {

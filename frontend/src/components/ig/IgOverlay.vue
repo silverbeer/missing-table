@@ -235,14 +235,18 @@ export default {
 }
 
 .ig-chip {
-  display: inline-block;
-  padding: 12px 24px;
-  border-radius: 999px;
-  font-size: 28px;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 22px;
+  border-radius: 6px;
+  font-size: 32px;
+  font-weight: 900;
   letter-spacing: 0.08em;
-  background: rgba(255, 255, 255, 0.95);
-  color: #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+  border: 2px solid #26d3e3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 .ig-chip-meta {
