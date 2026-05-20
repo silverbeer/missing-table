@@ -1,6 +1,10 @@
 <template>
   <div
-    :class="viewMode === 'bracket' ? 'max-w-7xl mx-auto' : 'max-w-4xl mx-auto'"
+    :class="
+      viewMode === 'bracket' || viewMode === 'standings'
+        ? 'max-w-7xl mx-auto'
+        : 'max-w-4xl mx-auto'
+    "
   >
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-12">
@@ -85,9 +89,9 @@
                 </div>
                 <div>matches tracked</div>
               </div>
-              <!-- View toggle: only shown when the tournament has bracket rounds tagged -->
+              <!-- View toggle: List always shown; Bracket / Standings shown based on match round shape -->
               <div
-                v-if="hasBracketRounds"
+                v-if="hasBracketRounds || hasStandingsRounds"
                 class="inline-flex rounded-md border border-gray-300 bg-white p-0.5"
               >
                 <button
@@ -103,6 +107,7 @@
                   List
                 </button>
                 <button
+                  v-if="hasBracketRounds"
                   type="button"
                   @click="viewMode = 'bracket'"
                   :class="[
@@ -113,6 +118,19 @@
                   ]"
                 >
                   Bracket
+                </button>
+                <button
+                  v-if="hasStandingsRounds"
+                  type="button"
+                  @click="viewMode = 'standings'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    viewMode === 'standings'
+                      ? 'bg-brand-600 text-white'
+                      : 'text-gray-600 hover:text-gray-900',
+                  ]"
+                >
+                  Standings
                 </button>
               </div>
             </div>
@@ -592,6 +610,61 @@
 
           <TournamentBracket :matches="bracketMatches" />
         </template>
+
+        <!-- ── Standings view ── -->
+        <template v-else-if="selected.matches && viewMode === 'standings'">
+          <!-- Selectors: age group + tournament group, reused pattern from Bracket -->
+          <div
+            class="mb-5 flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-3"
+          >
+            <div
+              v-if="standingsAgeGroups.length > 1"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <span
+                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                >Age</span
+              >
+              <button
+                v-for="ag in standingsAgeGroups"
+                :key="`sag-${ag.id}`"
+                @click="standingsAgeGroupId = ag.id"
+                :class="[
+                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                  standingsAgeGroupId === ag.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+                ]"
+              >
+                {{ ag.name }}
+              </button>
+            </div>
+            <div
+              v-if="standingsGroups.length > 1"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <span
+                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                >Bracket</span
+              >
+              <button
+                v-for="g in standingsGroups"
+                :key="`sg-${g}`"
+                @click="standingsGroup = g"
+                :class="[
+                  'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                  standingsGroup === g
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+                ]"
+              >
+                {{ g }}
+              </button>
+            </div>
+          </div>
+
+          <TournamentStandings :matches="standingsMatches" />
+        </template>
       </div>
     </template>
   </div>
@@ -602,6 +675,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import TournamentBracket from './TournamentBracket.vue';
+import TournamentStandings from './TournamentStandings.vue';
 
 const KNOCKOUT_ROUNDS = new Set([
   'round_of_32',
@@ -632,7 +706,7 @@ const ROUND_LABELS = {
 
 export default {
   name: 'TournamentMatchCenter',
-  components: { TournamentBracket },
+  components: { TournamentBracket, TournamentStandings },
   setup() {
     const authStore = useAuthStore();
 
@@ -647,10 +721,12 @@ export default {
     const teamFilter = ref('');
     const ageGroupFilter = ref(null);
 
-    // ── view mode + bracket selectors ──
-    const viewMode = ref('list'); // 'list' | 'bracket'
+    // ── view mode + bracket / standings selectors ──
+    const viewMode = ref('list'); // 'list' | 'bracket' | 'standings'
     const bracketAgeGroupId = ref(null);
     const bracketGroup = ref(null);
+    const standingsAgeGroupId = ref(null);
+    const standingsGroup = ref(null);
 
     // ── helpers ──
 
@@ -856,6 +932,87 @@ export default {
       }
     });
 
+    // ── standings-mode computed state ──
+    // Same pattern as bracket-mode, but keyed off group_stage matches
+    // grouped by `tournament_group` (e.g. 'U14 Boys Diamond Bracket A').
+
+    const hasStandingsRounds = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      return matches.some(
+        m => m.tournament_round === 'group_stage' && m.tournament_group
+      );
+    });
+
+    const standingsAgeGroups = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      const seen = new Map();
+      for (const m of matches) {
+        if (
+          m.age_group &&
+          m.tournament_round === 'group_stage' &&
+          m.tournament_group
+        ) {
+          seen.set(m.age_group.id, m.age_group);
+        }
+      }
+      return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    const standingsGroups = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      const groups = new Set();
+      for (const m of matches) {
+        if (
+          m.tournament_round === 'group_stage' &&
+          m.tournament_group &&
+          (standingsAgeGroupId.value == null ||
+            m.age_group?.id === standingsAgeGroupId.value)
+        ) {
+          groups.add(m.tournament_group);
+        }
+      }
+      return [...groups].sort((a, b) => a.localeCompare(b));
+    });
+
+    const standingsMatches = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      return matches.filter(
+        m =>
+          m.tournament_round === 'group_stage' &&
+          m.tournament_group &&
+          (standingsAgeGroupId.value == null ||
+            m.age_group?.id === standingsAgeGroupId.value) &&
+          (standingsGroup.value == null ||
+            m.tournament_group === standingsGroup.value)
+      );
+    });
+
+    watch(
+      () => selected.value?.matches,
+      () => {
+        if (!hasStandingsRounds.value) return;
+        if (
+          standingsAgeGroupId.value == null &&
+          standingsAgeGroups.value.length > 0
+        ) {
+          standingsAgeGroupId.value = standingsAgeGroups.value[0].id;
+        }
+        if (standingsGroup.value == null && standingsGroups.value.length > 0) {
+          standingsGroup.value = standingsGroups.value[0];
+        }
+      },
+      { immediate: true }
+    );
+
+    watch(standingsAgeGroupId, () => {
+      if (
+        standingsGroup.value != null &&
+        !standingsGroups.value.includes(standingsGroup.value)
+      ) {
+        standingsGroup.value = standingsGroups.value[0] ?? null;
+      }
+    });
+
     onMounted(fetchTournaments);
 
     return {
@@ -883,6 +1040,12 @@ export default {
       bracketGroups,
       bracketGroup,
       bracketMatches,
+      hasStandingsRounds,
+      standingsAgeGroups,
+      standingsAgeGroupId,
+      standingsGroups,
+      standingsGroup,
+      standingsMatches,
     };
   },
 };
