@@ -974,11 +974,13 @@ class MatchDAO(BaseDAO):
                     home_team:teams!matches_home_team_id_fkey(
                         id, name,
                         club:clubs(id, name, logo_url, primary_color, secondary_color),
-                        division:divisions(id, leagues(sport_type))
+                        division:divisions(id, leagues(sport_type)),
+                        league:leagues(id, name)
                     ),
                     away_team:teams!matches_away_team_id_fkey(
                         id, name,
-                        club:clubs(id, name, logo_url, primary_color, secondary_color)
+                        club:clubs(id, name, logo_url, primary_color, secondary_color),
+                        league:leagues(id, name)
                     ),
                     season:seasons(id, name),
                     age_group:age_groups(id, name),
@@ -1006,6 +1008,16 @@ class MatchDAO(BaseDAO):
 
                 tournament = match.get("tournament") or None
 
+                # Per-team primary league (needed for tournament matches
+                # where the match itself has no division/league but we
+                # still want to know which league the teams come from).
+                home_team_league = (
+                    (match.get("home_team") or {}).get("league") or {}
+                )
+                away_team_league = (
+                    (match.get("away_team") or {}).get("league") or {}
+                )
+
                 # Flatten the response to match the format from get_all_matches
                 flat_match = {
                     "id": match["id"],
@@ -1017,6 +1029,8 @@ class MatchDAO(BaseDAO):
                     "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
                     "home_team_club": match["home_team"].get("club") if match.get("home_team") else None,
                     "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
+                    "home_team_league_name": home_team_league.get("name"),
+                    "away_team_league_name": away_team_league.get("name"),
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],

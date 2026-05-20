@@ -146,10 +146,23 @@ export function useIgShareData(matchRef, modeRef) {
   // The Homegrown league is the user-facing name for the MLS Next
   // pathway. When true, each template renders an "MLS Next" badge so
   // the card visually associates the match with the broader league.
+  //
+  // Detection order:
+  //   1. Match's division → league (regular-season matches)
+  //   2. Either team's primary league (tournament matches have no
+  //      division of their own, so we fall back to team membership)
   const leagueName = computed(
     () => matchRef.value?.division?.leagues?.name || null
   );
-  const isHomegrownLeague = computed(() => leagueName.value === 'Homegrown');
+  const isHomegrownLeague = computed(() => {
+    const m = matchRef.value;
+    if (!m) return false;
+    return (
+      leagueName.value === 'Homegrown' ||
+      m.home_team_league_name === 'Homegrown' ||
+      m.away_team_league_name === 'Homegrown'
+    );
+  });
 
   return {
     homeTeamName,

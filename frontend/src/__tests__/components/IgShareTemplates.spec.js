@@ -155,6 +155,46 @@ describe('MLS Next badge gating', () => {
       ...overrides,
     });
 
+  it('detects Homegrown via the home team when match has no division (tournament)', () => {
+    const wrapper = mountCard('overlay', {
+      match: createMockMatch({
+        division: null,
+        division_name: 'Unknown',
+        home_team_league_name: 'Homegrown',
+        away_team_league_name: 'Academy',
+      }),
+    });
+    expect(wrapper.find('[data-testid="ig-mls-next-badge"]').exists()).toBe(
+      true
+    );
+  });
+
+  it('detects Homegrown via the away team when match has no division', () => {
+    const wrapper = mountCard('overlay', {
+      match: createMockMatch({
+        division: null,
+        home_team_league_name: 'Academy',
+        away_team_league_name: 'Homegrown',
+      }),
+    });
+    expect(wrapper.find('[data-testid="ig-mls-next-badge"]').exists()).toBe(
+      true
+    );
+  });
+
+  it('hides the badge when neither team nor match is Homegrown', () => {
+    const wrapper = mountCard('overlay', {
+      match: createMockMatch({
+        division: null,
+        home_team_league_name: 'Academy',
+        away_team_league_name: 'Academy',
+      }),
+    });
+    expect(wrapper.find('[data-testid="ig-mls-next-badge"]').exists()).toBe(
+      false
+    );
+  });
+
   for (const template of ['overlay', 'split', 'stadium']) {
     it(`shows MLS Next badge in ${template} when league is Homegrown`, () => {
       const wrapper = mountCard(template, { match: homegrownMatch() });
