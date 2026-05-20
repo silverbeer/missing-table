@@ -58,6 +58,29 @@
           </button>
         </div>
 
+        <!-- Template picker -->
+        <div
+          class="ig-template-picker"
+          role="radiogroup"
+          aria-label="Card template"
+          data-testid="ig-template-picker"
+        >
+          <button
+            v-for="opt in availableTemplates"
+            :key="opt.value"
+            type="button"
+            role="radio"
+            :aria-checked="template === opt.value"
+            :data-testid="`ig-template-${opt.value}`"
+            class="ig-template-option"
+            :class="{ 'ig-template-active': template === opt.value }"
+            @click="template = opt.value"
+          >
+            <span class="ig-template-label">{{ opt.label }}</span>
+            <span class="ig-template-sub">{{ opt.sub }}</span>
+          </button>
+        </div>
+
         <!-- Photo picker -->
         <label class="ig-file-picker" data-testid="ig-file-picker">
           <input
@@ -105,6 +128,7 @@
               :match="match"
               :photo-src="localPhotoUrl"
               :mode="mode"
+              :template="template"
               data-testid="ig-preview-card"
             />
           </div>
@@ -153,6 +177,7 @@
         :match="match"
         :photo-src="localPhotoUrl"
         :mode="mode"
+        :template="template"
         data-testid="ig-capture-card"
       />
     </div>
@@ -168,6 +193,31 @@ import { getApiBaseUrl } from '../config/api';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png'];
+
+// Order matters — drives the picker's left-to-right tab order.
+const TEMPLATES = [
+  {
+    value: 'overlay',
+    label: 'Photo Overlay',
+    sub: 'Photo full-bleed',
+  },
+  {
+    value: 'split',
+    label: 'Brand Split',
+    sub: 'Panel + photo',
+  },
+  {
+    value: 'tournament-round',
+    label: 'Tournament Round',
+    sub: 'Quarterfinal / Final',
+    tournamentOnly: true,
+  },
+  {
+    value: 'stadium',
+    label: 'Stadium',
+    sub: 'No photo needed',
+  },
+];
 
 const formatBytes = bytes => {
   if (bytes < 1024) return `${bytes} B`;
@@ -201,6 +251,13 @@ export default {
     const canPickMode = computed(() => isCompleted.value);
 
     const mode = ref('preview');
+    const template = ref('overlay');
+
+    const hasTournamentRound = computed(() => !!props.match?.tournament_round);
+
+    const availableTemplates = computed(() =>
+      TEMPLATES.filter(t => !t.tournamentOnly || hasTournamentRound.value)
+    );
 
     watch(
       () => props.open,
@@ -211,6 +268,10 @@ export default {
         uploadError.value = null;
         status.value = null;
         mode.value = isCompleted.value ? 'result' : 'preview';
+        // Tournament Round is the highest-impact default when available.
+        template.value = hasTournamentRound.value
+          ? 'tournament-round'
+          : 'overlay';
       },
       { immediate: true }
     );
@@ -360,6 +421,8 @@ export default {
       uploadError,
       status,
       mode,
+      template,
+      availableTemplates,
       isCompleted,
       canPickMode,
       busy,
@@ -456,6 +519,51 @@ export default {
   background: #ffffff;
   color: #0f172a;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.ig-template-picker {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+@media (min-width: 600px) {
+  .ig-template-picker {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.ig-template-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.ig-template-option:hover {
+  background: #f1f5f9;
+}
+
+.ig-template-active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: white;
+}
+
+.ig-template-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ig-template-sub {
+  font-size: 11px;
+  opacity: 0.75;
 }
 
 .ig-file-picker {

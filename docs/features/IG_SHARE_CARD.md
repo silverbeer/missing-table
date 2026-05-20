@@ -11,19 +11,33 @@ From the match detail page, authorized users (admin, club manager, team
 manager of either team) see an **Instagram** button next to the existing
 "Copy Scoreboard" share. Clicking it opens a modal where they:
 
-1. Pick a JPEG/PNG photo from the match (≤ 5 MB).
-2. See a live preview of the 1080×1080 card.
-3. **Download PNG** or **Copy to clipboard**.
+1. Pick a template (see below).
+2. Optionally upload a JPEG/PNG photo (≤ 5 MB).
+3. See a live preview of the 1080×1080 card.
+4. **Download PNG** or **Copy to clipboard**.
 
 The card is rendered client-side via `html2canvas`. The source photo is
 uploaded to Cloudflare R2 (`POST /api/matches/{id}/photo`) so it's
 persisted on the match for future reuse (e.g. SB-33 goal-scorers overlay).
 
+### Templates
+
+| Template | When to use | Default? |
+|----------|-------------|----------|
+| **Photo Overlay** | Hero action shots, photo-first storytelling | Default when no tournament round |
+| **Brand Split** | Strong missingtable.com branding (panel + photo) | — |
+| **Tournament Round** | Quarterfinal / Semifinal / Final matches — round name is the hero | Default when `match.tournament_round` is set |
+| **Stadium** | No good photo available — full scoreboard-style card | — |
+
+The Tournament Round option is only surfaced in the picker when the match has `tournament_round` populated (e.g. `"round_of_8"`, `"quarterfinal"`, `"final"`).
+
 ### Modes
 
 - **Preview** — scheduled matches. Big "VS" + kickoff time.
-- **Result** — completed matches. Final score, "FINAL" badge. Modal
+- **Result** — completed matches. Final score, "FINAL" / "FULL TIME" badge. Modal
   defaults to this mode for completed matches; user can toggle.
+
+Modes are independent of templates — every template supports both.
 
 ### Graceful degradation
 
@@ -33,11 +47,19 @@ a clear message ("Card will download but the photo will not be saved").
 
 ## Files
 
-- `frontend/src/components/IgShareCard.vue` — pure presentational
-  1080×1080 layout. Renders at exact pixel size; do NOT wrap in
-  containers that resize it.
-- `frontend/src/components/IgShareModal.vue` — file pick, upload, capture,
-  download/clipboard flow.
+- `frontend/src/components/IgShareCard.vue` — thin dispatcher; picks the
+  right template component based on a `template` prop and re-exposes the
+  inner `root` ref for html2canvas.
+- `frontend/src/components/ig/IgOverlay.vue` — Photo Overlay template.
+- `frontend/src/components/ig/IgSplit.vue` — Brand Split template.
+- `frontend/src/components/ig/IgTournamentRound.vue` — Tournament Round template.
+- `frontend/src/components/ig/IgStadium.vue` — Stadium Scoreboard template.
+- `frontend/src/composables/useIgShareData.js` — shared computed props
+  (team data, score, dateLabel, tournament-name preference, "Unknown"
+  filtering, round-name normalization). Single source of truth across
+  all four templates.
+- `frontend/src/components/IgShareModal.vue` — file pick, template
+  picker, upload, capture, download/clipboard flow.
 - `frontend/src/components/MatchDetailView.vue` — entry-point button +
   permission gate (`canShareMatchPhoto`).
 

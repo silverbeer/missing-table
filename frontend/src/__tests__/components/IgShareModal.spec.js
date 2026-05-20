@@ -90,6 +90,59 @@ describe('IgShareModal', () => {
     });
   });
 
+  describe('template picker', () => {
+    it('always shows overlay, split, and stadium options', () => {
+      const wrapper = mountModal();
+      expect(wrapper.find('[data-testid="ig-template-overlay"]').exists()).toBe(
+        true
+      );
+      expect(wrapper.find('[data-testid="ig-template-split"]').exists()).toBe(
+        true
+      );
+      expect(wrapper.find('[data-testid="ig-template-stadium"]').exists()).toBe(
+        true
+      );
+    });
+
+    it('hides Tournament Round when the match has no tournament_round', () => {
+      const wrapper = mountModal();
+      expect(
+        wrapper.find('[data-testid="ig-template-tournament-round"]').exists()
+      ).toBe(false);
+    });
+
+    it('shows Tournament Round and defaults to it when round is set', () => {
+      const wrapper = mountModal({
+        match: createMockMatch({
+          tournament_name: '2026 MLS NEXT Cup',
+          tournament_round: 'quarterfinal',
+        }),
+      });
+      const opt = wrapper.find('[data-testid="ig-template-tournament-round"]');
+      expect(opt.exists()).toBe(true);
+      expect(opt.attributes('aria-checked')).toBe('true');
+    });
+
+    it('defaults to overlay when no tournament round', () => {
+      const wrapper = mountModal();
+      expect(
+        wrapper
+          .find('[data-testid="ig-template-overlay"]')
+          .attributes('aria-checked')
+      ).toBe('true');
+    });
+
+    it('switches template when user clicks an option', async () => {
+      const wrapper = mountModal();
+      await wrapper.find('[data-testid="ig-template-split"]').trigger('click');
+      expect(
+        wrapper
+          .find('[data-testid="ig-template-split"]')
+          .attributes('aria-checked')
+      ).toBe('true');
+    });
+  });
+
   describe('mode toggle', () => {
     it('hides the mode toggle on scheduled matches', () => {
       const wrapper = mountModal({ match: createMockMatch() });
