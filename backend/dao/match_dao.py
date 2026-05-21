@@ -974,16 +974,19 @@ class MatchDAO(BaseDAO):
                     home_team:teams!matches_home_team_id_fkey(
                         id, name,
                         club:clubs(id, name, logo_url, primary_color, secondary_color),
-                        division:divisions(id, leagues(sport_type))
+                        division:divisions(id, leagues(sport_type)),
+                        league:leagues(id, name)
                     ),
                     away_team:teams!matches_away_team_id_fkey(
                         id, name,
-                        club:clubs(id, name, logo_url, primary_color, secondary_color)
+                        club:clubs(id, name, logo_url, primary_color, secondary_color),
+                        league:leagues(id, name)
                     ),
                     season:seasons(id, name),
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
-                    division:divisions(id, name, leagues(id, name, sport_type))
+                    division:divisions(id, name, leagues(id, name, sport_type)),
+                    tournament:tournaments(id, name)
                 """)
                 .eq("id", match_id)
                 .execute()
@@ -1003,6 +1006,18 @@ class MatchDAO(BaseDAO):
                     team_league = team_div.get("leagues") or {}
                     sport_type = team_league.get("sport_type", "soccer")
 
+                tournament = match.get("tournament") or None
+
+                # Per-team primary league (needed for tournament matches
+                # where the match itself has no division/league but we
+                # still want to know which league the teams come from).
+                home_team_league = (
+                    (match.get("home_team") or {}).get("league") or {}
+                )
+                away_team_league = (
+                    (match.get("away_team") or {}).get("league") or {}
+                )
+
                 # Flatten the response to match the format from get_all_matches
                 flat_match = {
                     "id": match["id"],
@@ -1014,6 +1029,8 @@ class MatchDAO(BaseDAO):
                     "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
                     "home_team_club": match["home_team"].get("club") if match.get("home_team") else None,
                     "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
+                    "home_team_league_name": home_team_league.get("name"),
+                    "away_team_league_name": away_team_league.get("name"),
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
                     "season_id": match["season_id"],
@@ -1025,6 +1042,10 @@ class MatchDAO(BaseDAO):
                     "division_id": match.get("division_id"),
                     "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
+                    "tournament_id": match.get("tournament_id"),
+                    "tournament_name": tournament["name"] if tournament else None,
+                    "tournament_group": match.get("tournament_group"),
+                    "tournament_round": match.get("tournament_round"),
                     "sport_type": sport_type,
                     "match_status": match.get("match_status"),
                     "created_by": match.get("created_by"),
