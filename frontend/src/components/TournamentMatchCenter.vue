@@ -1,13 +1,45 @@
 <template>
-  <!-- Inline match detail: replaces the tournament page when a row is clicked. -->
-  <MatchDetailView
+  <!-- Match detail modal: overlays the tournament page when a row or bracket cell is clicked. -->
+  <div
     v-if="selectedMatchId"
-    :matchId="selectedMatchId"
-    @back="handleBackFromMatchDetail"
-  />
+    class="fixed inset-0 z-50 bg-black/60 overflow-y-auto"
+    @click.self="handleBackFromMatchDetail"
+  >
+    <div class="min-h-full flex items-start justify-center p-3 sm:p-6">
+      <div
+        class="relative w-full max-w-4xl bg-white rounded-lg shadow-2xl"
+        @click.stop
+      >
+        <button
+          type="button"
+          aria-label="Close match details"
+          class="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          @click="handleBackFromMatchDetail"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+        <MatchDetailView
+          :matchId="selectedMatchId"
+          @back="handleBackFromMatchDetail"
+        />
+      </div>
+    </div>
+  </div>
 
   <div
-    v-else
     :class="
       viewMode === 'bracket' || viewMode === 'standings'
         ? 'max-w-7xl mx-auto'
@@ -643,7 +675,10 @@
             </div>
           </div>
 
-          <TournamentBracket :matches="bracketMatches" />
+          <TournamentBracket
+            :matches="bracketMatches"
+            @match-click="viewMatch"
+          />
         </template>
 
         <!-- ── Standings view ── -->
