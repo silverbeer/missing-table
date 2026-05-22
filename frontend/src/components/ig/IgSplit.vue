@@ -286,13 +286,12 @@ export default {
   font-style: italic;
   transform: skewX(-4deg);
   transform-origin: left center;
-  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
-  /* Tiny gradient on the type for extra polish. */
-  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+  /* Solid white + layered shadow for depth. Avoid background-clip:text;
+     html2canvas renders that as transparent in the downloaded PNG. */
+  color: #ffffff;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.25),
+    0 6px 24px rgba(0, 0, 0, 0.55);
 }
 
 .matchup {
