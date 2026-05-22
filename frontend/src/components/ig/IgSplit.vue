@@ -11,8 +11,8 @@
     data-template="split"
     :data-mode="mode"
   >
-    <!-- Brand panel -->
-    <div class="panel">
+    <!-- Brand panel — clip-path gives the right edge a torn-paper look. -->
+    <div class="panel" :style="{ clipPath: tornClipPath }">
       <div class="panel-top">
         <div class="panel-top-row">
           <div class="panel-top-text">
@@ -102,20 +102,15 @@
       </div>
     </div>
 
-    <!-- Red accent stripe between halves -->
-    <div class="accent-stripe"></div>
-
-    <!-- Photo half. background-image, not <img>, so html2canvas honors
-         cover cropping (it stretches <img object-fit:cover>). -->
-    <div class="photo-half">
-      <div
-        v-if="photoSrc"
-        class="photo"
-        data-testid="ig-photo"
-        :style="{ backgroundImage: `url(${photoSrc})` }"
-      ></div>
-      <div v-else class="photo-fallback" data-testid="ig-photo-fallback"></div>
-    </div>
+    <!-- Photo layer (full bleed, behind panel). background-image, not <img>,
+         so html2canvas honors cover cropping. -->
+    <div
+      v-if="photoSrc"
+      class="photo"
+      data-testid="ig-photo"
+      :style="{ backgroundImage: `url(${photoSrc})` }"
+    ></div>
+    <div v-else class="photo-fallback" data-testid="ig-photo-fallback"></div>
   </div>
 </template>
 
@@ -144,7 +139,48 @@ export default {
     const photoCrossOrigin = computed(() =>
       props.photoIsCrossOrigin ? 'anonymous' : null
     );
-    return { root, ...data, photoCrossOrigin, tagline: IG_SHARE_TAGLINE };
+
+    // Torn-paper clip-path for the panel's right edge. The base x lerps
+    // from `topX` to `bottomX` so the tear leans diagonally (panel is
+    // wider at the top, narrower at the bottom). Deterministic
+    // pseudo-random jaggies along the way. clip-path: polygon() because
+    // html2canvas handles it more reliably than masks.
+    const tornClipPath = computed(() => {
+      const topX = 600;
+      const bottomX = 480;
+      const height = 1080;
+      const hash = n => {
+        const s = Math.sin(n) * 43758.5453;
+        return s - Math.floor(s);
+      };
+      const points = ['0px 0px', `${topX}px 0px`];
+      let y = 0;
+      let i = 1;
+      while (y < height) {
+        const step = 16 + hash(i * 7) * 22;
+        y = Math.min(y + step, height);
+        if (y >= height) break;
+        const baseX = topX + ((bottomX - topX) * y) / height;
+        let xOffset = (hash(i * 13) - 0.5) * 28;
+        if (hash(i * 17) > 0.72) {
+          xOffset += (hash(i * 23) - 0.4) * 52;
+        }
+        const x = baseX + xOffset;
+        points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+        i++;
+      }
+      points.push(`${bottomX}px ${height}px`);
+      points.push(`0px ${height}px`);
+      return `polygon(${points.join(', ')})`;
+    });
+
+    return {
+      root,
+      ...data,
+      photoCrossOrigin,
+      tagline: IG_SHARE_TAGLINE,
+      tornClipPath,
+    };
   },
 };
 </script>
@@ -155,7 +191,6 @@ export default {
   width: 1080px;
   height: 1080px;
   overflow: hidden;
-  display: flex;
   background: #0a1224;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
@@ -165,10 +200,15 @@ export default {
 }
 
 .panel {
-  width: 520px;
-  flex-shrink: 0;
-  position: relative;
-  padding: 56px 48px 48px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 620px;
+  height: 100%;
+  z-index: 2;
+  /* Right padding clears the diagonal torn-edge (top ~600, bottom ~480)
+     so content stays inside the visible polygon at every y. */
+  padding: 56px 140px 48px 48px;
   display: flex;
   flex-direction: column;
   background:
@@ -234,13 +274,25 @@ export default {
 }
 
 .hero-title {
-  font-size: 124px;
+  font-size: 116px;
   font-weight: 900;
-  line-height: 0.92;
-  letter-spacing: -0.02em;
+  line-height: 0.88;
+  letter-spacing: -0.01em;
   margin: 0;
   text-transform: uppercase;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family:
+    Impact, 'Haettenschweiler', 'Arial Narrow Bold', 'Bebas Neue', 'Oswald',
+    sans-serif;
+  font-style: italic;
+  transform: skewX(-4deg);
+  transform-origin: left center;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  /* Tiny gradient on the type for extra polish. */
+  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 .matchup {
@@ -322,8 +374,11 @@ export default {
 
 .footer-band {
   background: #dc2626;
-  margin: 0 -48px -48px;
-  padding: 18px 48px;
+  /* Negative margins cancel the panel's padding so the band reaches
+     the panel's edges (left + right + bottom). The clip-path then
+     trims the band's right side along the torn edge. */
+  margin: 0 -140px -48px -48px;
+  padding: 18px 140px 18px 48px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -355,24 +410,13 @@ export default {
   color: rgba(255, 255, 255, 0.95);
 }
 
-.accent-stripe {
-  width: 8px;
-  background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
-  flex-shrink: 0;
-}
-
-.photo-half {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
-
 .photo,
 .photo-fallback {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 1;
 }
 
 .photo {
