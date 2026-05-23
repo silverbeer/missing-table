@@ -346,6 +346,13 @@
             >
               <span v-if="tab.isLive" class="live-dot"></span>
               {{ tab.name }}
+              <span
+                v-if="tab.isBeta"
+                class="beta-badge"
+                data-testid="beta-badge"
+                aria-label="Beta feature"
+                >Beta</span
+              >
             </button>
           </nav>
           <!-- Standings -->
@@ -597,7 +604,12 @@ export default {
       { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
       { id: 'match-center', name: 'Tournaments', requiresAuth: true },
-      { id: 'leaderboard', name: 'Leaderboard', requiresAuth: true },
+      {
+        id: 'leaderboard',
+        name: 'Leaderboard',
+        requiresAuth: true,
+        isBeta: true,
+      },
       { id: 'qop', name: 'QoP', requiresAuth: true },
       {
         id: 'add-match',
@@ -1050,6 +1062,21 @@ export default {
   50% {
     opacity: 0.5;
   }
+}
+
+.beta-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #92400e;
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 9999px;
+  vertical-align: middle;
 }
 
 .live-tab-content {
