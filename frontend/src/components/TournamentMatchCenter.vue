@@ -270,6 +270,11 @@
                       formatMatchDate(match.match_date)
                     }}</span>
                     <span
+                      v-if="match.scheduled_kickoff"
+                      class="text-xs text-gray-400"
+                      >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
+                    >
+                    <span
                       v-if="match.age_group"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
@@ -308,7 +313,10 @@
                   <div
                     class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
                   >
-                    {{ formatMatchDate(match.match_date) }}
+                    <div>{{ formatMatchDate(match.match_date) }}</div>
+                    <div v-if="match.scheduled_kickoff" class="text-gray-500">
+                      {{ formatKickoffTime(match.scheduled_kickoff) }}
+                    </div>
                   </div>
                   <div class="hidden sm:flex gap-1 shrink-0">
                     <span
@@ -396,6 +404,11 @@
                       formatMatchDate(match.match_date)
                     }}</span>
                     <span
+                      v-if="match.scheduled_kickoff"
+                      class="text-xs text-gray-400"
+                      >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
+                    >
+                    <span
                       v-if="match.age_group"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
@@ -434,7 +447,10 @@
                   <div
                     class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
                   >
-                    {{ formatMatchDate(match.match_date) }}
+                    <div>{{ formatMatchDate(match.match_date) }}</div>
+                    <div v-if="match.scheduled_kickoff" class="text-gray-500">
+                      {{ formatKickoffTime(match.scheduled_kickoff) }}
+                    </div>
                   </div>
                   <div class="hidden sm:flex gap-1 shrink-0">
                     <span
@@ -527,6 +543,11 @@
                       formatMatchDate(match.match_date)
                     }}</span>
                     <span
+                      v-if="match.scheduled_kickoff"
+                      class="text-xs text-gray-400"
+                      >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
+                    >
+                    <span
                       v-if="match.age_group"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
@@ -560,7 +581,10 @@
                   <div
                     class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
                   >
-                    {{ formatMatchDate(match.match_date) }}
+                    <div>{{ formatMatchDate(match.match_date) }}</div>
+                    <div v-if="match.scheduled_kickoff" class="text-gray-500">
+                      {{ formatKickoffTime(match.scheduled_kickoff) }}
+                    </div>
                   </div>
                   <div class="hidden sm:flex gap-1 shrink-0">
                     <span
@@ -827,6 +851,15 @@ export default {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
+          })
+        : '';
+
+    const formatKickoffTime = iso =>
+      iso
+        ? new Date(iso).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
           })
         : '';
 
@@ -1113,6 +1146,7 @@ export default {
       untaggedMatches,
       formatDate,
       formatMatchDate,
+      formatKickoffTime,
       roundLabel,
       selectTournament,
       viewMode,
