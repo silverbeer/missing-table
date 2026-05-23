@@ -1,5 +1,35 @@
 <template>
   <div>
+    <!-- Beta notice -->
+    <div
+      v-if="!betaNoticeDismissed"
+      class="beta-notice"
+      data-testid="leaderboard-beta-notice"
+      role="status"
+    >
+      <div class="beta-notice-body">
+        <p>
+          <strong>Leaderboard is in beta.</strong>
+          Stats shown here are real, but our coverage of the 2025-2026 season is
+          still incomplete — some matches and goal data are missing. We're
+          targeting a full launch for the 2026-2027 season. Spot something off?
+          <SupportEmailLink
+            subject="[Leaderboard beta] Feedback"
+            :body="supportBody"
+          />.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="beta-notice-dismiss"
+        @click="dismissBetaNotice"
+        aria-label="Dismiss beta notice"
+        data-testid="leaderboard-beta-dismiss"
+      >
+        ×
+      </button>
+    </div>
+
     <!-- Filters Section -->
     <div class="mb-6 space-y-4">
       <!-- Age Group Links -->
@@ -257,9 +287,13 @@
 import { ref, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import SupportEmailLink from '@/components/SupportEmailLink.vue';
+
+const BETA_NOTICE_DISMISS_KEY = 'leaderboard-beta-notice-dismissed';
 
 export default {
   name: 'GoalsLeaderboard',
+  components: { SupportEmailLink },
   setup() {
     const authStore = useAuthStore();
     const leaderboardData = ref([]);
@@ -473,6 +507,26 @@ export default {
       fetchLeaderboardData();
     });
 
+    const betaNoticeDismissed = ref(
+      typeof window !== 'undefined' &&
+        window.sessionStorage?.getItem(BETA_NOTICE_DISMISS_KEY) === '1'
+    );
+    const dismissBetaNotice = () => {
+      betaNoticeDismissed.value = true;
+      try {
+        window.sessionStorage?.setItem(BETA_NOTICE_DISMISS_KEY, '1');
+      } catch {
+        // sessionStorage can throw in privacy modes — fine to swallow,
+        // the ref already updated for this session.
+      }
+    };
+    const supportBody = [
+      'Hi support team,',
+      '',
+      'I have feedback or a report about the Leaderboard beta:',
+      '',
+    ].join('\n');
+
     return {
       leaderboardData,
       ageGroups,
@@ -490,7 +544,59 @@ export default {
       formatPlayerName,
       error,
       loading,
+      betaNoticeDismissed,
+      dismissBetaNotice,
+      supportBody,
     };
   },
 };
 </script>
+
+<style scoped>
+.beta-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.875rem 1rem;
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  color: #78350f;
+}
+
+.beta-notice-body {
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.beta-notice-body p {
+  margin: 0;
+}
+
+.beta-notice-body strong {
+  font-weight: 700;
+}
+
+.beta-notice-dismiss {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #92400e;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.beta-notice-dismiss:hover {
+  background-color: #fef3c7;
+}
+</style>
