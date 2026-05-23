@@ -28,6 +28,10 @@ secrets:
   # to disable telegram sends (discord is independent, per-club webhook).
   # telegramBotToken: "your-telegram-bot-token-here"
 
+  # Resend Inbound webhook signing secret — for the Support Inbox (SB-35).
+  # Leave empty/commented to keep the webhook returning 401 in dev.
+  # emailInboundWebhookSecret: "whsec_your-secret-here"
+
   # Grafana Cloud OTLP credentials (for frontend telemetry)
   # Get these from: Grafana Cloud -> Connections -> OTLP
   grafanaInstanceId: "your-grafana-instance-id"
