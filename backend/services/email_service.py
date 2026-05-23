@@ -11,6 +11,23 @@ import resend
 
 logger = logging.getLogger(__name__)
 
+SUPPORT_EMAIL = "support@missingtable.com"
+
+
+def _support_html_block() -> str:
+    """Inline support line for invite-flow HTML emails."""
+    return (
+        '<p style="color: #6b7280; font-size: 13px; margin-top: 16px;">'
+        "Need help? Contact us at "
+        f'<a href="mailto:{SUPPORT_EMAIL}" style="color: #2563eb;">{SUPPORT_EMAIL}</a>.'
+        "</p>"
+    )
+
+
+def _support_text_block() -> str:
+    """Inline support line for invite-flow plain-text emails."""
+    return f"Need help? Contact us at {SUPPORT_EMAIL}.\n\n"
+
 
 class EmailService:
     """Thin wrapper around the Resend SDK for sending transactional emails."""
@@ -188,6 +205,7 @@ class EmailService:
       Or paste this code on the signup page: <strong>{invite_code}</strong>
     </p>
     {expiry_html}
+    {_support_html_block()}
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
     <p style="color: #9ca3af; font-size: 12px;">Missing Table · missingtable.com</p>
   </div>
@@ -202,6 +220,7 @@ class EmailService:
             f"{redemption_url}\n\n"
             f"Or paste this code on the signup page: {invite_code}\n\n"
             f"{expiry_text}"
+            f"{_support_text_block()}"
             "— Missing Table"
         )
 
@@ -258,9 +277,7 @@ class EmailService:
       We'll send you a separate invite link shortly so you can finish
       setting up your account. Keep an eye on this inbox.
     </p>
-    <p style="color: #6b7280; font-size: 13px;">
-      Questions in the meantime? Just reply to this email.
-    </p>
+    {_support_html_block()}
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
     <p style="color: #9ca3af; font-size: 12px;">Missing Table · missingtable.com</p>
   </div>
@@ -274,7 +291,7 @@ class EmailService:
             "approved.\n\n"
             "We'll send you a separate invite link shortly so you can "
             "finish setting up your account. Keep an eye on this inbox.\n\n"
-            "Questions in the meantime? Just reply to this email.\n\n"
+            f"{_support_text_block()}"
             "— Missing Table"
         )
 
