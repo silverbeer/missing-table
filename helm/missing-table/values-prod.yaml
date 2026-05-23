@@ -25,6 +25,11 @@ backend:
     appBaseUrl: "https://missingtable.com"
     extra:
       CACHE_ENABLED: "true"
+      # When set, every transactional email (password reset, invite,
+      # request approval) includes this Reply-To header so user replies
+      # land in a monitored inbox instead of the noreply@ from-address.
+      # Change this to whatever inbox you actually read.
+      RESEND_REPLY_TO: "support@missingtable.com"
 
 # Live-match notifications (explicit override — defaults to true in values.yaml)
 # The TELEGRAM_BOT_TOKEN key inside the ESO-managed missing-table-secrets must
