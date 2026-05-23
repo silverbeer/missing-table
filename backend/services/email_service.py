@@ -11,7 +11,7 @@ import resend
 
 logger = logging.getLogger(__name__)
 
-SUPPORT_EMAIL = "support@missingtable.com"
+SUPPORT_EMAIL = "support@contact.missingtable.com"
 
 
 def _support_html_block() -> str:

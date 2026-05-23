@@ -27,7 +27,7 @@ const props = defineProps({
 });
 
 const SUPPORT_USER = 'support';
-const SUPPORT_DOMAIN = 'missingtable.com';
+const SUPPORT_DOMAIN = 'contact.missingtable.com';
 const address = `${SUPPORT_USER}@${SUPPORT_DOMAIN}`;
 
 const mailtoHref = computed(() => {
