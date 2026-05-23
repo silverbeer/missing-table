@@ -89,7 +89,15 @@
           class="error-message"
           data-testid="error-message"
         >
-          {{ authStore.state.error }}
+          <span>{{ authStore.state.error }}</span>
+          <p v-if="showInviteSignup" class="error-support-line">
+            Stuck? Email
+            <SupportEmailLink
+              :subject="supportSubjectForError"
+              :body="supportBodyForError"
+            />
+            and we'll help.
+          </p>
         </div>
 
         <div class="form-actions">
@@ -208,6 +216,17 @@
             Login
           </button>
         </p>
+        <p
+          v-if="showInviteSignup"
+          class="support-line"
+          data-testid="invite-support-line"
+        >
+          Need help with your invite? Contact
+          <SupportEmailLink
+            :subject="supportSubjectForInvite"
+            :body="supportBodyForInvite"
+          />.
+        </p>
       </div>
 
       <!-- Role Selection (after successful signup) -->
@@ -259,12 +278,14 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import SupportEmailLink from '@/components/SupportEmailLink.vue';
 
 export default {
   name: 'LoginForm',
+  components: { SupportEmailLink },
   emits: ['login-success', 'show-forgot-password'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
@@ -451,6 +472,28 @@ export default {
       }
     });
 
+    const supportSubjectForInvite = computed(() =>
+      form.inviteCode
+        ? `Help with invite code ${form.inviteCode}`
+        : 'Help with my Missing Table invite'
+    );
+    const supportBodyForInvite = computed(() => {
+      const lines = ['Hi support team,', '', 'I need help with my invite.'];
+      if (form.inviteCode) lines.push('', `Invite code: ${form.inviteCode}`);
+      if (form.email) lines.push(`Email on invite: ${form.email}`);
+      return lines.join('\n');
+    });
+    const supportSubjectForError = computed(
+      () => supportSubjectForInvite.value
+    );
+    const supportBodyForError = computed(() => {
+      const lines = ['Hi support team,', '', 'I hit an error during signup:'];
+      if (authStore.state.error) lines.push('', authStore.state.error);
+      if (form.inviteCode) lines.push('', `Invite code: ${form.inviteCode}`);
+      if (form.email) lines.push(`Email on invite: ${form.email}`);
+      return lines.join('\n');
+    });
+
     return {
       authStore,
       isSignup,
@@ -470,6 +513,10 @@ export default {
       handleGoogleLogin,
       handleGoogleSignUp,
       completeProfile,
+      supportSubjectForInvite,
+      supportBodyForInvite,
+      supportSubjectForError,
+      supportBodyForError,
     };
   },
 };
@@ -558,6 +605,18 @@ export default {
   border-radius: 6px;
   margin-bottom: 1rem;
   font-size: 0.875rem;
+}
+
+.error-support-line {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #7f1d1d;
+}
+
+.support-line {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #64748b;
 }
 
 .form-actions {
