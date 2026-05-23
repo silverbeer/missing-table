@@ -2,7 +2,7 @@
  * SupportEmailLink.vue Tests (SB-35)
  *
  * Renders the support address at runtime from JS constants so the literal
- * `support@missingtable.com` string never appears in template source. Also
+ * `support@contact.missingtable.com` string never appears in template source. Also
  * builds a properly-encoded mailto: href with optional subject + body.
  */
 
@@ -13,7 +13,7 @@ import SupportEmailLink from '@/components/SupportEmailLink.vue';
 describe('SupportEmailLink', () => {
   it('renders the support address as visible text by default', () => {
     const wrapper = mount(SupportEmailLink);
-    expect(wrapper.text()).toBe('support@missingtable.com');
+    expect(wrapper.text()).toBe('support@contact.missingtable.com');
   });
 
   it('uses displayText prop when provided instead of the raw address', () => {
@@ -26,7 +26,9 @@ describe('SupportEmailLink', () => {
   it('renders a mailto: href pointing at the support address', () => {
     const wrapper = mount(SupportEmailLink);
     const link = wrapper.find('a');
-    expect(link.attributes('href')).toBe('mailto:support@missingtable.com');
+    expect(link.attributes('href')).toBe(
+      'mailto:support@contact.missingtable.com'
+    );
   });
 
   it('appends an encoded subject param when subject prop is set', () => {
@@ -35,7 +37,7 @@ describe('SupportEmailLink', () => {
     });
     const href = wrapper.find('a').attributes('href');
     expect(href).toBe(
-      'mailto:support@missingtable.com?subject=%5BMT-42%5D%20Login%20trouble'
+      'mailto:support@contact.missingtable.com?subject=%5BMT-42%5D%20Login%20trouble'
     );
   });
 
@@ -53,7 +55,7 @@ describe('SupportEmailLink', () => {
     });
     const href = wrapper.find('a').attributes('href');
     expect(href).toBe(
-      'mailto:support@missingtable.com?subject=Hello&body=World'
+      'mailto:support@contact.missingtable.com?subject=Hello&body=World'
     );
   });
 });
