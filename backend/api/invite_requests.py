@@ -20,6 +20,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth import get_current_user_required
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
+from services.email_service import EmailService
 
 # Initialize database connection with service role for admin operations
 supabase_url = os.getenv("SUPABASE_URL", "")
@@ -266,14 +267,36 @@ async def update_invite_request_status(
 
         result = service_client.table("invite_requests").update(update_data).eq("id", request_id).execute()
 
-        if result.data:
-            return {
-                "success": True,
-                "message": f"Invite request {status_update.status}",
-                "request": result.data[0],
-            }
-        else:
+        if not result.data:
             raise HTTPException(status_code=500, detail="Failed to update invite request")
+
+        updated_request = result.data[0]
+
+        # On approval, send a heads-up email to the requester. The actual
+        # invitation (with a redemption code) is still created by the admin
+        # via the Create Invite UI; this email closes the "nothing happened"
+        # UX gap so the requester knows their request was seen. Email
+        # failures are logged but never fail the API call.
+        email_sent = False
+        if status_update.status == "approved":
+            try:
+                email_service = EmailService()
+                email_sent = email_service.send_invite_request_approval(
+                    to_email=updated_request["email"],
+                    name=updated_request["name"],
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to send invite-request approval email",
+                    extra={"request_id": request_id},
+                )
+
+        return {
+            "success": True,
+            "message": f"Invite request {status_update.status}",
+            "request": updated_request,
+            "email_sent": email_sent,
+        }
 
     except HTTPException:
         raise

@@ -89,3 +89,74 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to send password reset email: {e}")
             return False
+
+    def send_invite_request_approval(self, to_email: str, name: str) -> bool:
+        """
+        Notify a requester that their join request was approved.
+
+        The actual invitation (with a redemption code) is still created
+        manually by an admin via the existing Create Invite UI; this
+        email is a heads-up so the requester knows their request was
+        seen and accepted.
+
+        Args:
+            to_email: Recipient email address
+            name: Requester's name (for personalisation)
+
+        Returns:
+            True on success, False on failure
+        """
+        html_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Your Missing Table request was approved</title>
+</head>
+<body style="font-family: Arial, sans-serif; background: #f3f4f6; padding: 32px;">
+  <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 32px;">
+    <h2 style="color: #16a34a;">You're approved! 🎉</h2>
+    <p>Hi <strong>{name}</strong>,</p>
+    <p>Good news — your request to join Missing Table has been approved.</p>
+    <p>
+      We'll send you a separate invite link shortly so you can finish
+      setting up your account. Keep an eye on this inbox.
+    </p>
+    <p style="color: #6b7280; font-size: 13px;">
+      Questions in the meantime? Just reply to this email.
+    </p>
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+    <p style="color: #9ca3af; font-size: 12px;">Missing Table · missingtable.com</p>
+  </div>
+</body>
+</html>
+"""
+
+        text_body = (
+            f"Hi {name},\n\n"
+            "Good news — your request to join Missing Table has been "
+            "approved.\n\n"
+            "We'll send you a separate invite link shortly so you can "
+            "finish setting up your account. Keep an eye on this inbox.\n\n"
+            "Questions in the meantime? Just reply to this email.\n\n"
+            "— Missing Table"
+        )
+
+        try:
+            resend.Emails.send(
+                {
+                    "from": self.from_address,
+                    "to": [to_email],
+                    "subject": "Your Missing Table request was approved",
+                    "html": html_body,
+                    "text": text_body,
+                }
+            )
+            logger.info(
+                "invite_request_approval_email_sent",
+                extra={"recipient": to_email[:3] + "***"},
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send invite-request approval email: {e}")
+            return False
