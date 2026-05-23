@@ -2068,6 +2068,17 @@ async def get_teams(
         # Get teams based on filters
         if match_type_id and age_group_id:
             teams = team_dao.get_teams_by_match_type_and_age_group(match_type_id, age_group_id, division_id=division_id)
+            # Tournament opponents (created via get_or_create_opponent_team)
+            # have only a team_mappings row for the age group and no
+            # team_match_types row, so the strict filter above skips them.
+            # For Tournament match edits, union them in.
+            if for_match_edit:
+                match_type = match_type_dao.get_match_type_by_id(match_type_id)
+                if match_type and (match_type.get("name") or "").lower() == "tournament":
+                    extra = team_dao.get_teams_by_age_group_mapping(age_group_id)
+                    seen = {t["id"] for t in teams}
+                    teams = teams + [t for t in extra if t["id"] not in seen]
+                    teams.sort(key=lambda t: (t.get("name") or "").lower())
         elif club_id:
             teams = team_dao.get_club_teams(club_id)
         else:

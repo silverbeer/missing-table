@@ -168,6 +168,64 @@ class TeamDAO(BaseDAO):
 
         return teams
 
+    @dao_cache("teams:by_age_group_mapping:{age_group_id}")
+    def get_teams_by_age_group_mapping(self, age_group_id: int) -> list[dict]:
+        """Get every team that has a team_mappings row for this age group.
+
+        This is the lookup used for tournament match editing: tournament-only
+        opponents (created via get_or_create_opponent_team) have a
+        team_mappings row for the age group but no team_match_types row, so
+        the stricter get_teams_by_match_type_and_age_group filter excludes
+        them. Use this to widen the candidate set when editing a tournament
+        match.
+        """
+        mapping_response = (
+            self.client.table("team_mappings")
+            .select("team_id")
+            .eq("age_group_id", age_group_id)
+            .execute()
+        )
+        team_ids = list({r["team_id"] for r in mapping_response.data})
+        if not team_ids:
+            return []
+
+        response = (
+            self.client.table("teams")
+            .select("""
+                *,
+                team_mappings (
+                    age_groups (
+                        id,
+                        name
+                    ),
+                    divisions (
+                        id,
+                        name
+                    )
+                )
+            """)
+            .in_("id", team_ids)
+            .order("name")
+            .execute()
+        )
+
+        teams = []
+        for team in response.data:
+            age_groups = []
+            divisions_by_age_group = {}
+            if "team_mappings" in team:
+                for tag in team["team_mappings"]:
+                    if tag.get("age_groups"):
+                        age_group = tag["age_groups"]
+                        age_groups.append(age_group)
+                        if tag.get("divisions"):
+                            divisions_by_age_group[age_group["id"]] = tag["divisions"]
+            team["age_groups"] = age_groups
+            team["divisions_by_age_group"] = divisions_by_age_group
+            teams.append(team)
+
+        return teams
+
     @dao_cache("teams:by_name:{name}")
     def get_team_by_name(self, name: str) -> dict | None:
         """Get a team by name (case-insensitive exact match).
