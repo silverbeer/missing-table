@@ -154,10 +154,28 @@
                   Reject
                 </button>
               </div>
-              <div v-else class="text-gray-400">
-                <span v-if="request.reviewed_at" class="text-xs">
+              <div v-else class="flex flex-col gap-1 text-xs">
+                <span v-if="request.reviewed_at" class="text-gray-400">
                   {{ formatDate(request.reviewed_at) }}
                 </span>
+                <div class="flex gap-3">
+                  <button
+                    v-if="request.status === 'approved'"
+                    :disabled="resendingIds.has(request.id)"
+                    class="text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400"
+                    @click="resendApprovalEmail(request)"
+                  >
+                    {{
+                      resendingIds.has(request.id) ? 'Sending…' : 'Resend email'
+                    }}
+                  </button>
+                  <button
+                    class="text-gray-600 hover:text-gray-800 font-medium"
+                    @click="resetToPending(request.id)"
+                  >
+                    Reset
+                  </button>
+                </div>
               </div>
             </td>
           </tr>
@@ -189,6 +207,74 @@ const loading = ref(false);
 const error = ref(null);
 const statusFilter = ref('');
 const sendingTestEmail = ref(false);
+// Track per-row "resend in flight" so we can disable the button while the
+// POST is pending. Set works fine without a deep reactive wrapper.
+const resendingIds = ref(new Set());
+
+// Re-fire the approval email for an already-approved request (e.g. user
+// missed the original, or admin wants to redo the test). Reuses the
+// admin test-email endpoint so we don't duplicate sending logic.
+const resendApprovalEmail = async request => {
+  if (!confirm(`Resend approval email to ${request.email}?`)) return;
+  resendingIds.value.add(request.id);
+  // Trigger reactivity by reassigning the Set.
+  resendingIds.value = new Set(resendingIds.value);
+  try {
+    const headers = {
+      ...authStore.getAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+    const response = await fetch(
+      `${getApiBaseUrl()}/api/invite-requests/test-approval-email`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          to_email: request.email,
+          name: request.name,
+        }),
+      }
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail || response.statusText);
+    }
+    alert(`Resent approval email to ${request.email}.`);
+  } catch (err) {
+    console.error('Resend approval email failed:', err);
+    alert(`Failed to resend: ${err.message}`);
+  } finally {
+    resendingIds.value.delete(request.id);
+    resendingIds.value = new Set(resendingIds.value);
+  }
+};
+
+// Set an already-decided request back to pending so the admin can
+// re-approve / re-reject. We hit the status endpoint directly (rather
+// than going through updateStatus) so the "Are you sure you want to
+// approve/reject?" confirm copy in updateStatus doesn't fire.
+const resetToPending = async requestId => {
+  if (!confirm('Reset this request to pending? Clears the review.')) return;
+  try {
+    const headers = {
+      ...authStore.getAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+    const response = await fetch(
+      `${getApiBaseUrl()}/api/invite-requests/${requestId}/status`,
+      {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ status: 'pending' }),
+      }
+    );
+    if (!response.ok) throw new Error('Failed to reset request');
+    await Promise.all([fetchRequests(), fetchStats()]);
+  } catch (err) {
+    console.error('Reset to pending failed:', err);
+    alert('Failed to reset request. Please try again.');
+  }
+};
 
 // Send a test "your request was approved" email so admins can verify
 // the Resend wiring without creating a throwaway invite_request row.
