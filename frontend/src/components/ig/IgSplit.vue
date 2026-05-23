@@ -11,8 +11,21 @@
     data-template="split"
     :data-mode="mode"
   >
-    <!-- Brand panel — clip-path gives the right edge a torn-paper look. -->
-    <div class="panel" :style="{ clipPath: tornClipPath }">
+    <!-- Brand panel. The torn-paper right edge is drawn by an inline SVG
+         layered behind the content (clip-path is ignored by html2canvas
+         so we paint the shape instead). The .panel container itself
+         stays a clean absolutely-positioned flex column. -->
+    <div class="panel">
+      <svg
+        class="panel-bg-svg"
+        viewBox="0 0 620 1080"
+        preserveAspectRatio="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path :d="panelPath" fill="#0a1224" />
+        <path :d="panelPath" fill="#0f172a" :opacity="0.6" />
+      </svg>
       <div class="panel-top">
         <div class="panel-top-row">
           <div class="panel-top-text">
@@ -140,12 +153,14 @@ export default {
       props.photoIsCrossOrigin ? 'anonymous' : null
     );
 
-    // Torn-paper clip-path for the panel's right edge. The base x lerps
-    // from `topX` to `bottomX` so the tear leans diagonally (panel is
-    // wider at the top, narrower at the bottom). Deterministic
-    // pseudo-random jaggies along the way. clip-path: polygon() because
-    // html2canvas handles it more reliably than masks.
-    const tornClipPath = computed(() => {
+    // SVG path describing the torn panel shape. The base x lerps from
+    // `topX` to `bottomX` so the tear leans diagonally (panel is wider
+    // at the top, narrower at the bottom). Deterministic pseudo-random
+    // jaggies in between. The path is filled inside an inline <svg>
+    // layered behind the panel content; using SVG (not CSS clip-path)
+    // because html2canvas 1.4.1 ignores clip-path: polygon() during
+    // capture, leaving the PNG with a straight edge.
+    const panelPath = computed(() => {
       const topX = 600;
       const bottomX = 480;
       const height = 1080;
@@ -153,7 +168,7 @@ export default {
         const s = Math.sin(n) * 43758.5453;
         return s - Math.floor(s);
       };
-      const points = ['0px 0px', `${topX}px 0px`];
+      const parts = ['M 0 0', `L ${topX} 0`];
       let y = 0;
       let i = 1;
       while (y < height) {
@@ -166,12 +181,13 @@ export default {
           xOffset += (hash(i * 23) - 0.4) * 52;
         }
         const x = baseX + xOffset;
-        points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+        parts.push(`L ${x.toFixed(1)} ${y.toFixed(1)}`);
         i++;
       }
-      points.push(`${bottomX}px ${height}px`);
-      points.push(`0px ${height}px`);
-      return `polygon(${points.join(', ')})`;
+      parts.push(`L ${bottomX} ${height}`);
+      parts.push(`L 0 ${height}`);
+      parts.push('Z');
+      return parts.join(' ');
     });
 
     return {
@@ -179,7 +195,7 @@ export default {
       ...data,
       photoCrossOrigin,
       tagline: IG_SHARE_TAGLINE,
-      tornClipPath,
+      panelPath,
     };
   },
 };
@@ -207,13 +223,35 @@ export default {
   height: 100%;
   z-index: 2;
   /* Right padding clears the diagonal torn-edge (top ~600, bottom ~480)
-     so content stays inside the visible polygon at every y. */
+     so content stays inside the visible shape at every y. */
   padding: 56px 140px 48px 48px;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(220, 38, 38, 0.18), transparent 55%),
-    linear-gradient(180deg, #0f172a 0%, #0a1224 100%);
+  /* No CSS background — the inline SVG below paints the torn-shape fill
+     so the same shape shows up in both the live preview AND the
+     html2canvas-rendered PNG. */
+  background: transparent;
+}
+
+.panel-bg-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Position the panel's content blocks so they paint above the absolutely
+   positioned SVG background. Without an explicit z-index, the in-flow
+   children would still paint above the abs SVG in most browsers, but
+   html2canvas can be order-sensitive — being explicit keeps both
+   renderers agreeing. */
+.panel-top,
+.hero,
+.matchup,
+.footer-band {
+  position: relative;
+  z-index: 1;
 }
 
 .panel-top {
