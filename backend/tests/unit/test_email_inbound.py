@@ -428,6 +428,51 @@ class TestWebhookEndpoint:
         assert resp.json()["status"] == "duplicate"
         insert.assert_not_called()
 
+    def test_ensures_resend_api_key_before_fetch(self, webhook_client, monkeypatch):
+        """Regression: EmailService normally sets resend.api_key as a side effect
+        on first construction, but inbound webhooks can fire on a fresh pod
+        before any outbound has gone out. Verify the webhook sets api_key
+        itself from the env var so resend.Emails.Receiving.get doesn't fail
+        with ValidationError('API key is invalid')."""
+        client, module = webhook_client
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_inbound_set")
+
+        import resend as resend_mod
+        # Simulate a fresh pod: api_key has never been set.
+        original = resend_mod.api_key
+        resend_mod.api_key = None
+        try:
+            received_email = {
+                "from": "x@y.com",
+                "to": ["support@contact.missingtable.com"],
+                "subject": "hi",
+                "message_id": "<m1@e.com>",
+                "html": None,
+                "text": "hi",
+                "headers": {},
+                "attachments": [],
+                "created_at": "2026-05-23T12:00:00Z",
+            }
+            new_thread = {"id": "t", "case_number": 9, "subject": "hi", "status": "new"}
+
+            with (
+                patch("api.webhooks_email.verify_webhook"),
+                patch("api.webhooks_email.resend.Emails.Receiving.get", return_value=received_email),
+                patch.object(module._messages_dao, "find_by_message_id", return_value=None),
+                patch.object(module._messages_dao, "insert_inbound"),
+                patch("api.webhooks_email.resolve_thread", return_value=(new_thread, True)),
+            ):
+                resp = client.post(
+                    "/api/webhooks/email/inbound",
+                    content=json.dumps({"type": "email.received", "data": {"email_id": "e1"}}).encode(),
+                    headers={"content-type": "application/json"},
+                )
+
+            assert resp.status_code == 200
+            assert resend_mod.api_key == "re_test_inbound_set"
+        finally:
+            resend_mod.api_key = original
+
     def test_attachments_flag_set_but_attachments_not_stored(self, webhook_client):
         client, module = webhook_client
         received_email = {

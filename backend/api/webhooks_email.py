@@ -219,6 +219,23 @@ async def email_inbound(request: Request) -> dict[str, Any]:
     }
 
 
+def _ensure_resend_api_key() -> None:
+    """Make sure resend.api_key is set before calling the Resend API.
+
+    EmailService.__init__ sets resend.api_key as a side effect, but that
+    only runs when an outbound email is actually sent. Inbound webhooks
+    can fire before any outbound has gone out — e.g. immediately after
+    a fresh pod start — at which point resend.api_key is still None and
+    the SDK raises ValidationError('API key is invalid') for any API
+    call. Set it ourselves from the env var; idempotent.
+    """
+    if resend.api_key:
+        return
+    api_key = os.getenv("RESEND_API_KEY")
+    if api_key:
+        resend.api_key = api_key
+
+
 def _fetch_received_email(email_id: str) -> dict[str, Any]:
     """Fetch the full ReceivedEmail from the Resend API.
 
@@ -226,6 +243,7 @@ def _fetch_received_email(email_id: str) -> dict[str, Any]:
     exceptions become 502 from the caller's perspective — Resend will
     retry, which is the right behavior for transient upstream failures.
     """
+    _ensure_resend_api_key()
     try:
         return resend.Emails.Receiving.get(email_id)
     except Exception as e:
