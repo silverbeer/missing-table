@@ -500,19 +500,247 @@
                 {{ formatDate(invite.created_at) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <button
-                  v-if="invite.status === 'pending'"
-                  @click="cancelInvite(invite.id)"
-                  data-testid="cancel-invite-button"
-                  class="text-red-600 hover:text-red-900"
-                >
-                  Cancel
-                </button>
-                <span v-else class="text-gray-400">-</span>
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    data-testid="view-invite-button"
+                    class="text-blue-600 hover:text-blue-900 font-medium"
+                    @click="openInviteDetail(invite)"
+                  >
+                    View
+                  </button>
+                  <button
+                    v-if="invite.status === 'pending'"
+                    @click="cancelInvite(invite.id)"
+                    data-testid="cancel-invite-button"
+                    class="text-red-600 hover:text-red-900"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Invite detail modal: shows every field of an invitation in a
+         readable layout, since the table can't fit them all comfortably. -->
+    <div
+      v-if="selectedInvite"
+      class="fixed inset-0 z-50 bg-black/60 overflow-y-auto"
+      data-testid="invite-detail-modal"
+      @click.self="closeInviteDetail"
+    >
+      <div class="min-h-full flex items-start justify-center p-4 sm:p-8">
+        <div
+          class="relative w-full max-w-2xl bg-white rounded-lg shadow-2xl"
+          @click.stop
+        >
+          <button
+            type="button"
+            aria-label="Close invite details"
+            class="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            @click="closeInviteDetail"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+
+          <div class="px-6 py-5 border-b">
+            <h3 class="text-lg font-semibold text-gray-900">
+              Invitation details
+            </h3>
+            <p class="text-xs text-gray-500 mt-1">
+              Code:
+              <span class="font-mono text-gray-700">
+                {{ selectedInvite.invite_code }}
+              </span>
+            </p>
+          </div>
+
+          <dl
+            class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm"
+          >
+            <div>
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Type
+              </dt>
+              <dd class="mt-1 text-gray-900">
+                {{ formatInviteType(selectedInvite.invite_type) }}
+              </dd>
+            </div>
+
+            <div>
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Status
+              </dt>
+              <dd class="mt-1">
+                <span
+                  :class="{
+                    'bg-yellow-100 text-yellow-800':
+                      selectedInvite.status === 'pending',
+                    'bg-green-100 text-green-800':
+                      selectedInvite.status === 'used',
+                    'bg-red-100 text-red-800':
+                      selectedInvite.status === 'expired',
+                  }"
+                  class="px-2 py-1 text-xs rounded-full"
+                >
+                  {{ selectedInvite.status }}
+                </span>
+              </dd>
+            </div>
+
+            <div>
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Club / Team
+              </dt>
+              <dd class="mt-1 text-gray-900">
+                <template v-if="selectedInvite.club_id">
+                  {{
+                    selectedInvite.clubs?.name ||
+                    `Club ${selectedInvite.club_id}`
+                  }}
+                </template>
+                <template v-else-if="selectedInvite.teams">
+                  {{ selectedInvite.teams?.name }} —
+                  {{ selectedInvite.age_groups?.name }}
+                </template>
+                <span v-else class="text-gray-400">—</span>
+              </dd>
+            </div>
+
+            <div>
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Email Sent To
+              </dt>
+              <dd class="mt-1 text-gray-900">
+                <span v-if="selectedInvite.email">
+                  {{ selectedInvite.email }}
+                </span>
+                <span v-else class="text-gray-400">— (none provided)</span>
+              </dd>
+            </div>
+
+            <div>
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Used By
+              </dt>
+              <dd class="mt-1 text-gray-900">
+                <template v-if="selectedInvite.used_by_user">
+                  {{
+                    selectedInvite.used_by_user.display_name ||
+                    selectedInvite.used_by_user.username
+                  }}
+                </template>
+                <span v-else class="text-gray-400">— (not redeemed)</span>
+              </dd>
+            </div>
+
+            <div>
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Created
+              </dt>
+              <dd class="mt-1 text-gray-900">
+                {{ formatDate(selectedInvite.created_at) }}
+              </dd>
+            </div>
+
+            <div v-if="selectedInvite.expires_at">
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Expires
+              </dt>
+              <dd class="mt-1 text-gray-900">
+                {{ formatDate(selectedInvite.expires_at) }}
+              </dd>
+            </div>
+
+            <div v-if="selectedInvite.jersey_number" class="sm:col-span-1">
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Jersey #
+              </dt>
+              <dd class="mt-1 text-gray-900">
+                {{ selectedInvite.jersey_number }}
+              </dd>
+            </div>
+
+            <div class="sm:col-span-2">
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Note
+              </dt>
+              <dd
+                class="mt-1 text-gray-900 whitespace-pre-wrap break-words"
+                data-testid="invite-detail-note"
+              >
+                <template v-if="selectedInvite.note">
+                  {{ selectedInvite.note }}
+                </template>
+                <span v-else class="text-gray-400">— (no note)</span>
+              </dd>
+            </div>
+
+            <div class="sm:col-span-2 pt-2 border-t">
+              <dt
+                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Redemption link
+              </dt>
+              <dd class="mt-1 text-gray-700 break-all font-mono text-xs">
+                {{ currentOrigin }}/?code={{ selectedInvite.invite_code }}
+              </dd>
+            </div>
+          </dl>
+
+          <div class="px-6 py-4 border-t flex justify-end gap-2">
+            <button
+              v-if="selectedInvite.status === 'pending'"
+              type="button"
+              class="px-4 py-2 text-sm rounded-md border border-red-300 text-red-700 hover:bg-red-50"
+              @click="cancelInviteFromModal(selectedInvite.id)"
+            >
+              Cancel invite
+            </button>
+            <button
+              type="button"
+              class="px-4 py-2 text-sm rounded-md bg-gray-900 text-white hover:bg-gray-700"
+              @click="closeInviteDetail"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -537,6 +765,21 @@ const loading = ref(false);
 const createdInvite = ref(null);
 const statusFilter = ref('');
 const copyButtonText = ref('Copy Message');
+// Selected invite for the detail modal. `null` = modal closed.
+const selectedInvite = ref(null);
+
+const openInviteDetail = invite => {
+  selectedInvite.value = invite;
+};
+
+const closeInviteDetail = () => {
+  selectedInvite.value = null;
+};
+
+const cancelInviteFromModal = async id => {
+  await cancelInvite(id);
+  closeInviteDetail();
+};
 
 // Safely get the current origin
 const currentOrigin = computed(() => {
