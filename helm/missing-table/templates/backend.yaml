@@ -79,6 +79,15 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: resend-api-key
               optional: true
+        # Resend Inbound webhook signing secret (Support Inbox, SB-35).
+        # Optional: pod starts even if absent; the webhook handler returns
+        # 401 to all callers until ESO populates it from AWS Secrets Manager.
+        - name: EMAIL_INBOUND_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: email-inbound-webhook-secret
+              optional: true
         # Telegram bot token for live-match notifications.
         # Optional: pod starts even if the key is absent; the dispatcher logs
         # a NotificationConfigError and skips telegram sends until the key
