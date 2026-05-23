@@ -52,17 +52,27 @@ def verify_webhook(*, payload: str, headers: dict[str, str]) -> None:
         )
 
     required = {"svix-id", "svix-timestamp", "svix-signature"}
-    missing = required - {k.lower() for k in headers}
+    lowered = {k.lower(): v for k, v in headers.items()}
+    missing = required - lowered.keys()
     if missing:
         raise WebhookVerificationError(
             f"Missing required webhook header(s): {sorted(missing)}"
         )
 
+    # Resend's WebhookHeaders TypedDict uses the short keys `id`/`timestamp`/
+    # `signature` (the `svix-` prefix is stripped). The field-level docstring
+    # says "The svix-id header value" but the field is named just `id`, so
+    # we must remap before calling verify — passing the prefixed HTTP-header
+    # names through results in "svix-id header is required" failures.
     try:
         resend.Webhooks.verify(
             resend.VerifyWebhookOptions(
                 payload=payload,
-                headers=headers,
+                headers={
+                    "id": lowered["svix-id"],
+                    "timestamp": lowered["svix-timestamp"],
+                    "signature": lowered["svix-signature"],
+                },
                 webhook_secret=secret,
             )
         )

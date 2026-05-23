@@ -144,6 +144,40 @@ class TestVerifyWebhook:
                 },
             )
 
+    def test_passes_short_keys_to_svix_verify(self, monkeypatch):
+        """Regression: Resend's WebhookHeaders TypedDict uses short keys
+        ('id', 'timestamp', 'signature'), not the HTTP header names. Earlier
+        code passed the prefixed names through and got 'svix-id header is
+        required' failures in prod. Lock that mapping in."""
+        from unittest.mock import patch
+
+        from services.email_inbound import verify_webhook
+        monkeypatch.setenv("EMAIL_INBOUND_WEBHOOK_SECRET", "whsec_test")
+
+        with patch("services.email_inbound.resend.Webhooks.verify") as mock_verify:
+            verify_webhook(
+                payload='{"hello": "world"}',
+                headers={
+                    "Svix-Id": "msg_xyz",
+                    "Svix-Timestamp": "1700000000",
+                    "Svix-Signature": "v1,abc",
+                    # Extra noise headers that should be dropped:
+                    "content-type": "application/json",
+                    "x-trace": "trace-123",
+                },
+            )
+
+        mock_verify.assert_called_once()
+        options = mock_verify.call_args.args[0]
+        # Short keys, not prefixed.
+        assert options["headers"] == {
+            "id": "msg_xyz",
+            "timestamp": "1700000000",
+            "signature": "v1,abc",
+        }
+        assert options["payload"] == '{"hello": "world"}'
+        assert options["webhook_secret"] == "whsec_test"
+
 
 # ── resolve_thread ───────────────────────────────────────────────────────────
 
