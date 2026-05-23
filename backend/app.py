@@ -14,6 +14,7 @@ from api.channel_requests import router as channel_requests_router
 from api.club_notifications import router as club_notifications_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
+from api.webhooks_email import router as webhooks_email_router
 from auth import (
     AuthManager,
     get_current_user_required,
@@ -257,6 +258,7 @@ app.include_router(invites_router)
 app.include_router(invite_requests_router)
 app.include_router(channel_requests_router)
 app.include_router(club_notifications_router)
+app.include_router(webhooks_email_router)
 
 # Version endpoint
 import contextlib
