@@ -22,6 +22,26 @@ class EmailService:
         resend.api_key = api_key
         self.from_address = os.getenv("RESEND_FROM_ADDRESS", "noreply@contact.missingtable.com")
         self.app_base_url = os.getenv("APP_BASE_URL", "https://missingtable.com")
+        # Optional. If set, every outgoing email includes a Reply-To header
+        # pointing at this address so user replies route to a monitored
+        # inbox instead of the noreply@ from-address.
+        self.reply_to = os.getenv("RESEND_REPLY_TO") or None
+
+    def _build_send_payload(
+        self, to_email: str, subject: str, html: str, text: str
+    ) -> dict:
+        """Common Resend payload with optional Reply-To."""
+        payload = {
+            "from": self.from_address,
+            "to": [to_email],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        }
+        if self.reply_to:
+            # Resend expects a list of strings here.
+            payload["reply_to"] = [self.reply_to]
+        return payload
 
     def send_password_reset(self, to_email: str, reset_token: str, username: str) -> bool:
         """
@@ -76,13 +96,12 @@ class EmailService:
 
         try:
             resend.Emails.send(
-                {
-                    "from": self.from_address,
-                    "to": [to_email],
-                    "subject": "Reset your Missing Table password",
-                    "html": html_body,
-                    "text": text_body,
-                }
+                self._build_send_payload(
+                    to_email=to_email,
+                    subject="Reset your Missing Table password",
+                    html=html_body,
+                    text=text_body,
+                )
             )
             logger.info("password_reset_email_sent", extra={"recipient": to_email[:3] + "***"})
             return True
@@ -188,13 +207,12 @@ class EmailService:
 
         try:
             resend.Emails.send(
-                {
-                    "from": self.from_address,
-                    "to": [to_email],
-                    "subject": subject,
-                    "html": html_body,
-                    "text": text_body,
-                }
+                self._build_send_payload(
+                    to_email=to_email,
+                    subject=subject,
+                    html=html_body,
+                    text=text_body,
+                )
             )
             logger.info(
                 "invitation_email_sent",
@@ -262,13 +280,12 @@ class EmailService:
 
         try:
             resend.Emails.send(
-                {
-                    "from": self.from_address,
-                    "to": [to_email],
-                    "subject": "Your Missing Table request was approved",
-                    "html": html_body,
-                    "text": text_body,
-                }
+                self._build_send_payload(
+                    to_email=to_email,
+                    subject="Your Missing Table request was approved",
+                    html=html_body,
+                    text=text_body,
+                )
             )
             logger.info(
                 "invite_request_approval_email_sent",
