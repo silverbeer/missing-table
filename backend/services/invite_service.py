@@ -109,16 +109,35 @@ class InviteService:
 
             response = self.supabase.table("invitations").insert(invitation_data).execute()
 
-            if response.data:
-                log_msg = f"Created {invite_type} invitation: {invite_code}"
-                if player_id:
-                    log_msg += f" linked to player {player_id}"
-                elif jersey_number:
-                    log_msg += f" with jersey #{jersey_number}"
-                logger.info(log_msg)
-                return response.data[0]
-            else:
+            if not response.data:
                 raise Exception("Failed to create invitation")
+
+            log_msg = f"Created {invite_type} invitation: {invite_code}"
+            if player_id:
+                log_msg += f" linked to player {player_id}"
+            elif jersey_number:
+                log_msg += f" with jersey #{jersey_number}"
+            logger.info(log_msg)
+
+            # Fire the invitation email if an address was provided. Email
+            # failures are logged but never fail the invitation create —
+            # admin can always copy the code manually as a fallback.
+            if email:
+                try:
+                    from services.email_service import EmailService
+
+                    EmailService().send_invitation(
+                        to_email=email,
+                        invite_code=invite_code,
+                        invite_type=invite_type,
+                        expires_at=expires_at.isoformat(),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to send invitation email to {email}: {e}"
+                    )
+
+            return response.data[0]
 
         except Exception as e:
             logger.error(f"Error creating invitation: {e}")
