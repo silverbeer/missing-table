@@ -144,6 +144,10 @@
             data-testid="invite-email-input"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
+          <p class="text-xs text-gray-500 mt-1">
+            If provided, the invite link will be auto-emailed to this address
+            once the invite is created.
+          </p>
         </div>
 
         <!-- Note (Optional) -->
@@ -378,6 +382,11 @@
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
+                Email Sent To
+              </th>
+              <th
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Status
               </th>
               <th
@@ -428,6 +437,33 @@
                 <template v-else>
                   {{ invite.teams?.name }} - {{ invite.age_groups?.name }}
                 </template>
+              </td>
+              <td
+                class="px-6 py-4 whitespace-nowrap text-sm"
+                data-testid="invite-email-cell"
+              >
+                <span
+                  v-if="invite.email"
+                  :title="`Invite email auto-sent to ${invite.email}`"
+                  class="inline-flex items-center gap-1 text-gray-700"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-3.5 h-3.5 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
+                  </svg>
+                  {{ invite.email }}
+                </span>
+                <span v-else class="text-gray-300">—</span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span
