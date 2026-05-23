@@ -80,6 +80,13 @@ class InviteRequestStats(BaseModel):
     rejected: int
 
 
+class TestApprovalEmail(BaseModel):
+    """Request body for sending a test approval email to an arbitrary address."""
+
+    to_email: EmailStr = Field(..., description="Recipient address")
+    name: str = Field("Test User", min_length=1, max_length=255)
+
+
 # Public endpoint - no auth required
 @router.post("", status_code=201)
 async def create_invite_request(request: InviteRequestCreate):
@@ -332,3 +339,43 @@ async def delete_invite_request(request_id: str, current_user=Depends(get_curren
     except Exception:
         logger.exception("Error deleting invite request")
         raise HTTPException(status_code=500, detail="Failed to delete invite request") from None
+
+
+@router.post("/test-approval-email")
+async def send_test_approval_email(
+    payload: TestApprovalEmail,
+    current_user=Depends(get_current_user_required),
+):
+    """
+    Send the "your request was approved" email to an arbitrary address
+    so admins can verify Resend/templates without polluting the
+    invite_requests table with a throwaway row.
+
+    Admin only.
+    """
+    if current_user.get("role") not in ["admin", "club_manager"]:
+        raise HTTPException(status_code=403, detail="Only admins can send test emails")
+
+    try:
+        email_service = EmailService()
+    except Exception as e:
+        logger.exception("EmailService init failed for test-approval-email")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Email service is not configured: {e}",
+        ) from e
+
+    sent = email_service.send_invite_request_approval(
+        to_email=payload.to_email,
+        name=payload.name,
+    )
+    if not sent:
+        raise HTTPException(
+            status_code=502,
+            detail="Email send failed. Check backend logs for the Resend error.",
+        )
+
+    return {
+        "success": True,
+        "message": f"Test approval email sent to {payload.to_email}",
+    }

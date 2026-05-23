@@ -8,6 +8,15 @@
           <span class="font-medium">{{ stats.pending }}</span> pending /
           <span class="font-medium">{{ stats.total }}</span> total
         </div>
+        <!-- Test email -->
+        <button
+          type="button"
+          class="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+          :disabled="sendingTestEmail"
+          @click="sendTestApprovalEmail"
+        >
+          {{ sendingTestEmail ? 'Sending…' : 'Send test approval email' }}
+        </button>
         <!-- Filter -->
         <select
           v-model="statusFilter"
@@ -179,6 +188,45 @@ const stats = ref(null);
 const loading = ref(false);
 const error = ref(null);
 const statusFilter = ref('');
+const sendingTestEmail = ref(false);
+
+// Send a test "your request was approved" email so admins can verify
+// the Resend wiring without creating a throwaway invite_request row.
+const sendTestApprovalEmail = async () => {
+  const toEmail = window.prompt(
+    'Send the approval email to which address?',
+    ''
+  );
+  if (!toEmail) return;
+  const name =
+    window.prompt('Name to greet in the email:', 'Test User') || 'Test User';
+
+  sendingTestEmail.value = true;
+  try {
+    const headers = {
+      ...authStore.getAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+    const response = await fetch(
+      `${getApiBaseUrl()}/api/invite-requests/test-approval-email`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ to_email: toEmail, name }),
+      }
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail || response.statusText);
+    }
+    alert(`Sent — check ${toEmail}.`);
+  } catch (err) {
+    console.error('Test approval email failed:', err);
+    alert(`Failed to send: ${err.message}`);
+  } finally {
+    sendingTestEmail.value = false;
+  }
+};
 
 // Fetch invite requests
 const fetchRequests = async () => {
