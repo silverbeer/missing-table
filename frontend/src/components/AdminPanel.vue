@@ -222,6 +222,15 @@
           <AdminInvites />
         </div>
 
+        <!-- Support Inbox -->
+        <div
+          v-if="currentSection === 'support-inbox'"
+          class="p-3 sm:p-6"
+          data-testid="admin-section-support-inbox"
+        >
+          <AdminSupportInbox />
+        </div>
+
         <!-- Tournaments Management -->
         <div
           v-if="currentSection === 'tournaments'"
@@ -266,6 +275,7 @@ import AdminPlayers from './admin/AdminPlayers.vue';
 import AdminMatches from './admin/AdminMatches.vue';
 import AdminGoals from './admin/AdminGoals.vue';
 import AdminInvites from './admin/AdminInvites.vue';
+import AdminSupportInbox from './admin/AdminSupportInbox.vue';
 import AdminChannelRequests from './admin/AdminChannelRequests.vue';
 import AdminClubNotifications from './admin/AdminClubNotifications.vue';
 import AdminInviteRequests from './admin/AdminInviteRequests.vue';
@@ -287,6 +297,7 @@ export default {
     AdminMatches,
     AdminGoals,
     AdminInvites,
+    AdminSupportInbox,
     AdminChannelRequests,
     AdminClubNotifications,
     AdminInviteRequests,
@@ -321,6 +332,12 @@ export default {
         category: 'access',
       },
       { id: 'invites', name: 'Invites', adminOnly: false, category: 'access' },
+      {
+        id: 'support-inbox',
+        name: 'Support Inbox',
+        adminOnly: true,
+        category: 'access',
+      },
       {
         id: 'age-groups',
         name: 'Age Groups',
