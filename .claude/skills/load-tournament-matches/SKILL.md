@@ -1,12 +1,14 @@
 ---
 name: load-tournament-matches
-description: Load a tournament's bracket and results into Missing Table from a pasted screenshot. Extracts matches, teams, and logos via vision; confirms each club/team with the user before creating; then POSTs the matches to the tournament. Use when the user pastes a screenshot of a tournament results / bracket page (mlssoccer.com, GotSport, etc.).
+description: Load a tournament's bracket and results into Missing Table from a pasted screenshot. Extracts matches, teams, and logos via vision; confirms each club/team with the user before creating; then upserts the matches into the tournament — creating new matchups and filling in scores on matches that already exist. Use when the user pastes a screenshot of a tournament results / bracket page (mlssoccer.com, GotSport, etc.), including follow-up screenshots that add scores to a round you already loaded.
 allowed-tools: Bash, Read
 ---
 
 # Load Tournament Matches
 
-This skill loads a tournament's matches into Missing Table from a screenshot. It handles the **full richness** flow: it creates missing clubs (with cropped logos) and teams, then POSTs the matches to the tournament. Resolution is human-confirmed at every fuzzy step — nothing is silently created.
+This skill loads a tournament's matches into Missing Table from a screenshot. It handles the **full richness** flow: it creates missing clubs (with cropped logos) and teams, then **upserts** the matches into the tournament. Resolution is human-confirmed at every fuzzy step — nothing is silently created or overwritten.
+
+**Upsert, not just insert.** A round's scores rarely arrive all at once. The typical loop is: load the matchups (scheduled, no scores) → later upload a screenshot where some scores are in → later again with more scores → then the next round's matchups, and repeat. So every run *reconciles* the screenshot against what's already in the tournament: it **creates** matchups that don't exist yet, **fills in scores** on matches that exist but aren't scored, leaves already-correct matches **untouched**, and **flags** (never silently overwrites) any match whose existing score disagrees with the screenshot.
 
 ## Prerequisites — check these BEFORE doing anything else
 
@@ -56,8 +58,10 @@ Quick subcommand map:
 | Look up a team (admin endpoint with exact + similar) | `team lookup "<name>"` |
 | Create a team | `team create --name --city --age-group-id --division-id [--club-id] [--academy-team]` |
 | Find a tournament by name | `tournament find "<name>"` |
+| List a tournament's existing matches (for upsert mapping) | `tournament matches <tournament_id>` |
 | Create a tournament | `tournament create --name --start-date [--end-date --age-group-ids 1,2,3]` |
 | Add a match to a tournament | `match create --tournament-id --our-team-id --opponent-name --match-date --age-group-id --season-id [--home-score ... --tournament-round ...]` |
+| Update an existing match (fill in scores/status) | `match update --tournament-id --match-id [--home-score ... --away-score ... --match-status completed ...]` |
 
 ## Workflow
 
@@ -156,9 +160,33 @@ Response shape: `{"exact": team | null, "similar": [team, ...]}`.
 
 Keep a running map of resolved `team name → team id` so you don't lookup the same team twice across multiple matches.
 
-### Step 5 — create each match
+### Step 5 — reconcile the screenshot against existing matches
 
-For every match in the screenshot:
+**Before writing anything, find out what's already in the tournament.** This is what turns the skill from insert-only into upsert and lets the user upload scores in waves.
+
+```bash
+cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py tournament matches <tournament_id>
+```
+
+This returns `{"matches": [{id, match_date, match_status, tournament_round, home_team:{id,name}, away_team:{id,name}, home_score, away_score, home_penalty_score, away_penalty_score}, ...]}`.
+
+**Match each screenshot row to an existing match** by `match_date` + the **pair of team names** (compare the existing `home_team.name`/`away_team.name` against the screenshot names using the same normalization you used for team resolution in Step 4 — and the team `id`s you already resolved, when the side is a tracked team). Within one round on one date a pairing is unique, so this is reliable. **If a row is ambiguous (matches zero or several), show it to the user and ask — never guess.**
+
+For each screenshot row, classify it and act per this table:
+
+| Situation | Action |
+|-----------|--------|
+| **No existing match** for this pairing/date | **Create** it — go to Step 6 (create). |
+| Exists, **no score yet** (`home_score`/`away_score` null, status `scheduled`), screenshot has a score | **Update** it — Step 6 (update). |
+| Exists, **already scored identically** to the screenshot | **Skip** (no-op). Report as "already correct". |
+| Exists, **scored differently** from the screenshot | **Flag — do NOT overwrite.** List it for the user (existing vs. screenshot) and let them decide. Only update if they explicitly confirm. |
+| Exists, still no score in the screenshot either | **Skip** — nothing to do yet. |
+
+Build the create-list and update-list, show the user a short plan ("N to create, M to score, K already correct, J conflicts to review"), and proceed once confirmed.
+
+### Step 6 — create or update each match
+
+**Create** a match that doesn't exist yet:
 
 ```bash
 cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py match create \
@@ -177,14 +205,29 @@ cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt
   [--scheduled-kickoff "2026-06-21T15:00:00Z"]
 ```
 
+**Update** an existing match to fill in (or, with user confirmation, correct) its score. Use the `id` from `tournament matches`. Only the flags you pass change; everything else is left alone:
+
+```bash
+cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py match update \
+  --tournament-id <id> \
+  --match-id <existing match id> \
+  --home-score 2 --away-score 1 \
+  --match-status completed \
+  [--home-penalty-score 5 --away-penalty-score 4] \
+  [--tournament-round round_of_16] [--tournament-group "A"] \
+  [--scheduled-kickoff "2026-06-21T15:00:00Z"] [--match-date YYYY-MM-DD] \
+  [--swap-home-away]
+```
+
 **Important semantics:**
 
-- The endpoint takes `our_team_id` (an existing tracked team) + `opponent_name` (a string). The backend will auto-resolve the opponent: exact-match an existing team, otherwise create a lightweight tournament-only team. This means you don't have to create both sides as full teams — only the "our team" side needs to be a real tracked team.
-- For **MLS Next Cup specifically**: the user is loading the bracket to make the tournament look great in MT, but their own U14 IFA team is not in it. So most matches will have `opponent_name` pointing to an opposing team and `our_team_id` pointing to whatever tracked team is closest. If neither team is "ours", pick the home team to be `our_team_id` and let `is_home=True`.
-- **Penalty shootout scores** are only valid when the regulation score is a draw. Always pass both `--home-penalty-score` and `--away-penalty-score` together or neither.
-- **`match_status`**: use `completed` if the score is final, otherwise `scheduled`.
+- **Create** takes `our_team_id` (an existing tracked team) + `opponent_name` (a string). The backend auto-resolves the opponent: exact-match an existing team, otherwise create a lightweight tournament-only team. So you don't have to create both sides as full teams — only the "our team" side needs to be a real tracked team. **Update** works on the match `id` directly and never touches team identities (unless you pass `--swap-home-away` to fix a reversed fixture).
+- For **MLS Next Cup specifically**: the user is loading the bracket to make the tournament look great in MT, but their own team may not be in it. So most matches will have `opponent_name` pointing to an opposing team and `our_team_id` pointing to whatever tracked team is closest. If neither team is "ours", pick the home team to be `our_team_id` and let `is_home=True`.
+- **Penalty shootout scores** are only valid when the regulation score is a draw. Always pass both `--home-penalty-score` and `--away-penalty-score` together or neither — on both create and update.
+- **`match_status`**: when a score is final use `completed`; a not-yet-played matchup is `scheduled`. When filling in a score on a previously-scheduled match, pass `--match-status completed` alongside the scores.
+- The orientation matters: scores are **home : away**. If the screenshot's home team is the existing match's away team, either map the scores accordingly or use `--swap-home-away`.
 
-### Step 6 — summary
+### Step 7 — summary
 
 Print a single summary block at the end:
 
@@ -194,6 +237,9 @@ Clubs created:     <count> — names...
 Teams created:     <count> — names...
 Logos uploaded:    <count>
 Matches created:   <count>
+Matches updated:   <count> — scores filled in
+Already correct:   <count> — skipped
+Conflicts:         <count> — listed for review (NOT changed)
 Match link:        <MT_API_BASE_URL>/tournaments/<id>
 ```
 
@@ -201,7 +247,7 @@ If any step failed (e.g. a logo upload returned non-2xx), surface it explicitly 
 
 ## Resilience guidance
 
-- **Idempotency**: every helper does a lookup before insert. Re-running the skill on the same screenshot should be a no-op (or it should report "already exists" cleanly).
+- **Idempotency**: every helper does a lookup before insert, and Step 5 reconciles against existing matches before any write. Re-running the skill on the same screenshot should be a no-op — already-scored matches report as "already correct", not duplicated or re-written.
 - **Errors**: API errors print JSON to stderr with `status_code` and `response`. Surface them to the user instead of retrying blindly.
 - **Logo dedup**: if the same club appears across multiple age groups in one screenshot, crop and upload the logo once. Track which clubs you've already processed.
 - **Don't auto-pick fuzzy matches**: the team-lookup endpoint exists specifically so you can confirm before any create. Use it.
@@ -209,4 +255,4 @@ If any step failed (e.g. a logo upload returned non-2xx), surface it explicitly 
 ## Out of scope
 
 - This skill does **not** scrape mlssoccer.com directly. Input must be a pasted screenshot.
-- This skill does **not** edit or delete existing matches. Use a future `mt-crud` skill for that (see https://github.com/silverbeer/missing-table/issues/347).
+- This skill creates and **updates** matches (scores, status, round/group, kickoff, home/away swap) but does **not delete** them. Use a future `mt-crud` skill for deletion (see https://github.com/silverbeer/missing-table/issues/347).
