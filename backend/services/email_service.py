@@ -14,6 +14,23 @@ logger = logging.getLogger(__name__)
 SUPPORT_EMAIL = "support@contact.missingtable.com"
 
 
+def ensure_resend_api_key() -> None:
+    """Make sure resend.api_key is set before any Resend SDK call.
+
+    EmailService.__init__ sets resend.api_key as a side effect, but that
+    only runs when an outbound email is actually sent. The inbound webhook
+    and admin-reply paths can fire before any outbound has gone out — e.g.
+    immediately after a fresh pod start — at which point resend.api_key is
+    still None and the SDK raises ValidationError('API key is invalid')
+    for any API call. Set it ourselves from the env var; idempotent.
+    """
+    if resend.api_key:
+        return
+    api_key = os.getenv("RESEND_API_KEY")
+    if api_key:
+        resend.api_key = api_key
+
+
 def _support_html_block() -> str:
     """Inline support line for invite-flow HTML emails."""
     return (
