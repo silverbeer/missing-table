@@ -25,30 +25,34 @@
           <BracketCell :match="m" @click="$emit('match-click', m)" />
         </div>
 
-        <!-- Placeholder cells for future rounds (no matches in DB yet) -->
+        <!-- Later rounds: real matches where loaded, placeholder otherwise -->
         <div
-          v-for="i in 8"
-          :key="`r16-${i}`"
-          :class="['bracket-cell', `col-2`, `r16-${i - 1}`]"
+          v-for="(m, idx) in r16Cells"
+          :key="`r16-${idx}`"
+          :class="['bracket-cell', `col-2`, `r16-${idx}`]"
         >
-          <BracketCell :match="null" />
+          <BracketCell :match="m" @click="$emit('match-click', m)" />
         </div>
         <div
-          v-for="i in 4"
-          :key="`qf-${i}`"
-          :class="['bracket-cell', `col-3`, `qf-${i - 1}`]"
+          v-for="(m, idx) in qfCells"
+          :key="`qf-${idx}`"
+          :class="['bracket-cell', `col-3`, `qf-${idx}`]"
         >
-          <BracketCell :match="null" />
+          <BracketCell :match="m" @click="$emit('match-click', m)" />
         </div>
         <div
-          v-for="i in 2"
-          :key="`sf-${i}`"
-          :class="['bracket-cell', `col-4`, `sf-${i - 1}`]"
+          v-for="(m, idx) in sfCells"
+          :key="`sf-${idx}`"
+          :class="['bracket-cell', `col-4`, `sf-${idx}`]"
         >
-          <BracketCell :match="null" />
+          <BracketCell :match="m" @click="$emit('match-click', m)" />
         </div>
         <div :class="['bracket-cell', `col-5`, `final-0`]">
-          <BracketCell :match="null" :is-final="true" />
+          <BracketCell
+            :match="finalCell"
+            :is-final="true"
+            @click="$emit('match-click', finalCell)"
+          />
         </div>
       </div>
     </div>
@@ -79,6 +83,21 @@ const r32Matches = computed(() =>
     .filter(m => m.tournament_round === 'round_of_32')
     .sort((a, b) => a.id - b.id)
 );
+
+// Fixed-length cell list for a round: real matches (ascending id, mirroring the
+// source schedule order) padded with nulls so every bracket slot renders, even
+// before its match has been loaded/advanced.
+function roundCells(roundKey, slotCount) {
+  const ms = props.matches
+    .filter(m => m.tournament_round === roundKey)
+    .sort((a, b) => a.id - b.id);
+  return Array.from({ length: slotCount }, (_, i) => ms[i] ?? null);
+}
+
+const r16Cells = computed(() => roundCells('round_of_16', 8));
+const qfCells = computed(() => roundCells('quarterfinal', 4));
+const sfCells = computed(() => roundCells('semifinal', 2));
+const finalCell = computed(() => roundCells('final', 1)[0]);
 
 // ── Inline child component for match cells ──
 const BracketCell = {
