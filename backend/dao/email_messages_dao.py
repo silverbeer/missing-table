@@ -2,8 +2,10 @@
 EmailMessagesDAO — individual messages in support-inbox threads (SB-35).
 
 Phase 1 surface (webhook ingest): insert_inbound, find_by_message_id,
-find_thread_id_by_in_reply_to. Phase 2 (admin API) will add list_by_thread
-and insert_outbound for admin replies.
+find_thread_id_by_in_reply_to.
+
+Phase 2 surface (admin API): list_by_thread, insert_outbound,
+get_latest_inbound_for_thread.
 """
 
 from __future__ import annotations
@@ -109,5 +111,87 @@ class EmailMessagesDAO(BaseDAO):
             thread_id=thread_id,
             direction="inbound",
             had_attachments=had_attachments,
+        )
+        return row
+
+    # ── Phase 2: admin API surface ───────────────────────────────────────────
+
+    def list_by_thread(self, thread_id: str) -> list[dict[str, Any]]:
+        """All messages in a thread, oldest first."""
+        response = (
+            self.client.table("email_messages")
+            .select("*")
+            .eq("thread_id", thread_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
+        return response.data or []
+
+    def get_latest_inbound_for_thread(
+        self, thread_id: str
+    ) -> dict[str, Any] | None:
+        """The most recent inbound message on a thread. Used by the admin-reply
+        path to set In-Reply-To on the outgoing message.
+        """
+        response = (
+            self.client.table("email_messages")
+            .select("*")
+            .eq("thread_id", thread_id)
+            .eq("direction", "inbound")
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return response.data[0] if response.data else None
+
+    @invalidates_cache(EMAIL_MESSAGES_CACHE_PATTERN)
+    def insert_outbound(
+        self,
+        *,
+        thread_id: str,
+        message_id: str,
+        from_email: str,
+        to_email: str,
+        subject: str,
+        sent_by_user_id: str,
+        in_reply_to: str | None = None,
+        references: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert an outbound admin-reply message row.
+
+        Symmetric to insert_inbound, but the caller is the admin sending
+        the reply — sent_by_user_id is required and direction is 'outbound'.
+        had_attachments and raw_payload don't apply (we don't attach files
+        or have a provider payload to preserve on outbound).
+
+        message_id should be the angle-brackets-stripped form, for parity
+        with inbound storage (so In-Reply-To lookups work in both directions).
+        """
+        payload: dict[str, Any] = {
+            "thread_id": thread_id,
+            "direction": "outbound",
+            "message_id": message_id,
+            "from_email": from_email,
+            "to_email": to_email,
+            "subject": subject,
+            "in_reply_to": in_reply_to,
+            "references": references,
+            "body_text": body_text,
+            "body_html": body_html,
+            "had_attachments": False,
+            "sent_by_user_id": sent_by_user_id,
+        }
+        response = self.client.table("email_messages").insert(payload).execute()
+        if not response.data:
+            raise RuntimeError("email_messages insert returned no data")
+        row = response.data[0]
+        logger.info(
+            "email_message_inserted",
+            message_id=message_id,
+            thread_id=thread_id,
+            direction="outbound",
+            sent_by_user_id=sent_by_user_id,
         )
         return row
