@@ -10,6 +10,17 @@
       </button>
     </div>
 
+    <!-- Search -->
+    <div class="mb-4">
+      <input
+        v-model="clubSearch"
+        type="search"
+        placeholder="Search clubs by name…"
+        data-testid="club-search"
+        class="w-full sm:w-80 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"
+      />
+    </div>
+
     <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-8">
       <div
@@ -28,7 +39,7 @@
     <!-- Clubs Grid -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <div
-        v-for="club in clubs"
+        v-for="club in filteredClubs"
         :key="club.id"
         class="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
         :style="{
@@ -167,6 +178,15 @@
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- No search results -->
+    <div
+      v-if="!loading && clubs.length > 0 && filteredClubs.length === 0"
+      data-testid="club-search-empty"
+      class="text-center py-8 text-sm text-gray-500"
+    >
+      No clubs match "{{ clubSearch }}".
     </div>
 
     <!-- Empty State -->
@@ -527,7 +547,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import ClubLogo from '../shared/ClubLogo.vue';
@@ -538,6 +558,12 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const clubs = ref([]);
+    const clubSearch = ref('');
+    const filteredClubs = computed(() => {
+      const q = clubSearch.value.trim().toLowerCase();
+      if (!q) return clubs.value;
+      return clubs.value.filter(c => (c.name || '').toLowerCase().includes(q));
+    });
     const loading = ref(true);
     const error = ref(null);
     const showAddModal = ref(false);
@@ -847,6 +873,8 @@ export default {
       editError,
       logoPreview,
       uploadingLogo,
+      clubSearch,
+      filteredClubs,
       openEditModal,
       handleLogoSelect,
       updateClub,

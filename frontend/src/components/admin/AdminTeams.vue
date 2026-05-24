@@ -11,6 +11,17 @@
       </button>
     </div>
 
+    <!-- Search -->
+    <div class="mb-4">
+      <input
+        v-model="teamSearch"
+        type="search"
+        placeholder="Search teams by name or club…"
+        data-testid="team-search"
+        class="w-full sm:w-80 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"
+      />
+    </div>
+
     <!-- Loading State -->
     <div
       v-if="loading"
@@ -75,7 +86,15 @@
           data-testid="teams-tbody"
         >
           <tr
-            v-for="team in teams"
+            v-if="teams.length > 0 && filteredTeams.length === 0"
+            data-testid="team-search-empty"
+          >
+            <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">
+              No teams match "{{ teamSearch }}".
+            </td>
+          </tr>
+          <tr
+            v-for="team in filteredTeams"
             :key="team.id"
             :data-testid="`team-row-${team.id}`"
             data-team-row
@@ -621,6 +640,16 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const teams = ref([]);
+    const teamSearch = ref('');
+    const filteredTeams = computed(() => {
+      const q = teamSearch.value.trim().toLowerCase();
+      if (!q) return teams.value;
+      return teams.value.filter(t => {
+        const name = (t.name || '').toLowerCase();
+        const club = (t.parent_club?.name || '').toLowerCase();
+        return name.includes(q) || club.includes(q);
+      });
+    });
     const clubs = ref([]);
     const ageGroups = ref([]);
     const divisions = ref([]);
@@ -1131,6 +1160,8 @@ export default {
 
     return {
       teams,
+      teamSearch,
+      filteredTeams,
       clubs,
       ageGroups,
       divisions,
