@@ -27,13 +27,43 @@ const initialsFor = name => {
     .toUpperCase();
 };
 
+// Format a goal event's minute the same way the in-app scoreboard does
+// (MatchDetailView.formatMinute): "22'" or, with stoppage time, "90+5'".
+const formatGoalMinute = event => {
+  if (!event?.match_minute) return '';
+  if (event.extra_time) {
+    return `${event.match_minute}+${event.extra_time}'`;
+  }
+  return `${event.match_minute}'`;
+};
+
+// Identity key for tallying a player's goals across the match. Prefer the
+// stable player_id; fall back to the displayed name scoped to the team —
+// live-scored youth matches often store only a jersey number like "#9"
+// with no id, and that number is unique only within a team (both sides
+// can field a #9). Goals with neither id nor name stay unique so they
+// never group into a phantom brace/hat-trick.
+const scorerKey = event => {
+  if (event?.player_id != null) return `id:${event.player_id}`;
+  if (event?.player_name)
+    return `team:${event.team_id}|name:${event.player_name}`;
+  return `ev:${event?.id}`;
+};
+
+// Chronological sort: match minute, then stoppage time, then insertion id
+// as a stable tiebreak for goals logged in the same minute.
+const byGoalTime = (a, b) =>
+  (a.match_minute || 0) - (b.match_minute || 0) ||
+  (a.extra_time || 0) - (b.extra_time || 0) ||
+  (a.id || 0) - (b.id || 0);
+
 // Filter the backend's "Unknown" sentinel — see match_dao.get_match_by_id,
 // which substitutes "Unknown" when a relation (division, season, etc.) is
 // null. Without this filter the share card would print "UNKNOWN" for
 // tournament matches that have no division.
 const cleanName = v => (v && v !== 'Unknown' && v !== 'unknown' ? v : null);
 
-export function useIgShareData(matchRef, modeRef) {
+export function useIgShareData(matchRef, modeRef, eventsRef) {
   const homeTeamName = computed(() => matchRef.value?.home_team_name || '');
   const awayTeamName = computed(() => matchRef.value?.away_team_name || '');
   const homeLogoUrl = computed(
@@ -164,6 +194,72 @@ export function useIgShareData(matchRef, modeRef) {
     );
   });
 
+  // --- Goal scorers (SB-33) ---------------------------------------------
+  // Live-scored matches carry per-goal events; templates surface these on
+  // the result card. The composable owns the derivation so all four cards
+  // agree on ordering and on what counts as a brace / hat-trick.
+  const goalEvents = computed(() =>
+    (eventsRef?.value || []).filter(e => e?.event_type === 'goal')
+  );
+
+  // Goals per scorer across BOTH teams, used to flag multi-goal games.
+  const goalCountByScorer = computed(() => {
+    const counts = new Map();
+    for (const e of goalEvents.value) {
+      const key = scorerKey(e);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+  });
+
+  // One entry per goal, in chronological order. Each carries the scorer's
+  // full-match tally so the template can highlight braces (>=2) and
+  // hat-tricks (>=3).
+  const buildScorers = teamId =>
+    goalEvents.value
+      .filter(e => e.team_id === teamId)
+      .slice()
+      .sort(byGoalTime)
+      .map(e => {
+        const goalCount = goalCountByScorer.value.get(scorerKey(e)) || 1;
+        return {
+          id: e.id,
+          name: e.player_name || 'Goal',
+          minute: formatGoalMinute(e),
+          goalCount,
+          isMultiGoal: goalCount >= 2,
+          isHatTrick: goalCount >= 3,
+        };
+      });
+
+  const homeScorers = computed(() =>
+    buildScorers(matchRef.value?.home_team_id)
+  );
+  const awayScorers = computed(() =>
+    buildScorers(matchRef.value?.away_team_id)
+  );
+  const hasScorers = computed(
+    () => homeScorers.value.length > 0 || awayScorers.value.length > 0
+  );
+
+  // Players with 3+ goals, de-duped and ordered by their first goal so the
+  // celebration banner reads in match order. 4+ still qualifies — the
+  // banner shows the tally.
+  const hatTricks = computed(() => {
+    const seen = new Set();
+    const out = [];
+    for (const e of goalEvents.value.slice().sort(byGoalTime)) {
+      const key = scorerKey(e);
+      if (seen.has(key)) continue;
+      const count = goalCountByScorer.value.get(key) || 0;
+      if (count >= 3) {
+        seen.add(key);
+        out.push({ name: e.player_name || 'Goal', count });
+      }
+    }
+    return out;
+  });
+
   return {
     homeTeamName,
     awayTeamName,
@@ -187,5 +283,9 @@ export function useIgShareData(matchRef, modeRef) {
     isResult,
     leagueName,
     isHomegrownLeague,
+    homeScorers,
+    awayScorers,
+    hasScorers,
+    hatTricks,
   };
 }

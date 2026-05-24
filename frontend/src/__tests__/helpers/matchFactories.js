@@ -273,6 +273,26 @@ export const createSeasonMatchList = () => [
 ];
 
 // =============================================================================
+// MATCH EVENT FACTORIES
+// =============================================================================
+
+// A single goal event as returned by /api/matches/{id}/live/events.
+// Defaults to a home-team (team_id 1) goal so tests only override what
+// they care about.
+export const createGoalEvent = (overrides = {}) => ({
+  id: 100,
+  match_id: 1,
+  event_type: 'goal',
+  player_name: '#10',
+  player_id: null,
+  team_id: 1,
+  match_minute: 22,
+  extra_time: null,
+  created_at: '2025-01-15T19:30:00Z',
+  ...overrides,
+});
+
+// =============================================================================
 // AUTH STORE FACTORIES
 // =============================================================================
 

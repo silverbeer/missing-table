@@ -108,6 +108,16 @@
         </div>
       </div>
 
+      <!-- Goal scorers (live-scored result only) -->
+      <div v-if="isResult && hasScorers" class="panel-scorers">
+        <IgScorers
+          :home="homeScorers"
+          :away="awayScorers"
+          :hat-tricks="hatTricks"
+          size="sm"
+        />
+      </div>
+
       <div class="footer-band">
         <div class="footer-row">
           <div class="footer-date" data-testid="ig-date">
@@ -128,14 +138,16 @@
 import { computed, ref, toRefs } from 'vue';
 import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
+import IgScorers from './IgScorers.vue';
 
 export default {
   name: 'IgTournamentRound',
-  components: { MlsNextBadge },
+  components: { MlsNextBadge, IgScorers },
   props: {
     match: { type: Object, required: true },
     photoSrc: { type: String, default: null },
     photoIsCrossOrigin: { type: Boolean, default: false },
+    events: { type: Array, default: () => [] },
     mode: {
       type: String,
       required: true,
@@ -144,8 +156,8 @@ export default {
   },
   setup(props) {
     const root = ref(null);
-    const { match, mode } = toRefs(props);
-    const data = useIgShareData(match, mode);
+    const { match, mode, events } = toRefs(props);
+    const data = useIgShareData(match, mode, events);
     const photoCrossOrigin = computed(() =>
       props.photoIsCrossOrigin ? 'anonymous' : null
     );
@@ -295,6 +307,12 @@ export default {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 32px;
+}
+
+.panel-scorers {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 28px;
 }
 
 .crest-block {

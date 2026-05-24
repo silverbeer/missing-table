@@ -707,6 +707,7 @@
       <IgShareModal
         :open="igShareOpen"
         :match="match"
+        :events="events"
         @close="closeIgShare"
         @photo-uploaded="onPhotoUploaded"
       />
