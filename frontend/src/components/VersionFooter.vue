@@ -41,8 +41,20 @@
         <span v-else class="version-loading">Loading version...</span>
       </div>
 
-      <!-- Copyright/branding (center) -->
-      <div class="copyright">© {{ currentYear }} Missing Table</div>
+      <!-- Copyright/branding + support link (center) -->
+      <div class="copyright">
+        <div>© {{ currentYear }} Missing Table</div>
+        <div class="support-line">
+          Need help?
+          <SupportEmailLink
+            :subject="supportSubject"
+            :body="supportBody"
+            display-text="Contact support"
+            class="support-footer-link"
+            data-testid="footer-support-link"
+          />
+        </div>
+      </div>
 
       <!-- Status indicator (right side) — only show when healthy -->
       <div class="status-indicator">
@@ -57,15 +69,41 @@
 
 <script>
 import { ref, onMounted, computed } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import SupportEmailLink from '@/components/SupportEmailLink.vue';
 
 export default {
   name: 'VersionFooter',
+  components: { SupportEmailLink },
   setup() {
+    const authStore = useAuthStore();
     const version = ref(null);
     const environment = ref('unknown');
     const status = ref('healthy');
     const currentYear = computed(() => new Date().getFullYear());
     const errorDismissed = ref(false);
+
+    // Pre-fill support email with the user's account context when logged in.
+    // Falls through to a generic "Help request" subject + empty body for
+    // anonymous visitors.
+    const supportSubject = computed(() => {
+      const email = authStore.state.profile?.email;
+      return email ? `[Account: ${email}] Help request` : 'Help request';
+    });
+    const supportBody = computed(() => {
+      const profile = authStore.state.profile;
+      if (!profile?.email) return '';
+      const lines = [
+        'Hi support team,',
+        '',
+        'I need help with my account.',
+        '',
+        `Account email: ${profile.email}`,
+      ];
+      if (profile.display_name)
+        lines.push(`Display name: ${profile.display_name}`);
+      return lines.join('\n');
+    });
 
     // Determine environment based on current hostname
     const determineEnvironment = () => {
@@ -128,6 +166,8 @@ export default {
       errorDismissed,
       fetchVersion,
       retryFetch,
+      supportSubject,
+      supportBody,
     };
   },
 };
@@ -190,6 +230,19 @@ export default {
 .copyright {
   text-align: center;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.support-line {
+  font-size: 0.8125rem;
+  color: #6c757d;
+}
+
+.support-footer-link {
+  font-weight: 500;
 }
 
 .status-indicator {

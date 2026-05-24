@@ -45,14 +45,6 @@
             class="dropdown-menu"
             data-testid="dropdown-menu"
           >
-            <SupportEmailLink
-              :subject="supportSubject"
-              :body="supportBody"
-              display-text="Contact support"
-              class="dropdown-item support-item"
-              data-testid="support-link"
-            />
-            <div class="dropdown-divider"></div>
             <button
               @click="handleLogout"
               class="dropdown-item logout-item"
@@ -87,11 +79,9 @@
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import SupportEmailLink from '@/components/SupportEmailLink.vue';
 
 export default {
   name: 'AuthNav',
-  components: { SupportEmailLink },
   emits: ['show-login', 'logout'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
@@ -188,19 +178,6 @@ export default {
       document.removeEventListener('click', handleClickOutside);
     });
 
-    const supportSubject = computed(() => {
-      const email = authStore.state.profile?.email;
-      return email ? `[Account: ${email}] Help request` : 'Help request';
-    });
-    const supportBody = computed(() => {
-      const lines = ['Hi support team,', '', 'I need help with my account.'];
-      const profile = authStore.state.profile;
-      if (profile?.email) lines.push('', `Account email: ${profile.email}`);
-      if (profile?.display_name)
-        lines.push(`Display name: ${profile.display_name}`);
-      return lines.join('\n');
-    });
-
     return {
       authStore,
       showDropdown,
@@ -210,8 +187,6 @@ export default {
       hideDropdown,
       showLogin,
       handleLogout,
-      supportSubject,
-      supportBody,
     };
   },
 };
@@ -412,26 +387,6 @@ export default {
 
 .logout-item:hover {
   background-color: #fef2f2;
-}
-
-.support-item {
-  color: #374151;
-  font-weight: 500;
-}
-
-.support-item:hover {
-  background-color: #f8fafc;
-}
-
-/* Override SupportEmailLink's default underlined-link styling when used
-   as a dropdown row. */
-:deep(.support-item.support-email-link) {
-  text-decoration: none;
-  color: #374151;
-}
-
-:deep(.support-item.support-email-link:hover) {
-  color: #111827;
 }
 
 .login-btn {
