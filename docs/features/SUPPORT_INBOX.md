@@ -1,19 +1,23 @@
 # Support Inbox
 
-**Status:** Phase 1 shipped (SB-35) | **Inbound address:** `support@contact.missingtable.com`
+**Status:** Shipped (SB-35) | **Inbound address:** `support@contact.missingtable.com`
 
-An in-app support inbox that receives email replies (and direct sends) from users at `support@contact.missingtable.com`, routes them through Resend Inbound's webhook, threads them by RFC 5322 headers + case number, and persists them to a Supabase-backed schema for the admin UI (Phase 2/3) to read and respond from.
+An in-app support inbox that receives email replies (and direct sends) from users at `support@contact.missingtable.com`, routes them through Resend Inbound's webhook, threads them by RFC 5322 headers + case number, persists them to a Supabase-backed schema, and exposes a read/reply experience inside `AdminPanel`.
 
 Every conversation gets a sequential **`MT-{n}`** case number — embedded in outbound subjects so threading survives even when RFC 5322 headers get stripped by intermediate mail servers.
 
-## What it does (Phase 1)
+## What it does
+
+**Inbound (SB-35 Phase 1):**
 
 1. A user emails `support@contact.missingtable.com` (or replies to any MT-sent transactional email — the Reply-To header routes their reply to the same address).
 2. Resend Inbound receives the mail (MX is on `contact.missingtable.com` pointing at Amazon SES inbound), parses it, and POSTs an `email.received` event to our webhook.
 3. Our webhook verifies the Svix signature, fetches the full `ReceivedEmail` via the Resend API, runs the 4-tier threading resolver, sanitizes any HTML, drops attachments, and inserts a row into `email_messages` linked to an `email_threads` row.
 4. The thread's `status` auto-transitions (`new` → `awaiting_admin` on user reply; `awaiting_user` after admin reply; `spam` and `resolved` are manual).
 
-Phase 2 (admin API) and Phase 3 (admin UI inbox + reply composer) are scheduled but not yet built.
+**Admin API (SB-40 Phase 2):** Six JSON endpoints under `/api/admin/emails/*`, all gated by `require_admin`. List threads with keyset pagination, fetch a single thread + messages by UUID or `MT-{n}`, send an outbound reply (auto-threaded via `In-Reply-To` / `References` / `[MT-{n}]` subject), patch status, mark all read, and a single unread-count for the nav badge. See [Phase 2 router](#backend) below.
+
+**Admin UI (SB-41 Phase 3):** A "Support Inbox" sub-section in `AdminPanel → Access` that consumes the Phase 2 API. Admins see a status-filtered thread list (default tab = `Needs attention`), can click into a thread to see chat-style message bubbles, reply via a plain-text composer, override status (Mark resolved / spam / reopen), and mark unread messages read. Unread count badge polls every 60 seconds.
 
 ## End-to-end flow
 
@@ -134,15 +138,26 @@ Both tables have RLS enabled with one policy each: `*_admin_all` gated by `publi
   - `parse_case_number_from_subject()` — `[MT-{n}]` regex, case-insensitive on `MT`.
   - `normalize_subject()` — strips chained `Re:`/`Fwd:` and case-number tokens for tier-3 fallback comparison.
   - `resolve_thread()` — 4-tier resolver (see Threading resolver section above).
-- **`backend/dao/email_threads_dao.py`** — `EmailThreadsDAO` with `get_thread_by_id`, `get_by_case_number`, `find_recent_by_participant`, `create_for_inbound`, `transition_on_inbound`. The `transition_on_inbound` method encodes the spam-is-sticky and resolved-reopens-on-reply rules.
-- **`backend/dao/email_messages_dao.py`** — `EmailMessagesDAO` with `find_by_message_id` (idempotency), `find_thread_id_by_in_reply_to` (tier 1), `insert_inbound`.
-- **`backend/services/email_service.py`** — outbound sender (pre-existing). Defines `SUPPORT_EMAIL = "support@contact.missingtable.com"` and the support-line helpers used in invite email templates. **Side effect**: `EmailService.__init__` sets `resend.api_key` as a module global. The inbound webhook calls `_ensure_resend_api_key()` to avoid depending on that side effect (see Lessons learned).
+- **`backend/dao/email_threads_dao.py`** — `EmailThreadsDAO`. **Phase 1**: `get_thread_by_id`, `get_by_case_number`, `find_recent_by_participant`, `create_for_inbound`, `transition_on_inbound` (encodes the spam-is-sticky and resolved-reopens-on-reply rules). **Phase 2**: `list_by_status` (keyset cursor `(last_message_at desc, id desc)` via base64-encoded opaque token), `get_thread_with_messages` (one-query embedded select, no N+1), `transition_on_outbound`, `set_status`, `mark_all_read`, `unread_count_for_attention`. The two `encode_cursor` / `decode_cursor` helpers at module top are reused by tests.
+- **`backend/dao/email_messages_dao.py`** — `EmailMessagesDAO`. **Phase 1**: `find_by_message_id` (idempotency), `find_thread_id_by_in_reply_to` (tier 1), `insert_inbound`. **Phase 2**: `list_by_thread`, `insert_outbound` (takes `sent_by_user_id`, sets `direction='outbound'`), `get_latest_inbound_for_thread` (powers `In-Reply-To` on outbound replies).
+- **`backend/services/email_service.py`** — outbound sender (pre-existing). Defines `SUPPORT_EMAIL = "support@contact.missingtable.com"` and the support-line helpers used in invite email templates. **Side effect**: `EmailService.__init__` sets `resend.api_key` as a module global. The module-level `ensure_resend_api_key()` helper (added during SB-35 cutover, used by both the inbound webhook and the Phase 2 outbound reply path) avoids depending on that side effect — see Lessons learned #2.
+- **`backend/api/admin_emails.py`** (Phase 2) — six admin endpoints under `/api/admin/emails/*`, all gated by `require_admin`. Path-param resolver accepts both UUID and `MT-{n}` form. Uses the service-role Supabase client matching the project pattern (`backend/api/invites.py`).
+- **`backend/services/email_outbound.py`** (Phase 2) — outbound reply primitives + orchestrator:
+  - `generate_message_id()` — `mt-{uuid4}@missingtable.com`. Stored stripped, sent wrapped.
+  - `prefix_subject_with_case_number()` — idempotent `[MT-{n}]` + canonical `Re: ` prefix. Doesn't double-prefix on `Re: Re: [MT-1]` chains.
+  - `build_references()` — appends the latest inbound's Message-ID to the existing References chain, deduped.
+  - `send_admin_reply()` — looks up latest inbound for `In-Reply-To`, calls `resend.Emails.send` (after `ensure_resend_api_key()`), persists via `insert_outbound`, transitions thread to `awaiting_user`.
 
 ### Frontend
 
 - **`frontend/src/components/SupportEmailLink.vue`** — single source of truth for the support address on the UI. Builds the `mailto:` href at runtime from JS constants (`SUPPORT_USER = "support"`, `SUPPORT_DOMAIN = "contact.missingtable.com"`) so the literal address never appears in template source. Accepts optional `subject` / `body` props for pre-filled mail clients.
 - **`frontend/src/components/LoginForm.vue`** — uses `<SupportEmailLink />` in the invite-signup flow (footer + error states) with subject/body pre-filled from invite code + email.
 - **`frontend/src/components/AuthNav.vue`** — uses `<SupportEmailLink />` in the user dropdown ("Contact support") with subject pre-filled as `[Account: {email}] Help request`.
+- **`frontend/src/components/admin/AdminSupportInbox.vue`** (Phase 3) — parent. Owns the composable, swaps between list and thread view, shows the unread badge in the section header.
+- **`frontend/src/components/admin/SupportInboxList.vue`** (Phase 3) — status tabs (`Needs attention` / `Waiting on user` / `Resolved` / `Spam` / `All`), `MT-N` search, thread rows with color-coded status pill / unread badge / relative timestamp, keyset load-more.
+- **`frontend/src/components/admin/SupportThreadView.vue`** (Phase 3) — chronological message bubbles (inbound left, outbound right), sanitized HTML body via `v-html` with `data-testid="message-body-html"` regression hook (**we don't re-sanitize** — backend already did via bleach), attachments-stripped notice, reply composer, status dropdown (Mark resolved / Mark spam / Reopen), Mark all read button.
+- **`frontend/src/composables/useSupportInbox.js`** (Phase 3) — reactive singleton matching the auth-store pattern (not Pinia). Exposes `threads` / `activeThread` / `unreadCount` / `loading` / `sending` / `error` refs + `loadThreads` / `openThread` / `sendReply` / `setStatus` / `markAllRead` / `startPolling` / `stopPolling`. Optimistically appends new outbound message + flips status pill on successful reply.
+- **`frontend/src/components/AdminPanel.vue`** — registers the `support-inbox` sub-section in the Access category, admin-only.
 - **Invite email templates** in `backend/services/email_service.py` (`send_invitation`, `send_invite_request_approval`) include a "Need help? Contact support@…" line via `_support_html_block()` / `_support_text_block()` helpers.
 
 ### Schema
@@ -249,13 +264,50 @@ npx supabase migration repair --status applied 20260523000000 --linked
 
 After merging a PR with application code changes, the deployed image tag is the **code commit SHA** (e.g. `10f1709`), not the auto-created `chore: Update image tags to ...` commit SHA (e.g. `e6fa46e`). Polling for the wrong SHA looks like a hung deploy when really the new pod is up. Always compare the running image tag against the **PR merge commit**, not the latest commit on main.
 
-## Out of scope (Phase 2/3)
+## Admin API surface (Phase 2)
 
-- **Phase 2 — admin API**: `GET /api/admin/emails/threads`, `GET /api/admin/emails/threads/{id_or_case_number}`, `POST .../reply`, `PATCH .../status`, `PATCH .../read`, `GET .../unread-count`. Outbound replies set proper `In-Reply-To` / `References` headers so user mail clients keep the thread.
-- **Phase 3 — admin UI**: new section in `AdminPanel.vue`. Inbox list with status tabs and case-number column, thread view with chat-style rendering, reply composer. Nav badge for "needs attention" count.
+All endpoints under `/api/admin/emails/*`, gated by `require_admin`. JSON in/out.
 
-When these ship, this doc should be updated rather than forked.
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/threads` | Paginated thread list. `status` (CSV; default `new,awaiting_admin`), opaque `cursor`, `limit` (≤200). Returns `{items: [...], next_cursor: str \| null}` with embedded `message_count`. Sorted `last_message_at DESC, id DESC`. |
+| `GET` | `/threads/{id_or_case_number}` | Thread + chronological messages. Accepts UUID or `MT-{n}` (case-insensitive on `MT`). 404 on miss. |
+| `POST` | `/threads/{thread_id}/reply` | Body: `{body_text, body_html?}`. Generates Message-ID, sets `In-Reply-To` to latest inbound, extends References, idempotently prefixes subject. Transitions to `awaiting_user`. Returns the inserted message row. |
+| `PATCH` | `/threads/{thread_id}/status` | Body: `{status}`. Only manual overrides accepted (`resolved` / `spam` / `awaiting_admin`); auto-transitions are DAO-owned. |
+| `PATCH` | `/threads/{thread_id}/read` | Zero `unread_count`, stamp `read_at = now()` on every unread message. Returns `{thread_id, messages_marked_read}`. |
+| `GET` | `/unread-count` | Returns `{count}` — sum of `unread_count` across threads in (`new`, `awaiting_admin`). Powers the nav badge; safe to cache for ~30s. |
+
+### Outbound reply mechanics
+
+1. Fresh **Message-ID** = `mt-{uuid4}@missingtable.com`. Storage form is angle-bracket-stripped (parity with inbound); the send wraps in `<>`.
+2. **`In-Reply-To`** = latest inbound message's `message_id` (angle-bracketed).
+3. **`References`** = existing References chain + the new `In-Reply-To`, deduped, whitespace-separated.
+4. **Subject** = `Re: [MT-{n}] {subject}`. Idempotent: never double-prefixes a `Re: Re: [MT-1]` chain.
+5. **From** = `support@contact.missingtable.com` (matches `RESEND_REPLY_TO` so user replies loop back into the inbox).
+
+`backend/services/email_outbound.py::send_admin_reply` is the orchestrator. Locked in by unit tests against a mocked `resend.Emails.send`.
+
+## Admin UI (Phase 3)
+
+Mounted at **AdminPanel → Access → Support Inbox**, admin-only. Three components plus a composable:
+
+- **`AdminSupportInbox.vue`** — parent. Swaps between list and thread view based on `activeThread`. Shows unread badge in the section header. Mounts the polling lifecycle.
+- **`SupportInboxList.vue`** — five status tabs (`Needs attention` default = `new,awaiting_admin`; `Waiting on user`; `Resolved`; `Spam`; `All`). `MT-N` search input (accepts `42`, `mt-42`, `MT-42`). Thread rows with color-coded status pill (red=new, orange=awaiting_admin, blue=awaiting_user, gray=resolved, muted=spam), unread badge, participant, subject, relative timestamp. Load-more button gated on `next_cursor`.
+- **`SupportThreadView.vue`** — chat-style messages (inbound left, outbound right). HTML body via `v-html` (backend already sanitized via bleach; **do not re-sanitize**). Attachments-stripped notice when `had_attachments`. Reply composer: plain textarea, optimistic UI on success. Status dropdown: Mark resolved / Mark spam / Reopen. Mark all read button gated on `unread_count > 0`.
+- **`useSupportInbox.js`** — composable. Reactive singleton (matches auth-store pattern; no Pinia). Polls `GET /unread-count` every 60s while mounted.
+
+## Out of scope (still)
+
+- Multi-agent assignment, SLAs, statuses beyond the current five.
+- Bulk operations on threads (multi-select archive, etc.).
+- Search by subject / body content (case-number search is enough for v1).
+- Rich-text composer; date-range or label filtering.
+- Customer-facing tickets UI inside MT (replies still happen over email).
+- Outbound attachments.
+- Realtime push for new threads (currently 60s poll on the badge; pull on tab focus).
+
+When any of these ship, update this doc rather than forking.
 
 ---
 
-**Last updated:** 2026-05-23 (Phase 1 cutover)
+**Last updated:** 2026-05-24 (all three SB-35 phases live)
