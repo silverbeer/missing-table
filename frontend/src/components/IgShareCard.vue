@@ -10,6 +10,7 @@
     :match="match"
     :photo-src="photoSrc"
     :photo-is-cross-origin="photoIsCrossOrigin"
+    :events="events"
     :mode="mode"
   />
 </template>
@@ -37,6 +38,7 @@ export default {
     match: { type: Object, required: true },
     photoSrc: { type: String, default: null },
     photoIsCrossOrigin: { type: Boolean, default: false },
+    events: { type: Array, default: () => [] },
     mode: {
       type: String,
       required: true,

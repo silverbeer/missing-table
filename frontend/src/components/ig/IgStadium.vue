@@ -100,6 +100,15 @@
         </div>
       </div>
 
+      <!-- Goal scorers (live-scored result only) -->
+      <IgScorers
+        v-if="isResult && hasScorers"
+        :home="homeScorers"
+        :away="awayScorers"
+        :hat-tricks="hatTricks"
+        size="lg"
+      />
+
       <!-- Match details -->
       <div class="details">
         <div class="detail">
@@ -131,16 +140,18 @@
 import { ref, toRefs } from 'vue';
 import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
+import IgScorers from './IgScorers.vue';
 
 export default {
   name: 'IgStadium',
-  components: { MlsNextBadge },
+  components: { MlsNextBadge, IgScorers },
   props: {
     match: { type: Object, required: true },
     // Photo is unused by this template but accepted so the dispatcher
     // can pass props uniformly.
     photoSrc: { type: String, default: null },
     photoIsCrossOrigin: { type: Boolean, default: false },
+    events: { type: Array, default: () => [] },
     mode: {
       type: String,
       required: true,
@@ -149,8 +160,8 @@ export default {
   },
   setup(props) {
     const root = ref(null);
-    const { match, mode } = toRefs(props);
-    const data = useIgShareData(match, mode);
+    const { match, mode, events } = toRefs(props);
+    const data = useIgShareData(match, mode, events);
     return { root, ...data, tagline: IG_SHARE_TAGLINE };
   },
 };

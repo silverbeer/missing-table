@@ -180,6 +180,15 @@
         </div>
       </div>
 
+      <!-- Goal scorers (live-scored result only) -->
+      <IgScorers
+        v-if="isResult && hasScorers"
+        :home="homeScorers"
+        :away="awayScorers"
+        :hat-tricks="hatTricks"
+        size="lg"
+      />
+
       <div class="ig-footer">
         <span class="ig-date" data-testid="ig-date">{{ dateLabel }}</span>
         <span class="ig-brand" data-testid="ig-brand">missingtable.com</span>
@@ -193,14 +202,16 @@
 import { computed, ref, toRefs } from 'vue';
 import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
+import IgScorers from './IgScorers.vue';
 
 export default {
   name: 'IgOverlay',
-  components: { MlsNextBadge },
+  components: { MlsNextBadge, IgScorers },
   props: {
     match: { type: Object, required: true },
     photoSrc: { type: String, default: null },
     photoIsCrossOrigin: { type: Boolean, default: false },
+    events: { type: Array, default: () => [] },
     mode: {
       type: String,
       required: true,
@@ -209,8 +220,8 @@ export default {
   },
   setup(props) {
     const root = ref(null);
-    const { match, mode } = toRefs(props);
-    const data = useIgShareData(match, mode);
+    const { match, mode, events } = toRefs(props);
+    const data = useIgShareData(match, mode, events);
     const photoCrossOrigin = computed(() =>
       props.photoIsCrossOrigin ? 'anonymous' : null
     );

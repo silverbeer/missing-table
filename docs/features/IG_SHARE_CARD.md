@@ -1,6 +1,6 @@
 # Instagram Match Share Card
 
-**Status:** v1 shipped (SB-32) | **Parent:** SB-19 | **Backend:** SB-31
+**Status:** v1 shipped (SB-32) · goal scorers (SB-33) | **Parent:** SB-19 | **Backend:** SB-31
 
 A "Share to Instagram" flow on the match detail page that generates a
 **1080×1080 PNG** suitable for an Instagram square post.
@@ -39,6 +39,31 @@ The Tournament Round option is only surfaced in the picker when the match has `t
 
 Modes are independent of templates — every template supports both.
 
+### Goal scorers (SB-33)
+
+When a completed match was **live-scored** (it has goal events), the
+**Result** card lists the scorers under the scoreboard — two columns
+(home right-aligned, away left-aligned), **one line per goal in
+chronological order**, mirroring the in-app match scoreboard. Each line
+shows the scorer (player name or jersey number) and the minute
+(`56'`, or `90+5'` for stoppage time).
+
+Multi-goal games are highlighted:
+
+- **Brace (2 goals):** the scorer's lines render in accent **gold**.
+- **Hat-trick (3+ goals):** adds a gold **"⚽⚽⚽ HAT-TRICK · {name}"**
+  banner above the columns (shows the tally, e.g. "4 GOALS", beyond 3).
+
+Scorers appear on **all four templates** in Result mode only — never in
+Preview, and never when the match has no goal events (e.g. a result
+entered directly without live scoring). A scorer's goals are tallied by
+`player_id` when present, otherwise by name **scoped to their team** (so
+each side's `#9` stays distinct).
+
+Events are fetched once by `MatchDetailView`
+(`GET /api/matches/{id}/live/events`) and passed into the modal → card →
+templates; the derivation lives in `useIgShareData`.
+
 ### Graceful degradation
 
 If R2 is unavailable (503: not configured, or a transient error), the
@@ -54,10 +79,14 @@ a clear message ("Card will download but the photo will not be saved").
 - `frontend/src/components/ig/IgSplit.vue` — Brand Split template.
 - `frontend/src/components/ig/IgTournamentRound.vue` — Tournament Round template.
 - `frontend/src/components/ig/IgStadium.vue` — Stadium Scoreboard template.
+- `frontend/src/components/ig/IgScorers.vue` — presentational goal-scorers
+  block (two columns + hat-trick banner). Shared by all four templates;
+  `size` prop ('lg' | 'sm') scales it for the roomy vs. tighter cards.
 - `frontend/src/composables/useIgShareData.js` — shared computed props
   (team data, score, dateLabel, tournament-name preference, "Unknown"
-  filtering, round-name normalization). Single source of truth across
-  all four templates.
+  filtering, round-name normalization) **plus scorer derivation**
+  (`homeScorers`, `awayScorers`, `hasScorers`, `hatTricks`). Single
+  source of truth across all four templates.
 - `frontend/src/components/IgShareModal.vue` — file pick, template
   picker, upload, capture, download/clipboard flow.
 - `frontend/src/components/MatchDetailView.vue` — entry-point button +
@@ -78,4 +107,4 @@ original "any logged-in user" scope from SB-19.
 
 - [SB-19 — IG match share image umbrella](https://linear.app) (Linear)
 - [SB-31 — R2 photo upload backend](https://github.com/silverbeer/missing-table/pull/360)
-- SB-33 — goal scorers overlay (follow-up, not in v1)
+- SB-33 — goal scorers overlay (shipped: scorer list + brace/hat-trick highlight on result cards)

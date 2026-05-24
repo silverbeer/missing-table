@@ -127,6 +127,7 @@
             <IgShareCard
               :match="match"
               :photo-src="localPhotoUrl"
+              :events="events"
               :mode="mode"
               :template="template"
               data-testid="ig-preview-card"
@@ -176,6 +177,7 @@
         ref="captureCard"
         :match="match"
         :photo-src="localPhotoUrl"
+        :events="events"
         :mode="mode"
         :template="template"
         data-testid="ig-capture-card"
@@ -231,6 +233,9 @@ export default {
   props: {
     open: { type: Boolean, default: false },
     match: { type: Object, required: true },
+    // Goal/card events for the match. Used to render scorers on the
+    // result card when the match was live-scored (SB-33).
+    events: { type: Array, default: () => [] },
   },
   emits: ['close', 'photo-uploaded'],
   setup(props, { emit }) {
