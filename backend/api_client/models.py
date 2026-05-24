@@ -134,6 +134,26 @@ class TournamentMatchCreate(BaseModel):
     scheduled_kickoff: str | None = Field(None, title="Scheduled Kickoff")
 
 
+class TournamentMatchUpdate(BaseModel):
+    """Partial update for an existing tournament match (mirrors app.py TournamentMatchUpdate).
+
+    All fields optional — send only what changes. Used to fill in scores/status as
+    results trickle in. Serialize with model_dump(exclude_none=True) so unset fields
+    are left untouched by the backend.
+    """
+
+    home_score: int | None = Field(None, title="Home Score")
+    away_score: int | None = Field(None, title="Away Score")
+    home_penalty_score: int | None = Field(None, title="Home Penalty Score")
+    away_penalty_score: int | None = Field(None, title="Away Penalty Score")
+    match_status: str | None = Field(None, title="Match Status")
+    tournament_group: str | None = Field(None, title="Tournament Group")
+    tournament_round: str | None = Field(None, title="Tournament Round")
+    scheduled_kickoff: str | None = Field(None, title="Scheduled Kickoff")
+    match_date: str | None = Field(None, title="Match Date")
+    swap_home_away: bool = Field(False, title="Swap Home Away")
+
+
 class TeamGameTypeMapping(BaseModel):
     game_type_id: int = Field(..., title="Game Type Id")
     age_group_id: int = Field(..., title="Age Group Id")

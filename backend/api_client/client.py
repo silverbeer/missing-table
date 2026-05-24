@@ -60,6 +60,7 @@ from .models import (
     Team,
     TournamentCreate,
     TournamentMatchCreate,
+    TournamentMatchUpdate,
     UserProfileUpdate,
 )
 
@@ -1280,12 +1281,39 @@ class MissingTableClient:
         response = self._request("POST", "/api/admin/tournaments", json_data=tournament.model_dump())
         return response.json()
 
+    def get_tournament(self, tournament_id: int) -> dict[str, Any]:
+        """Get tournament detail including its matches (public).
+
+        The returned dict has a ``matches`` list; each match carries ``id``,
+        ``home_team``/``away_team`` (with ``name``), scores, penalty scores,
+        ``match_status`` and ``tournament_round`` — enough to map a screenshot
+        row to an existing match for updates.
+        """
+        response = self._request("GET", f"/api/tournaments/{tournament_id}")
+        return response.json()
+
     def create_tournament_match(self, tournament_id: int, match: TournamentMatchCreate) -> dict[str, Any]:
         """Add a match to a tournament (admin only)."""
         response = self._request(
             "POST",
             f"/api/admin/tournaments/{tournament_id}/matches",
             json_data=match.model_dump(),
+        )
+        return response.json()
+
+    def update_tournament_match(
+        self, tournament_id: int, match_id: int, match: TournamentMatchUpdate
+    ) -> dict[str, Any]:
+        """Partially update an existing tournament match (admin only).
+
+        Only the fields set on ``match`` are sent (``exclude_none``), so scores
+        and status can be filled in as results come in without disturbing the
+        rest of the match. Returns the updated match row.
+        """
+        response = self._request(
+            "PUT",
+            f"/api/admin/tournaments/{tournament_id}/matches/{match_id}",
+            json_data=match.model_dump(exclude_none=True),
         )
         return response.json()
 

@@ -31,6 +31,7 @@ from api_client.models import (
     Team,
     TournamentCreate,
     TournamentMatchCreate,
+    TournamentMatchUpdate,
 )
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -329,6 +330,51 @@ def tournament_find(name: str = typer.Argument(...)) -> None:
     _out({"exact": exact[0] if exact else None, "similar": similar})
 
 
+@tournament_app.command("matches")
+def tournament_matches(tournament_id: int = typer.Argument(...)) -> None:
+    """List a tournament's existing matches so screenshot rows can be mapped to match IDs.
+
+    Prints a compact row per match: id, date, kickoff, status, round, both team
+    names/ids, and current scores (incl. penalties). Use this before updating to
+    decide create-vs-update and to find the match_id to PUT against.
+    """
+    with _client() as c:
+        try:
+            tournament = c.get_tournament(tournament_id)
+        except APIError as exc:
+            _err_exit("failed to fetch tournament", exc)
+
+    def _team(side: object) -> dict | None:
+        if isinstance(side, dict):
+            return {"id": side.get("id"), "name": side.get("name")}
+        return None
+
+    matches = [
+        {
+            "id": m.get("id"),
+            "match_date": m.get("match_date"),
+            "scheduled_kickoff": m.get("scheduled_kickoff"),
+            "match_status": m.get("match_status"),
+            "tournament_round": m.get("tournament_round"),
+            "home_team": _team(m.get("home_team")),
+            "away_team": _team(m.get("away_team")),
+            "home_score": m.get("home_score"),
+            "away_score": m.get("away_score"),
+            "home_penalty_score": m.get("home_penalty_score"),
+            "away_penalty_score": m.get("away_penalty_score"),
+        }
+        for m in (tournament.get("matches") or [])
+    ]
+    _out(
+        {
+            "tournament_id": tournament.get("id"),
+            "name": tournament.get("name"),
+            "match_count": len(matches),
+            "matches": matches,
+        }
+    )
+
+
 @tournament_app.command("create")
 def tournament_create(
     name: str = typer.Option(..., "--name"),
@@ -424,6 +470,48 @@ def match_create(
             _out(c.create_tournament_match(tournament_id=tournament_id, match=payload))
         except APIError as exc:
             _err_exit("failed to create tournament match", exc)
+
+
+@match_app.command("update")
+def match_update(
+    tournament_id: int = typer.Option(..., "--tournament-id"),
+    match_id: int = typer.Option(..., "--match-id", help="The MT match id (from `tournament matches`)."),
+    home_score: int | None = typer.Option(None, "--home-score"),
+    away_score: int | None = typer.Option(None, "--away-score"),
+    home_penalty_score: int | None = typer.Option(None, "--home-penalty-score"),
+    away_penalty_score: int | None = typer.Option(None, "--away-penalty-score"),
+    match_status: str | None = typer.Option(None, "--match-status"),
+    tournament_group: str | None = typer.Option(None, "--tournament-group"),
+    tournament_round: str | None = typer.Option(None, "--tournament-round"),
+    scheduled_kickoff: str | None = typer.Option(None, "--scheduled-kickoff"),
+    match_date: str | None = typer.Option(None, "--match-date"),
+    swap_home_away: bool = typer.Option(False, "--swap-home-away", help="Swap which team is home/away."),
+) -> None:
+    """Partially update an existing tournament match (fill in scores/status as results come in).
+
+    Only the options you pass are changed; everything else is left untouched. Use
+    `tournament matches <id>` to find the --match-id. Penalty scores are only valid
+    when regulation ends in a draw; pass both or neither.
+    """
+    if tournament_round is not None and tournament_round not in VALID_ROUNDS:
+        _err_exit(f"invalid --tournament-round '{tournament_round}'; must be one of: {sorted(VALID_ROUNDS)}")
+    payload = TournamentMatchUpdate(
+        home_score=home_score,
+        away_score=away_score,
+        home_penalty_score=home_penalty_score,
+        away_penalty_score=away_penalty_score,
+        match_status=match_status,
+        tournament_group=tournament_group,
+        tournament_round=tournament_round,
+        scheduled_kickoff=scheduled_kickoff,
+        match_date=match_date,
+        swap_home_away=swap_home_away,
+    )
+    with _client() as c:
+        try:
+            _out(c.update_tournament_match(tournament_id=tournament_id, match_id=match_id, match=payload))
+        except APIError as exc:
+            _err_exit("failed to update tournament match", exc)
 
 
 # ---------------------------------------------------------------------------
