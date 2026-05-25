@@ -581,5 +581,24 @@ def logo_upload(
             _err_exit("failed to upload club logo", exc)
 
 
+@tournament_app.command("logo-upload")
+def tournament_logo_upload(
+    tournament_id: int = typer.Option(..., "--tournament-id"),
+    path: str = typer.Option(..., "--path"),
+) -> None:
+    """Upload a PNG/JPG (≤2MB) as a tournament's logo. Admin only.
+
+    Shown on the public tournament page header and on IG share cards for
+    matches in this tournament. Mirrors the club logo upload flow — the
+    backend generates `_sm` (64px) and `_md` (128px) variants for PNGs
+    automatically.
+    """
+    with _client() as c:
+        try:
+            _out(c.upload_tournament_logo(tournament_id=tournament_id, file_path=path))
+        except APIError as exc:
+            _err_exit("failed to upload tournament logo", exc)
+
+
 if __name__ == "__main__":
     app()

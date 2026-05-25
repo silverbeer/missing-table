@@ -97,6 +97,14 @@
           {{ metaLabel }}
         </span>
         <MlsNextBadge v-if="isHomegrownLeague" class="ig-mls-badge" />
+        <img
+          v-if="tournamentLogoUrl"
+          :src="tournamentLogoUrl"
+          class="ig-tournament-logo"
+          data-testid="ig-tournament-logo"
+          alt=""
+          crossorigin="anonymous"
+        />
       </div>
     </div>
 
@@ -331,6 +339,13 @@ export default {
 .ig-mls-badge {
   margin-left: auto;
   height: 108px;
+}
+
+.ig-tournament-logo {
+  height: 108px;
+  width: 108px;
+  object-fit: contain;
+  margin-left: 12px;
 }
 
 .ig-chip {

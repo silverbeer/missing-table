@@ -104,7 +104,7 @@ class TournamentDAO(BaseDAO):
         try:
             response = (
                 self.client.table("tournaments")
-                .select("id, name, start_date, end_date, location, description, is_active")
+                .select("id, name, start_date, end_date, location, description, is_active, logo_url")
                 .eq("is_active", True)
                 .order("start_date", desc=True)
                 .execute()
@@ -121,7 +121,7 @@ class TournamentDAO(BaseDAO):
         try:
             response = (
                 self.client.table("tournaments")
-                .select("id, name, start_date, end_date, location, description, is_active")
+                .select("id, name, start_date, end_date, location, description, is_active, logo_url")
                 .order("start_date", desc=True)
                 .execute()
             )
@@ -141,7 +141,7 @@ class TournamentDAO(BaseDAO):
         try:
             t_response = (
                 self.client.table("tournaments")
-                .select("id, name, start_date, end_date, location, description, is_active")
+                .select("id, name, start_date, end_date, location, description, is_active, logo_url")
                 .eq("id", tournament_id)
                 .single()
                 .execute()
@@ -244,6 +244,7 @@ class TournamentDAO(BaseDAO):
         description: str | None = None,
         age_group_ids: list[int] | None = None,
         is_active: bool | None = None,
+        logo_url: str | None = None,
     ) -> dict | None:
         """Update tournament fields. Only provided (non-None) fields are changed.
 
@@ -262,6 +263,8 @@ class TournamentDAO(BaseDAO):
             updates["description"] = description
         if is_active is not None:
             updates["is_active"] = is_active
+        if logo_url is not None:
+            updates["logo_url"] = logo_url
 
         try:
             if updates:

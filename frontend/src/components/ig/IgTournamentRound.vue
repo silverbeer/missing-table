@@ -46,6 +46,14 @@
             </span>
           </div>
           <MlsNextBadge v-if="isHomegrownLeague" class="mls-badge" />
+          <img
+            v-if="tournamentLogoUrl"
+            :src="tournamentLogoUrl"
+            class="tournament-logo"
+            data-testid="ig-tournament-logo"
+            alt=""
+            crossorigin="anonymous"
+          />
         </div>
       </div>
 
@@ -259,6 +267,14 @@ export default {
 .mls-badge {
   height: 88px;
   flex-shrink: 0;
+}
+
+.tournament-logo {
+  height: 88px;
+  width: 88px;
+  object-fit: contain;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .brand-mark {

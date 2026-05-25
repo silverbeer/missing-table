@@ -6582,6 +6582,81 @@ async def admin_delete_tournament(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.post("/api/admin/tournaments/{tournament_id}/logo")
+async def admin_upload_tournament_logo(
+    tournament_id: int,
+    file: UploadFile = File(...),
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Upload a logo image for a tournament (admin only).
+
+    Mirrors the club-logo flow: PNG/JPG, 2MB max, uploaded to Supabase
+    Storage `tournament-logos` bucket. PNGs also get 64px/128px size
+    variants so the IG share cards can pull a small render without
+    downsampling the full asset at render time.
+    """
+    allowed_types = ["image/png", "image/jpeg", "image/jpg"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed types: PNG, JPG. Got: {file.content_type}",
+        )
+
+    content = await file.read()
+    max_size = 2 * 1024 * 1024  # 2MB
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is 2MB. Got: {len(content) / 1024 / 1024:.2f}MB",
+        )
+
+    ext = "png" if file.content_type == "image/png" else "jpg"
+    file_path = f"{tournament_id}.{ext}"
+
+    try:
+        storage = match_dao.client.storage
+
+        storage.from_("tournament-logos").upload(
+            file_path, content, file_options={"content-type": file.content_type, "upsert": "true"}
+        )
+
+        # Size variants — only for PNGs, same as club logos.
+        if ext == "png":
+            from io import BytesIO
+
+            from PIL import Image as PILImage
+
+            base_img = PILImage.open(BytesIO(content))
+            for suffix, px in [("_sm", 64), ("_md", 128)]:
+                variant = base_img.resize((px, px), PILImage.LANCZOS)
+                buf = BytesIO()
+                variant.save(buf, "PNG")
+                variant_path = f"{tournament_id}{suffix}.png"
+                storage.from_("tournament-logos").upload(
+                    variant_path,
+                    buf.getvalue(),
+                    file_options={"content-type": "image/png", "upsert": "true"},
+                )
+            logger.info(f"Uploaded size variants for tournament {tournament_id}")
+
+        public_url = storage.from_("tournament-logos").get_public_url(file_path)
+
+        updated = tournament_dao.update_tournament(
+            tournament_id=tournament_id, logo_url=public_url
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail=f"Tournament with id {tournament_id} not found")
+
+        logger.info(f"Uploaded logo for tournament {tournament_id}: {public_url}")
+        return {"logo_url": public_url, "tournament": updated}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading tournament logo: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to upload logo: {e!s}") from e
+
+
 @app.post("/api/admin/tournaments/{tournament_id}/matches", status_code=201)
 async def admin_create_tournament_match(
     tournament_id: int,

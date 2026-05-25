@@ -18,6 +18,14 @@
         >missingtable.com</span
       >
       <MlsNextBadge v-if="isHomegrownLeague" class="brand-band-badge" />
+      <img
+        v-if="tournamentLogoUrl"
+        :src="tournamentLogoUrl"
+        class="tournament-logo"
+        data-testid="ig-tournament-logo"
+        alt=""
+        crossorigin="anonymous"
+      />
       <span class="meta" data-testid="ig-meta">{{ metaLabel }}</span>
     </div>
 
@@ -214,6 +222,13 @@ export default {
   height: 84px;
   margin-left: auto;
   margin-right: 24px;
+}
+
+.tournament-logo {
+  height: 84px;
+  width: 84px;
+  object-fit: contain;
+  margin-right: 16px;
 }
 
 .meta {

@@ -1099,6 +1099,16 @@ class MissingTableClient:
             )
         return response.json()
 
+    def upload_tournament_logo(self, tournament_id: int, file_path: str) -> dict[str, Any]:
+        """Upload a tournament logo (multipart). Admin only."""
+        with open(file_path, "rb") as f:
+            response = self._request_multipart(
+                "POST",
+                f"/api/admin/tournaments/{tournament_id}/logo",
+                files={"file": (file_path.split("/")[-1], f)},
+            )
+        return response.json()
+
     # Player stats
 
     def get_my_player_stats(self, season_id: int | None = None) -> dict[str, Any]:

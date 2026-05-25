@@ -986,7 +986,7 @@ class MatchDAO(BaseDAO):
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
                     division:divisions(id, name, leagues(id, name, sport_type)),
-                    tournament:tournaments(id, name)
+                    tournament:tournaments(id, name, logo_url)
                 """)
                 .eq("id", match_id)
                 .execute()
@@ -1044,6 +1044,7 @@ class MatchDAO(BaseDAO):
                     "division": match.get("division"),  # Include full division object with leagues
                     "tournament_id": match.get("tournament_id"),
                     "tournament_name": tournament["name"] if tournament else None,
+                    "tournament_logo_url": tournament.get("logo_url") if tournament else None,
                     "tournament_group": match.get("tournament_group"),
                     "tournament_round": match.get("tournament_round"),
                     "sport_type": sport_type,

@@ -97,6 +97,9 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
   const tournamentGroup = computed(() =>
     cleanName(matchRef.value?.tournament_group)
   );
+  const tournamentLogoUrl = computed(
+    () => matchRef.value?.tournament_logo_url || null
+  );
 
   // Normalize round tokens like "round_of_16" / "quarterfinal" / "final"
   // into a human display. Returns null when no round is set, which the
@@ -285,6 +288,7 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
     metaLabel,
     tournamentName,
     tournamentGroup,
+    tournamentLogoUrl,
     tournamentRoundLabel,
     hasTournamentRound,
     dateLabel,
