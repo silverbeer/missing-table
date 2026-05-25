@@ -6454,6 +6454,7 @@ class TournamentMatchCreate(BaseModel):
     match_status: str = "scheduled"
     tournament_group: str | None = None
     tournament_round: str | None = None
+    tournament_round_order: int | None = None
     scheduled_kickoff: str | None = None
 
 
@@ -6465,6 +6466,7 @@ class TournamentMatchUpdate(BaseModel):
     match_status: str | None = None
     tournament_group: str | None = None
     tournament_round: str | None = None
+    tournament_round_order: int | None = None
     scheduled_kickoff: str | None = None
     match_date: str | None = None
     swap_home_away: bool = False
@@ -6603,6 +6605,7 @@ async def admin_create_tournament_match(
             match_status=payload.match_status,
             tournament_group=payload.tournament_group,
             tournament_round=payload.tournament_round,
+            tournament_round_order=payload.tournament_round_order,
             scheduled_kickoff=payload.scheduled_kickoff,
         )
     except ValueError as e:
@@ -6629,6 +6632,7 @@ async def admin_update_tournament_match(
             match_status=payload.match_status,
             tournament_group=payload.tournament_group,
             tournament_round=payload.tournament_round,
+            tournament_round_order=payload.tournament_round_order,
             scheduled_kickoff=payload.scheduled_kickoff,
             match_date=payload.match_date,
             swap_home_away=payload.swap_home_away,

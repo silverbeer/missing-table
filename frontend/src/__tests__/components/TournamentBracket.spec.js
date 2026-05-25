@@ -177,3 +177,135 @@ describe('TournamentBracket — feeder-derived slot placement', () => {
     expect(slotOf(wrapper, 'r16', 'Z')).toBe(0);
   });
 });
+
+describe('TournamentBracket — tournament_round_order placement', () => {
+  // Same helper as above, copied for locality.
+  const slotOf = (wrapper, roundPrefix, matchName) => {
+    const cells = wrapper.findAll('.bracket-cell');
+    for (const cell of cells) {
+      if (!cell.text().includes(matchName)) continue;
+      const cls = [...cell.element.classList];
+      const slotClass = cls.find(c => c.startsWith(`${roundPrefix}-`));
+      if (slotClass) return parseInt(slotClass.split('-')[1], 10);
+    }
+    return null;
+  };
+
+  it('places R32 matches at their explicit tournament_round_order, ignoring id', () => {
+    /**
+     * Match ids are inserted out of canonical order (e.g. an MLS NEXT Cup
+     * R32 that was loaded later). tournament_round_order is the source of
+     * truth.
+     */
+    const matches = [
+      // id=300 but should go at slot 0 (top of bracket)
+      mkMatch(300, 'round_of_32', 'Top of bracket', 'Opponent A', {
+        tournament_round_order: 0,
+      }),
+      // id=100 but should go at slot 5
+      mkMatch(100, 'round_of_32', 'Middle bracket', 'Opponent B', {
+        tournament_round_order: 5,
+      }),
+    ];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+
+    expect(slotOf(wrapper, 'r32', 'Top of bracket')).toBe(0);
+    expect(slotOf(wrapper, 'r32', 'Middle bracket')).toBe(5);
+  });
+
+  it('explicit tournament_round_order on R16 wins over feeder-derived slot', () => {
+    /**
+     * Feeder math would put PDA vs IFA at slot floor(min(4, 15)/2) = 2,
+     * but the data says it lives at slot 3 (e.g. non-standard bracket
+     * pairing). Explicit field wins.
+     */
+    const matches = [
+      mkMatch(
+        1,
+        'round_of_32',
+        { name: 'A', id: 1 },
+        { name: 'B', id: 2 },
+        { tournament_round_order: 0 }
+      ),
+      mkMatch(
+        2,
+        'round_of_32',
+        { name: 'C', id: 3 },
+        { name: 'D', id: 4 },
+        { tournament_round_order: 1 }
+      ),
+      mkMatch(
+        3,
+        'round_of_32',
+        { name: 'E', id: 5 },
+        { name: 'F', id: 6 },
+        { tournament_round_order: 2 }
+      ),
+      mkMatch(
+        4,
+        'round_of_32',
+        { name: 'G', id: 7 },
+        { name: 'H', id: 8 },
+        { tournament_round_order: 3 }
+      ),
+      mkMatch(
+        5,
+        'round_of_32',
+        { name: 'I', id: 9 },
+        { name: 'J', id: 10 },
+        { tournament_round_order: 4 }
+      ),
+      mkMatch(
+        6,
+        'round_of_32',
+        { name: 'PDA team', id: 11 },
+        { name: 'X', id: 12 },
+        { tournament_round_order: 5 }
+      ),
+      mkMatch(
+        7,
+        'round_of_32',
+        { name: 'IFA team', id: 13 },
+        { name: 'Y', id: 14 },
+        { tournament_round_order: 15 }
+      ),
+      mkMatch(
+        50,
+        'round_of_16',
+        { name: 'PDA team', id: 11 },
+        { name: 'IFA team', id: 13 },
+        { tournament_round_order: 3 }
+      ),
+    ];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+
+    expect(slotOf(wrapper, 'r16', 'PDA team')).toBe(3);
+  });
+
+  it('mixes explicit order on some matches with feeder/id-order on others', () => {
+    /**
+     * Match A has explicit order=4, match B has no order — explicit takes
+     * the named slot, B falls back to the next available slot in id order.
+     */
+    const matches = [
+      mkMatch(
+        1,
+        'round_of_32',
+        { name: 'A', id: 1 },
+        { name: 'B', id: 2 },
+        { tournament_round_order: 4 }
+      ),
+      mkMatch(2, 'round_of_32', { name: 'C', id: 3 }, { name: 'D', id: 4 }),
+    ];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+
+    expect(slotOf(wrapper, 'r32', 'A')).toBe(4);
+    // Match without explicit order takes the first empty slot (0).
+    expect(slotOf(wrapper, 'r32', 'C')).toBe(0);
+  });
+
+  it('empty-state still shows when there are no R32 matches at all', () => {
+    const wrapper = mount(TournamentBracket, { props: { matches: [] } });
+    expect(wrapper.text()).toContain('No matches in this bracket yet');
+  });
+});

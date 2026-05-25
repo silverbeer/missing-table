@@ -131,6 +131,7 @@ class TournamentMatchCreate(BaseModel):
     match_status: str = Field("scheduled", title="Match Status")
     tournament_group: str | None = Field(None, title="Tournament Group")
     tournament_round: str | None = Field(None, title="Tournament Round")
+    tournament_round_order: int | None = Field(None, title="Tournament Round Order")
     scheduled_kickoff: str | None = Field(None, title="Scheduled Kickoff")
 
 
@@ -149,6 +150,7 @@ class TournamentMatchUpdate(BaseModel):
     match_status: str | None = Field(None, title="Match Status")
     tournament_group: str | None = Field(None, title="Tournament Group")
     tournament_round: str | None = Field(None, title="Tournament Round")
+    tournament_round_order: int | None = Field(None, title="Tournament Round Order")
     scheduled_kickoff: str | None = Field(None, title="Scheduled Kickoff")
     match_date: str | None = Field(None, title="Match Date")
     swap_home_away: bool = Field(False, title="Swap Home Away")
