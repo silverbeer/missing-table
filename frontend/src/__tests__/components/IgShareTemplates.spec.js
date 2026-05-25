@@ -129,16 +129,33 @@ describe('IgTournamentRound template', () => {
 });
 
 describe('tagline', () => {
-  const expected = 'Check out missingtable.com for live match updates';
+  const previewCopy = 'Check out missingtable.com for live match updates';
+  const resultCopy = 'Go to missingtable.com to request an invite';
+
   for (const template of ['overlay', 'split', 'tournament-round', 'stadium']) {
-    it(`renders the CTA tagline on the ${template} template`, () => {
+    it(`renders the preview CTA on the ${template} template`, () => {
       const wrapper = mountCard(template, {
         match: createMockMatch({
           tournament_round: template === 'tournament-round' ? 'final' : null,
           tournament_name: template === 'tournament-round' ? 'Cup' : null,
         }),
       });
-      expect(wrapper.find('[data-testid="ig-tagline"]').text()).toBe(expected);
+      expect(wrapper.find('[data-testid="ig-tagline"]').text()).toBe(
+        previewCopy
+      );
+    });
+
+    it(`renders the result CTA on the ${template} template`, () => {
+      const wrapper = mountCard(template, {
+        mode: 'result',
+        match: createMockMatch({
+          tournament_round: template === 'tournament-round' ? 'final' : null,
+          tournament_name: template === 'tournament-round' ? 'Cup' : null,
+        }),
+      });
+      expect(wrapper.find('[data-testid="ig-tagline"]').text()).toBe(
+        resultCopy
+      );
     });
   }
 });

@@ -12,9 +12,13 @@
 import { computed } from 'vue';
 
 // Promotional CTA shown at the bottom of every IG share-card template.
-// Single source so copy changes are one edit.
+// The preview (pre-match) variant nudges followers to come watch live;
+// the result (full-time) variant pivots to invite acquisition since the
+// match is already over. Single source so copy changes are one edit.
 export const IG_SHARE_TAGLINE =
   'Check out missingtable.com for live match updates';
+export const IG_SHARE_RESULT_TAGLINE =
+  'Go to missingtable.com to request an invite';
 
 const initialsFor = name => {
   if (!name) return '?';
@@ -169,6 +173,12 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
 
   const isResult = computed(() => modeRef.value === 'result');
 
+  // Mode-aware CTA copy. Preview pre-match nudges live-watching; result
+  // post-match pivots to invite acquisition (the match is already over).
+  const tagline = computed(() =>
+    isResult.value ? IG_SHARE_RESULT_TAGLINE : IG_SHARE_TAGLINE
+  );
+
   // True when match has tournament context — drives whether the
   // Tournament Round template is offered as an option in the picker.
   const hasTournamentRound = computed(() => !!tournamentRoundLabel.value);
@@ -281,6 +291,7 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
     shortDateLabel,
     kickoffLabel,
     isResult,
+    tagline,
     leagueName,
     isHomegrownLeague,
     homeScorers,
