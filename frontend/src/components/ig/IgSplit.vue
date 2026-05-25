@@ -139,7 +139,7 @@
 
 <script>
 import { computed, ref, toRefs } from 'vue';
-import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
+import { useIgShareData } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
 import IgScorers from './IgScorers.vue';
 
@@ -206,7 +206,6 @@ export default {
       root,
       ...data,
       photoCrossOrigin,
-      tagline: IG_SHARE_TAGLINE,
       panelPath,
     };
   },
@@ -428,18 +427,27 @@ export default {
 }
 
 .footer-band {
-  background: #dc2626;
-  /* Negative margins cancel the panel's padding so the band reaches
-     the panel's edges (left + right + bottom). The clip-path then
-     trims the band's right side along the torn edge. */
-  margin: 0 -140px -48px -48px;
-  padding: 18px 140px 18px 48px;
+  /* Subtle gradient + warm inner highlight reads more polished than a
+     flat fill. Diagonal so the right side (under the torn-paper crop)
+     stays a touch brighter and catches the eye. */
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%);
+  /* Inset from the panel edges so the rounded corners are visible. The
+     right inset stays small because the torn-paper SVG crops further
+     in; the left/bottom insets are the visible breathing room. */
+  margin: 24px -116px -24px -24px;
+  padding: 18px 124px 18px 28px;
+  border-radius: 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   color: #ffffff;
   font-weight: 700;
   letter-spacing: 0.04em;
+  /* Soft drop shadow + 1px top inner highlight = depth without
+     ornament. html2canvas handles both. */
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .footer-row {

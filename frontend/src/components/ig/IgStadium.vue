@@ -138,7 +138,7 @@
 
 <script>
 import { ref, toRefs } from 'vue';
-import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
+import { useIgShareData } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
 import IgScorers from './IgScorers.vue';
 
@@ -162,7 +162,7 @@ export default {
     const root = ref(null);
     const { match, mode, events } = toRefs(props);
     const data = useIgShareData(match, mode, events);
-    return { root, ...data, tagline: IG_SHARE_TAGLINE };
+    return { root, ...data };
   },
 };
 </script>

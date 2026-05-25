@@ -136,7 +136,7 @@
 
 <script>
 import { computed, ref, toRefs } from 'vue';
-import { useIgShareData, IG_SHARE_TAGLINE } from '@/composables/useIgShareData';
+import { useIgShareData } from '@/composables/useIgShareData';
 import MlsNextBadge from './MlsNextBadge.vue';
 import IgScorers from './IgScorers.vue';
 
@@ -161,7 +161,7 @@ export default {
     const photoCrossOrigin = computed(() =>
       props.photoIsCrossOrigin ? 'anonymous' : null
     );
-    return { root, ...data, photoCrossOrigin, tagline: IG_SHARE_TAGLINE };
+    return { root, ...data, photoCrossOrigin };
   },
 };
 </script>
