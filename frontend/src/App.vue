@@ -353,6 +353,17 @@
                 aria-label="Beta feature"
                 >Beta</span
               >
+              <span
+                v-if="
+                  tab.id === 'admin' &&
+                  authStore.isAdmin.value &&
+                  adminAttention.total.value > 0
+                "
+                class="admin-attention-dot"
+                data-testid="admin-attention-dot"
+                :title="adminAttention.tooltip.value"
+                :aria-label="`Needs attention: ${adminAttention.tooltip.value}`"
+              ></span>
             </button>
           </nav>
           <!-- Standings -->
@@ -487,6 +498,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useAuthStore } from './stores/auth';
+import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { getApiBaseUrl } from './config/api';
 import { recordPageView, recordInviteRequest } from './faro';
 import MatchForm from './components/MatchForm.vue';
@@ -526,6 +538,7 @@ export default {
   },
   setup() {
     const authStore = useAuthStore();
+    const adminAttention = useAdminAttentionCounts();
     const currentTab = ref('table');
     const tableFilters = ref({
       ageGroupId: null,
@@ -851,9 +864,26 @@ export default {
       }
     );
 
+    // Start/stop admin attention-counts polling tied to admin status.
+    // When a user logs in as admin (or already-admin auth resolves on app
+    // boot), kick off the 60s poll; when they log out or lose admin
+    // role, stop. Composable handles the auth check + best-effort errors.
+    watch(
+      () => authStore.isAdmin.value,
+      isAdmin => {
+        if (isAdmin) {
+          adminAttention.startPolling();
+        } else {
+          adminAttention.stopPolling();
+        }
+      },
+      { immediate: true }
+    );
+
     // Cleanup on unmount
     onUnmounted(() => {
       stopLiveMatchPolling();
+      adminAttention.stopPolling();
     });
 
     // Handle clicking on LIVE tab
@@ -886,6 +916,7 @@ export default {
 
     return {
       authStore,
+      adminAttention,
       currentTab,
       tableFilters,
       matchesFilters,
@@ -1062,6 +1093,18 @@ export default {
   50% {
     opacity: 0.5;
   }
+}
+
+.admin-attention-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  vertical-align: 1px;
+  background-color: #dc2626;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
+  cursor: help;
 }
 
 .beta-badge {
