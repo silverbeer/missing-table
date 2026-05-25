@@ -76,28 +76,92 @@ const ROUNDS = [
   { key: 'final', label: 'Final' },
 ];
 
-// Stable display order: ascending id mirrors the source schedule order
-// (matches were loaded in that order). R32 pairs (M1+M2)→R16 #1, etc.
+// R32 ordering is the source-of-truth slot index for the rest of the bracket.
+// Ascending id mirrors the order matches were loaded into the tournament,
+// which is the order the user expects them to appear top-to-bottom.
 const r32Matches = computed(() =>
   [...props.matches]
     .filter(m => m.tournament_round === 'round_of_32')
     .sort((a, b) => a.id - b.id)
 );
 
-// Fixed-length cell list for a round: real matches (ascending id, mirroring the
-// source schedule order) padded with nulls so every bracket slot renders, even
-// before its match has been loaded/advanced.
-function roundCells(roundKey, slotCount) {
-  const ms = props.matches
-    .filter(m => m.tournament_round === roundKey)
-    .sort((a, b) => a.id - b.id);
-  return Array.from({ length: slotCount }, (_, i) => ms[i] ?? null);
+// ── Feeder-derived placement ──────────────────────────────────────────────
+// For R16 / QF / SF / Final, we don't just sort by id — we place each match
+// directly under its two feeder matches.
+//
+// In a single-elimination bracket, the pair (2k, 2k+1) of feeder slots feeds
+// into slot k of the next round. So if team A advanced from R32 slot 4 and
+// team B from R32 slot 5, the R16 match they meet in goes at R16 slot 2.
+//
+// We detect the feeder slot by looking up each team's id in the feeder
+// round's placement. Matches whose teams aren't in the feeder round (e.g.
+// placeholders before the feeder round is loaded, or off-bracket teams)
+// fall back to id-order placement in whatever slots remain.
+
+function buildFeederSlotByTeam(feederCells) {
+  const map = new Map();
+  feederCells.forEach((m, slot) => {
+    if (!m) return;
+    const homeId = m.home_team?.id;
+    const awayId = m.away_team?.id;
+    if (homeId != null) map.set(homeId, slot);
+    if (awayId != null) map.set(awayId, slot);
+  });
+  return map;
 }
 
-const r16Cells = computed(() => roundCells('round_of_16', 8));
-const qfCells = computed(() => roundCells('quarterfinal', 4));
-const sfCells = computed(() => roundCells('semifinal', 2));
-const finalCell = computed(() => roundCells('final', 1)[0]);
+function placeByFeeder(roundKey, feederCells, slotCount) {
+  const sorted = props.matches
+    .filter(m => m.tournament_round === roundKey)
+    .sort((a, b) => a.id - b.id);
+
+  const feederSlotByTeam = buildFeederSlotByTeam(feederCells);
+  const placed = Array.from({ length: slotCount }, () => null);
+  const unresolved = [];
+
+  for (const m of sorted) {
+    const feederSlots = [];
+    const homeSlot = feederSlotByTeam.get(m.home_team?.id);
+    const awaySlot = feederSlotByTeam.get(m.away_team?.id);
+    if (homeSlot != null) feederSlots.push(homeSlot);
+    if (awaySlot != null) feederSlots.push(awaySlot);
+
+    if (feederSlots.length === 0) {
+      unresolved.push(m);
+      continue;
+    }
+    const targetSlot = Math.floor(Math.min(...feederSlots) / 2);
+    if (
+      targetSlot < 0 ||
+      targetSlot >= slotCount ||
+      placed[targetSlot] != null
+    ) {
+      // Out of range, or two matches resolved to the same slot — fall back
+      // to id-order placement so neither match gets dropped.
+      unresolved.push(m);
+      continue;
+    }
+    placed[targetSlot] = m;
+  }
+
+  // Drop unresolved matches into the remaining empty slots in id order.
+  let cursor = 0;
+  for (const m of unresolved) {
+    while (cursor < slotCount && placed[cursor] != null) cursor++;
+    if (cursor >= slotCount) break;
+    placed[cursor] = m;
+  }
+  return placed;
+}
+
+const r16Cells = computed(() =>
+  placeByFeeder('round_of_16', r32Matches.value, 8)
+);
+const qfCells = computed(() =>
+  placeByFeeder('quarterfinal', r16Cells.value, 4)
+);
+const sfCells = computed(() => placeByFeeder('semifinal', qfCells.value, 2));
+const finalCell = computed(() => placeByFeeder('final', sfCells.value, 1)[0]);
 
 // ── Inline child component for match cells ──
 const BracketCell = {
