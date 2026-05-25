@@ -70,7 +70,10 @@ Quick subcommand map:
 Look at the pasted image and pull out:
 
 - **Tournament name** (e.g. "2026 MLS Next Cup Championship") and overall **date range** if shown.
-- For each match row: **kickoff date/time**, **home team name**, **away team name**, **regulation score**, **penalty-shootout score** (if visible — usually shown as "(5–4 pens)" or similar), **age group** (U13/U14/...), **bracket round** (group stage, QF, SF, final, etc.), and any **group label** ("Group A").
+- For each match row: **kickoff date/time**, **home team name**, **away team name**, **regulation score**, **penalty-shootout score** (if visible — usually shown as "(5–4 pens)" or similar), **age group** (U13/U14/...), **bracket round** (group stage, QF, SF, final, etc.), and the **bracket / group label**.
+  - **Bracket name is mandatory for bracket-round matches** (`round_of_32`/`round_of_16`/`quarterfinal`/`semifinal`/`final`/`third_place`). MLS Next Cup, for example, has a **Championship** bracket and a **Premier** bracket — and the bracket name lives in the same field as group-stage labels (`tournament_group`). The frontend bracket UI filters strictly on this value: a bracket-round match with no `tournament_group` is invisible in the bracket view, even if all the team data is correct.
+  - Source clues: the screenshot's heading ("MLS NEXT Cup Championship 2026" → `Championship`), tab/pill above the bracket ("Premier" / "Silver" / "Bronze"), or the URL slug on the source page (`/championship/u15`). If the screenshot only shows the bracket sub-section without naming it, **ask the user which bracket this is** before creating matches — don't guess.
+  - For group-stage matches the same field holds the group letter ("A", "B", "C", ...). The convention is one of: a bracket name, a group letter, or `null` for ungrouped one-off rounds.
 - For each unique team that appears: an approximate **logo bounding box** (`x,y,width,height` in pixels) you can extract from the screenshot.
 
 Show the user a tight summary table of what you found and **ask them to confirm before doing any writes**. This is the single biggest moment to catch parsing errors.
@@ -184,6 +187,8 @@ For each screenshot row, classify it and act per this table:
 
 Build the create-list and update-list, show the user a short plan ("N to create, M to score, K already correct, J conflicts to review"), and proceed once confirmed.
 
+**Bracket-group sanity check (mandatory).** Before sending any creates/updates for bracket-round matches, scan the planned writes for any row where `tournament_round` is in (`round_of_32`/`round_of_16`/`quarterfinal`/`semifinal`/`final`/`third_place`) but `tournament_group` is null/empty. **If any are found, stop and ask the user** which bracket those matches belong to (Championship / Premier / Silver / Bronze / etc.). Apply the answer to every such row before writing. This is the guardrail that prevents loading bracket matches that look fine in the match list but render as empty cells in the bracket UI — the frontend filter is `m.tournament_group === selectedGroup`, so a null group is invisible.
+
 ### Step 6 — create or update each match
 
 **Create** a match that doesn't exist yet:
@@ -201,7 +206,7 @@ cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt
   [--home-penalty-score 5 --away-penalty-score 4] \
   [--match-status completed|scheduled|in_progress] \
   [--tournament-round group_stage|round_of_32|round_of_16|quarterfinal|semifinal|final|third_place|wildcard|silver_semifinal|bronze_semifinal|silver_final|bronze_final] \
-  [--tournament-group "A"] \
+  [--tournament-group "A" | "Championship" | "Premier" | ...]   # group letter for group_stage, bracket name for everything else; required for bracket rounds \
   [--scheduled-kickoff "2026-06-21T15:00:00Z"]
 ```
 
