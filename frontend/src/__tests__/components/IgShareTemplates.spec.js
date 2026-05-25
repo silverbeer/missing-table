@@ -271,3 +271,40 @@ describe('IgStadium template', () => {
     expect(wrapper.find('[data-testid="ig-status"]').text()).toBe('FINAL');
   });
 });
+
+describe('tournament logo (all templates)', () => {
+  // The four templates each render a tournament logo at the top of the
+  // card when match.tournament_logo_url is set. When absent, the slot is
+  // omitted entirely so non-tournament matches don't get an empty box.
+  const LOGO_URL = 'https://example.com/logos/nac.png';
+
+  for (const template of ['overlay', 'split', 'tournament-round', 'stadium']) {
+    it(`renders the tournament logo on ${template} when tournament_logo_url is set`, () => {
+      const wrapper = mountCard(template, {
+        match: createMockMatch({
+          tournament_logo_url: LOGO_URL,
+          tournament_name:
+            template === 'tournament-round' ? 'NAC Championships' : null,
+          tournament_round: template === 'tournament-round' ? 'final' : null,
+        }),
+      });
+      const img = wrapper.find('[data-testid="ig-tournament-logo"]');
+      expect(img.exists()).toBe(true);
+      expect(img.attributes('src')).toBe(LOGO_URL);
+    });
+
+    it(`omits the logo slot on ${template} when tournament_logo_url is absent`, () => {
+      const wrapper = mountCard(template, {
+        match: createMockMatch({
+          tournament_logo_url: null,
+          tournament_name:
+            template === 'tournament-round' ? 'NAC Championships' : null,
+          tournament_round: template === 'tournament-round' ? 'final' : null,
+        }),
+      });
+      expect(wrapper.find('[data-testid="ig-tournament-logo"]').exists()).toBe(
+        false
+      );
+    });
+  }
+});

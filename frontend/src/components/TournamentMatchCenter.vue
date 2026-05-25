@@ -96,31 +96,45 @@
           class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6"
         >
           <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 class="text-2xl font-bold text-gray-900">
-                {{ selected.name }}
-              </h2>
-              <div
-                class="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500"
-              >
-                <span v-if="selected.start_date">
-                  📅 {{ formatDate(selected.start_date) }}
-                  <span v-if="selected.end_date">
-                    – {{ formatDate(selected.end_date) }}</span
-                  >
-                </span>
-                <span v-if="selected.location">📍 {{ selected.location }}</span>
-                <span
-                  v-for="ag in selected.age_groups || []"
-                  :key="ag.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-700"
+            <div class="flex items-start gap-4 min-w-0 flex-1">
+              <img
+                v-if="selected.logo_url"
+                :src="selected.logo_url"
+                :alt="`${selected.name} logo`"
+                class="w-16 h-16 rounded-md object-contain bg-white border border-gray-100 shrink-0"
+                data-testid="tournament-logo"
+              />
+              <div class="min-w-0 flex-1">
+                <h2 class="text-2xl font-bold text-gray-900">
+                  {{ selected.name }}
+                </h2>
+                <div
+                  class="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500"
                 >
-                  {{ ag.name }}
-                </span>
+                  <span v-if="selected.start_date">
+                    📅 {{ formatDate(selected.start_date) }}
+                    <span v-if="selected.end_date">
+                      – {{ formatDate(selected.end_date) }}</span
+                    >
+                  </span>
+                  <span v-if="selected.location"
+                    >📍 {{ selected.location }}</span
+                  >
+                  <span
+                    v-for="ag in selected.age_groups || []"
+                    :key="ag.id"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-700"
+                  >
+                    {{ ag.name }}
+                  </span>
+                </div>
+                <p
+                  v-if="selected.description"
+                  class="mt-3 text-sm text-gray-600"
+                >
+                  {{ selected.description }}
+                </p>
               </div>
-              <p v-if="selected.description" class="mt-3 text-sm text-gray-600">
-                {{ selected.description }}
-              </p>
             </div>
             <div class="flex flex-col items-end gap-3">
               <div class="text-right text-sm text-gray-500">
