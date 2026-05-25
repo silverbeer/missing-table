@@ -70,10 +70,11 @@ Quick subcommand map:
 Look at the pasted image and pull out:
 
 - **Tournament name** (e.g. "2026 MLS Next Cup Championship") and overall **date range** if shown.
-- For each match row: **kickoff date/time**, **home team name**, **away team name**, **regulation score**, **penalty-shootout score** (if visible — usually shown as "(5–4 pens)" or similar), **age group** (U13/U14/...), **bracket round** (group stage, QF, SF, final, etc.), and the **bracket / group label**.
+- For each match row: **kickoff date/time**, **home team name**, **away team name**, **regulation score**, **penalty-shootout score** (if visible — usually shown as "(5–4 pens)" or similar), **age group** (U13/U14/...), **bracket round** (group stage, QF, SF, final, etc.), the **bracket / group label**, and the **bracket position** (top-to-bottom).
   - **Bracket name is mandatory for bracket-round matches** (`round_of_32`/`round_of_16`/`quarterfinal`/`semifinal`/`final`/`third_place`). MLS Next Cup, for example, has a **Championship** bracket and a **Premier** bracket — and the bracket name lives in the same field as group-stage labels (`tournament_group`). The frontend bracket UI filters strictly on this value: a bracket-round match with no `tournament_group` is invisible in the bracket view, even if all the team data is correct.
   - Source clues: the screenshot's heading ("MLS NEXT Cup Championship 2026" → `Championship`), tab/pill above the bracket ("Premier" / "Silver" / "Bronze"), or the URL slug on the source page (`/championship/u15`). If the screenshot only shows the bracket sub-section without naming it, **ask the user which bracket this is** before creating matches — don't guess.
   - For group-stage matches the same field holds the group letter ("A", "B", "C", ...). The convention is one of: a bracket name, a group letter, or `null` for ungrouped one-off rounds.
+  - **Bracket position (`tournament_round_order`) is mandatory for bracket-round matches.** This is the 0-based top-to-bottom index of the match within its round on the source bracket. Top of the bracket = 0; immediately below = 1; etc. Without this field set, the frontend falls back to `id`-order — which only happens to match the canonical layout when matches were loaded in bracket order. If they weren't (e.g. you re-load some matches later, or rounds were loaded out of order), the bracket connectors point at the wrong feeder matches even though the data is otherwise correct. Read the position straight off the screenshot — the order in which match cells appear top-to-bottom on the source bracket is the position you set. Standard pairing convention: R32 slots `(2k, 2k+1)` feed into R16 slot `k`, etc.
 - For each unique team that appears: an approximate **logo bounding box** (`x,y,width,height` in pixels) you can extract from the screenshot.
 
 Show the user a tight summary table of what you found and **ask them to confirm before doing any writes**. This is the single biggest moment to catch parsing errors.
@@ -187,7 +188,10 @@ For each screenshot row, classify it and act per this table:
 
 Build the create-list and update-list, show the user a short plan ("N to create, M to score, K already correct, J conflicts to review"), and proceed once confirmed.
 
-**Bracket-group sanity check (mandatory).** Before sending any creates/updates for bracket-round matches, scan the planned writes for any row where `tournament_round` is in (`round_of_32`/`round_of_16`/`quarterfinal`/`semifinal`/`final`/`third_place`) but `tournament_group` is null/empty. **If any are found, stop and ask the user** which bracket those matches belong to (Championship / Premier / Silver / Bronze / etc.). Apply the answer to every such row before writing. This is the guardrail that prevents loading bracket matches that look fine in the match list but render as empty cells in the bracket UI — the frontend filter is `m.tournament_group === selectedGroup`, so a null group is invisible.
+**Bracket sanity checks (mandatory).** Before sending any creates/updates for bracket-round matches, scan the planned writes:
+
+1. **`tournament_group`** — any row where `tournament_round` is in (`round_of_32`/`round_of_16`/`quarterfinal`/`semifinal`/`final`/`third_place`) but `tournament_group` is null/empty. If any are found, stop and ask the user which bracket those matches belong to (Championship / Premier / Silver / Bronze / etc.) and apply the answer to every such row. Frontend filter is `m.tournament_group === selectedGroup`, so a null group renders as invisible.
+2. **`tournament_round_order`** — any bracket-round row without an explicit position. If you can read positions off the screenshot, set them yourself (0-based top to bottom within the round + bracket). If the screenshot is ambiguous or you only loaded a partial round, stop and confirm with the user. Frontend falls back to `id`-order without this, which produces the wrong layout when ids don't match canonical bracket order.
 
 ### Step 6 — create or update each match
 
@@ -207,6 +211,7 @@ cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt
   [--match-status completed|scheduled|in_progress] \
   [--tournament-round group_stage|round_of_32|round_of_16|quarterfinal|semifinal|final|third_place|wildcard|silver_semifinal|bronze_semifinal|silver_final|bronze_final] \
   [--tournament-group "A" | "Championship" | "Premier" | ...]   # group letter for group_stage, bracket name for everything else; required for bracket rounds \
+  [--tournament-round-order N]   # 0-based top-to-bottom slot within the round; required for bracket rounds (R32 0..15, R16 0..7, QF 0..3, SF 0..1, Final 0) \
   [--scheduled-kickoff "2026-06-21T15:00:00Z"]
 ```
 

@@ -165,6 +165,7 @@ class TournamentDAO(BaseDAO):
                     away_penalty_score,
                     tournament_group,
                     tournament_round,
+                    tournament_round_order,
                     age_group:age_groups!matches_age_group_id_fkey(id, name),
                     home_team:teams!matches_home_team_id_fkey(id, name),
                     away_team:teams!matches_away_team_id_fkey(id, name)
@@ -404,6 +405,7 @@ class TournamentDAO(BaseDAO):
         match_status: str = "scheduled",
         tournament_group: str | None = None,
         tournament_round: str | None = None,
+        tournament_round_order: int | None = None,
         scheduled_kickoff: str | None = None,
     ) -> dict:
         """Create a match linked to a tournament.
@@ -461,6 +463,8 @@ class TournamentDAO(BaseDAO):
             data["tournament_group"] = tournament_group
         if tournament_round:
             data["tournament_round"] = tournament_round
+        if tournament_round_order is not None:
+            data["tournament_round_order"] = tournament_round_order
         if scheduled_kickoff:
             data["scheduled_kickoff"] = scheduled_kickoff
 
@@ -492,6 +496,7 @@ class TournamentDAO(BaseDAO):
         match_status: str | None = None,
         tournament_group: str | None = None,
         tournament_round: str | None = None,
+        tournament_round_order: int | None = None,
         scheduled_kickoff: str | None = None,
         match_date: str | None = None,
         swap_home_away: bool = False,
@@ -515,6 +520,8 @@ class TournamentDAO(BaseDAO):
             updates["tournament_group"] = tournament_group
         if tournament_round is not None:
             updates["tournament_round"] = tournament_round
+        if tournament_round_order is not None:
+            updates["tournament_round_order"] = tournament_round_order
         if scheduled_kickoff is not None:
             updates["scheduled_kickoff"] = scheduled_kickoff
         if match_date is not None:

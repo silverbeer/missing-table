@@ -444,6 +444,11 @@ def match_create(
     match_status: str = typer.Option("scheduled", "--match-status"),
     tournament_group: str | None = typer.Option(None, "--tournament-group"),
     tournament_round: str | None = typer.Option(None, "--tournament-round"),
+    tournament_round_order: int | None = typer.Option(
+        None,
+        "--tournament-round-order",
+        help="Bracket position within the round (0-based, top of bracket = 0). Required for bracket-round matches if you want the bracket UI to render in the canonical order.",
+    ),
     scheduled_kickoff: str | None = typer.Option(None, "--scheduled-kickoff"),
 ) -> None:
     """Add a match to a tournament. our_team_id is one of our tracked teams; opponent_name is the visitor."""
@@ -463,6 +468,7 @@ def match_create(
         match_status=match_status,
         tournament_group=tournament_group,
         tournament_round=tournament_round,
+        tournament_round_order=tournament_round_order,
         scheduled_kickoff=scheduled_kickoff,
     )
     with _client() as c:
@@ -483,6 +489,11 @@ def match_update(
     match_status: str | None = typer.Option(None, "--match-status"),
     tournament_group: str | None = typer.Option(None, "--tournament-group"),
     tournament_round: str | None = typer.Option(None, "--tournament-round"),
+    tournament_round_order: int | None = typer.Option(
+        None,
+        "--tournament-round-order",
+        help="Bracket position within the round (0-based, top of bracket = 0).",
+    ),
     scheduled_kickoff: str | None = typer.Option(None, "--scheduled-kickoff"),
     match_date: str | None = typer.Option(None, "--match-date"),
     swap_home_away: bool = typer.Option(False, "--swap-home-away", help="Swap which team is home/away."),
@@ -503,6 +514,7 @@ def match_update(
         match_status=match_status,
         tournament_group=tournament_group,
         tournament_round=tournament_round,
+        tournament_round_order=tournament_round_order,
         scheduled_kickoff=scheduled_kickoff,
         match_date=match_date,
         swap_home_away=swap_home_away,

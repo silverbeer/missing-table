@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- No matches in this bracket -->
-    <div v-if="r32Matches.length === 0" class="text-center py-10 text-gray-500">
+    <div v-if="!hasAnyR32" class="text-center py-10 text-gray-500">
       No matches in this bracket yet.
     </div>
 
@@ -19,7 +19,7 @@
         <!-- R32 cells (16) -->
         <div
           v-for="(m, idx) in r32Matches"
-          :key="`r32-${m.id}`"
+          :key="`r32-${idx}`"
           :class="['bracket-cell', `col-1`, `r32-${idx}`]"
         >
           <BracketCell :match="m" @click="$emit('match-click', m)" />
@@ -76,14 +76,55 @@ const ROUNDS = [
   { key: 'final', label: 'Final' },
 ];
 
-// R32 ordering is the source-of-truth slot index for the rest of the bracket.
-// Ascending id mirrors the order matches were loaded into the tournament,
-// which is the order the user expects them to appear top-to-bottom.
-const r32Matches = computed(() =>
-  [...props.matches]
-    .filter(m => m.tournament_round === 'round_of_32')
-    .sort((a, b) => a.id - b.id)
-);
+// `tournament_round_order` is the explicit bracket-position field (0-based,
+// top of bracket = 0). When present, the match goes at that slot directly.
+// When absent, the match is placed via the per-round fallback chain below:
+//   R32: id-order
+//   R16 / QF / SF / Final: feeder-derived (pair (2k, 2k+1) → slot k), then id-order
+//
+// The mlssoccer.com canonical layout doesn't always match the order matches
+// were inserted into the DB, so id-order alone produces misaligned
+// brackets — tournament_round_order is the proper fix.
+
+// Place matches into a fixed-size slot array. Explicit tournament_round_order
+// wins; collisions and unordered matches drop into `unresolved` for the
+// caller's secondary placement strategy (feeder-derived or id-order).
+function placeWithExplicitOrder(matches, slotCount) {
+  const placed = Array.from({ length: slotCount }, () => null);
+  const unresolved = [];
+  for (const m of matches) {
+    const slot = m.tournament_round_order;
+    if (slot == null || slot < 0 || slot >= slotCount || placed[slot] != null) {
+      unresolved.push(m);
+      continue;
+    }
+    placed[slot] = m;
+  }
+  return { placed, unresolved };
+}
+
+// Drop unresolved matches into remaining empty slots in id order.
+function fillRemainingByIdOrder(placed, unresolved, slotCount) {
+  const remaining = [...unresolved].sort((a, b) => a.id - b.id);
+  let cursor = 0;
+  for (const m of remaining) {
+    while (cursor < slotCount && placed[cursor] != null) cursor++;
+    if (cursor >= slotCount) break;
+    placed[cursor] = m;
+  }
+  return placed;
+}
+
+// R32 has no feeder round — only explicit-order and id-order placement.
+const r32Matches = computed(() => {
+  const matches = props.matches.filter(
+    m => m.tournament_round === 'round_of_32'
+  );
+  const { placed, unresolved } = placeWithExplicitOrder(matches, 16);
+  return fillRemainingByIdOrder(placed, unresolved, 16);
+});
+
+const hasAnyR32 = computed(() => r32Matches.value.some(m => m != null));
 
 // ── Feeder-derived placement ──────────────────────────────────────────────
 // For R16 / QF / SF / Final, we don't just sort by id — we place each match
@@ -111,15 +152,18 @@ function buildFeederSlotByTeam(feederCells) {
 }
 
 function placeByFeeder(roundKey, feederCells, slotCount) {
-  const sorted = props.matches
-    .filter(m => m.tournament_round === roundKey)
-    .sort((a, b) => a.id - b.id);
+  const matches = props.matches.filter(m => m.tournament_round === roundKey);
 
+  // Pass 1: respect explicit tournament_round_order.
+  const { placed, unresolved: needFeederOrId } = placeWithExplicitOrder(
+    matches,
+    slotCount
+  );
+
+  // Pass 2: for the remainder, derive slot from the two teams' feeder slots.
   const feederSlotByTeam = buildFeederSlotByTeam(feederCells);
-  const placed = Array.from({ length: slotCount }, () => null);
-  const unresolved = [];
-
-  for (const m of sorted) {
+  const stillUnresolved = [];
+  for (const m of needFeederOrId) {
     const feederSlots = [];
     const homeSlot = feederSlotByTeam.get(m.home_team?.id);
     const awaySlot = feederSlotByTeam.get(m.away_team?.id);
@@ -127,7 +171,7 @@ function placeByFeeder(roundKey, feederCells, slotCount) {
     if (awaySlot != null) feederSlots.push(awaySlot);
 
     if (feederSlots.length === 0) {
-      unresolved.push(m);
+      stillUnresolved.push(m);
       continue;
     }
     const targetSlot = Math.floor(Math.min(...feederSlots) / 2);
@@ -136,22 +180,14 @@ function placeByFeeder(roundKey, feederCells, slotCount) {
       targetSlot >= slotCount ||
       placed[targetSlot] != null
     ) {
-      // Out of range, or two matches resolved to the same slot — fall back
-      // to id-order placement so neither match gets dropped.
-      unresolved.push(m);
+      stillUnresolved.push(m);
       continue;
     }
     placed[targetSlot] = m;
   }
 
-  // Drop unresolved matches into the remaining empty slots in id order.
-  let cursor = 0;
-  for (const m of unresolved) {
-    while (cursor < slotCount && placed[cursor] != null) cursor++;
-    if (cursor >= slotCount) break;
-    placed[cursor] = m;
-  }
-  return placed;
+  // Pass 3: id-order fallback for anything that didn't fit.
+  return fillRemainingByIdOrder(placed, stillUnresolved, slotCount);
 }
 
 const r16Cells = computed(() =>
