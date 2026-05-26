@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* PWA / standalone-mode safe areas — kicks in when the app is launched
+   from a home-screen icon on iOS (or other devices that expose env() insets).
+   Keeps the body content clear of the notch and the iOS home indicator.
+   No effect in a regular browser tab. */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
