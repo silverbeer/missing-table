@@ -503,10 +503,23 @@ class TournamentDAO(BaseDAO):
         scheduled_kickoff: str | None = None,
         match_date: str | None = None,
         swap_home_away: bool = False,
+        home_team_id: int | None = None,
+        away_team_id: int | None = None,
     ) -> dict | None:
-        """Update score, status, or context fields on a tournament match."""
+        """Update score, status, or context fields on a tournament match.
+
+        home_team_id / away_team_id are the resolution path for TBD
+        placeholder matches: when the actual team is announced, callers
+        pass the new team's id and the placeholder reference is replaced.
+        Postgres enforces home_team_id <> away_team_id, so an accidental
+        self-pairing aborts the write instead of silently corrupting data.
+        """
         if tournament_round and tournament_round not in VALID_ROUNDS:
             raise ValueError(f"Invalid tournament_round '{tournament_round}'. Must be one of {VALID_ROUNDS}")
+        if swap_home_away and (home_team_id is not None or away_team_id is not None):
+            raise ValueError(
+                "swap_home_away is mutually exclusive with home_team_id / away_team_id"
+            )
 
         updates: dict = {}
         if home_score is not None:
@@ -529,6 +542,10 @@ class TournamentDAO(BaseDAO):
             updates["scheduled_kickoff"] = scheduled_kickoff
         if match_date is not None:
             updates["match_date"] = match_date
+        if home_team_id is not None:
+            updates["home_team_id"] = home_team_id
+        if away_team_id is not None:
+            updates["away_team_id"] = away_team_id
 
         if swap_home_away:
             # Fetch current team IDs to swap them
