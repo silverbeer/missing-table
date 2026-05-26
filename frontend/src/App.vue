@@ -1,7 +1,9 @@
 <template>
   <div class="min-h-screen bg-slate-50">
-    <!-- iOS PWA install prompt (only shows on iOS Safari, non-standalone, not recently dismissed) -->
+    <!-- PWA chrome: install prompt, offline indicator, update banner -->
     <IosInstallTooltip />
+    <OfflineIndicator />
+    <UpdateAvailablePrompt />
 
     <!-- Navigation -->
     <AuthNav @show-login="showLoginModal = true" @logout="handleLogout" />
@@ -520,6 +522,8 @@ import QoPStandings from './components/QoPStandings.vue';
 import VersionFooter from './components/VersionFooter.vue';
 import { LiveMatchView } from './components/live';
 import IosInstallTooltip from './components/IosInstallTooltip.vue';
+import OfflineIndicator from './components/OfflineIndicator.vue';
+import UpdateAvailablePrompt from './components/UpdateAvailablePrompt.vue';
 
 export default {
   name: 'App',
@@ -540,6 +544,8 @@ export default {
     VersionFooter,
     LiveMatchView,
     IosInstallTooltip,
+    OfflineIndicator,
+    UpdateAvailablePrompt,
   },
   setup() {
     const authStore = useAuthStore();

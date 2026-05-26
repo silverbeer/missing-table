@@ -5,6 +5,8 @@ initFaro();
 import { createApp } from 'vue';
 import App from './App.vue';
 import './style.css';
+// Side-effect import: registers the PWA service worker (no-op in dev).
+import './composables/usePwaUpdate';
 
 const app = createApp(App);
 
