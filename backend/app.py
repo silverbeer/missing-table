@@ -2920,6 +2920,7 @@ async def update_match_clock(
         valid_actions = [
             "start_first_half",
             "start_halftime",
+            "cancel_halftime",
             "start_second_half",
             "end_match",
         ]
@@ -2941,6 +2942,7 @@ async def update_match_clock(
         action_messages = {
             "start_first_half": "Match kicked off",
             "start_halftime": "Halftime",
+            "cancel_halftime": "Returned to first half",
             "start_second_half": "Second half started",
             "end_match": "Full time",
         }
