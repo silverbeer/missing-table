@@ -154,6 +154,8 @@ class TournamentMatchUpdate(BaseModel):
     scheduled_kickoff: str | None = Field(None, title="Scheduled Kickoff")
     match_date: str | None = Field(None, title="Match Date")
     swap_home_away: bool = Field(False, title="Swap Home Away")
+    home_team_id: int | None = Field(None, title="Home Team Id")
+    away_team_id: int | None = Field(None, title="Away Team Id")
 
 
 class TeamGameTypeMapping(BaseModel):

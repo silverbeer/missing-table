@@ -497,6 +497,16 @@ def match_update(
     scheduled_kickoff: str | None = typer.Option(None, "--scheduled-kickoff"),
     match_date: str | None = typer.Option(None, "--match-date"),
     swap_home_away: bool = typer.Option(False, "--swap-home-away", help="Swap which team is home/away."),
+    home_team_id: int | None = typer.Option(
+        None,
+        "--home-team-id",
+        help="Replace the home team. Use to resolve a TBD placeholder when the real team is announced.",
+    ),
+    away_team_id: int | None = typer.Option(
+        None,
+        "--away-team-id",
+        help="Replace the away team. Use to resolve a TBD placeholder when the real team is announced.",
+    ),
 ) -> None:
     """Partially update an existing tournament match (fill in scores/status as results come in).
 
@@ -518,6 +528,8 @@ def match_update(
         scheduled_kickoff=scheduled_kickoff,
         match_date=match_date,
         swap_home_away=swap_home_away,
+        home_team_id=home_team_id,
+        away_team_id=away_team_id,
     )
     with _client() as c:
         try:

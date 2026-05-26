@@ -226,8 +226,11 @@ cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt
   [--home-penalty-score 5 --away-penalty-score 4] \
   [--tournament-round round_of_16] [--tournament-group "A"] \
   [--scheduled-kickoff "2026-06-21T15:00:00Z"] [--match-date YYYY-MM-DD] \
-  [--swap-home-away]
+  [--swap-home-away] \
+  [--home-team-id N] [--away-team-id N]    # replace a side's team; primary use is resolving a TBD placeholder once the real team is announced
 ```
+
+**Resolving TBD placeholder matches.** When a tournament has matches loaded with `opponent_name "TBD"` (because one side wasn't announced yet), use `match update --home-team-id` or `--away-team-id` to fill in the real team once announced. Don't combine with `--swap-home-away` (the CLI rejects it). Postgres rejects `home_team_id == away_team_id` so an accidental self-pairing aborts the write rather than silently corrupting data.
 
 **Important semantics:**
 

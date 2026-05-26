@@ -6470,6 +6470,8 @@ class TournamentMatchUpdate(BaseModel):
     scheduled_kickoff: str | None = None
     match_date: str | None = None
     swap_home_away: bool = False
+    home_team_id: int | None = None
+    away_team_id: int | None = None
 
 
 @app.get("/api/tournaments")
@@ -6711,6 +6713,8 @@ async def admin_update_tournament_match(
             scheduled_kickoff=payload.scheduled_kickoff,
             match_date=payload.match_date,
             swap_home_away=payload.swap_home_away,
+            home_team_id=payload.home_team_id,
+            away_team_id=payload.away_team_id,
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Match not found")
