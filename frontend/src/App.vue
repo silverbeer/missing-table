@@ -1,5 +1,8 @@
 <template>
   <div class="min-h-screen bg-slate-50">
+    <!-- iOS PWA install prompt (only shows on iOS Safari, non-standalone, not recently dismissed) -->
+    <IosInstallTooltip />
+
     <!-- Navigation -->
     <AuthNav @show-login="showLoginModal = true" @logout="handleLogout" />
 
@@ -516,6 +519,7 @@ import TournamentMatchCenter from './components/TournamentMatchCenter.vue';
 import QoPStandings from './components/QoPStandings.vue';
 import VersionFooter from './components/VersionFooter.vue';
 import { LiveMatchView } from './components/live';
+import IosInstallTooltip from './components/IosInstallTooltip.vue';
 
 export default {
   name: 'App',
@@ -535,6 +539,7 @@ export default {
     QoPStandings,
     VersionFooter,
     LiveMatchView,
+    IosInstallTooltip,
   },
   setup() {
     const authStore = useAuthStore();
