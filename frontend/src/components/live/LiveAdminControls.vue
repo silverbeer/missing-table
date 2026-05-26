@@ -67,7 +67,7 @@
 
       <button
         v-if="matchPeriod === '1st Half'"
-        @click="$emit('update-clock', 'start_halftime')"
+        @click="clickHalftime"
         class="control-button halftime"
       >
         Halftime
@@ -79,6 +79,15 @@
         class="control-button start"
       >
         Start 2nd Half
+      </button>
+
+      <button
+        v-if="matchPeriod === 'Halftime'"
+        @click="showCancelHalftimeModal = true"
+        class="control-button rewind"
+        title="Roll back to first half if halftime was clicked by mistake"
+      >
+        Back to 1st Half
       </button>
 
       <button
@@ -398,6 +407,68 @@
       </div>
     </div>
 
+    <!-- Halftime Early-Click Warning Modal -->
+    <div
+      v-if="showHalftimeConfirmModal"
+      class="modal-overlay"
+      @click.self="showHalftimeConfirmModal = false"
+    >
+      <div class="modal-content">
+        <h3 class="modal-title">Halftime already?</h3>
+        <p class="confirm-text">
+          Only <strong>{{ formatClock(firstHalfElapsedSeconds) }}</strong> has
+          been played. Each half is set to
+          <strong>{{ matchState.half_duration ?? 45 }}:00</strong>.
+        </p>
+        <p class="confirm-subtext">
+          If this was a mistake, hit Cancel and keep playing — the clock keeps
+          running.
+        </p>
+        <div class="modal-actions">
+          <button
+            @click="showHalftimeConfirmModal = false"
+            class="cancel-button"
+          >
+            Cancel
+          </button>
+          <button @click="confirmHalftime" class="submit-button submit-yellow">
+            Yes, start halftime
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cancel Halftime (Back to First Half) Confirmation Modal -->
+    <div
+      v-if="showCancelHalftimeModal"
+      class="modal-overlay"
+      @click.self="showCancelHalftimeModal = false"
+    >
+      <div class="modal-content">
+        <h3 class="modal-title">Back to first half?</h3>
+        <p class="confirm-text">
+          The match clock will resume at
+          <strong>{{ formatClock(projectedResumeSeconds) }}</strong> game time
+          (counted from kickoff).
+        </p>
+        <p class="confirm-subtext">
+          Use this if halftime was clicked by mistake. Goals and cards are
+          unaffected.
+        </p>
+        <div class="modal-actions">
+          <button
+            @click="showCancelHalftimeModal = false"
+            class="cancel-button"
+          >
+            Cancel
+          </button>
+          <button @click="confirmCancelHalftime" class="submit-button">
+            Yes, roll back
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Reopen Match Confirmation Modal -->
     <div
       v-if="showReopenModal"
@@ -495,6 +566,54 @@ const showStartModal = ref(false);
 // End match / reopen confirmation modal state
 const showEndMatchModal = ref(false);
 const showReopenModal = ref(false);
+
+// Halftime guard + rollback modal state
+const EARLY_HALFTIME_GRACE_SECONDS = 120;
+const showHalftimeConfirmModal = ref(false);
+const showCancelHalftimeModal = ref(false);
+const firstHalfElapsedSeconds = ref(0);
+const projectedResumeSeconds = ref(0);
+
+function computeFirstHalfElapsed() {
+  if (!props.matchState?.kickoff_time) return 0;
+  const elapsedMs =
+    Date.now() - new Date(props.matchState.kickoff_time).getTime();
+  return Math.max(0, elapsedMs / 1000);
+}
+
+function formatClock(seconds) {
+  const total = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function clickHalftime() {
+  const elapsed = computeFirstHalfElapsed();
+  const halfDurationSeconds = (props.matchState?.half_duration ?? 45) * 60;
+  if (elapsed < halfDurationSeconds - EARLY_HALFTIME_GRACE_SECONDS) {
+    firstHalfElapsedSeconds.value = elapsed;
+    showHalftimeConfirmModal.value = true;
+    return;
+  }
+  emit('update-clock', 'start_halftime');
+}
+
+function confirmHalftime() {
+  showHalftimeConfirmModal.value = false;
+  emit('update-clock', 'start_halftime');
+}
+
+function confirmCancelHalftime() {
+  showCancelHalftimeModal.value = false;
+  emit('update-clock', 'cancel_halftime');
+}
+
+watch(showCancelHalftimeModal, newVal => {
+  if (newVal) {
+    projectedResumeSeconds.value = computeFirstHalfElapsed();
+  }
+});
 
 function confirmEndMatch() {
   showEndMatchModal.value = false;
@@ -817,6 +936,16 @@ function submitGoal() {
 
 .control-button.reopen:hover {
   background: #8e24aa;
+}
+
+.control-button.rewind {
+  background: transparent;
+  color: #ffc107;
+  border: 2px solid #ffc107;
+}
+
+.control-button.rewind:hover {
+  background: rgba(255, 193, 7, 0.12);
 }
 
 .control-button.goal {

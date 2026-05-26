@@ -1306,7 +1306,7 @@ class MatchDAO(BaseDAO):
         Args:
             match_id: The match to update
             action: Clock action - 'start_first_half', 'start_halftime',
-                    'start_second_half', 'end_match'
+                    'cancel_halftime', 'start_second_half', 'end_match'
             updated_by: UUID of user performing the action
             half_duration: Duration of each half in minutes (only for start_first_half)
 
@@ -1329,6 +1329,35 @@ class MatchDAO(BaseDAO):
             elif action == "start_halftime":
                 # Mark halftime started
                 data["halftime_start"] = now
+            elif action == "cancel_halftime":
+                # Roll back from halftime to first half. Clearing halftime_start
+                # lets the derived clock resume as (now - kickoff_time), which is
+                # the real game time since kickoff (including the seconds spent
+                # mistakenly in halftime). second_half_start must already be null
+                # for this state to be valid — guarded below.
+                current = (
+                    self.client.table("matches")
+                    .select("halftime_start,second_half_start")
+                    .eq("id", match_id)
+                    .single()
+                    .execute()
+                )
+                if not current.data:
+                    logger.warning("cancel_halftime rejected - match not found", match_id=match_id)
+                    return None
+                if not current.data.get("halftime_start"):
+                    logger.warning(
+                        "cancel_halftime rejected - halftime not started",
+                        match_id=match_id,
+                    )
+                    return None
+                if current.data.get("second_half_start"):
+                    logger.warning(
+                        "cancel_halftime rejected - second half already started",
+                        match_id=match_id,
+                    )
+                    return None
+                data["halftime_start"] = None
             elif action == "start_second_half":
                 # Start second half
                 data["second_half_start"] = now

@@ -25,7 +25,13 @@ class LiveMatchClock(BaseModel):
 
     @property
     def valid_actions(self) -> list[str]:
-        return ["start_first_half", "start_halftime", "start_second_half", "end_match"]
+        return [
+            "start_first_half",
+            "start_halftime",
+            "cancel_halftime",
+            "start_second_half",
+            "end_match",
+        ]
 
 
 class GoalEvent(BaseModel):
