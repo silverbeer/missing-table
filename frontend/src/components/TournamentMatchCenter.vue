@@ -101,7 +101,7 @@
                 v-if="selected.logo_url"
                 :src="selected.logo_url"
                 :alt="`${selected.name} logo`"
-                class="w-16 h-16 rounded-md object-contain bg-white border border-gray-100 shrink-0"
+                class="w-24 h-24 sm:w-28 sm:h-28 rounded-md object-contain bg-white border border-gray-100 shrink-0"
                 data-testid="tournament-logo"
               />
               <div class="min-w-0 flex-1">
