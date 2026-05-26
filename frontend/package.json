@@ -30,6 +30,11 @@
     "vue": "^3.4.0",
     "web-vitals": "^5.1.0"
   },
+  "overrides": {
+    "protobufjs": "^7.5.8",
+    "@protobufjs/utf8": "^1.1.1",
+    "ws": "^8.20.1"
+  },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.9",
     "@vitejs/plugin-vue": "^5.0.0",
