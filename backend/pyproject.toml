@@ -55,6 +55,7 @@ dependencies = [
     "bleach>=6.2.0",
     "telegram-notify",
     "discord-notify",
+    "pywebpush>=2.0.1",
 ]
 
 [tool.uv.sources]

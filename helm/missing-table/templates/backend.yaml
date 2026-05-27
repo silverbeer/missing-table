@@ -99,6 +99,30 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: telegram-bot-token
               optional: true
+        # VAPID keypair + subject for Web Push notifications (SB-51).
+        # Optional: pod boots even if absent; web_push_sender.is_configured()
+        # returns False and push fan-out is silently skipped. ESO populates
+        # these in prod (SB-50). A startup WARN log makes the missing-config
+        # state visible (mirrors the Resend silent-miss lesson — see
+        # docs/features/SUPPORT_INBOX.md §Lessons learned #3).
+        - name: VAPID_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: vapid-public-key
+              optional: true
+        - name: VAPID_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: vapid-private-key
+              optional: true
+        - name: VAPID_SUBJECT
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: vapid-subject
+              optional: true
         # Global kill switch for live-match notifications. Defaults to true.
         - name: NOTIFICATIONS_ENABLED
           value: {{ .Values.notifications.enabled | default true | quote }}

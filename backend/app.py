@@ -16,6 +16,7 @@ from api.channel_requests import router as channel_requests_router
 from api.club_notifications import router as club_notifications_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
+from api.push import router as push_router
 from api.webhooks_email import router as webhooks_email_router
 from auth import (
     AuthManager,
@@ -260,6 +261,7 @@ app.include_router(invites_router)
 app.include_router(invite_requests_router)
 app.include_router(channel_requests_router)
 app.include_router(club_notifications_router)
+app.include_router(push_router)
 app.include_router(webhooks_email_router)
 app.include_router(admin_emails_router)
 app.include_router(admin_attention_router)
@@ -270,6 +272,28 @@ import contextlib
 from endpoints.version import router as version_router
 
 app.include_router(version_router)
+
+
+# Startup check: warn loudly if Web Push isn't configured.
+# Push fan-out is a no-op without VAPID env vars, but the silent-skip
+# pattern bit us hard with RESEND_API_KEY (see docs/features/SUPPORT_INBOX.md
+# §Lessons learned #3). One WARN log at startup makes the missing-config
+# state visible without crashing the pod.
+def _check_push_config_on_startup() -> None:
+    from notifications.web_push_sender import is_configured as _push_configured
+
+    if not _push_configured():
+        logger.warning(
+            "push_notifications_not_configured",
+            message=(
+                "VAPID env vars not set — push notifications will be skipped. "
+                "Populate via SB-50 (platform-bootstrap)."
+            ),
+        )
+
+
+_check_push_config_on_startup()
+
 
 # === Authentication Endpoints ===
 

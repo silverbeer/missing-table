@@ -52,6 +52,33 @@ def resolve_destinations(
     return ordered
 
 
+def resolve_user_push_subscriptions(
+    home_team_id: int | None,
+    away_team_id: int | None,
+    team_follow_dao,
+) -> list[dict]:
+    """Find push subscriptions for users following either team.
+
+    Returns subscription rows (id, endpoint, p256dh_key, auth_key, user_id),
+    deduplicated by subscription id. A user with two devices appears twice
+    (one per device). A user following both home and away teams still gets
+    one push per device, not two.
+    """
+    team_ids = [t for t in (home_team_id, away_team_id) if t is not None]
+    if not team_ids:
+        return []
+    try:
+        return team_follow_dao.list_subscriptions_for_team_ids(team_ids)
+    except Exception as exc:
+        logger.warning(
+            "resolve_push_subscriptions_failed",
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            error=str(exc),
+        )
+        return []
+
+
 def fetch_club_timezone(club_id: int | None, supabase_client) -> str:
     """Look up the IANA timezone for a club; fall back to America/New_York."""
     if club_id is None:
