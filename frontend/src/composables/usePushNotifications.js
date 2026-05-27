@@ -17,6 +17,13 @@ import { isIosNonStandalone } from '../utils/pwa';
 
 const isSupported = ref(false);
 const permission = ref('default'); // 'default' | 'granted' | 'denied' | 'unsupported'
+// `null` = unknown (haven't asked backend yet), `true` = backend has at least
+// one subscription for this user, `false` = backend has none. We need this
+// because Notification.permission flips to 'granted' the instant the user
+// clicks Allow — but the actual end-to-end registration (subscribe + POST)
+// may still fail downstream. Using permission alone for the "enabled" pill
+// caused SB-52 (UI looked enabled while backend had nothing).
+const hasBackendSubscription = ref(null);
 let initialized = false;
 
 function detectSupport() {
@@ -80,8 +87,15 @@ export function usePushNotifications() {
   const loading = ref(false);
   const lastError = ref(null);
 
+  // "Enabled" means the full chain landed: browser permission granted AND
+  // the backend confirmed it has a subscription for this user/device. Using
+  // permission alone caused SB-52 (pill showed enabled while backend had nothing
+  // because the prior POST silently failed).
   const isEnabled = computed(
-    () => isSupported.value && permission.value === 'granted'
+    () =>
+      isSupported.value &&
+      permission.value === 'granted' &&
+      hasBackendSubscription.value === true
   );
   const isBlocked = computed(() => permission.value === 'denied');
   const isIosBlocked = computed(
@@ -173,6 +187,7 @@ export function usePushNotifications() {
         }
       );
 
+      hasBackendSubscription.value = true;
       return { success: true, subscription: created };
     } catch (err) {
       lastError.value = err.message || String(err);
@@ -198,6 +213,7 @@ export function usePushNotifications() {
       } catch {
         // ignore — backend revoke is the authoritative action.
       }
+      hasBackendSubscription.value = false;
       return { success: true };
     } catch (err) {
       lastError.value = err.message || String(err);
@@ -212,9 +228,17 @@ export function usePushNotifications() {
       const data = await authStore.apiRequest(
         `${getApiBaseUrl()}/api/users/me/push-subscriptions`
       );
-      return data?.subscriptions || [];
+      const subs = data?.subscriptions || [];
+      // This is the authoritative truth-source for whether the backend has
+      // a subscription for this user. Sync the reactive flag so the UI
+      // doesn't trust permission alone.
+      hasBackendSubscription.value = subs.length > 0;
+      return subs;
     } catch (err) {
       lastError.value = err.message || String(err);
+      // On fetch failure, assume no backend subscription so the UI shows
+      // Enable instead of a misleading enabled pill.
+      hasBackendSubscription.value = false;
       return [];
     }
   }
