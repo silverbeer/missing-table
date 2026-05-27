@@ -316,37 +316,45 @@
           </div>
         </div>
 
+        <!-- My Club team header — always shown when a team is selected, even if no matches yet. -->
+        <div
+          v-if="selectedViewTab === 'myclub' && selectedTeam"
+          class="mb-4"
+          data-testid="my-club-team-header"
+        >
+          <div class="flex flex-wrap items-center gap-3 mb-2">
+            <h3 class="text-lg font-semibold">
+              Matches for {{ getSelectedTeamName() }}
+            </h3>
+            <FollowButton
+              :team-id="Number(selectedTeam)"
+              :team-name="getSelectedTeamName()"
+              variant="light"
+            />
+          </div>
+
+          <!-- League Information -->
+          <div
+            v-if="selectedTeamLeagueInfo"
+            class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-50 border border-brand-200 rounded-md text-sm"
+          >
+            <span class="font-medium text-brand-800">League:</span>
+            <span class="text-brand-700"
+              >{{ selectedTeamLeagueInfo.league }} -
+              {{ selectedTeamLeagueInfo.division }} ({{
+                selectedTeamLeagueInfo.ageGroup
+              }})</span
+            >
+            <span class="text-brand-600">• {{ selectedSeasonName }}</span>
+          </div>
+        </div>
+
         <!-- Display Filtered Matches -->
         <div v-if="sortedGames.length > 0">
-          <div class="mb-4">
-            <!-- All Matches: Show week range -->
-            <div v-if="selectedViewTab === 'all'">
-              <h3 class="text-lg font-semibold mb-2" data-testid="week-range">
-                {{ weekRangeDisplay }}
-              </h3>
-            </div>
-
-            <!-- My Club: Show team name and league info -->
-            <div v-else>
-              <h3 class="text-lg font-semibold mb-2">
-                Matches for {{ getSelectedTeamName() }}
-              </h3>
-
-              <!-- League Information -->
-              <div
-                v-if="selectedTeamLeagueInfo"
-                class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-50 border border-brand-200 rounded-md text-sm"
-              >
-                <span class="font-medium text-brand-800">League:</span>
-                <span class="text-brand-700"
-                  >{{ selectedTeamLeagueInfo.league }} -
-                  {{ selectedTeamLeagueInfo.division }} ({{
-                    selectedTeamLeagueInfo.ageGroup
-                  }})</span
-                >
-                <span class="text-brand-600">• {{ selectedSeasonName }}</span>
-              </div>
-            </div>
+          <div v-if="selectedViewTab === 'all'" class="mb-4">
+            <h3 class="text-lg font-semibold mb-2" data-testid="week-range">
+              {{ weekRangeDisplay }}
+            </h3>
           </div>
 
           <!-- Season Summary Stats - Only show on My Club tab when a team is selected -->
@@ -2017,6 +2025,7 @@ import { getApiBaseUrl } from '../config/api';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 import MatchDetailView from '@/components/MatchDetailView.vue';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
+import FollowButton from '@/components/notifications/FollowButton.vue';
 
 export default {
   name: 'MatchesView',
@@ -2024,6 +2033,7 @@ export default {
     MatchEditModal,
     MatchDetailView,
     ClubLogo,
+    FollowButton,
   },
   props: {
     initialAgeGroupId: { type: Number, default: null },

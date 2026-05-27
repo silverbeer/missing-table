@@ -57,6 +57,16 @@ vi.mock('@/components/MatchEditModal.vue', () => ({
   },
 }));
 
+// Stub FollowButton (SB-56) — assert presence + props without wiring useTeamFollows.
+vi.mock('@/components/notifications/FollowButton.vue', () => ({
+  default: {
+    name: 'FollowButton',
+    props: ['teamId', 'teamName', 'variant'],
+    template:
+      '<button data-testid="follow-button-mock" :data-team-id="teamId" :data-team-name="teamName" :data-variant="variant">Follow</button>',
+  },
+}));
+
 // Mock API config
 vi.mock('@/config/api', () => ({
   getApiBaseUrl: () => 'http://localhost:8000',
@@ -667,6 +677,90 @@ describe('MatchesView', () => {
       // Should see league headers
       expect(wrapper.text()).toContain('HOMEGROWN');
       expect(wrapper.text()).toContain('ACADEMY');
+    });
+  });
+
+  // ===========================================================================
+  // TESTS: FOLLOW BUTTON (SB-56)
+  // ===========================================================================
+
+  describe('follow button (SB-56)', () => {
+    const selectClubAndTeam = async wrapper => {
+      await wrapper.find('[data-testid="my-club-tab"]').trigger('click');
+      await flushPromises();
+      // Age group filters teams; U14 (id=3) is needed so mock team #1
+      // (Blue Stars U14) appears in the team dropdown.
+      await wrapper.find('[data-testid="age-group-3"]').trigger('click');
+      await flushPromises();
+      await wrapper
+        .find('[data-testid="club-selector"]')
+        .find('option[value="1"]')
+        .setSelected();
+      await flushPromises();
+      await wrapper
+        .find('[data-testid="team-selector"]')
+        .find('option[value="1"]')
+        .setSelected();
+      await flushPromises();
+    };
+
+    it('does not render on All Matches tab', async () => {
+      setupMockApiResponses();
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      // Default tab is All Matches.
+      expect(wrapper.find('[data-testid="follow-button-mock"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('does not render on My Club tab when no team is selected', async () => {
+      setupMockApiResponses();
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await wrapper.find('[data-testid="my-club-tab"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="follow-button-mock"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('renders next to the team header once a team is selected on My Club', async () => {
+      setupMockApiResponses();
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await selectClubAndTeam(wrapper);
+
+      const btn = wrapper.find('[data-testid="follow-button-mock"]');
+      expect(btn.exists()).toBe(true);
+    });
+
+    it('passes the selected team id (numeric) and name to FollowButton', async () => {
+      setupMockApiResponses();
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await selectClubAndTeam(wrapper);
+
+      const btn = wrapper.find('[data-testid="follow-button-mock"]');
+      // Selected team id from the mock factory is 1.
+      expect(btn.attributes('data-team-id')).toBe('1');
+      expect(btn.attributes('data-team-name')).toBe('Blue Stars U14');
+    });
+
+    it('uses the light variant so it reads on the page background', async () => {
+      setupMockApiResponses();
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await selectClubAndTeam(wrapper);
+
+      const btn = wrapper.find('[data-testid="follow-button-mock"]');
+      expect(btn.attributes('data-variant')).toBe('light');
     });
   });
 });

@@ -205,3 +205,25 @@ describe('FollowButton aria-label', () => {
     ).toBe('Unfollow IFA');
   });
 });
+
+describe('FollowButton variant (SB-56)', () => {
+  it('defaults to the dark variant (sits on team-header gradient)', async () => {
+    apiRequestMock.mockResolvedValueOnce({ follows: [] });
+    const wrapper = mountButton();
+    await flushPromises();
+
+    const btn = wrapper.find('[data-testid="follow-button"]');
+    expect(btn.classes()).toContain('follow-button--dark');
+    expect(btn.classes()).not.toContain('follow-button--light');
+  });
+
+  it('applies the light variant class when variant="light"', async () => {
+    apiRequestMock.mockResolvedValueOnce({ follows: [] });
+    const wrapper = mountButton({ variant: 'light' });
+    await flushPromises();
+
+    const btn = wrapper.find('[data-testid="follow-button"]');
+    expect(btn.classes()).toContain('follow-button--light');
+    expect(btn.classes()).not.toContain('follow-button--dark');
+  });
+});
