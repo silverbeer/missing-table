@@ -13,15 +13,20 @@
       <div
         class="overflow-x-auto bg-white rounded-lg border border-gray-200 mb-6"
       >
-        <table class="min-w-full text-sm">
+        <table class="min-w-full text-xs sm:text-sm">
           <thead class="bg-gray-50 text-gray-600">
             <tr>
-              <th class="px-2 py-2 w-8 text-center font-semibold">#</th>
-              <th class="px-3 py-2 text-left font-semibold">Team</th>
+              <th class="px-1.5 sm:px-2 py-2 w-7 text-center font-semibold">
+                #
+              </th>
+              <th class="px-2 sm:px-3 py-2 text-left font-semibold">Team</th>
               <th
                 v-for="col in STAT_COLS"
                 :key="col.key"
-                class="px-2 py-2 text-center font-semibold w-12"
+                :class="[
+                  'px-1.5 sm:px-2 py-2 text-center font-semibold w-9 sm:w-12',
+                  col.mobileHidden ? 'hidden sm:table-cell' : '',
+                ]"
               >
                 {{ col.label }}
               </th>
@@ -36,22 +41,32 @@
                 'border-t border-gray-100',
               ]"
             >
-              <td class="px-2 py-2 text-center text-gray-500 tabular-nums">
+              <td
+                class="px-1.5 sm:px-2 py-2 text-center text-gray-500 tabular-nums"
+              >
                 {{ idx + 1 }}
               </td>
               <td
                 :class="[
-                  'px-3 py-2 truncate',
+                  'px-2 sm:px-3 py-2',
                   idx === 0 ? 'font-semibold text-gray-900' : 'text-gray-800',
                 ]"
               >
-                {{ row.team.name }}
+                <!-- Inner block truncates reliably; max-width on a <td> alone
+                     is ignored in auto table layout. -->
+                <div
+                  class="truncate max-w-[40vw] sm:max-w-[240px]"
+                  :title="row.team.name"
+                >
+                  {{ row.team.name }}
+                </div>
               </td>
               <td
                 v-for="col in STAT_COLS"
                 :key="col.key"
                 :class="[
-                  'px-2 py-2 text-center tabular-nums',
+                  'px-1.5 sm:px-2 py-2 text-center tabular-nums',
+                  col.mobileHidden ? 'hidden sm:table-cell' : '',
                   col.key === 'pts'
                     ? 'font-bold text-gray-900'
                     : 'text-gray-700',
@@ -66,26 +81,31 @@
 
       <!-- Head-to-head cross-table -->
       <div>
-        <h3
-          class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2"
-        >
-          Head-to-head
-        </h3>
+        <div class="flex items-baseline justify-between mb-2">
+          <h3
+            class="text-xs font-semibold text-gray-400 uppercase tracking-wider"
+          >
+            Head-to-head
+          </h3>
+          <span class="text-xs text-gray-400 sm:hidden">swipe →</span>
+        </div>
         <div class="overflow-x-auto bg-white rounded-lg border border-gray-200">
-          <table class="min-w-full text-sm">
+          <table class="min-w-full text-xs sm:text-sm">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
                 <th
-                  class="px-3 py-2 text-left font-semibold sticky left-0 bg-gray-50 z-10"
-                  style="min-width: 180px"
+                  class="px-2 sm:px-3 py-2 text-left font-semibold sticky left-0 bg-gray-50 z-10 min-w-[104px] sm:min-w-[180px]"
                 ></th>
                 <th
                   v-for="team in bracketTeams"
                   :key="`hdr-${team.id}`"
-                  class="px-3 py-2 text-center font-semibold"
-                  style="min-width: 110px"
+                  class="px-2 sm:px-3 py-2 text-center font-semibold min-w-[64px] sm:min-w-[110px]"
                 >
-                  {{ team.name }}
+                  <span
+                    class="block truncate max-w-[56px] sm:max-w-[96px] mx-auto"
+                    :title="team.name"
+                    >{{ team.name }}</span
+                  >
                 </th>
               </tr>
             </thead>
@@ -96,15 +116,20 @@
                 class="border-t border-gray-100"
               >
                 <td
-                  class="px-3 py-2 font-medium text-gray-800 sticky left-0 bg-white z-10"
+                  class="px-2 sm:px-3 py-2 font-medium text-gray-800 sticky left-0 bg-white z-10"
                 >
-                  {{ rowTeam.name }}
+                  <div
+                    class="truncate max-w-[88px] sm:max-w-[164px]"
+                    :title="rowTeam.name"
+                  >
+                    {{ rowTeam.name }}
+                  </div>
                 </td>
                 <td
                   v-for="colTeam in bracketTeams"
                   :key="`cell-${rowTeam.id}-${colTeam.id}`"
                   :class="[
-                    'px-3 py-2 text-center tabular-nums',
+                    'px-2 sm:px-3 py-2 text-center tabular-nums',
                     rowTeam.id === colTeam.id
                       ? 'bg-gray-100 text-gray-300'
                       : 'text-gray-700',
@@ -132,14 +157,17 @@ const props = defineProps({
   matches: { type: Array, required: true },
 });
 
-// Columns shown in the standings table, in order.
+// Columns shown in the standings table, in order. `mobileHidden` columns
+// (raw goals for/against) are dropped on phones so the essential MP / W / D /
+// L / GD / PTS set fits without horizontal scrolling — GD still summarizes
+// the goal difference. They reappear at the `sm` breakpoint.
 const STAT_COLS = [
   { key: 'mp', label: 'MP' },
   { key: 'w', label: 'W' },
   { key: 'd', label: 'D' },
   { key: 'l', label: 'L' },
-  { key: 'gf', label: 'GF' },
-  { key: 'ga', label: 'GA' },
+  { key: 'gf', label: 'GF', mobileHidden: true },
+  { key: 'ga', label: 'GA', mobileHidden: true },
   { key: 'gd', label: 'GD' },
   { key: 'pts', label: 'PTS' },
 ];
