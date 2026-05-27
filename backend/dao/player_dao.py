@@ -35,12 +35,23 @@ class PlayerDAO(BaseDAO):
             User profile dict with team data, or None if not found
         """
         try:
+            # Explicit FK names required: SB-51's user_team_follows table created
+            # a many-to-many path between user_profiles and teams in addition to
+            # the direct team_id FK, which makes PostgREST throw PGRST201 unless
+            # we name the relationship we want. Same hint needed for `clubs`
+            # because user_profiles has both a direct club_id FK and a path via
+            # teams.club_id (also detected as ambiguous).
             response = (
                 self.client.table("user_profiles")
                 .select("""
                 *,
-                team:teams(id, name, city, club:clubs(id, name, primary_color, secondary_color, logo_url)),
-                club:clubs(id, name, primary_color, secondary_color, logo_url)
+                team:teams!user_profiles_team_id_fkey(
+                    id, name, city,
+                    club:clubs(id, name, primary_color, secondary_color, logo_url)
+                ),
+                club:clubs!user_profiles_club_id_fkey(
+                    id, name, primary_color, secondary_color, logo_url
+                )
             """)
                 .eq("id", user_id)
                 .execute()
@@ -150,11 +161,12 @@ class PlayerDAO(BaseDAO):
             List of user profile dicts
         """
         try:
+            # Explicit FK name: see comment in get_user_profile_with_relationships.
             response = (
                 self.client.table("user_profiles")
                 .select("""
                 *,
-                team:teams(id, name, city)
+                team:teams!user_profiles_team_id_fkey(id, name, city)
             """)
                 .order("created_at", desc=True)
                 .execute()
@@ -615,7 +627,7 @@ class PlayerDAO(BaseDAO):
                 profile_photo_slot,
                 team_id,
                 created_at,
-                team:teams(id, name, club_id)
+                team:teams!user_profiles_team_id_fkey(id, name, club_id)
                 """,
                     count="exact",
                 )
