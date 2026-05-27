@@ -3,7 +3,10 @@
     v-if="visible"
     type="button"
     class="follow-button"
-    :class="{ 'is-following': following, 'is-busy': busy }"
+    :class="[
+      `follow-button--${variant}`,
+      { 'is-following': following, 'is-busy': busy },
+    ]"
     :disabled="busy"
     :aria-pressed="following"
     :aria-label="
@@ -52,6 +55,13 @@ import { useTeamFollows } from '../../composables/useTeamFollows';
 const props = defineProps({
   teamId: { type: [Number, String], required: true },
   teamName: { type: String, default: '' },
+  // 'dark' = sits on dark/colored team-header gradient (default, SB-55 placement).
+  // 'light' = sits on a normal light page background (SB-56 placement on MatchesView).
+  variant: {
+    type: String,
+    default: 'dark',
+    validator: v => ['dark', 'light'].includes(v),
+  },
 });
 
 const authStore = useAuthStore();
@@ -95,29 +105,50 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  background: rgba(255, 255, 255, 0.95);
-  color: #1f2937;
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
   cursor: pointer;
   transition:
     background-color 0.15s ease,
     color 0.15s ease,
+    border-color 0.15s ease,
     transform 0.05s ease;
-  /* Sit on the dark team-header gradient; keep it readable. */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
-
-.follow-button:hover:not(:disabled) {
-  background: white;
-  transform: translateY(-1px);
 }
 
 .follow-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.follow-button:focus-visible {
+/* Dark variant — sits on the team-header gradient (SB-55). */
+.follow-button--dark {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.follow-button--dark:hover:not(:disabled) {
+  background: white;
+  transform: translateY(-1px);
+}
+
+.follow-button--dark:focus-visible {
   outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Light variant — sits on normal page background (SB-56 on MatchesView). */
+.follow-button--light {
+  background: white;
+  color: #0257fe;
+  border: 1.5px solid #0257fe;
+}
+
+.follow-button--light:hover:not(:disabled) {
+  background: rgba(2, 87, 254, 0.08);
+  transform: translateY(-1px);
+}
+
+.follow-button--light:focus-visible {
+  outline: 2px solid #0257fe;
   outline-offset: 2px;
 }
 
