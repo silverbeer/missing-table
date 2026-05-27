@@ -17,8 +17,17 @@ import structlog
 
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
-from notifications.channel_resolver import fetch_club_timezone, resolve_destinations
+from dao.push_send_log_dao import PushSendLogDAO
+from dao.push_subscription_dao import PushSubscriptionDAO
+from dao.team_follow_dao import TeamFollowDAO
+from notifications.channel_resolver import (
+    fetch_club_timezone,
+    resolve_destinations,
+    resolve_user_push_subscriptions,
+)
 from notifications.formatters import format_event
+from notifications.web_push_sender import is_configured as push_is_configured
+from notifications.web_push_sender import send_push
 
 logger = structlog.get_logger(__name__)
 
@@ -33,6 +42,33 @@ def is_notifications_enabled() -> bool:
     }
 
 
+def _build_push_payload(event_type: str, match: dict, content: str) -> dict:
+    """Construct the JSON payload the service worker will receive.
+
+    title = first line of formatted content (the headline w/ emoji)
+    body  = remaining lines
+
+    `tag` collapses repeated events on the same match so the user sees
+    one notification per (match, event_type) instead of a stack.
+    """
+    lines = content.split("\n", 1)
+    title = lines[0]
+    body = lines[1] if len(lines) > 1 else ""
+    match_id = match.get("id")
+    return {
+        "title": title,
+        "body": body,
+        "icon": "/pwa/icon-192.png",
+        "badge": "/pwa/icon-192.png",
+        "tag": f"match-{match_id}-{event_type}",
+        "data": {
+            "url": f"/?tab=live&matchId={match_id}",
+            "matchId": match_id,
+            "eventType": event_type,
+        },
+    }
+
+
 class Notifier:
     """Dispatcher wrapper with DI-friendly constructor for tests."""
 
@@ -40,12 +76,18 @@ class Notifier:
         self,
         connection: SupabaseConnection | None = None,
         send_fn=None,
+        push_send_fn=None,
     ):
         self._connection = connection
         self._match_dao: MatchDAO | None = None
         self._notif_dao: ClubNotificationsDAO | None = None
+        self._team_follow_dao: TeamFollowDAO | None = None
+        self._push_sub_dao: PushSubscriptionDAO | None = None
+        self._push_log_dao: PushSendLogDAO | None = None
         # Lazy-imported default sender so tests can swap without importing httpx.
         self._send_fn = send_fn
+        # Push sender override for tests.
+        self._push_send_fn = push_send_fn or send_push
 
     @property
     def connection(self) -> SupabaseConnection:
@@ -64,6 +106,24 @@ class Notifier:
         if self._notif_dao is None:
             self._notif_dao = ClubNotificationsDAO(self.connection)
         return self._notif_dao
+
+    @property
+    def team_follow_dao(self) -> TeamFollowDAO:
+        if self._team_follow_dao is None:
+            self._team_follow_dao = TeamFollowDAO(self.connection)
+        return self._team_follow_dao
+
+    @property
+    def push_sub_dao(self) -> PushSubscriptionDAO:
+        if self._push_sub_dao is None:
+            self._push_sub_dao = PushSubscriptionDAO(self.connection)
+        return self._push_sub_dao
+
+    @property
+    def push_log_dao(self) -> PushSendLogDAO:
+        if self._push_log_dao is None:
+            self._push_log_dao = PushSendLogDAO(self.connection)
+        return self._push_log_dao
 
     @property
     def send_fn(self):
@@ -158,6 +218,66 @@ class Notifier:
             event_type=event_type,
             sent=sent,
             failed=failed,
+        )
+
+        # --- Web Push fan-out -------------------------------------------------
+        # Independent of club-channel sends above; failures don't affect each
+        # other. Skipped entirely if VAPID isn't configured (dormant state
+        # before the platform-bootstrap secrets land — see SB-50).
+        self._send_push_fanout(event_type, match, content)
+
+    def _send_push_fanout(
+        self, event_type: str, match: dict, content: str
+    ) -> None:
+        """Push to every user following either team. Card events skipped in v1."""
+        if event_type in {"yellow_card", "red_card"}:
+            return  # not in v1; reduce notification volume
+
+        if not push_is_configured():
+            return  # VAPID env unset — dormant; SB-50 activates this
+
+        home_team_id = match.get("home_team_id")
+        away_team_id = match.get("away_team_id")
+        match_id = match.get("id")
+
+        subscriptions = resolve_user_push_subscriptions(
+            home_team_id, away_team_id, self.team_follow_dao
+        )
+        if not subscriptions:
+            return
+
+        payload = _build_push_payload(event_type, match, content)
+
+        push_sent = 0
+        push_failed = 0
+        push_expired = 0
+        for sub in subscriptions:
+            result = self._push_send_fn(sub, payload)
+            self.push_log_dao.log(
+                subscription_id=sub.get("id"),
+                user_id=sub.get("user_id"),
+                match_id=match_id,
+                event_type=event_type,
+                status=result.status,
+                http_status=result.http_status,
+                error=result.error,
+            )
+            if result.ok:
+                push_sent += 1
+            elif result.expired:
+                push_expired += 1
+                # Subscription is dead — clean it up so we don't retry forever.
+                self.push_sub_dao.delete_by_endpoint(sub["endpoint"])
+            else:
+                push_failed += 1
+
+        logger.info(
+            "notifications.push_dispatched",
+            match_id=match_id,
+            event_type=event_type,
+            sent=push_sent,
+            failed=push_failed,
+            expired=push_expired,
         )
 
 
