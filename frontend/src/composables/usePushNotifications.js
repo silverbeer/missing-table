@@ -260,18 +260,6 @@ export function usePushNotifications() {
     }
   }
 
-  async function listFollows() {
-    try {
-      const data = await authStore.apiRequest(
-        `${getApiBaseUrl()}/api/users/me/team-follows`
-      );
-      return data?.follows || [];
-    } catch (err) {
-      lastError.value = err.message || String(err);
-      return [];
-    }
-  }
-
   return {
     // reactive state
     isSupported,
@@ -286,6 +274,5 @@ export function usePushNotifications() {
     disable,
     listSubscriptions,
     sendTest,
-    listFollows,
   };
 }
