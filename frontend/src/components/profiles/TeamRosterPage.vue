@@ -125,6 +125,12 @@
             </svg>
             {{ team.division.name }}
           </span>
+          <!-- Follow button (SB-55) -->
+          <FollowButton
+            v-if="team?.id"
+            :team-id="team.id"
+            :team-name="team.name || ''"
+          />
         </div>
 
         <!-- Player count -->
@@ -184,11 +190,13 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import PlayerCard from './PlayerCard.vue';
+import FollowButton from '@/components/notifications/FollowButton.vue';
 
 export default {
   name: 'TeamRosterPage',
   components: {
     PlayerCard,
+    FollowButton,
   },
   emits: ['viewPlayer'],
   setup(props, { emit }) {

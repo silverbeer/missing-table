@@ -106,6 +106,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { usePushNotifications } from '../../composables/usePushNotifications';
+import { useTeamFollows } from '../../composables/useTeamFollows';
 
 const {
   isSupported,
@@ -117,22 +118,19 @@ const {
   enable,
   disable,
   listSubscriptions,
-  listFollows,
   sendTest,
 } = usePushNotifications();
 
+// Shared singleton (SB-55): same `follows` reactive list every FollowButton mutates.
+const { follows, refresh: refreshFollows } = useTeamFollows();
+
 const subscriptions = ref([]);
-const follows = ref([]);
 const lastMessage = ref('');
 
 async function refresh() {
   if (!isSupported.value) return;
-  const [subs, follows_] = await Promise.all([
-    listSubscriptions(),
-    listFollows(),
-  ]);
+  const [subs] = await Promise.all([listSubscriptions(), refreshFollows()]);
   subscriptions.value = subs;
-  follows.value = follows_;
 }
 
 async function onEnable() {
