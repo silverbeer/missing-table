@@ -39,32 +39,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { isIosSafari, isStandalone } from '../utils/pwa';
 
 const STORAGE_KEY = 'mt.iosInstallTooltip.dismissedAt';
 const RESHOW_DAYS = 30;
 
 const shouldShow = ref(false);
-
-function isIosSafari() {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined')
-    return false;
-  const ua = navigator.userAgent;
-  const isIos =
-    /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (!isIos) return false;
-  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-  return isSafari;
-}
-
-function isStandalone() {
-  if (typeof window === 'undefined') return false;
-  // navigator.standalone is iOS-Safari-specific; matchMedia covers other PWAs.
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true
-  );
-}
 
 function wasRecentlyDismissed() {
   try {

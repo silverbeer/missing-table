@@ -43,6 +43,9 @@
 
       <!-- Fan Profile (default) -->
       <FanProfile v-else @logout="handleLogout" @navigate="handleSwitchTab" />
+
+      <!-- Notifications card (universal — every role gets the same surface) -->
+      <NotificationsCard />
     </div>
 
     <!-- Role Debug Info (only in development) -->
@@ -81,6 +84,7 @@ import ClubManagerProfile from './profiles/ClubManagerProfile.vue';
 import TeamManagerProfile from './profiles/TeamManagerProfile.vue';
 import PlayerProfile from './profiles/PlayerProfile.vue';
 import FanProfile from './profiles/FanProfile.vue';
+import NotificationsCard from './notifications/NotificationsCard.vue';
 
 export default {
   name: 'ProfileRouter',
@@ -90,6 +94,7 @@ export default {
     TeamManagerProfile,
     PlayerProfile,
     FanProfile,
+    NotificationsCard,
   },
   emits: ['logout', 'switch-tab'],
   setup(props, { emit }) {
