@@ -8,11 +8,14 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
-      // generateSW: Workbox generates the service worker for us. injectManifest
-      // mode is only needed if we want to ship custom SW code; for slice 3 the
-      // generated SW covers precache + runtime cache cleanly.
-      strategies: 'generateSW',
-      registerType: 'prompt', // shows our UpdateAvailablePrompt instead of auto-reloading
+      // injectManifest: we ship a hand-written SW (frontend/src/sw.js) that
+      // uses Workbox helpers for precache + runtime cache AND adds custom
+      // push + notificationclick event handlers. `generateSW` doesn't allow
+      // custom event handlers, hence the migration in SB-47.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      registerType: 'prompt', // UpdateAvailablePrompt handles new versions
       includeAssets: [
         'pwa/apple-touch-icon-180.png',
         'pwa/pwa-icon-master.png',
@@ -58,49 +61,13 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         // Precache the build output (app shell). Workbox builds the manifest
-        // from these globs at build time.
+        // from these globs at build time and injects it into sw.js via
+        // self.__WB_MANIFEST.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // Don't try to precache the giant master icon source (only used for SB-45 swap).
+        // Don't precache the giant master icon source (only used for SB-45 swap).
         globIgnores: ['**/pwa/pwa-icon-master.png'],
-        // SPA fallback: any navigation request not matched by a precached file
-        // should serve /index.html (so client-side routes work offline).
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        // Runtime caching for read-only API endpoints. Stale-while-revalidate:
-        // serve cache instantly, refresh in background, next render is fresh.
-        // Skipped: auth, write endpoints, live-match state (push keeps that fresh).
-        runtimeCaching: [
-          {
-            urlPattern: ({ url, request }) =>
-              request.method === 'GET' &&
-              /\/api\/(standings|teams|match-types|seasons|age-groups|divisions|leagues|tournaments|clubs)(\/|\?|$)/.test(
-                url.pathname + url.search
-              ),
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'mt-reference-and-standings-v1',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 }, // 7 days
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // Google Fonts — cache-first since they're versioned URLs and rarely change.
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-v1',
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
-        // Don't take over the page immediately on first install — let it become
-        // the controller on the next nav. UpdateAvailablePrompt handles new
-        // versions explicitly.
-        clientsClaim: false,
-        skipWaiting: false,
       },
       devOptions: {
         // Don't enable the SW in `vite dev` by default. SW + HMR fight each
