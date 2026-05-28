@@ -82,6 +82,81 @@
       </ul>
     </div>
 
+    <!-- Notification preferences (SB-57) -->
+    <div v-if="isSupported" class="preferences-section">
+      <h4>What to notify me about</h4>
+      <ul class="preferences-list">
+        <li class="preference-item">
+          <label class="preference-label">
+            <input
+              type="checkbox"
+              class="preference-checkbox"
+              :checked="preferences.kickoff"
+              :disabled="!preferencesLoaded"
+              data-testid="pref-toggle-kickoff"
+              @change="onTogglePref('kickoff', $event.target.checked)"
+            />
+            <span class="preference-name">Kickoff</span>
+          </label>
+        </li>
+        <li class="preference-item">
+          <label class="preference-label">
+            <input
+              type="checkbox"
+              class="preference-checkbox"
+              :checked="preferences.goal"
+              :disabled="!preferencesLoaded"
+              data-testid="pref-toggle-goal"
+              @change="onTogglePref('goal', $event.target.checked)"
+            />
+            <span class="preference-name">Goals</span>
+          </label>
+        </li>
+        <li class="preference-item">
+          <label class="preference-label">
+            <input
+              type="checkbox"
+              class="preference-checkbox"
+              :checked="preferences.halftime"
+              :disabled="!preferencesLoaded"
+              data-testid="pref-toggle-halftime"
+              @change="onTogglePref('halftime', $event.target.checked)"
+            />
+            <span class="preference-name">Halftime</span>
+          </label>
+        </li>
+        <li class="preference-item">
+          <label class="preference-label">
+            <input
+              type="checkbox"
+              class="preference-checkbox"
+              :checked="preferences.fulltime"
+              :disabled="!preferencesLoaded"
+              data-testid="pref-toggle-fulltime"
+              @change="onTogglePref('fulltime', $event.target.checked)"
+            />
+            <span class="preference-name">Fulltime</span>
+          </label>
+        </li>
+        <li class="preference-item">
+          <label class="preference-label">
+            <input
+              type="checkbox"
+              class="preference-checkbox"
+              :checked="cardsEnabled"
+              :disabled="!preferencesLoaded"
+              data-testid="pref-toggle-cards"
+              @change="onToggleCards($event.target.checked)"
+            />
+            <span class="preference-name">Cards (yellow + red)</span>
+          </label>
+        </li>
+      </ul>
+      <p v-if="preferencesError" class="notifications-error">
+        Couldn't save preference: {{ preferencesError }}
+      </p>
+    </div>
+
     <!-- Followed teams (read-only summary) -->
     <div v-if="isSupported" class="follows-section">
       <h4>Teams you follow</h4>
@@ -107,6 +182,7 @@
 import { ref, onMounted } from 'vue';
 import { usePushNotifications } from '../../composables/usePushNotifications';
 import { useTeamFollows } from '../../composables/useTeamFollows';
+import { useNotificationPreferences } from '../../composables/useNotificationPreferences';
 
 const {
   isSupported,
@@ -124,13 +200,36 @@ const {
 // Shared singleton (SB-55): same `follows` reactive list every FollowButton mutates.
 const { follows, refresh: refreshFollows } = useTeamFollows();
 
+// Per-event preferences (SB-57).
+const {
+  preferences,
+  cardsEnabled,
+  loaded: preferencesLoaded,
+  error: preferencesError,
+  ensureLoaded: ensurePreferencesLoaded,
+  setPreference,
+  setCards,
+} = useNotificationPreferences();
+
 const subscriptions = ref([]);
 const lastMessage = ref('');
 
 async function refresh() {
   if (!isSupported.value) return;
-  const [subs] = await Promise.all([listSubscriptions(), refreshFollows()]);
+  const [subs] = await Promise.all([
+    listSubscriptions(),
+    refreshFollows(),
+    ensurePreferencesLoaded(),
+  ]);
   subscriptions.value = subs;
+}
+
+async function onTogglePref(eventType, enabled) {
+  await setPreference(eventType, enabled);
+}
+
+async function onToggleCards(enabled) {
+  await setCards(enabled);
 }
 
 async function onEnable() {
@@ -332,10 +431,67 @@ onMounted(refresh);
 }
 
 .manage-section,
-.follows-section {
+.follows-section,
+.preferences-section {
   margin-top: 20px;
   border-top: 1px solid #f3f4f6;
   padding-top: 16px;
+}
+
+/* Notification preferences (SB-57) */
+.preferences-section h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.preferences-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preference-item {
+  padding: 0;
+}
+
+.preference-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  min-height: 44px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.preference-label:hover {
+  background: #f9fafb;
+}
+
+.preference-checkbox {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #0257fe;
+  flex-shrink: 0;
+}
+
+.preference-checkbox:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.preference-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
 }
 
 .manage-section h4,
