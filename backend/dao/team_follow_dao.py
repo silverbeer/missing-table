@@ -61,7 +61,16 @@ class TeamFollowDAO(BaseDAO):
             return False
 
     def list_for_user(self, user_id: str) -> list[dict]:
-        """Return teams the user follows, joined with club info for display."""
+        """Return teams the user follows, joined with club + division + league
+        for display.
+
+        SB-65: the original projection returned only `team.name` and
+        `team.club.name`. For many MLS Next teams those two strings are
+        identical (the team name IS the club name), making the "Teams you
+        follow" list in the profile look like it's about clubs. Surfacing
+        `team.division.name` and the division's league disambiguates each
+        row (e.g. "IFA · Homegrown · Northeast").
+        """
         try:
             response = (
                 self.client.table(TABLE)
@@ -69,7 +78,11 @@ class TeamFollowDAO(BaseDAO):
                     "team_id, created_at, "
                     "team:teams!user_team_follows_team_id_fkey("
                     "id, name, age_group_id, "
-                    "club:clubs(id, name)"
+                    "club:clubs(id, name), "
+                    "division:divisions("
+                    "id, name, "
+                    "leagues!divisions_league_id_fkey(id, name)"
+                    ")"
                     ")"
                 )
                 .eq("user_id", user_id)
