@@ -2026,6 +2026,7 @@ import MatchEditModal from '@/components/MatchEditModal.vue';
 import MatchDetailView from '@/components/MatchDetailView.vue';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
+import { subscribeToMatch } from '@/composables/useMatchRealtime';
 
 export default {
   name: 'MatchesView',
@@ -3177,12 +3178,55 @@ export default {
       await fetchMatches();
     });
 
-    // Clean up interval on component unmount
+    // ── SB-66: Realtime updates for in-progress match rows ──
+    // The existing 10s polling fallback (above) is kept for safety, but
+    // realtime gives instant updates when another device posts a goal /
+    // card / clock event, so a second device showing the schedule no
+    // longer needs a manual refresh during a live game.
+    const realtimeMatchSubs = new Map(); // matchId → handle
+
+    function applyMatchUpdate(newRow) {
+      const idx = matches.value.findIndex(m => m.id === newRow.id);
+      if (idx !== -1) {
+        // Preserve joined display fields (home_team_name etc.) — the
+        // payload only carries raw `matches` row columns.
+        matches.value[idx] = { ...matches.value[idx], ...newRow };
+      }
+    }
+
+    function reconcileRealtimeSubs(currentMatches) {
+      const liveIds = new Set(
+        (currentMatches || [])
+          .filter(m => m.match_status === 'in_progress' && m.id)
+          .map(m => m.id)
+      );
+      // Drop subscriptions for matches no longer live or no longer in view.
+      for (const [id, handle] of realtimeMatchSubs) {
+        if (!liveIds.has(id)) {
+          handle.unsubscribe();
+          realtimeMatchSubs.delete(id);
+        }
+      }
+      // Add subscriptions for newly-live matches.
+      for (const id of liveIds) {
+        if (!realtimeMatchSubs.has(id)) {
+          realtimeMatchSubs.set(id, subscribeToMatch(id, applyMatchUpdate));
+        }
+      }
+    }
+
+    watch(matches, reconcileRealtimeSubs, { deep: false });
+
+    // Clean up interval + realtime subs on component unmount
     onUnmounted(() => {
       if (liveMatchRefreshInterval) {
         clearInterval(liveMatchRefreshInterval);
         liveMatchRefreshInterval = null;
       }
+      for (const handle of realtimeMatchSubs.values()) {
+        handle.unsubscribe();
+      }
+      realtimeMatchSubs.clear();
     });
 
     return {
