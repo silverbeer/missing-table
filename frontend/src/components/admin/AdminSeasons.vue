@@ -50,8 +50,9 @@
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              data-testid="matches-count-header"
             >
-              Games Count
+              Matches Count
             </th>
             <th
               class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -83,8 +84,11 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ formatDate(season.end_date) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {{ getGamesCount(season.id) }}
+            <td
+              class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+              :data-testid="`matches-count-${season.id}`"
+            >
+              {{ getMatchesCount(season.id) }}
             </td>
             <td
               class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
@@ -98,9 +102,10 @@
               <button
                 @click="deleteSeason(season)"
                 class="text-red-600 hover:text-red-900"
-                :disabled="getGamesCount(season.id) > 0"
+                :disabled="getMatchesCount(season.id) > 0"
                 :class="{
-                  'opacity-50 cursor-not-allowed': getGamesCount(season.id) > 0,
+                  'opacity-50 cursor-not-allowed':
+                    getMatchesCount(season.id) > 0,
                 }"
               >
                 Delete
@@ -203,7 +208,10 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const seasons = ref([]);
-    const games = ref([]);
+    // Map of season_id → match_count from /api/seasons/match-counts.
+    // Replaces the prior approach of fetching all matches and filtering
+    // client-side (capped at Supabase's 1000-row default — see SB-61).
+    const matchCountsBySeasonId = ref({});
     const loading = ref(true);
     const formLoading = ref(false);
     const error = ref(null);
@@ -234,22 +242,24 @@ export default {
       }
     };
 
-    const fetchGames = async () => {
+    const fetchMatchCounts = async () => {
       try {
         const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/matches`,
-          {
-            method: 'GET',
-          }
+          `${getApiBaseUrl()}/api/seasons/match-counts`,
+          { method: 'GET' }
         );
-        games.value = response;
+        const map = {};
+        for (const row of response || []) {
+          map[row.season_id] = row.match_count ?? 0;
+        }
+        matchCountsBySeasonId.value = map;
       } catch (err) {
-        console.error('Error fetching games:', err);
+        console.error('Error fetching match counts:', err);
       }
     };
 
-    const getGamesCount = seasonId => {
-      return games.value.filter(game => game.season_id === seasonId).length;
+    const getMatchesCount = seasonId => {
+      return matchCountsBySeasonId.value[seasonId] ?? 0;
     };
 
     const isCurrentSeason = season => {
@@ -309,8 +319,8 @@ export default {
     };
 
     const deleteSeason = async season => {
-      if (getGamesCount(season.id) > 0) {
-        error.value = 'Cannot delete season with associated games';
+      if (getMatchesCount(season.id) > 0) {
+        error.value = 'Cannot delete season with associated matches';
         return;
       }
 
@@ -346,7 +356,7 @@ export default {
     };
 
     onMounted(async () => {
-      await Promise.all([fetchSeasons(), fetchGames()]);
+      await Promise.all([fetchSeasons(), fetchMatchCounts()]);
     });
 
     return {
@@ -357,7 +367,7 @@ export default {
       showAddModal,
       showEditModal,
       formData,
-      getGamesCount,
+      getMatchesCount,
       isCurrentSeason,
       formatDate,
       createSeason,
