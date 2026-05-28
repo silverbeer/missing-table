@@ -26,8 +26,13 @@ from notifications.channel_resolver import (
     resolve_user_push_subscriptions,
 )
 from notifications.formatters import format_event
+from notifications.preferences import DEFAULT_PREFERENCES
 from notifications.web_push_sender import is_configured as push_is_configured
 from notifications.web_push_sender import send_push
+
+# NotificationPreferencesDAO is imported lazily inside `prefs_dao` to break
+# the circular import: notification_preferences_dao.py → notifications.preferences
+# → notifications/__init__ → dispatcher → notification_preferences_dao.py.
 
 logger = structlog.get_logger(__name__)
 
@@ -84,6 +89,8 @@ class Notifier:
         self._team_follow_dao: TeamFollowDAO | None = None
         self._push_sub_dao: PushSubscriptionDAO | None = None
         self._push_log_dao: PushSendLogDAO | None = None
+        # NotificationPreferencesDAO; typed via local import to avoid the cycle.
+        self._prefs_dao = None
         # Lazy-imported default sender so tests can swap without importing httpx.
         self._send_fn = send_fn
         # Push sender override for tests.
@@ -124,6 +131,16 @@ class Notifier:
         if self._push_log_dao is None:
             self._push_log_dao = PushSendLogDAO(self.connection)
         return self._push_log_dao
+
+    @property
+    def prefs_dao(self):
+        if self._prefs_dao is None:
+            from dao.notification_preferences_dao import (
+                NotificationPreferencesDAO,
+            )
+
+            self._prefs_dao = NotificationPreferencesDAO(self.connection)
+        return self._prefs_dao
 
     @property
     def send_fn(self):
@@ -229,10 +246,13 @@ class Notifier:
     def _send_push_fanout(
         self, event_type: str, match: dict, content: str
     ) -> None:
-        """Push to every user following either team. Card events skipped in v1."""
-        if event_type in {"yellow_card", "red_card"}:
-            return  # not in v1; reduce notification volume
+        """Push to every user following either team, gated by per-user preferences.
 
+        Pre-SB-57, yellow_card/red_card were hard-skipped here; now they fire
+        only for users who opted in. Defaults preserve prior behavior (cards
+        off, everything else on) so existing followers see no change until
+        they touch the prefs UI.
+        """
         if not push_is_configured():
             return  # VAPID env unset — dormant; SB-50 activates this
 
@@ -246,16 +266,26 @@ class Notifier:
         if not subscriptions:
             return
 
+        # One batch query for the entire fanout instead of N per subscription.
+        user_ids = sorted({sub.get("user_id") for sub in subscriptions if sub.get("user_id")})
+        prefs_by_user = self.prefs_dao.get_preferences_batch(user_ids)
+
         payload = _build_push_payload(event_type, match, content)
 
         push_sent = 0
         push_failed = 0
         push_expired = 0
+        push_skipped_pref = 0
         for sub in subscriptions:
+            user_id = sub.get("user_id")
+            user_prefs = prefs_by_user.get(user_id, DEFAULT_PREFERENCES)
+            if not user_prefs.get(event_type, True):
+                push_skipped_pref += 1
+                continue
             result = self._push_send_fn(sub, payload)
             self.push_log_dao.log(
                 subscription_id=sub.get("id"),
-                user_id=sub.get("user_id"),
+                user_id=user_id,
                 match_id=match_id,
                 event_type=event_type,
                 status=result.status,
@@ -278,6 +308,7 @@ class Notifier:
             sent=push_sent,
             failed=push_failed,
             expired=push_expired,
+            skipped_pref=push_skipped_pref,
         )
 
 

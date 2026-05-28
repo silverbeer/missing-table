@@ -12,6 +12,8 @@ Endpoints:
 - POST   /api/users/me/team-follows                      — follow {team_id}
 - GET    /api/users/me/team-follows                      — list follows + team/club
 - DELETE /api/users/me/team-follows/{team_id}            — unfollow
+- GET    /api/users/me/notification-preferences          — per-event opt-in flags (SB-57)
+- PUT    /api/users/me/notification-preferences          — update per-event opt-in flags (SB-57)
 - POST   /api/users/me/notifications/test                — send a test push
 """
 
@@ -25,9 +27,11 @@ from pydantic import BaseModel, Field
 
 from auth import get_current_user_required
 from dao.match_dao import SupabaseConnection
+from dao.notification_preferences_dao import NotificationPreferencesDAO
 from dao.push_send_log_dao import PushSendLogDAO
 from dao.push_subscription_dao import PushSubscriptionDAO
 from dao.team_follow_dao import TeamFollowDAO
+from notifications.preferences import EVENT_TYPES
 from notifications.web_push_sender import (
     get_public_key as get_vapid_public_key,
 )
@@ -67,6 +71,10 @@ def _follow_dao() -> TeamFollowDAO:
 
 def _log_dao() -> PushSendLogDAO:
     return PushSendLogDAO(_conn())
+
+
+def _prefs_dao() -> NotificationPreferencesDAO:
+    return NotificationPreferencesDAO(_conn())
 
 
 def _user_id(user: dict[str, Any]) -> str:
@@ -253,6 +261,49 @@ def unfollow_team(
     user_id = _user_id(current_user)
     _follow_dao().unfollow(user_id, team_id)  # idempotent
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Notification preferences (SB-57)
+# ---------------------------------------------------------------------------
+
+
+class NotificationPreferencesIn(BaseModel):
+    """Body of PUT /api/users/me/notification-preferences."""
+
+    preferences: dict[str, bool] = Field(
+        ...,
+        description=(
+            "Map of event_type → enabled. Unknown event types are ignored. "
+            f"Known event types: {', '.join(EVENT_TYPES)}."
+        ),
+    )
+
+
+@router.get("/users/me/notification-preferences")
+def get_notification_preferences(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, dict[str, bool]]:
+    user_id = _user_id(current_user)
+    return {"preferences": _prefs_dao().get_preferences(user_id)}
+
+
+@router.put("/users/me/notification-preferences")
+def update_notification_preferences(
+    payload: NotificationPreferencesIn,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, dict[str, bool]]:
+    # Reject unknown event types up front rather than silently dropping them —
+    # surfaces client bugs faster.
+    unknown = [k for k in payload.preferences if k not in EVENT_TYPES]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown event types: {', '.join(unknown)}",
+        )
+    user_id = _user_id(current_user)
+    merged = _prefs_dao().set_preferences(user_id, payload.preferences)
+    return {"preferences": merged}
 
 
 # ---------------------------------------------------------------------------
