@@ -2008,6 +2008,24 @@ async def get_seasons(current_user: dict[str, Any] = Depends(get_current_user_re
         ) from e
 
 
+@app.get("/api/seasons/match-counts")
+async def get_season_match_counts(current_user: dict[str, Any] = Depends(require_admin)):
+    """Per-season match counts for the Admin → Seasons page (SB-61).
+
+    Replaces the previous client-side approach of fetching all matches via
+    /api/matches and counting them in the browser — which silently capped at
+    Supabase's 1000-row default and showed bogus counts.
+    """
+    try:
+        return season_dao.get_match_counts_by_season()
+    except Exception as e:
+        logger.error(f"Error retrieving season match counts: {e!s}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection failed. Please check Supabase connection.",
+        ) from e
+
+
 @app.get("/api/current-season")
 async def get_current_season(current_user: dict[str, Any] = Depends(get_current_user_required)):
     """Get the current active season."""

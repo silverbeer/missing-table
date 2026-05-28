@@ -123,6 +123,68 @@ class SeasonDAO(BaseDAO):
             logger.info("No current season found", error=str(e))
             return None
 
+    # Cache key lives in the `matches:` namespace so it's invalidated by
+    # MATCHES_CACHE_PATTERN whenever any match is created/updated/deleted.
+    @dao_cache("matches:counts_by_season")
+    def get_match_counts_by_season(self) -> list[dict]:
+        """Return [{season_id, match_count}] for every season.
+
+        Backs the Admin → Seasons page (SB-61). The previous client-side
+        approach fetched all matches from /api/matches and filtered by
+        season_id, which silently capped at Supabase's 1000-row default and
+        showed bogus counts (always 1000 for the current season, 0 for
+        everything older).
+
+        One row per season; missing seasons (no matches) still appear with
+        match_count=0 — the seasons list is the source of truth, the count
+        is just a join.
+        """
+        try:
+            # PostgREST embedded resource with count: one round-trip for
+            # every season and its match count. Falls back to N+1 if the
+            # embedded count isn't accepted.
+            response = (
+                self.client.table("seasons")
+                .select("id, matches(count)")
+                .execute()
+            )
+            counts = []
+            for row in response.data or []:
+                # `matches` comes back as a list of {count: N} when the
+                # embedded count modifier is honored.
+                matches_field = row.get("matches") or []
+                if isinstance(matches_field, list) and matches_field:
+                    match_count = matches_field[0].get("count") or 0
+                else:
+                    match_count = 0
+                counts.append({"season_id": row["id"], "match_count": match_count})
+            return counts
+        except Exception:
+            logger.exception("Error querying match counts by season; falling back to N+1")
+            # Fallback: count per season individually. Seasons are few (<10
+            # in practice), so the extra round-trips are fine.
+            try:
+                seasons = (
+                    self.client.table("seasons").select("id").execute().data or []
+                )
+                counts = []
+                for season in seasons:
+                    sid = season["id"]
+                    resp = (
+                        self.client.table("matches")
+                        .select("id", count="exact")
+                        .eq("season_id", sid)
+                        .limit(0)
+                        .execute()
+                    )
+                    counts.append(
+                        {"season_id": sid, "match_count": resp.count or 0}
+                    )
+                return counts
+            except Exception:
+                logger.exception("Error in N+1 fallback for season match counts")
+                return []
+
     @dao_cache("seasons:active")
     def get_active_seasons(self) -> list[dict]:
         """Get active seasons (current and future) for scheduling new matches."""
