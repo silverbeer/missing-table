@@ -349,6 +349,11 @@ def tournament_matches(tournament_id: int = typer.Argument(...)) -> None:
             return {"id": side.get("id"), "name": side.get("name")}
         return None
 
+    def _age_group(ag: object) -> dict | None:
+        if isinstance(ag, dict):
+            return {"id": ag.get("id"), "name": ag.get("name")}
+        return None
+
     matches = [
         {
             "id": m.get("id"),
@@ -356,6 +361,15 @@ def tournament_matches(tournament_id: int = typer.Argument(...)) -> None:
             "scheduled_kickoff": m.get("scheduled_kickoff"),
             "match_status": m.get("match_status"),
             "tournament_round": m.get("tournament_round"),
+            # Bracket-position fields — required for Step 5 reconcile + the
+            # mandatory bracket sanity checks. Omitting these caused the
+            # 2026-05-28 MLS NEXT Cup U15 SF incident: existing matches
+            # reported group=None/order=None, so the next match was loaded
+            # the same way and silently dropped out of the bracket view
+            # (frontend filter is `tournament_group === selected`).
+            "tournament_group": m.get("tournament_group"),
+            "tournament_round_order": m.get("tournament_round_order"),
+            "age_group": _age_group(m.get("age_group")),
             "home_team": _team(m.get("home_team")),
             "away_team": _team(m.get("away_team")),
             "home_score": m.get("home_score"),
