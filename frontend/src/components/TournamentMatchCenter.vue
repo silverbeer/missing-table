@@ -93,19 +93,21 @@
       <div v-if="selected">
         <!-- Header card -->
         <div
-          class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6"
+          class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6"
         >
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div class="flex items-start gap-4 min-w-0 flex-1">
+          <div
+            class="flex flex-wrap items-start justify-between gap-3 sm:gap-4"
+          >
+            <div class="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
               <img
                 v-if="selected.logo_url"
                 :src="selected.logo_url"
                 :alt="`${selected.name} logo`"
-                class="w-32 h-32 sm:w-36 sm:h-36 rounded-md object-contain bg-white border border-gray-100 shrink-0"
+                class="w-14 h-14 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-md object-contain bg-white border border-gray-100 shrink-0"
                 data-testid="tournament-logo"
               />
               <div class="min-w-0 flex-1">
-                <h2 class="text-2xl font-bold text-gray-900">
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-900">
                   {{ selected.name }}
                 </h2>
                 <div
@@ -136,9 +138,13 @@
                 </p>
               </div>
             </div>
-            <div class="flex flex-col items-end gap-3">
-              <div class="text-right text-sm text-gray-500">
-                <div class="text-2xl font-bold text-gray-800">
+            <div
+              class="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-3 w-full sm:w-auto"
+            >
+              <div
+                class="flex items-baseline gap-1.5 sm:block sm:text-right text-sm text-gray-500"
+              >
+                <div class="text-xl sm:text-2xl font-bold text-gray-800">
                   {{ selected.matches?.length ?? 0 }}
                 </div>
                 <div>matches tracked</div>
