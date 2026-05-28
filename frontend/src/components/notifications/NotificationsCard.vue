@@ -165,11 +165,26 @@
         start getting notifications for them.
       </p>
       <ul v-else class="follows-list">
-        <li v-for="f in follows" :key="f.team_id" class="follow-item">
-          <span class="follow-team">{{
-            f.team?.name || `Team #${f.team_id}`
-          }}</span>
-          <span v-if="f.team?.club?.name" class="follow-club">
+        <li
+          v-for="f in follows"
+          :key="f.team_id"
+          class="follow-item"
+          :data-testid="`follow-item-${f.team_id}`"
+        >
+          <div class="follow-item-main">
+            <span class="follow-team" data-testid="follow-label-primary">{{
+              followPrimaryLabel(f)
+            }}</span>
+            <span class="follow-item-sub" data-testid="follow-label-sub">
+              Showing all age groups
+            </span>
+          </div>
+          <span
+            v-if="
+              f.team?.club?.name && f.team.club.name !== (f.team?.name || '')
+            "
+            class="follow-club"
+          >
             {{ f.team.club.name }}
           </span>
         </li>
@@ -230,6 +245,19 @@ async function onTogglePref(eventType, enabled) {
 
 async function onToggleCards(enabled) {
   await setCards(enabled);
+}
+
+// SB-65: disambiguate follow rows. For MLS Next teams the team name often
+// equals the club name (e.g. "IFA / IFA"), making the list look like it's
+// about clubs. Append the league + division when we have them.
+function followPrimaryLabel(f) {
+  const name = f.team?.name || `Team #${f.team_id}`;
+  const league = f.team?.division?.leagues?.name;
+  const division = f.team?.division?.name;
+  const parts = [name];
+  if (league) parts.push(league);
+  if (division) parts.push(division);
+  return parts.join(' · ');
 }
 
 async function onEnable() {
@@ -567,20 +595,38 @@ onMounted(refresh);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  gap: 12px;
+  padding: 10px 12px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   font-size: 14px;
 }
 
+.follow-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .follow-team {
   font-weight: 600;
   color: #111827;
+  /* Allow the primary label (which now includes league + division) to wrap
+     on narrow viewports instead of overflowing. */
+  word-break: break-word;
+}
+
+.follow-item-sub {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 400;
 }
 
 .follow-club {
   font-size: 12px;
-  color: #6b7280;
+  color: #9ca3af;
+  flex-shrink: 0;
 }
 </style>

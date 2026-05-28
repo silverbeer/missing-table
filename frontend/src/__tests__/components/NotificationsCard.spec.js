@@ -26,10 +26,12 @@ vi.mock('@/composables/usePushNotifications', () => ({
   }),
 }));
 
-// Stub useTeamFollows — not under test here.
+// Stub useTeamFollows. SB-65 tests below populate `mockFollows` to verify
+// the new label rendering.
+let mockFollows;
 vi.mock('@/composables/useTeamFollows', () => ({
   useTeamFollows: () => ({
-    follows: computed(() => []),
+    follows: computed(() => mockFollows.value),
     refresh: vi.fn().mockResolvedValue(),
   }),
 }));
@@ -69,6 +71,7 @@ beforeEach(() => {
   setPreferenceMock = vi.fn().mockResolvedValue({ success: true });
   setCardsMock = vi.fn().mockResolvedValue({ success: true });
   ensureLoadedMock = vi.fn().mockResolvedValue();
+  mockFollows = ref([]);
 });
 
 describe('NotificationsCard preferences section (SB-57)', () => {
@@ -147,5 +150,128 @@ describe('NotificationsCard preferences section (SB-57)', () => {
     await flushPromises();
 
     expect(ensureLoadedMock).toHaveBeenCalled();
+  });
+});
+
+describe('NotificationsCard "Teams you follow" labels (SB-65)', () => {
+  it('renders "team · league · division" when all fields are present', async () => {
+    mockFollows.value = [
+      {
+        team_id: 19,
+        team: {
+          id: 19,
+          name: 'IFA',
+          club: { id: 1, name: 'IFA' },
+          division: {
+            id: 1,
+            name: 'Northeast',
+            leagues: { id: 1, name: 'Homegrown' },
+          },
+        },
+      },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    const primary = wrapper.find('[data-testid="follow-label-primary"]');
+    expect(primary.text()).toBe('IFA · Homegrown · Northeast');
+  });
+
+  it('shows the "Showing all age groups" subtitle on every follow row', async () => {
+    mockFollows.value = [
+      {
+        team_id: 19,
+        team: {
+          id: 19,
+          name: 'IFA',
+          club: { id: 1, name: 'IFA' },
+          division: {
+            id: 1,
+            name: 'Northeast',
+            leagues: { id: 1, name: 'Homegrown' },
+          },
+        },
+      },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="follow-label-sub"]').text()).toBe(
+      'Showing all age groups'
+    );
+  });
+
+  it('falls back gracefully when league + division join data is missing', async () => {
+    mockFollows.value = [
+      {
+        team_id: 99,
+        team: {
+          id: 99,
+          name: 'Mystery Team',
+          club: { id: 99, name: 'Mystery Team' },
+          // No division field — backend was unable to join it.
+        },
+      },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    const primary = wrapper.find('[data-testid="follow-label-primary"]');
+    expect(primary.text()).toBe('Mystery Team');
+    // No "undefined" leaks.
+    expect(primary.text()).not.toMatch(/undefined/);
+  });
+
+  it('suppresses the redundant club name on the right when it duplicates the team name', async () => {
+    mockFollows.value = [
+      {
+        team_id: 19,
+        team: {
+          id: 19,
+          name: 'IFA',
+          club: { id: 1, name: 'IFA' },
+          division: {
+            id: 1,
+            name: 'Northeast',
+            leagues: { id: 1, name: 'Homegrown' },
+          },
+        },
+      },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    // IFA / IFA looked duplicative before SB-65. Now the club tag is hidden
+    // when it would be redundant.
+    const item = wrapper.find('[data-testid="follow-item-19"]');
+    expect(item.findAll('.follow-club').length).toBe(0);
+  });
+
+  it('keeps the club name on the right when it differs from the team name', async () => {
+    mockFollows.value = [
+      {
+        team_id: 7,
+        team: {
+          id: 7,
+          name: 'Bayside U14',
+          club: { id: 5, name: 'Bayside FC' },
+          division: {
+            id: 1,
+            name: 'Northeast',
+            leagues: { id: 1, name: 'Homegrown' },
+          },
+        },
+      },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    const item = wrapper.find('[data-testid="follow-item-7"]');
+    expect(item.find('.follow-club').text()).toBe('Bayside FC');
   });
 });
