@@ -92,8 +92,19 @@
 
     <!-- Clock -->
     <div class="clock-container">
-      <div class="clock">{{ elapsedTime }}</div>
+      <div class="clock" :class="{ 'clock-stoppage': isInStoppage }">
+        {{ elapsedTime }}
+      </div>
       <div class="period" :class="periodClass">{{ matchPeriod }}</div>
+      <!-- SB-67: stoppage-time indicator, only shown once the clock crosses
+           the half_duration boundary. The clock itself reads "45+M:SS" -->
+      <div
+        v-if="isInStoppage"
+        class="stoppage-badge"
+        data-testid="stoppage-badge"
+      >
+        STOPPAGE TIME
+      </div>
     </div>
 
     <!-- Match Info -->
@@ -124,6 +135,12 @@ const props = defineProps({
   matchPeriod: {
     type: String,
     required: true,
+  },
+  // SB-67: when true, the clock is past the regulation half boundary and
+  // `elapsedTime` will already be rendered as `45+M:SS`.
+  isInStoppage: {
+    type: Boolean,
+    default: false,
   },
   events: {
     type: Array,
@@ -321,10 +338,29 @@ function formatMinute(goal) {
   font-family: monospace;
 }
 
+/* SB-67: distinct color when clock has crossed regulation. */
+.clock-stoppage {
+  color: #f59e0b; /* amber-500 */
+}
+
 .period {
   font-size: 14px;
   color: #888;
   margin-top: 4px;
+}
+
+/* SB-67: stoppage badge sits under the period label. */
+.stoppage-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: #f59e0b;
+  color: #1f2937;
+  border-radius: 999px;
+  text-transform: uppercase;
 }
 
 .period.active {

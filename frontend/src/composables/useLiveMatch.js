@@ -67,17 +67,79 @@ export function useLiveMatch(matchId) {
       return halfDurationSeconds;
     }
 
-    // In first half
+    // In first half. SB-67: we no longer cap at halfDurationSeconds —
+    // the clock keeps counting past 45:00 so the consumer can detect
+    // and display stoppage time.
     const firstHalfElapsed = (now - new Date(kickoff_time).getTime()) / 1000;
-    return Math.min(firstHalfElapsed, halfDurationSeconds);
+    return firstHalfElapsed;
   });
 
-  // Computed: formatted elapsed time (MM:SS)
+  // Computed: formatted elapsed time (MM:SS). Retained for any consumer
+  // that wants the raw clock without stoppage notation; the recommended
+  // display surface is `clockDisplayFormatted` below.
   const elapsedTimeFormatted = computed(() => {
     const totalSeconds = Math.floor(elapsedSeconds.value);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  });
+
+  // ── SB-67: Stoppage time ──
+  // Once the elapsed clock crosses the half_duration boundary (45:00 by
+  // default), we're in stoppage. The badge + the `45+M:SS` formatting in
+  // `clockDisplayFormatted` are driven off these three computeds. The
+  // backend already records `extra_time` on goals/cards via
+  // `calculate_match_minute()` — this is purely a display layer.
+
+  // True only when actively playing past the regulation boundary. False
+  // during halftime, at fulltime, before kickoff.
+  const isInStoppage = computed(() => {
+    if (!matchState.value) return false;
+    const {
+      kickoff_time,
+      halftime_start,
+      second_half_start,
+      match_end_time,
+      match_status,
+      half_duration = 45,
+    } = matchState.value;
+
+    if (!kickoff_time) return false;
+    if (match_end_time || match_status === 'completed') return false;
+    // At halftime (clock paused between halves) — not stoppage.
+    if (halftime_start && !second_half_start) return false;
+
+    const halfDurationSeconds = half_duration * 60;
+    const fullMatchSeconds = halfDurationSeconds * 2;
+
+    if (second_half_start) {
+      return elapsedSeconds.value > fullMatchSeconds;
+    }
+    return elapsedSeconds.value > halfDurationSeconds;
+  });
+
+  // Seconds past the current period's regulation boundary. 0 outside
+  // stoppage.
+  const stoppageElapsedSeconds = computed(() => {
+    if (!isInStoppage.value) return 0;
+    const { second_half_start, half_duration = 45 } = matchState.value;
+    const halfDurationSeconds = half_duration * 60;
+    const boundary = second_half_start
+      ? halfDurationSeconds * 2
+      : halfDurationSeconds;
+    return Math.max(0, elapsedSeconds.value - boundary);
+  });
+
+  // Authoritative display string: regulation `MM:SS`, stoppage `45+M:SS`
+  // (or `90+M:SS` in the 2nd half).
+  const clockDisplayFormatted = computed(() => {
+    if (!isInStoppage.value) return elapsedTimeFormatted.value;
+    const { second_half_start, half_duration = 45 } = matchState.value;
+    const baseMinutes = second_half_start ? half_duration * 2 : half_duration;
+    const stoppageWhole = Math.floor(stoppageElapsedSeconds.value);
+    const minutes = Math.floor(stoppageWhole / 60);
+    const seconds = stoppageWhole % 60;
+    return `${baseMinutes}+${minutes}:${seconds.toString().padStart(2, '0')}`;
   });
 
   // Computed: match period
@@ -465,6 +527,10 @@ export function useLiveMatch(matchId) {
     // Computed
     elapsedSeconds,
     elapsedTimeFormatted,
+    // SB-67: stoppage-time display surface.
+    isInStoppage,
+    stoppageElapsedSeconds,
+    clockDisplayFormatted,
     matchPeriod,
     canManage,
 
