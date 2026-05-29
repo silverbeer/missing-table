@@ -717,6 +717,7 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { subscribeToMatch } from '@/composables/useMatchRealtime';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import html2canvas from 'html2canvas';
@@ -954,11 +955,44 @@ export default {
       }
     });
 
+    // ── SB-66: Realtime updates ──
+    // Subscribe whenever a match is loaded so score/status changes posted
+    // from another device land here without a manual refresh. The Supabase
+    // payload only carries raw matches-table columns, so refresh by
+    // re-fetching to keep joined display fields fresh too.
+    let matchRealtimeHandle = null;
+
+    function ensureMatchRealtime(matchId) {
+      if (matchRealtimeHandle) {
+        matchRealtimeHandle.unsubscribe();
+        matchRealtimeHandle = null;
+      }
+      if (matchId == null) return;
+      matchRealtimeHandle = subscribeToMatch(matchId, () => {
+        // Re-fetch on any change so joined data (teams, club, events) stays
+        // consistent. Cheap because /api/matches/{id} is keyed and tiny.
+        fetchMatch();
+      });
+    }
+
+    watch(
+      () => props.matchId,
+      newId => ensureMatchRealtime(newId),
+      { immediate: false }
+    );
+
     onMounted(() => {
       fetchMatch();
+      ensureMatchRealtime(props.matchId);
     });
 
-    onUnmounted(() => clearInterval(countdownTimer));
+    onUnmounted(() => {
+      clearInterval(countdownTimer);
+      if (matchRealtimeHandle) {
+        matchRealtimeHandle.unsubscribe();
+        matchRealtimeHandle = null;
+      }
+    });
 
     // Share scoreboard as image to clipboard
     const shareScoreboard = async () => {

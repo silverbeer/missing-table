@@ -72,6 +72,14 @@ vi.mock('@/config/api', () => ({
   getApiBaseUrl: () => 'http://localhost:8000',
 }));
 
+// SB-66: stub realtime so MatchesView mounts without a live channel.
+vi.mock('@/composables/useMatchRealtime', () => ({
+  subscribeToMatch: vi.fn(() => ({
+    unsubscribe: vi.fn(),
+    isConnected: () => false,
+  })),
+}));
+
 /**
  * Helper to mount MatchesView with default options
  */

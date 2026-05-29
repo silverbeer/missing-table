@@ -44,6 +44,15 @@ vi.mock('html2canvas', () => ({
   ),
 }));
 
+// SB-66: stub the realtime subscription so the component can mount without
+// a live Supabase channel. Tests don't exercise the realtime path.
+vi.mock('@/composables/useMatchRealtime', () => ({
+  subscribeToMatch: vi.fn(() => ({
+    unsubscribe: vi.fn(),
+    isConnected: () => false,
+  })),
+}));
+
 /**
  * Helper to mount MatchDetailView with default options
  */
