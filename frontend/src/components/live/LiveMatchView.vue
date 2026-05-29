@@ -31,8 +31,9 @@
       <!-- Scoreboard -->
       <LiveScoreboard
         :match-state="matchState"
-        :elapsed-time="elapsedTimeFormatted"
+        :elapsed-time="clockDisplayFormatted"
         :match-period="matchPeriod"
+        :is-in-stoppage="isInStoppage"
         :events="events"
       />
 
@@ -91,7 +92,8 @@ const {
   isLoading,
   error,
   isConnected,
-  elapsedTimeFormatted,
+  clockDisplayFormatted,
+  isInStoppage,
   matchPeriod,
   canManage,
   updateClock,
