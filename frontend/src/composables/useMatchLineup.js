@@ -33,16 +33,22 @@ export function useMatchLineup(matchId, matchData) {
     const match = unwrapMatchData(matchData);
     if (!match) return { home: [], away: [] };
 
-    const { home_team_id, away_team_id, season_id } = match;
+    const { home_team_id, away_team_id, season_id, age_group_id } = match;
     if (!season_id) return { home: [], away: [] };
+
+    // SB-68: pass the match's age_group_id so the live-match path filters
+    // strictly by age group. Without this, an IFA U15 match would pull
+    // the IFA U14 roster (team_id is age-agnostic for umbrella clubs).
+    const ageGroupParam =
+      age_group_id != null ? `&age_group_id=${age_group_id}` : '';
 
     try {
       const [homeResponse, awayResponse] = await Promise.all([
         authStore.apiRequest(
-          `${getApiBaseUrl()}/api/teams/${home_team_id}/roster?season_id=${season_id}`
+          `${getApiBaseUrl()}/api/teams/${home_team_id}/roster?season_id=${season_id}${ageGroupParam}`
         ),
         authStore.apiRequest(
-          `${getApiBaseUrl()}/api/teams/${away_team_id}/roster?season_id=${season_id}`
+          `${getApiBaseUrl()}/api/teams/${away_team_id}/roster?season_id=${season_id}${ageGroupParam}`
         ),
       ]);
 

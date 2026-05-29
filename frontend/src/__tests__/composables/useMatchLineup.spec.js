@@ -103,6 +103,61 @@ describe('useMatchLineup', () => {
 
       expect(result).toEqual({ home: [], away: [] });
     });
+
+    // ── SB-68: age_group_id filter ──
+    it('appends &age_group_id to the URL when match.age_group_id is set', async () => {
+      const calledUrls = [];
+      mockAuthStore.apiRequest = vi.fn(url => {
+        calledUrls.push(url);
+        return Promise.resolve({ roster: [] });
+      });
+
+      const matchData = ref(createMatchData({ age_group_id: 3 }));
+      const { fetchTeamRosters } = useMatchLineup(1, matchData);
+
+      await fetchTeamRosters();
+
+      expect(calledUrls).toHaveLength(2);
+      for (const url of calledUrls) {
+        expect(url).toContain('season_id=3');
+        expect(url).toContain('age_group_id=3');
+      }
+    });
+
+    it('omits age_group_id when match.age_group_id is null', async () => {
+      const calledUrls = [];
+      mockAuthStore.apiRequest = vi.fn(url => {
+        calledUrls.push(url);
+        return Promise.resolve({ roster: [] });
+      });
+
+      const matchData = ref(createMatchData({ age_group_id: null }));
+      const { fetchTeamRosters } = useMatchLineup(1, matchData);
+
+      await fetchTeamRosters();
+
+      for (const url of calledUrls) {
+        expect(url).not.toContain('age_group_id');
+      }
+    });
+
+    it('omits age_group_id when match.age_group_id is undefined', async () => {
+      const calledUrls = [];
+      mockAuthStore.apiRequest = vi.fn(url => {
+        calledUrls.push(url);
+        return Promise.resolve({ roster: [] });
+      });
+
+      // No age_group_id key on the match object at all.
+      const matchData = ref(createMatchData());
+      const { fetchTeamRosters } = useMatchLineup(1, matchData);
+
+      await fetchTeamRosters();
+
+      for (const url of calledUrls) {
+        expect(url).not.toContain('age_group_id');
+      }
+    });
   });
 
   describe('fetchLineups', () => {

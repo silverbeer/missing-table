@@ -36,6 +36,7 @@
           v-else-if="activeLineupTab === 'home'"
           :team-id="matchState.home_team_id"
           :team-name="matchState.home_team_name"
+          :age-group-name="matchState.age_group_name"
           :roster="homeRoster"
           :initial-lineup="homeLineup"
           :saving="savingLineup"
@@ -46,6 +47,7 @@
           v-else
           :team-id="matchState.away_team_id"
           :team-name="matchState.away_team_name"
+          :age-group-name="matchState.age_group_name"
           :roster="awayRoster"
           :initial-lineup="awayLineup"
           :saving="savingLineup"

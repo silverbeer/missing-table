@@ -4989,7 +4989,18 @@ async def check_match(
 
 
 @app.get("/api/teams/{team_id}/players")
-async def get_team_players(team_id: int, current_user: dict[str, Any] = Depends(get_current_user_required)):
+async def get_team_players(
+    team_id: int,
+    age_group_id: int | None = Query(
+        None,
+        description=(
+            "Optional age group filter (SB-68). When set, returns only "
+            "players whose player_team_history.age_group_id matches. "
+            "When omitted, returns the full team roster regardless of age."
+        ),
+    ),
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
     """
     Get all players on a team for the team roster page.
 
@@ -5043,7 +5054,7 @@ async def get_team_players(team_id: int, current_user: dict[str, Any] = Depends(
             raise HTTPException(status_code=404, detail="Team not found")
 
         # Get players
-        players = player_dao.get_team_players(team_id)
+        players = player_dao.get_team_players(team_id, age_group_id)
 
         return {"success": True, "team": team, "players": players}
 
@@ -5061,6 +5072,14 @@ async def get_team_players(team_id: int, current_user: dict[str, Any] = Depends(
 async def get_team_roster(
     team_id: int,
     season_id: int = Query(..., description="Season ID"),
+    age_group_id: int | None = Query(
+        None,
+        description=(
+            "Optional age group filter (SB-68). When set, returns only "
+            "players whose players.age_group_id matches. When omitted, "
+            "returns the full team roster regardless of age."
+        ),
+    ),
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """
@@ -5076,9 +5095,15 @@ async def get_team_roster(
             raise HTTPException(status_code=404, detail="Team not found")
 
         # Get roster from players table
-        roster = roster_dao.get_team_roster(team_id, season_id)
+        roster = roster_dao.get_team_roster(team_id, season_id, age_group_id)
 
-        return {"success": True, "team_id": team_id, "season_id": season_id, "roster": roster}
+        return {
+            "success": True,
+            "team_id": team_id,
+            "season_id": season_id,
+            "age_group_id": age_group_id,
+            "roster": roster,
+        }
 
     except HTTPException:
         raise
