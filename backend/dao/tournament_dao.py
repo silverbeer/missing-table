@@ -167,15 +167,26 @@ class TournamentDAO(BaseDAO):
                     tournament_round,
                     tournament_round_order,
                     age_group:age_groups!matches_age_group_id_fkey(id, name),
-                    home_team:teams!matches_home_team_id_fkey(id, name),
-                    away_team:teams!matches_away_team_id_fkey(id, name)
+                    home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
+                    away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url))
                 """)
                 .eq("tournament_id", tournament_id)
                 .order("match_date", desc=False)
                 .execute()
             )
 
-            tournament["matches"] = m_response.data or []
+            # Flatten the nested club under each team into a top-level
+            # `home_team_club` / `away_team_club` on the match, matching the
+            # shape used by `/api/matches` and consumed by MatchDetailView /
+            # MatchesView. Keeps the frontend club-logo code paths consistent
+            # across endpoints.
+            matches = m_response.data or []
+            for m in matches:
+                home = m.get("home_team") or {}
+                away = m.get("away_team") or {}
+                m["home_team_club"] = home.pop("club", None)
+                m["away_team_club"] = away.pop("club", None)
+            tournament["matches"] = matches
             return tournament
 
         except Exception:

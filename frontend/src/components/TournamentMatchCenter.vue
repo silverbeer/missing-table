@@ -295,7 +295,7 @@
                       >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
                     >
                     <span
-                      v-if="match.age_group"
+                      v-if="match.age_group && showAgeChip"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
                     >
@@ -340,7 +340,7 @@
                   </div>
                   <div class="hidden sm:flex gap-1 shrink-0">
                     <span
-                      v-if="match.age_group"
+                      v-if="match.age_group && showAgeChip"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
                     >
@@ -351,10 +351,18 @@
                     >
                   </div>
                   <div class="flex-1 flex items-center gap-2 min-w-0">
-                    <span
-                      class="text-sm font-medium text-gray-900 text-right truncate flex-1"
-                      >{{ match.home_team?.name }}</span
-                    >
+                    <div class="flex-1 flex items-center gap-1.5 min-w-0">
+                      <img
+                        v-if="match.home_team_club?.logo_url"
+                        :src="match.home_team_club.logo_url"
+                        alt=""
+                        class="w-5 h-5 object-contain shrink-0"
+                      />
+                      <span
+                        class="text-sm font-medium text-gray-900 text-right truncate flex-1 min-w-0"
+                        >{{ match.home_team?.name }}</span
+                      >
+                    </div>
                     <span
                       :class="[
                         'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
@@ -371,10 +379,18 @@
                           : 'vs'
                       }}
                     </span>
-                    <span
-                      class="text-sm font-medium text-gray-900 text-left truncate flex-1"
-                      >{{ match.away_team?.name }}</span
-                    >
+                    <div class="flex-1 flex items-center gap-1.5 min-w-0">
+                      <span
+                        class="text-sm font-medium text-gray-900 text-left truncate flex-1 min-w-0"
+                        >{{ match.away_team?.name }}</span
+                      >
+                      <img
+                        v-if="match.away_team_club?.logo_url"
+                        :src="match.away_team_club.logo_url"
+                        alt=""
+                        class="w-5 h-5 object-contain shrink-0"
+                      />
+                    </div>
                   </div>
                   <div class="hidden sm:block w-20 shrink-0 text-right">
                     <span
@@ -429,7 +445,7 @@
                       >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
                     >
                     <span
-                      v-if="match.age_group"
+                      v-if="match.age_group && showAgeChip"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
                     >
@@ -474,7 +490,7 @@
                   </div>
                   <div class="hidden sm:flex gap-1 shrink-0">
                     <span
-                      v-if="match.age_group"
+                      v-if="match.age_group && showAgeChip"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
                     >
@@ -490,10 +506,18 @@
                     >
                   </div>
                   <div class="flex-1 flex items-center gap-2 min-w-0">
-                    <span
-                      class="text-sm font-medium text-gray-900 text-right truncate flex-1"
-                      >{{ match.home_team?.name }}</span
-                    >
+                    <div class="flex-1 flex items-center gap-1.5 min-w-0">
+                      <img
+                        v-if="match.home_team_club?.logo_url"
+                        :src="match.home_team_club.logo_url"
+                        alt=""
+                        class="w-5 h-5 object-contain shrink-0"
+                      />
+                      <span
+                        class="text-sm font-medium text-gray-900 text-right truncate flex-1 min-w-0"
+                        >{{ match.home_team?.name }}</span
+                      >
+                    </div>
                     <span
                       :class="[
                         'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
@@ -510,10 +534,18 @@
                           : 'vs'
                       }}
                     </span>
-                    <span
-                      class="text-sm font-medium text-gray-900 text-left truncate flex-1"
-                      >{{ match.away_team?.name }}</span
-                    >
+                    <div class="flex-1 flex items-center gap-1.5 min-w-0">
+                      <span
+                        class="text-sm font-medium text-gray-900 text-left truncate flex-1 min-w-0"
+                        >{{ match.away_team?.name }}</span
+                      >
+                      <img
+                        v-if="match.away_team_club?.logo_url"
+                        :src="match.away_team_club.logo_url"
+                        alt=""
+                        class="w-5 h-5 object-contain shrink-0"
+                      />
+                    </div>
                   </div>
                   <div class="hidden sm:block w-20 shrink-0 text-right">
                     <span
@@ -568,7 +600,7 @@
                       >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
                     >
                     <span
-                      v-if="match.age_group"
+                      v-if="match.age_group && showAgeChip"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
                     >
@@ -608,16 +640,24 @@
                   </div>
                   <div class="hidden sm:flex gap-1 shrink-0">
                     <span
-                      v-if="match.age_group"
+                      v-if="match.age_group && showAgeChip"
                       class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
                       >{{ match.age_group.name }}</span
                     >
                   </div>
                   <div class="flex-1 flex items-center gap-2 min-w-0">
-                    <span
-                      class="text-sm font-medium text-gray-900 text-right truncate flex-1"
-                      >{{ match.home_team?.name }}</span
-                    >
+                    <div class="flex-1 flex items-center gap-1.5 min-w-0">
+                      <img
+                        v-if="match.home_team_club?.logo_url"
+                        :src="match.home_team_club.logo_url"
+                        alt=""
+                        class="w-5 h-5 object-contain shrink-0"
+                      />
+                      <span
+                        class="text-sm font-medium text-gray-900 text-right truncate flex-1 min-w-0"
+                        >{{ match.home_team?.name }}</span
+                      >
+                    </div>
                     <span
                       :class="[
                         'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
@@ -634,10 +674,18 @@
                           : 'vs'
                       }}
                     </span>
-                    <span
-                      class="text-sm font-medium text-gray-900 text-left truncate flex-1"
-                      >{{ match.away_team?.name }}</span
-                    >
+                    <div class="flex-1 flex items-center gap-1.5 min-w-0">
+                      <span
+                        class="text-sm font-medium text-gray-900 text-left truncate flex-1 min-w-0"
+                        >{{ match.away_team?.name }}</span
+                      >
+                      <img
+                        v-if="match.away_team_club?.logo_url"
+                        :src="match.away_team_club.logo_url"
+                        alt=""
+                        class="w-5 h-5 object-contain shrink-0"
+                      />
+                    </div>
                   </div>
                   <div class="hidden sm:block w-20 shrink-0 text-right">
                     <span
@@ -951,37 +999,68 @@ export default {
       );
     });
 
+    // Sort key used across all three sections: ascending by match_date first,
+    // then by scheduled_kickoff within the day, then by id as a stable
+    // tiebreaker. Matches without a scheduled_kickoff still group correctly
+    // because the date sort still applies; they fall to the bottom of the
+    // day in id-order.
+    const byKickoffAsc = (a, b) => {
+      const da = a.match_date || '';
+      const db = b.match_date || '';
+      if (da !== db) return da < db ? -1 : 1;
+      const ka = a.scheduled_kickoff || '';
+      const kb = b.scheduled_kickoff || '';
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return (a.id || 0) - (b.id || 0);
+    };
+
     const groupStageMatches = computed(() =>
-      filteredMatches.value.filter(m => m.tournament_round === 'group_stage')
+      filteredMatches.value
+        .filter(m => m.tournament_round === 'group_stage')
+        .slice()
+        .sort(byKickoffAsc)
     );
 
-    const knockoutMatches = computed(() =>
-      filteredMatches.value
+    // Knockout: round first (R32 → R16 → QF → SF → 3rd → Final), then
+    // chronological within the round. This keeps the visual flow of the
+    // tournament progression intact while still ordering within each round.
+    const knockoutMatches = computed(() => {
+      const order = [
+        'round_of_32',
+        'round_of_16',
+        'quarterfinal',
+        'semifinal',
+        'third_place',
+        'final',
+      ];
+      return filteredMatches.value
         .filter(m => KNOCKOUT_ROUNDS.has(m.tournament_round))
+        .slice()
         .sort((a, b) => {
-          const order = [
-            'round_of_32',
-            'round_of_16',
-            'quarterfinal',
-            'semifinal',
-            'third_place',
-            'final',
-          ];
-          return (
+          const r =
             order.indexOf(a.tournament_round) -
-            order.indexOf(b.tournament_round)
-          );
-        })
-    );
+            order.indexOf(b.tournament_round);
+          return r !== 0 ? r : byKickoffAsc(a, b);
+        });
+    });
 
     const untaggedMatches = computed(() =>
-      filteredMatches.value.filter(
-        m =>
-          !m.tournament_round ||
-          (!KNOCKOUT_ROUNDS.has(m.tournament_round) &&
-            m.tournament_round !== 'group_stage')
-      )
+      filteredMatches.value
+        .filter(
+          m =>
+            !m.tournament_round ||
+            (!KNOCKOUT_ROUNDS.has(m.tournament_round) &&
+              m.tournament_round !== 'group_stage')
+        )
+        .slice()
+        .sort(byKickoffAsc)
     );
+
+    // True when the tournament has more than one age group represented in
+    // its matches — drives whether each row should show the age-group chip.
+    // For single-age tournaments (e.g. NAC = U14-only) the chip is pure
+    // noise, since the tournament header already states the age group.
+    const showAgeChip = computed(() => availableAgeGroups.value.length > 1);
 
     // ── bracket-mode computed state ──
 
@@ -1185,6 +1264,7 @@ export default {
       selectedMatchId,
       viewMatch,
       handleBackFromMatchDetail,
+      showAgeChip,
     };
   },
 };
