@@ -23,21 +23,31 @@ class RosterDAO(BaseDAO):
 
     # === Read Operations ===
 
-    @dao_cache("roster:team:{team_id}:season:{season_id}")
-    def get_team_roster(self, team_id: int, season_id: int) -> list[dict]:
+    @dao_cache("roster:team:{team_id}:season:{season_id}:age:{age_group_id}")
+    def get_team_roster(
+        self,
+        team_id: int,
+        season_id: int,
+        age_group_id: int | None = None,
+    ) -> list[dict]:
         """
         Get all roster entries for a team in a specific season.
 
         Args:
             team_id: Team ID
             season_id: Season ID
+            age_group_id: Optional age group filter (SB-68). When set, only
+                players whose `players.age_group_id` matches are returned.
+                When None, returns all active roster entries for the team
+                regardless of age group (current behavior preserved for
+                non-live-match consumers).
 
         Returns:
             List of player dicts with computed display_name
         """
         try:
             # Use explicit FK relationship to avoid ambiguity with created_by FK
-            response = (
+            query = (
                 self.client.table("players")
                 .select("""
                 *,
@@ -48,16 +58,23 @@ class RosterDAO(BaseDAO):
                 .eq("team_id", team_id)
                 .eq("season_id", season_id)
                 .eq("is_active", True)
-                .order("jersey_number")
-                .execute()
             )
+            if age_group_id is not None:
+                query = query.eq("age_group_id", age_group_id)
+            response = query.order("jersey_number").execute()
 
             players = response.data or []
             # Add computed display_name to each player
             return [self._add_display_name(p) for p in players]
 
         except Exception as e:
-            logger.error("roster_get_team_error", team_id=team_id, season_id=season_id, error=str(e))
+            logger.error(
+                "roster_get_team_error",
+                team_id=team_id,
+                season_id=season_id,
+                age_group_id=age_group_id,
+                error=str(e),
+            )
             return []
 
     def get_player_by_id(self, player_id: int) -> dict | None:

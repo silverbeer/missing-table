@@ -221,8 +221,12 @@ class PlayerDAO(BaseDAO):
 
     # === Team Players Methods ===
 
-    @dao_cache("players:by_team:{team_id}")
-    def get_team_players(self, team_id: int) -> list[dict]:
+    @dao_cache("players:by_team:{team_id}:age:{age_group_id}")
+    def get_team_players(
+        self,
+        team_id: int,
+        age_group_id: int | None = None,
+    ) -> list[dict]:
         """
         Get all players currently on a team for the team roster page.
 
@@ -236,13 +240,17 @@ class PlayerDAO(BaseDAO):
 
         Args:
             team_id: The team ID to get players for
+            age_group_id: Optional age group filter (SB-68). When set,
+                filters `player_team_history.age_group_id` strictly. When
+                None, returns all current roster entries regardless of age
+                (current behavior preserved for the team roster page).
 
         Returns:
             List of player profile dicts
         """
         try:
             # Query player_team_history for current team members
-            response = (
+            query = (
                 self.client.table("player_team_history")
                 .select("""
                 player_id,
@@ -268,8 +276,10 @@ class PlayerDAO(BaseDAO):
             """)
                 .eq("team_id", team_id)
                 .eq("is_current", True)
-                .execute()
             )
+            if age_group_id is not None:
+                query = query.eq("age_group_id", age_group_id)
+            response = query.execute()
 
             # Flatten the results - extract user_profiles and merge with history data
             players = []

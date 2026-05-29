@@ -31,7 +31,26 @@
     <!-- Unassigned players (bench) -->
     <div class="bench-section">
       <h4 class="bench-title">Bench ({{ unassignedPlayers.length }})</h4>
-      <div v-if="unassignedPlayers.length === 0" class="no-bench">
+      <!-- SB-68: distinguish "no roster set up for this age group" from
+           "every roster player is on the pitch". When the roster array is
+           empty, surface a helpful pointer; when it's just fully assigned,
+           keep the original message. -->
+      <div
+        v-if="roster.length === 0"
+        class="no-bench no-roster"
+        data-testid="lineup-empty-no-roster"
+      >
+        <p class="no-bench-headline">
+          No roster set
+          <template v-if="ageGroupName"> for {{ ageGroupName }}</template>
+          <template v-if="teamName"> on {{ teamName }} </template>
+        </p>
+        <p class="no-bench-hint">
+          Live-scoring still works — use "Other player" when recording events,
+          or set up the roster via Profile → My Club.
+        </p>
+      </div>
+      <div v-else-if="unassignedPlayers.length === 0" class="no-bench">
         All players assigned
       </div>
       <div v-else class="bench-list">
@@ -122,6 +141,13 @@ const props = defineProps({
     required: true,
   },
   teamName: {
+    type: String,
+    default: '',
+  },
+  // SB-68: rendered in the "No roster set" empty-state so admins
+  // immediately see which age group's roster is missing rather than just
+  // an empty list.
+  ageGroupName: {
     type: String,
     default: '',
   },
@@ -395,6 +421,27 @@ watch(
   color: #666;
   font-size: 13px;
   font-style: italic;
+}
+
+/* SB-68: empty-roster pointer (no roster set up for this age group). */
+.no-bench.no-roster {
+  font-style: normal;
+  color: #ccc;
+  padding: 4px 0;
+}
+
+.no-bench-headline {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fbbf24; /* amber, matches the stoppage badge palette */
+}
+
+.no-bench-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #aaa;
+  line-height: 1.4;
 }
 
 .bench-list {
