@@ -25,6 +25,24 @@ const state = reactive({
   error: null,
 });
 
+// Silent-refresh machinery — module-level so it is shared across every
+// useAuthStore() caller (components each invoke the factory). See SB-78.
+let refreshTimer = null; // proactive 60s interval id
+let refreshInFlight = null; // single-flight guard: shared in-flight refresh promise
+let resumeListenersBound = false; // focus/visibilitychange bound once
+
+// Decode a JWT's `exp` claim (epoch seconds) without verifying the signature.
+// Used as a fallback when an explicit expires_at isn't available (e.g. on init
+// where only the access_token survives in localStorage).
+const decodeJwtExp = token => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+};
+
 export const useAuthStore = () => {
   // Computed properties
   const isAuthenticated = computed(() => !!state.session);
@@ -72,9 +90,64 @@ export const useAuthStore = () => {
       if (session.refresh_token) {
         localStorage.setItem('refresh_token', session.refresh_token);
       }
+      // Resolve token expiry (epoch seconds): prefer the explicit value from the
+      // login/refresh response, else decode it from the JWT. Persist it so a
+      // proactive refresh can be scheduled even after a page reload.
+      const expiresAt =
+        session.expires_at || decodeJwtExp(session.access_token);
+      if (expiresAt) {
+        state.session.expires_at = expiresAt;
+        localStorage.setItem('token_expires_at', String(expiresAt));
+      }
+      startTokenRefreshTimer();
     } else {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expires_at');
+      stopTokenRefreshTimer();
+    }
+  };
+
+  // Proactive silent refresh: poll once a minute and refresh the token a few
+  // minutes before it expires, so an active session never lapses to a 401.
+  const startTokenRefreshTimer = () => {
+    if (refreshTimer) return;
+    bindResumeListeners();
+    refreshTimer = setInterval(() => {
+      if (state.session && isTokenExpiringSoon()) {
+        refreshSession();
+      }
+    }, 60 * 1000);
+  };
+
+  const stopTokenRefreshTimer = () => {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  };
+
+  // Mobile fix: PWAs/Safari freeze timers while backgrounded, so the interval
+  // above won't fire across a long suspend. Refresh on resume (tab focus /
+  // becoming visible) when the token is expiring or already expired.
+  const bindResumeListeners = () => {
+    if (resumeListenersBound || typeof window === 'undefined') return;
+    resumeListenersBound = true;
+    const maybeRefresh = () => {
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState !== 'visible'
+      ) {
+        return;
+      }
+      if (!localStorage.getItem('refresh_token')) return;
+      if (state.session && isTokenExpiringSoon()) {
+        refreshSession();
+      }
+    };
+    window.addEventListener('focus', maybeRefresh);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', maybeRefresh);
     }
   };
 
@@ -214,6 +287,7 @@ export const useAuthStore = () => {
       setSession({
         access_token: data.access_token,
         refresh_token: data.refresh_token,
+        expires_at: data.expires_at,
       });
       // Login endpoint returns basic user info
       setProfile(data.user);
@@ -428,11 +502,13 @@ export const useAuthStore = () => {
       }
 
       // Clear local state regardless of API response
+      stopTokenRefreshTimer();
       setUser(null);
       setSession(null);
       setProfile(null);
       localStorage.removeItem('auth_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expires_at');
       localStorage.removeItem('sb-localhost-auth-token');
       clearCSRFToken();
 
@@ -456,6 +532,7 @@ export const useAuthStore = () => {
 
   const forceLogout = () => {
     // Force clear all auth state without async calls
+    stopTokenRefreshTimer();
     state.user = null;
     state.session = null;
     state.profile = null;
@@ -720,41 +797,53 @@ export const useAuthStore = () => {
   };
 
   const refreshSession = async () => {
-    try {
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) {
+    // Single-flight: with refresh-token rotation enabled, two concurrent
+    // refreshes would send the same token twice — the second send uses an
+    // already-rotated token and gets rejected, forcing a spurious logout.
+    // Share one in-flight promise so parallel callers await the same result.
+    if (refreshInFlight) return refreshInFlight;
+
+    refreshInFlight = (async () => {
+      try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          recordSessionRefresh(false);
+          throw new Error('No refresh token');
+        }
+
+        const response = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getTraceHeaders(),
+          },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+
+        if (!response.ok) {
+          recordSessionRefresh(false);
+          throw new Error('Token refresh failed');
+        }
+
+        const data = await response.json();
+        setSession(data.session);
+
+        recordSessionRefresh(true);
+        return { success: true };
+      } catch (error) {
+        // Refresh failed, force logout
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        localStorage.clear();
         recordSessionRefresh(false);
-        throw new Error('No refresh token');
+        return { success: false, error: error.message };
+      } finally {
+        refreshInFlight = null;
       }
+    })();
 
-      const response = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getTraceHeaders(),
-        },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-
-      if (!response.ok) {
-        recordSessionRefresh(false);
-        throw new Error('Token refresh failed');
-      }
-
-      const data = await response.json();
-      setSession(data.session);
-
-      recordSessionRefresh(true);
-      return { success: true };
-    } catch (error) {
-      // Refresh failed, force logout
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      localStorage.clear();
-      recordSessionRefresh(false);
-      return { success: false, error: error.message };
-    }
+    return refreshInFlight;
   };
 
   const apiRequest = async (url, options = {}) => {
@@ -916,6 +1005,7 @@ export const useAuthStore = () => {
     getAuthHeaders,
     apiRequest,
     apiCall,
+    setSession,
     refreshSession,
     isTokenExpiringSoon,
     checkUsernameAvailability,

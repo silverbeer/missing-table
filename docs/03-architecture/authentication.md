@@ -100,6 +100,33 @@ PUT  /api/auth/profile
 - Frontend receives simplified session tokens
 - Automatic token refresh handled by backend
 
+##### Silent refresh & session lifetime (SB-78)
+
+Goal: users on the phone PWA / laptop / desktop stay logged in for **30 days of
+inactivity** without re-entering their password. The access token stays
+short-lived (1h) for security; longevity comes from the **refresh token**.
+
+How it works (frontend `stores/auth.js`):
+
+- **`expires_at` is persisted.** `/api/auth/login` and `/api/auth/refresh` both
+  return `expires_at`; `setSession` stores it in `localStorage` (`token_expires_at`)
+  and decodes the JWT `exp` as a fallback. Without this, `isTokenExpiringSoon()`
+  can never fire.
+- **Proactive refresh timer.** A 60s interval refreshes the token once it is
+  within 5 minutes of expiry, so an active session never lapses to a 401.
+- **Refresh-on-resume.** `visibilitychange` + `focus` listeners refresh on tab
+  resume — mobile PWAs/Safari freeze timers while backgrounded, so the interval
+  alone can't cover a long suspend.
+- **Single-flight guard.** Concurrent refreshes share one in-flight promise.
+  With refresh-token rotation enabled, two parallel refreshes would send the
+  same token twice and the second (already-rotated) send would be rejected,
+  forcing a spurious logout.
+
+**Supabase config.** Access-token TTL is `jwt_expiry = 3600` (local
+`supabase-local/config.toml`). The 30-day idle window is the refresh-token
+**inactivity timeout**, set in the **Supabase Cloud dashboard** for production
+(Auth → Sessions), not in the repo. Refresh-token rotation stays enabled.
+
 #### 3. **Frontend Changes**
 ```javascript
 // NEW APPROACH - Backend API calls

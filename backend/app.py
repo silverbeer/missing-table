@@ -578,6 +578,10 @@ async def login(request: Request, user_data: UserLogin):
             return {
                 "access_token": response.session.access_token,
                 "refresh_token": response.session.refresh_token,
+                # Surface token lifetime so the frontend can schedule a proactive
+                # silent refresh instead of waiting to hit a 401 (see SB-78).
+                "expires_at": response.session.expires_at,
+                "expires_in": response.session.expires_in,
                 "user": {
                     "id": response.user.id,
                     "username": profile.get("username"),
