@@ -34,6 +34,25 @@ This skill loads a tournament's matches into Missing Table from a screenshot. It
 
 3. **`MT_API_BASE_URL`** (optional, defaults to `http://localhost:8000`). The skill **shares its token with `backend/mt_cli.py`** via `backend/.mt-cli-state.json` — log in once with `mt_cli`, both tools use it. `MT_ADMIN_TOKEN` env var overrides the cached token if you want to use a different one for the skill specifically.
 
+## First-time setup on a new machine
+
+The skill itself travels with this repo (it's committed under `.claude/skills/`), but its runtime is per-machine. Before the first load on a machine you haven't used it on (e.g. a second Mac), do this once:
+
+1. **Clone the repo** and install backend deps so `mt.py` has its venv (typer, pillow, httpx, pydantic, `api_client`):
+   ```bash
+   cd backend && uv sync
+   ```
+2. **Log in** — the token cache (`backend/.mt-cli-state.json`) is gitignored and does **not** sync between machines, so authenticate here:
+   ```bash
+   ! cd backend && uv run python mt_cli.py login <admin-username>
+   ```
+3. **Pick the target environment.** Default is local (`http://localhost:8000`). To load into **production**, point at the prod API and make sure you logged in against it:
+   ```bash
+   export MT_API_BASE_URL=https://api.missingtable.com
+   ```
+   To load into a **local** DB instead, start local Supabase + the backend first.
+4. **Confirm** with `auth status` (Prerequisite #2) — expect `{"authenticated": true, "role": "admin"}`.
+
 ## Tool location
 
 All operations go through one CLI. Always invoke from `backend/` so the script picks up MT's venv (which already has typer + pillow + httpx + pydantic + the `api_client` package on the path):
