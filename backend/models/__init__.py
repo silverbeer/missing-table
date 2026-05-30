@@ -77,6 +77,7 @@ from .post_match import (
 
 # Roster models
 from .roster import (
+    BulkAgeGroupUpdate,
     BulkRenumberRequest,
     BulkRosterCreate,
     BulkRosterPlayer,
@@ -104,6 +105,7 @@ __all__ = [
     "AgeGroupCreate",
     "AgeGroupUpdate",
     "BatchPlayerStatsUpdate",
+    "BulkAgeGroupUpdate",
     "BulkRenumberRequest",
     "BulkRosterCreate",
     "BulkRosterPlayer",

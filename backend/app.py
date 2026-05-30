@@ -36,6 +36,7 @@ from models import (
     AgeGroupCreate,
     AgeGroupUpdate,
     BatchPlayerStatsUpdate,
+    BulkAgeGroupUpdate,
     BulkRenumberRequest,
     BulkRosterCreate,
     Club,
@@ -5248,6 +5249,53 @@ async def bulk_create_roster(
     except Exception as e:
         logger.error(f"Error bulk creating roster: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to bulk create roster") from e
+
+
+@app.patch("/api/teams/{team_id}/players/age-group")
+async def bulk_assign_player_age_group(
+    team_id: int,
+    data: BulkAgeGroupUpdate,
+    current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
+):
+    """
+    Bulk-assign age_group_id to existing roster entries (SB-69).
+
+    Existing players predate the players.age_group_id column (SB-68) and have it
+    NULL, which makes the live-match lineup empty for every team. This lets a
+    manager tag a team's roster with the right age group in one action.
+
+    Requires admin or team_manager role. The write is scoped to the team and
+    season, so foreign player_ids are silently skipped rather than updated.
+    """
+    try:
+        # Verify team exists
+        team = team_dao.get_team_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Validate the age group exists (FK would reject anyway; this is a clean 400)
+        valid_age_group_ids = {ag["id"] for ag in season_dao.get_all_age_groups()}
+        if data.age_group_id not in valid_age_group_ids:
+            raise HTTPException(status_code=400, detail="Invalid age_group_id")
+
+        updated = roster_dao.bulk_update_age_group(
+            team_id=team_id,
+            season_id=data.season_id,
+            player_ids=data.player_ids,
+            age_group_id=data.age_group_id,
+        )
+
+        return {
+            "success": True,
+            "updated": updated,
+            "updated_count": len(updated),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error bulk-assigning age group: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to assign age group") from e
 
 
 @app.put("/api/teams/{team_id}/roster/{player_id}")

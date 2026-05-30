@@ -41,8 +41,38 @@
       <div
         class="p-4 border-b border-gray-200 flex justify-between items-center"
       >
-        <div class="text-sm text-gray-600">
-          {{ roster.length }} player{{ roster.length !== 1 ? 's' : '' }}
+        <div class="flex items-center space-x-3">
+          <div class="text-sm text-gray-600">
+            {{ roster.length }} player{{ roster.length !== 1 ? 's' : '' }}
+          </div>
+          <!-- Bulk age-group assignment (SB-69): shows when rows are selected -->
+          <div
+            v-if="selectedIds.length"
+            class="flex items-center space-x-2"
+            data-testid="bulk-age-group-bar"
+          >
+            <span class="text-sm text-gray-600"
+              >{{ selectedIds.length }} selected</span
+            >
+            <select
+              v-model.number="bulkAgeGroupId"
+              class="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+              data-testid="bulk-age-group-select"
+            >
+              <option :value="null" disabled>Age group…</option>
+              <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
+                {{ ag.name }}
+              </option>
+            </select>
+            <button
+              @click="assignSelected"
+              :disabled="!bulkAgeGroupId || formLoading"
+              class="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md disabled:opacity-50"
+              data-testid="assign-age-group-button"
+            >
+              {{ formLoading ? 'Assigning…' : 'Assign Age Group' }}
+            </button>
+          </div>
         </div>
         <div class="flex space-x-2">
           <button
@@ -98,6 +128,16 @@
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
+              <th class="px-4 py-3 text-left w-10">
+                <input
+                  type="checkbox"
+                  :checked="allSelected"
+                  @change="toggleSelectAll"
+                  class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  title="Select all"
+                  data-testid="select-all-checkbox"
+                />
+              </th>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16"
               >
@@ -107,6 +147,11 @@
                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
                 Name
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28"
+              >
+                Age Group
               </th>
               <th
                 class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
@@ -131,6 +176,15 @@
               :key="player.id"
               :data-testid="`roster-row-${player.id}`"
             >
+              <td class="px-4 py-3 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  :value="player.id"
+                  v-model="selectedIds"
+                  class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  :data-testid="`select-player-${player.id}`"
+                />
+              </td>
               <td
                 class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900"
               >
@@ -138,6 +192,26 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                 {{ player.display_name }}
+              </td>
+              <!-- Age-group badge + inline single-row quick-assign (SB-69) -->
+              <td class="px-4 py-3 whitespace-nowrap text-sm">
+                <select
+                  :value="player.age_group_id ?? ''"
+                  @change="event => quickAssign(player, event.target.value)"
+                  :disabled="formLoading"
+                  class="px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  :class="
+                    player.age_group_id
+                      ? 'border-gray-300 text-gray-900'
+                      : 'border-amber-300 text-amber-700 bg-amber-50'
+                  "
+                  :data-testid="`row-age-group-${player.id}`"
+                >
+                  <option value="">—</option>
+                  <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
+                    {{ ag.name }}
+                  </option>
+                </select>
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-center">
                 <span
@@ -541,7 +615,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import { POSITION_ABBREVIATIONS } from '@/constants/positions';
@@ -603,6 +677,16 @@ export default {
     const inviteCode = ref('');
     const invitePlayer = ref(null);
 
+    // Age-group assignment (SB-69)
+    const ageGroups = ref([]);
+    const selectedIds = ref([]);
+    const bulkAgeGroupId = ref(null);
+    const allSelected = computed(
+      () =>
+        roster.value.length > 0 &&
+        selectedIds.value.length === roster.value.length
+    );
+
     // Available positions
     const availablePositions = POSITION_ABBREVIATIONS;
 
@@ -621,6 +705,66 @@ export default {
         console.error('Error fetching roster:', err);
       } finally {
         loading.value = false;
+      }
+    };
+
+    // Fetch age groups for the assignment dropdowns (SB-69)
+    const fetchAgeGroups = async () => {
+      try {
+        ageGroups.value = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/age-groups`,
+          { method: 'GET' }
+        );
+      } catch (err) {
+        console.error('Error fetching age groups:', err);
+      }
+    };
+
+    // Select-all toggle for the bulk assignment (SB-69)
+    const toggleSelectAll = () => {
+      selectedIds.value = allSelected.value ? [] : roster.value.map(p => p.id);
+    };
+
+    // Assign an age group to a set of players via the bulk endpoint (SB-69)
+    const assignAgeGroup = async (ids, ageGroupId) => {
+      try {
+        formLoading.value = true;
+        error.value = null;
+
+        await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/teams/${props.teamId}/players/age-group`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({
+              season_id: props.seasonId,
+              player_ids: ids,
+              age_group_id: ageGroupId,
+            }),
+          }
+        );
+
+        await fetchRoster();
+        selectedIds.value = [];
+        bulkAgeGroupId.value = null;
+      } catch (err) {
+        error.value = err.message || 'Failed to assign age group';
+      } finally {
+        formLoading.value = false;
+      }
+    };
+
+    // Apply the chosen age group to all checked players
+    const assignSelected = () => {
+      if (bulkAgeGroupId.value && selectedIds.value.length) {
+        assignAgeGroup([...selectedIds.value], bulkAgeGroupId.value);
+      }
+    };
+
+    // Single-row quick assign from the inline dropdown
+    const quickAssign = (player, value) => {
+      const ageGroupId = Number(value);
+      if (ageGroupId) {
+        assignAgeGroup([player.id], ageGroupId);
       }
     };
 
@@ -865,6 +1009,7 @@ export default {
     // Initialize
     onMounted(() => {
       fetchRoster();
+      fetchAgeGroups();
     });
 
     return {
@@ -885,6 +1030,13 @@ export default {
       inviteCode,
       invitePlayer,
       availablePositions,
+      ageGroups,
+      selectedIds,
+      bulkAgeGroupId,
+      allSelected,
+      toggleSelectAll,
+      assignSelected,
+      quickAssign,
       fetchRoster,
       addPlayer,
       updatePlayer,
