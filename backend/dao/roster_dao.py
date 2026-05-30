@@ -437,6 +437,59 @@ class RosterDAO(BaseDAO):
             return False
 
     @invalidates_cache(ROSTER_CACHE_PATTERN)
+    def bulk_update_age_group(
+        self,
+        team_id: int,
+        season_id: int,
+        player_ids: list[int],
+        age_group_id: int,
+    ) -> list[dict]:
+        """
+        Bulk-assign age_group_id to existing roster entries (SB-69).
+
+        The update is scoped to team_id + season_id + the given player_ids, so a
+        caller cannot touch rows on another team even by passing foreign ids.
+
+        Args:
+            team_id: Team ID (scope guard)
+            season_id: Season ID (scope guard)
+            player_ids: Player IDs to update (must belong to team/season)
+            age_group_id: Age group to assign
+
+        Returns:
+            List of updated player dicts with computed display_name
+        """
+        try:
+            response = (
+                self.client.table("players")
+                .update({"age_group_id": age_group_id})
+                .eq("team_id", team_id)
+                .eq("season_id", season_id)
+                .in_("id", player_ids)
+                .execute()
+            )
+
+            updated = response.data or []
+            logger.info(
+                "roster_bulk_age_group_updated",
+                team_id=team_id,
+                season_id=season_id,
+                age_group_id=age_group_id,
+                count=len(updated),
+            )
+            return [self._add_display_name(p) for p in updated]
+
+        except Exception as e:
+            logger.error(
+                "roster_bulk_age_group_error",
+                team_id=team_id,
+                season_id=season_id,
+                age_group_id=age_group_id,
+                error=str(e),
+            )
+            return []
+
+    @invalidates_cache(ROSTER_CACHE_PATTERN)
     def link_user_to_player(
         self,
         player_id: int,

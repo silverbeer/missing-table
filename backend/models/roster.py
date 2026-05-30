@@ -58,6 +58,14 @@ class BulkRenumberRequest(BaseModel):
     changes: list[RenumberEntry] = Field(..., min_length=1)
 
 
+class BulkAgeGroupUpdate(BaseModel):
+    """Model for bulk-assigning age_group_id to existing roster entries (SB-69)."""
+
+    season_id: int
+    player_ids: list[int] = Field(..., min_length=1)
+    age_group_id: int
+
+
 class RosterPlayerResponse(BaseModel):
     """Response model for a roster player."""
 
