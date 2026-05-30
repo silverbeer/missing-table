@@ -8,8 +8,7 @@ This document defines the standard practices for managing database schema change
 
 ## Migration Philosophy
 
-- **Single Source of Truth**: All migrations live in `supabase-local/migrations/` (one directory)
-- **`supabase/migrations/`** is a symlink to `supabase-local/migrations/` — no more syncing
+- **Single Source of Truth**: All migrations live in `supabase-local/migrations/` (one directory, tracked in git). The Supabase CLI reads them via a gitignored `supabase-local/supabase/migrations` → `../migrations` symlink that `supabase init` generates locally.
 - **Version Control**: Migrations are tracked in git like any other code
 - **Environment Parity**: All environments (local, prod) use the same migrations
 - **Safety First**: Always backup before deploying, test locally before cloud
@@ -29,8 +28,9 @@ supabase-local/
 │   └── migrations -> ../migrations          # Symlink for Supabase CLI
 └── config.toml                              # Git-tracked copy of config
 
-supabase/
-└── migrations -> ../supabase-local/migrations  # Symlink — one source of truth
+# NOTE: a repo-root supabase/ dir may appear locally — it's gitignored CLI
+# scratch (.temp/.branches) from running supabase outside supabase-local/.
+# It is NOT part of the layout and is NOT used. Always run from supabase-local/.
 
 scripts/
 ├── setup-local-db.sh                        # One-command local DB setup
