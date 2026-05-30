@@ -14,6 +14,12 @@ from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
 logger = structlog.get_logger()
 
 TOURNAMENTS_CACHE_PATTERN = "mt:dao:tournaments:*"
+# Tournament matches ARE matches — writing one must also bust the matches
+# cache (get_match_by_id is @dao_cache under mt:dao:matches:by_id:*). Without
+# this, a re-read after a tournament-score write returns the stale pre-write
+# row: the SB-77 follower-notify detector sees no change and never fires, and
+# even when it does the dispatcher formats the push with the stale score.
+MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
 
 # match_type_id=2 is "Tournament" (seed data)
 TOURNAMENT_MATCH_TYPE_ID = 2
@@ -402,7 +408,7 @@ class TournamentDAO(BaseDAO):
         logger.info("Created tournament opponent team", name=name, team_id=team_id, age_group_id=age_group_id)
         return team_id
 
-    @invalidates_cache(TOURNAMENTS_CACHE_PATTERN)
+    @invalidates_cache(TOURNAMENTS_CACHE_PATTERN, MATCHES_CACHE_PATTERN)
     def create_tournament_match(
         self,
         tournament_id: int,
@@ -499,7 +505,7 @@ class TournamentDAO(BaseDAO):
             logger.exception("Error creating tournament match", tournament_id=tournament_id)
             raise
 
-    @invalidates_cache(TOURNAMENTS_CACHE_PATTERN)
+    @invalidates_cache(TOURNAMENTS_CACHE_PATTERN, MATCHES_CACHE_PATTERN)
     def update_tournament_match(
         self,
         match_id: int,
@@ -586,7 +592,7 @@ class TournamentDAO(BaseDAO):
             logger.exception("Error updating tournament match", match_id=match_id)
             raise
 
-    @invalidates_cache(TOURNAMENTS_CACHE_PATTERN)
+    @invalidates_cache(TOURNAMENTS_CACHE_PATTERN, MATCHES_CACHE_PATTERN)
     def delete_tournament_match(self, match_id: int) -> bool:
         """Remove a match from a tournament (deletes the match record entirely)."""
         try:

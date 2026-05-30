@@ -6831,9 +6831,12 @@ async def admin_update_tournament_match(
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Match not found")
-        # Re-read flattened for a like-shaped comparison vs. `before`.
-        after = match_dao.get_match_by_id(match_id)
-        _maybe_notify_final_score(background_tasks, before, after)
+        # Use the row the write RETURNED as `after`, not a re-read. get_match_by_id
+        # is @dao_cache and update_tournament_match only invalidates the tournaments
+        # cache (not matches:by_id), so a re-read here returns the stale pre-write
+        # row and the score-change detector never fires. The returned row carries
+        # home_score/away_score/match_status straight from the UPDATE. (SB-77)
+        _maybe_notify_final_score(background_tasks, before, updated)
         return updated
     except HTTPException:
         raise

@@ -104,32 +104,52 @@ class TeamFollowDAO(BaseDAO):
         own push). Deduplication is by subscription.id, not user, so a user
         following both home and away teams still gets one push per device,
         not two.
+
+        Implemented as two plain `in_` queries rather than a PostgREST embed.
+        `user_team_follows` and `push_subscriptions` have no direct foreign key
+        between them (both only reference `user_profiles`), so PostgREST cannot
+        embed one from the other — the embed form raises PGRST200, and since the
+        DAO swallows exceptions, the dispatcher would silently deliver zero
+        pushes. This is the fan-out that decides who actually gets notified
+        (SB-77); see tests/integration/test_push_delivery_on_score.py.
         """
         if not team_ids:
             return []
         try:
-            response = (
+            # Step 1: distinct users following any of these teams.
+            follow_resp = (
                 self.client.table(TABLE)
-                .select(
-                    "user_id, "
-                    "subscriptions:push_subscriptions!push_subscriptions_user_id_fkey("
-                    "id, endpoint, p256dh_key, auth_key"
-                    ")"
-                )
+                .select("user_id")
                 .in_("team_id", team_ids)
                 .execute()
             )
-            rows = response.data or []
-            # Flatten and dedupe by subscription id
+            user_ids = list(
+                {
+                    row["user_id"]
+                    for row in (follow_resp.data or [])
+                    if row.get("user_id")
+                }
+            )
+            if not user_ids:
+                return []
+
+            # Step 2: every push subscription owned by those users.
+            sub_resp = (
+                self.client.table("push_subscriptions")
+                .select("id, endpoint, p256dh_key, auth_key, user_id")
+                .in_("user_id", user_ids)
+                .execute()
+            )
+
+            # Dedupe by subscription id (a user with 2 devices yields 2 rows —
+            # intentional; each device gets its own push).
             seen_ids: set[str] = set()
             flat: list[dict] = []
-            for row in rows:
-                user_id = row.get("user_id")
-                for sub in row.get("subscriptions") or []:
-                    if sub["id"] in seen_ids:
-                        continue
-                    seen_ids.add(sub["id"])
-                    flat.append({**sub, "user_id": user_id})
+            for sub in sub_resp.data or []:
+                if sub["id"] in seen_ids:
+                    continue
+                seen_ids.add(sub["id"])
+                flat.append(sub)
             return flat
         except Exception:
             logger.exception(
