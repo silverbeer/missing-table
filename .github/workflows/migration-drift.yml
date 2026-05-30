@@ -1,0 +1,39 @@
+name: Migration Drift Guard
+
+# Schema-drift guard (SB-79): assert prod's applied migrations match the repo
+# migration files. This is the ONLY layer that catches out-of-band Studio edits
+# (no commit/PR exists to trigger on), so it runs on a daily schedule. On drift
+# the job fails AND files/updates a Linear issue so it's tracked, not just red.
+
+on:
+  schedule:
+    - cron: '0 13 * * *' # 09:00 ET daily
+  workflow_dispatch: {} # allow manual runs
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install psycopg2
+        run: pip install "psycopg2-binary>=2.9.10"
+
+      - name: Check prod migration drift
+        id: drift
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          python scripts/check_migration_drift.py --env prod | tee drift_report.txt
+
+      - name: File/update Linear issue on drift
+        if: failure() && steps.drift.outcome == 'failure'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_KEY: SB
+        run: bash scripts/notify_linear_drift.sh drift_report.txt

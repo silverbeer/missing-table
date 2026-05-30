@@ -659,6 +659,42 @@ PGPASSWORD=postgres pg_dump --schema-only --no-owner --no-privileges \
 # Then remove the \restrict/\unrestrict lines and CREATE SCHEMA public
 ```
 
+## Schema-Drift Guard (SB-79)
+
+`scripts/check_migration_drift.py` is the "advanced lint" for migration *state*:
+it asserts the set of applied versions in an environment's
+`supabase_migrations.schema_migrations` equals the set of timestamped migration
+files in `supabase-local/migrations/`.
+
+Code/unit tests can't catch drift — CI's test DB is built from the migration
+files, so it always has the correct schema. Drift is an **environment-state**
+problem (a migration merged but never deployed, or schema hand-applied in the
+Supabase SQL editor without recording a row), so it needs an environment check.
+
+```bash
+# Local (expects in-sync):
+export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54332/postgres"  # pragma: allowlist secret
+python scripts/check_migration_drift.py --env local
+
+# Prod (CI uses the PROD_DATABASE_URL secret):
+DATABASE_URL="$PROD_DATABASE_URL" python scripts/check_migration_drift.py --env prod
+```
+
+It reports two buckets and exits non-zero on either:
+
+- **Missing in env** — file exists, not applied → likely *un-deployed*. Fix by
+  deploying (`./scripts/db_tools.sh migrate prod`).
+- **Orphan in env** — recorded/applied with no matching file → history was
+  rewritten, or schema was Studio-applied and needs its tracking row repaired
+  (`npx supabase migration repair --status applied <version> --linked`).
+
+**When it runs:** a daily GitHub Actions cron
+(`.github/workflows/migration-drift.yml`) against prod. This is the only layer
+that catches *out-of-band Studio edits* — there's no commit/PR to trigger on.
+On drift the job fails **and** files/updates a Linear issue
+(`scripts/notify_linear_drift.sh`, needs `LINEAR_API_KEY` +
+`PROD_DATABASE_URL` secrets).
+
 ## Resources
 
 - **Supabase CLI Documentation**: https://supabase.com/docs/guides/cli
