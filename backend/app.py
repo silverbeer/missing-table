@@ -79,6 +79,7 @@ from models import (
     UserProfileUpdate,
     UserSignup,
 )
+from notifications.score_change import is_new_final_score
 from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
 
@@ -2440,6 +2441,27 @@ async def get_match(
         ) from e
 
 
+def _maybe_notify_final_score(
+    background_tasks: BackgroundTasks,
+    before: dict | None,
+    after: dict | None,
+) -> None:
+    """Fire a 'fulltime' follower notification when a write sets a new final score.
+
+    Shared by the admin/skill match-write endpoints (tournament create/update
+    and the regular league update/patch path). The live in-app scoring endpoints
+    have their own goal/clock notifications and don't use this. (SB-77)
+
+    No-op unless `is_new_final_score(before, after)` — so metadata-only edits and
+    idempotent re-submissions of an already-recorded score never re-notify.
+    """
+    match_id = (after or {}).get("id")
+    if match_id is None:
+        return
+    if is_new_final_score(before, after):
+        background_tasks.add_task(notify_event_task, "fulltime", match_id, None)
+
+
 @app.post("/api/matches")
 async def add_match(
     request: Request,
@@ -2492,11 +2514,13 @@ async def add_match(
 async def update_match(
     match_id: int,
     match: EnhancedMatch,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Update an existing match (requires admin, team manager, or service account with manage_matches)."""
     try:
-        # Get current match to check permissions
+        # Get current match to check permissions (also the before-snapshot for
+        # the score-change notification below).
         current_match = match_dao.get_match_by_id(match_id)
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
@@ -2527,6 +2551,9 @@ async def update_match(
             scheduled_kickoff=match.scheduled_kickoff.isoformat() if match.scheduled_kickoff else None,
         )
         if updated_match:
+            # Notify followers if this write set/changed the final score (SB-77).
+            after = match_dao.get_match_by_id(match_id)
+            _maybe_notify_final_score(background_tasks, current_match, after)
             return {"message": "Match updated successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to update match")
@@ -2539,6 +2566,7 @@ async def update_match(
 async def patch_match(
     match_id: int,
     match_patch: MatchPatch,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Partially update a match (requires manage_matches permission).
@@ -2547,7 +2575,8 @@ async def patch_match(
     Commonly used for score updates from match-scraper.
     """
     try:
-        # Get current match to check permissions and get existing values
+        # Get current match to check permissions and get existing values (also
+        # the before-snapshot for the score-change notification below).
         current_match = match_dao.get_match_by_id(match_id)
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
@@ -2616,6 +2645,10 @@ async def patch_match(
         logger.info(f"PATCH /api/matches/{match_id} - Update success: {bool(updated_match)}")
 
         if updated_match:
+            # Notify followers if this write set/changed the final score (SB-77).
+            # This is the path match-scraper uses to post league results.
+            after = match_dao.get_match_by_id(match_id)
+            _maybe_notify_final_score(background_tasks, current_match, after)
             # Return the updated match data directly from update_match
             # This avoids read-after-write consistency issues
             logger.info(f"PATCH /api/matches/{match_id} - Returning updated match: {updated_match}")
@@ -6732,11 +6765,12 @@ async def admin_upload_tournament_logo(
 async def admin_create_tournament_match(
     tournament_id: int,
     payload: TournamentMatchCreate,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Add a match to a tournament (admin)."""
     try:
-        return tournament_dao.create_tournament_match(
+        created = tournament_dao.create_tournament_match(
             tournament_id=tournament_id,
             our_team_id=payload.our_team_id,
             opponent_name=payload.opponent_name,
@@ -6754,6 +6788,11 @@ async def admin_create_tournament_match(
             tournament_round_order=payload.tournament_round_order,
             scheduled_kickoff=payload.scheduled_kickoff,
         )
+        # Skill often creates already-played matches in one shot (score + status
+        # completed) — notify followers when that happens. A scheduled matchup
+        # with no score is a no-op. (SB-77)
+        _maybe_notify_final_score(background_tasks, None, created)
+        return created
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except Exception as e:
@@ -6765,10 +6804,15 @@ async def admin_update_tournament_match(
     tournament_id: int,
     match_id: int,
     payload: TournamentMatchUpdate,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Update score, status, or context on a tournament match (admin)."""
     try:
+        # Snapshot before the write so we only notify on a real score change —
+        # the skill's upsert loop frequently re-PUTs metadata or identical
+        # scores, which must stay silent. (SB-77)
+        before = match_dao.get_match_by_id(match_id)
         updated = tournament_dao.update_tournament_match(
             match_id=match_id,
             home_score=payload.home_score,
@@ -6787,6 +6831,9 @@ async def admin_update_tournament_match(
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Match not found")
+        # Re-read flattened for a like-shaped comparison vs. `before`.
+        after = match_dao.get_match_by_id(match_id)
+        _maybe_notify_final_score(background_tasks, before, after)
         return updated
     except HTTPException:
         raise

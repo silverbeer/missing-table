@@ -184,18 +184,6 @@ class Notifier:
         home_club_id = home_club.get("id")
         away_club_id = away_club.get("id")
 
-        destinations = resolve_destinations(home_club_id, away_club_id, self.notif_dao)
-        if not destinations:
-            logger.info(
-                "notifications.skipped",
-                reason="no_channels",
-                match_id=match_id,
-                event_type=event_type,
-                home_club_id=home_club_id,
-                away_club_id=away_club_id,
-            )
-            return
-
         tz_name = fetch_club_timezone(home_club_id, self.connection.get_client())
         try:
             tz = ZoneInfo(tz_name)
@@ -212,30 +200,46 @@ class Notifier:
             )
             return
 
-        sent = 0
-        failed = 0
-        for platform, destination in destinations:
-            try:
-                self.send_fn(platform, destination, content)
-                sent += 1
-            except Exception as exc:
-                failed += 1
-                logger.warning(
-                    "notifications.send_failed",
-                    platform=platform,
-                    match_id=match_id,
-                    event_type=event_type,
-                    error_type=type(exc).__name__,
-                    error=str(exc),
-                )
+        # Club notification channels (Telegram/Discord). A match may have none
+        # — e.g. tournament teams whose clubs have no channel config — in which
+        # case we skip the club sends but STILL run the Web Push fan-out below.
+        # Push to team followers must not depend on the clubs having channels
+        # (SB-77); previously a no-channels match returned here and followers
+        # got nothing.
+        destinations = resolve_destinations(home_club_id, away_club_id, self.notif_dao)
+        if destinations:
+            sent = 0
+            failed = 0
+            for platform, destination in destinations:
+                try:
+                    self.send_fn(platform, destination, content)
+                    sent += 1
+                except Exception as exc:
+                    failed += 1
+                    logger.warning(
+                        "notifications.send_failed",
+                        platform=platform,
+                        match_id=match_id,
+                        event_type=event_type,
+                        error_type=type(exc).__name__,
+                        error=str(exc),
+                    )
 
-        logger.info(
-            "notifications.dispatched",
-            match_id=match_id,
-            event_type=event_type,
-            sent=sent,
-            failed=failed,
-        )
+            logger.info(
+                "notifications.dispatched",
+                match_id=match_id,
+                event_type=event_type,
+                sent=sent,
+                failed=failed,
+            )
+        else:
+            logger.info(
+                "notifications.no_club_channels",
+                match_id=match_id,
+                event_type=event_type,
+                home_club_id=home_club_id,
+                away_club_id=away_club_id,
+            )
 
         # --- Web Push fan-out -------------------------------------------------
         # Independent of club-channel sends above; failures don't affect each
