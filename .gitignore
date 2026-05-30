@@ -159,6 +159,7 @@ crew_testing/*.md
 
 # Test artifacts
 .coverage
+.coverage.*
 coverage.json
 **/coverage.json
 coverage_audit.json
