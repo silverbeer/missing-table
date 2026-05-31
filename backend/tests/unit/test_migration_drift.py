@@ -87,3 +87,24 @@ class TestRenderReport:
         assert "DRIFT DETECTED" in out
         assert "20260520000000" in out
         assert "Missing in env" in out
+
+
+@pytest.mark.unit
+class TestMainExitCodes:
+    """Exit-code contract the CI workflow relies on (SB-83): 2 = misconfig.
+
+    The notify step files a Linear issue only on exit 1 (real drift), so exit 2
+    (no DB URL / bad dir) must stay distinct. These paths return before any DB
+    connection, so they're unit-testable with no database.
+    """
+
+    def test_missing_db_url_returns_2(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        rc = guard.main(["--db-url", "", "--migrations-dir", str(tmp_path)])
+        assert rc == 2
+
+    def test_missing_migrations_dir_returns_2(self):
+        rc = guard.main(
+            ["--db-url", "postgresql://unused", "--migrations-dir", "/no/such/dir"]
+        )
+        assert rc == 2

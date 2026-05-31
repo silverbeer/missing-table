@@ -28,11 +28,19 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
-          set -o pipefail
+          # Capture the exit code so the notify step can distinguish real drift
+          # (1) from a misconfiguration like a missing DB URL (2). The job still
+          # goes red on any non-zero, but only exit 1 should file a Linear issue.
+          set +e
           python scripts/check_migration_drift.py --env prod | tee drift_report.txt
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
 
       - name: File/update Linear issue on drift
-        if: failure() && steps.drift.outcome == 'failure'
+        # Only on real drift (exit 1) — NOT on config failures (exit 2), which
+        # would otherwise file a spurious issue with an empty report (SB-82/SB-83).
+        if: failure() && steps.drift.outputs.code == '1'
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_KEY: SB
