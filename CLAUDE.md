@@ -210,7 +210,7 @@ Format: `MAJOR.MINOR.PATCH.BUILD` (e.g., `1.0.1.147`)
 The database schema is consolidated into a single baseline migration:
 - **`supabase-local/migrations/00000000000000_schema.sql`** — Complete schema (tables, functions, RLS policies, indexes)
 - **`supabase-local/supabase/seed.sql`** — Reference data (age_groups, seasons, match_types, leagues, divisions)
-- `supabase/migrations/` is a **symlink** to `supabase-local/migrations/` — one source of truth
+- **`supabase-local/migrations/`** is the **one source of truth** for migrations (tracked in git). The Supabase CLI is always run from `supabase-local/` and reads these files via a local `supabase-local/supabase/migrations` → `../migrations` symlink that `supabase init` generates (gitignored — local scaffolding, not committed). A stray repo-root `supabase/` is gitignored CLI scratch and is **not** used.
 
 New schema changes go in additional timestamped migration files (e.g., `20260201000000_add_foo.sql`).
 
