@@ -104,17 +104,22 @@ class TournamentDAO(BaseDAO):
             rows = [{"tournament_id": tournament_id, "age_group_id": ag_id} for ag_id in age_group_ids]
             self.client.table("tournament_age_groups").insert(rows).execute()
 
-    @dao_cache("tournaments:active")
-    def get_active_tournaments(self) -> list[dict]:
-        """Return all active tournaments ordered by start date descending."""
+    @dao_cache("tournaments:active:{include_test}")
+    def get_active_tournaments(self, include_test: bool = False) -> list[dict]:
+        """Return all active tournaments ordered by start date descending.
+
+        include_test gates the SB-85 test partition: real/anonymous viewers pass
+        False (test tournaments hidden); admins + test users pass True.
+        """
         try:
-            response = (
+            query = (
                 self.client.table("tournaments")
                 .select("id, name, start_date, end_date, location, description, is_active, logo_url")
                 .eq("is_active", True)
-                .order("start_date", desc=True)
-                .execute()
             )
+            if not include_test:
+                query = query.eq("is_test", False)
+            response = query.order("start_date", desc=True).execute()
             data = self._attach_age_groups(response.data or [])
             return self._attach_match_counts(data)
         except Exception:
