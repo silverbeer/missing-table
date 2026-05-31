@@ -17,9 +17,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 
 // Stub the auth store BEFORE importing the component so the import sees the mock.
+// isAuthenticated is a ref-like ({ value }) — the bracket-follow composable and
+// the component both read `authStore.isAuthenticated.value`. Unauthenticated
+// keeps the bracket-follow fetch a no-op and hides the follow toggle.
 const apiRequest = vi.fn();
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ apiRequest }),
+  useAuthStore: () => ({ apiRequest, isAuthenticated: { value: false } }),
 }));
 
 import TournamentMatchCenter from '@/components/TournamentMatchCenter.vue';

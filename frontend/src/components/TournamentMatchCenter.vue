@@ -765,6 +765,24 @@
                 {{ g }}
               </button>
             </div>
+
+            <!-- Follow this bracket: push at fulltime for every match in
+                 (tournament + group + age group). Two-state toggle. -->
+            <button
+              v-if="canFollowBracket"
+              type="button"
+              @click="toggleBracketFollow"
+              data-testid="bracket-follow-toggle"
+              :class="[
+                'sm:ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                isBracketFollowed
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+              ]"
+            >
+              <span v-if="isBracketFollowed">✓ Following — Unfollow</span>
+              <span v-else>🔔 Follow this bracket</span>
+            </button>
           </div>
 
           <TournamentBracket
@@ -839,6 +857,8 @@ import { getApiBaseUrl } from '../config/api';
 import TournamentBracket from './TournamentBracket.vue';
 import TournamentStandings from './TournamentStandings.vue';
 import MatchDetailView from './MatchDetailView.vue';
+import { useBracketFollows } from '../composables/useBracketFollows';
+import { usePushNotifications } from '../composables/usePushNotifications';
 
 const KNOCKOUT_ROUNDS = new Set([
   'round_of_32',
@@ -872,6 +892,8 @@ export default {
   components: { TournamentBracket, TournamentStandings, MatchDetailView },
   setup() {
     const authStore = useAuthStore();
+    const bracketFollows = useBracketFollows();
+    const { isEnabled: pushEnabled } = usePushNotifications();
 
     const tournaments = ref([]);
     const loading = ref(true);
@@ -1146,6 +1168,36 @@ export default {
       }
     });
 
+    // ── bracket follow toggle ──
+    // A user can follow the currently-selected bracket (tournament + group +
+    // age group) to get a push at fulltime for every match in it. Gated on
+    // being signed in with push enabled, mirroring team-follow buttons.
+    const canFollowBracket = computed(
+      () =>
+        authStore.isAuthenticated.value &&
+        pushEnabled.value &&
+        selectedId.value != null &&
+        bracketGroup.value != null &&
+        bracketAgeGroupId.value != null
+    );
+
+    const isBracketFollowed = computed(() =>
+      bracketFollows.isFollowing(
+        selectedId.value,
+        bracketGroup.value,
+        bracketAgeGroupId.value
+      )
+    );
+
+    const toggleBracketFollow = () => {
+      if (!canFollowBracket.value) return;
+      return bracketFollows.toggle(
+        selectedId.value,
+        bracketGroup.value,
+        bracketAgeGroupId.value
+      );
+    };
+
     // ── standings-mode computed state ──
     // Same pattern as bracket-mode, but keyed off group_stage matches
     // grouped by `tournament_group` (e.g. 'U14 Boys Diamond Bracket A').
@@ -1227,9 +1279,15 @@ export default {
       }
     });
 
-    onMounted(fetchTournaments);
+    onMounted(() => {
+      fetchTournaments();
+      bracketFollows.ensureLoaded();
+    });
 
     return {
+      canFollowBracket,
+      isBracketFollowed,
+      toggleBracketFollow,
       tournaments,
       loading,
       error,
