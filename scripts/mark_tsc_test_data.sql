@@ -10,9 +10,20 @@
 -- reference: league 90, club 93, tournament 7.
 
 UPDATE public.leagues       SET is_test = true WHERE name = 'TSC League 1';
-UPDATE public.clubs         SET is_test = true WHERE name ILIKE 'TSC%';
 UPDATE public.tournaments   SET is_test = true WHERE name = 'TSC Bracket Test Cup';
 UPDATE public.user_profiles SET is_test = true WHERE username LIKE 'tsc\_%';
+
+-- Clubs: derive from test-league membership rather than matching the club name.
+-- The TSC club is "Toms Soccer Club" (TSC = initials, name spelled out), so a
+-- name match like ILIKE 'TSC%' misses it. Any club fielding a team in a test
+-- league is itself test. Run the leagues UPDATE above first so is_test is set.
+UPDATE public.clubs SET is_test = true
+WHERE id IN (
+    SELECT DISTINCT t.club_id
+    FROM public.teams t
+    JOIN public.leagues l ON l.id = t.league_id
+    WHERE l.is_test AND t.club_id IS NOT NULL
+);
 
 -- Report what is now flagged.
 SELECT 'leagues'       AS entity, count(*) FILTER (WHERE is_test) AS test_rows FROM public.leagues
