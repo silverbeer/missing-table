@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from auth import get_current_user_required
+from dao.bracket_follow_dao import BracketFollowDAO
 from dao.match_dao import SupabaseConnection
 from dao.notification_preferences_dao import NotificationPreferencesDAO
 from dao.push_send_log_dao import PushSendLogDAO
@@ -67,6 +68,10 @@ def _sub_dao() -> PushSubscriptionDAO:
 
 def _follow_dao() -> TeamFollowDAO:
     return TeamFollowDAO(_conn())
+
+
+def _bracket_follow_dao() -> BracketFollowDAO:
+    return BracketFollowDAO(_conn())
 
 
 def _log_dao() -> PushSendLogDAO:
@@ -128,6 +133,19 @@ class TeamFollowIn(BaseModel):
     """Body of POST /api/users/me/team-follows."""
 
     team_id: int = Field(..., ge=1)
+
+
+class BracketFollowIn(BaseModel):
+    """Body of POST /api/users/me/bracket-follows.
+
+    A bracket is (tournament_id, tournament_group, age_group_id) — e.g.
+    "Bracket A · U14". Following it delivers a push at fulltime for every
+    match in that bracket/age-group.
+    """
+
+    tournament_id: int = Field(..., ge=1)
+    tournament_group: str = Field(..., min_length=1, max_length=100)
+    age_group_id: int = Field(..., ge=1)
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +278,68 @@ def unfollow_team(
 ) -> Response:
     user_id = _user_id(current_user)
     _follow_dao().unfollow(user_id, team_id)  # idempotent
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Bracket follows
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/users/me/bracket-follows",
+    status_code=status.HTTP_201_CREATED,
+)
+def follow_bracket(
+    payload: BracketFollowIn,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, Any]:
+    user_id = _user_id(current_user)
+    ok = _bracket_follow_dao().follow(
+        user_id,
+        payload.tournament_id,
+        payload.tournament_group,
+        payload.age_group_id,
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to follow bracket.",
+        )
+    return {
+        "tournament_id": payload.tournament_id,
+        "tournament_group": payload.tournament_group,
+        "age_group_id": payload.age_group_id,
+        "following": True,
+    }
+
+
+@router.get("/users/me/bracket-follows")
+def list_bracket_follows(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, list[dict]]:
+    user_id = _user_id(current_user)
+    return {"follows": _bracket_follow_dao().list_for_user(user_id)}
+
+
+@router.delete(
+    "/users/me/bracket-follows",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def unfollow_bracket(
+    tournament_id: int,
+    tournament_group: str,
+    age_group_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> Response:
+    """Unfollow a bracket. Composite key via query params (no single id).
+
+    Idempotent — returns 204 even if the user wasn't following.
+    """
+    user_id = _user_id(current_user)
+    _bracket_follow_dao().unfollow(
+        user_id, tournament_id, tournament_group, age_group_id
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

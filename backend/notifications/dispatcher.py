@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
+from dao.bracket_follow_dao import BracketFollowDAO
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.push_send_log_dao import PushSendLogDAO
@@ -87,6 +88,7 @@ class Notifier:
         self._match_dao: MatchDAO | None = None
         self._notif_dao: ClubNotificationsDAO | None = None
         self._team_follow_dao: TeamFollowDAO | None = None
+        self._bracket_follow_dao: BracketFollowDAO | None = None
         self._push_sub_dao: PushSubscriptionDAO | None = None
         self._push_log_dao: PushSendLogDAO | None = None
         # NotificationPreferencesDAO; typed via local import to avoid the cycle.
@@ -119,6 +121,12 @@ class Notifier:
         if self._team_follow_dao is None:
             self._team_follow_dao = TeamFollowDAO(self.connection)
         return self._team_follow_dao
+
+    @property
+    def bracket_follow_dao(self) -> BracketFollowDAO:
+        if self._bracket_follow_dao is None:
+            self._bracket_follow_dao = BracketFollowDAO(self.connection)
+        return self._bracket_follow_dao
 
     @property
     def push_sub_dao(self) -> PushSubscriptionDAO:
@@ -267,6 +275,32 @@ class Notifier:
         subscriptions = resolve_user_push_subscriptions(
             home_team_id, away_team_id, self.team_follow_dao
         )
+
+        # Bracket followers: users who follow this match's tournament bracket
+        # (tournament_id + group + age_group). Fulltime only — bracket follows
+        # are "tell me the final score", not play-by-play. Merged into the same
+        # fan-out and deduped below so a user following both the team and the
+        # bracket gets one push per device, not two.
+        if event_type == "fulltime":
+            tournament_id = match.get("tournament_id")
+            tournament_group = match.get("tournament_group")
+            age_group_id = match.get("age_group_id")
+            if tournament_id and tournament_group and age_group_id:
+                subscriptions = subscriptions + self.bracket_follow_dao.list_subscriptions_for_bracket(
+                    tournament_id, tournament_group, age_group_id
+                )
+
+        # Dedupe by subscription id across the team + bracket sources.
+        seen_sub_ids: set[str] = set()
+        deduped: list[dict] = []
+        for sub in subscriptions:
+            sub_id = sub.get("id")
+            if sub_id in seen_sub_ids:
+                continue
+            seen_sub_ids.add(sub_id)
+            deduped.append(sub)
+        subscriptions = deduped
+
         if not subscriptions:
             return
 
