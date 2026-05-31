@@ -12,6 +12,7 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
+from supabase import create_client
 
 from dao.base_dao import BaseDAO, clear_cache, dao_cache, invalidates_cache
 from dao.exceptions import DuplicateRecordError
@@ -21,7 +22,6 @@ from dao.standings import (
     filter_completed_matches,
     filter_same_division_matches,
 )
-from supabase import create_client
 
 logger = structlog.get_logger()
 
@@ -234,7 +234,7 @@ class MatchDAO(BaseDAO):
             logger.exception("Error getting match by teams and date")
             return None
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def update_match_external_id(self, match_id: int, external_match_id: str) -> bool:
         """Update only the external match_id field on an existing match.
 
@@ -274,7 +274,7 @@ class MatchDAO(BaseDAO):
             logger.exception("Error updating match external_id")
             return False
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def create_match(
         self,
         home_team_id: int,
@@ -790,7 +790,7 @@ class MatchDAO(BaseDAO):
                 "head_to_head": [],
             }
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def add_match(
         self,
         home_team_id: int,
@@ -859,7 +859,7 @@ class MatchDAO(BaseDAO):
             logger.exception("Error adding match")
             return False
 
-    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
     def add_match_with_external_id(
         self,
         home_team_id: int,
