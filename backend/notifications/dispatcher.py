@@ -68,7 +68,10 @@ def _build_push_payload(event_type: str, match: dict, content: str) -> dict:
         "badge": "/pwa/icon-192.png",
         "tag": f"match-{match_id}-{event_type}",
         "data": {
-            "url": f"/?tab=live&matchId={match_id}",
+            # Deep link to the match detail. The SPA reads ?matchId= on load and
+            # opens MatchDetailView (works for completed matches too — unlike the
+            # old ?tab=live link, which nothing read). See App.vue (SB-86).
+            "url": f"/?matchId={match_id}",
             "matchId": match_id,
             "eventType": event_type,
         },

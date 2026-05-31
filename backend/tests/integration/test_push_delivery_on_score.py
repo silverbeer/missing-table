@@ -284,7 +284,7 @@ class TestTournamentScorePushesFollower:
         text = f"{payload.get('title', '')}\n{payload.get('body', '')}"
         assert world["home_team"]["name"] in text
         assert world["away_team"]["name"] in text
-        assert "0 - 1" in text
+        assert "0-1" in text
 
         # And it was logged as a fulltime send.
         rows = _push_log_rows(world["admin"], world["match"]["id"], world["user_id"])

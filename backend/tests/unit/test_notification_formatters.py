@@ -51,13 +51,12 @@ class TestFormatGoal:
     def test_home_goal(self):
         event = {"team_id": 10, "player_name": "Smith", "match_minute": 34, "extra_time": 0}
         text = format_goal(event, MATCH, ET)
-        assert "GOAL" in text
         assert "⚽" in text
         assert "Smith" in text
         assert "IFA" in text  # scoring team in the parens
         assert "34'" in text
-        # Score line present
-        assert "IFA 2 - 1 NEFC" in text
+        # Score is in the headline (first line = push title)
+        assert text.splitlines()[0] == "⚽ IFA 2-1 NEFC (34')"
 
     def test_away_goal_uses_away_team_name(self):
         event = {"team_id": 20, "player_name": "Jones", "match_minute": 78, "extra_time": 0}
@@ -74,8 +73,10 @@ class TestFormatGoal:
         event = {"team_id": 10, "player_name": "Alvarez"}
         text = format_goal(event, MATCH, ET)
         assert "Alvarez" in text
-        # No stray minute-prime character
+        # No stray minute-prime character, and no empty () suffix
         assert "'" not in text
+        assert "()" not in text
+        assert text.splitlines()[0] == "⚽ IFA 2-1 NEFC"
 
     def test_unknown_team_id_falls_back(self):
         event = {"team_id": 999, "player_name": "Ghost", "match_minute": 50}
@@ -106,15 +107,14 @@ class TestFormatCard:
 class TestFormatHalftimeAndFulltime:
     def test_halftime_shows_current_score(self):
         text = format_halftime(MATCH, ET)
-        assert "HALFTIME" in text
         assert "⏸" in text
-        assert "IFA 2 - 1 NEFC" in text
+        # Score in the headline (push title)
+        assert text.splitlines()[0] == "⏸ HT · IFA 2-1 NEFC"
 
     def test_fulltime_shows_final_score_and_tag(self):
         text = format_fulltime(MATCH, ET)
-        assert "FULL TIME" in text
         assert "🏁" in text
-        assert "IFA 2 - 1 NEFC" in text
+        assert text.splitlines()[0] == "🏁 FT · IFA 2-1 NEFC"
         assert "U14" in text
 
 
@@ -122,8 +122,9 @@ class TestFormatEventDispatcher:
     def test_goal_dispatches_to_format_goal(self):
         extra = {"team_id": 10, "player_name": "Smith", "match_minute": 34, "extra_time": 0}
         text = format_event("goal", MATCH, extra, ET)
-        assert "GOAL" in text
+        assert "⚽" in text
         assert "Smith" in text
+        assert "IFA 2-1 NEFC" in text
 
     @pytest.mark.parametrize("card_type", ["yellow_card", "red_card"])
     def test_card_dispatches_with_type(self, card_type):
@@ -146,9 +147,9 @@ class TestScoreEdgeCases:
     def test_zero_zero_score(self):
         match = {**MATCH, "home_score": 0, "away_score": 0}
         text = format_halftime(match, ET)
-        assert "IFA 0 - 0 NEFC" in text
+        assert "IFA 0-0 NEFC" in text
 
     def test_none_scores_render_as_zero(self):
         match = {**MATCH, "home_score": None, "away_score": None}
         text = format_halftime(match, ET)
-        assert "IFA 0 - 0 NEFC" in text
+        assert "IFA 0-0 NEFC" in text

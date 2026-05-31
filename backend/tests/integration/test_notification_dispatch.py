@@ -222,7 +222,7 @@ class TestNotifierDirectInvocation:
 
         assert send_fn.call_count == 1
         msg = send_fn.call_args.args[2]
-        assert "GOAL" in msg
+        assert "⚽" in msg  # score-first goal headline (SB-86)
         assert "Scorer Smith" in msg
         assert "34'" in msg
 
