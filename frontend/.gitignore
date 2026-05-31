@@ -33,3 +33,6 @@ Thumbs.db
 coverage/
 test-results.json
 html-report/
+
+# Generated copy of repo-root CHANGELOG.md (see scripts/copy-changelog.mjs)
+public/changelog.md

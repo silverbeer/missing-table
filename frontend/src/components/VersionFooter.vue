@@ -32,12 +32,20 @@
     <div class="version-container">
       <!-- Version info (left side) -->
       <div class="version-info">
-        <span v-if="version" class="version-text">
-          {{ version }}
+        <template v-if="version">
+          <button
+            type="button"
+            class="version-text version-button"
+            title="What's New"
+            data-testid="whats-new-trigger"
+            @click="$emit('open-whats-new')"
+          >
+            {{ version }}
+          </button>
           <span v-if="environment !== 'production'" class="environment-badge">
             {{ environment }}
           </span>
-        </span>
+        </template>
         <span v-else class="version-loading">Loading version...</span>
       </div>
 
@@ -75,6 +83,7 @@ import SupportEmailLink from '@/components/SupportEmailLink.vue';
 export default {
   name: 'VersionFooter',
   components: { SupportEmailLink },
+  emits: ['open-whats-new'],
   setup() {
     const authStore = useAuthStore();
     const version = ref(null);
@@ -203,6 +212,19 @@ export default {
   font-family: 'Courier New', monospace;
   font-size: 0.8125rem;
   color: #495057;
+}
+
+.version-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.version-button:hover {
+  color: #0257fe;
 }
 
 .version-loading {

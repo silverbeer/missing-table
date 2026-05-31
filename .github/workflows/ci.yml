@@ -173,6 +173,11 @@ jobs:
       - name: Build and push frontend
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          # Bring the repo-root CHANGELOG.md into the frontend build context so
+          # the "What's New" page can serve it at /changelog.md (the root file
+          # is outside frontend/'s Docker context). See copy-changelog.mjs.
+          cp CHANGELOG.md frontend/public/changelog.md 2>/dev/null \
+            || echo "No CHANGELOG.md — frontend will ship a placeholder."
           docker build \
             --build-arg VITE_FARO_URL="${{ secrets.VITE_FARO_URL }}" \
             -t ghcr.io/silverbeer/missing-table-frontend:${SHORT_SHA} \
