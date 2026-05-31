@@ -6,14 +6,18 @@
 # — adds a comment instead of duplicating. Idempotent across daily runs.
 #
 # Env:
-#   LINEAR_API_KEY  (required) Linear personal API key
-#   LINEAR_TEAM_KEY (default SB) team key to file under
+#   LINEAR_API_KEY        (required) Linear personal API key
+#   LINEAR_TEAM_KEY       (default SB) team key to file under
+#   LINEAR_ASSIGNEE_EMAIL (default silverbeer.io@gmail.com) issue assignee
+#   LINEAR_LABELS         (default MT,infra) comma-separated label names
 # Args:
 #   $1  path to the drift report text file
 set -euo pipefail
 
 REPORT_FILE="${1:?usage: notify_linear_drift.sh <report-file>}"
 TEAM_KEY="${LINEAR_TEAM_KEY:-SB}"
+ASSIGNEE_EMAIL="${LINEAR_ASSIGNEE_EMAIL:-silverbeer.io@gmail.com}"
+LABELS_CSV="${LINEAR_LABELS:-MT,infra}"
 TITLE="[drift-guard] Prod migration drift detected"
 API="https://api.linear.app/graphql"
 
@@ -52,7 +56,23 @@ if [[ -n "$issue_id" ]]; then
     "$(jq -n --arg i "$issue_id" --arg b "$body" '{i:$i,b:$b}')" >/dev/null
   echo "Drift still open — commented on existing issue: $url"
 else
-  created="$(gql 'mutation($t:String!,$d:String!,$tm:String!){ issueCreate(input:{title:$t, description:$d, teamId:$tm}){ issue{ identifier url } } }' \
-    "$(jq -n --arg t "$TITLE" --arg d "$body" --arg tm "$team_id" '{t:$t,d:$d,tm:$tm}')")"
+  # Resolve assignee + labels so the auto-filed issue follows workspace
+  # conventions (never unassigned; always repo + type labeled). Each is
+  # best-effort — if resolution fails, still file the issue (don't drop the
+  # alert), just without that field.
+  assignee_id="$(gql 'query($e:String!){ users(filter:{email:{eq:$e}}){ nodes{ id } } }' \
+    "$(jq -n --arg e "$ASSIGNEE_EMAIL" '{e:$e}')" | jq -r '.data.users.nodes[0].id // empty')"
+  label_names="$(jq -n --arg c "$LABELS_CSV" '$c | split(",")')"
+  label_ids="$(gql 'query($n:[String!]!){ issueLabels(filter:{name:{in:$n}}){ nodes{ id } } }' \
+    "$(jq -n --argjson n "$label_names" '{n:$n}')" | jq -c '[.data.issueLabels.nodes[].id]')"
+
+  input="$(jq -n --arg t "$TITLE" --arg d "$body" --arg tm "$team_id" \
+    --arg a "$assignee_id" --argjson l "${label_ids:-[]}" '
+    {title:$t, description:$d, teamId:$tm}
+    + (if $a != "" then {assigneeId:$a} else {} end)
+    + (if ($l|length) > 0 then {labelIds:$l} else {} end)')"
+
+  created="$(gql 'mutation($input:IssueCreateInput!){ issueCreate(input:$input){ issue{ identifier url } } }' \
+    "$(jq -n --argjson i "$input" '{input:$i}')")"
   echo "Filed new Linear issue: $(echo "$created" | jq -r '.data.issueCreate.issue.url')"
 fi
