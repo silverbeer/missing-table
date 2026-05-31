@@ -184,20 +184,24 @@ helm upgrade missing-table ./missing-table --namespace missing-table -f ./missin
 
 ## Version Management
 
-**Claude creates all commits/PRs and decides version bumps.**
+Format: `MAJOR.MINOR.PATCH.BUILD` (e.g., `1.3.1.1041`), shown in the app footer via `/api/version`.
 
-Format: `MAJOR.MINOR.PATCH.BUILD` (e.g., `1.0.1.147`)
+- **`MAJOR.MINOR.PATCH`** lives in the `VERSION` file. Bumped automatically on merge to main by a **PR label gate** (CI job `update-helm-values` in `ci.yml`).
+- **`BUILD`** = the CI workflow `run_number`, written to `values-prod.yaml` `buildId` on every deploy. Always increments; not tied to the label.
 
-| Position | When to Increment |
-|----------|-------------------|
-| MAJOR | Breaking changes (API breaks, schema migrations, rewrites) |
-| MINOR | New features (new endpoints, UI features) |
-| PATCH | Bug fixes, refactoring, small improvements |
-| BUILD | Automatic (CI deployment) |
+### PR label gate — pick one label per PR
 
-```bash
-./scripts/version-bump.sh major|minor|patch
-```
+| Label | Effect on merge | Use for |
+|-------|-----------------|---------|
+| `version:major` | MAJOR +1, reset MINOR/PATCH | Breaking changes (API breaks, schema rewrites) |
+| `version:minor` | MINOR +1, reset PATCH | New features (endpoints, UI features) |
+| `version:patch` | PATCH +1 | Bug fixes, refactors, small improvements |
+| `version:none` | no MAJOR.MINOR.PATCH bump | Chore/infra/docs, image-tag commits |
+| *(no label)* | **defaults to `version:patch`** | so the version always advances on a real merge |
+
+CI reads the merged PR's label, runs `scripts/version-bump.sh <level>`, and commits the new `VERSION` alongside the image-tag update (`[skip ci]`). To switch the default from patch to "no bump", change the fallback `case` arm in `ci.yml`.
+
+Manual bump (local, rarely needed): `./scripts/version-bump.sh major|minor|patch`
 
 ---
 
