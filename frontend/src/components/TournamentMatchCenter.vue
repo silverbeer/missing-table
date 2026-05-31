@@ -841,6 +841,27 @@
                 {{ g }}
               </button>
             </div>
+
+            <!-- Follow this bracket: group-stage pools (e.g. NAC 'Bracket A')
+                 render here. Push at fulltime for every match in the selected
+                 tournament + group + age. Two-state toggle. -->
+            <button
+              v-if="canFollowStandingsBracket"
+              type="button"
+              @click="toggleStandingsBracketFollow"
+              data-testid="standings-bracket-follow-toggle"
+              :class="[
+                'sm:ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                isStandingsBracketFollowed
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+              ]"
+            >
+              <span v-if="isStandingsBracketFollowed"
+                >✓ Following — Unfollow</span
+              >
+              <span v-else>🔔 Follow this bracket</span>
+            </button>
           </div>
 
           <TournamentStandings :matches="standingsMatches" />
@@ -1172,31 +1193,51 @@ export default {
     // A user can follow the currently-selected bracket (tournament + group +
     // age group) to get a push at fulltime for every match in it. Gated on
     // being signed in with push enabled, mirroring team-follow buttons.
-    const canFollowBracket = computed(
-      () =>
-        authStore.isAuthenticated.value &&
-        pushEnabled.value &&
-        selectedId.value != null &&
-        bracketGroup.value != null &&
-        bracketAgeGroupId.value != null
-    );
-
-    const isBracketFollowed = computed(() =>
-      bracketFollows.isFollowing(
-        selectedId.value,
-        bracketGroup.value,
-        bracketAgeGroupId.value
-      )
-    );
-
-    const toggleBracketFollow = () => {
-      if (!canFollowBracket.value) return;
-      return bracketFollows.toggle(
-        selectedId.value,
-        bracketGroup.value,
-        bracketAgeGroupId.value
+    //
+    // The same (tournament, group, age) tuple is selectable in two views:
+    // the knockout Bracket view (bracketGroup/bracketAgeGroupId) and the
+    // group-stage Standings view (standingsGroup/standingsAgeGroupId) — e.g.
+    // NAC "Bracket A" is a group-stage pool that only renders in Standings.
+    // So we expose a follow toggle in BOTH, built from one factory.
+    const makeBracketFollow = (groupRef, ageRef) => {
+      const can = computed(
+        () =>
+          authStore.isAuthenticated.value &&
+          pushEnabled.value &&
+          selectedId.value != null &&
+          groupRef.value != null &&
+          ageRef.value != null
       );
+      const isFollowed = computed(() =>
+        bracketFollows.isFollowing(
+          selectedId.value,
+          groupRef.value,
+          ageRef.value
+        )
+      );
+      const toggle = () => {
+        if (!can.value) return;
+        return bracketFollows.toggle(
+          selectedId.value,
+          groupRef.value,
+          ageRef.value
+        );
+      };
+      return { can, isFollowed, toggle };
     };
+
+    const bracketFollow = makeBracketFollow(bracketGroup, bracketAgeGroupId);
+    const canFollowBracket = bracketFollow.can;
+    const isBracketFollowed = bracketFollow.isFollowed;
+    const toggleBracketFollow = bracketFollow.toggle;
+
+    const standingsFollow = makeBracketFollow(
+      standingsGroup,
+      standingsAgeGroupId
+    );
+    const canFollowStandingsBracket = standingsFollow.can;
+    const isStandingsBracketFollowed = standingsFollow.isFollowed;
+    const toggleStandingsBracketFollow = standingsFollow.toggle;
 
     // ── standings-mode computed state ──
     // Same pattern as bracket-mode, but keyed off group_stage matches
@@ -1288,6 +1329,9 @@ export default {
       canFollowBracket,
       isBracketFollowed,
       toggleBracketFollow,
+      canFollowStandingsBracket,
+      isStandingsBracketFollowed,
+      toggleStandingsBracketFollow,
       tournaments,
       loading,
       error,

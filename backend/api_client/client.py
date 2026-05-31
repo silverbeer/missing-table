@@ -1327,6 +1327,19 @@ class MissingTableClient:
         )
         return response.json()
 
+    def delete_tournament_match(self, tournament_id: int, match_id: int) -> dict[str, Any]:
+        """Delete a match from a tournament (admin only).
+
+        The endpoint returns 204 No Content, so there's no JSON body to parse.
+        """
+        response = self._request(
+            "DELETE",
+            f"/api/admin/tournaments/{tournament_id}/matches/{match_id}",
+        )
+        if response.status_code == 204 or not response.content:
+            return {"deleted": True, "match_id": match_id}
+        return response.json()
+
     # Cache management
 
     def get_cache_stats(self) -> dict[str, Any]:

@@ -31,12 +31,38 @@ from rich.panel import Panel
 from rich.table import Table
 
 from api_client import APIError, AuthenticationError, MissingTableClient
-from api_client.models import GoalEvent, LiveMatchClock, MessageEvent
+from api_client.models import (
+    GoalEvent,
+    LiveMatchClock,
+    MessageEvent,
+    TournamentCreate,
+    TournamentMatchCreate,
+    TournamentMatchUpdate,
+)
 
 app = typer.Typer(help="MT Match Tracking CLI")
 match_app = typer.Typer(help="Live match tracking commands")
+tournament_app = typer.Typer(help="Tournament + bracket seeding commands (admin)")
 app.add_typer(match_app, name="match")
+app.add_typer(tournament_app, name="tournament")
 console = Console()
+
+# Valid tournament_round values accepted by the backend (mirrors
+# tournament_dao.VALID_ROUNDS). group_stage is the default for bracket pools.
+VALID_ROUNDS = {
+    "group_stage",
+    "round_of_32",
+    "round_of_16",
+    "quarterfinal",
+    "semifinal",
+    "final",
+    "third_place",
+    "wildcard",
+    "silver_semifinal",
+    "bronze_semifinal",
+    "silver_final",
+    "bronze_final",
+}
 
 # Paths
 REPO_ROOT = Path(__file__).parent.parent
@@ -661,6 +687,285 @@ def end():
     state.home_team_name = None
     state.away_team_name = None
     save_state(state)
+
+
+# --- Tournament helpers ---
+
+
+def _resolve_age_group_id(client: MissingTableClient, name: str) -> int:
+    """Resolve an age-group name (e.g. 'U14') to its id. Exits on no match."""
+    groups = client.get_age_groups()
+    lower = name.lower()
+    # Exact (case-insensitive) first, then substring.
+    for g in groups:
+        if g.get("name", "").lower() == lower:
+            return g["id"]
+    for g in groups:
+        if lower in g.get("name", "").lower():
+            return g["id"]
+    available = ", ".join(sorted(g.get("name", "?") for g in groups))
+    console.print(
+        f"[red]Age group '{name}' not found[/red]\n[yellow]Available:[/yellow] {available}"
+    )
+    raise typer.Exit(1)
+
+
+def _resolve_season_id(client: MissingTableClient, season: str | None) -> int:
+    """Resolve a season name to its id, or use the current season when omitted."""
+    if season:
+        lower = season.lower()
+        for s in client.get_seasons():
+            if lower in s.get("name", "").lower():
+                return s["id"]
+        console.print(f"[red]Season '{season}' not found[/red]")
+        raise typer.Exit(1)
+    current = client.get_current_season()
+    if not current or "id" not in current:
+        console.print(
+            "[red]No current season set[/red]\n"
+            "[yellow]Pass --season explicitly (e.g. --season 2025-2026)[/yellow]"
+        )
+        raise typer.Exit(1)
+    return current["id"]
+
+
+def _resolve_team_id(client: MissingTableClient, name: str) -> tuple[int, str]:
+    """Resolve a team name to (id, name) via the admin lookup endpoint.
+
+    Requires an exact match — seeding should never silently pick the wrong team.
+    """
+    result = client.lookup_team(name)
+    exact = result.get("exact")
+    if exact:
+        return exact["id"], exact["name"]
+    similar = result.get("similar") or []
+    hint = ""
+    if similar:
+        hint = "\n[yellow]Did you mean:[/yellow] " + ", ".join(
+            t.get("name", "?") for t in similar[:5]
+        )
+    console.print(f"[red]No exact team match for '{name}'[/red]{hint}")
+    raise typer.Exit(1)
+
+
+# --- Tournament Subcommands ---
+
+
+@tournament_app.command("create")
+def tournament_create(
+    name: str = typer.Option(..., "--name", "-n", help="Tournament name"),
+    start: str = typer.Option(..., "--start", "-s", help="Start date (YYYY-MM-DD)"),
+    end: str = typer.Option(None, "--end", "-e", help="End date (YYYY-MM-DD)"),
+    age: list[str] = typer.Option(
+        None, "--age", "-a", help="Age group(s), e.g. -a U14 (repeatable)"
+    ),
+    location: str = typer.Option(None, "--location", help="Location"),
+    description: str = typer.Option(None, "--description", help="Description"),
+    inactive: bool = typer.Option(False, "--inactive", help="Create as inactive"),
+):
+    """Create a new tournament (admin). Prints the new tournament id."""
+    client, _ = get_client()
+    age_group_ids = [_resolve_age_group_id(client, a) for a in (age or [])]
+    payload = TournamentCreate(
+        name=name,
+        start_date=start,
+        end_date=end,
+        location=location,
+        description=description,
+        age_group_ids=age_group_ids,
+        is_active=not inactive,
+    )
+    try:
+        created = client.create_tournament(payload)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+
+    tid = created.get("id")
+    console.print(f"[green]Created tournament #{tid}:[/green] {name}")
+    console.print(f"[dim]Environment: {get_current_env()}[/dim]")
+    console.print(
+        f"[dim]Add matches:[/dim] mt tournament add-match --tournament {tid} "
+        '--home "Team A" --away "Team B" --age U14 --bracket "Bracket A" --date '
+        f"{start}"
+    )
+
+
+@tournament_app.command("list")
+def tournament_list():
+    """List active tournaments."""
+    client, _ = get_client()
+    tournaments = client.get_active_tournaments()
+    if not tournaments:
+        console.print("[yellow]No active tournaments.[/yellow]")
+        return
+    table = Table(title="Active Tournaments")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Name", style="white")
+    table.add_column("Start", style="magenta")
+    table.add_column("End", style="magenta")
+    for t in tournaments:
+        table.add_row(
+            str(t.get("id", "?")),
+            t.get("name", "?"),
+            str(t.get("start_date", "")),
+            str(t.get("end_date", "") or ""),
+        )
+    console.print(table)
+
+
+@tournament_app.command("show")
+def tournament_show(
+    tournament_id: int = typer.Argument(..., help="Tournament ID"),
+):
+    """Show a tournament's matches grouped by bracket + round."""
+    client, _ = get_client()
+    try:
+        t = client.get_tournament(tournament_id)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+
+    console.print(f"[bold]{t.get('name', '?')}[/bold] (#{tournament_id})")
+    matches = t.get("matches", []) or []
+    if not matches:
+        console.print("[yellow]No matches yet.[/yellow]")
+        return
+    table = Table(title=f"{len(matches)} matches")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Bracket", style="yellow")
+    table.add_column("Age", style="yellow")
+    table.add_column("Round", style="blue")
+    table.add_column("Home", style="white")
+    table.add_column("Away", style="white")
+    table.add_column("Score", style="green")
+    table.add_column("Status", style="magenta")
+    for m in matches:
+        score = ""
+        if m.get("home_score") is not None and m.get("away_score") is not None:
+            score = f"{m['home_score']}-{m['away_score']}"
+        table.add_row(
+            str(m.get("id", "?")),
+            str(m.get("tournament_group") or ""),
+            str((m.get("age_group") or {}).get("name") or m.get("age_group_name") or ""),
+            str(m.get("tournament_round") or ""),
+            str(m.get("home_team_name") or (m.get("home_team") or {}).get("name") or "?"),
+            str(m.get("away_team_name") or (m.get("away_team") or {}).get("name") or "?"),
+            score,
+            str(m.get("match_status") or ""),
+        )
+    console.print(table)
+
+
+@tournament_app.command("add-match")
+def tournament_add_match(
+    tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
+    home: str = typer.Option(..., "--home", help="Home team name (must exist exactly)"),
+    away: str = typer.Option(..., "--away", help="Away team name (created if new)"),
+    age: str = typer.Option(..., "--age", "-a", help="Age group, e.g. U14"),
+    date: str = typer.Option(..., "--date", "-d", help="Match date (YYYY-MM-DD)"),
+    bracket: str = typer.Option(
+        None, "--bracket", "-b", help="Bracket / tournament_group, e.g. 'Bracket A'"
+    ),
+    round_: str = typer.Option(
+        "group_stage", "--round", "-r", help=f"Round ({', '.join(sorted(VALID_ROUNDS))})"
+    ),
+    order: int = typer.Option(None, "--order", help="tournament_round_order (bracket position)"),
+    kickoff: str = typer.Option(
+        None, "--kickoff", "-k", help="Scheduled kickoff ISO ts, e.g. 2026-06-07T14:00:00Z"
+    ),
+    home_score: int = typer.Option(None, "--home-score", help="Home score"),
+    away_score: int = typer.Option(None, "--away-score", help="Away score"),
+    status: str = typer.Option("scheduled", "--status", help="Match status"),
+    season: str = typer.Option(None, "--season", help="Season name (default: current)"),
+):
+    """Add a match to a tournament bracket (admin).
+
+    The home team must already exist; the away team is created on the fly if
+    its name doesn't match an existing team (backend get_or_create).
+    """
+    if round_ not in VALID_ROUNDS:
+        console.print(
+            f"[red]Invalid round '{round_}'[/red]\n"
+            f"[yellow]Valid:[/yellow] {', '.join(sorted(VALID_ROUNDS))}"
+        )
+        raise typer.Exit(1)
+
+    client, _ = get_client()
+    age_group_id = _resolve_age_group_id(client, age)
+    season_id = _resolve_season_id(client, season)
+    home_id, home_name = _resolve_team_id(client, home)
+
+    payload = TournamentMatchCreate(
+        our_team_id=home_id,
+        opponent_name=away,
+        match_date=date,
+        age_group_id=age_group_id,
+        season_id=season_id,
+        is_home=True,
+        home_score=home_score,
+        away_score=away_score,
+        match_status=status,
+        tournament_group=bracket,
+        tournament_round=round_,
+        tournament_round_order=order,
+        scheduled_kickoff=kickoff,
+    )
+    try:
+        created = client.create_tournament_match(tournament, payload)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+
+    mid = created.get("id", "?")
+    bracket_label = f" [{bracket}]" if bracket else ""
+    console.print(
+        f"[green]Added match #{mid}[/green]{bracket_label} {home_name} vs {away} "
+        f"({age}, {round_})"
+    )
+
+
+@tournament_app.command("remove-match")
+def tournament_remove_match(
+    tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
+    match: int = typer.Option(..., "--match", "-m", help="Match ID to delete"),
+):
+    """Delete a match from a tournament (admin)."""
+    client, _ = get_client()
+    try:
+        client.delete_tournament_match(tournament, match)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+    console.print(f"[green]Removed match #{match} from tournament #{tournament}[/green]")
+
+
+@tournament_app.command("score")
+def tournament_score(
+    tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
+    match: int = typer.Option(..., "--match", "-m", help="Match ID"),
+    home_score: int = typer.Option(..., "--home", help="Home score"),
+    away_score: int = typer.Option(..., "--away", help="Away score"),
+    status: str = typer.Option("completed", "--status", help="Match status"),
+):
+    """Set a tournament match's final score (admin).
+
+    Goes through the admin match-write path, which fires the 'fulltime'
+    follower notification — this is what bracket followers receive.
+    """
+    client, _ = get_client()
+    payload = TournamentMatchUpdate(
+        home_score=home_score, away_score=away_score, match_status=status
+    )
+    try:
+        client.update_tournament_match(tournament, match, payload)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+    console.print(
+        f"[green]Match #{match} → {home_score}-{away_score} ({status})[/green]  "
+        "[dim]fulltime notification fired to bracket + team followers[/dim]"
+    )
 
 
 if __name__ == "__main__":
