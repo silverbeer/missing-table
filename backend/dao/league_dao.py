@@ -23,11 +23,19 @@ class LeagueDAO(BaseDAO):
 
     # === League Query Methods ===
 
-    @dao_cache("leagues:all")
-    def get_all_leagues(self) -> list[dict]:
-        """Get all leagues ordered by name."""
+    @dao_cache("leagues:all:{include_test}")
+    def get_all_leagues(self, include_test: bool = False) -> list[dict]:
+        """Get all leagues ordered by name.
+
+        include_test gates the SB-85 test partition: real/anonymous viewers pass
+        False (test leagues hidden); admins + test users pass True. The cache key
+        varies by include_test so the two audiences never share a cached result.
+        """
         try:
-            response = self.client.table("leagues").select("*").order("name").execute()
+            query = self.client.table("leagues").select("*")
+            if not include_test:
+                query = query.eq("is_test", False)
+            response = query.order("name").execute()
             return response.data
         except Exception:
             logger.exception("Error querying leagues")

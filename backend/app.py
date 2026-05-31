@@ -20,11 +20,13 @@ from api.push import router as push_router
 from api.webhooks_email import router as webhooks_email_router
 from auth import (
     AuthManager,
+    get_current_user_optional,
     get_current_user_required,
     require_admin,
     require_admin_or_service_account,
     require_match_management_permission,
     require_team_manager_or_admin,
+    viewer_sees_test_content,
 )
 from constants import PLAYER_POSITIONS
 from csrf_protection import provide_csrf_token
@@ -4250,10 +4252,17 @@ async def delete_season(season_id: int, current_user: dict[str, Any] = Depends(r
 
 # Leagues CRUD
 @app.get("/api/leagues")
-async def get_leagues():
-    """Get all leagues (public access)."""
+async def get_leagues(
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+):
+    """Get all leagues (public access).
+
+    Test leagues (SB-85) are hidden from anonymous + real users; admins and
+    test users see them.
+    """
     try:
-        leagues = league_dao.get_all_leagues()
+        include_test = viewer_sees_test_content(current_user)
+        leagues = league_dao.get_all_leagues(include_test=include_test)
         return leagues
     except Exception as e:
         logger.error(f"Error fetching leagues: {e!s}", exc_info=True)
@@ -6629,10 +6638,17 @@ class TournamentMatchUpdate(BaseModel):
 
 
 @app.get("/api/tournaments")
-async def get_tournaments():
-    """List all active tournaments (public)."""
+async def get_tournaments(
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+):
+    """List all active tournaments (public).
+
+    Test tournaments (SB-85) are hidden from anonymous + real users; admins and
+    test users see them.
+    """
     try:
-        return tournament_dao.get_active_tournaments()
+        include_test = viewer_sees_test_content(current_user)
+        return tournament_dao.get_active_tournaments(include_test=include_test)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

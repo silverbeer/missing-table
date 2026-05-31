@@ -155,6 +155,7 @@ class AuthManager:
                 "team_id": profile.get("team_id"),
                 "club_id": profile.get("club_id"),  # For club managers
                 "display_name": profile.get("display_name"),
+                "is_test": profile.get("is_test", False),  # SB-85 test partition
             }
 
         except jwt.ExpiredSignatureError:
@@ -405,6 +406,16 @@ def get_current_user_required(
     from app import auth_manager
 
     return auth_manager.get_current_user(credentials)
+
+
+def viewer_sees_test_content(user: dict[str, Any] | None) -> bool:
+    """Whether a viewer may see is_test content (SB-85 prod test partition).
+
+    True for admins and flagged test users; False for anonymous and real users.
+    Used by the public list endpoints to hide the TSC test world from real
+    users while keeping it visible to test users + admins.
+    """
+    return bool(user) and (user.get("role") == "admin" or bool(user.get("is_test")))
 
 
 def require_admin(
