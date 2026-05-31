@@ -344,6 +344,14 @@ function isWinner(match, side) {
 }
 
 function scoreCell(match, side) {
+  // A not-yet-played match can carry a stored 0:0 (create defaults scores to 0,
+  // and there is no write path to null them again). Only surface a score once the
+  // match is actually under way or final — otherwise it reads as a played 0:0 draw.
+  if (
+    match.match_status !== 'completed' &&
+    match.match_status !== 'in_progress'
+  )
+    return 'TBD';
   if (match.home_score == null || match.away_score == null) return 'TBD';
   const base = side === 'home' ? match.home_score : match.away_score;
   if (match.home_penalty_score != null && match.away_penalty_score != null) {
