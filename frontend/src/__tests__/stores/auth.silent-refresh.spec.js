@@ -144,6 +144,47 @@ describe('auth store — silent refresh (SB-78)', () => {
     });
   });
 
+  describe('transient vs genuine refresh failures', () => {
+    it('preserves the refresh token when the network is down (fetch throws)', async () => {
+      global.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+      localStorage.setItem('refresh_token', 'r1');
+      localStorage.setItem('auth_token', 't1');
+
+      const result = await store.refreshSession();
+
+      expect(result.success).toBe(false);
+      expect(result.transient).toBe(true);
+      // The still-valid token must survive a connectivity blip (wake-from-sleep).
+      expect(localStorage.getItem('refresh_token')).toBe('r1');
+      expect(localStorage.getItem('auth_token')).toBe('t1');
+    });
+
+    it('preserves the refresh token on a 5xx server hiccup', async () => {
+      global.fetch.mockResolvedValue({ ok: false, status: 503 });
+      localStorage.setItem('refresh_token', 'r1');
+
+      const result = await store.refreshSession();
+
+      expect(result.success).toBe(false);
+      expect(result.transient).toBe(true);
+      expect(localStorage.getItem('refresh_token')).toBe('r1');
+    });
+
+    it('clears auth state when the refresh token is genuinely rejected (401)', async () => {
+      global.fetch.mockResolvedValue({ ok: false, status: 401 });
+      localStorage.setItem('refresh_token', 'r1');
+      localStorage.setItem('auth_token', 't1');
+
+      const result = await store.refreshSession();
+
+      expect(result.success).toBe(false);
+      expect(result.transient).toBe(false);
+      expect(localStorage.getItem('refresh_token')).toBeNull();
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(store.state.session).toBeNull();
+    });
+  });
+
   describe('proactive refresh timer', () => {
     it('refreshes the token when it is about to expire', async () => {
       vi.useFakeTimers();
