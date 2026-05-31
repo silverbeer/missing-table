@@ -190,6 +190,36 @@
         </li>
       </ul>
     </div>
+
+    <!-- Followed brackets (tournament + group + age group) -->
+    <div v-if="isSupported" class="follows-section">
+      <h4>Brackets you follow</h4>
+      <p v-if="!bracketFollows.length" class="follows-empty">
+        You aren't following any tournament brackets yet. Open a tournament's
+        Bracket or Standings view and tap "Follow this bracket" to get a push at
+        full time for every match in it.
+      </p>
+      <ul v-else class="follows-list">
+        <li
+          v-for="b in bracketFollows"
+          :key="`${b.tournament_id}:${b.tournament_group}:${b.age_group_id}`"
+          class="follow-item"
+          :data-testid="`bracket-follow-item-${b.tournament_id}-${b.age_group_id}`"
+        >
+          <div class="follow-item-main">
+            <span class="follow-team">{{ bracketPrimaryLabel(b) }}</span>
+            <span class="follow-item-sub">Full-time scores only</span>
+          </div>
+          <button
+            class="revoke-button"
+            :disabled="bracketLoading"
+            @click="onUnfollowBracket(b)"
+          >
+            Unfollow
+          </button>
+        </li>
+      </ul>
+    </div>
   </section>
 </template>
 
@@ -197,6 +227,7 @@
 import { ref, onMounted } from 'vue';
 import { usePushNotifications } from '../../composables/usePushNotifications';
 import { useTeamFollows } from '../../composables/useTeamFollows';
+import { useBracketFollows } from '../../composables/useBracketFollows';
 import { useNotificationPreferences } from '../../composables/useNotificationPreferences';
 
 const {
@@ -214,6 +245,15 @@ const {
 
 // Shared singleton (SB-55): same `follows` reactive list every FollowButton mutates.
 const { follows, refresh: refreshFollows } = useTeamFollows();
+
+// Bracket follows (tournament + group + age group). Same singleton the
+// tournament-page toggle mutates, so unfollowing here updates that toggle too.
+const {
+  follows: bracketFollows,
+  loading: bracketLoading,
+  ensureLoaded: ensureBracketFollowsLoaded,
+  unfollow: unfollowBracket,
+} = useBracketFollows();
 
 // Per-event preferences (SB-57).
 const {
@@ -234,9 +274,23 @@ async function refresh() {
   const [subs] = await Promise.all([
     listSubscriptions(),
     refreshFollows(),
+    ensureBracketFollowsLoaded(),
     ensurePreferencesLoaded(),
   ]);
   subscriptions.value = subs;
+}
+
+// "2026 National Academy Championships · Bracket A · U14"
+function bracketPrimaryLabel(b) {
+  const tourney = b.tournament?.name || `Tournament #${b.tournament_id}`;
+  const age = b.age_group?.name;
+  const parts = [tourney, b.tournament_group];
+  if (age) parts.push(age);
+  return parts.join(' · ');
+}
+
+async function onUnfollowBracket(b) {
+  await unfollowBracket(b.tournament_id, b.tournament_group, b.age_group_id);
 }
 
 async function onTogglePref(eventType, enabled) {
