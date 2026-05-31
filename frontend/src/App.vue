@@ -1,5 +1,33 @@
 <template>
   <div class="min-h-screen bg-slate-50">
+    <!-- Deep-link match detail (from a push notification: ?matchId=). Overlays
+         everything; works for any match status. -->
+    <div
+      v-if="deepLinkMatchId"
+      class="fixed inset-0 z-50 bg-black/60 overflow-y-auto"
+      @click.self="closeDeepLinkMatch"
+    >
+      <div class="min-h-full flex items-start justify-center p-3 sm:p-6">
+        <div
+          class="relative w-full max-w-4xl bg-white rounded-lg shadow-2xl"
+          @click.stop
+        >
+          <button
+            type="button"
+            aria-label="Close match details"
+            class="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            @click="closeDeepLinkMatch"
+          >
+            ✕
+          </button>
+          <MatchDetailView
+            :matchId="deepLinkMatchId"
+            @back="closeDeepLinkMatch"
+          />
+        </div>
+      </div>
+    </div>
+
     <!-- PWA chrome: install prompt, offline indicator, update banner -->
     <IosInstallTooltip />
     <OfflineIndicator />
@@ -509,6 +537,7 @@ import { recordPageView, recordInviteRequest } from './faro';
 import MatchForm from './components/MatchForm.vue';
 import LeagueTable from './components/LeagueTable.vue';
 import MatchesView from './components/MatchesView.vue';
+import MatchDetailView from './components/MatchDetailView.vue';
 import GoalsLeaderboard from './components/GoalsLeaderboard.vue';
 import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
@@ -531,6 +560,7 @@ export default {
     MatchForm,
     LeagueTable,
     MatchesView,
+    MatchDetailView,
     GoalsLeaderboard,
     AuthNav,
     LoginForm,
@@ -551,6 +581,12 @@ export default {
     const authStore = useAuthStore();
     const adminAttention = useAdminAttentionCounts();
     const currentTab = ref('table');
+    // Deep link from a push notification: ?matchId=<id> opens MatchDetailView
+    // as an overlay (SB-86). Works for any match status, incl. completed.
+    const deepLinkMatchId = ref(null);
+    const closeDeepLinkMatch = () => {
+      deepLinkMatchId.value = null;
+    };
     const tableFilters = ref({
       ageGroupId: null,
       leagueId: null,
@@ -855,6 +891,18 @@ export default {
         window.history.replaceState({}, '', cleanUrl);
       }
 
+      // Deep link from a push notification: ?matchId=<id> → open the match.
+      const matchIdParam = urlParams.get('matchId');
+      if (matchIdParam && /^\d+$/.test(matchIdParam)) {
+        deepLinkMatchId.value = Number(matchIdParam);
+        // Strip matchId from the URL so a refresh/share doesn't re-trigger,
+        // preserving any invite code (mirrors the reset_token cleanup above).
+        const code = urlParams.get('code');
+        const cleanUrl =
+          window.location.pathname + (code ? `?code=${code}` : '');
+        window.history.replaceState({}, '', cleanUrl);
+      }
+
       // Start live match polling if authenticated
       if (authStore.isAuthenticated.value) {
         startLiveMatchPolling();
@@ -929,6 +977,8 @@ export default {
       authStore,
       adminAttention,
       currentTab,
+      deepLinkMatchId,
+      closeDeepLinkMatch,
       tableFilters,
       matchesFilters,
       availableTabs,

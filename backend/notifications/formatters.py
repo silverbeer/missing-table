@@ -27,10 +27,16 @@ def _matchup_line(match: dict) -> str:
     return f"{match.get('home_team_name', 'Home')} vs {match.get('away_team_name', 'Away')}"
 
 
-def _score_line(match: dict) -> str:
+def _score_inline(match: dict) -> str:
+    """Compact score for the headline, e.g. 'IFA 2-1 NEFC'.
+
+    Lives on the first line of the message because that line becomes the Web
+    Push *title* — the only field rendered prominently (and at all, on iOS) when
+    the notification is collapsed. The score must be there, not in the body.
+    """
     home = match.get("home_score") or 0
     away = match.get("away_score") or 0
-    return f"{match.get('home_team_name', 'Home')} {home} - {away} {match.get('away_team_name', 'Away')}"
+    return f"{match.get('home_team_name', 'Home')} {home}-{away} {match.get('away_team_name', 'Away')}"
 
 
 def _minute_str(event: dict) -> str:
@@ -92,11 +98,11 @@ def format_goal(event: dict, match: dict, tz: ZoneInfo) -> str:
 
     player = event.get("player_name") or "Unknown player"
     minute = _minute_str(event)
-    minute_suffix = f" {minute}" if minute else ""
+    minute_suffix = f" ({minute})" if minute else ""
 
-    lines = [f"{_EMOJI['goal']} GOAL — {_matchup_line(match)}"]
-    lines.append(f"{player} ({scoring_team}){minute_suffix}")
-    lines.append(_score_line(match))
+    # Headline = score (becomes the push title); scorer drops to the body.
+    lines = [f"{_EMOJI['goal']} {_score_inline(match)}{minute_suffix}"]
+    lines.append(f"{player} ({scoring_team})")
     return "\n".join(lines)
 
 
@@ -124,16 +130,17 @@ def format_card(event: dict, match: dict, tz: ZoneInfo) -> str:
 
 
 def format_halftime(match: dict, tz: ZoneInfo) -> str:
-    """Halftime has begun."""
-    lines = [f"{_EMOJI['halftime']} HALFTIME — {_matchup_line(match)}"]
-    lines.append(_score_line(match))
+    """Halftime has begun. Score-first headline."""
+    lines = [f"{_EMOJI['halftime']} HT · {_score_inline(match)}"]
+    tag = _tag(match)
+    if tag:
+        lines.append(tag)
     return "\n".join(lines)
 
 
 def format_fulltime(match: dict, tz: ZoneInfo) -> str:
-    """Final whistle."""
-    lines = [f"{_EMOJI['fulltime']} FULL TIME — {_matchup_line(match)}"]
-    lines.append(_score_line(match))
+    """Final whistle. Score-first headline."""
+    lines = [f"{_EMOJI['fulltime']} FT · {_score_inline(match)}"]
     tag = _tag(match)
     if tag:
         lines.append(tag)

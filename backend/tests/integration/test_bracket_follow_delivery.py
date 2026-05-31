@@ -231,7 +231,7 @@ class TestBracketScorePushesFollower:
         sub, payload = sender.calls[0]
         assert sub["endpoint"] == world["subscription"]["endpoint"]
         text = f"{payload.get('title', '')}\n{payload.get('body', '')}"
-        assert "2 - 1" in text
+        assert "2-1" in text
 
         rows = _push_log_rows(world["admin"], world["match"]["id"], world["user_id"])
         assert len(rows) == 1
