@@ -656,8 +656,14 @@ export const useAuthStore = () => {
               }
             }
           }
+          if (refreshResult.transient) {
+            // Server unreachable on boot (offline / waking). Keep the
+            // still-valid tokens so a later reload restores the session rather
+            // than forcing a needless re-login.
+            return;
+          }
         }
-        // Refresh failed or no refresh token, clear storage
+        // Genuine auth failure or no refresh token — clear storage.
         localStorage.clear();
       } else {
         // Other error, clear storage
@@ -750,8 +756,15 @@ export const useAuthStore = () => {
           );
         }
       }
-      // Refresh failed or retry failed, force logout
       recordHttpRequest(endpoint, method, 401, duration);
+      // A transient refresh failure (network/5xx) leaves the refresh token
+      // intact — don't destroy the session over a blip; surface a retryable
+      // error so the caller can try again once connectivity returns.
+      if (refreshResult.transient) {
+        throw new Error('Could not reach the server. Please try again.');
+      }
+      // Genuine auth failure — refreshSession already cleared state; finish the
+      // logout for CSRF/Faro cleanup, then send the user back to login.
       await logout();
       throw new Error('Session expired. Please log in again.');
     }
@@ -796,6 +809,25 @@ export const useAuthStore = () => {
     return timeUntilExpiry < 5 * 60 * 1000;
   };
 
+  // Hard-clear all auth state. Only ever called on a *genuine* auth failure
+  // (missing or server-rejected refresh token) — never on a transient
+  // network/server blip, which would otherwise throw away a still-valid token.
+  const clearAuthState = () => {
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    localStorage.clear();
+  };
+
+  // Refresh the access token. Returns:
+  //   { success: true }
+  //   { success: false, transient: true }  — network down / 5xx / 429; the
+  //       refresh token is untouched so a later attempt can recover.
+  //   { success: false, transient: false } — refresh token genuinely rejected;
+  //       auth state is cleared and the user must log in again.
+  // The transient/genuine split exists because the proactive timer (and resume
+  // listeners) can fire on wake-from-sleep *before* connectivity is restored:
+  // a thrown fetch must NOT be mistaken for "your session is invalid". (SB-78)
   const refreshSession = async () => {
     // Single-flight: with refresh-token rotation enabled, two concurrent
     // refreshes would send the same token twice — the second send uses an
@@ -807,37 +839,61 @@ export const useAuthStore = () => {
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
+          // Nothing to refresh with — genuinely unauthenticated.
+          clearAuthState();
           recordSessionRefresh(false);
-          throw new Error('No refresh token');
+          return {
+            success: false,
+            transient: false,
+            error: 'No refresh token',
+          };
         }
 
-        const response = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getTraceHeaders(),
-          },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-
-        if (!response.ok) {
+        let response;
+        try {
+          response = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getTraceHeaders(),
+            },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+        } catch (networkError) {
+          // No response at all — almost always transient connectivity (e.g. the
+          // proactive timer firing on wake-from-sleep before wifi reconnects).
+          // Keep the still-valid refresh token; the next attempt recovers.
           recordSessionRefresh(false);
-          throw new Error('Token refresh failed');
+          return {
+            success: false,
+            transient: true,
+            error: networkError.message,
+          };
         }
 
-        const data = await response.json();
-        setSession(data.session);
+        if (response.ok) {
+          const data = await response.json();
+          setSession(data.session);
+          recordSessionRefresh(true);
+          return { success: true };
+        }
 
-        recordSessionRefresh(true);
-        return { success: true };
-      } catch (error) {
-        // Refresh failed, force logout
-        setUser(null);
-        setSession(null);
-        setProfile(null);
-        localStorage.clear();
         recordSessionRefresh(false);
-        return { success: false, error: error.message };
+        // Only a real auth rejection means the refresh token is dead. 5xx / 429
+        // are server-side hiccups, not the token's fault — retry later.
+        if (response.status === 401 || response.status === 403) {
+          clearAuthState();
+          return {
+            success: false,
+            transient: false,
+            error: 'Refresh token rejected',
+          };
+        }
+        return {
+          success: false,
+          transient: true,
+          error: `Token refresh failed: ${response.status}`,
+        };
       } finally {
         refreshInFlight = null;
       }
