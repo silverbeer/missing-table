@@ -36,6 +36,19 @@ vi.mock('@/composables/useTeamFollows', () => ({
   }),
 }));
 
+// Stub useBracketFollows. Tests populate `mockBracketFollows` to verify the
+// "Brackets you follow" section + unfollow wiring.
+let mockBracketFollows;
+let unfollowBracketMock;
+vi.mock('@/composables/useBracketFollows', () => ({
+  useBracketFollows: () => ({
+    follows: computed(() => mockBracketFollows.value),
+    loading: ref(false),
+    ensureLoaded: vi.fn().mockResolvedValue(),
+    unfollow: unfollowBracketMock,
+  }),
+}));
+
 // Stub useNotificationPreferences with a controllable mock.
 let mockPrefs;
 let setPreferenceMock;
@@ -72,6 +85,8 @@ beforeEach(() => {
   setCardsMock = vi.fn().mockResolvedValue({ success: true });
   ensureLoadedMock = vi.fn().mockResolvedValue();
   mockFollows = ref([]);
+  mockBracketFollows = ref([]);
+  unfollowBracketMock = vi.fn().mockResolvedValue({ success: true });
 });
 
 describe('NotificationsCard preferences section (SB-57)', () => {
@@ -273,5 +288,59 @@ describe('NotificationsCard "Teams you follow" labels (SB-65)', () => {
 
     const item = wrapper.find('[data-testid="follow-item-7"]');
     expect(item.find('.follow-club').text()).toBe('Bayside FC');
+  });
+});
+
+describe('NotificationsCard "Brackets you follow" section', () => {
+  it('shows the empty state when no bracket follows', async () => {
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Brackets you follow');
+    expect(wrapper.text()).toContain(
+      "aren't following any tournament brackets"
+    );
+  });
+
+  it('renders a row labeled "tournament · bracket · age"', async () => {
+    mockBracketFollows.value = [
+      {
+        tournament_id: 7,
+        tournament_group: 'Bracket A',
+        age_group_id: 2,
+        tournament: { id: 7, name: 'TSC Bracket Test Cup' },
+        age_group: { id: 2, name: 'U14' },
+      },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    const item = wrapper.find('[data-testid="bracket-follow-item-7-2"]');
+    expect(item.exists()).toBe(true);
+    expect(item.find('.follow-team').text()).toBe(
+      'TSC Bracket Test Cup · Bracket A · U14'
+    );
+  });
+
+  it('clicking Unfollow calls unfollow with the composite key', async () => {
+    mockBracketFollows.value = [
+      {
+        tournament_id: 7,
+        tournament_group: 'Bracket A',
+        age_group_id: 2,
+        tournament: { id: 7, name: 'TSC Bracket Test Cup' },
+        age_group: { id: 2, name: 'U14' },
+      },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    const item = wrapper.find('[data-testid="bracket-follow-item-7-2"]');
+    await item.find('.revoke-button').trigger('click');
+    await flushPromises();
+
+    expect(unfollowBracketMock).toHaveBeenCalledWith(7, 'Bracket A', 2);
   });
 });

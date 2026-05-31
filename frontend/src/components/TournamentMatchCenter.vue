@@ -783,6 +783,13 @@
               <span v-if="isBracketFollowed">✓ Following — Unfollow</span>
               <span v-else>🔔 Follow this bracket</span>
             </button>
+            <span
+              v-else-if="bracketNeedsPush"
+              class="sm:ml-auto text-xs text-gray-500"
+              data-testid="bracket-follow-push-hint"
+            >
+              🔔 Enable notifications in your profile to follow this bracket.
+            </span>
           </div>
 
           <TournamentBracket
@@ -862,6 +869,13 @@
               >
               <span v-else>🔔 Follow this bracket</span>
             </button>
+            <span
+              v-else-if="standingsNeedsPush"
+              class="sm:ml-auto text-xs text-gray-500"
+              data-testid="standings-bracket-follow-push-hint"
+            >
+              🔔 Enable notifications in your profile to follow this bracket.
+            </span>
           </div>
 
           <TournamentStandings :matches="standingsMatches" />
@@ -1223,13 +1237,25 @@ export default {
           ageRef.value
         );
       };
-      return { can, isFollowed, toggle };
+      // A bracket is selected and the user is signed in, but push isn't on yet —
+      // so `can` is false and the button is hidden. Surface a hint instead of
+      // showing nothing, pointing them at the profile to enable notifications.
+      const needsPush = computed(
+        () =>
+          authStore.isAuthenticated.value &&
+          !pushEnabled.value &&
+          selectedId.value != null &&
+          groupRef.value != null &&
+          ageRef.value != null
+      );
+      return { can, isFollowed, toggle, needsPush };
     };
 
     const bracketFollow = makeBracketFollow(bracketGroup, bracketAgeGroupId);
     const canFollowBracket = bracketFollow.can;
     const isBracketFollowed = bracketFollow.isFollowed;
     const toggleBracketFollow = bracketFollow.toggle;
+    const bracketNeedsPush = bracketFollow.needsPush;
 
     const standingsFollow = makeBracketFollow(
       standingsGroup,
@@ -1238,6 +1264,7 @@ export default {
     const canFollowStandingsBracket = standingsFollow.can;
     const isStandingsBracketFollowed = standingsFollow.isFollowed;
     const toggleStandingsBracketFollow = standingsFollow.toggle;
+    const standingsNeedsPush = standingsFollow.needsPush;
 
     // ── standings-mode computed state ──
     // Same pattern as bracket-mode, but keyed off group_stage matches
@@ -1329,9 +1356,11 @@ export default {
       canFollowBracket,
       isBracketFollowed,
       toggleBracketFollow,
+      bracketNeedsPush,
       canFollowStandingsBracket,
       isStandingsBracketFollowed,
       toggleStandingsBracketFollow,
+      standingsNeedsPush,
       tournaments,
       loading,
       error,
