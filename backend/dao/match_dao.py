@@ -12,7 +12,6 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
-from supabase import create_client
 
 from dao.base_dao import BaseDAO, clear_cache, dao_cache, invalidates_cache
 from dao.exceptions import DuplicateRecordError
@@ -22,6 +21,7 @@ from dao.standings import (
     filter_completed_matches,
     filter_same_division_matches,
 )
+from supabase import create_client
 
 logger = structlog.get_logger()
 
@@ -29,6 +29,22 @@ logger = structlog.get_logger()
 MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
 PLAYOFF_CACHE_PATTERN = "mt:dao:playoffs:*"
 TOURNAMENTS_CACHE_PATTERN = "mt:dao:tournaments:*"
+
+
+def _birth_year_from_labels(age_group_name: str | None, season_name: str | None) -> int | None:
+    """Derive a squad's birth year from its age group + season.
+
+    Formula: season_end_year - age_number. For example, a U14 squad in
+    the "2025-2026" season has birth year 2026 - 14 = 2012. The same
+    cohort the prior year (U13 in "2024-2025") yields 2025 - 13 = 2012,
+    so the comparison correctly tracks the squad as it ages up.
+    """
+    try:
+        age_num = int(age_group_name.lstrip("Uu"))
+        end_year = int(season_name.split("-")[-1])
+    except (AttributeError, ValueError, TypeError, IndexError):
+        return None
+    return end_year - age_num
 
 
 # Load environment variables with environment-specific support
@@ -700,6 +716,23 @@ class MatchDAO(BaseDAO):
                 q = q.eq("match_type_id", match_type_id)
             return q
 
+        def birth_year(age_group_name: str | None, season_name: str | None) -> int | None:
+            """Derive a squad's birth year from its age group + season.
+
+            Teams are stored per-club (one team_id shared across every age
+            group), so an age group label like "U14" only identifies a squad
+            when paired with the season it was played in. A U14 squad in
+            2025-2026 was born in 2026 - 14 = 2012, and that same group of kids
+            was U13 in 2024-2025 (2025 - 13 = 2012). Birth year therefore
+            follows the cohort as it ages up year to year.
+            """
+            try:
+                age_num = int(age_group_name.lstrip("Uu"))
+                end_year = int(season_name.split("-")[-1])
+            except (AttributeError, ValueError, TypeError, IndexError):
+                return None
+            return end_year - age_num
+
         try:
             # --- Recent form for each team (filtered to the same match type) ---
             home_resp = (
@@ -754,9 +787,27 @@ class MatchDAO(BaseDAO):
                     }
                 )
 
-            # --- Head-to-head history (all seasons, all age groups) ---
-            # Intentionally NOT filtered by season or age group — teams age up
-            # each year so cross-age-group history is meaningful and expected.
+            # --- Head-to-head history (same birth-year cohort, all seasons) ---
+            # Teams are stored per-club, so this club pair can meet on the same
+            # day across several age groups (U13/U14/U15/U16 are different kids).
+            # We scope H2H to the previewed match's birth-year cohort so it
+            # follows the SAME squad as it ages up year to year (U14 this season
+            # ⇄ U13 last season), across every match type (league, tournament,
+            # friendly) — tournament opponents need not share a league. If the
+            # previewed age group / season can't be resolved, fall back to the
+            # unfiltered list rather than returning nothing.
+            target_birth_year = None
+            if age_group_id and season_id:
+                ag_lookup = (
+                    self.client.table("age_groups").select("name").eq("id", age_group_id).execute()
+                )
+                season_lookup = (
+                    self.client.table("seasons").select("name").eq("id", season_id).execute()
+                )
+                ag_name = ag_lookup.data[0]["name"] if ag_lookup.data else None
+                season_name = season_lookup.data[0]["name"] if season_lookup.data else None
+                target_birth_year = _birth_year_from_labels(ag_name, season_name)
+
             h2h_query = (
                 self.client.table("matches")
                 .select(select_str)
@@ -769,6 +820,12 @@ class MatchDAO(BaseDAO):
                 for m in (h2h_resp.data or [])
                 if away_team_id in (m["home_team_id"], m["away_team_id"])
             ]
+            if target_birth_year is not None:
+                head_to_head = [
+                    m
+                    for m in head_to_head
+                    if _birth_year_from_labels(m["age_group_name"], m["season_name"]) == target_birth_year
+                ]
 
             return {
                 "home_team_id": home_team_id,
