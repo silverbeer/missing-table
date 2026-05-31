@@ -523,8 +523,11 @@
       </div>
 
       <!-- Version Footer -->
-      <VersionFooter />
+      <VersionFooter @open-whats-new="showWhatsNew = true" />
     </div>
+
+    <!-- What's New (changelog) overlay, launched from the footer version -->
+    <WhatsNewView v-if="showWhatsNew" @close="showWhatsNew = false" />
   </div>
 </template>
 
@@ -549,6 +552,7 @@ import AdminPanel from './components/AdminPanel.vue';
 import TournamentMatchCenter from './components/TournamentMatchCenter.vue';
 import QoPStandings from './components/QoPStandings.vue';
 import VersionFooter from './components/VersionFooter.vue';
+import WhatsNewView from './components/WhatsNewView.vue';
 import { LiveMatchView } from './components/live';
 import IosInstallTooltip from './components/IosInstallTooltip.vue';
 import OfflineIndicator from './components/OfflineIndicator.vue';
@@ -572,6 +576,7 @@ export default {
     TournamentMatchCenter,
     QoPStandings,
     VersionFooter,
+    WhatsNewView,
     LiveMatchView,
     IosInstallTooltip,
     OfflineIndicator,
@@ -587,6 +592,8 @@ export default {
     const closeDeepLinkMatch = () => {
       deepLinkMatchId.value = null;
     };
+    // "What's New" changelog overlay, opened from the footer version.
+    const showWhatsNew = ref(false);
     const tableFilters = ref({
       ageGroupId: null,
       leagueId: null,
@@ -979,6 +986,7 @@ export default {
       currentTab,
       deepLinkMatchId,
       closeDeepLinkMatch,
+      showWhatsNew,
       tableFilters,
       matchesFilters,
       availableTabs,
