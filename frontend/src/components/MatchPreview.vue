@@ -408,8 +408,17 @@
           >
           <div class="text-right shrink-0 ml-2">
             <div class="text-slate-400">{{ longDate(match.match_date) }}</div>
-            <div class="text-slate-500 text-[10px]">
-              {{ match.season_name }}
+            <div class="flex items-center justify-end gap-1 mt-0.5">
+              <span class="text-slate-500 text-[10px]">
+                {{ match.season_name }}
+              </span>
+              <span
+                v-if="
+                  match.match_type_name && match.match_type_name !== 'League'
+                "
+                class="text-amber-400 text-[10px] italic"
+                >{{ match.match_type_name }}</span
+              >
             </div>
           </div>
         </div>
