@@ -194,7 +194,7 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_team_error", team_id=team_id, season_id=season_id, error=str(e))
             return []
 
-    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:mt{match_type_id}:lim{limit}")
+    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:mt{match_type_id}:t{tournament_id}:lim{limit}")
     def get_goals_leaderboard(
         self,
         season_id: int,
@@ -202,10 +202,11 @@ class PlayerStatsDAO(BaseDAO):
         division_id: int | None = None,
         age_group_id: int | None = None,
         match_type_id: int | None = None,
+        tournament_id: int | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """
-        Get top goal scorers filtered by league/division/age group/match type.
+        Get top goal scorers filtered by league/division/age group/match type/tournament.
 
         Args:
             season_id: Season ID (required)
@@ -213,6 +214,7 @@ class PlayerStatsDAO(BaseDAO):
             division_id: Optional division filter
             age_group_id: Optional age group filter
             match_type_id: Optional match type filter (e.g. 4 for Playoff)
+            tournament_id: Optional specific tournament filter (matches.tournament_id)
             limit: Maximum results (default 50)
 
         Returns:
@@ -236,6 +238,7 @@ class PlayerStatsDAO(BaseDAO):
                         season_id,
                         match_status,
                         match_type_id,
+                        tournament_id,
                         division_id,
                         age_group_id,
                         division:divisions(
@@ -277,6 +280,11 @@ class PlayerStatsDAO(BaseDAO):
                 stats = [
                     s for s in stats
                     if s.get("match", {}).get("match_type_id") == match_type_id
+                ]
+            if tournament_id is not None:
+                stats = [
+                    s for s in stats
+                    if s.get("match", {}).get("tournament_id") == tournament_id
                 ]
             if league_id is not None:
                 # For matches with a division, check division.league_id directly.
@@ -339,6 +347,7 @@ class PlayerStatsDAO(BaseDAO):
                 division_id=division_id,
                 age_group_id=age_group_id,
                 match_type_id=match_type_id,
+                tournament_id=tournament_id,
             )
             raise
 

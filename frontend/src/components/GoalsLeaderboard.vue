@@ -106,6 +106,31 @@
         </div>
       </div>
 
+      <!-- Tournament Selector (only when Match Type = Tournament) -->
+      <div v-if="isTournamentSelected" data-testid="tournament-filter">
+        <h3 class="text-sm font-medium text-gray-700 mb-3">Tournament</h3>
+        <select
+          v-model="selectedTournamentId"
+          class="block w-full sm:max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+          data-testid="tournament-select"
+        >
+          <option :value="null">All Tournaments</option>
+          <option
+            v-for="tournament in filteredTournaments"
+            :key="tournament.id"
+            :value="tournament.id"
+          >
+            {{ tournament.name }}
+          </option>
+        </select>
+        <p
+          v-if="filteredTournaments.length === 0"
+          class="mt-2 text-xs text-gray-500"
+        >
+          No tournaments for the selected age group.
+        </p>
+      </div>
+
       <!-- Season and Division Row -->
       <div
         class="flex flex-col sm:flex-row sm:space-x-6 space-y-4 sm:space-y-0"
@@ -284,7 +309,7 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import SupportEmailLink from '@/components/SupportEmailLink.vue';
@@ -303,13 +328,40 @@ export default {
     const allDivisions = ref([]);
     const seasons = ref([]);
     const matchTypes = ref([]);
+    const tournaments = ref([]);
     const selectedAgeGroupId = ref(null);
     const selectedLeagueId = ref(null);
     const selectedDivisionId = ref(null);
     const selectedSeasonId = ref(null);
     const selectedMatchTypeId = ref(null);
+    const selectedTournamentId = ref(null);
     const error = ref(null);
     const loading = ref(true);
+
+    // The match-type id for "Tournament" (seed data id=2, resolved by name).
+    const tournamentMatchTypeId = computed(() => {
+      const mt = matchTypes.value.find(m => m.name === 'Tournament');
+      return mt ? mt.id : null;
+    });
+
+    // Tournament dropdown is only shown when the Tournament match type is active.
+    const isTournamentSelected = computed(
+      () =>
+        tournamentMatchTypeId.value !== null &&
+        selectedMatchTypeId.value === tournamentMatchTypeId.value
+    );
+
+    // Only list tournaments whose age groups include the selected age group.
+    const filteredTournaments = computed(() => {
+      if (!selectedAgeGroupId.value) {
+        return tournaments.value;
+      }
+      return tournaments.value.filter(t =>
+        (t.age_groups || []).some(
+          ag => Number(ag.id) === Number(selectedAgeGroupId.value)
+        )
+      );
+    });
 
     const fetchAgeGroups = async () => {
       try {
@@ -357,6 +409,17 @@ export default {
         matchTypes.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error('Error fetching match types:', err);
+      }
+    };
+
+    const fetchTournaments = async () => {
+      try {
+        const data = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/tournaments`
+        );
+        tournaments.value = data.sort((a, b) => a.name.localeCompare(b.name));
+      } catch (err) {
+        console.error('Error fetching tournaments:', err);
       }
     };
 
@@ -444,6 +507,9 @@ export default {
         if (selectedMatchTypeId.value) {
           url += `&match_type_id=${selectedMatchTypeId.value}`;
         }
+        if (isTournamentSelected.value && selectedTournamentId.value) {
+          url += `&tournament_id=${selectedTournamentId.value}`;
+        }
 
         console.log('Fetching leaderboard:', url);
         const data = await authStore.apiRequest(url);
@@ -480,6 +546,27 @@ export default {
       selectedDivisionId.value = null;
     });
 
+    // Clear the tournament selection whenever the Tournament match type is
+    // deselected — keeps a stale tournament_id from leaking into other filters.
+    watch(selectedMatchTypeId, () => {
+      if (!isTournamentSelected.value) {
+        selectedTournamentId.value = null;
+      }
+    });
+
+    // If the age group changes and the chosen tournament no longer matches it,
+    // drop the selection so we never query a tournament outside the age group.
+    watch(selectedAgeGroupId, () => {
+      if (
+        selectedTournamentId.value &&
+        !filteredTournaments.value.some(
+          t => t.id === selectedTournamentId.value
+        )
+      ) {
+        selectedTournamentId.value = null;
+      }
+    });
+
     // Watch for changes in filters and refetch data
     watch(
       [
@@ -488,6 +575,7 @@ export default {
         selectedLeagueId,
         selectedDivisionId,
         selectedMatchTypeId,
+        selectedTournamentId,
       ],
       () => {
         if (selectedSeasonId.value) {
@@ -502,6 +590,7 @@ export default {
         fetchLeagues(),
         fetchSeasons(),
         fetchMatchTypes(),
+        fetchTournaments(),
       ]);
       await fetchDivisions();
       fetchLeaderboardData();
@@ -534,11 +623,15 @@ export default {
       divisions,
       seasons,
       matchTypes,
+      tournaments,
       selectedAgeGroupId,
       selectedLeagueId,
       selectedDivisionId,
       selectedSeasonId,
       selectedMatchTypeId,
+      selectedTournamentId,
+      isTournamentSelected,
+      filteredTournaments,
       formatSeasonDates,
       hasPlayerName,
       formatPlayerName,
