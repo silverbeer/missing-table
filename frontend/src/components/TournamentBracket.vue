@@ -346,10 +346,13 @@ function isWinner(match, side) {
 function scoreCell(match, side) {
   // A not-yet-played match can carry a stored 0:0 (create defaults scores to 0,
   // and there is no write path to null them again). Only surface a score once the
-  // match is actually under way or final — otherwise it reads as a played 0:0 draw.
+  // match is actually under way or has a result — otherwise it reads as a played
+  // 0:0 draw. A forfeit carries a real result (e.g. 3:0), so it counts too; this
+  // mirrors the backend, which treats ('completed', 'forfeit') as result-bearing.
   if (
     match.match_status !== 'completed' &&
-    match.match_status !== 'in_progress'
+    match.match_status !== 'in_progress' &&
+    match.match_status !== 'forfeit'
   )
     return 'TBD';
   if (match.home_score == null || match.away_score == null) return 'TBD';
