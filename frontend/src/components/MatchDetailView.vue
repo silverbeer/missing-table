@@ -375,7 +375,20 @@
                     }}</span>
                   </div>
                   <div
-                    v-if="
+                    v-if="isTournament && tournamentRoundLabel"
+                    class="detail-item"
+                  >
+                    <span
+                      class="text-[10px] text-slate-500 uppercase tracking-wider"
+                      >Round</span
+                    >
+                    <span class="text-xs font-medium text-white">{{
+                      tournamentRoundLabel
+                    }}</span>
+                  </div>
+                  <div
+                    v-else-if="
+                      !isTournament &&
                       match.division_name &&
                       match.match_type_name !== 'Friendly'
                     "
@@ -552,7 +565,6 @@
               :awayTeamName="match.away_team_name"
               :seasonId="match.season_id"
               :ageGroupId="match.age_group_id"
-              :matchTypeId="match.match_type_id"
             />
           </div>
 
@@ -726,6 +738,7 @@ import LineupManager from './live/LineupManager.vue';
 import PostMatchEditor from './PostMatchEditor.vue';
 import MatchPreview from './MatchPreview.vue';
 import IgShareModal from './IgShareModal.vue';
+import { roundLabel } from '../utils/tournamentRounds';
 
 export default {
   name: 'MatchDetailView',
@@ -787,6 +800,14 @@ export default {
     const leagueName = computed(() => {
       return match.value?.division?.leagues?.name || null;
     });
+
+    // Tournament matches have no division; show the bracket round instead.
+    const isTournament = computed(
+      () => match.value?.match_type_name === 'Tournament'
+    );
+    const tournamentRoundLabel = computed(() =>
+      roundLabel(match.value?.tournament_round)
+    );
 
     // Determine sport type from match data
     const sportType = computed(() => {
@@ -1155,6 +1176,8 @@ export default {
       homeTeamColor,
       awayTeamColor,
       leagueName,
+      isTournament,
+      tournamentRoundLabel,
       sportType,
       statusBadgeClass,
       getTeamInitials,

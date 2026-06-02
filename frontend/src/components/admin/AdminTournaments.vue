@@ -668,16 +668,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
-
-const ROUND_LABELS = {
-  group_stage: 'Group Stage',
-  round_of_32: 'Round of 32',
-  round_of_16: 'Round of 16',
-  quarterfinal: 'Quarterfinal',
-  semifinal: 'Semifinal',
-  third_place: 'Third Place',
-  final: 'Final',
-};
+import { ROUND_LABELS_LONG as ROUND_LABELS } from '../../utils/tournamentRounds';
 
 export default {
   name: 'AdminTournaments',
