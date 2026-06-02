@@ -371,6 +371,36 @@ describe('MatchDetailView', () => {
       expect(wrapper.text()).toContain('Northeast');
     });
 
+    it('displays the tournament round (not division) for tournament matches', async () => {
+      const match = createMockMatch({
+        match_type_name: 'Tournament',
+        tournament_round: 'quarterfinal',
+        division_name: 'Northeast',
+      });
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve(match));
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('Round');
+      expect(wrapper.text()).toContain('Quarterfinal');
+      // Division label/value suppressed for tournament matches
+      expect(wrapper.text()).not.toContain('Northeast');
+    });
+
+    it('does not show a round row for tournament matches without a round', async () => {
+      const match = createMockMatch({
+        match_type_name: 'Tournament',
+        tournament_round: null,
+        division_name: 'Northeast',
+      });
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve(match));
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      // No round, and division stays suppressed for tournaments
+      expect(wrapper.text()).not.toContain('Northeast');
+    });
+
     it('displays league when available', async () => {
       const match = createMockMatch({
         division: { leagues: { name: 'Homegrown' } },

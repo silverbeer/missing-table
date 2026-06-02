@@ -894,6 +894,7 @@ import TournamentStandings from './TournamentStandings.vue';
 import MatchDetailView from './MatchDetailView.vue';
 import { useBracketFollows } from '../composables/useBracketFollows';
 import { usePushNotifications } from '../composables/usePushNotifications';
+import { ROUND_LABELS_SHORT as ROUND_LABELS } from '../utils/tournamentRounds';
 
 const KNOCKOUT_ROUNDS = new Set([
   'round_of_32',
@@ -911,16 +912,6 @@ const BRACKET_ROUNDS = new Set([
   'semifinal',
   'final',
 ]);
-
-const ROUND_LABELS = {
-  group_stage: 'Group Stage',
-  round_of_32: 'R32',
-  round_of_16: 'R16',
-  quarterfinal: 'QF',
-  semifinal: 'SF',
-  third_place: '3rd Place',
-  final: 'Final',
-};
 
 export default {
   name: 'TournamentMatchCenter',
