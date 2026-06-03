@@ -71,11 +71,13 @@ Quick subcommand map:
 | Show age groups, divisions, seasons, active tournaments in one shot | `refdata show` |
 | Look up an MLS NEXT club's division by name + age group | `clubmap lookup --team "<name>" --age-group U14` |
 | Find a club by name (local fuzzy match) | `club find "<name>"` |
+| List a club's existing teams + their age-group coverage (reuse before creating!) | `club teams <club_id>` |
 | Create a club | `club create --name --city [--description]` |
 | Crop a logo region out of the screenshot | `logo crop --image --bbox x,y,w,h --output` |
 | Upload a logo to a club | `logo upload --club-id --path` |
 | Look up a team (admin endpoint with exact + similar) | `team lookup "<name>"` |
-| Create a team | `team create --name --city --age-group-id --division-id [--club-id] [--academy-team]` |
+| Add an age group to an EXISTING team (multi-age; avoids dup teams) | `team add-age-group --team-id --age-group-id --division-id` |
+| Create a team (only if club has none in the target league) | `team create --name --city --age-group-id --division-id [--club-id] [--academy-team]` |
 | Find a tournament by name | `tournament find "<name>"` |
 | List a tournament's existing matches (for upsert mapping) | `tournament matches <tournament_id>` |
 | Create a tournament | `tournament create --name --start-date [--end-date --age-group-ids 1,2,3]` |
@@ -127,61 +129,50 @@ cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt
   [--age-group-ids 3,4,5] [--location "..."] [--description "..."]
 ```
 
-### Step 4 — resolve every team (lookup → confirm → create)
+### Step 4 — resolve every team (club-first; reuse the canonical multi-age team)
 
-For each unique team name in the matches:
+> **CRITICAL — MT teams are multi-age.** A team is one row per `(club, league)` that carries `team_mappings` for *several* age groups. The `IFA` Homegrown team (id 19) covers U13/U14/U15/U16 as a **single team**. **NEVER create a separate per-age team** like `IFA U13 HG` / `IFA U15 HG` — that is a duplicate. (This exact mistake once created 45 duplicate teams across one tournament's U13/U14/U15 brackets.) If a club already has a team in the target league, **reuse it** and, if it's missing this age group, **add a mapping** — do not make a new team.
 
-```bash
-cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py team lookup "<team name>"
-```
+> **Tournaments are the main place new clubs/teams get created in MT, so be cautious. ALWAYS ask the user to confirm before creating ANY new club or team** — confirm the club, the proposed team name, the **league**, and the **division**. The user would much rather be asked than clean up duplicates or fix a team filed in the wrong place.
 
-Response shape: `{"exact": team | null, "similar": [team, ...]}`.
+For each unique team in the matches, resolve in this order:
 
-- **`exact` is non-null** → use that team's `id`. Done.
-- **`exact` is null, `similar` is non-empty** → show the candidates to the user. **Always wait for explicit confirmation** — never auto-pick a similar match. The user picks one OR says "no, create new".
-- **No matches** → ask the user to confirm creating a new club + team. Then:
+**1. Identify the club + target league/division.**
+   - **League** comes from the bracket: `MLS NEXT HG` → Homegrown; `MLS NEXT AD` → Academy. Homegrown teams live in division 1 (Northeast) and sibling HG divisions; Academy teams live in division 7 (New England) and sibling AD divisions.
+   - **Find the club:** `club find "<club name>"`. GotSport text is usually `Club Team` — the leading words are the club (e.g. `FC Westchester FCHV 2011 …` → club *FC Westchester* or *FC Hudson Valley*; ask if ambiguous).
 
-  1. **Look up the team in the MLS NEXT clubs mapping** to find its canonical division and pro-academy status. The mapping (`backend/data/mls-next-clubs.json`) covers all current MLS NEXT Allstate Homegrown + Pro Player Pathway teams:
+**2. List the club's existing teams and look for one in the target league:**
+   ```bash
+   cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py club teams <club_id>
+   ```
+   Returns each team's `id`, `name`, `league`, `division_id`, `age_groups`. Also run `team lookup "<name>"` as a cross-check; prefer any `exact` it returns.
+
+   - **A team exists in the target league →** **reuse its `id`.** If its `age_groups` already covers this match's age group, you're done. If not, **add the mapping (no new team):**
      ```bash
-     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py clubmap lookup \
-       --team "<team name>" --age-group U14
+     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py team add-age-group \
+       --team-id <id> --age-group-id <id> --division-id <that team's division_id>
      ```
-     - **`match` is non-null** → use `match.division` as the division for team creation (find its `id` via `refdata show`'s divisions list — match by name; if the MT division doesn't exist yet, surface that to the user). Use `match.is_pro_academy` to set `--academy-team`.
-     - **`match` is null, `all_age_groups_for_team` is non-empty** → the team plays at *other* age groups but not this one. Surface to the user — the screenshot may have a typo or the roster has changed.
-     - **No matches at all** → not an MLS NEXT Allstate Homegrown / PPP team. Ask the user for division + whether it's a pro academy.
+   - **The club has several teams in that league** (legitimately — e.g. IFA `IFA Academy` + `IFA West`; NEFC `Academy`/`South`/`Central`; Seacoast `Bedford`/`Mass`) → match the bracket label to the right one. **If unsure which, ask the user. Do not create a new one to be safe.**
+   - **No team in the target league →** genuinely new. Go to step 4b — **but confirm with the user first.**
 
-  2. **Crop the logo** out of the screenshot using the bbox you extracted in Step 1:
+**4b. Create a new club/team — only after the user confirms.**
+   - **Division** (get it right — wrong division is painful to undo): `clubmap lookup --team "<name>" --age-group U14` gives the canonical HG/PPP division + `is_pro_academy`. For Academy teams not in clubmap, **ask the user** (typical defaults: Academy → New England / div 7; Homegrown → Northeast / div 1). If `clubmap.match` is null but `all_age_groups_for_team` is non-empty, surface it — possible screenshot typo.
+   - **Logo:** crop from the screenshot, then create the club + upload (club create is idempotent — dup name returns the existing club at HTTP 200):
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py logo crop \
-       --image /path/to/pasted-screenshot.png \
-       --bbox X,Y,W,H \
-       --output /tmp/logo_<slug>.png
+       --image /path/to/screenshot.png --bbox X,Y,W,H --output /tmp/logo_<slug>.png
+     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py club create --name "..." --city "..."
+     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py logo upload --club-id <id> --path /tmp/logo_<slug>.png
      ```
-
-  3. **Create the club** (idempotent — duplicate name returns the existing club row with HTTP 200):
-     ```bash
-     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py club create \
-       --name "..." --city "..."
-     ```
-     Capture the returned `id`. No need for `club find` first — the endpoint handles duplicates.
-
-  4. **Upload the logo**:
-     ```bash
-     cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py logo upload \
-       --club-id <id> --path /tmp/logo_<slug>.png
-     ```
-
-  5. **Create the team** (idempotent — duplicate `(name, division_id)` returns the existing team row):
+   - **Create the team** (idempotent on `(name, division_id)`):
      ```bash
      cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py team create \
-       --name "..." --city "..." \
-       --age-group-id <id> --division-id <id> \
-       --club-id <club_id> \
+       --name "..." --city "..." --age-group-id <id> --division-id <id> --club-id <club_id> \
        [--academy-team]    # pass if clubmap.match.is_pro_academy was true
      ```
-     The response is `{"message": "...", "team": {row}}`. Parse `team.id` directly — no follow-up `team lookup` needed.
+     Use the **canonical club name + a clear team name**. **Do NOT bake the age group into the name** (no `… U13 HG`) unless the club genuinely fields multiple same-league teams that need disambiguation. The team is multi-age: add further age groups with `team add-age-group`, never a second per-age team. Response is `{"message": "...", "team": {row}}` — parse `team.id`.
 
-Keep a running map of resolved `team name → team id` so you don't lookup the same team twice across multiple matches.
+Keep a running map of resolved `team name → team id` so you don't resolve the same team twice. When the same club appears at multiple age groups in one load (common — U13/U14/U15 of the same bracket), it should resolve to **one** team id with multiple age-group mappings.
 
 ### Step 5 — reconcile the screenshot against existing matches
 
@@ -283,6 +274,8 @@ If any step failed (e.g. a logo upload returned non-2xx), surface it explicitly 
 - **Errors**: API errors print JSON to stderr with `status_code` and `response`. Surface them to the user instead of retrying blindly.
 - **Logo dedup**: if the same club appears across multiple age groups in one screenshot, crop and upload the logo once. Track which clubs you've already processed.
 - **Don't auto-pick fuzzy matches**: the team-lookup endpoint exists specifically so you can confirm before any create. Use it.
+- **No duplicate teams**: teams are multi-age. Before creating a team, run `club teams <club_id>` and reuse the club's existing team in the target league, adding age groups with `team add-age-group`. A name with the age baked in (`… U13 HG`) is a red flag you're about to duplicate. When in doubt, ask the user — never create to be safe.
+- **Confirm every club/team creation**: tournaments are the main source of new clubs/teams in MT. Always confirm name + club + league + division with the user before any `club create` / `team create`. Filing a team in the wrong division is painful to undo.
 
 ## Out of scope
 

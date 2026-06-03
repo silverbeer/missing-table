@@ -267,6 +267,40 @@ def club_create(
             _err_exit("failed to create club", exc)
 
 
+@club_app.command("teams")
+def club_teams(club_id: int = typer.Argument(...)) -> None:
+    """List a club's existing teams with league, division, and age-group coverage.
+
+    Run this BEFORE creating a team. MT teams are multi-age: one team per
+    (club, league) carries mappings for several age groups. Reuse the club's
+    existing team in the target league and add an age-group mapping (see
+    `team add-age-group`) instead of creating a per-age duplicate.
+    """
+    with _client() as c:
+        teams = c.get_teams()
+    out = []
+    for t in teams:
+        if t.get("club_id") != club_id:
+            continue
+        ages = sorted(
+            {
+                (m.get("age_groups") or {}).get("name")
+                for m in (t.get("team_mappings") or [])
+                if (m.get("age_groups") or {}).get("name")
+            }
+        )
+        out.append(
+            {
+                "id": t.get("id"),
+                "name": t.get("name"),
+                "league": (t.get("leagues") or {}).get("name"),
+                "division_id": t.get("division_id"),
+                "age_groups": ages,
+            }
+        )
+    _out({"club_id": club_id, "teams": out})
+
+
 # ---------------------------------------------------------------------------
 # Teams
 # ---------------------------------------------------------------------------
@@ -291,7 +325,12 @@ def team_create(
     club_id: int | None = typer.Option(None, "--club-id"),
     academy_team: bool = typer.Option(False, "--academy-team"),
 ) -> None:
-    """Create a team tied to one age group + division."""
+    """Create a team tied to one age group + division.
+
+    Only create a team when the club has NO team in the target league yet
+    (check with `club teams <club_id>` first). To add another age group to an
+    EXISTING team, use `team add-age-group` — do not create a per-age duplicate.
+    """
     payload = Team(
         name=name,
         city=city,
@@ -305,6 +344,25 @@ def team_create(
             _out(c.create_team(payload))
         except APIError as exc:
             _err_exit("failed to create team", exc)
+
+
+@team_app.command("add-age-group")
+def team_add_age_group(
+    team_id: int = typer.Option(..., "--team-id"),
+    age_group_id: int = typer.Option(..., "--age-group-id"),
+    division_id: int = typer.Option(..., "--division-id"),
+) -> None:
+    """Add an (age_group, division) mapping to an EXISTING team.
+
+    MT teams are multi-age: this is how a team gains another age group. Use it
+    to reuse a club's canonical team across age groups instead of creating a
+    per-age duplicate. division_id must be the team's existing division.
+    """
+    with _client() as c:
+        try:
+            _out(c.create_team_mapping(team_id, age_group_id, division_id))
+        except APIError as exc:
+            _err_exit("failed to add team age-group mapping", exc)
 
 
 # ---------------------------------------------------------------------------
