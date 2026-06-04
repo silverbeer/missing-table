@@ -91,7 +91,7 @@ class AuthManager:
 
             if alg == "ES256":
                 # Use JWKS for ES256 tokens (new Supabase CLI)
-                supabase_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54331")
+                supabase_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
                 jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
 
                 if _jwks_client is None:

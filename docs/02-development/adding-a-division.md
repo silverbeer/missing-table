@@ -105,7 +105,7 @@ git push origin feature/add-florida-division
 
 ### 2a. Update Seed Data
 
-Edit `supabase-local/seed.sql` and add the division to the divisions INSERT:
+Edit `supabase/seed.sql` and add the division to the divisions INSERT:
 
 ```sql
 -- Divisions (depend on leagues)
@@ -145,7 +145,7 @@ divisions_to_create = [
 
 **Option A** — Reset DB (wipes match data, applies seed):
 ```bash
-cd supabase-local && npx supabase db reset
+npx supabase db reset
 ```
 
 **Option B** — Run setup script (keeps existing data):
@@ -280,7 +280,7 @@ git push origin feature/florida-targets
 1. **Merge PRs** in all three repos
 2. **missing-table**: CI builds images, ArgoCD deploys. Apply seed changes to prod DB if needed:
    ```bash
-   cd supabase-local && npx supabase db push --linked
+   npx supabase db push --linked
    ```
 3. **match-scraper-agent**: After merge, rebuild the K3s CronJob image. The next scheduled run (4x/day) will automatically scrape the new division.
 
@@ -290,7 +290,7 @@ git push origin feature/florida-targets
 
 - [ ] **match-scraper**: Division added to `VALID_DIVISIONS`
 - [ ] **match-scraper**: `discover` command run, clubs JSON reviewed
-- [ ] **missing-table**: Division added to `supabase-local/seed.sql`
+- [ ] **missing-table**: Division added to `supabase/seed.sql`
 - [ ] **missing-table**: Division added to `backend/scripts/setup/setup_leagues_divisions.py`
 - [ ] **missing-table**: Local DB updated (reset or setup script)
 - [ ] **missing-table**: Discovered clubs merged into `clubs.json`
@@ -308,7 +308,7 @@ git push origin feature/florida-targets
 |------|------|---------|
 | `src/cli/main.py` (VALID_DIVISIONS) | match-scraper | List of scrapeable divisions |
 | `src/scraper/division_discovery.py` | match-scraper | Discovery engine |
-| `supabase-local/seed.sql` | missing-table | Division seed data |
+| `supabase/seed.sql` | missing-table | Division seed data |
 | `backend/scripts/setup/setup_leagues_divisions.py` | missing-table | Division setup via API |
 | `clubs.json` | missing-table | Club/team definitions |
 | `backend/manage_clubs.py` | missing-table | Club/team sync tool |

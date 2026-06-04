@@ -23,12 +23,12 @@ This document outlines the implementation plan to refactor the Missing Table aut
 
 #### 1. **Networking Issues**
 ```
-Frontend Pod (k8s) → [FAILS] → Supabase (127.0.0.1:54321)
+Frontend Pod (k8s) → [FAILS] → Supabase (127.0.0.1:55321)
 Frontend Pod (k8s) → [FAILS] → Backend Pod (192.168.5.15:8000 LoadBalancer)
 ```
 
 **Issues:**
-- Frontend pods cannot reach `127.0.0.1:54321` (localhost from k8s pod perspective)
+- Frontend pods cannot reach `127.0.0.1:55321` (localhost from k8s pod perspective)
 - LoadBalancer IP `192.168.5.15:8000` is not accessible in current setup
 - Port-forwarding works for testing but not for production deployment
 
@@ -123,7 +123,7 @@ How it works (frontend `stores/auth.js`):
   forcing a spurious logout.
 
 **Supabase config.** Access-token TTL is `jwt_expiry = 3600` (local
-`supabase-local/config.toml`). The 30-day idle window is the refresh-token
+`supabase/config.toml`). The 30-day idle window is the refresh-token
 **inactivity timeout**, set in the **Supabase Cloud dashboard** for production
 (Auth → Sessions), not in the repo. Refresh-token rotation stays enabled.
 
@@ -306,7 +306,7 @@ frontend:
 ```yaml
 backend:
   env:
-    databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:54322/postgres"
+    databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:55322/postgres"
     # Backend still needs Supabase connection for auth operations
     # Keep existing backend Supabase config
 ```
@@ -673,7 +673,7 @@ frontend:
 backend:
   env:
     # Backend still needs external Supabase connection
-    databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:54322/postgres"
+    databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:55322/postgres"
     environment: "development"
     # ... keep existing backend config
 ```
@@ -682,7 +682,7 @@ backend:
 
 **Before (Problematic):**
 ```
-Frontend Pod → [FAILS] → External Supabase (127.0.0.1:54321)
+Frontend Pod → [FAILS] → External Supabase (127.0.0.1:55321)
 Frontend Pod → [FAILS] → Backend Pod (192.168.5.15:8000)
 ```
 

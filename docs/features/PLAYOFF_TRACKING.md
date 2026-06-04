@@ -191,15 +191,15 @@ Both accept `{ slot_id: int, forfeit_team_id: int }`.
 
 | File | Status | Description |
 |------|--------|-------------|
-| `supabase-local/migrations/20260205000000_add_playoff_bracket_slots.sql` | Created | Base table migration |
-| `supabase-local/migrations/20260205100000_add_bracket_tier.sql` | Created | Add `bracket_tier` column + updated constraints |
-| `supabase-local/migrations/20260205110000_bracket_tier_name.sql` | Created | Remove CHECK constraint, allow free-form tier names |
+| `supabase/migrations/20260205000000_add_playoff_bracket_slots.sql` | Created | Base table migration |
+| `supabase/migrations/20260205100000_add_bracket_tier.sql` | Created | Add `bracket_tier` column + updated constraints |
+| `supabase/migrations/20260205110000_bracket_tier_name.sql` | Created | Remove CHECK constraint, allow free-form tier names |
 | `backend/models/playoffs.py` | Created | Pydantic models with `bracket_tier` and `scheduled_kickoff` fields |
 | `backend/dao/playoff_dao.py` | Created | PlayoffDAO with dual-tier bracket generation, advancement, and deletion |
 | `frontend/src/components/PlayoffBracket.vue` | Created | Public dual-tier bracket visualization |
 | `frontend/src/components/admin/AdminPlayoffs.vue` | Created | Admin playoff management with dual-tier display |
 | `frontend/src/components/admin/BracketSlotCard.vue` | Created | Inline date/time editing card for bracket slots |
-| `supabase-local/migrations/20260207000000_add_forfeit_status.sql` | Created | Add `forfeit` enum value + `forfeit_team_id` column |
+| `supabase/migrations/20260207000000_add_forfeit_status.sql` | Created | Add `forfeit` enum value + `forfeit_team_id` column |
 | `backend/app.py` | Modified | 4 new endpoints + DAO instantiation + 2 forfeit endpoints |
 | `frontend/src/components/AdminPanel.vue` | Modified | Register Playoffs tab in allAdminSections |
 | `frontend/src/components/LeagueTable.vue` | Modified | Add bracket toggle when playoffs exist |

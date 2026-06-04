@@ -69,7 +69,7 @@ def apply(
     console.print(f"Database: {database_url[:50]}...")
 
     # Get migration files
-    migrations_dir = Path(__file__).parent.parent.parent / "supabase-local" / "migrations"
+    migrations_dir = Path(__file__).parent.parent.parent / "supabase" / "migrations"
 
     if not migrations_dir.exists():
         console.print(f"[red]Migrations directory not found: {migrations_dir}[/red]")

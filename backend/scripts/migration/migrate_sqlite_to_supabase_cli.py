@@ -14,7 +14,7 @@ def migrate_sqlite_to_supabase_cli():
     """Migrate data from SQLite to Supabase CLI instance."""
 
     # Supabase CLI connection details - use environment variables
-    supabase_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    supabase_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
     service_key = os.getenv("SUPABASE_SERVICE_KEY")
 
     if not service_key:

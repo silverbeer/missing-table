@@ -189,7 +189,7 @@ uv run pytest tests/unit/ -v
 ```bash
 # Set up environment
 export TEST_MODE=true
-export SUPABASE_URL=http://127.0.0.1:54321
+export SUPABASE_URL=http://127.0.0.1:55321
 export SUPABASE_ANON_KEY=your_key
 export SUPABASE_SERVICE_KEY=your_key
 

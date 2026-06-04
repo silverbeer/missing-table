@@ -71,7 +71,7 @@ supabase start
 
 **Backend** (`.env.local`):
 ```bash
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:55321
 SUPABASE_ANON_KEY=<from supabase status>
 SUPABASE_SERVICE_KEY=<from supabase status>
 SUPABASE_JWT_SECRET=<from supabase status>
@@ -80,7 +80,7 @@ SUPABASE_JWT_SECRET=<from supabase status>
 **Frontend** (`.env.local`):
 ```bash
 VUE_APP_API_URL=http://localhost:8000
-VUE_APP_SUPABASE_URL=http://127.0.0.1:54321
+VUE_APP_SUPABASE_URL=http://127.0.0.1:55321
 VUE_APP_SUPABASE_ANON_KEY=<from supabase status>
 ```
 

@@ -26,7 +26,7 @@ _TEST_PASSWORD = "test-password-123"  # pragma: allowlist secret
 def _admin_client():
     from supabase import create_client
 
-    url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    url = os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
     if not ("127.0.0.1" in url or "localhost" in url):
         pytest.skip(f"Refusing to run destructive test against non-local Supabase: {url}")
     key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")

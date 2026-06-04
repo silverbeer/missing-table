@@ -90,7 +90,7 @@ cd backend && uv sync
 
 ```bash
 # Start local Supabase
-cd supabase-local && npx supabase start
+npx supabase start
 
 # Restore test data
 ./scripts/db_tools.sh restore
@@ -106,7 +106,7 @@ npx supabase status
 ./switch-env.sh prod
 
 # Apply migrations
-cd supabase-local && npx supabase db push --linked
+npx supabase db push --linked
 ```
 
 ---
@@ -130,7 +130,7 @@ Create `backend/.env.test` (or use `.env.e2e` for e2e tests):
 TEST_MODE=true
 
 # Supabase Configuration
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:55321
 SUPABASE_ANON_KEY=your_anon_key_here
 SUPABASE_SERVICE_KEY=your_service_key_here
 
@@ -692,7 +692,7 @@ npx supabase status
 npx supabase stop && npx supabase start
 
 # Verify connection
-curl http://127.0.0.1:54321/rest/v1/
+curl http://127.0.0.1:55321/rest/v1/
 ```
 
 **3. Tests Skipped (Supabase not available)**
@@ -702,7 +702,7 @@ curl http://127.0.0.1:54321/rest/v1/
 echo $TEST_MODE  # Should be "true"
 
 # Start Supabase
-cd supabase-local && npx supabase start
+npx supabase start
 ```
 
 **4. Coverage Not Generated**

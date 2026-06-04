@@ -68,7 +68,7 @@ User clicks "Continue with Google" on login form
 ```
 # Local development
 http://localhost:8080
-http://localhost:54321
+http://localhost:55321
 
 # Production (add your domains)
 https://missingtable.com
@@ -82,7 +82,7 @@ https://dev.missingtable.com
 # Replace YOUR_PROJECT_REF with your Supabase project reference
 
 # For local Supabase
-http://localhost:54321/auth/v1/callback
+http://localhost:55321/auth/v1/callback
 
 # For cloud Supabase (dev)
 https://ppgxasqgqbnauvxozmjw.supabase.co/auth/v1/callback
@@ -133,7 +133,7 @@ No changes needed - the app uses local Supabase URL by default.
 
 Make sure local Supabase is running:
 ```bash
-cd supabase-local && npx supabase start
+npx supabase start
 ```
 
 ### Production
@@ -150,11 +150,11 @@ Run the OAuth support migration to add required columns:
 
 ```bash
 # Local
-cd supabase-local && npx supabase db reset
+npx supabase db reset
 
 # Production (after testing locally)
 ./switch-env.sh prod
-cd supabase-local && npx supabase db push --linked
+npx supabase db push --linked
 ```
 
 The migration adds:

@@ -85,7 +85,7 @@ cd frontend && npm run lint                     # JavaScript linting
 # Morning setup
 git pull origin main
 ./switch-env.sh local
-cd supabase-local && npx supabase start && cd ..
+npx supabase start && cd ..
 
 # Option A: Restore from existing backup
 ./scripts/db_tools.sh restore
@@ -218,14 +218,14 @@ npm run build --report
 
 **Backend** (`.env`, `.env.local`, `.env.prod`):
 ```bash
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:55321
 SUPABASE_SERVICE_KEY=your_key
 ```
 
 **Frontend** (`.env.local`, `.env.prod`):
 ```bash
 VUE_APP_API_URL=http://localhost:8000
-VUE_APP_SUPABASE_URL=http://127.0.0.1:54321
+VUE_APP_SUPABASE_URL=http://127.0.0.1:55321
 ```
 
 ---

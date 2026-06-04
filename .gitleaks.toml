@@ -23,7 +23,7 @@ paths = [
     '''^build/''',
     '''.*\.min\.(js|css)$''',
     # Migration files often have example data
-    '''^supabase-local/migrations/''',
+    '''^supabase/migrations/''',
     '''^supabase/migrations/''',
 ]
 

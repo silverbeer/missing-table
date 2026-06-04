@@ -538,10 +538,10 @@ show_status() {
 
     # Determine database connection based on environment
     if [ "$current_env" = "local" ]; then
-        # Check if Supabase is running locally (Kong API on 54321)
-        if curl -s http://127.0.0.1:54321/health > /dev/null 2>&1; then
-            local supabase_url="http://127.0.0.1:54321"
-            local studio_url="http://127.0.0.1:54323"
+        # Check if Supabase is running locally (Kong API on 55321)
+        if curl -s http://127.0.0.1:55321/health > /dev/null 2>&1; then
+            local supabase_url="http://127.0.0.1:55321"
+            local studio_url="http://127.0.0.1:55323"
             echo -e "  Database: ${GREEN}Local Supabase${NC} ($supabase_url)"
             echo -e "  Studio UI: ${GREEN}$studio_url${NC}"
         else

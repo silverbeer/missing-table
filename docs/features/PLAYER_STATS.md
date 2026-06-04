@@ -237,10 +237,10 @@ def bulk_renumber(team_id, season_id, changes):
 
 | File | Status | Description |
 |------|--------|-------------|
-| `supabase-local/migrations/20260117000001_create_players_table.sql` | New | Players table |
-| `supabase-local/migrations/20260117000002_create_player_match_stats.sql` | New | Stats table |
-| `supabase-local/migrations/20260117000003_add_player_id_to_invitations.sql` | New | Invite linking |
-| `supabase-local/migrations/20260117000004_add_player_id_to_match_events.sql` | New | Event linking |
+| `supabase/migrations/20260117000001_create_players_table.sql` | New | Players table |
+| `supabase/migrations/20260117000002_create_player_match_stats.sql` | New | Stats table |
+| `supabase/migrations/20260117000003_add_player_id_to_invitations.sql` | New | Invite linking |
+| `supabase/migrations/20260117000004_add_player_id_to_match_events.sql` | New | Event linking |
 | `backend/dao/roster_dao.py` | New | Roster data access |
 | `backend/dao/player_stats_dao.py` | New | Stats data access |
 | `backend/models/roster.py` | New | Pydantic models |
@@ -253,11 +253,11 @@ def bulk_renumber(team_id, season_id, changes):
 | `frontend/src/composables/useLiveMatch.js` | Modified | fetchTeamRosters(), postGoal with player_id |
 | `backend/dao/match_dao.py` | Modified | Add season_id to live match state |
 | `frontend/src/components/profiles/PlayerProfile.vue` | Modified | Show individual player stats (Games Played, Games Started, Minutes, Goals) |
-| `supabase-local/migrations/20260120000001_add_jersey_number_to_invitations.sql` | New | Add jersey_number to invitations |
+| `supabase/migrations/20260120000001_add_jersey_number_to_invitations.sql` | New | Add jersey_number to invitations |
 | `frontend/src/components/admin/AdminInvites.vue` | Modified | Add jersey number input for team_player invites |
 | `backend/api/invites.py` | Modified | Accept jersey_number in invite creation |
 | `backend/dao/roster_dao.py` | Modified | Add get_player_by_user_profile_id() method |
-| `supabase-local/migrations/20260208000000_add_substitution_event_type.sql` | New | Add substitution event type and player_out_id |
+| `supabase/migrations/20260208000000_add_substitution_event_type.sql` | New | Add substitution event type and player_out_id |
 | `backend/models/post_match.py` | New | Post-match stats Pydantic models |
 | `backend/dao/match_event_dao.py` | Modified | Add player_out_id parameter |
 | `backend/dao/player_stats_dao.py` | Modified | Add get_team_match_stats(), batch_update_stats() |

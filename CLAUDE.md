@@ -212,9 +212,13 @@ Manual bump (local, rarely needed): `./scripts/version-bump.sh major|minor|patch
 ### Schema Structure
 
 The database schema is consolidated into a single baseline migration:
-- **`supabase-local/migrations/00000000000000_schema.sql`** — Complete schema (tables, functions, RLS policies, indexes)
-- **`supabase-local/supabase/seed.sql`** — Reference data (age_groups, seasons, match_types, leagues, divisions)
-- **`supabase-local/migrations/`** is the **one source of truth** for migrations (tracked in git). The Supabase CLI is always run from `supabase-local/` and reads these files via a local `supabase-local/supabase/migrations` → `../migrations` symlink that `supabase init` generates (gitignored — local scaffolding, not committed). A stray repo-root `supabase/` is gitignored CLI scratch and is **not** used.
+- **`supabase/migrations/00000000000000_schema.sql`** — Complete schema (tables, functions, RLS policies, indexes)
+- **`supabase/seed.sql`** — Reference data (age_groups, seasons, match_types, leagues, divisions)
+- **`supabase/migrations/`** is the **one source of truth** for migrations (tracked in git). Standard Supabase CLI layout: run `npx supabase ...` from the repo root (SB-113 consolidated the old `supabase-local/` split).
+
+### Local Ports (SB-113 convention)
+
+Local Supabase uses the **553xx port block** so it can run alongside myrunstreak's stack (543xx defaults): API `55321`, DB `55322`, Studio `55323`, Mailpit `55324`, Analytics `55327`. Next repo gets 563xx.
 
 New schema changes go in additional timestamped migration files (e.g., `20260201000000_add_foo.sql`).
 
@@ -226,10 +230,10 @@ New schema changes go in additional timestamped migration files (e.g., `20260201
 ./scripts/setup-local-db.sh --from-prod  # Backup from prod first, then restore locally (RECOMMENDED)
 
 # Local Supabase
-cd supabase-local && npx supabase start|stop|status
+npx supabase start|stop|status
 
 # Reset database (applies schema + seed)
-cd supabase-local && npx supabase db reset
+npx supabase db reset
 
 # Apply migrations locally (without reset)
 ./scripts/db_tools.sh migrate local
@@ -238,7 +242,7 @@ cd supabase-local && npx supabase db reset
 ./scripts/db_tools.sh migrate prod
 
 # Create new migration
-cd supabase-local && npx supabase db diff -f add_new_feature
+npx supabase db diff -f add_new_feature
 
 # Backup/Restore
 ./scripts/db_tools.sh backup

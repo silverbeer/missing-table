@@ -226,7 +226,7 @@ curl http://localhost:8000/health/full
 ```bash
 # Start local development
 ./switch-env.sh local
-cd supabase-local && npx supabase start && cd ..
+npx supabase start && cd ..
 
 # Option A: Restore from existing local backup
 ./scripts/db_tools.sh restore
@@ -273,7 +273,7 @@ supabase db reset            # ONLY for schema changes
 # Check if ports are in use
 lsof -i :8000  # Backend
 lsof -i :8081  # Frontend
-lsof -i :54321 # Supabase
+lsof -i :55321 # Supabase
 
 # Kill process if needed
 kill -9 <PID>

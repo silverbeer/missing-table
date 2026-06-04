@@ -37,7 +37,7 @@ cd /Users/silverbeer/gitrepos/missing-table && ./scripts/setup-local-db.sh --fro
 **Step 2: Reset PostgreSQL sequences (REQUIRED after data restore):**
 ```bash
 # pragma: allowlist secret (local dev database only)
-PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "
+PGPASSWORD=postgres psql "postgresql://postgres:postgres@127.0.0.1:55322/postgres" -c "
 SELECT setval(pg_get_serial_sequence('public.matches', 'id'), COALESCE((SELECT MAX(id) FROM public.matches), 0) + 1, false);
 SELECT setval(pg_get_serial_sequence('public.teams', 'id'), COALESCE((SELECT MAX(id) FROM public.teams), 0) + 1, false);
 SELECT setval(pg_get_serial_sequence('public.playoff_bracket_slots', 'id'), COALESCE((SELECT MAX(id) FROM public.playoff_bracket_slots), 0) + 1, false);
@@ -77,12 +77,12 @@ After reset, these users are available:
 
 Local Supabase must be running:
 ```bash
-cd /Users/silverbeer/gitrepos/missing-table/supabase-local && npx supabase status
+cd /Users/silverbeer/gitrepos/missing-table && npx supabase status
 ```
 
 If not running:
 ```bash
-cd /Users/silverbeer/gitrepos/missing-table/supabase-local && npx supabase start
+cd /Users/silverbeer/gitrepos/missing-table && npx supabase start
 ```
 
 ## Workflow

@@ -287,7 +287,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 ### Issue: "Could not find the function public.is_parent_club"
 **Solution:** Ensure migration `20251030184100_add_parent_club_to_teams.sql` is applied to DEV:
 ```bash
-cd supabase-local
+cd supabase
 npx supabase link --project-ref [DEV_PROJECT_REF]
 npx supabase db push --linked
 ```

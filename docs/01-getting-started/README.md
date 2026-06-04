@@ -100,9 +100,9 @@ cd missing-table
 supabase start
 
 # You'll see output like:
-# API URL: http://localhost:54321
-# DB URL: postgresql://postgres:postgres@localhost:54322/postgres
-# Studio URL: http://localhost:54323
+# API URL: http://localhost:55321
+# DB URL: postgresql://postgres:postgres@localhost:55322/postgres
+# Studio URL: http://localhost:55323
 ```
 
 💡 **Tip**: Keep this terminal window open. Supabase needs to run in the background.
@@ -156,7 +156,7 @@ Open your browser and visit:
 2. **Backend API Docs**: http://localhost:8000/docs
    - Interactive API documentation (Swagger UI)
 
-3. **Supabase Studio**: http://localhost:54323
+3. **Supabase Studio**: http://localhost:55323
    - Database management interface
 
 ---

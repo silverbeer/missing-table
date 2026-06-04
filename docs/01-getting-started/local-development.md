@@ -87,9 +87,9 @@ npx supabase init
 npx supabase start
 
 # This will output connection details like:
-# API URL: http://localhost:54321
-# DB URL: postgresql://postgres:postgres@localhost:54322/postgres
-# Studio URL: http://localhost:54323
+# API URL: http://localhost:55321
+# DB URL: postgresql://postgres:postgres@localhost:55322/postgres
+# Studio URL: http://localhost:55323
 ```
 
 ## Database Transfer Between Machines
@@ -144,7 +144,7 @@ Transfer the fresh backup file from your primary development machine:
 # This starts:
 # - Backend API: http://localhost:8000
 # - Frontend: http://localhost:8080
-# - Supabase Studio: http://localhost:54323
+# - Supabase Studio: http://localhost:55323
 ```
 
 ### 2. Individual Service Startup
@@ -170,7 +170,7 @@ npx supabase start
    - Swagger UI should be accessible
    - Test endpoints should return data
 
-3. **Supabase Studio:** http://localhost:54323
+3. **Supabase Studio:** http://localhost:55323
    - Browse tables to verify data transfer
    - Check teams, matches, user_profiles tables
 
@@ -241,7 +241,7 @@ cd helm && ./deploy-helm.sh
 1. **Supabase won't start:**
    ```bash
    # Check if ports are in use
-   lsof -i :54321 -i :54322 -i :54323
+   lsof -i :55321 -i :55322 -i :55323
    
    # Stop and restart Supabase
    npx supabase stop

@@ -1,7 +1,7 @@
 # Database Operations
 
 > **Audience**: Developers
-> **Prerequisites**: Local Supabase running (`cd supabase-local && npx supabase start`)
+> **Prerequisites**: Local Supabase running (`npx supabase start`)
 
 Overview of database management for the Missing Table project.
 
@@ -25,10 +25,10 @@ APP_ENV=prod ./scripts/db_tools.sh backup  # Create backup from production
 ./scripts/db_tools.sh reset              # Requires a backup less than 4 hours old
 
 # Local Supabase
-cd supabase-local && npx supabase start|stop|status
+npx supabase start|stop|status
 
 # Reset schema only (no data restore)
-cd supabase-local && npx supabase db reset
+npx supabase db reset
 ```
 
 ---
@@ -46,8 +46,8 @@ The `db_tools.sh reset` command includes a **4-hour safety guard**: it will refu
 
 ### Schema vs Data
 
-- **Schema** is managed through migrations in `supabase-local/migrations/`
-- **Seed data** (reference tables) lives in `supabase-local/supabase/seed.sql`
+- **Schema** is managed through migrations in `supabase/migrations/`
+- **Seed data** (reference tables) lives in `supabase/seed.sql`
 - **Application data** (teams, matches) is managed via backup/restore
 
 ---
@@ -88,14 +88,14 @@ This is the **recommended workflow** for syncing your local database with produc
 
 ```bash
 ./scripts/db_tools.sh backup          # Safety backup first
-cd supabase-local && npx supabase db reset
+npx supabase db reset
 cd .. && ./scripts/db_tools.sh restore
 ```
 
 ### Creating a New Migration
 
 ```bash
-cd supabase-local
+cd supabase
 npx supabase db diff -f add_new_feature
 # Review, test with db reset, then commit
 ```

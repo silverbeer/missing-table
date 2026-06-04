@@ -8,7 +8,7 @@ This document defines the standard practices for managing database schema change
 
 ## Migration Philosophy
 
-- **Single Source of Truth**: All migrations live in `supabase-local/migrations/` (one directory, tracked in git). The Supabase CLI reads them via a gitignored `supabase-local/supabase/migrations` → `../migrations` symlink that `supabase init` generates locally.
+- **Single Source of Truth**: All migrations live in `supabase/migrations/` (one directory, tracked in git, standard CLI layout).
 - **Version Control**: Migrations are tracked in git like any other code
 - **Environment Parity**: All environments (local, prod) use the same migrations
 - **Safety First**: Always backup before deploying, test locally before cloud
@@ -17,20 +17,17 @@ This document defines the standard practices for managing database schema change
 ## Directory Structure
 
 ```
-supabase-local/
-├── migrations/                              # THE single source of truth
-│   ├── 00000000000000_schema.sql            # Consolidated baseline (pg_dump of full schema)
-│   ├── 20260201000000_add_new_feature.sql   # New migrations go alongside baseline
-│   └── .archive/                            # Historical migration filenames (reference only)
-├── supabase/
-│   ├── config.toml                          # Supabase CLI configuration
-│   ├── seed.sql                             # Reference data (age_groups, seasons, etc.)
-│   └── migrations -> ../migrations          # Symlink for Supabase CLI
-└── config.toml                              # Git-tracked copy of config
+supabase/                                    # Standard Supabase CLI layout (SB-113)
+├── config.toml                              # Supabase CLI configuration (553xx port block)
+├── seed.sql                                 # Reference data (age_groups, seasons, etc.)
+└── migrations/                              # THE single source of truth
+    ├── 00000000000000_schema.sql            # Consolidated baseline (pg_dump of full schema)
+    ├── 20260201000000_add_new_feature.sql   # New migrations go alongside baseline
+    └── .archive/                            # Historical migration filenames (reference only)
 
-# NOTE: a repo-root supabase/ dir may appear locally — it's gitignored CLI
-# scratch (.temp/.branches) from running supabase outside supabase-local/.
-# It is NOT part of the layout and is NOT used. Always run from supabase-local/.
+# Run npx supabase commands from the repo root. Local ports use the 553xx
+# block (API 55321, DB 55322, Studio 55323) so MT runs alongside
+# myrunstreak's local stack on the 543xx defaults.
 
 scripts/
 ├── setup-local-db.sh                        # One-command local DB setup
@@ -61,13 +58,13 @@ scripts/
 This method automatically generates migration SQL by comparing your local database to the schema.
 
 ```bash
-# 1. Make changes in Supabase Studio (http://localhost:54323)
+# 1. Make changes in Supabase Studio (http://localhost:55323)
 #    - Create/modify tables
 #    - Add/remove columns
 #    - Update indexes, constraints, etc.
 
 # 2. Generate migration from changes
-cd supabase-local
+cd supabase
 npx supabase db diff -f add_new_feature
 
 # 3. Review the generated migration
@@ -77,7 +74,7 @@ cat supabase/migrations/[timestamp]_add_new_feature.sql
 npx supabase db reset
 
 # 5. Commit to git (symlink means only one directory to track)
-git add supabase-local/migrations/
+git add supabase/migrations/
 git commit -m "feat: add new feature migration"
 ```
 
@@ -87,7 +84,7 @@ For complex migrations or when you prefer to write SQL directly.
 
 ```bash
 # 1. Create new migration file
-cd supabase-local
+cd supabase
 npx supabase migration new add_new_feature
 
 # This creates: migrations/[timestamp]_add_new_feature.sql
@@ -101,7 +98,7 @@ vim migrations/[timestamp]_add_new_feature.sql
 npx supabase db reset
 
 # 5. Commit to git
-git add supabase-local/migrations/
+git add supabase/migrations/
 git commit -m "feat: add new feature migration"
 ```
 
@@ -243,7 +240,7 @@ ALTER TABLE teams ALTER COLUMN full_name SET NOT NULL;
 ./switch-env.sh local
 
 # Start local Supabase
-cd supabase-local && npx supabase start
+npx supabase start
 
 # Reset database with all migrations
 npx supabase db reset
@@ -298,7 +295,7 @@ npx supabase db push --debug
 vim supabase/migrations/[timestamp]_problematic_migration.sql
 
 # 3. Test fix locally
-cd supabase-local && npx supabase db reset
+npx supabase db reset
 
 # 4. Re-apply to affected environment
 npx supabase db push --linked
@@ -310,7 +307,7 @@ npx supabase db push --linked
 
 ```bash
 # 1. Create hotfix migration
-cd supabase-local
+cd supabase
 npx supabase migration new hotfix_issue_description
 
 # 2. Write fix
@@ -326,7 +323,7 @@ npx supabase db push --linked
 
 ```bash
 # 1. Create rollback migration
-cd supabase-local
+cd supabase
 npx supabase migration new rollback_problematic_feature
 
 # 2. Write reverse migration
@@ -350,7 +347,7 @@ Before committing a migration, verify:
 - [ ] Data restore works after migration
 - [ ] Application starts and works with new schema
 - [ ] Tests pass with new schema
-- [ ] Migration added to `supabase-local/migrations/` (single source of truth)
+- [ ] Migration added to `supabase/migrations/` (single source of truth)
 - [ ] Breaking changes documented in commit message
 - [ ] Team notified if migration requires downtime
 
@@ -492,14 +489,14 @@ npx supabase migration list
 npx supabase db push --debug
 
 # Verify migration file name format
-ls -la supabase-local/migrations/
+ls -la supabase/migrations/
 ```
 
 ### Schema Drift Detected
 
 ```bash
 # Generate diff to see what's different
-cd supabase-local
+cd supabase
 npx supabase db diff
 
 # Either:
@@ -514,10 +511,10 @@ npx supabase db reset
 
 ```bash
 # Restart PostgREST to reload schema cache
-docker restart supabase_rest_supabase-local
+docker restart supabase_rest_missing-table
 
 # Or restart entire Supabase stack
-cd supabase-local
+cd supabase
 npx supabase stop
 npx supabase start
 ```
@@ -612,7 +609,7 @@ The baseline migration (`00000000000000_schema.sql`) is a `pg_dump --schema-only
 
 ### Seed Data
 
-Reference data is seeded via `supabase-local/supabase/seed.sql` (enabled in config.toml). This includes:
+Reference data is seeded via `supabase/seed.sql` (enabled in config.toml). This includes:
 - Age groups (U13-U19)
 - Seasons (2023-2024 through 2025-2026)
 - Match types (League, Tournament, Friendly, Playoff)
@@ -654,8 +651,8 @@ Periodically, you may want to re-consolidate the baseline by dumping the current
 
 ```bash
 PGPASSWORD=postgres pg_dump --schema-only --no-owner --no-privileges \
-  -h 127.0.0.1 -p 54332 -U postgres -d postgres --schema=public \
-  > supabase-local/migrations/00000000000000_schema.sql
+  -h 127.0.0.1 -p 55322 -U postgres -d postgres --schema=public \
+  > supabase/migrations/00000000000000_schema.sql
 # Then remove the \restrict/\unrestrict lines and CREATE SCHEMA public
 ```
 
@@ -664,7 +661,7 @@ PGPASSWORD=postgres pg_dump --schema-only --no-owner --no-privileges \
 `scripts/check_migration_drift.py` is the "advanced lint" for migration *state*:
 it asserts the set of applied versions in an environment's
 `supabase_migrations.schema_migrations` equals the set of timestamped migration
-files in `supabase-local/migrations/`.
+files in `supabase/migrations/`.
 
 Code/unit tests can't catch drift — CI's test DB is built from the migration
 files, so it always has the correct schema. Drift is an **environment-state**
@@ -673,7 +670,7 @@ Supabase SQL editor without recording a row), so it needs an environment check.
 
 ```bash
 # Local (expects in-sync):
-export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54332/postgres"  # pragma: allowlist secret
+export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55322/postgres"  # pragma: allowlist secret
 python scripts/check_migration_drift.py --env local
 
 # Prod (CI uses the PROD_DATABASE_URL secret):
@@ -699,7 +696,7 @@ On drift the job fails **and** files/updates a Linear issue
 
 - **Supabase CLI Documentation**: https://supabase.com/docs/guides/cli
 - **PostgreSQL Documentation**: https://www.postgresql.org/docs/
-- **Project Migrations**: `/supabase-local/migrations/`
+- **Project Migrations**: `/supabase/migrations/`
 
 ## Questions?
 

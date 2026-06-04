@@ -90,7 +90,7 @@ backend:
     pullPolicy: Always
 
   env:
-    databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:54322/postgres"
+    databaseUrl: "postgresql://postgres:postgres@host.rancher-desktop.internal:55322/postgres"
     environment: "development"
     logLevel: "info"
     disableSecurity: "true"

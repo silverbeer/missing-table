@@ -4,7 +4,7 @@ Schema-drift guard (SB-79).
 
 "Advanced linting" for migration state: assert that the set of applied
 versions in an environment's `supabase_migrations.schema_migrations` equals the
-set of timestamped migration files in `supabase-local/migrations/`.
+set of timestamped migration files in `supabase/migrations/`.
 
 Unit/code tests can't catch this — CI's test DB is built from the migration
 files, so it always has the correct schema. Drift is an *environment-state*
@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MIGRATIONS_DIR = REPO_ROOT / "supabase-local" / "migrations"
+DEFAULT_MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
 
 
 def read_migration_versions(migrations_dir: Path) -> set[str]:

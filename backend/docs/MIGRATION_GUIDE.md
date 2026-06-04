@@ -128,7 +128,7 @@ All data will be properly linked with foreign keys and ready to use!
 If you need to work offline or have continued SSL issues:
 
 ```bash
-cd supabase-local
+cd supabase
 docker-compose up -d
 python setup_local_supabase.py
 # Then run migration pointing to local Supabase

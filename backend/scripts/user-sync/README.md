@@ -154,7 +154,7 @@ Make sure you have both `.env.local` and `.env.prod` files with Supabase credent
 
 ```bash
 # backend/.env.local
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:55321
 SUPABASE_SERVICE_KEY=xxx
 
 # backend/.env.prod

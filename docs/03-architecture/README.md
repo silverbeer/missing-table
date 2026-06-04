@@ -29,10 +29,10 @@ This section documents the system architecture, design decisions, and technical 
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Frontend      │    │     Backend      │    │   Supabase      │
 │  (Vue.js 3)     │◄──►│    (FastAPI)     │◄──►│  (PostgreSQL)   │
-│  localhost:8081 │    │  localhost:8000  │    │ localhost:54321 │
+│  localhost:8081 │    │  localhost:8000  │    │ localhost:55321 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                                                │ Studio: :54323  │
-                                                │ DB: :54322      │
+                                                │ Studio: :55323  │
+                                                │ DB: :55322      │
                                                 └─────────────────┘
 ```
 

@@ -85,7 +85,7 @@ Use `player_team_history` as primary source of truth for the MyClub tab, and als
 | `backend/app.py` | `/api/auth/me` endpoint (line ~1529) |
 | `backend/dao/player_dao.py` | `get_user_profile_with_relationships()` (line 27) |
 | `backend/services/invite_service.py` | Only place that sets `user_profiles.team_id` (during invite redemption) |
-| `supabase-local/migrations/00000000000000_schema.sql` | Schema for `player_team_history` and `user_profiles` |
+| `supabase/migrations/00000000000000_schema.sql` | Schema for `player_team_history` and `user_profiles` |
 
 ## Fix Applied
 

@@ -160,7 +160,7 @@ def create_env_local():
     """Create .env.local file for local Supabase."""
 
     env_content = """# Local Supabase Configuration
-SUPABASE_URL=http://localhost:54321
+SUPABASE_URL=http://localhost:55321
 SUPABASE_ANON_KEY=your-local-anon-key-here
 SUPABASE_SERVICE_KEY=your-local-service-key-here
 

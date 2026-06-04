@@ -20,7 +20,7 @@ def create_admin_invite():
     # Database connection details (from Supabase local)
     conn_params = {
         "host": "localhost",
-        "port": 54322,
+        "port": 55322,
         "database": "postgres",
         "user": "postgres",
         "password": "postgres",
