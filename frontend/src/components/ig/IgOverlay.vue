@@ -97,14 +97,16 @@
           {{ metaLabel }}
         </span>
         <MlsNextBadge v-if="isHomegrownLeague" class="ig-mls-badge" />
-        <img
-          v-if="tournamentLogoUrl"
-          :src="tournamentLogoUrl"
-          class="ig-tournament-logo"
-          data-testid="ig-tournament-logo"
-          alt=""
-          crossorigin="anonymous"
-        />
+        <!-- White chip + background-image (not <img>) so dark logos stay
+             legible on the dark card and html2canvas renders contain
+             correctly — see [[feedback-html2canvas-object-fit]]. -->
+        <div v-if="tournamentLogoUrl" class="ig-tournament-logo">
+          <div
+            class="ig-tournament-logo-img"
+            data-testid="ig-tournament-logo"
+            :style="{ backgroundImage: `url(${tournamentLogoUrl})` }"
+          ></div>
+        </div>
       </div>
     </div>
 
@@ -344,8 +346,20 @@ export default {
 .ig-tournament-logo {
   height: 108px;
   width: 108px;
-  object-fit: contain;
   margin-left: 12px;
+  padding: 10px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.ig-tournament-logo-img {
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .ig-chip {

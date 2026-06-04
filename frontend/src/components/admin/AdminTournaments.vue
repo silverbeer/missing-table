@@ -331,6 +331,63 @@
               ></textarea>
             </div>
 
+            <!-- Logo -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Logo</label
+              >
+              <div class="flex items-center gap-4">
+                <!-- Preview -->
+                <img
+                  v-if="tLogoPreview || editingTournament?.logo_url"
+                  :src="tLogoPreview || editingTournament.logo_url"
+                  alt="Tournament logo preview"
+                  class="w-16 h-16 rounded-md object-contain border border-gray-200 bg-white p-1"
+                  data-testid="tournament-logo-preview"
+                />
+                <div
+                  v-else
+                  class="w-16 h-16 rounded-md bg-gray-100 flex items-center justify-center"
+                >
+                  <svg
+                    class="w-8 h-8 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <!-- Upload button -->
+                <div class="flex-1">
+                  <input
+                    type="file"
+                    ref="tLogoInput"
+                    @change="handleTournamentLogoSelect"
+                    accept="image/png,image/jpeg,image/jpg"
+                    class="hidden"
+                  />
+                  <button
+                    type="button"
+                    @click="$refs.tLogoInput.click()"
+                    :disabled="tUploadingLogo"
+                    class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {{ tUploadingLogo ? 'Uploading...' : 'Choose Image' }}
+                  </button>
+                  <p class="mt-1 text-xs text-gray-500">
+                    PNG or JPG, max 2MB. Square with transparent background
+                    looks best on share cards.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <!-- Active -->
             <div class="mb-6 flex items-center gap-2">
               <input
@@ -706,6 +763,9 @@ export default {
     const editingTournament = ref(null);
     const tFormLoading = ref(false);
     const tForm = ref(emptyTournamentForm());
+    const tLogoPreview = ref(null);
+    const tSelectedLogoFile = ref(null);
+    const tUploadingLogo = ref(false);
 
     // ── match modal ──
     const showMatchModal = ref(false);
@@ -856,6 +916,8 @@ export default {
     const openCreateTournament = () => {
       editingTournament.value = null;
       tForm.value = emptyTournamentForm();
+      tLogoPreview.value = null;
+      tSelectedLogoFile.value = null;
       showTournamentModal.value = true;
     };
 
@@ -870,7 +932,69 @@ export default {
         age_group_ids: (tournament.age_groups || []).map(ag => ag.id),
         is_active: tournament.is_active,
       };
+      tLogoPreview.value = null;
+      tSelectedLogoFile.value = null;
       showTournamentModal.value = true;
+    };
+
+    const handleTournamentLogoSelect = event => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        error.value = 'Invalid file type. Please select a PNG or JPG image.';
+        return;
+      }
+
+      const maxSize = 2 * 1024 * 1024;
+      if (file.size > maxSize) {
+        error.value = `File too large. Maximum size is 2MB. Your file: ${(file.size / 1024 / 1024).toFixed(2)}MB`;
+        return;
+      }
+
+      tSelectedLogoFile.value = file;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        tLogoPreview.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      error.value = null;
+    };
+
+    const uploadTournamentLogo = async tournamentId => {
+      if (!tSelectedLogoFile.value || !tournamentId) return;
+
+      tUploadingLogo.value = true;
+      try {
+        const formData = new FormData();
+        formData.append('file', tSelectedLogoFile.value);
+
+        // Use fetch directly for file upload - don't set Content-Type
+        // (browser sets it automatically with multipart boundary)
+        const token = localStorage.getItem('auth_token');
+        const fetchResponse = await fetch(
+          `${getApiBaseUrl()}/api/admin/tournaments/${tournamentId}/logo`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          }
+        );
+
+        if (!fetchResponse.ok) {
+          const errorData = await fetchResponse.json();
+          throw new Error(errorData.detail || 'Failed to upload logo');
+        }
+
+        tLogoPreview.value = null;
+        tSelectedLogoFile.value = null;
+      } finally {
+        tUploadingLogo.value = false;
+      }
     };
 
     const saveTournament = async () => {
@@ -881,17 +1005,26 @@ export default {
         if (!payload.location) payload.location = null;
         if (!payload.description) payload.description = null;
 
+        let tournamentId;
         if (editingTournament.value) {
+          tournamentId = editingTournament.value.id;
           await authStore.apiRequest(
-            `${getApiBaseUrl()}/api/admin/tournaments/${editingTournament.value.id}`,
+            `${getApiBaseUrl()}/api/admin/tournaments/${tournamentId}`,
             { method: 'PUT', body: JSON.stringify(payload) }
           );
         } else {
-          await authStore.apiRequest(
+          const created = await authStore.apiRequest(
             `${getApiBaseUrl()}/api/admin/tournaments`,
             { method: 'POST', body: JSON.stringify(payload) }
           );
+          tournamentId = created?.id;
         }
+
+        // Upload logo after save so create mode has an id to attach to
+        if (tSelectedLogoFile.value && tournamentId) {
+          await uploadTournamentLogo(tournamentId);
+        }
+
         await fetchTournaments();
         closeTournamentModal();
       } catch (err) {
@@ -927,6 +1060,8 @@ export default {
       showTournamentModal.value = false;
       editingTournament.value = null;
       tForm.value = emptyTournamentForm();
+      tLogoPreview.value = null;
+      tSelectedLogoFile.value = null;
     };
 
     // ─────────────────────────────────────────────
@@ -1091,6 +1226,9 @@ export default {
       editingTournament,
       tFormLoading,
       tForm,
+      tLogoPreview,
+      tUploadingLogo,
+      handleTournamentLogoSelect,
       // match modal
       showMatchModal,
       editingMatch,
