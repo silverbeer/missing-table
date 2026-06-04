@@ -25,6 +25,11 @@ The `enrich` command successfully finds club websites, but the logos it captures
 - **Frontend auto-selects** the right variant based on the `size` prop, with fallback to base URL on 404
 - **Naming**: `{slug}.png` (base), `{slug}_sm.png`, `{slug}_md.png` where slug = lowercase, hyphens for spaces, accents stripped
   - `inter-miami-cf.png`, `inter-miami-cf_sm.png`, `inter-miami-cf_md.png`
+- **Server-side variants**: the upload endpoints (`POST /api/clubs/{id}/logo`, `POST /api/admin/tournaments/{id}/logo`) generate `_sm`/`_md` via `_upload_logo_png_variants` in `backend/app.py`. Non-square sources are fit inside a transparent square canvas (centered, aspect ratio preserved — never stretched). SB-114.
+
+### Tournament Logos
+
+Tournament logos follow the same convention in the `tournament-logos` bucket, keyed by tournament id (`6.png`, `6_sm.png`, `6_md.png`). Upload via **Admin → Tournaments → Edit → Logo** or the API endpoint. Square PNG with transparent background looks best — IG share cards render the logo inside a white rounded chip (background-image, not `<img>`, for html2canvas fidelity).
 
 ### Storage Convention
 

@@ -4619,6 +4619,32 @@ async def update_club(club_id: int, club: Club, current_user: dict[str, Any] = D
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+def _upload_logo_png_variants(storage, bucket: str, base_name: str, content: bytes) -> None:
+    """Upload 64px/128px PNG size variants, preserving aspect ratio.
+
+    The source is fit inside a transparent square canvas (centered) so
+    non-square logos are not distorted. Share cards can then pull a small
+    render without downsampling the full asset at render time.
+    """
+    from io import BytesIO
+
+    from PIL import Image as PILImage
+
+    base_img = PILImage.open(BytesIO(content)).convert("RGBA")
+    for suffix, px in [("_sm", 64), ("_md", 128)]:
+        thumb = base_img.copy()
+        thumb.thumbnail((px, px), PILImage.LANCZOS)
+        canvas = PILImage.new("RGBA", (px, px), (0, 0, 0, 0))
+        canvas.paste(thumb, ((px - thumb.width) // 2, (px - thumb.height) // 2))
+        buf = BytesIO()
+        canvas.save(buf, "PNG")
+        storage.from_(bucket).upload(
+            f"{base_name}{suffix}.png",
+            buf.getvalue(),
+            file_options={"content-type": "image/png", "upsert": "true"},
+        )
+
+
 @app.post("/api/clubs/{club_id}/logo")
 async def upload_club_logo(
     club_id: int,
@@ -4664,21 +4690,7 @@ async def upload_club_logo(
 
         # Generate and upload size variants (_sm=64px, _md=128px) for PNGs
         if ext == "png":
-            from io import BytesIO
-
-            from PIL import Image as PILImage
-
-            base_img = PILImage.open(BytesIO(content))
-            for suffix, px in [("_sm", 64), ("_md", 128)]:
-                variant = base_img.resize((px, px), PILImage.LANCZOS)
-                buf = BytesIO()
-                variant.save(buf, "PNG")
-                variant_path = f"{club_id}{suffix}.png"
-                storage.from_("club-logos").upload(
-                    variant_path,
-                    buf.getvalue(),
-                    file_options={"content-type": "image/png", "upsert": "true"},
-                )
+            _upload_logo_png_variants(storage, "club-logos", str(club_id), content)
             logger.info(f"Uploaded size variants for club {club_id}")
 
         # Get public URL (points to base image)
@@ -6795,21 +6807,7 @@ async def admin_upload_tournament_logo(
 
         # Size variants — only for PNGs, same as club logos.
         if ext == "png":
-            from io import BytesIO
-
-            from PIL import Image as PILImage
-
-            base_img = PILImage.open(BytesIO(content))
-            for suffix, px in [("_sm", 64), ("_md", 128)]:
-                variant = base_img.resize((px, px), PILImage.LANCZOS)
-                buf = BytesIO()
-                variant.save(buf, "PNG")
-                variant_path = f"{tournament_id}{suffix}.png"
-                storage.from_("tournament-logos").upload(
-                    variant_path,
-                    buf.getvalue(),
-                    file_options={"content-type": "image/png", "upsert": "true"},
-                )
+            _upload_logo_png_variants(storage, "tournament-logos", str(tournament_id), content)
             logger.info(f"Uploaded size variants for tournament {tournament_id}")
 
         public_url = storage.from_("tournament-logos").get_public_url(file_path)

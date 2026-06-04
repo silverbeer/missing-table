@@ -18,14 +18,16 @@
         >missingtable.com</span
       >
       <MlsNextBadge v-if="isHomegrownLeague" class="brand-band-badge" />
-      <img
-        v-if="tournamentLogoUrl"
-        :src="tournamentLogoUrl"
-        class="tournament-logo"
-        data-testid="ig-tournament-logo"
-        alt=""
-        crossorigin="anonymous"
-      />
+      <!-- White chip + background-image (not <img>) so dark logos stay
+           legible and html2canvas renders contain correctly — see
+           [[feedback-html2canvas-object-fit]]. -->
+      <div v-if="tournamentLogoUrl" class="tournament-logo">
+        <div
+          class="tournament-logo-img"
+          data-testid="ig-tournament-logo"
+          :style="{ backgroundImage: `url(${tournamentLogoUrl})` }"
+        ></div>
+      </div>
       <span class="meta" data-testid="ig-meta">{{ metaLabel }}</span>
     </div>
 
@@ -227,8 +229,20 @@ export default {
 .tournament-logo {
   height: 84px;
   width: 84px;
-  object-fit: contain;
   margin-right: 16px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.tournament-logo-img {
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .meta {

@@ -288,9 +288,11 @@ describe('tournament logo (all templates)', () => {
           tournament_round: template === 'tournament-round' ? 'final' : null,
         }),
       });
-      const img = wrapper.find('[data-testid="ig-tournament-logo"]');
-      expect(img.exists()).toBe(true);
-      expect(img.attributes('src')).toBe(LOGO_URL);
+      // Rendered as a background-image div (not <img>) inside a white
+      // chip so html2canvas honors contain and dark logos stay legible.
+      const logo = wrapper.find('[data-testid="ig-tournament-logo"]');
+      expect(logo.exists()).toBe(true);
+      expect(logo.attributes('style')).toContain(LOGO_URL);
     });
 
     it(`omits the logo slot on ${template} when tournament_logo_url is absent`, () => {
