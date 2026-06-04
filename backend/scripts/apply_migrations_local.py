@@ -59,7 +59,7 @@ def main():
     client = create_client(supabase_url, supabase_key)
 
     # Get migration files
-    migrations_dir = Path(__file__).parent.parent.parent / "supabase-local" / "migrations"
+    migrations_dir = Path(__file__).parent.parent.parent / "supabase" / "migrations"
 
     if not migrations_dir.exists():
         console.print(f"[red]Migrations directory not found: {migrations_dir}[/red]")
@@ -95,7 +95,7 @@ def main():
 
     console.print("\n[yellow]Alternative: Use Supabase CLI from correct directory[/yellow]")
     console.print("  cd /Users/silverbeer/gitrepos/missing-table")
-    console.print("  cd supabase-local")
+    console.print("  npx supabase migration up")
     console.print("  npx supabase db reset")
 
 

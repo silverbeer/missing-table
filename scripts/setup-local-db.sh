@@ -22,7 +22,7 @@
 #   team_fan     -> fan123
 #
 # Prerequisites:
-#   - Local Supabase must be running: cd supabase-local && npx supabase start
+#   - Local Supabase must be running: npx supabase start
 #   - Node.js/npx available (for supabase CLI)
 #   - uv available (for backend user management scripts)
 ##############################################################################
@@ -111,7 +111,7 @@ fi
 
 # Check if Supabase is running using docker exec (works without local psql)
 DB_CONTAINER=""
-for container in "supabase_db_supabase-local" "supabase_db_missing-table" "supabase_db_backend"; do
+for container in "supabase_db_missing-table"; do
     if docker exec "$container" psql -U postgres -c "SELECT 1" &>/dev/null; then
         DB_CONTAINER="$container"
         break
@@ -120,7 +120,7 @@ done
 
 if [ -z "$DB_CONTAINER" ]; then
     echo -e "${RED}Local Supabase is not running.${NC}"
-    echo -e "${YELLOW}Start it with: cd supabase-local && npx supabase start${NC}"
+    echo -e "${YELLOW}Start it with: npx supabase start${NC}"
     exit 1
 fi
 echo -e "${GREEN}Found Supabase container: $DB_CONTAINER${NC}"
@@ -175,7 +175,7 @@ fi
 # Step 3: Reset database (applies schema + seed)
 ##############################################################################
 echo -e "${BLUE}Step 1: Resetting database (schema + seed data)...${NC}"
-cd "$PROJECT_ROOT/supabase-local"
+cd "$PROJECT_ROOT"
 npx supabase db reset
 echo -e "${GREEN}Database reset complete${NC}"
 echo ""

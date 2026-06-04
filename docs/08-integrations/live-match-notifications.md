@@ -42,7 +42,7 @@ Best-effort delivery. The dispatcher catches all exceptions — notifications **
 
 ## 🗄️ Data Model
 
-Migration: `supabase-local/migrations/20260421000000_add_club_notification_channels.sql`
+Migration: `supabase/migrations/20260421000000_add_club_notification_channels.sql`
 
 **`club_notification_channels`**
 
@@ -239,5 +239,5 @@ All carry `match_id` and `event_type` as keys. `notifications.send_failed` also 
 - Admin UI: `frontend/src/components/notifications/ClubNotificationChannels.vue`, `frontend/src/components/admin/AdminClubNotifications.vue`
 - Club-manager UI: `frontend/src/components/profiles/ClubManagerProfile.vue`
 - Helm: `helm/missing-table/templates/backend.yaml`, `helm/missing-table/values.yaml`
-- Migration: `supabase-local/migrations/20260421000000_add_club_notification_channels.sql`
+- Migration: `supabase/migrations/20260421000000_add_club_notification_channels.sql`
 - Epic: [#315](https://github.com/silverbeer/missing-table/issues/315)

@@ -205,10 +205,10 @@ class PlayerStatsFactory:
 
 | File | Description |
 |------|-------------|
-| `supabase-local/migrations/20260117000001_create_players_table.sql` | Players table |
-| `supabase-local/migrations/20260117000002_create_player_match_stats.sql` | Stats table |
-| `supabase-local/migrations/20260117000003_add_player_id_to_invitations.sql` | Invite linking |
-| `supabase-local/migrations/20260117000004_add_player_id_to_match_events.sql` | Event linking |
+| `supabase/migrations/20260117000001_create_players_table.sql` | Players table |
+| `supabase/migrations/20260117000002_create_player_match_stats.sql` | Stats table |
+| `supabase/migrations/20260117000003_add_player_id_to_invitations.sql` | Invite linking |
+| `supabase/migrations/20260117000004_add_player_id_to_match_events.sql` | Event linking |
 
 ---
 

@@ -29,7 +29,7 @@ def backup_database():
     backup_file = backup_dir / f"missing_table_backup_{timestamp}.sql"
 
     # Database connection details
-    db_url = "postgresql://postgres:postgres@localhost:54322/postgres"
+    db_url = "postgresql://postgres:postgres@localhost:55322/postgres"
 
     # Run pg_dump to create backup
     try:

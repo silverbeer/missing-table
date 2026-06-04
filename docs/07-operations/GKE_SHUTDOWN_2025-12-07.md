@@ -170,7 +170,7 @@ Local development with `./missing-table.sh` continues to work:
 ```bash
 # Start local development
 ./switch-env.sh local
-cd supabase-local && npx supabase start
+npx supabase start
 ./missing-table.sh dev
 
 # Or use cloud Supabase for dev data

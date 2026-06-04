@@ -14,7 +14,7 @@ omit =
     *_test.py
     # Migrations
     ../supabase/migrations/*
-    ../supabase-local/migrations/*
+    ../supabase/migrations/*
     # Legacy/archive
     .archive/*
     legacy_*

@@ -71,10 +71,10 @@ Missing Table is a **production-ready web application** designed for managing co
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Frontend      │    │     Backend      │    │   Supabase      │
 │  (Vue.js)       │◄──►│    (FastAPI)     │◄──►│  (PostgreSQL)   │
-│  localhost:8080 │    │  localhost:8000  │    │ localhost:54321 │
+│  localhost:8080 │    │  localhost:8000  │    │ localhost:55321 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                                                │ Studio: :54323  │
-                                                │ DB: :54322      │
+                                                │ Studio: :55323  │
+                                                │ DB: :55322      │
                                                 └─────────────────┘
 ```
 
@@ -245,7 +245,7 @@ Create `.env.local` in the backend directory:
 
 ```bash
 # Local Supabase Configuration
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:55321
 SUPABASE_ANON_KEY=your_anon_key_here
 SUPABASE_SERVICE_KEY=your_service_key_here
 SUPABASE_JWT_SECRET=your_jwt_secret_here

@@ -105,7 +105,7 @@ frontend:
     tag: "latest"
   env:
     apiUrl: "http://localhost:8000"
-    supabaseUrl: "http://host.docker.internal:54321"
+    supabaseUrl: "http://host.docker.internal:55321"
 ```
 
 ### Environment-Specific Values

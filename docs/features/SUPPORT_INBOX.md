@@ -82,7 +82,7 @@ If MT ever upgrades to Resend Pro or otherwise needs the apex address, the cutov
 
 ## Schema
 
-Migration: `supabase-local/migrations/20260523000000_add_email_inbox.sql`.
+Migration: `supabase/migrations/20260523000000_add_email_inbox.sql`.
 
 ### `email_threads`
 
@@ -162,7 +162,7 @@ Both tables have RLS enabled with one policy each: `*_admin_all` gated by `publi
 
 ### Schema
 
-- **`supabase-local/migrations/20260523000000_add_email_inbox.sql`** — full schema (sequence, both tables, indexes, RLS policies, updated_at trigger).
+- **`supabase/migrations/20260523000000_add_email_inbox.sql`** — full schema (sequence, both tables, indexes, RLS policies, updated_at trigger).
 
 ### Infrastructure
 
@@ -256,7 +256,7 @@ The Helm chart has referenced `RESEND_API_KEY` from K8s Secret key `resend-api-k
 `scripts/db_tools.sh migrate prod` (which wraps `supabase db push --linked`) failed with "Remote migration versions not found in local migrations directory" for 11 pre-existing migrations, even though the files were all present locally. Workaround for SB-35: apply the migration directly via Supabase Studio SQL editor. Long-term fix is tracked in [SB-?? — fix migration tracking drift] (separate ticket). To record a manually-applied migration so future `db push` doesn't re-attempt:
 
 ```bash
-cd supabase-local
+cd supabase
 npx supabase migration repair --status applied 20260523000000 --linked
 ```
 

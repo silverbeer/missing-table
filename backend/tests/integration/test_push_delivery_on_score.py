@@ -57,7 +57,7 @@ def _admin_client():
     """Supabase client with the service-role key (bypasses RLS, auth.admin)."""
     from supabase import create_client
 
-    url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    url = os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
     # Hard safety rail: this test seeds + deletes rows and creates/deletes auth
     # users. It must NEVER run against a non-local Supabase. Skip unless the URL
     # is unambiguously local, regardless of how env/.mt-config resolved.

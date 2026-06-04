@@ -631,7 +631,7 @@ Celery Hello World - Task Submitter
 📊 Result: Hello, World! This message was processed by Celery.
 
 📤 Submitting 'add' task...
-✅ Task submitted! Task ID: 87654321-4321-4321-4321-cba987654321
+✅ Task submitted! Task ID: 87655321-4321-4321-4321-cba987655321
 
 ⏳ Waiting for task to complete...
 ✅ Task completed!
@@ -652,10 +652,10 @@ Switch back to the worker terminal. You should see:
 [Task Completed] Result: Hello, World! This message was processed by Celery.
 [2025-10-11 18:50:02,456: INFO/ForkPoolWorker-1] Task tasks.hello[12345678-...] succeeded in 2.01s: 'Hello, World! This message was processed by Celery.'
 
-[2025-10-11 18:50:03,123: INFO/MainProcess] Task tasks.add[87654321-...] received
+[2025-10-11 18:50:03,123: INFO/MainProcess] Task tasks.add[87655321-...] received
 [Add Task] Computing 42 + 58
 [Add Task] Result: 100
-[2025-10-11 18:50:03,456: INFO/ForkPoolWorker-2] Task tasks.add[87654321-...] succeeded in 0.01s: 100
+[2025-10-11 18:50:03,456: INFO/ForkPoolWorker-2] Task tasks.add[87655321-...] succeeded in 0.01s: 100
 ```
 
 **What Happened:**

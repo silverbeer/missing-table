@@ -8,7 +8,7 @@ if [ ! -f .env.local ]; then
     cat > .env.local << 'EOF'
 # Supabase Local Development Configuration
 # Replace these with your actual local Supabase keys
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:55321
 SUPABASE_SERVICE_KEY=your_service_key_here
 SUPABASE_ANON_KEY=your_anon_key_here
 EOF
@@ -25,7 +25,7 @@ export $(cat .env.local | grep -v '^#' | xargs)
 if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
     echo "❌ Error: Missing required environment variables"
     echo "Please check your .env.local file contains:"
-    echo "  SUPABASE_URL=http://127.0.0.1:54321"
+    echo "  SUPABASE_URL=http://127.0.0.1:55321"
     echo "  SUPABASE_SERVICE_KEY=your_actual_service_key"
     echo "  SUPABASE_ANON_KEY=your_actual_anon_key"
     exit 1

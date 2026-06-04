@@ -66,7 +66,7 @@ def main():
         return 1
 
     # Get migration files
-    migrations_dir = Path(__file__).parent.parent.parent / "supabase-local" / "migrations"
+    migrations_dir = Path(__file__).parent.parent.parent / "supabase" / "migrations"
     migration_files = sorted(migrations_dir.glob("*.sql"))
 
     console.print(f"\nFound {len(migration_files)} migration files")

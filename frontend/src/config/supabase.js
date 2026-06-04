@@ -11,7 +11,7 @@ const getSupabaseConfig = () => {
     // Local development
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return {
-        url: 'http://localhost:54321',
+        url: 'http://localhost:55321',
         // Local Supabase demo anon key (not a secret - same for all local instances)
         anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0', // pragma: allowlist secret
@@ -47,7 +47,7 @@ const getSupabaseConfig = () => {
     url:
       import.meta.env.VITE_SUPABASE_URL ||
       import.meta.env.VUE_APP_SUPABASE_URL ||
-      'http://localhost:54321',
+      'http://localhost:55321',
     anonKey:
       import.meta.env.VITE_SUPABASE_ANON_KEY ||
       import.meta.env.VUE_APP_SUPABASE_ANON_KEY ||

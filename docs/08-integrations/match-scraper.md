@@ -541,7 +541,7 @@ Seasons follow MLS Next format (August to July):
 The scraper pipeline writes to **prod Supabase** (missingtable.com). There is no dev Supabase — only prod and local.
 
 - **Prod**: Workers in M4 Mac K3s write to `ppgxasqgqbnauvxozmjw.supabase.co`
-- **Local**: Local workers write to `localhost:54321`
+- **Local**: Local workers write to `localhost:55321`
 - **Backup**: Use `./scripts/db_tools.sh backup` before major operations
 - **Restore**: Use `./scripts/db_tools.sh restore` if needed
 

@@ -42,9 +42,9 @@ log_error() {
 check_supabase() {
     log_info "Checking if Supabase is running..."
     
-    if ! curl -s http://127.0.0.1:54321 > /dev/null 2>&1; then
+    if ! curl -s http://127.0.0.1:55321 > /dev/null 2>&1; then
         log_error "Supabase is not running"
-        log_info "Start Supabase with: cd supabase-local && npx supabase start"
+        log_info "Start Supabase with: npx supabase start"
         exit 1
     fi
     
@@ -116,7 +116,7 @@ teardown() {
     # In the future, we could add cleanup logic here
     
     log_warn "Teardown not implemented - using persistent local Supabase"
-    log_info "To reset database: cd supabase-local && npx supabase db reset"
+    log_info "To reset database: npx supabase db reset"
 }
 
 # Main execution

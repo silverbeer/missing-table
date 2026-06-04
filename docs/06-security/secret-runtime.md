@@ -168,7 +168,7 @@ cd frontend && npm run serve
 **File:** `frontend/.env.local`
 ```bash
 VUE_APP_API_URL=http://localhost:8000
-VUE_APP_SUPABASE_URL=http://127.0.0.1:54321
+VUE_APP_SUPABASE_URL=http://127.0.0.1:55321
 VUE_APP_SUPABASE_ANON_KEY=your-local-anon-key
 ```
 

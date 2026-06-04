@@ -51,7 +51,7 @@ Contains all database connection and data access logic:
 - `generate_supabase_schema.sql` - Generated schema
 - `supabase_schema.sql` - Base schema definition
 
-### `/supabase-local/` - Local Supabase Setup
+### `/supabase/` - Local Supabase Setup
 - `docker-compose.yml` - Local Supabase Docker setup
 - `setup_local_supabase.py` - Local Supabase configuration
 

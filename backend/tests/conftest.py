@@ -60,7 +60,7 @@ def base_frontend_url():
 @pytest.fixture(scope="session")
 def supabase_url():
     """Supabase instance URL."""
-    return os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    return os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
 
 
 @pytest.fixture(scope="session")
@@ -127,7 +127,7 @@ def test_client():
     from app import app
 
     # Ensure we're using the e2e Supabase instance for tests
-    e2e_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    e2e_url = os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
     e2e_service_key = os.getenv("SUPABASE_SERVICE_KEY", "")
 
     # Validate we're in test mode (check for TEST_MODE environment variable)
@@ -152,7 +152,7 @@ def supabase_client():
     """Create a Supabase client for direct database operations."""
     from supabase import create_client
 
-    url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    url = os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
     key = os.getenv("SUPABASE_SERVICE_KEY")
 
     # Validate we're in test mode
@@ -297,7 +297,7 @@ def pytest_runtest_setup(item):
                 # Test uses TestClient, skip Supabase check
                 return
 
-        url = os.getenv("SUPABASE_URL", "http://127.0.0.1:54321")
+        url = os.getenv("SUPABASE_URL", "http://127.0.0.1:55321")
 
         # Validate we're in test mode
         test_mode = os.getenv("TEST_MODE", "false").lower()

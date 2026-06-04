@@ -224,7 +224,7 @@ project/
     "timestamp": "20231220_143022",
     "created_at": "2023-12-20T14:30:22.123456",
     "version": "1.0",
-    "supabase_url": "http://127.0.0.1:54321"
+    "supabase_url": "http://127.0.0.1:55321"
   },
   "tables": {
     "teams": [

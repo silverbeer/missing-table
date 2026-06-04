@@ -504,7 +504,7 @@ def divisions(
 **Analysis**: Script doesn't create divisions, only teams and games. Should work without changes.
 
 **Testing Steps**:
-- [ ] 1. Ensure local Supabase running: `cd supabase-local && npx supabase start`
+- [ ] 1. Ensure local Supabase running: `npx supabase start`
 - [ ] 2. Apply league migration: `npx supabase db reset`
 - [ ] 3. Run E2E seed: `cd backend && uv run python ../scripts/e2e-seed-fixed.py`
 - [ ] 4. Check output for errors

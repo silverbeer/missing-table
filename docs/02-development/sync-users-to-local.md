@@ -26,7 +26,7 @@ Users are assigned passwords based on their role:
 
 ## Prerequisites
 
-1. **Local Supabase running**: `cd supabase-local && npx supabase start`
+1. **Local Supabase running**: `npx supabase start`
 2. **Environment files configured**:
    - `backend/.env.local` - Local Supabase credentials
    - `backend/.env.prod` - Production Supabase credentials
@@ -158,7 +158,7 @@ For each user, the tool syncs:
    - Login with: `tom` / `admin123`
 
 4. **Verify in Supabase Studio**:
-   - Open http://127.0.0.1:54333/project/default
+   - Open http://127.0.0.1:55323/project/default
    - Check `user_profiles` table
 
 ## Troubleshooting

@@ -211,7 +211,7 @@ reset_and_populate() {
     cd "$PROJECT_ROOT" || exit 1
 
     if [ "$current_env" = "local" ]; then
-        cd supabase-local && npx supabase db reset
+        npx supabase db reset
     else
         print_warning "Cloud environment reset requires manual intervention."
         print_warning "Consider using database migrations instead."
@@ -237,7 +237,7 @@ deploy_migrations() {
 
     if [ "$target_env" = "local" ]; then
         print_header "Applying Migrations to Local Database"
-        cd "$PROJECT_ROOT/supabase-local" || exit 1
+        cd "$PROJECT_ROOT" || exit 1
         npx supabase migration up
         if [ $? -eq 0 ]; then
             print_success "Local migrations applied successfully"
@@ -256,7 +256,7 @@ deploy_migrations() {
 
     # Show which migrations will be applied
     print_warning "Checking for pending migrations..."
-    cd "$PROJECT_ROOT/supabase-local" || exit 1
+    cd "$PROJECT_ROOT" || exit 1
 
     # Save current env and switch to prod
     local original_env=$(get_current_environment)
@@ -286,7 +286,7 @@ deploy_migrations() {
 
     # Step 2: Push migrations
     print_header "Step 2/3: Applying Migrations"
-    cd "$PROJECT_ROOT/supabase-local" || exit 1
+    cd "$PROJECT_ROOT" || exit 1
     npx supabase db push --linked
     if [ $? -ne 0 ]; then
         print_error "Migration failed! Check output above."

@@ -29,7 +29,7 @@ Season + Age Group + League + Division → Matches
 
 ### Step 1.1: Create Leagues Table Migration
 
-**File**: `supabase-local/migrations/YYYYMMDDHHMMSS_add_league_layer.sql`
+**File**: `supabase/migrations/YYYYMMDDHHMMSS_add_league_layer.sql`
 
 ```sql
 -- ============================================================================

@@ -53,7 +53,7 @@ If you just want to get everything running quickly:
 ./scripts/deploy-local-redis.sh
 
 # 2. Start Supabase
-cd supabase-local && npx supabase start && cd ..
+npx supabase start && cd ..
 
 # 3. Setup database (requires recent backup)
 ./scripts/setup-local-db.sh --restore
@@ -99,15 +99,15 @@ kubectl exec -n missing-table svc/missing-table-redis -- redis-cli PING
 ### Step 2: Start Local Supabase
 
 ```bash
-cd supabase-local
+cd supabase
 npx supabase start
 cd ..
 ```
 
 This starts:
-- **PostgreSQL**: localhost:54332
-- **API**: localhost:54321
-- **Studio**: localhost:54323
+- **PostgreSQL**: localhost:55322
+- **API**: localhost:55321
+- **Studio**: localhost:55323
 
 ### Step 3: Setup Database
 
@@ -136,8 +136,8 @@ The backend needs to know where Redis is. Create/update `backend/.env.local`:
 
 ```bash
 # Database (local Supabase)
-DATABASE_URL=postgresql://postgres:postgres@localhost:54332/postgres
-SUPABASE_URL=http://localhost:54321
+DATABASE_URL=postgresql://postgres:postgres@localhost:55322/postgres
+SUPABASE_URL=http://localhost:55321
 SUPABASE_SERVICE_KEY=<your-local-service-key>  # Get from: npx supabase status
 
 # Redis caching (via port-forward)
@@ -205,7 +205,7 @@ kubectl exec -n missing-table svc/missing-table-redis -- redis-cli KEYS "mt:dao:
 - **Frontend**: http://localhost:8080
 - **Backend API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
-- **Supabase Studio**: http://localhost:54323
+- **Supabase Studio**: http://localhost:55323
 
 ## Common Commands
 
@@ -310,10 +310,10 @@ rdctl start
 
 ```bash
 # Verify Supabase is running
-cd supabase-local && npx supabase status
+npx supabase status
 
 # Check PostgreSQL connectivity
-PGPASSWORD=postgres psql -h localhost -p 54332 -U postgres -c "SELECT 1"
+PGPASSWORD=postgres psql -h localhost -p 55322 -U postgres -c "SELECT 1"
 ```
 
 ## Architecture Diagram
@@ -326,9 +326,9 @@ PGPASSWORD=postgres psql -h localhost -p 54332 -U postgres -c "SELECT 1"
 │  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐    │
 │  │   Frontend   │────▶│   Backend    │────▶│  Supabase    │    │
 │  │  :8080       │     │   :8000      │     │  (Docker)    │    │
-│  └──────────────┘     └──────┬───────┘     │  :54321 API  │    │
-│                              │             │  :54332 DB   │    │
-│                              │             │  :54323 UI   │    │
+│  └──────────────┘     └──────┬───────┘     │  :55321 API  │    │
+│                              │             │  :55322 DB   │    │
+│                              │             │  :55323 UI   │    │
 │                              ▼             └──────────────┘    │
 │                       ┌──────────────┐                          │
 │                       │    Redis     │                          │

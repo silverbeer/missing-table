@@ -333,14 +333,14 @@ The migration `20251101000000_add_clubs_table.sql` handles all data transformati
 
 ```bash
 # Local environment
-cd supabase-local
+cd supabase
 npx supabase db reset
 ./scripts/db_tools.sh restore
 
 # Production (with backup!)
 ./switch-env.sh prod
 ./scripts/db_tools.sh backup prod
-cd supabase-local
+cd supabase
 npx supabase db push --linked
 ```
 

@@ -62,7 +62,7 @@ Create a `.env.local` file in the backend directory:
 
 ```bash
 # Local Supabase Configuration (get from `supabase status`)
-SUPABASE_URL=http://localhost:54321
+SUPABASE_URL=http://localhost:55321
 SUPABASE_SERVICE_KEY=your_service_key_here
 SUPABASE_ANON_KEY=your_anon_key_here
 
@@ -343,7 +343,7 @@ supabase start
 supabase status
 
 # Ensure environment variables are set
-export SUPABASE_URL=http://localhost:54321
+export SUPABASE_URL=http://localhost:55321
 export SUPABASE_SERVICE_KEY=your_key_here
 ```
 
