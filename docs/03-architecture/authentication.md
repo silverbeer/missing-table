@@ -127,6 +127,21 @@ How it works (frontend `stores/auth.js`):
 **inactivity timeout**, set in the **Supabase Cloud dashboard** for production
 (Auth → Sessions), not in the repo. Refresh-token rotation stays enabled.
 
+##### Backend auth clients must be stateless (SB-115)
+
+The backend's shared Supabase clients (`auth_ops_client`, `auth_service_client`
+in `app.py`) are created with `ClientOptions(auto_refresh_token=False,
+persist_session=False)`. With the library defaults, any user's login/refresh
+stored their session on the shared client and gotrue's background thread
+silently refreshed it — **rotating that user's refresh token server-side**.
+The device still held the pre-rotation token, so its next refresh was rejected
+as "already used" and the user was forced to log in again (on every device).
+The stateless options mean: no stored session, no background refresh thread,
+no cross-request session bleed. Relatedly, `/api/auth/logout` revokes the
+*caller's own* JWT via `auth.admin.sign_out(jwt)` instead of calling
+`sign_out()` on the shared client (which revoked whatever session that client
+happened to hold).
+
 #### 3. **Frontend Changes**
 ```javascript
 // NEW APPROACH - Backend API calls
