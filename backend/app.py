@@ -7,6 +7,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
 import r2_client
@@ -26,6 +27,7 @@ from auth import (
     require_admin_or_service_account,
     require_match_management_permission,
     require_team_manager_or_admin,
+    security,
     viewer_sees_test_content,
 )
 from constants import PLAYER_POSITIONS
@@ -234,19 +236,31 @@ tournament_dao = TournamentDAO(db_conn_holder_obj)
 # === Simple Redis Caching ===
 # Initialize Authentication Manager with a dedicated service client
 # This prevents login operations from modifying the client used for profile lookups
-from supabase import create_client
+from supabase import ClientOptions, create_client
+
+# Both auth clients MUST be stateless (SB-115). With the library defaults
+# (persist_session=True, auto_refresh_token=True), a session set by any
+# user's login/refresh is stored on the shared client and gotrue's
+# background thread silently refreshes it — rotating that user's refresh
+# token server-side. The device still holds the pre-rotation token, so its
+# next refresh is rejected as "already used" and the user is forced to log
+# in again. Stateless options mean: no stored session, no background
+# refresh thread, no cross-request session bleed.
+_STATELESS_AUTH_OPTIONS = ClientOptions(auto_refresh_token=False, persist_session=False)
 
 auth_service_client = create_client(
     os.getenv("SUPABASE_URL", ""),
     os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY", ""),
+    options=_STATELESS_AUTH_OPTIONS,
 )
 auth_manager = AuthManager(auth_service_client)
 
-# Create a separate client for auth operations (login/signup/logout)
+# Create a separate client for auth operations (login/signup/refresh)
 # This prevents auth operations from modifying the client used by match_dao
 auth_ops_client = create_client(
     os.getenv("SUPABASE_URL", ""),
     os.getenv("SUPABASE_ANON_KEY", ""),  # Auth operations use anon key
+    options=_STATELESS_AUTH_OPTIONS,
 )
 
 
@@ -767,11 +781,19 @@ async def check_username_availability(username: str):
 
 
 @app.post("/api/auth/logout")
-async def logout(current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """User logout endpoint."""
+async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """User logout endpoint.
+
+    Revokes the *caller's own* session via the admin API. The previous
+    implementation called sign_out() on the shared auth client, which
+    revoked whatever session that client happened to hold — potentially a
+    different user's (SB-115).
+    """
     try:
-        # Use auth_ops_client to avoid modifying the match_dao client
-        auth_ops_client.auth.sign_out()
+        auth_service_client.auth.admin.sign_out(credentials.credentials)
         return {"success": True, "message": "Logged out successfully"}
     except Exception as e:
         logger.error(f"Logout error: {e}", exc_info=True)
