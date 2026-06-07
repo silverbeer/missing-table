@@ -60,8 +60,10 @@ export function useMatchLineup(matchId, matchData) {
         away: awayRoster.value,
       };
     } catch (err) {
+      // SB-118: propagate so callers can show an error + retry instead of
+      // silently treating a failed fetch as an empty roster.
       console.error('Error fetching rosters:', err);
-      return { home: [], away: [] };
+      throw err;
     }
   }
 
@@ -75,8 +77,9 @@ export function useMatchLineup(matchId, matchData) {
       );
       return response;
     } catch (err) {
+      // SB-118: propagate — a failed fetch is not the same as "no lineup"
       console.error('Error fetching lineup:', err);
-      return null;
+      throw err;
     }
   }
 
@@ -99,7 +102,9 @@ export function useMatchLineup(matchId, matchData) {
       homeLineup.value = homeResponse;
       awayLineup.value = awayResponse;
     } catch (err) {
+      // SB-118: propagate so callers can show an error + retry
       console.error('Error fetching lineups:', err);
+      throw err;
     } finally {
       lineupLoading.value = false;
     }

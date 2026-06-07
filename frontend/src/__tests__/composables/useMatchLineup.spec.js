@@ -91,7 +91,9 @@ describe('useMatchLineup', () => {
       expect(mockAuthStore.apiRequest).not.toHaveBeenCalled();
     });
 
-    it('returns empty arrays on API error', async () => {
+    // SB-118: errors propagate so callers can show a retry UI instead of
+    // mistaking a failed fetch for an empty roster
+    it('rethrows on API error', async () => {
       mockAuthStore.apiRequest = vi.fn(() =>
         Promise.reject(new Error('Network error'))
       );
@@ -99,9 +101,7 @@ describe('useMatchLineup', () => {
       const matchData = ref(createMatchData());
       const { fetchTeamRosters } = useMatchLineup(1, matchData);
 
-      const result = await fetchTeamRosters();
-
-      expect(result).toEqual({ home: [], away: [] });
+      await expect(fetchTeamRosters()).rejects.toThrow('Network error');
     });
 
     // ── SB-68: age_group_id filter ──
@@ -196,6 +196,20 @@ describe('useMatchLineup', () => {
       await fetchLineups();
 
       expect(mockAuthStore.apiRequest).not.toHaveBeenCalled();
+    });
+
+    // SB-118: failed lineup fetch must propagate so callers can show a retry UI
+    it('rethrows when apiRequest rejects and resets lineupLoading to false', async () => {
+      mockAuthStore.apiRequest = vi.fn(() =>
+        Promise.reject(new Error('timeout'))
+      );
+
+      const matchData = ref(createMatchData());
+      const { fetchLineups, lineupLoading } = useMatchLineup(1, matchData);
+
+      await expect(fetchLineups()).rejects.toThrow('timeout');
+      // The finally block must have run — loading must not stay stuck
+      expect(lineupLoading.value).toBe(false);
     });
   });
 

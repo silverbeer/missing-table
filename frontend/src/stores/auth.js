@@ -687,6 +687,28 @@ export const useAuthStore = () => {
     };
   };
 
+  // SB-118: abort hung requests (e.g. dead mobile signal) so callers fail
+  // fast instead of leaving saving/loading spinners stuck indefinitely.
+  const API_TIMEOUT_MS = 30000;
+
+  const fetchWithTimeout = async (endpoint, options = {}) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    try {
+      // Caller-supplied signal (spread after ours) takes precedence
+      return await fetch(endpoint, { signal: controller.signal, ...options });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error(
+          'Request timed out. Check your connection and try again.'
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   // NEW: Simple API call helper with auth headers
   const apiCall = async (endpoint, options = {}) => {
     const startTime = performance.now();
@@ -705,7 +727,7 @@ export const useAuthStore = () => {
       defaultHeaders.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       ...options,
       cache: 'no-store',
       headers: {
@@ -724,7 +746,7 @@ export const useAuthStore = () => {
         const retryToken = localStorage.getItem('auth_token');
         if (retryToken) {
           defaultHeaders.Authorization = `Bearer ${retryToken}`;
-          const retryResponse = await fetch(endpoint, {
+          const retryResponse = await fetchWithTimeout(endpoint, {
             ...options,
             cache: 'no-store',
             headers: {
