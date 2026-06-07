@@ -32,6 +32,12 @@
         <div v-if="lineupsLoading" class="lineup-loading">
           Loading lineups...
         </div>
+        <div v-else-if="lineupLoadError" class="lineup-error">
+          <p>{{ lineupLoadError }}</p>
+          <button @click="loadLineupsAndRosters" class="retry-button">
+            Retry
+          </button>
+        </div>
         <LineupManager
           v-else-if="activeLineupTab === 'home'"
           :team-id="matchState.home_team_id"
@@ -642,6 +648,7 @@ const showLineupSection = ref(false);
 const activeLineupTab = ref('home');
 const lineupsLoading = ref(false);
 const lineupsLoaded = ref(false);
+const lineupLoadError = ref(null);
 const savingLineup = ref(false);
 
 // Toggle lineup section
@@ -657,6 +664,7 @@ function toggleLineupSection() {
 // Load lineups and rosters
 async function loadLineupsAndRosters() {
   lineupsLoading.value = true;
+  lineupLoadError.value = null;
   try {
     // Load rosters if not already loaded
     if (props.fetchRosters && !rostersLoaded.value) {
@@ -673,7 +681,11 @@ async function loadLineupsAndRosters() {
 
     lineupsLoaded.value = true;
   } catch (err) {
+    // SB-118: leave lineupsLoaded false and surface the error so the user
+    // can retry — previously a failed load looked like an empty lineup.
     console.error('Failed to load lineups and rosters:', err);
+    lineupLoadError.value =
+      'Could not load lineups. Check your connection and retry.';
   } finally {
     lineupsLoading.value = false;
   }
@@ -693,9 +705,17 @@ async function handleSaveLineup(teamId, lineupData) {
 
     if (!result.success) {
       console.error('Failed to save lineup:', result.error);
+      alert(
+        result.error ||
+          'Failed to save lineup. Check your connection and try again.'
+      );
     }
   } catch (err) {
     console.error('Error saving lineup:', err);
+    alert(
+      err.message ||
+        'Failed to save lineup. Check your connection and try again.'
+    );
   } finally {
     savingLineup.value = false;
   }
@@ -1329,5 +1349,23 @@ function submitGoal() {
   text-align: center;
   padding: 40px;
   color: #aaa;
+}
+
+.lineup-error {
+  text-align: center;
+  padding: 24px;
+  color: #e94560;
+}
+
+.lineup-error .retry-button {
+  margin-top: 12px;
+  background: #e94560;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 44px;
 }
 </style>
