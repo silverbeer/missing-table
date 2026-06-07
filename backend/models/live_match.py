@@ -47,7 +47,10 @@ class LiveCardEvent(BaseModel):
     """Model for recording a card event during a live match."""
 
     team_id: int = Field(..., description="ID of the team the player belongs to")
-    player_id: int = Field(..., description="ID of the carded player from roster")
+    player_id: int | None = Field(None, description="ID of the carded player from roster (preferred)")
+    player_name: str | None = Field(
+        None, max_length=200, description="Free-text player name/number when no roster is available"
+    )
     card_type: str = Field(..., pattern="^(yellow_card|red_card)$", description="Type of card: yellow_card or red_card")
     message: str | None = Field(None, max_length=500, description="Optional description (e.g., reason for card)")
 

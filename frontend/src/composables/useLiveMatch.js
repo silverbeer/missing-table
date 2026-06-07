@@ -393,13 +393,24 @@ export function useLiveMatch(matchId) {
     }
   }
 
-  async function postCard(teamId, playerId, cardType, message = null) {
+  async function postCard(
+    teamId,
+    playerId,
+    cardType,
+    message = null,
+    playerName = null
+  ) {
     try {
       const cardData = {
         team_id: teamId,
-        player_id: playerId,
         card_type: cardType,
       };
+      if (playerId != null) {
+        cardData.player_id = playerId;
+      }
+      if (playerName) {
+        cardData.player_name = playerName;
+      }
       if (message) {
         cardData.message = message;
       }
