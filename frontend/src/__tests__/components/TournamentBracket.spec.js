@@ -309,3 +309,168 @@ describe('TournamentBracket — tournament_round_order placement', () => {
     expect(wrapper.text()).toContain('No matches in this bracket yet');
   });
 });
+
+// ── SB-119: compact bracket (smaller than 32 teams) ──────────────────────────
+// These tests guard the new compact rendering path introduced so brackets that
+// start at the Semifinals or Final (e.g. NAC BU15 HG) no longer fall through
+// to the empty state.
+
+describe('TournamentBracket — SB-119 compact path', () => {
+  // Reuse mkMatch from the outer scope (same module).
+
+  // Case 1: completely empty matches array → empty state.
+  it('renders empty state when matches is empty', () => {
+    const wrapper = mount(TournamentBracket, { props: { matches: [] } });
+    expect(wrapper.text()).toContain('No matches in this bracket yet.');
+    expect(wrapper.find('.bracket-grid-compact').exists()).toBe(false);
+    expect(wrapper.find('.bracket-grid').exists()).toBe(false);
+  });
+
+  // Case 2: only group_stage / wildcard rounds → still empty state (excluded
+  // from bracket computation entirely).
+  it('renders empty state when only group_stage/wildcard matches are present', () => {
+    const matches = [
+      mkMatch(1, 'group_stage', 'Alpha', 'Bravo'),
+      mkMatch(2, 'wildcard', 'Charlie', 'Delta'),
+    ];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+    expect(wrapper.text()).toContain('No matches in this bracket yet.');
+    expect(wrapper.find('.bracket-grid-compact').exists()).toBe(false);
+  });
+
+  // Case 3: SF + Final only (NAC BU15 HG scenario).
+  it('renders compact grid for SF + Final bracket, not full grid, not empty', () => {
+    const matches = [
+      mkMatch(10, 'semifinal', 'Red FC', 'Blue SC', {
+        tournament_round_order: 0,
+      }),
+      mkMatch(11, 'semifinal', 'Green United', 'Yellow City', {
+        tournament_round_order: 1,
+      }),
+      mkMatch(20, 'final', 'Red FC', 'Green United'),
+    ];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+
+    // Not empty state.
+    expect(wrapper.text()).not.toContain('No matches in this bracket yet.');
+
+    // Compact grid rendered, full grid absent.
+    expect(wrapper.find('.bracket-grid-compact').exists()).toBe(true);
+    expect(wrapper.find('.bracket-grid').exists()).toBe(false);
+
+    // Exactly 2 column headers: "Semifinals" and "Final".
+    const headers = wrapper.findAll('.bracket-header');
+    expect(headers).toHaveLength(2);
+    expect(headers[0].text()).toBe('Semifinals');
+    expect(headers[1].text()).toBe('Final');
+
+    // All 3 matches produce a populated cell.
+    const cells = wrapper.findAll('.bracket-cell-compact');
+    expect(cells).toHaveLength(3);
+
+    // All four team names appear somewhere in the compact grid.
+    const gridText = wrapper.find('.bracket-grid-compact').text();
+    expect(gridText).toContain('Red FC');
+    expect(gridText).toContain('Blue SC');
+    expect(gridText).toContain('Green United');
+    expect(gridText).toContain('Yellow City');
+
+    // The final cell is the last compact cell and carries isFinal styling
+    // (the BracketCell renders a button for real matches; verify the final
+    // match teams appear in the final column position).
+    expect(gridText).toContain('Red FC');
+    expect(gridText).toContain('Green United');
+  });
+
+  // Case 4: Final-only bracket (BU15 HG edge case with single match).
+  it('renders compact grid for a Final-only bracket', () => {
+    const matches = [mkMatch(99, 'final', 'Finale Home', 'Finale Away')];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+
+    expect(wrapper.text()).not.toContain('No matches in this bracket yet.');
+    expect(wrapper.find('.bracket-grid-compact').exists()).toBe(true);
+    expect(wrapper.find('.bracket-grid').exists()).toBe(false);
+
+    // Only 1 column header.
+    const headers = wrapper.findAll('.bracket-header');
+    expect(headers).toHaveLength(1);
+    expect(headers[0].text()).toBe('Final');
+
+    // Both teams visible.
+    const gridText = wrapper.find('.bracket-grid-compact').text();
+    expect(gridText).toContain('Finale Home');
+    expect(gridText).toContain('Finale Away');
+  });
+
+  // Case 5: when R32 matches are present the existing FULL bracket path
+  // still wins — compact must not take over.
+  it('renders the full bracket grid (not compact) when R32 matches are present', () => {
+    const matches = [
+      mkMatch(1, 'round_of_32', 'Team A', 'Team B'),
+      mkMatch(2, 'semifinal', 'Team X', 'Team Y'),
+    ];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+
+    expect(wrapper.find('.bracket-grid').exists()).toBe(true);
+    expect(wrapper.find('.bracket-grid-compact').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('No matches in this bracket yet.');
+  });
+
+  // Case 6: compactLayout geometry assertions via wrapper.vm for SF + Final.
+  it('computes correct compactLayout geometry for SF+Final bracket', () => {
+    const matches = [
+      mkMatch(10, 'semifinal', 'Alpha FC', 'Beta SC', {
+        tournament_round_order: 0,
+      }),
+      mkMatch(11, 'semifinal', 'Gamma United', 'Delta City', {
+        tournament_round_order: 1,
+      }),
+      mkMatch(20, 'final', 'Alpha FC', 'Gamma United'),
+    ];
+    const wrapper = mount(TournamentBracket, { props: { matches } });
+
+    const layout = wrapper.vm.compactLayout;
+    expect(layout).not.toBeNull();
+
+    // 2 SFs → firstRoundIdx points at 'semifinal' (index 3 in roundCells),
+    // so rounds.length = 2 (SF + Final).
+    expect(layout.nCols).toBe(2);
+    expect(layout.headers).toEqual(['Semifinals', 'Final']);
+
+    // firstSlots = 2 (two SF cells), totalRows = 2 * 2 = 4.
+    expect(layout.totalRows).toBe(4);
+
+    // items: 2 SF items + 1 Final item = 3 total.
+    expect(layout.items).toHaveLength(3);
+
+    // SF items: rowsPerCell = 4/2 = 2.
+    const sf0 = layout.items.find(it => it.key === 'semifinal-0');
+    const sf1 = layout.items.find(it => it.key === 'semifinal-1');
+    const fin = layout.items.find(it => it.key === 'final-0');
+
+    expect(sf0).toBeDefined();
+    expect(sf1).toBeDefined();
+    expect(fin).toBeDefined();
+
+    // SF0: col 1, rowStart 2 (header at row 1), rowSpan 2.
+    expect(sf0.col).toBe(1);
+    expect(sf0.rowStart).toBe(2);
+    expect(sf0.rowSpan).toBe(2);
+
+    // SF1: col 1, rowStart 4, rowSpan 2.
+    expect(sf1.col).toBe(1);
+    expect(sf1.rowStart).toBe(4);
+    expect(sf1.rowSpan).toBe(2);
+
+    // Final: col 2, rowStart 2, rowSpan 4 (totalRows).
+    expect(fin.col).toBe(2);
+    expect(fin.rowStart).toBe(2);
+    expect(fin.rowSpan).toBe(4);
+    expect(fin.isFinal).toBe(true);
+
+    // showBridge: exactly one item has showBridge true — the top SF (d=0, i=0).
+    const bridgeItems = layout.items.filter(it => it.showBridge);
+    expect(bridgeItems).toHaveLength(1);
+    expect(bridgeItems[0].key).toBe('semifinal-0');
+  });
+});

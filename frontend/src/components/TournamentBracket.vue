@@ -1,8 +1,42 @@
 <template>
   <div>
     <!-- No matches in this bracket -->
-    <div v-if="!hasAnyR32" class="text-center py-10 text-gray-500">
+    <div v-if="!hasAnyBracket" class="text-center py-10 text-gray-500">
       No matches in this bracket yet.
+    </div>
+
+    <!-- Compact path: bracket starts deeper than R32 (e.g. SF + Final only).
+         Self-scales to the populated rounds so small brackets render. -->
+    <div v-else-if="!isFullBracket" class="overflow-x-auto pb-4">
+      <div class="bracket-grid-compact" :style="compactGridStyle">
+        <div
+          v-for="(label, i) in compactLayout.headers"
+          :key="`chdr-${i}`"
+          class="bracket-header"
+          :style="{ gridColumn: i + 1, gridRow: 1 }"
+        >
+          {{ label }}
+        </div>
+        <div
+          v-for="it in compactLayout.items"
+          :key="it.key"
+          class="bracket-cell-compact"
+          :class="{ 'is-last': it.isLastCol }"
+          :style="{
+            gridColumn: it.col,
+            gridRow: `${it.rowStart} / span ${it.rowSpan}`,
+          }"
+        >
+          <div v-if="it.showBridge" class="bracket-bridge"></div>
+          <div class="bracket-cell-inner">
+            <BracketCell
+              :match="it.match"
+              :is-final="it.isFinal"
+              @click="$emit('match-click', it.match)"
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-else class="overflow-x-auto pb-4">
@@ -126,6 +160,10 @@ const r32Matches = computed(() => {
 
 const hasAnyR32 = computed(() => r32Matches.value.some(m => m != null));
 
+// When R32 is present we render the canonical full 32-team layout below.
+// A full bracket is exactly "R32 has matches".
+const isFullBracket = computed(() => hasAnyR32.value);
+
 // ── Feeder-derived placement ──────────────────────────────────────────────
 // For R16 / QF / SF / Final, we don't just sort by id — we place each match
 // directly under its two feeder matches.
@@ -198,6 +236,70 @@ const qfCells = computed(() =>
 );
 const sfCells = computed(() => placeByFeeder('semifinal', qfCells.value, 2));
 const finalCell = computed(() => placeByFeeder('final', sfCells.value, 1)[0]);
+
+// ── Small-bracket (compact) layout ─────────────────────────────────────────
+// The full layout above hard-seeds a 16-slot Round of 32. Tournaments whose
+// playoffs are smaller than 32 teams (e.g. a 4-team Semifinal + Final) have no
+// R32 matches, so the canonical grid collapses to the empty state. The compact
+// path renders only the populated rounds, starting from the deepest one that
+// actually has matches, and self-scales the row count to that entry round.
+
+const roundCells = computed(() => [
+  { key: 'round_of_32', label: 'Round of 32', cells: r32Matches.value },
+  { key: 'round_of_16', label: 'Round of 16', cells: r16Cells.value },
+  { key: 'quarterfinal', label: 'Quarterfinals', cells: qfCells.value },
+  { key: 'semifinal', label: 'Semifinals', cells: sfCells.value },
+  { key: 'final', label: 'Final', cells: [finalCell.value] },
+]);
+
+// Index of the shallowest round that has at least one real match. -1 when the
+// bracket is entirely empty.
+const firstRoundIdx = computed(() =>
+  roundCells.value.findIndex(r => r.cells.some(m => m != null))
+);
+
+const hasAnyBracket = computed(() => firstRoundIdx.value !== -1);
+
+// Positioned cells for the compact grid. Null unless we're on the compact path
+// (some bracket match exists, but no R32). Geometry mirrors the full layout:
+// the entry round gets 2 rows per cell, each later round doubles its span so
+// every match centers between its two feeders.
+const compactLayout = computed(() => {
+  if (firstRoundIdx.value <= 0) return null;
+  const rounds = roundCells.value.slice(firstRoundIdx.value);
+  const firstSlots = rounds[0].cells.length;
+  const totalRows = firstSlots * 2;
+  const nCols = rounds.length;
+  const items = [];
+  rounds.forEach((round, d) => {
+    const slotCount = round.cells.length;
+    const rowsPerCell = totalRows / slotCount;
+    round.cells.forEach((m, i) => {
+      items.push({
+        key: `${round.key}-${i}`,
+        col: d + 1,
+        rowStart: 2 + i * rowsPerCell, // row 1 is the header track
+        rowSpan: rowsPerCell,
+        match: m,
+        isFinal: round.key === 'final',
+        isLastCol: d === nCols - 1,
+        // Vertical bridge joins each sibling pair (2k, 2k+1); draw it on the
+        // top cell of the pair. Never on the last column (the final).
+        showBridge: d < nCols - 1 && i % 2 === 0,
+      });
+    });
+  });
+  return { items, totalRows, nCols, headers: rounds.map(r => r.label) };
+});
+
+const compactGridStyle = computed(() => {
+  const l = compactLayout.value;
+  if (!l) return '';
+  return (
+    `grid-template-columns: repeat(${l.nCols}, minmax(170px, 1fr));` +
+    `grid-template-rows: auto repeat(${l.totalRows}, minmax(28px, 1fr));`
+  );
+});
 
 // ── Inline child component for match cells ──
 const BracketCell = {
@@ -604,5 +706,48 @@ function formatMatchDate(d) {
   .bracket-grid {
     grid-template-rows: auto repeat(32, minmax(34px, auto));
   }
+}
+
+/* ── Compact bracket (smaller than 32 teams) ──
+ * Same visual language as the full grid, but column/row geometry is driven by
+ * inline styles computed in `compactLayout` so it self-scales to the rounds
+ * that are actually populated. */
+.bracket-grid-compact {
+  display: grid;
+  gap: 0;
+  position: relative;
+  min-width: min-content;
+}
+.bracket-cell-compact {
+  position: relative;
+  padding: 4px 12px 4px 4px;
+  display: flex;
+  align-items: center;
+}
+.bracket-cell-compact:not(:first-child) {
+  padding-left: 12px;
+}
+.bracket-cell-inner {
+  width: 100%;
+}
+/* Horizontal lead-out toward the next round (every cell except the final). */
+.bracket-cell-compact:not(.is-last)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background: rgb(209 213 219);
+}
+/* Vertical bridge joining a sibling pair: 100% of the (top) cell's height
+ * reaches from this cell's midpoint down to its sibling's midpoint. */
+.bracket-bridge {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 1px;
+  height: 100%;
+  background: rgb(209 213 219);
 }
 </style>
