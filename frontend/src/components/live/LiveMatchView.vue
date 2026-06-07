@@ -137,8 +137,20 @@ async function handlePostGoal({ teamId, playerName, message, playerId }) {
   }
 }
 
-async function handlePostCard({ teamId, playerId, cardType, message }) {
-  const result = await postCard(teamId, playerId, cardType, message);
+async function handlePostCard({
+  teamId,
+  playerId,
+  playerName,
+  cardType,
+  message,
+}) {
+  const result = await postCard(
+    teamId,
+    playerId,
+    cardType,
+    message,
+    playerName
+  );
   if (!result.success) {
     alert(result.error || 'Failed to record card');
   }

@@ -3270,14 +3270,19 @@ async def post_live_card(
         if card.team_id not in [current_match["home_team_id"], current_match["away_team_id"]]:
             raise HTTPException(status_code=400, detail="Team must be one of the match participants")
 
-        # Validate player exists and is on the team
-        player = roster_dao.get_player_by_id(card.player_id)
-        if not player:
-            raise HTTPException(status_code=400, detail="Player not found")
-        if player["team_id"] != card.team_id:
-            raise HTTPException(status_code=400, detail="Player must be on the specified team")
-
-        player_name = player.get("display_name", f"#{player['jersey_number']}")
+        # Resolve player from roster when an ID is given; otherwise accept a
+        # free-text name/number (SB-117: opposing team may have no roster).
+        if card.player_id is not None:
+            player = roster_dao.get_player_by_id(card.player_id)
+            if not player:
+                raise HTTPException(status_code=400, detail="Player not found")
+            if player["team_id"] != card.team_id:
+                raise HTTPException(status_code=400, detail="Player must be on the specified team")
+            player_name = player.get("display_name", f"#{player['jersey_number']}")
+        else:
+            player_name = (card.player_name or "").strip()
+            if not player_name:
+                raise HTTPException(status_code=400, detail="Either player_id or player_name is required")
         card_label = "RED CARD" if card.card_type == "red_card" else "YELLOW CARD"
 
         card_message = f"{card_label}: {player_name}"
@@ -3306,13 +3311,15 @@ async def post_live_card(
             raise HTTPException(status_code=500, detail="Failed to create card event")
 
         # Update player card stats
-        stats = player_stats_dao.get_or_create_match_stats(card.player_id, match_id)
-        if stats:
-            card_field = "red_cards" if card.card_type == "red_card" else "yellow_cards"
-            current_count = stats.get(card_field, 0)
-            player_stats_dao.client.table("player_match_stats").update(
-                {card_field: current_count + 1, "played": True}
-            ).eq("player_id", card.player_id).eq("match_id", match_id).execute()
+        # Player stats only track rostered players
+        if card.player_id is not None:
+            stats = player_stats_dao.get_or_create_match_stats(card.player_id, match_id)
+            if stats:
+                card_field = "red_cards" if card.card_type == "red_card" else "yellow_cards"
+                current_count = stats.get(card_field, 0)
+                player_stats_dao.client.table("player_match_stats").update(
+                    {card_field: current_count + 1, "played": True}
+                ).eq("player_id", card.player_id).eq("match_id", match_id).execute()
 
         logger.info(
             "live_card_recorded",

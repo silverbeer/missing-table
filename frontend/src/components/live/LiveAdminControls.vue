@@ -348,8 +348,17 @@
             >
               {{ formatPlayerOption(player) }}
             </option>
+            <option value="other">Other (type name)</option>
           </select>
           <div v-else class="no-roster-message">No roster available</div>
+          <!-- Fallback text input when "Other" is selected or no roster -->
+          <input
+            v-if="cardPlayerId === 'other' || cardTeamRoster.length === 0"
+            v-model="cardPlayerName"
+            type="text"
+            placeholder="Enter player name or number"
+            class="text-input mt-2"
+          />
         </div>
 
         <div class="form-group">
@@ -559,6 +568,7 @@ const rostersLoaded = ref(false);
 const showCardModal = ref(false);
 const cardTeamId = ref(null);
 const cardPlayerId = ref(null);
+const cardPlayerName = ref('');
 const selectedCardType = ref('yellow_card');
 const cardMessage = ref('');
 
@@ -815,18 +825,25 @@ const cardTeamRoster = computed(() => {
 });
 
 const canSubmitCard = computed(() => {
-  return cardTeamId.value && cardPlayerId.value && selectedCardType.value;
+  if (!cardTeamId.value || !selectedCardType.value) return false;
+  // Player selected from roster
+  if (cardPlayerId.value && cardPlayerId.value !== 'other') return true;
+  // "Other" or no roster — need a manual name/number
+  if (cardPlayerName.value.trim()) return true;
+  return false;
 });
 
 function selectCardTeam(teamId) {
   cardTeamId.value = teamId;
   cardPlayerId.value = null;
+  cardPlayerName.value = '';
 }
 
 function closeCardModal() {
   showCardModal.value = false;
   cardTeamId.value = null;
   cardPlayerId.value = null;
+  cardPlayerName.value = '';
   selectedCardType.value = 'yellow_card';
   cardMessage.value = '';
 }
@@ -834,9 +851,20 @@ function closeCardModal() {
 function submitCard() {
   if (!canSubmitCard.value) return;
 
+  // Determine player info to send (mirrors submitGoal)
+  let playerId = null;
+  let playerName = null;
+
+  if (cardPlayerId.value && cardPlayerId.value !== 'other') {
+    playerId = cardPlayerId.value;
+  } else {
+    playerName = cardPlayerName.value.trim();
+  }
+
   emit('post-card', {
     teamId: cardTeamId.value,
-    playerId: cardPlayerId.value,
+    playerId,
+    playerName,
     cardType: selectedCardType.value,
     message: cardMessage.value.trim() || null,
   });
