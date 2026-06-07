@@ -791,9 +791,13 @@ async def logout(
     implementation called sign_out() on the shared auth client, which
     revoked whatever session that client happened to hold — potentially a
     different user's (SB-115).
+
+    scope="local" is load-bearing (SB-116): gotrue's admin.sign_out
+    defaults to scope="global", which revokes EVERY session for the user —
+    logging out on one device logged the user out of all devices.
     """
     try:
-        auth_service_client.auth.admin.sign_out(credentials.credentials)
+        auth_service_client.auth.admin.sign_out(credentials.credentials, "local")
         return {"success": True, "message": "Logged out successfully"}
     except Exception as e:
         logger.error(f"Logout error: {e}", exc_info=True)
