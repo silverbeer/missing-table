@@ -532,31 +532,73 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  defineAsyncComponent,
+} from 'vue';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { getApiBaseUrl } from './config/api';
 import { recordPageView, recordInviteRequest } from './faro';
-import MatchForm from './components/MatchForm.vue';
+
+// Eagerly loaded: initial-paint view (LeagueTable is the default tab) and the
+// always-mounted chrome (nav, footer, indicators, login screen). These belong
+// in the initial bundle so first paint has no async waterfall.
 import LeagueTable from './components/LeagueTable.vue';
-import MatchesView from './components/MatchesView.vue';
-import MatchDetailView from './components/MatchDetailView.vue';
-import GoalsLeaderboard from './components/GoalsLeaderboard.vue';
 import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
-import ForgotPasswordForm from './components/ForgotPasswordForm.vue';
-import ResetPasswordForm from './components/ResetPasswordForm.vue';
-import ProfileRouter from './components/ProfileRouter.vue';
-import TeamRosterRouter from './components/profiles/TeamRosterRouter.vue';
-import AdminPanel from './components/AdminPanel.vue';
-import TournamentMatchCenter from './components/TournamentMatchCenter.vue';
-import QoPStandings from './components/QoPStandings.vue';
 import VersionFooter from './components/VersionFooter.vue';
-import WhatsNewView from './components/WhatsNewView.vue';
-import { LiveMatchView } from './components/live';
 import IosInstallTooltip from './components/IosInstallTooltip.vue';
 import OfflineIndicator from './components/OfflineIndicator.vue';
 import UpdateAvailablePrompt from './components/UpdateAvailablePrompt.vue';
+
+// Lazily loaded (SB-122): every view that lives behind a tab `v-if` and isn't
+// shown on first paint. Each becomes its own chunk, fetched only when its tab
+// is opened — keeps the initial bundle (and TTI) small. TournamentMatchCenter
+// pulls the heavy bracket components, so this is the biggest single win.
+const MatchForm = defineAsyncComponent(
+  () => import('./components/MatchForm.vue')
+);
+const MatchesView = defineAsyncComponent(
+  () => import('./components/MatchesView.vue')
+);
+const MatchDetailView = defineAsyncComponent(
+  () => import('./components/MatchDetailView.vue')
+);
+const GoalsLeaderboard = defineAsyncComponent(
+  () => import('./components/GoalsLeaderboard.vue')
+);
+const ForgotPasswordForm = defineAsyncComponent(
+  () => import('./components/ForgotPasswordForm.vue')
+);
+const ResetPasswordForm = defineAsyncComponent(
+  () => import('./components/ResetPasswordForm.vue')
+);
+const ProfileRouter = defineAsyncComponent(
+  () => import('./components/ProfileRouter.vue')
+);
+const TeamRosterRouter = defineAsyncComponent(
+  () => import('./components/profiles/TeamRosterRouter.vue')
+);
+const AdminPanel = defineAsyncComponent(
+  () => import('./components/AdminPanel.vue')
+);
+const TournamentMatchCenter = defineAsyncComponent(
+  () => import('./components/TournamentMatchCenter.vue')
+);
+const QoPStandings = defineAsyncComponent(
+  () => import('./components/QoPStandings.vue')
+);
+const WhatsNewView = defineAsyncComponent(
+  () => import('./components/WhatsNewView.vue')
+);
+const LiveMatchView = defineAsyncComponent(() =>
+  import('./components/live').then(m => m.LiveMatchView)
+);
 
 export default {
   name: 'App',
