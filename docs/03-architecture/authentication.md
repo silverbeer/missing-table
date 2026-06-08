@@ -124,8 +124,25 @@ How it works (frontend `stores/auth.js`):
 
 **Supabase config.** Access-token TTL is `jwt_expiry = 3600` (local
 `supabase/config.toml`). The 30-day idle window is the refresh-token
-**inactivity timeout**, set in the **Supabase Cloud dashboard** for production
-(Auth → Sessions), not in the repo. Refresh-token rotation stays enabled.
+**inactivity timeout**. Refresh-token rotation stays enabled.
+
+- **Local:** pinned in `supabase/config.toml` `[auth.sessions]` as
+  `inactivity_timeout = "720h"` with **no `timebox`** (SB-120). A unit test
+  (`backend/tests/unit/test_session_config.py`) guards against drift.
+- **Production:** the same values live in the **Supabase Cloud dashboard**
+  (Auth → Sessions), *not* the repo, and must be kept in sync:
+
+  | Dashboard field | Required value | Why |
+  |---|---|---|
+  | `Inactivity timeout` | **30 days** (or unset) | The 30-day idle window. Anything shorter logs active users out early. |
+  | `Time-box user sessions` | **unset** (or ≥ 30 days) | A time-box force-logs-out on a fixed schedule regardless of activity. |
+  | `JWT expiry` | `3600` | Short-lived access token; longevity comes from the refresh token. |
+
+> **SB-120 incident:** users were force-logged-out roughly **daily** (distinct
+> from the hourly SB-115 bug). Root cause: a production session **time-box** /
+> short inactivity timeout in the dashboard silently capped the 30-day intent.
+> Fix = align the dashboard fields above; the repo config + test prevent the
+> local side from drifting again.
 
 ##### Backend auth clients must be stateless (SB-115)
 
