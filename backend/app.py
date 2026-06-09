@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials
+from gotrue.errors import AuthApiError
 from pydantic import BaseModel
 
 import r2_client
@@ -1783,10 +1784,22 @@ async def refresh_token(request: Request, refresh_data: RefreshTokenRequest):
             refresh_logger.warning("auth_refresh_failed", reason="no_session")
             raise HTTPException(status_code=401, detail="Failed to refresh token")
 
-    except Exception as e:
-        refresh_logger.error("auth_refresh_error", error=str(e))
-        logger.error(f"Token refresh error: {e}", exc_info=True)
+    except HTTPException:
+        raise
+    except AuthApiError as e:
+        # The auth API genuinely rejected the token (invalid / expired /
+        # already-used). This is a real auth failure — 401 tells the frontend
+        # to clear state and re-login.
+        refresh_logger.warning("auth_refresh_rejected", error=str(e), code=getattr(e, "code", None))
         raise HTTPException(status_code=401, detail="Invalid refresh token") from e
+    except Exception as e:
+        # Anything else (AuthRetryableError, network/timeout, upstream 5xx) is
+        # TRANSIENT — e.g. the network isn't ready on wake-from-sleep. Returning
+        # 401 here would force a needless re-login (SB-123). Return 503 so the
+        # frontend's transient path keeps the still-valid token and recovers on
+        # the next refresh attempt.
+        refresh_logger.warning("auth_refresh_transient", error=str(e))
+        raise HTTPException(status_code=503, detail="Token refresh temporarily unavailable") from e
 
 
 @app.get("/api/auth/me")
