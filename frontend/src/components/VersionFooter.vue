@@ -30,23 +30,25 @@
     </Teleport>
 
     <div class="version-container">
-      <!-- Version info (left side) -->
+      <!-- Version info (left side) — internal info, members only -->
       <div class="version-info">
-        <template v-if="version">
-          <button
-            type="button"
-            class="version-text version-button"
-            title="What's New"
-            data-testid="whats-new-trigger"
-            @click="$emit('open-whats-new')"
-          >
-            {{ version }}
-          </button>
-          <span v-if="environment !== 'production'" class="environment-badge">
-            {{ environment }}
-          </span>
+        <template v-if="authStore.isAuthenticated.value">
+          <template v-if="version">
+            <button
+              type="button"
+              class="version-text version-button"
+              title="What's New"
+              data-testid="whats-new-trigger"
+              @click="$emit('open-whats-new')"
+            >
+              {{ version }}
+            </button>
+            <span v-if="environment !== 'production'" class="environment-badge">
+              {{ environment }}
+            </span>
+          </template>
+          <span v-else class="version-loading">Loading version...</span>
         </template>
-        <span v-else class="version-loading">Loading version...</span>
       </div>
 
       <!-- Copyright/branding + support link (center) -->
@@ -64,9 +66,9 @@
         </div>
       </div>
 
-      <!-- Status indicator (right side) — only show when healthy -->
+      <!-- Status indicator (right side) — ops info, admins only -->
       <div class="status-indicator">
-        <template v-if="status === 'healthy'">
+        <template v-if="authStore.isAdmin.value && status === 'healthy'">
           <span class="status-dot status-healthy"></span>
           <span class="status-text">Healthy</span>
         </template>
@@ -168,6 +170,7 @@ export default {
     });
 
     return {
+      authStore,
       version,
       environment,
       status,
