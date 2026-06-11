@@ -91,7 +91,7 @@
           >
             <div class="absolute inset-0 bg-brand-700/55 rounded-2xl"></div>
             <div class="relative z-10">
-              <h1 class="text-4xl font-bold mb-3 tracking-tight">
+              <h1 class="text-3xl sm:text-4xl font-bold mb-3 tracking-tight">
                 The table you've been missing.
               </h1>
               <p class="text-lg text-slate-300 max-w-xl mx-auto">
