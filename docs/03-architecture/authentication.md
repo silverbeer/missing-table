@@ -155,9 +155,11 @@ The device still held the pre-rotation token, so its next refresh was rejected
 as "already used" and the user was forced to log in again (on every device).
 The stateless options mean: no stored session, no background refresh thread,
 no cross-request session bleed. Relatedly, `/api/auth/logout` revokes the
-*caller's own* JWT via `auth.admin.sign_out(jwt)` instead of calling
+*caller's own* JWT via `auth.admin.sign_out(jwt, "local")` instead of calling
 `sign_out()` on the shared client (which revoked whatever session that client
-happened to hold).
+happened to hold). The explicit `"local"` scope is load-bearing (SB-116):
+gotrue defaults to `scope="global"`, which revokes **every** session for the
+user — logging out on one device logged the user out everywhere.
 
 #### 3. **Frontend Changes**
 ```javascript
