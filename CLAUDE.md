@@ -259,8 +259,8 @@ npx supabase db diff -f add_new_feature
 
 ### User Management
 ```bash
-cd backend && APP_ENV=prod uv run python manage_users.py list
-cd backend && APP_ENV=prod uv run python manage_users.py create --email user@example.com --role admin
+cd backend && APP_ENV=prod uv run python scripts/manage_users.py list
+cd backend && APP_ENV=prod uv run python scripts/manage_users.py create --email user@example.com --role admin
 ```
 
 ---
@@ -322,4 +322,4 @@ Backend-centered auth resolves k8s networking issues. All Supabase credentials s
 
 ---
 
-**Last Updated**: 2026-02-04
+**Last Updated**: 2026-06-11
