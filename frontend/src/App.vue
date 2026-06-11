@@ -116,6 +116,20 @@
                 Community-built standings, tracking the top youth soccer leagues
                 in the US
               </p>
+              <div class="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  @click="showInviteRequestModal = true"
+                  class="bg-white text-brand-700 px-8 py-3 rounded-lg font-semibold hover:bg-slate-100 transition-colors text-base shadow-sm"
+                >
+                  Request Invite
+                </button>
+                <button
+                  @click="showLoginModal = true"
+                  class="bg-white/10 text-white px-8 py-3 rounded-lg font-semibold hover:bg-white/20 transition-colors text-base border border-white/40"
+                >
+                  Login
+                </button>
+              </div>
             </div>
           </div>
           <!-- Main Card -->
@@ -149,16 +163,16 @@
             </p>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
               <button
-                @click="showLoginModal = true"
+                @click="showInviteRequestModal = true"
                 class="bg-brand-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand-600 transition-colors text-base shadow-sm"
               >
-                Login
+                Request Invite
               </button>
               <button
-                @click="showInviteRequestModal = true"
+                @click="showLoginModal = true"
                 class="bg-white text-slate-700 px-8 py-3 rounded-lg font-semibold hover:bg-slate-50 transition-colors text-base border border-slate-300 shadow-sm"
               >
-                Request Invite
+                Login
               </button>
             </div>
           </div>
