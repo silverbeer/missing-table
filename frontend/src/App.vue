@@ -91,30 +91,12 @@
           >
             <div class="absolute inset-0 bg-brand-700/55 rounded-2xl"></div>
             <div class="relative z-10">
-              <div
-                class="inline-flex items-center justify-center w-14 h-14 bg-white/15 rounded-full mb-5"
-              >
-                <svg
-                  class="w-7 h-7 text-white/80"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke-width="1.5"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
-                  />
-                </svg>
-              </div>
               <h1 class="text-4xl font-bold mb-3 tracking-tight">
                 The table you've been missing.
               </h1>
               <p class="text-lg text-slate-300 max-w-xl mx-auto">
-                Community-built standings, tracking the top youth soccer leagues
-                in the US
+                Community-built standings for the top youth soccer leagues in
+                the US. Invite-only.
               </p>
               <div class="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
                 <button
@@ -132,51 +114,6 @@
               </div>
             </div>
           </div>
-          <!-- Main Card -->
-          <div
-            class="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200/60 p-8 text-center mb-6"
-          >
-            <div
-              class="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-5"
-            >
-              <svg
-                class="w-8 h-8 text-slate-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-                />
-              </svg>
-            </div>
-            <h2 class="text-2xl font-bold text-slate-800 mb-3">
-              Invite-Only Platform
-            </h2>
-            <p class="text-slate-500 mb-7 max-w-md mx-auto">
-              Missing Table is an invite-only community platform for tracking
-              youth soccer league standings and games.
-            </p>
-            <div class="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                @click="showInviteRequestModal = true"
-                class="bg-brand-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand-600 transition-colors text-base shadow-sm"
-              >
-                Request Invite
-              </button>
-              <button
-                @click="showLoginModal = true"
-                class="bg-white text-slate-700 px-8 py-3 rounded-lg font-semibold hover:bg-slate-50 transition-colors text-base border border-slate-300 shadow-sm"
-              >
-                Login
-              </button>
-            </div>
-          </div>
-
           <!-- Features Section -->
           <div class="grid md:grid-cols-3 gap-4">
             <div
