@@ -187,12 +187,12 @@ export default {
 
 <style scoped>
 .version-footer {
-  background-color: #f8f9fa;
-  border-top: 1px solid #e0e0e0;
+  background-color: rgb(var(--color-surface-alt));
+  border-top: 1px solid rgb(var(--color-line));
   padding: 0.75rem 1rem;
   margin-top: 2rem;
   font-size: 0.875rem;
-  color: #6c757d;
+  color: rgb(var(--color-fg-muted));
 }
 
 .version-container {
@@ -214,7 +214,7 @@ export default {
 .version-text {
   font-family: 'Courier New', monospace;
   font-size: 0.8125rem;
-  color: #495057;
+  color: rgb(var(--color-fg));
 }
 
 .version-button {
@@ -231,7 +231,7 @@ export default {
 }
 
 .version-loading {
-  color: #adb5bd;
+  color: rgb(var(--color-fg-muted));
   font-style: italic;
 }
 
@@ -263,7 +263,7 @@ export default {
 
 .support-line {
   font-size: 0.8125rem;
-  color: #6c757d;
+  color: rgb(var(--color-fg-muted));
 }
 
 .support-footer-link {
@@ -290,7 +290,7 @@ export default {
 
 .status-text {
   font-size: 0.75rem;
-  color: #6c757d;
+  color: rgb(var(--color-fg-muted));
   text-transform: capitalize;
 }
 

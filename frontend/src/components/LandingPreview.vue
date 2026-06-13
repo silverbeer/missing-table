@@ -1,21 +1,19 @@
 <template>
   <div>
-    <div
-      class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200/60 overflow-hidden"
-    >
+    <div class="bg-card rounded-xl shadow-sm ring-1 ring-line overflow-hidden">
       <div
-        class="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-100"
+        class="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-line"
       >
-        <span class="text-sm font-semibold text-slate-800"
+        <span class="text-sm font-semibold text-fg"
           >U14 · Northeast Division</span
         >
         <span
-          class="text-xs font-medium text-slate-500 bg-slate-100 rounded-full px-2.5 py-0.5"
+          class="text-xs font-medium text-fg-muted bg-surface-alt rounded-full px-2.5 py-0.5"
           >Sample</span
         >
       </div>
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200">
+        <table class="min-w-full divide-y divide-line">
           <thead class="bg-brand-500">
             <tr>
               <th
@@ -72,49 +70,49 @@
               </th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-slate-100">
+          <tbody class="bg-card divide-y divide-line">
             <tr
               v-for="(team, index) in sampleStandings"
               :key="team.name"
-              class="hover:bg-slate-50 transition-colors"
+              class="hover:bg-surface-alt transition-colors"
             >
               <td
-                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-gray-500"
+                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-fg-muted"
               >
                 {{ index + 1 }}
               </td>
               <td
-                class="px-2 sm:px-4 md:px-6 py-3 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap"
+                class="px-2 sm:px-4 md:px-6 py-3 text-xs sm:text-sm font-medium text-fg whitespace-nowrap"
               >
                 {{ team.name }}
               </td>
               <td
-                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-gray-500"
+                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-fg-muted"
               >
                 {{ team.wins + team.draws + team.losses }}
               </td>
               <td
-                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-gray-500"
+                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-fg-muted"
               >
                 {{ team.wins }}
               </td>
               <td
-                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-gray-500"
+                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-fg-muted"
               >
                 {{ team.draws }}
               </td>
               <td
-                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-gray-500"
+                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-fg-muted"
               >
                 {{ team.losses }}
               </td>
               <td
-                class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-gray-500"
+                class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center text-fg-muted"
               >
                 {{ team.gd > 0 ? `+${team.gd}` : team.gd }}
               </td>
               <td
-                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center font-bold text-brand-600"
+                class="px-2 sm:px-4 md:px-6 py-3 whitespace-nowrap text-sm text-center font-bold text-accent-600 dark:text-accent-300"
               >
                 {{ team.wins * 3 + team.draws }}
               </td>
@@ -141,7 +139,7 @@
         </table>
       </div>
     </div>
-    <p class="mt-4 text-center text-sm text-slate-500">
+    <p class="mt-4 text-center text-sm text-fg-muted">
       Live standings with automatic rankings · Scores &amp; schedules · Rosters
       &amp; team management
     </p>
