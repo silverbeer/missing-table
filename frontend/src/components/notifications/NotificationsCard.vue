@@ -428,7 +428,7 @@ onMounted(refresh);
 }
 
 .enable-button {
-  background: #0257fe;
+  background: #1e40af;
   color: white;
   border: none;
   border-radius: 8px;
@@ -441,7 +441,7 @@ onMounted(refresh);
 }
 
 .enable-button:hover:not(:disabled) {
-  background: #0047d4;
+  background: #1a3793;
 }
 
 .enable-button:disabled {
@@ -479,8 +479,8 @@ onMounted(refresh);
 
 .test-button {
   background: transparent;
-  color: #0257fe;
-  border: 1.5px solid #0257fe;
+  color: #1e40af;
+  border: 1.5px solid #1e40af;
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 14px;
@@ -492,7 +492,7 @@ onMounted(refresh);
 }
 
 .test-button:hover:not(:disabled) {
-  background: rgba(2, 87, 254, 0.08);
+  background: rgba(30, 64, 175, 0.08);
 }
 
 .test-button:disabled {
@@ -561,7 +561,7 @@ onMounted(refresh);
   height: 20px;
   margin: 0;
   cursor: pointer;
-  accent-color: #0257fe;
+  accent-color: #1e40af;
   flex-shrink: 0;
 }
 

@@ -217,8 +217,8 @@ export default {
 
 .form-group input:focus {
   outline: none;
-  border-color: #0257fe;
-  box-shadow: 0 0 0 2px rgba(2, 87, 254, 0.2);
+  border-color: #1e40af;
+  box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.2);
 }
 
 .form-group input:disabled {
@@ -241,7 +241,7 @@ export default {
 
 .submit-btn {
   width: 100%;
-  background-color: #0257fe;
+  background-color: #1e40af;
   color: white;
   padding: 0.75rem;
   border: none;
@@ -253,7 +253,7 @@ export default {
 }
 
 .submit-btn:hover:not(:disabled) {
-  background-color: #0047d4;
+  background-color: #1a3793;
 }
 
 .submit-btn:disabled {
@@ -271,13 +271,13 @@ export default {
 .link-btn {
   background: none;
   border: none;
-  color: #0257fe;
+  color: #1e40af;
   cursor: pointer;
   text-decoration: underline;
   font-size: inherit;
 }
 
 .link-btn:hover {
-  color: #0047d4;
+  color: #1a3793;
 }
 </style>

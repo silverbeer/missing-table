@@ -69,7 +69,7 @@ function onReload() {
   right: 12px;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   z-index: 1050;
-  background: #0257fe;
+  background: #1e40af;
   color: white;
   border-radius: 12px;
   padding: 12px 40px 12px 14px;
@@ -111,7 +111,7 @@ function onReload() {
   padding: 8px 14px;
   border-radius: 8px;
   background: white;
-  color: #0257fe;
+  color: #1e40af;
   font-weight: 600;
   font-size: 13px;
   border: none;

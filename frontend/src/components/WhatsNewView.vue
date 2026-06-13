@@ -121,7 +121,7 @@ onMounted(async () => {
   margin: 3px 0;
 }
 .changelog-body :deep(a) {
-  color: #0257fe;
+  color: #1e40af;
   text-decoration: underline;
 }
 .changelog-body :deep(code) {

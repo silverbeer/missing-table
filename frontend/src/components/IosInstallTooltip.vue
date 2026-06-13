@@ -83,7 +83,7 @@ onMounted(() => {
   right: 12px;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   z-index: 1000;
-  background: #0257fe;
+  background: #1e40af;
   color: white;
   border-radius: 12px;
   padding: 12px 40px 12px 14px;
