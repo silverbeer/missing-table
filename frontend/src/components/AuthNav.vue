@@ -390,7 +390,7 @@ export default {
 }
 
 .login-btn {
-  background-color: #0257fe;
+  background-color: #1e40af;
   color: white;
   border: none;
   padding: 0.5rem 1.5rem;
@@ -401,7 +401,7 @@ export default {
 }
 
 .login-btn:hover {
-  background-color: #0047d4;
+  background-color: #1a3793;
 }
 
 .loading-bar {
@@ -410,7 +410,7 @@ export default {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #0257fe, #99b8ff);
+  background: linear-gradient(90deg, #1e40af, #aac3ea);
   animation: loading 1.5s ease-in-out infinite;
 }
 

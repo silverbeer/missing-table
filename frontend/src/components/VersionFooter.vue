@@ -227,7 +227,7 @@ export default {
 }
 
 .version-button:hover {
-  color: #0257fe;
+  color: #1e40af;
 }
 
 .version-loading {

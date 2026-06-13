@@ -586,8 +586,8 @@ export default {
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #0257fe;
-  box-shadow: 0 0 0 3px rgba(2, 87, 254, 0.15);
+  border-color: #1e40af;
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
   background: white;
 }
 
@@ -625,7 +625,7 @@ export default {
 
 .submit-btn {
   width: 100%;
-  background-color: #0257fe;
+  background-color: #1e40af;
   color: white;
   padding: 0.75rem;
   border: none;
@@ -638,7 +638,7 @@ export default {
 }
 
 .submit-btn:hover:not(:disabled) {
-  background-color: #0047d4;
+  background-color: #1a3793;
 }
 
 .submit-btn:disabled {
@@ -662,7 +662,7 @@ export default {
 .link-btn {
   background: none;
   border: none;
-  color: #0257fe;
+  color: #1e40af;
   cursor: pointer;
   text-decoration: underline;
   font-size: inherit;
@@ -670,7 +670,7 @@ export default {
 }
 
 .link-btn:hover {
-  color: #0047d4;
+  color: #1a3793;
 }
 
 .role-selection {
@@ -703,13 +703,13 @@ export default {
 }
 
 .role-option:hover {
-  background-color: #e8f0ff;
-  border-color: #0257fe;
+  background-color: #eef3fb;
+  border-color: #1e40af;
 }
 
 .role-option input[type='radio'] {
   margin-right: 0.5rem;
-  accent-color: #0257fe;
+  accent-color: #1e40af;
 }
 
 .role-option span {

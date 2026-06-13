@@ -138,17 +138,17 @@ onMounted(() => {
 /* Light variant — sits on normal page background (SB-56 on MatchesView). */
 .follow-button--light {
   background: white;
-  color: #0257fe;
-  border: 1.5px solid #0257fe;
+  color: #1e40af;
+  border: 1.5px solid #1e40af;
 }
 
 .follow-button--light:hover:not(:disabled) {
-  background: rgba(2, 87, 254, 0.08);
+  background: rgba(30, 64, 175, 0.08);
   transform: translateY(-1px);
 }
 
 .follow-button--light:focus-visible {
-  outline: 2px solid #0257fe;
+  outline: 2px solid #1e40af;
   outline-offset: 2px;
 }
 

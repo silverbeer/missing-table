@@ -13,17 +13,30 @@ export default {
         ],
       },
       colors: {
+        // Midnight Amber palette (SB-144): deep-navy brand chrome + warm amber accent.
         brand: {
-          50: '#e8f0ff',
-          100: '#c0d4ff',
-          200: '#99b8ff',
-          300: '#6694ff',
-          400: '#3370ff',
-          500: '#0257fe', // logo blue
-          600: '#0047d4',
-          700: '#0038aa',
-          800: '#002b82',
-          900: '#001e5a',
+          50: '#eef3fb',
+          100: '#d4e0f5',
+          200: '#aac3ea',
+          300: '#779edb',
+          400: '#4a72c9',
+          500: '#1e40af', // primary navy
+          600: '#1a3793', // header / hover
+          700: '#152c75',
+          800: '#112357',
+          900: '#0c1838',
+        },
+        accent: {
+          50: '#fef6e7',
+          100: '#fde8bf',
+          200: '#fbd187',
+          300: '#f9b84e',
+          400: '#f59e0b', // accent amber
+          500: '#d97f06',
+          600: '#b45309', // text-safe amber on light surfaces
+          700: '#8f3f0a',
+          800: '#6b2f0a',
+          900: '#45200a',
         },
       },
     },
