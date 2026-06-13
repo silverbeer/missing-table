@@ -226,10 +226,10 @@
         <!-- Tabs + Content card (authenticated users) -->
         <div
           v-if="authStore.state.session"
-          class="bg-white rounded-xl shadow-sm ring-1 ring-slate-200/60 overflow-hidden"
+          class="bg-card rounded-xl shadow-sm ring-1 ring-line overflow-hidden"
         >
           <nav
-            class="flex space-x-1 border-b border-slate-200 overflow-x-auto px-2"
+            class="flex space-x-1 border-b border-line overflow-x-auto px-2"
             aria-label="Tabs"
           >
             <button
@@ -240,10 +240,10 @@
               "
               :class="[
                 currentTab === tab.id
-                  ? 'border-b-2 border-brand-500 text-brand-500'
+                  ? 'border-b-2 border-brand-500 text-brand-500 dark:border-brand-300 dark:text-brand-300'
                   : tab.isLive
                     ? 'text-red-600 hover:text-red-700 live-tab-pulse border-b-2 border-transparent'
-                    : 'text-slate-500 hover:text-slate-700 border-b-2 border-transparent hover:border-slate-300',
+                    : 'text-fg-muted hover:text-fg border-b-2 border-transparent hover:border-line',
                 'px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors',
               ]"
             >

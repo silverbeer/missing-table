@@ -4,7 +4,7 @@
     <div class="mb-6 space-y-4">
       <!-- Age Group Links -->
       <div data-testid="age-group-filter">
-        <h3 class="text-sm font-medium text-gray-700 mb-3">Age Groups</h3>
+        <h3 class="text-sm font-medium text-fg mb-3">Age Groups</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="ageGroup in ageGroups"
@@ -14,7 +14,7 @@
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedAgeGroupId === ageGroup.id
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                : 'bg-surface-alt text-fg-muted hover:bg-line',
             ]"
             :data-testid="`age-group-${ageGroup.name}`"
           >
@@ -25,7 +25,7 @@
 
       <!-- League Selector -->
       <div>
-        <h3 class="text-sm font-medium text-gray-700 mb-3">League</h3>
+        <h3 class="text-sm font-medium text-fg mb-3">League</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="league in leagues"
@@ -35,7 +35,7 @@
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedLeagueId === league.id
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                : 'bg-surface-alt text-fg-muted hover:bg-line',
             ]"
           >
             {{ league.name }}
@@ -49,10 +49,10 @@
       >
         <!-- Season Dropdown -->
         <div class="flex-1">
-          <h3 class="text-sm font-medium text-gray-700 mb-3">Season</h3>
+          <h3 class="text-sm font-medium text-fg mb-3">Season</h3>
           <select
             v-model="selectedSeasonId"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+            class="block w-full px-3 py-2 border border-line bg-card text-fg rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             data-testid="season-filter"
           >
             <option
@@ -67,10 +67,10 @@
 
         <!-- Division Dropdown -->
         <div class="flex-1">
-          <h3 class="text-sm font-medium text-gray-700 mb-3">Division</h3>
+          <h3 class="text-sm font-medium text-fg mb-3">Division</h3>
           <select
             v-model="selectedDivisionId"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+            class="block w-full px-3 py-2 border border-line bg-card text-fg rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             data-testid="division-filter"
           >
             <option
@@ -92,7 +92,7 @@
         class="px-4 py-2 text-sm font-medium rounded-md transition-colors"
         :class="
           showBracket
-            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            ? 'bg-surface-alt text-fg hover:bg-line'
             : 'bg-yellow-500 text-white hover:bg-yellow-600'
         "
       >
@@ -135,7 +135,7 @@
       <!-- Table -->
       <table
         v-else
-        class="min-w-full divide-y divide-slate-200"
+        class="min-w-full divide-y divide-line"
         data-testid="standings-table"
       >
         <thead class="bg-brand-500">
@@ -222,17 +222,17 @@
           </tr>
         </thead>
         <tbody
-          class="bg-white divide-y divide-slate-100"
+          class="bg-card divide-y divide-line"
           data-testid="standings-body"
         >
           <tr
             v-for="(team, index) in tableData"
             :key="team.team"
-            class="hover:bg-slate-50 transition-colors"
+            class="hover:bg-surface-alt transition-colors"
             data-testid="standings-row"
           >
             <td
-              class="px-1 sm:px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500"
+              class="px-1 sm:px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-fg-muted"
             >
               {{ index + 1 }}
             </td>
@@ -253,10 +253,10 @@
               >
                 ▼ {{ Math.abs(team.position_change) }}
               </span>
-              <span v-else class="text-gray-400">—</span>
+              <span v-else class="text-fg-muted">—</span>
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm font-medium text-gray-900 max-w-[100px] sm:max-w-[140px] md:max-w-none md:whitespace-nowrap"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm font-medium text-fg max-w-[100px] sm:max-w-[140px] md:max-w-none md:whitespace-nowrap"
             >
               <div class="flex items-center gap-1.5">
                 <ClubLogo
@@ -269,7 +269,7 @@
                   type="button"
                   @click="handleTeamClick(team)"
                   data-testid="standings-team-link"
-                  class="text-left text-brand-600 hover:text-brand-700 hover:underline focus:outline-none focus:underline"
+                  class="text-left text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 hover:underline focus:outline-none focus:underline"
                 >
                   {{ getTeamDisplayName(team.team) }}
                 </button>
@@ -277,42 +277,42 @@
               </div>
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ team.played }}
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ team.wins }}
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ team.draws }}
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ team.losses }}
             </td>
             <td
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ team.goals_for }}
             </td>
             <td
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ team.goals_against }}
             </td>
             <td
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ team.goal_difference }}
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-bold text-brand-600"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-bold text-accent-600 dark:text-accent-300"
             >
               {{ team.points }}
             </td>
@@ -353,9 +353,9 @@
                   class="ml-1 text-xs text-red-600"
                   >▼{{ Math.abs(team.qop_rank_change) }}</span
                 >
-                <span v-else class="ml-1 text-xs text-gray-400">—</span>
+                <span v-else class="ml-1 text-xs text-fg-muted">—</span>
               </template>
-              <span v-else class="text-gray-400">—</span>
+              <span v-else class="text-fg-muted">—</span>
             </td>
           </tr>
         </tbody>
