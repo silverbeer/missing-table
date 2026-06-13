@@ -13,6 +13,46 @@
       <div class="nav-links">
         <!-- No navigation links here - they're handled by tabs in App.vue -->
 
+        <!-- Theme toggle (available to everyone, incl. logged-out) -->
+        <button
+          class="theme-toggle"
+          type="button"
+          data-testid="theme-toggle"
+          :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          :aria-pressed="isDark"
+          @click="toggleTheme"
+        >
+          <svg
+            v-if="isDark"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="theme-toggle-icon"
+          >
+            <circle cx="12" cy="12" r="4" />
+            <path
+              d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+            />
+          </svg>
+          <svg
+            v-else
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="theme-toggle-icon"
+          >
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+
         <!-- Authenticated user menu -->
         <div
           v-if="authStore.isAuthenticated.value"
@@ -79,12 +119,14 @@
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { useTheme } from '@/composables/useTheme';
 
 export default {
   name: 'AuthNav',
   emits: ['show-login', 'logout'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
+    const { isDark, toggle: toggleTheme } = useTheme();
     const showDropdown = ref(false);
 
     const roleClass = computed(() => {
@@ -180,6 +222,8 @@ export default {
 
     return {
       authStore,
+      isDark,
+      toggleTheme,
       showDropdown,
       roleClass,
       formatRole,
@@ -194,10 +238,37 @@ export default {
 
 <style scoped>
 .auth-nav {
-  background-color: #ffffff;
+  background-color: rgb(var(--color-card));
+  border-bottom: 1px solid rgb(var(--color-line));
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   position: relative;
   z-index: 1000;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 8px;
+  background: none;
+  color: rgb(var(--color-fg-muted));
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+
+.theme-toggle:hover {
+  background-color: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
+}
+
+.theme-toggle-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .nav-content {
@@ -272,15 +343,15 @@ export default {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background-color: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .user-dropdown:hover {
-  background-color: #f1f5f9;
+  background-color: rgb(var(--color-line));
 }
 
 .user-info {
@@ -291,7 +362,7 @@ export default {
 
 .user-name {
   font-weight: 600;
-  color: #1e293b;
+  color: rgb(var(--color-fg));
   font-size: 0.9rem;
 }
 

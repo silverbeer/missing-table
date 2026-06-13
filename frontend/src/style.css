@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Semantic color tokens (SB-146). Stored as space-separated RGB channels so
+   Tailwind's `rgb(var(--x) / <alpha-value>)` opacity modifiers work. Light
+   values on :root, dark values under .dark (toggled on <html> by useTheme). */
+@layer base {
+  :root {
+    --color-surface: 248 250 252;
+    --color-surface-alt: 241 245 249;
+    --color-card: 255 255 255;
+    --color-fg: 15 23 42;
+    --color-fg-muted: 100 116 139;
+    --color-line: 226 232 240;
+  }
+  .dark {
+    --color-surface: 10 14 26;
+    --color-surface-alt: 14 20 36;
+    --color-card: 19 26 46;
+    --color-fg: 232 238 247;
+    --color-fg-muted: 148 163 184;
+    --color-line: 35 48 71;
+  }
+  body {
+    background-color: rgb(var(--color-surface));
+    color: rgb(var(--color-fg));
+  }
+}
+
 /* PWA / standalone-mode safe areas — kicks in when the app is launched
    from a home-screen icon on iOS (or other devices that expose env() insets).
    Keeps the body content clear of the notch and the iOS home indicator.

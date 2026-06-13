@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
@@ -38,6 +39,17 @@ export default {
           800: '#6b2f0a',
           900: '#45200a',
         },
+        // Semantic tokens (SB-146) — flip with .dark via CSS vars in style.css.
+        surface: {
+          DEFAULT: 'rgb(var(--color-surface) / <alpha-value>)',
+          alt: 'rgb(var(--color-surface-alt) / <alpha-value>)',
+        },
+        card: 'rgb(var(--color-card) / <alpha-value>)',
+        fg: {
+          DEFAULT: 'rgb(var(--color-fg) / <alpha-value>)',
+          muted: 'rgb(var(--color-fg-muted) / <alpha-value>)',
+        },
+        line: 'rgb(var(--color-line) / <alpha-value>)',
       },
     },
   },

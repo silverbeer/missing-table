@@ -6,8 +6,21 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
     <title>Missing Table</title>
 
+    <!-- Apply theme before first paint to avoid a flash of the wrong mode (SB-146). -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('mt-theme');
+          var dark = t
+            ? t === 'dark'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- PWA — manifest link auto-injected by vite-plugin-pwa from vite.config.js -->
-    <meta name="theme-color" content="#0257fe">
+    <meta name="theme-color" content="#1e40af">
     <link rel="apple-touch-icon" href="/pwa/apple-touch-icon-180.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

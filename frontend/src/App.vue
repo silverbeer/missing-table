@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-50">
+  <div class="min-h-screen bg-surface">
     <!-- Deep-link match detail (from a push notification: ?matchId=). Overlays
          everything; works for any match status. -->
     <div
