@@ -1,7 +1,7 @@
 <template>
   <nav class="auth-nav" data-testid="main-nav">
     <div class="nav-content container mx-auto px-4">
-      <div class="nav-brand">
+      <div class="nav-brand" :class="{ 'nav-brand--chip': isDark }">
         <img
           src="@/assets/logo.png"
           alt="Missing Table"
@@ -282,6 +282,15 @@ export default {
 .nav-brand {
   display: flex;
   align-items: center;
+}
+
+/* Interim dark-mode logo treatment (SB-148): the logo art has a white
+   background baked in, so on the dark nav we frame it as an intentional
+   white chip instead of a stray box. Removed once a proper asset lands. */
+.nav-brand--chip {
+  background-color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 10px;
 }
 
 .nav-logo {
