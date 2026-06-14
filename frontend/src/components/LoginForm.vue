@@ -2,11 +2,7 @@
   <div class="login-form">
     <div class="form-container">
       <div class="logo-container">
-        <img
-          src="@/assets/logo-full.png"
-          alt="Missing Table"
-          class="login-logo"
-        />
+        <img :src="logoSrc" alt="Missing Table" class="login-logo" />
         <p class="login-tagline">
           {{
             showInviteSignup ? 'Create your account' : 'Sign in to your account'
@@ -280,8 +276,11 @@
 <script>
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { useTheme } from '@/composables/useTheme';
 import { getApiBaseUrl } from '../config/api';
 import SupportEmailLink from '@/components/SupportEmailLink.vue';
+import logoFull from '@/assets/logo-full.png';
+import logoFullDark from '@/assets/logo-full-dark.png';
 
 export default {
   name: 'LoginForm',
@@ -289,6 +288,8 @@ export default {
   emits: ['login-success', 'show-forgot-password'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
+    const { isDark } = useTheme();
+    const logoSrc = computed(() => (isDark.value ? logoFullDark : logoFull));
     const isSignup = ref(false);
     const showInviteSignup = ref(false);
     const showRoleSelection = ref(false);
@@ -496,6 +497,7 @@ export default {
 
     return {
       authStore,
+      logoSrc,
       isSignup,
       showInviteSignup,
       form,
@@ -530,14 +532,14 @@ export default {
 
 .form-container {
   padding: 2rem 2rem 2rem;
-  background: white;
+  background: rgb(var(--color-card));
 }
 
 .logo-container {
   text-align: center;
   margin-bottom: 1.75rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .login-logo {
@@ -547,7 +549,7 @@ export default {
 
 .login-tagline {
   margin: 0.75rem 0 0;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -565,21 +567,21 @@ export default {
   margin-bottom: 0.4rem;
   font-weight: 600;
   font-size: 0.875rem;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
   padding: 0.65rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 6px;
   font-size: 0.95rem;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
-  background: #f9fafb;
-  color: #111827;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
   box-sizing: border-box;
 }
 
@@ -588,12 +590,12 @@ export default {
   outline: none;
   border-color: #1e40af;
   box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
-  background: white;
+  background: rgb(var(--color-card));
 }
 
 .form-group input:disabled {
-  background-color: #f3f4f6;
-  color: #9ca3af;
+  background-color: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
   cursor: not-allowed;
 }
 
@@ -616,7 +618,7 @@ export default {
 .support-line {
   margin-top: 0.75rem;
   font-size: 0.85rem;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
 }
 
 .form-actions {
@@ -642,7 +644,7 @@ export default {
 }
 
 .submit-btn:disabled {
-  background-color: #9ca3af;
+  background-color: rgb(var(--color-fg-muted));
   cursor: not-allowed;
 }
 
@@ -650,9 +652,9 @@ export default {
   text-align: center;
   margin-top: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid rgb(var(--color-line));
   font-size: 0.875rem;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .form-footer p {
@@ -676,12 +678,12 @@ export default {
 .role-selection {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid rgb(var(--color-line));
 }
 
 .role-selection h3 {
   margin-bottom: 1rem;
-  color: #111827;
+  color: rgb(var(--color-fg));
   font-size: 1rem;
   font-weight: 700;
 }
@@ -694,7 +696,7 @@ export default {
   display: block;
   padding: 0.75rem;
   margin-bottom: 0.5rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 6px;
   cursor: pointer;
   transition:
@@ -703,7 +705,7 @@ export default {
 }
 
 .role-option:hover {
-  background-color: #eef3fb;
+  background-color: rgb(var(--color-surface-alt));
   border-color: #1e40af;
 }
 
@@ -715,12 +717,12 @@ export default {
 .role-option span {
   font-weight: 600;
   display: block;
-  color: #111827;
+  color: rgb(var(--color-fg));
   font-size: 0.9rem;
 }
 
 .role-option small {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 0.8rem;
 }
 
@@ -733,7 +735,7 @@ export default {
   margin-bottom: 0.5rem;
   font-weight: 600;
   font-size: 0.875rem;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 
 .invite-info {
@@ -766,12 +768,12 @@ export default {
 .divider::after {
   content: '';
   flex: 1;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .divider span {
   padding: 0 0.75rem;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   font-size: 0.8rem;
   white-space: nowrap;
 }
@@ -783,10 +785,10 @@ export default {
   justify-content: center;
   gap: 0.75rem;
   padding: 0.7rem 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 6px;
-  background-color: white;
-  color: #374151;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
@@ -794,8 +796,8 @@ export default {
 }
 
 .google-btn:hover:not(:disabled) {
-  background-color: #f9fafb;
-  border-color: #d1d5db;
+  background-color: rgb(var(--color-surface-alt));
+  border-color: rgb(var(--color-line));
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -808,5 +810,13 @@ export default {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+}
+
+/* Navy links unreadable on dark card -- lighten in dark mode (SB-159). */
+:global(.dark) .link-btn {
+  color: #779edb;
+}
+:global(.dark) .link-btn:hover {
+  color: #aac3ea;
 }
 </style>

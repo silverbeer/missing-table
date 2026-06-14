@@ -947,7 +947,7 @@ export default {
 
 .modal-content {
   position: relative;
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   max-width: 460px;
   width: 90%;
@@ -964,12 +964,12 @@ export default {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #666;
+  color: rgb(var(--color-fg-muted));
   z-index: 1001;
 }
 
 .modal-close:hover {
-  color: #333;
+  color: rgb(var(--color-fg));
 }
 
 /* Loading styles */
