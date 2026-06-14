@@ -160,7 +160,7 @@ export default {
 }
 
 .form-container {
-  background: white;
+  background: rgb(var(--color-card));
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -185,7 +185,7 @@ export default {
 }
 
 .form-hint {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 14px;
   margin-bottom: 16px;
 }
@@ -279,5 +279,13 @@ export default {
 
 .link-btn:hover {
   color: #1a3793;
+}
+
+/* Navy links unreadable on dark card -- lighten in dark mode (SB-159). */
+:global(.dark) .link-btn {
+  color: #779edb;
+}
+:global(.dark) .link-btn:hover {
+  color: #aac3ea;
 }
 </style>
