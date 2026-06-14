@@ -21,10 +21,31 @@
     --color-fg: 232 238 247;
     --color-fg-muted: 148 163 184;
     --color-line: 35 48 71;
+    /* Render native widgets (select popups, date/time pickers, scrollbars)
+       in dark — fixes white form controls that CSS can't reach (SB-160). */
+    color-scheme: dark;
   }
   body {
     background-color: rgb(var(--color-surface));
     color: rgb(var(--color-fg));
+  }
+  /* Global dark form-control polish: any select/input/textarea without an
+     explicit token bg (e.g. native selects defaulting to white) gets the
+     card surface + readable text/border in dark mode. */
+  .dark select,
+  .dark input,
+  .dark textarea {
+    background-color: rgb(var(--color-card));
+    color: rgb(var(--color-fg));
+    border-color: rgb(var(--color-line));
+  }
+  .dark select option {
+    background-color: rgb(var(--color-card));
+    color: rgb(var(--color-fg));
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: rgb(var(--color-fg-muted));
   }
 }
 
