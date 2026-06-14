@@ -1,7 +1,7 @@
 <template>
   <div data-testid="admin-teams">
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Teams Management</h3>
+      <h3 class="text-lg font-semibold text-fg">Teams Management</h3>
       <button
         @click="showAddModal = true"
         data-testid="add-team-button"
@@ -18,7 +18,7 @@
         type="search"
         placeholder="Search teams by name or club…"
         data-testid="team-search"
-        class="w-full sm:w-80 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"
+        class="w-full sm:w-80 bg-card text-fg border border-line rounded-md px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"
       />
     </div>
 
@@ -48,48 +48,42 @@
       class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
       data-testid="teams-table-container"
     >
-      <table
-        class="min-w-full divide-y divide-gray-300"
-        data-testid="teams-table"
-      >
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-line" data-testid="teams-table">
+        <thead class="bg-surface-alt">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Name
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Parent Club
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               League
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Age Groups
             </th>
             <th
-              class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody
-          class="bg-white divide-y divide-gray-200"
-          data-testid="teams-tbody"
-        >
+        <tbody class="bg-card divide-y divide-line" data-testid="teams-tbody">
           <tr
             v-if="teams.length > 0 && filteredTeams.length === 0"
             data-testid="team-search-empty"
           >
-            <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">
+            <td colspan="5" class="px-6 py-8 text-center text-sm text-fg-muted">
               No teams match "{{ teamSearch }}".
             </td>
           </tr>
@@ -100,21 +94,21 @@
             data-team-row
           >
             <td
-              class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+              class="px-6 py-4 whitespace-nowrap text-sm font-medium text-fg"
               data-testid="team-name"
             >
               {{ team.name }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 v-if="team.parent_club"
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
               >
                 {{ team.parent_club.name }}
               </span>
-              <span v-else class="text-gray-400 italic">Independent</span>
+              <span v-else class="text-fg-muted italic">Independent</span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 v-if="team.league_name === 'Academy'"
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
@@ -134,7 +128,7 @@
                 {{ team.league_name || 'Unknown' }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               <div class="flex flex-wrap gap-1">
                 <span
                   v-for="ageGroup in (team.age_groups || []).filter(ag => ag)"
@@ -150,7 +144,7 @@
             >
               <button
                 @click="editTeam(team)"
-                class="text-brand-600 hover:text-brand-900 mr-3"
+                class="text-brand-600 dark:text-brand-300 hover:text-brand-900 mr-3"
                 data-testid="edit-team-button"
               >
                 Edit
@@ -192,7 +186,7 @@
       <div class="modal-content" @click.stop data-testid="team-modal">
         <div class="p-6">
           <h3
-            class="text-lg font-medium text-gray-900 mb-4"
+            class="text-lg font-medium text-fg mb-4"
             data-testid="team-modal-title"
           >
             {{ showEditModal ? 'Edit Team' : 'Add New Team' }}
@@ -203,7 +197,7 @@
             data-testid="team-form"
           >
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Team Name</label
               >
               <input
@@ -211,33 +205,31 @@
                 type="text"
                 required
                 data-testid="team-name-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., New York City FC, Boston United..."
               />
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >City</label
-              >
+              <label class="block text-sm font-medium text-fg mb-2">City</label>
               <input
                 v-model="formData.city"
                 type="text"
                 data-testid="team-city-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., New York, Boston..."
               />
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Parent Club</label
               >
               <select
                 v-model="formData.parentClubId"
                 :disabled="isClubManager()"
                 data-testid="team-club-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-surface-alt disabled:cursor-not-allowed"
               >
                 <option v-if="!isClubManager()" :value="null">
                   Independent Team (No Parent Club)
@@ -246,7 +238,7 @@
                   {{ club.name }}
                 </option>
               </select>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-fg-muted mt-1">
                 <span v-if="isClubManager()">
                   Teams you create will be assigned to your club
                 </span>
@@ -257,7 +249,7 @@
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Team Type<span v-if="!showEditModal" class="text-red-500"
                   >*</span
                 ></label
@@ -267,14 +259,14 @@
                 @change="onTeamTypeChange"
                 :required="!showEditModal"
                 data-testid="team-type-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select Team Type</option>
                 <option value="league">League Team</option>
                 <option value="guest">Guest Team</option>
                 <option value="tournament">Tournament Team</option>
               </select>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-fg-muted mt-1">
                 League teams can play in all game types. Guest teams are for
                 friendlies only. Tournament teams can play in tournaments and
                 friendlies.
@@ -286,7 +278,7 @@
               v-if="!showEditModal && formData.teamType === 'league'"
               class="mb-4"
             >
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >League <span class="text-red-500">*</span></label
               >
               <select
@@ -294,7 +286,7 @@
                 @change="formData.divisionId = null"
                 required
                 data-testid="team-league-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option :value="null">Select League</option>
                 <option
@@ -305,7 +297,7 @@
                   {{ league.name }}
                 </option>
               </select>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-fg-muted mt-1">
                 Select which league this team will participate in
               </p>
             </div>
@@ -318,14 +310,14 @@
               "
               class="mb-4"
             >
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Division <span class="text-red-500">*</span></label
               >
               <select
                 v-model="formData.divisionId"
                 required
                 data-testid="team-division-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option :value="null">Select Division</option>
                 <option
@@ -336,14 +328,14 @@
                   {{ division.name }}
                 </option>
               </select>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-fg-muted mt-1">
                 Select the division within the league (e.g., Northeast, Bracket
                 A)
               </p>
             </div>
 
             <div v-if="showEditModal" class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Current Age Groups</label
               >
               <div class="flex flex-wrap gap-1 mb-2">
@@ -356,22 +348,22 @@
                 </span>
                 <span
                   v-if="!editingTeam?.age_groups?.length"
-                  class="text-sm text-gray-500 italic"
+                  class="text-sm text-fg-muted italic"
                 >
                   No age groups assigned
                 </span>
               </div>
-              <p class="text-xs text-gray-500">
+              <p class="text-xs text-fg-muted">
                 Use the "Leagues" button to manage age group assignments
               </p>
             </div>
 
             <div v-if="!showEditModal" class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Age Groups</label
               >
               <div
-                class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3"
+                class="space-y-2 max-h-40 overflow-y-auto border border-line rounded-md p-3"
               >
                 <label
                   v-for="ageGroup in ageGroups"
@@ -382,20 +374,20 @@
                     type="checkbox"
                     :value="ageGroup.id"
                     v-model="formData.ageGroupIds"
-                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                    class="rounded border-line text-brand-600 focus:ring-brand-500"
                   />
                   <span class="ml-2">{{ ageGroup.name }}</span>
                 </label>
               </div>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-fg-muted mt-1">
                 Select one or more age groups this team will participate in
               </p>
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+              <label class="block text-sm font-medium text-fg mb-2">
                 Game Types Participation
-                <span v-if="!showEditModal" class="text-xs text-gray-500"
+                <span v-if="!showEditModal" class="text-xs text-fg-muted"
                   >(auto-selected based on team type)</span
                 >
               </label>
@@ -409,29 +401,27 @@
                     type="checkbox"
                     :value="gameType.id"
                     v-model="formData.gameTypeIds"
-                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                    class="rounded border-line text-brand-600 focus:ring-brand-500"
                   />
                   <span class="ml-2">{{ gameType.name }}</span>
                 </label>
               </div>
-              <p v-if="showEditModal" class="text-xs text-gray-500 mt-1">
+              <p v-if="showEditModal" class="text-xs text-fg-muted mt-1">
                 Note: This will update game type participation for all age
                 groups this team is assigned to
               </p>
             </div>
 
             <div class="mb-4">
-              <label
-                class="flex items-center text-sm font-medium text-gray-700"
-              >
+              <label class="flex items-center text-sm font-medium text-fg">
                 <input
                   type="checkbox"
                   v-model="formData.academyTeam"
-                  class="rounded border-gray-300 text-brand-600 focus:ring-brand-500 mr-2"
+                  class="rounded border-line text-brand-600 focus:ring-brand-500 mr-2"
                 />
                 Pro Academy Team
               </label>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-fg-muted mt-1">
                 Check this if this is a pro academy team
               </p>
             </div>
@@ -441,7 +431,7 @@
                 type="button"
                 @click="closeModals"
                 data-testid="team-modal-cancel"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
               >
                 Cancel
               </button>
@@ -473,34 +463,34 @@
     >
       <div class="modal-content" @click.stop>
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <h3 class="text-lg font-medium text-fg mb-4">
             Manage League Assignments - {{ selectedTeam?.name }}
           </h3>
 
           <div class="mb-4">
-            <p class="text-sm text-gray-600 mb-4">
+            <p class="text-sm text-fg-muted mb-4">
               Assign this team to age groups and divisions. Each assignment
               creates a league participation.
             </p>
 
             <!-- Current Mappings -->
             <div class="mb-6">
-              <h4 class="text-sm font-medium text-gray-700 mb-2">
+              <h4 class="text-sm font-medium text-fg mb-2">
                 Current Assignments
               </h4>
               <div class="space-y-2">
                 <div
                   v-for="mapping in selectedTeam?.team_mappings"
                   :key="`${mapping.age_groups.id}-${mapping.divisions.id}`"
-                  class="flex items-center justify-between p-3 border border-gray-200 rounded-md"
+                  class="flex items-center justify-between p-3 border border-line rounded-md"
                 >
                   <span class="text-sm">
                     <span class="font-medium">{{
                       mapping.divisions?.leagues?.name || 'Unknown League'
                     }}</span>
-                    <span class="text-gray-400 mx-1">/</span>
+                    <span class="text-fg-muted mx-1">/</span>
                     {{ mapping.divisions.name }}
-                    <span class="text-gray-400 mx-1">/</span>
+                    <span class="text-fg-muted mx-1">/</span>
                     {{ mapping.age_groups.name }}
                   </span>
                   <button
@@ -512,7 +502,7 @@
                 </div>
                 <div
                   v-if="!selectedTeam?.team_mappings?.length"
-                  class="text-sm text-gray-500 italic"
+                  class="text-sm text-fg-muted italic"
                 >
                   No league assignments yet
                 </div>
@@ -520,20 +510,20 @@
             </div>
 
             <!-- Add New Mapping -->
-            <div class="border-t pt-4">
-              <h4 class="text-sm font-medium text-gray-700 mb-3">
+            <div class="border-t border-line pt-4">
+              <h4 class="text-sm font-medium text-fg mb-3">
                 Add New Assignment
               </h4>
               <form @submit.prevent="addTeamMapping()" class="space-y-3">
                 <div class="grid grid-cols-3 gap-3">
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-fg mb-1"
                       >League</label
                     >
                     <select
                       v-model="mappingForm.league_id"
                       required
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <option value="">Select League</option>
                       <option
@@ -546,14 +536,14 @@
                     </select>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-fg mb-1"
                       >Division</label
                     >
                     <select
                       v-model="mappingForm.division_id"
                       required
                       :disabled="!mappingForm.league_id"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-surface-alt disabled:cursor-not-allowed"
                     >
                       <option value="">
                         {{
@@ -572,13 +562,13 @@
                     </select>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-fg mb-1"
                       >Age Group</label
                     >
                     <select
                       v-model="mappingForm.age_group_id"
                       required
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <option value="">Select Age Group</option>
                       <option
@@ -605,7 +595,7 @@
           <div class="flex justify-end">
             <button
               @click="closeMappingsModal"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
             >
               Close
             </button>
@@ -1217,7 +1207,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 8px;
   max-width: 600px;
   width: 90%;

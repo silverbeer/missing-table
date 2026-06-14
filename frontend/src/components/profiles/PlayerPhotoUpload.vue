@@ -411,7 +411,7 @@ export default {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .help-btn {
@@ -420,7 +420,7 @@ export default {
   gap: 4px;
   background: none;
   border: none;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   cursor: pointer;
   font-size: 13px;
   padding: 4px 8px;
@@ -429,8 +429,8 @@ export default {
 }
 
 .help-btn:hover {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
 }
 
 .help-panel {
@@ -490,14 +490,14 @@ export default {
   aspect-ratio: 1;
   border-radius: 12px;
   overflow: hidden;
-  background-color: #f3f4f6;
-  border: 2px dashed #d1d5db;
+  background-color: rgb(var(--color-surface-alt));
+  border: 2px dashed rgb(var(--color-line));
   transition: all 0.15s ease;
 }
 
 .photo-slot.has-photo {
   border-style: solid;
-  border-color: #e5e7eb;
+  border-color: rgb(var(--color-line));
 }
 
 .photo-slot.is-profile {
@@ -544,14 +544,14 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
 }
 
 .upload-icon {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #e5e7eb;
+  background-color: rgb(var(--color-surface-alt));
   display: flex;
   align-items: center;
   justify-content: center;

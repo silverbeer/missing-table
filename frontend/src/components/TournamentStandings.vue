@@ -3,18 +3,16 @@
     <!-- No matches -->
     <div
       v-if="bracketTeams.length === 0"
-      class="text-center py-10 text-gray-500"
+      class="text-center py-10 text-fg-muted"
     >
       No group-stage matches in this bracket yet.
     </div>
 
     <template v-else>
       <!-- Standings table -->
-      <div
-        class="overflow-x-auto bg-white rounded-lg border border-gray-200 mb-6"
-      >
+      <div class="overflow-x-auto bg-card rounded-lg border border-line mb-6">
         <table class="min-w-full text-xs sm:text-sm">
-          <thead class="bg-gray-50 text-gray-600">
+          <thead class="bg-surface-alt text-fg-muted">
             <tr>
               <th class="px-1.5 sm:px-2 py-2 w-7 text-center font-semibold">
                 #
@@ -37,19 +35,19 @@
               v-for="(row, idx) in standings"
               :key="row.team.id"
               :class="[
-                idx === 0 ? 'bg-brand-50/50' : 'hover:bg-gray-50',
-                'border-t border-gray-100',
+                idx === 0 ? 'bg-brand-50/50' : 'hover:bg-surface-alt',
+                'border-t border-line',
               ]"
             >
               <td
-                class="px-1.5 sm:px-2 py-2 text-center text-gray-500 tabular-nums"
+                class="px-1.5 sm:px-2 py-2 text-center text-fg-muted tabular-nums"
               >
                 {{ idx + 1 }}
               </td>
               <td
                 :class="[
                   'px-2 sm:px-3 py-2',
-                  idx === 0 ? 'font-semibold text-gray-900' : 'text-gray-800',
+                  idx === 0 ? 'font-semibold text-fg' : 'text-fg',
                 ]"
               >
                 <!-- Inner block truncates reliably; max-width on a <td> alone
@@ -67,9 +65,7 @@
                 :class="[
                   'px-1.5 sm:px-2 py-2 text-center tabular-nums',
                   col.mobileHidden ? 'hidden sm:table-cell' : '',
-                  col.key === 'pts'
-                    ? 'font-bold text-gray-900'
-                    : 'text-gray-700',
+                  col.key === 'pts' ? 'font-bold text-fg' : 'text-fg-muted',
                 ]"
               >
                 {{ formatStat(row, col.key) }}
@@ -83,18 +79,18 @@
       <div>
         <div class="flex items-baseline justify-between mb-2">
           <h3
-            class="text-xs font-semibold text-gray-400 uppercase tracking-wider"
+            class="text-xs font-semibold text-fg-muted uppercase tracking-wider"
           >
             Head-to-head
           </h3>
-          <span class="text-xs text-gray-400 sm:hidden">swipe →</span>
+          <span class="text-xs text-fg-muted sm:hidden">swipe →</span>
         </div>
-        <div class="overflow-x-auto bg-white rounded-lg border border-gray-200">
+        <div class="overflow-x-auto bg-card rounded-lg border border-line">
           <table class="min-w-full text-xs sm:text-sm">
-            <thead class="bg-gray-50 text-gray-600">
+            <thead class="bg-surface-alt text-fg-muted">
               <tr>
                 <th
-                  class="px-2 sm:px-3 py-2 text-left font-semibold sticky left-0 bg-gray-50 z-10 min-w-[104px] sm:min-w-[180px]"
+                  class="px-2 sm:px-3 py-2 text-left font-semibold sticky left-0 bg-surface-alt z-10 min-w-[104px] sm:min-w-[180px]"
                 ></th>
                 <th
                   v-for="team in bracketTeams"
@@ -113,10 +109,10 @@
               <tr
                 v-for="rowTeam in bracketTeams"
                 :key="`row-${rowTeam.id}`"
-                class="border-t border-gray-100"
+                class="border-t border-line"
               >
                 <td
-                  class="px-2 sm:px-3 py-2 font-medium text-gray-800 sticky left-0 bg-white z-10"
+                  class="px-2 sm:px-3 py-2 font-medium text-fg sticky left-0 bg-card z-10"
                 >
                   <div
                     class="truncate max-w-[88px] sm:max-w-[164px]"
@@ -131,8 +127,8 @@
                   :class="[
                     'px-2 sm:px-3 py-2 text-center tabular-nums',
                     rowTeam.id === colTeam.id
-                      ? 'bg-gray-100 text-gray-300'
-                      : 'text-gray-700',
+                      ? 'bg-surface-alt text-fg-muted'
+                      : 'text-fg-muted',
                   ]"
                 >
                   <span v-if="rowTeam.id === colTeam.id">—</span>

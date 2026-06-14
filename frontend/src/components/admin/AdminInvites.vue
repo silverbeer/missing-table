@@ -6,7 +6,7 @@
 
     <!-- Create Invite Section -->
     <div
-      class="bg-white rounded-lg shadow p-4 sm:p-6 mb-4 sm:mb-6"
+      class="bg-card rounded-lg shadow p-4 sm:p-6 mb-4 sm:mb-6"
       data-testid="create-invite-section"
     >
       <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
@@ -20,14 +20,14 @@
       >
         <!-- Invite Type Selection -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2"
+          <label class="block text-sm font-medium text-fg mb-2"
             >Invite Type</label
           >
           <select
             v-model="newInvite.inviteType"
             required
             data-testid="invite-type-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select type...</option>
             <option v-if="isAdmin" value="club_manager">Club Manager</option>
@@ -44,14 +44,12 @@
             newInvite.inviteType === 'club_fan'
           "
         >
-          <label class="block text-sm font-medium text-gray-700 mb-2"
-            >Club</label
-          >
+          <label class="block text-sm font-medium text-fg mb-2">Club</label>
           <select
             v-model="newInvite.clubId"
             required
             data-testid="invite-club-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select club...</option>
             <option v-for="club in clubs" :key="club.id" :value="club.id">
@@ -68,14 +66,12 @@
             newInvite.inviteType !== 'club_fan'
           "
         >
-          <label class="block text-sm font-medium text-gray-700 mb-2"
-            >Team</label
-          >
+          <label class="block text-sm font-medium text-fg mb-2">Team</label>
           <select
             v-model="newInvite.teamId"
             required
             data-testid="invite-team-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select team...</option>
             <option v-for="team in teams" :key="team.id" :value="team.id">
@@ -92,14 +88,14 @@
             newInvite.inviteType !== 'club_fan'
           "
         >
-          <label class="block text-sm font-medium text-gray-700 mb-2"
+          <label class="block text-sm font-medium text-fg mb-2"
             >Age Group</label
           >
           <select
             v-model="newInvite.ageGroupId"
             required
             data-testid="invite-age-group-select"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">Select age group...</option>
             <option
@@ -114,7 +110,7 @@
 
         <!-- Jersey Number (for team_player invites) -->
         <div v-if="newInvite.inviteType === 'team_player'">
-          <label class="block text-sm font-medium text-gray-700 mb-2"
+          <label class="block text-sm font-medium text-fg mb-2"
             >Jersey Number (Optional)</label
           >
           <input
@@ -124,9 +120,9 @@
             max="99"
             placeholder="e.g., 10"
             data-testid="invite-jersey-number-input"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
-          <p class="mt-1 text-xs text-gray-500">
+          <p class="mt-1 text-xs text-fg-muted">
             If provided, a roster entry will be created when the invite is
             accepted.
           </p>
@@ -134,7 +130,7 @@
 
         <!-- Email (Optional) -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2"
+          <label class="block text-sm font-medium text-fg mb-2"
             >Email (Optional)</label
           >
           <input
@@ -142,9 +138,9 @@
             type="email"
             placeholder="Pre-fill email for recipient"
             data-testid="invite-email-input"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
-          <p class="text-xs text-gray-500 mt-1">
+          <p class="text-xs text-fg-muted mt-1">
             If provided, the invite link will be auto-emailed to this address
             once the invite is created.
           </p>
@@ -152,7 +148,7 @@
 
         <!-- Note (Optional) -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2"
+          <label class="block text-sm font-medium text-fg mb-2"
             >Note (Optional)</label
           >
           <input
@@ -161,9 +157,9 @@
             maxlength="500"
             placeholder="Who is this invite for? e.g., John Smith - U13 coach"
             data-testid="invite-note-input"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
-          <p class="mt-1 text-xs text-gray-500">
+          <p class="mt-1 text-xs text-fg-muted">
             Personal reminder — visible only to you, not sent to the recipient.
           </p>
         </div>
@@ -222,9 +218,9 @@
         </div>
 
         <!-- Copy-Ready Invite Message -->
-        <div class="bg-white border border-gray-300 rounded-md p-4 mb-3">
+        <div class="bg-card border border-line rounded-md p-4 mb-3">
           <div class="flex justify-between items-center mb-2">
-            <span class="text-sm font-medium text-gray-700"
+            <span class="text-sm font-medium text-fg"
               >Invite Message (copy and send):</span
             >
             <button
@@ -250,7 +246,7 @@
             </button>
           </div>
           <pre
-            class="text-sm text-gray-800 whitespace-pre-wrap font-sans bg-gray-50 p-3 rounded border border-gray-200"
+            class="text-sm text-fg whitespace-pre-wrap font-sans bg-surface-alt p-3 rounded border border-line"
             >{{ generatedInviteMessage }}</pre
           >
         </div>
@@ -259,7 +255,7 @@
         <button
           @click="copyInviteLink(createdInvite.invite_code)"
           data-testid="copy-invite-link-button"
-          class="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+          class="text-sm bg-surface-alt text-fg hover:bg-line px-3 py-1 rounded"
         >
           Copy Link Only
         </button>
@@ -268,7 +264,7 @@
 
     <!-- Existing Invites -->
     <div
-      class="bg-white rounded-lg shadow p-4 sm:p-6"
+      class="bg-card rounded-lg shadow p-4 sm:p-6"
       data-testid="existing-invites-section"
     >
       <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
@@ -281,7 +277,7 @@
           v-model="statusFilter"
           @change="fetchInvites"
           data-testid="invite-status-filter"
-          class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="w-full sm:w-auto px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Invites</option>
           <option value="pending">Pending</option>
@@ -295,7 +291,7 @@
         <div
           v-for="invite in invites"
           :key="invite.id"
-          class="border rounded-lg p-3 bg-gray-50"
+          class="border border-line rounded-lg p-3 bg-surface-alt"
         >
           <div class="flex justify-between items-start mb-2">
             <span class="font-mono text-sm font-medium">{{
@@ -314,11 +310,11 @@
           </div>
           <div class="text-sm space-y-1">
             <p>
-              <span class="text-gray-500">Type:</span>
+              <span class="text-fg-muted">Type:</span>
               {{ formatInviteType(invite.invite_type) }}
             </p>
             <p>
-              <span class="text-gray-500">For:</span>
+              <span class="text-fg-muted">For:</span>
               <template v-if="invite.club_id">
                 {{ invite.clubs?.name || 'Club ' + invite.club_id }}
               </template>
@@ -327,19 +323,22 @@
               </template>
             </p>
             <p v-if="invite.used_by_user">
-              <span class="text-gray-500">Used by:</span>
+              <span class="text-fg-muted">Used by:</span>
               {{
                 invite.used_by_user.display_name || invite.used_by_user.username
               }}
             </p>
-            <p v-if="invite.note" class="text-gray-700 text-xs italic">
+            <p v-if="invite.note" class="text-fg text-xs italic">
               {{ invite.note }}
             </p>
-            <p class="text-gray-500 text-xs">
+            <p class="text-fg-muted text-xs">
               {{ formatDate(invite.created_at) }}
             </p>
           </div>
-          <div class="mt-2 pt-2 border-t" v-if="invite.status === 'pending'">
+          <div
+            class="mt-2 pt-2 border-t border-line"
+            v-if="invite.status === 'pending'"
+          >
             <button
               @click="cancelInvite(invite.id)"
               class="text-red-600 hover:text-red-900 text-sm font-medium"
@@ -348,7 +347,7 @@
             </button>
           </div>
         </div>
-        <p v-if="invites.length === 0" class="text-gray-500 text-center py-4">
+        <p v-if="invites.length === 0" class="text-fg-muted text-center py-4">
           No invites found
         </p>
       </div>
@@ -359,60 +358,60 @@
         data-testid="invites-table-container"
       >
         <table
-          class="min-w-full divide-y divide-gray-200"
+          class="min-w-full divide-y divide-line"
           data-testid="invites-table"
         >
-          <thead class="bg-gray-50">
+          <thead class="bg-surface-alt">
             <tr>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Code
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Type
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Club/Team
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Email Sent To
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Status
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Used By
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Note
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Created
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Actions
               </th>
             </tr>
           </thead>
           <tbody
-            class="bg-white divide-y divide-gray-200"
+            class="bg-card divide-y divide-line"
             data-testid="invites-tbody"
           >
             <tr
@@ -445,7 +444,7 @@
                 <span
                   v-if="invite.email"
                   :title="`Invite email auto-sent to ${invite.email}`"
-                  class="inline-flex items-center gap-1 text-gray-700"
+                  class="inline-flex items-center gap-1 text-fg"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -463,7 +462,7 @@
                   </svg>
                   {{ invite.email }}
                 </span>
-                <span v-else class="text-gray-300">—</span>
+                <span v-else class="text-fg-muted">—</span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span
@@ -478,25 +477,25 @@
                   {{ invite.status }}
                 </span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-fg">
                 <template v-if="invite.used_by_user">
                   {{
                     invite.used_by_user.display_name ||
                     invite.used_by_user.username
                   }}
                 </template>
-                <span v-else class="text-gray-300">-</span>
+                <span v-else class="text-fg-muted">-</span>
               </td>
-              <td class="px-6 py-4 text-sm text-gray-500 max-w-xs">
+              <td class="px-6 py-4 text-sm text-fg-muted max-w-xs">
                 <span
                   v-if="invite.note"
                   :title="invite.note"
                   class="truncate block"
                   >{{ invite.note }}</span
                 >
-                <span v-else class="text-gray-300">-</span>
+                <span v-else class="text-fg-muted">-</span>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
                 {{ formatDate(invite.created_at) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -535,13 +534,13 @@
     >
       <div class="min-h-full flex items-start justify-center p-4 sm:p-8">
         <div
-          class="relative w-full max-w-2xl bg-white rounded-lg shadow-2xl"
+          class="relative w-full max-w-2xl bg-card rounded-lg shadow-2xl"
           @click.stop
         >
           <button
             type="button"
             aria-label="Close invite details"
-            class="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            class="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-full text-fg-muted hover:text-fg hover:bg-surface-alt"
             @click="closeInviteDetail"
           >
             <svg
@@ -560,13 +559,11 @@
             </svg>
           </button>
 
-          <div class="px-6 py-5 border-b">
-            <h3 class="text-lg font-semibold text-gray-900">
-              Invitation details
-            </h3>
-            <p class="text-xs text-gray-500 mt-1">
+          <div class="px-6 py-5 border-b border-line">
+            <h3 class="text-lg font-semibold text-fg">Invitation details</h3>
+            <p class="text-xs text-fg-muted mt-1">
               Code:
-              <span class="font-mono text-gray-700">
+              <span class="font-mono text-fg">
                 {{ selectedInvite.invite_code }}
               </span>
             </p>
@@ -577,18 +574,18 @@
           >
             <div>
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Type
               </dt>
-              <dd class="mt-1 text-gray-900">
+              <dd class="mt-1 text-fg">
                 {{ formatInviteType(selectedInvite.invite_type) }}
               </dd>
             </div>
 
             <div>
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Status
               </dt>
@@ -611,11 +608,11 @@
 
             <div>
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Club / Team
               </dt>
-              <dd class="mt-1 text-gray-900">
+              <dd class="mt-1 text-fg">
                 <template v-if="selectedInvite.club_id">
                   {{
                     selectedInvite.clubs?.name ||
@@ -626,104 +623,104 @@
                   {{ selectedInvite.teams?.name }} —
                   {{ selectedInvite.age_groups?.name }}
                 </template>
-                <span v-else class="text-gray-400">—</span>
+                <span v-else class="text-fg-muted">—</span>
               </dd>
             </div>
 
             <div>
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Email Sent To
               </dt>
-              <dd class="mt-1 text-gray-900">
+              <dd class="mt-1 text-fg">
                 <span v-if="selectedInvite.email">
                   {{ selectedInvite.email }}
                 </span>
-                <span v-else class="text-gray-400">— (none provided)</span>
+                <span v-else class="text-fg-muted">— (none provided)</span>
               </dd>
             </div>
 
             <div>
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Used By
               </dt>
-              <dd class="mt-1 text-gray-900">
+              <dd class="mt-1 text-fg">
                 <template v-if="selectedInvite.used_by_user">
                   {{
                     selectedInvite.used_by_user.display_name ||
                     selectedInvite.used_by_user.username
                   }}
                 </template>
-                <span v-else class="text-gray-400">— (not redeemed)</span>
+                <span v-else class="text-fg-muted">— (not redeemed)</span>
               </dd>
             </div>
 
             <div>
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Created
               </dt>
-              <dd class="mt-1 text-gray-900">
+              <dd class="mt-1 text-fg">
                 {{ formatDate(selectedInvite.created_at) }}
               </dd>
             </div>
 
             <div v-if="selectedInvite.expires_at">
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Expires
               </dt>
-              <dd class="mt-1 text-gray-900">
+              <dd class="mt-1 text-fg">
                 {{ formatDate(selectedInvite.expires_at) }}
               </dd>
             </div>
 
             <div v-if="selectedInvite.jersey_number" class="sm:col-span-1">
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Jersey #
               </dt>
-              <dd class="mt-1 text-gray-900">
+              <dd class="mt-1 text-fg">
                 {{ selectedInvite.jersey_number }}
               </dd>
             </div>
 
             <div class="sm:col-span-2">
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Note
               </dt>
               <dd
-                class="mt-1 text-gray-900 whitespace-pre-wrap break-words"
+                class="mt-1 text-fg whitespace-pre-wrap break-words"
                 data-testid="invite-detail-note"
               >
                 <template v-if="selectedInvite.note">
                   {{ selectedInvite.note }}
                 </template>
-                <span v-else class="text-gray-400">— (no note)</span>
+                <span v-else class="text-fg-muted">— (no note)</span>
               </dd>
             </div>
 
-            <div class="sm:col-span-2 pt-2 border-t">
+            <div class="sm:col-span-2 pt-2 border-t border-line">
               <dt
-                class="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Redemption link
               </dt>
-              <dd class="mt-1 text-gray-700 break-all font-mono text-xs">
+              <dd class="mt-1 text-fg break-all font-mono text-xs">
                 {{ currentOrigin }}/?code={{ selectedInvite.invite_code }}
               </dd>
             </div>
           </dl>
 
-          <div class="px-6 py-4 border-t flex justify-end gap-2">
+          <div class="px-6 py-4 border-t border-line flex justify-end gap-2">
             <button
               v-if="selectedInvite.status === 'pending'"
               type="button"

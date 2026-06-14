@@ -520,13 +520,13 @@ export default {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .editor-header h2 {
   margin: 0;
   font-size: 24px;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .header-actions {
@@ -545,12 +545,12 @@ export default {
 }
 
 .btn-secondary {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
 }
 
 .btn-secondary:hover {
-  background-color: #e5e7eb;
+  background-color: rgb(var(--color-line));
 }
 
 .btn-primary {
@@ -605,8 +605,8 @@ export default {
 }
 
 .preview-card {
-  background-color: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background-color: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 12px;
   padding: 20px;
 }
@@ -614,7 +614,7 @@ export default {
 .preview-card h3 {
   margin: 0 0 16px 0;
   font-size: 16px;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 
 .preview-photo {
@@ -625,7 +625,7 @@ export default {
 
 .preview-hint {
   text-align: center;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 12px;
   margin: 12px 0 0 0;
 }
@@ -637,8 +637,8 @@ export default {
 }
 
 .settings-section {
-  background-color: white;
-  border: 1px solid #e5e7eb;
+  background-color: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 12px;
   padding: 20px;
 }
@@ -646,7 +646,7 @@ export default {
 .settings-section h3 {
   margin: 0 0 16px 0;
   font-size: 16px;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   font-weight: 600;
 }
 
@@ -668,7 +668,7 @@ export default {
   align-items: center;
   gap: 8px;
   padding: 16px 12px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid rgb(var(--color-line));
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -691,7 +691,7 @@ export default {
 .style-label {
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 
 .sr-only {
@@ -707,7 +707,7 @@ export default {
 
 .color-help-text {
   font-size: 13px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin: 0 0 16px 0;
 }
 
@@ -764,15 +764,17 @@ export default {
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 
 .form-input,
 .form-select {
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   font-size: 14px;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
   transition: border-color 0.15s ease;
 }
 
@@ -784,14 +786,14 @@ export default {
 }
 
 .form-input-readonly {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
   cursor: not-allowed;
 }
 
 .field-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   margin-top: 4px;
 }
 
@@ -846,7 +848,7 @@ export default {
 
 .social-help-text {
   font-size: 13px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin: 0 0 16px 0;
 }
 

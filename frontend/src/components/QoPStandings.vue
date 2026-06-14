@@ -2,10 +2,8 @@
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <h2 class="text-lg font-semibold text-gray-800">
-        Quality of Play Rankings
-      </h2>
-      <p class="text-sm text-gray-500 mt-1">
+      <h2 class="text-lg font-semibold text-fg">Quality of Play Rankings</h2>
+      <p class="text-sm text-fg-muted mt-1">
         Homegrown · Updated weekly by MLS Next
       </p>
     </div>
@@ -14,7 +12,7 @@
     <div class="mb-6 space-y-3">
       <!-- Division -->
       <div>
-        <h3 class="text-sm font-medium text-gray-700 mb-2">Division</h3>
+        <h3 class="text-sm font-medium text-fg mb-2">Division</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="div in homegrownDivisions"
@@ -24,7 +22,7 @@
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedDivisionId === div.id
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                : 'bg-surface-alt text-fg-muted hover:bg-line',
             ]"
           >
             {{ div.name }}
@@ -34,7 +32,7 @@
 
       <!-- Age Group -->
       <div>
-        <h3 class="text-sm font-medium text-gray-700 mb-2">Age Group</h3>
+        <h3 class="text-sm font-medium text-fg mb-2">Age Group</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="ag in qopAgeGroups"
@@ -44,7 +42,7 @@
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedAgeGroupId === ag.id
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                : 'bg-surface-alt text-fg-muted hover:bg-line',
             ]"
           >
             {{ ag.name }}
@@ -54,7 +52,7 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-8 text-gray-500">
+    <div v-if="loading" class="text-center py-8 text-fg-muted">
       Loading QoP rankings...
     </div>
 
@@ -64,7 +62,7 @@
     </div>
 
     <!-- No data -->
-    <div v-else-if="!rankings.length" class="text-center py-8 text-gray-500">
+    <div v-else-if="!rankings.length" class="text-center py-8 text-fg-muted">
       No QoP rankings available yet for this age group.
     </div>
 
@@ -72,14 +70,14 @@
     <div v-else class="overflow-x-auto">
       <div
         v-if="weekOf"
-        class="flex items-center gap-2 text-xs text-gray-400 mb-2"
+        class="flex items-center gap-2 text-xs text-fg-muted mb-2"
       >
         <button
           v-if="prevSnapshotId != null"
           type="button"
           @click="goToSnapshot(prevSnapshotId)"
           :disabled="loading"
-          class="px-2 py-0.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-2 py-0.5 rounded hover:bg-surface-alt text-fg-muted disabled:opacity-50 disabled:cursor-not-allowed"
           :title="`Previous week${priorWeekOf ? ' (' + priorWeekOf + ')' : ''}`"
           aria-label="Previous snapshot"
         >
@@ -96,7 +94,7 @@
           type="button"
           @click="goToSnapshot(nextSnapshotId)"
           :disabled="loading"
-          class="px-2 py-0.5 rounded hover:bg-slate-100 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-2 py-0.5 rounded hover:bg-surface-alt text-fg-muted disabled:opacity-50 disabled:cursor-not-allowed"
           title="Next week"
           aria-label="Next snapshot"
         >
@@ -104,7 +102,7 @@
         </button>
       </div>
 
-      <table class="min-w-full divide-y divide-slate-200">
+      <table class="min-w-full divide-y divide-line">
         <thead class="bg-brand-500">
           <tr>
             <th
@@ -150,7 +148,7 @@
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white">
+        <tbody class="bg-card">
           <!-- Championship Qualification label before first row -->
           <tr v-if="rankings.length" class="border-0">
             <td colspan="7" class="px-0 py-0">
@@ -164,9 +162,9 @@
           </tr>
           <template v-for="entry in rankings" :key="entry.rank">
             <tr
-              class="hover:bg-slate-50 transition-colors border-b border-slate-100"
+              class="hover:bg-surface-alt transition-colors border-b border-line"
             >
-              <td class="px-3 py-3 text-sm text-gray-500">
+              <td class="px-3 py-3 text-sm text-fg-muted">
                 {{ entry.rank }}
               </td>
               <td class="px-3 py-3 text-xs text-center">
@@ -184,16 +182,16 @@
                 >
                   ▼{{ Math.abs(entry.rank_change) }}
                 </span>
-                <span v-else class="text-gray-400">—</span>
+                <span v-else class="text-fg-muted">—</span>
               </td>
-              <td class="px-4 py-3 text-sm font-medium text-gray-900">
+              <td class="px-4 py-3 text-sm font-medium text-fg">
                 {{ entry.team_name }}
               </td>
-              <td class="px-4 py-3 text-sm text-center text-gray-500">
+              <td class="px-4 py-3 text-sm text-center text-fg-muted">
                 {{ entry.matches_played ?? '—' }}
               </td>
               <td
-                class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
+                class="hidden sm:table-cell px-4 py-3 text-sm text-center text-fg-muted"
               >
                 {{ entry.att_score != null ? entry.att_score.toFixed(1) : '—' }}
                 <span
@@ -210,7 +208,7 @@
                 >
               </td>
               <td
-                class="hidden sm:table-cell px-4 py-3 text-sm text-center text-gray-500"
+                class="hidden sm:table-cell px-4 py-3 text-sm text-center text-fg-muted"
               >
                 {{ entry.def_score != null ? entry.def_score.toFixed(1) : '—' }}
                 <span
@@ -227,7 +225,7 @@
                 >
               </td>
               <td
-                class="px-4 py-3 text-sm text-center font-bold text-brand-600"
+                class="px-4 py-3 text-sm text-center font-bold text-brand-600 dark:text-brand-300"
               >
                 {{ entry.qop_score != null ? entry.qop_score.toFixed(1) : '—' }}
                 <span
@@ -251,7 +249,7 @@
                   class="flex items-center gap-2 border-t-2 border-brand-500 pt-1 pb-1 px-3"
                 >
                   <span
-                    class="text-xs font-semibold text-brand-600 uppercase tracking-wide whitespace-nowrap"
+                    class="text-xs font-semibold text-brand-600 dark:text-brand-300 uppercase tracking-wide whitespace-nowrap"
                     >Premier Qualification</span
                   >
                 </div>

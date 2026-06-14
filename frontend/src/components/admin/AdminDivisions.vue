@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Divisions Management</h3>
+      <h3 class="text-lg font-semibold text-fg">Divisions Management</h3>
       <button
         @click="showAddModal = true"
         class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
@@ -30,58 +30,56 @@
       v-else
       class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
     >
-      <table class="min-w-full divide-y divide-gray-300">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-line">
+        <thead class="bg-surface-alt">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Name
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               League
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Description
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Teams Count
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Created
             </th>
             <th
-              class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-card divide-y divide-line">
           <tr v-for="division in divisions" :key="division.id">
-            <td
-              class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
-            >
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-fg">
               {{ division.name }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ division.leagues?.name || getLeagueName(division.league_id) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ division.description }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ getTeamCount(division.id) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ formatDate(division.created_at) }}
             </td>
             <td
@@ -89,7 +87,7 @@
             >
               <button
                 @click="editDivision(division)"
-                class="text-brand-600 hover:text-brand-900 mr-3"
+                class="text-brand-600 dark:text-brand-300 hover:text-brand-900 mr-3"
               >
                 Edit
               </button>
@@ -118,7 +116,7 @@
     >
       <div class="modal-content" @click.stop>
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <h3 class="text-lg font-medium text-fg mb-4">
             {{ showEditModal ? 'Edit Division' : 'Add New Division' }}
           </h3>
 
@@ -128,26 +126,26 @@
             "
           >
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Division Name</label
               >
               <input
                 v-model="formData.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., Northeast, Southeast, Central..."
               />
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >League</label
               >
               <select
                 v-model="formData.league_id"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option :value="null" disabled>Select a league...</option>
                 <option
@@ -161,13 +159,13 @@
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Description</label
               >
               <textarea
                 v-model="formData.description"
                 rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Description of the division..."
               ></textarea>
             </div>
@@ -176,7 +174,7 @@
               <button
                 type="button"
                 @click="closeModals"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
               >
                 Cancel
               </button>
@@ -424,7 +422,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 8px;
   max-width: 500px;
   width: 90%;

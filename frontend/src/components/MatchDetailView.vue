@@ -4,7 +4,7 @@
     <button
       @click="$emit('back')"
       data-testid="back-button"
-      class="flex items-center gap-1.5 px-2 py-1 text-gray-600 hover:text-gray-900 font-medium text-xs mb-2 rounded hover:bg-gray-100 transition-colors"
+      class="flex items-center gap-1.5 px-2 py-1 text-fg-muted hover:text-fg font-medium text-xs mb-2 rounded hover:bg-surface-alt transition-colors"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -30,9 +30,9 @@
       data-testid="loading-state"
     >
       <div
-        class="w-8 h-8 border-3 border-gray-300 border-t-blue-500 rounded-full animate-spin mb-3"
+        class="w-8 h-8 border-3 border-line border-t-blue-500 rounded-full animate-spin mb-3"
       ></div>
-      <p class="text-gray-500 text-sm">Loading match details...</p>
+      <p class="text-fg-muted text-sm">Loading match details...</p>
     </div>
 
     <!-- Error state -->
@@ -46,7 +46,7 @@
       >
         !
       </div>
-      <p class="text-gray-500 mb-3 text-sm" data-testid="error-message">
+      <p class="text-fg-muted mb-3 text-sm" data-testid="error-message">
         {{ error }}
       </p>
       <button

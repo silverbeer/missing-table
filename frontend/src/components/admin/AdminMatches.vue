@@ -1,13 +1,13 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Matches Management</h3>
+      <h3 class="text-lg font-semibold text-fg">Matches Management</h3>
       <div class="flex space-x-3">
         <!-- Filters -->
         <select
           v-model="filterSeason"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Seasons</option>
           <option v-for="season in seasons" :key="season.id" :value="season.id">
@@ -18,7 +18,7 @@
         <select
           v-model="filterMatchType"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Match Types</option>
           <option
@@ -33,7 +33,7 @@
         <select
           v-model="filterLeague"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Leagues</option>
           <option v-for="league in leagues" :key="league.id" :value="league.id">
@@ -44,7 +44,7 @@
         <select
           v-model="filterAgeGroup"
           @change="fetchMatches"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Age Groups</option>
           <option
@@ -78,101 +78,97 @@
       v-else
       class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
     >
-      <table class="min-w-full divide-y divide-gray-300">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-line">
+        <thead class="bg-surface-alt">
           <tr>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-24"
             >
               Date
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-20"
             >
               Time
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Home Team
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Away Team
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-20"
             >
               Score
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-20"
             >
               Type
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-24"
             >
               League
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-24"
             >
               Season
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-20"
             >
               Age Group
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-24"
             >
               Status
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-32"
             >
               Match ID
             </th>
             <th
-              class="px-4 py-3 text-right text-xs font-medium text-gray-500 bg-gray-50 uppercase tracking-wider w-44 sticky right-0"
+              class="px-4 py-3 text-right text-xs font-medium text-fg-muted bg-surface-alt uppercase tracking-wider w-44 sticky right-0"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-card divide-y divide-line">
           <tr v-for="match in matches" :key="match.id">
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg">
               {{ formatDate(match.match_date) }}
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span v-if="formatLocalTime(match.scheduled_kickoff)">
                 {{ formatLocalTime(match.scheduled_kickoff) }}
               </span>
-              <span v-else class="text-gray-400 italic">-</span>
+              <span v-else class="text-fg-muted italic">-</span>
             </td>
-            <td
-              class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
-            >
+            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-fg">
               {{ match.home_team_name }}
             </td>
-            <td
-              class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
-            >
+            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-fg">
               {{ match.away_team_name }}
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 v-if="match.home_score !== null && match.away_score !== null"
               >
                 {{ match.home_score }} - {{ match.away_score }}
               </span>
-              <span v-else class="text-gray-400 italic">Not played</span>
+              <span v-else class="text-fg-muted italic">Not played</span>
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                 :class="getMatchTypeClass(match.match_type_name)"
@@ -180,7 +176,7 @@
                 {{ match.match_type_name }}
               </span>
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                 :class="getLeagueClass(match.league_name)"
@@ -188,13 +184,13 @@
                 {{ match.league_name }}
               </span>
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ match.season_name }}
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ match.age_group_name }}
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                 :class="getStatusClass(match.status)"
@@ -202,7 +198,7 @@
                 {{ getStatusDisplay(match.status) }}
               </span>
             </td>
-            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-4 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 v-if="match.match_id"
                 class="font-mono text-xs"
@@ -210,10 +206,10 @@
               >
                 {{ match.match_id }}
               </span>
-              <span v-else class="text-gray-400 italic text-xs">-</span>
+              <span v-else class="text-fg-muted italic text-xs">-</span>
             </td>
             <td
-              class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium bg-gray-50 w-44 sticky right-0"
+              class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium bg-surface-alt w-44 sticky right-0"
             >
               <div class="flex gap-2 justify-end items-center">
                 <button
@@ -237,7 +233,7 @@
 
       <!-- Empty state -->
       <div v-if="!loading && matches.length === 0" class="text-center py-12">
-        <div class="text-gray-500">No matches found</div>
+        <div class="text-fg-muted">No matches found</div>
       </div>
     </div>
 
@@ -245,40 +241,40 @@
     <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
       <div class="modal-content" @click.stop>
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Match</h3>
+          <h3 class="text-lg font-medium text-fg mb-4">Edit Match</h3>
 
           <form @submit.prevent="updateMatch()">
             <div class="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Date</label
                 >
                 <input
                   v-model="editFormData.match_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Kickoff Time
-                  <span class="text-gray-400 text-xs">(optional)</span></label
+                  <span class="text-fg-muted text-xs">(optional)</span></label
                 >
                 <input
                   v-model="editFormData.kickoff_time"
                   type="time"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Match Type</label
                 >
                 <select
                   v-model="editFormData.match_type_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option
                     v-for="matchType in matchTypes"
@@ -293,13 +289,13 @@
 
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Home Team</label
                 >
                 <select
                   v-model="editFormData.home_team_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option v-for="team in teams" :key="team.id" :value="team.id">
                     {{ team.name }}
@@ -307,13 +303,13 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Away Team</label
                 >
                 <select
                   v-model="editFormData.away_team_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option v-for="team in teams" :key="team.id" :value="team.id">
                     {{ team.name }}
@@ -324,26 +320,26 @@
 
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Home Score</label
                 >
                 <input
                   v-model.number="editFormData.home_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Leave empty if not played"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Away Score</label
                 >
                 <input
                   v-model.number="editFormData.away_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Leave empty if not played"
                 />
               </div>
@@ -351,13 +347,13 @@
 
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Season</label
                 >
                 <select
                   v-model="editFormData.season_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option
                     v-for="season in seasons"
@@ -369,13 +365,13 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Age Group</label
                 >
                 <select
                   v-model="editFormData.age_group_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option
                     v-for="ageGroup in ageGroups"
@@ -389,16 +385,16 @@
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Match ID
-                <span class="text-gray-400 text-xs"
+                <span class="text-fg-muted text-xs"
                   >(optional - for externally scraped matches)</span
                 ></label
               >
               <input
                 v-model="editFormData.match_id"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-sm"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-sm"
                 placeholder="e.g., external-match-12345"
               />
             </div>
@@ -407,7 +403,7 @@
               <button
                 type="button"
                 @click="closeEditModal"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
               >
                 Cancel
               </button>
@@ -789,7 +785,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 8px;
   max-width: 800px;
   width: 90%;

@@ -388,7 +388,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 48px 16px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .loading-spinner {
@@ -432,7 +432,7 @@ export default {
 }
 
 .error-container p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-bottom: 16px;
 }
 
@@ -454,7 +454,7 @@ export default {
 
 /* Profile card */
 .profile-card {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
@@ -476,7 +476,7 @@ export default {
 .player-name {
   font-size: 24px;
   font-weight: 700;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0 0 16px 0;
 }
 
@@ -492,14 +492,14 @@ export default {
   flex-direction: column;
   align-items: center;
   padding: 12px 20px;
-  background-color: #f9fafb;
+  background-color: rgb(var(--color-surface-alt));
   border-radius: 12px;
   min-width: 100px;
 }
 
 .detail-label {
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
@@ -508,14 +508,14 @@ export default {
 .detail-value {
   font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 /* Section titles */
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0 0 12px 0;
   padding: 0 4px;
 }
@@ -535,7 +535,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 14px 16px;
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   text-decoration: none;
@@ -596,18 +596,18 @@ export default {
 .platform {
   font-size: 14px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .handle {
   font-size: 13px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .link-arrow {
   width: 20px;
   height: 20px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
 }
 
 /* Games section */
@@ -622,7 +622,7 @@ export default {
 }
 
 .game-item {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -630,7 +630,7 @@ export default {
 
 .game-date {
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-bottom: 8px;
 }
 
@@ -645,7 +645,7 @@ export default {
   flex: 1;
   font-size: 14px;
   font-weight: 500;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .game-teams .team-name:last-child {
@@ -655,12 +655,12 @@ export default {
 .game-score {
   font-size: 16px;
   font-weight: 700;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   white-space: nowrap;
 }
 
 .game-score.has-score {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .game-status {

@@ -765,7 +765,7 @@ export default {
 
 /* Club Teams Section - Grouped Layout */
 .club-teams-section {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 25px;
@@ -773,7 +773,7 @@ export default {
 }
 
 .club-teams-section h3 {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin-bottom: 20px;
   font-size: 18px;
 }
@@ -785,7 +785,7 @@ export default {
 }
 
 .league-group {
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 10px;
   overflow: hidden;
 }
@@ -814,7 +814,7 @@ export default {
 }
 
 .division-group {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .division-group:last-child {
@@ -839,7 +839,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid rgb(var(--color-line));
   transition: background 0.15s;
 }
 
@@ -848,12 +848,12 @@ export default {
 }
 
 .age-group-row:hover {
-  background: #f8fafc;
+  background: rgb(var(--color-surface-alt));
 }
 
 .age-group-name {
   font-weight: 500;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   font-size: 14px;
 }
 
@@ -890,7 +890,7 @@ export default {
 
 /* Quick Access */
 .quick-access-section {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 25px;
@@ -898,7 +898,7 @@ export default {
 }
 
 .quick-access-section h3 {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin-bottom: 20px;
   font-size: 18px;
 }
@@ -953,7 +953,7 @@ export default {
 
 /* Upcoming Matches */
 .upcoming-section {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 25px;
@@ -961,7 +961,7 @@ export default {
 }
 
 .upcoming-section h3 {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin-bottom: 20px;
   font-size: 18px;
 }
@@ -976,14 +976,14 @@ export default {
   grid-template-columns: 100px 1fr 80px;
   align-items: center;
   padding: 15px;
-  background: #f9fafb;
+  background: rgb(var(--color-surface-alt));
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
 }
 
 .match-date {
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-weight: 500;
 }
 
@@ -997,18 +997,18 @@ export default {
 .home-team,
 .away-team {
   font-weight: 500;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .vs {
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   font-size: 12px;
 }
 
 .match-type {
   text-align: right;
   font-size: 11px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   text-transform: uppercase;
 }
 
@@ -1040,7 +1040,7 @@ export default {
 }
 
 .feature-card {
-  background: white;
+  background: rgb(var(--color-card));
   padding: 20px;
   border-radius: 10px;
   text-align: center;
@@ -1066,7 +1066,7 @@ export default {
 
 .feature-card p {
   margin: 0;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 13px;
 }
 
@@ -1085,7 +1085,7 @@ export default {
 }
 
 .edit-modal {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   width: 90%;
   max-width: 450px;
@@ -1097,24 +1097,24 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   cursor: pointer;
 }
 
 .close-btn:hover {
-  color: #4b5563;
+  color: rgb(var(--color-fg));
 }
 
 .modal-body {
@@ -1129,16 +1129,18 @@ export default {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 
 .form-group input {
   width: 100%;
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   font-size: 14px;
   box-sizing: border-box;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .form-group input:focus {
@@ -1152,21 +1154,21 @@ export default {
   justify-content: flex-end;
   gap: 12px;
   padding: 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid rgb(var(--color-line));
 }
 
 .cancel-btn {
   padding: 10px 20px;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
-  color: #4b5563;
+  color: rgb(var(--color-fg-muted));
   cursor: pointer;
   font-weight: 500;
 }
 
 .cancel-btn:hover {
-  background: #e5e7eb;
+  background: rgb(var(--color-line));
 }
 
 .save-btn {

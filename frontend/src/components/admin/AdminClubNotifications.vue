@@ -1,15 +1,15 @@
 <template>
   <div data-testid="admin-club-notifications">
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold text-gray-900">Club Notifications</h2>
+      <h2 class="text-xl font-bold text-fg">Club Notifications</h2>
       <!-- Admins pick a club; club_managers are auto-scoped to their own -->
       <div v-if="isAdmin" class="flex items-center gap-3">
-        <label class="text-sm text-gray-600" for="club-picker">Club:</label>
+        <label class="text-sm text-fg-muted" for="club-picker">Club:</label>
         <select
           id="club-picker"
           v-model.number="selectedClubId"
           data-testid="admin-notifications-club-picker"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option :value="null" disabled>Select a club…</option>
           <option v-for="c in clubs" :key="c.id" :value="c.id">
@@ -19,7 +19,7 @@
       </div>
     </div>
 
-    <div v-if="loadingClubs" class="text-sm text-gray-500">Loading clubs…</div>
+    <div v-if="loadingClubs" class="text-sm text-fg-muted">Loading clubs…</div>
 
     <div
       v-else-if="!isAdmin && !selectedClubId"
@@ -34,7 +34,7 @@
       <ClubNotificationChannels :club-id="selectedClubId" />
     </div>
 
-    <div v-else class="text-sm text-gray-500" data-testid="no-club-selected">
+    <div v-else class="text-sm text-fg-muted" data-testid="no-club-selected">
       Select a club to configure its notification channels.
     </div>
   </div>

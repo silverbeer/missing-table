@@ -7,22 +7,22 @@
   >
     <div class="modal-content" @click.stop>
       <div class="p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Match</h3>
+        <h3 class="text-lg font-medium text-fg mb-4">Edit Match</h3>
 
         <!-- Audit Trail Info -->
         <div
           v-if="
             match && (match.match_id || match.created_at || match.updated_at)
           "
-          class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-600 space-y-1"
+          class="mb-4 p-3 bg-surface-alt border border-line rounded-md text-xs text-fg-muted space-y-1"
         >
           <div v-if="isAdmin && match.id" class="flex items-center space-x-2">
             <span class="font-medium">Match ID:</span>
-            <span class="font-mono text-gray-800">{{ match.id }}</span>
+            <span class="font-mono text-fg">{{ match.id }}</span>
           </div>
           <div v-if="match.match_id" class="flex items-center space-x-2">
             <span class="font-medium">External Match ID:</span>
-            <span class="font-mono text-gray-800">{{ match.match_id }}</span>
+            <span class="font-mono text-fg">{{ match.match_id }}</span>
           </div>
           <div v-if="match.source" class="flex items-center space-x-2">
             <span class="font-medium">Source:</span>
@@ -51,38 +51,36 @@
         <form @submit.prevent="updateMatch()">
           <div class="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Date</label
-              >
+              <label class="block text-sm font-medium text-fg mb-2">Date</label>
               <input
                 v-model="formData.match_date"
                 type="date"
                 required
                 data-testid="date-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Kickoff Time
-                <span class="text-gray-400 text-xs">(optional)</span></label
+                <span class="text-fg-muted text-xs">(optional)</span></label
               >
               <input
                 v-model="formData.kickoff_time"
                 type="time"
                 data-testid="kickoff-time-input"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Match Type</label
               >
               <select
                 v-model="formData.match_type_id"
                 required
                 data-testid="match-type-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="matchType in matchTypes"
@@ -97,14 +95,14 @@
 
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Home Team</label
               >
               <select
                 v-model="formData.home_team_id"
                 required
                 data-testid="home-team-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="team in availableTeams"
@@ -116,14 +114,14 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Away Team</label
               >
               <select
                 v-model="formData.away_team_id"
                 required
                 data-testid="away-team-select"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="team in availableTeams"
@@ -138,26 +136,26 @@
 
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Home Score</label
               >
               <input
                 v-model.number="formData.home_score"
                 type="number"
                 min="0"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Leave empty if not played"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Away Score</label
               >
               <input
                 v-model.number="formData.away_score"
                 type="number"
                 min="0"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Leave empty if not played"
               />
             </div>
@@ -165,13 +163,13 @@
 
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Season</label
               >
               <select
                 v-model="formData.season_id"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="season in seasons"
@@ -183,13 +181,13 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Age Group</label
               >
               <select
                 v-model="formData.age_group_id"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option
                   v-for="ageGroup in ageGroups"
@@ -203,14 +201,14 @@
           </div>
 
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2"
+            <label class="block text-sm font-medium text-fg mb-2"
               >Match Status</label
             >
             <select
               v-model="formData.match_status"
               required
               data-testid="status-select"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+              class="w-full px-3 py-2 border border-line rounded-md bg-card text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="scheduled">Scheduled</option>
               <option value="live">Live</option>
@@ -218,7 +216,7 @@
               <option value="postponed">Postponed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-            <p class="mt-1 text-xs text-gray-500">
+            <p class="mt-1 text-xs text-fg-muted">
               Set to "Live" when the match is in progress
             </p>
           </div>
@@ -237,7 +235,7 @@
               type="button"
               @click="$emit('close')"
               data-testid="cancel-button"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
             >
               Cancel
             </button>
@@ -505,7 +503,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   max-width: 600px;

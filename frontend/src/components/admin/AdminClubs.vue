@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Clubs Management</h3>
+      <h3 class="text-lg font-semibold text-fg">Clubs Management</h3>
       <button
         @click="showAddModal = true"
         class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
@@ -17,7 +17,7 @@
         type="search"
         placeholder="Search clubs by name…"
         data-testid="club-search"
-        class="w-full sm:w-80 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"
+        class="w-full sm:w-80 bg-card text-fg border border-line rounded-md px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"
       />
     </div>
 
@@ -41,7 +41,7 @@
       <div
         v-for="club in filteredClubs"
         :key="club.id"
-        class="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+        class="bg-card shadow-md rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
         :style="{
           border: `3px solid ${club.primary_color || '#3B82F6'}`,
         }"
@@ -79,7 +79,7 @@
 
           <div class="mb-4">
             <div
-              class="flex items-center justify-between text-sm text-gray-600 mb-2"
+              class="flex items-center justify-between text-sm text-fg-muted mb-2"
             >
               <span class="font-medium">Teams:</span>
               <div class="flex items-center gap-2">
@@ -90,7 +90,7 @@
                 </span>
                 <button
                   type="button"
-                  class="text-xs font-medium text-brand-600 hover:text-brand-800"
+                  class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200"
                   @click="toggleClubTeams(club.id)"
                 >
                   {{ expandedClubIds[club.id] ? 'Hide teams' : 'Show teams' }}
@@ -103,7 +103,7 @@
           <div v-if="expandedClubIds[club.id]" class="space-y-2">
             <div
               v-if="loadingTeams[club.id]"
-              class="text-sm text-gray-500 italic"
+              class="text-sm text-fg-muted italic"
             >
               Loading teams...
             </div>
@@ -116,11 +116,11 @@
               <div
                 v-for="team in teamsByClubId[club.id]"
                 :key="team.id"
-                class="text-sm text-gray-700 pl-2 py-2 hover:bg-gray-50 rounded border-b border-gray-100 last:border-0"
+                class="text-sm text-fg pl-2 py-2 hover:bg-surface-alt rounded border-b border-line last:border-0"
               >
                 <div class="flex items-center mb-1">
                   <svg
-                    class="w-3 h-3 mr-2 text-gray-400 flex-shrink-0"
+                    class="w-3 h-3 mr-2 text-fg-muted flex-shrink-0"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -156,17 +156,17 @@
                 </div>
               </div>
             </div>
-            <div v-else class="text-sm text-gray-500 italic">
+            <div v-else class="text-sm text-fg-muted italic">
               No teams in this club yet
             </div>
           </div>
         </div>
 
         <!-- Club Footer -->
-        <div class="bg-gray-50 px-6 py-3 flex justify-end space-x-2">
+        <div class="bg-surface-alt px-6 py-3 flex justify-end space-x-2">
           <button
             @click="viewClubDetails(club)"
-            class="text-brand-600 hover:text-brand-800 text-sm font-medium"
+            class="text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 text-sm font-medium"
           >
             View Details
           </button>
@@ -184,7 +184,7 @@
     <div
       v-if="!loading && clubs.length > 0 && filteredClubs.length === 0"
       data-testid="club-search-empty"
-      class="text-center py-8 text-sm text-gray-500"
+      class="text-center py-8 text-sm text-fg-muted"
     >
       No clubs match "{{ clubSearch }}".
     </div>
@@ -192,10 +192,10 @@
     <!-- Empty State -->
     <div
       v-if="!loading && clubs.length === 0"
-      class="text-center py-12 bg-gray-50 rounded-lg"
+      class="text-center py-12 bg-surface-alt rounded-lg"
     >
       <svg
-        class="mx-auto h-12 w-12 text-gray-400"
+        class="mx-auto h-12 w-12 text-fg-muted"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -207,8 +207,8 @@
           d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
         />
       </svg>
-      <h3 class="mt-2 text-sm font-medium text-gray-900">No clubs</h3>
-      <p class="mt-1 text-sm text-gray-500">
+      <h3 class="mt-2 text-sm font-medium text-fg">No clubs</h3>
+      <p class="mt-1 text-sm text-fg-muted">
         Get started by creating a new club.
       </p>
       <div class="mt-6">
@@ -226,9 +226,9 @@
       v-if="showAddModal"
       class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
     >
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-medium text-gray-900">Add Club</h3>
+      <div class="bg-card rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-line">
+          <h3 class="text-lg font-medium text-fg">Add Club</h3>
         </div>
 
         <form @submit.prevent="createClub" class="px-6 py-4 space-y-4">
@@ -241,51 +241,47 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
+            <label class="block text-sm font-medium text-fg">
               Club Name *
             </label>
             <input
               v-model="newClub.name"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="e.g., IFA"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
-              City *
-            </label>
+            <label class="block text-sm font-medium text-fg"> City * </label>
             <input
               v-model="newClub.city"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="e.g., Weymouth, MA"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
-              Website
-            </label>
+            <label class="block text-sm font-medium text-fg"> Website </label>
             <input
               v-model="newClub.website"
               type="url"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="e.g., https://ifasoccer.com"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
+            <label class="block text-sm font-medium text-fg">
               Description
             </label>
             <textarea
               v-model="newClub.description"
               rows="3"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
               placeholder="Brief description of the club"
             ></textarea>
           </div>
@@ -296,11 +292,11 @@
               v-model="newClub.pro_academy"
               type="checkbox"
               id="new_pro_academy"
-              class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
+              class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-line rounded"
             />
             <label
               for="new_pro_academy"
-              class="ml-2 block text-sm font-medium text-gray-700"
+              class="ml-2 block text-sm font-medium text-fg"
             >
               Professional Academy
             </label>
@@ -317,7 +313,7 @@
             <button
               type="button"
               @click="cancelAdd"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              class="px-4 py-2 text-sm font-medium text-fg bg-card border border-line rounded-md hover:bg-surface-alt"
             >
               Cancel
             </button>
@@ -339,10 +335,10 @@
       class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
     >
       <div
-        class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+        class="bg-card rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
       >
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-medium text-gray-900">Edit Club</h3>
+        <div class="px-6 py-4 border-b border-line">
+          <h3 class="text-lg font-medium text-fg">Edit Club</h3>
         </div>
 
         <form @submit.prevent="updateClub" class="px-6 py-4 space-y-4">
@@ -355,48 +351,44 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
+            <label class="block text-sm font-medium text-fg">
               Club Name *
             </label>
             <input
               v-model="editClub.name"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
-              City *
-            </label>
+            <label class="block text-sm font-medium text-fg"> City * </label>
             <input
               v-model="editClub.city"
               type="text"
               required
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
-              Website
-            </label>
+            <label class="block text-sm font-medium text-fg"> Website </label>
             <input
               v-model="editClub.website"
               type="url"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700">
+            <label class="block text-sm font-medium text-fg">
               Description
             </label>
             <textarea
               v-model="editClub.description"
               rows="3"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+              class="mt-1 block w-full bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             ></textarea>
           </div>
 
@@ -406,11 +398,11 @@
               v-model="editClub.pro_academy"
               type="checkbox"
               id="pro_academy"
-              class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded"
+              class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-line rounded"
             />
             <label
               for="pro_academy"
-              class="ml-2 block text-sm font-medium text-gray-700"
+              class="ml-2 block text-sm font-medium text-fg"
             >
               Professional Academy
             </label>
@@ -418,7 +410,7 @@
 
           <!-- Logo Upload Section -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-fg mb-2">
               Club Logo
             </label>
             <div class="flex items-center gap-4">
@@ -428,14 +420,14 @@
                   v-if="editClub.logo_url || logoPreview"
                   :src="logoPreview || editClub.logo_url"
                   alt="Club logo preview"
-                  class="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                  class="w-16 h-16 rounded-full object-cover border-2 border-line"
                 />
                 <div
                   v-else
-                  class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center"
+                  class="w-16 h-16 rounded-full bg-surface-alt flex items-center justify-center"
                 >
                   <svg
-                    class="w-8 h-8 text-gray-400"
+                    class="w-8 h-8 text-fg-muted"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -462,11 +454,11 @@
                   type="button"
                   @click="$refs.logoInput.click()"
                   :disabled="uploadingLogo"
-                  class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                  class="px-3 py-2 text-sm font-medium text-fg bg-card border border-line rounded-md hover:bg-surface-alt disabled:opacity-50"
                 >
                   {{ uploadingLogo ? 'Uploading...' : 'Choose Image' }}
                 </button>
-                <p class="mt-1 text-xs text-gray-500">PNG or JPG, max 2MB</p>
+                <p class="mt-1 text-xs text-fg-muted">PNG or JPG, max 2MB</p>
               </div>
             </div>
           </div>
@@ -474,37 +466,37 @@
           <!-- Color Pickers Section -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+              <label class="block text-sm font-medium text-fg mb-2">
                 Primary Color
               </label>
               <div class="flex items-center gap-2">
                 <input
                   v-model="editClub.primary_color"
                   type="color"
-                  class="w-10 h-10 rounded cursor-pointer border border-gray-300"
+                  class="w-10 h-10 rounded cursor-pointer border border-line"
                 />
                 <input
                   v-model="editClub.primary_color"
                   type="text"
-                  class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm font-mono"
+                  class="flex-1 bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 text-sm font-mono"
                   placeholder="#6B7280"
                 />
               </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
+              <label class="block text-sm font-medium text-fg mb-2">
                 Secondary Color
               </label>
               <div class="flex items-center gap-2">
                 <input
                   v-model="editClub.secondary_color"
                   type="color"
-                  class="w-10 h-10 rounded cursor-pointer border border-gray-300"
+                  class="w-10 h-10 rounded cursor-pointer border border-line"
                 />
                 <input
                   v-model="editClub.secondary_color"
                   type="text"
-                  class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm font-mono"
+                  class="flex-1 bg-card text-fg border border-line rounded-md shadow-sm py-2 px-3 text-sm font-mono"
                   placeholder="#374151"
                 />
               </div>
@@ -513,7 +505,7 @@
 
           <!-- Color Preview -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-fg mb-2">
               Color Preview
             </label>
             <div
@@ -528,7 +520,7 @@
             <button
               type="button"
               @click="cancelEdit"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              class="px-4 py-2 text-sm font-medium text-fg bg-card border border-line rounded-md hover:bg-surface-alt"
             >
               Cancel
             </button>

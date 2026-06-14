@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
       <button
         type="button"
-        class="text-sm text-brand-700 hover:underline"
+        class="text-sm text-brand-700 dark:text-brand-300 hover:underline"
         data-testid="thread-back"
         @click="$emit('back')"
       >
@@ -14,7 +14,7 @@
         <button
           v-if="thread.unread_count > 0"
           type="button"
-          class="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700"
+          class="px-3 py-1.5 text-sm bg-surface-alt hover:bg-line rounded-md text-fg-muted"
           data-testid="thread-mark-all-read"
           @click="$emit('mark-all-read')"
         >
@@ -23,7 +23,7 @@
         <div class="relative" v-click-outside="closeDropdown">
           <button
             type="button"
-            class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+            class="px-3 py-1.5 text-sm border border-line rounded-md text-fg-muted hover:bg-surface-alt flex items-center gap-1"
             data-testid="thread-status-dropdown"
             :aria-expanded="dropdownOpen"
             @click="dropdownOpen = !dropdownOpen"
@@ -39,13 +39,13 @@
           </button>
           <ul
             v-if="dropdownOpen"
-            class="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1"
+            class="absolute right-0 mt-1 w-48 bg-card border border-line rounded-md shadow-lg z-10 py-1"
             role="menu"
           >
             <li>
               <button
                 type="button"
-                class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-surface-alt"
                 data-testid="thread-status-resolved"
                 @click="onPickStatus('resolved')"
               >
@@ -55,7 +55,7 @@
             <li>
               <button
                 type="button"
-                class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-surface-alt"
                 data-testid="thread-status-spam"
                 @click="onPickStatus('spam')"
               >
@@ -65,7 +65,7 @@
             <li>
               <button
                 type="button"
-                class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-surface-alt"
                 data-testid="thread-status-reopen"
                 @click="onPickStatus('awaiting_admin')"
               >
@@ -78,10 +78,10 @@
     </div>
 
     <!-- Thread metadata -->
-    <div class="mb-4 pb-4 border-b border-gray-200">
+    <div class="mb-4 pb-4 border-b border-line">
       <div class="flex items-center gap-2 mb-2">
         <span
-          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800"
+          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-surface-alt text-fg"
           data-testid="thread-case-number"
         >
           MT-{{ thread.case_number }}
@@ -95,10 +95,10 @@
           {{ statusLabel(thread.status) }}
         </span>
       </div>
-      <h3 class="text-lg font-semibold text-gray-900">
+      <h3 class="text-lg font-semibold text-fg">
         {{ thread.subject || '(no subject)' }}
       </h3>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-fg-muted">
         {{ thread.participant_name || thread.participant_email }}
         <span v-if="thread.participant_name">
           &lt;{{ thread.participant_email }}&gt;</span
@@ -121,11 +121,11 @@
           :class="
             msg.direction === 'outbound'
               ? 'bg-brand-50 border border-brand-200'
-              : 'bg-gray-50 border border-gray-200'
+              : 'bg-surface-alt border border-line'
           "
         >
-          <div class="flex items-center gap-2 mb-1 text-xs text-gray-500">
-            <span class="font-medium text-gray-700">
+          <div class="flex items-center gap-2 mb-1 text-xs text-fg-muted">
+            <span class="font-medium text-fg-muted">
               {{
                 msg.direction === 'outbound'
                   ? msg.from_name || 'Support'
@@ -139,20 +139,20 @@
           </div>
           <div
             v-if="msg.body_html"
-            class="text-sm text-gray-800 prose prose-sm max-w-none"
+            class="text-sm text-fg prose prose-sm max-w-none"
             data-testid="message-body-html"
             v-html="msg.body_html"
           />
           <div
             v-else
-            class="text-sm text-gray-800 whitespace-pre-wrap"
+            class="text-sm text-fg whitespace-pre-wrap"
             data-testid="message-body-text"
           >
             {{ msg.body_text }}
           </div>
           <p
             v-if="msg.had_attachments"
-            class="mt-2 text-xs italic text-gray-500"
+            class="mt-2 text-xs italic text-fg-muted"
             data-testid="message-attachments-notice"
           >
             Attachments stripped. Reply via your email client to view them.
@@ -163,7 +163,7 @@
 
     <!-- Reply composer -->
     <form
-      class="border-t border-gray-200 pt-4"
+      class="border-t border-line pt-4"
       data-testid="reply-composer"
       @submit.prevent="onReply"
     >
@@ -174,7 +174,7 @@
         rows="4"
         placeholder="Write a reply…"
         data-testid="reply-textarea"
-        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+        class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
       ></textarea>
       <div class="flex justify-end mt-2">
         <button

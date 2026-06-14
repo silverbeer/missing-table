@@ -225,7 +225,7 @@ export default {
 
 <style scoped>
 .player-card {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -272,7 +272,7 @@ export default {
 .player-name {
   font-weight: 600;
   font-size: 16px;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   /* Truncate long names */
   white-space: nowrap;
   overflow: hidden;
@@ -281,7 +281,7 @@ export default {
 
 .player-secondary {
   font-size: 13px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-bottom: 8px;
 }
 
@@ -334,7 +334,7 @@ export default {
 }
 
 .social-icon.tiktok {
-  color: #000000;
+  color: rgb(var(--color-fg));
 }
 
 .social-icon.tiktok:hover {

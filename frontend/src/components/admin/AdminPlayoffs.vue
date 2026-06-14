@@ -1,13 +1,13 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Playoffs Management</h3>
+      <h3 class="text-lg font-semibold text-fg">Playoffs Management</h3>
       <div class="flex space-x-3">
         <!-- League selector -->
         <select
           v-model="selectedLeague"
           @change="onLeagueChange"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">Select League</option>
           <option v-for="league in leagues" :key="league.id" :value="league.id">
@@ -19,7 +19,7 @@
         <select
           v-model="selectedSeason"
           @change="fetchBracket"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">Select Season</option>
           <option v-for="season in seasons" :key="season.id" :value="season.id">
@@ -31,7 +31,7 @@
         <select
           v-model="selectedAgeGroup"
           @change="fetchBracket"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">Select Age Group</option>
           <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
@@ -69,7 +69,7 @@
       v-if="
         !loading && (!selectedLeague || !selectedSeason || !selectedAgeGroup)
       "
-      class="text-center py-12 text-gray-500"
+      class="text-center py-12 text-fg-muted"
     >
       Select a league, season, and age group to manage playoffs.
     </div>
@@ -80,27 +80,27 @@
     >
       <!-- No bracket exists - show configuration form -->
       <div v-if="bracket.length === 0" class="py-8">
-        <p class="text-gray-500 mb-6 text-center">
+        <p class="text-fg-muted mb-6 text-center">
           No playoff bracket exists for this selection.
         </p>
 
         <div v-if="divisions.length >= 2" class="max-w-lg mx-auto space-y-5">
-          <h4 class="text-sm font-semibold text-gray-700 mb-3">
+          <h4 class="text-sm font-semibold text-fg mb-3">
             Bracket Configuration
           </h4>
 
           <!-- Bracket Type Selection -->
           <div>
-            <label class="block text-sm text-gray-600 mb-1">Bracket Type</label>
+            <label class="block text-sm text-fg-muted mb-1">Bracket Type</label>
             <select
               v-model="configBracketType"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option v-for="bt in bracketTypes" :key="bt.key" :value="bt.key">
                 {{ bt.name }}
               </option>
             </select>
-            <p class="mt-1 text-xs text-gray-500">
+            <p class="mt-1 text-xs text-fg-muted">
               {{ selectedBracketType?.description }}
             </p>
           </div>
@@ -108,10 +108,10 @@
           <!-- Division Selection -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm text-gray-600 mb-1">Division A</label>
+              <label class="block text-sm text-fg-muted mb-1">Division A</label>
               <select
                 v-model="configDivisionA"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select...</option>
                 <option
@@ -125,10 +125,10 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm text-gray-600 mb-1">Division B</label>
+              <label class="block text-sm text-fg-muted mb-1">Division B</label>
               <select
                 v-model="configDivisionB"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select...</option>
                 <option
@@ -145,38 +145,38 @@
 
           <!-- Start Date -->
           <div>
-            <label class="block text-sm text-gray-600 mb-1"
+            <label class="block text-sm text-fg-muted mb-1"
               >First Round Date (Quarterfinals)</label
             >
             <input
               type="date"
               v-model="configStartDate"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
           <!-- Tier Names -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm text-gray-600 mb-1"
+              <label class="block text-sm text-fg-muted mb-1"
                 >Upper Bracket Name (Positions 1-4)</label
               >
               <input
                 type="text"
                 v-model="configTier1Name"
                 placeholder="Gold Cup"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
-              <label class="block text-sm text-gray-600 mb-1"
+              <label class="block text-sm text-fg-muted mb-1"
                 >Lower Bracket Name (Positions 5-8)</label
               >
               <input
                 type="text"
                 v-model="configTier2Name"
                 placeholder="Silver Cup"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
           </div>
@@ -212,14 +212,16 @@
 
         <!-- Bracket tiers -->
         <div v-for="tier in bracketTiers" :key="tier.key" class="mb-8">
-          <h4 class="text-md font-semibold text-gray-700 mb-3 border-b pb-1">
+          <h4
+            class="text-md font-semibold text-fg mb-3 border-b border-line pb-1"
+          >
             {{ tier.label }}
           </h4>
           <div class="bracket-grid">
             <!-- Quarterfinals -->
             <div class="bracket-round">
               <h4
-                class="text-sm font-semibold text-gray-500 uppercase mb-3 text-center"
+                class="text-sm font-semibold text-fg-muted uppercase mb-3 text-center"
               >
                 Quarterfinals
               </h4>
@@ -238,7 +240,7 @@
             <!-- Semifinals -->
             <div class="bracket-round">
               <h4
-                class="text-sm font-semibold text-gray-500 uppercase mb-3 text-center"
+                class="text-sm font-semibold text-fg-muted uppercase mb-3 text-center"
               >
                 Semifinals
               </h4>
@@ -257,7 +259,7 @@
             <!-- Final -->
             <div class="bracket-round">
               <h4
-                class="text-sm font-semibold text-gray-500 uppercase mb-3 text-center"
+                class="text-sm font-semibold text-fg-muted uppercase mb-3 text-center"
               >
                 Final
               </h4>
@@ -301,26 +303,26 @@
       </div>
 
       <!-- Configuration Details -->
-      <div class="bg-gray-50 rounded-md p-4 text-sm space-y-2">
+      <div class="bg-surface-alt rounded-md p-4 text-sm space-y-2">
         <div class="grid grid-cols-2 gap-x-4">
-          <div class="text-gray-500">Division A:</div>
+          <div class="text-fg-muted">Division A:</div>
           <div class="font-medium">{{ getDivisionName(configDivisionA) }}</div>
         </div>
         <div class="grid grid-cols-2 gap-x-4">
-          <div class="text-gray-500">Division B:</div>
+          <div class="text-fg-muted">Division B:</div>
           <div class="font-medium">{{ getDivisionName(configDivisionB) }}</div>
         </div>
         <div class="grid grid-cols-2 gap-x-4">
-          <div class="text-gray-500">First Round Date:</div>
+          <div class="text-fg-muted">First Round Date:</div>
           <div class="font-medium">{{ configStartDate }}</div>
         </div>
-        <div class="border-t border-gray-200 my-2"></div>
+        <div class="border-t border-line my-2"></div>
         <div class="grid grid-cols-2 gap-x-4">
-          <div class="text-gray-500">Upper Bracket (1-4):</div>
+          <div class="text-fg-muted">Upper Bracket (1-4):</div>
           <div class="font-medium">{{ configTier1Name || 'Gold Cup' }}</div>
         </div>
         <div class="grid grid-cols-2 gap-x-4">
-          <div class="text-gray-500">Lower Bracket (5-8):</div>
+          <div class="text-fg-muted">Lower Bracket (5-8):</div>
           <div class="font-medium">{{ configTier2Name || 'Silver Cup' }}</div>
         </div>
       </div>

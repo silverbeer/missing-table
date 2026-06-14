@@ -1,11 +1,11 @@
 <template>
   <div class="admin-cache">
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-semibold text-gray-900">Cache Management</h2>
+      <h2 class="text-xl font-semibold text-fg">Cache Management</h2>
       <button
         @click="fetchCacheStats"
         :disabled="loading"
-        class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+        class="px-3 py-1.5 text-sm bg-surface-alt text-fg-muted rounded hover:bg-line disabled:opacity-50"
       >
         {{ loading ? 'Loading...' : 'Refresh' }}
       </button>
@@ -22,7 +22,7 @@
     <!-- Cache Disabled -->
     <div
       v-if="!cacheStats.enabled && !loading"
-      class="text-center py-8 text-gray-500"
+      class="text-center py-8 text-fg-muted"
     >
       <div class="text-4xl mb-2">🚫</div>
       <p>{{ cacheStats.message || 'Cache is disabled' }}</p>
@@ -54,18 +54,16 @@
         <div
           v-for="(group, type) in cacheStats.groups"
           :key="type"
-          class="border border-gray-200 rounded-lg overflow-hidden"
+          class="border border-line rounded-lg overflow-hidden"
         >
           <div
-            class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200"
+            class="flex items-center justify-between px-4 py-3 bg-surface-alt border-b border-line"
           >
             <div class="flex items-center space-x-3">
               <span class="text-lg">{{ getCacheIcon(type) }}</span>
-              <span class="font-medium text-gray-900 capitalize">{{
-                type
-              }}</span>
+              <span class="font-medium text-fg capitalize">{{ type }}</span>
               <span
-                class="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded-full"
+                class="px-2 py-0.5 text-xs bg-line text-fg-muted rounded-full"
               >
                 {{ group.count }} items
               </span>
@@ -80,18 +78,18 @@
           </div>
 
           <!-- Expandable Keys List -->
-          <div class="px-4 py-2 max-h-40 overflow-y-auto bg-white">
+          <div class="px-4 py-2 max-h-40 overflow-y-auto bg-card">
             <div
               v-for="key in group.keys.slice(0, 10)"
               :key="key"
-              class="text-xs text-gray-500 font-mono py-0.5 truncate"
+              class="text-xs text-fg-muted font-mono py-0.5 truncate"
               :title="key"
             >
               {{ key }}
             </div>
             <div
               v-if="group.keys.length > 10"
-              class="text-xs text-gray-400 py-1"
+              class="text-xs text-fg-muted py-1"
             >
               ... and {{ group.keys.length - 10 }} more
             </div>
@@ -102,7 +100,7 @@
       <!-- No Cache -->
       <div
         v-if="Object.keys(cacheStats.groups).length === 0"
-        class="text-center py-8 text-gray-500"
+        class="text-center py-8 text-fg-muted"
       >
         <div class="text-4xl mb-2">✨</div>
         <p>Cache is empty</p>
@@ -110,7 +108,7 @@
     </div>
 
     <!-- Loading -->
-    <div v-else-if="loading" class="text-center py-8 text-gray-500">
+    <div v-else-if="loading" class="text-center py-8 text-fg-muted">
       Loading cache stats...
     </div>
 

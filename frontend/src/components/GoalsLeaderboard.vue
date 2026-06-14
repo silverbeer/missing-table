@@ -34,7 +34,7 @@
     <div class="mb-6 space-y-4">
       <!-- Age Group Links -->
       <div data-testid="age-group-filter">
-        <h3 class="text-sm font-medium text-gray-700 mb-3">Age Groups</h3>
+        <h3 class="text-sm font-medium text-fg mb-3">Age Groups</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="ageGroup in ageGroups"
@@ -44,7 +44,7 @@
               'px-4 py-2 text-sm rounded-md font-medium transition-colors',
               selectedAgeGroupId === ageGroup.id
                 ? 'bg-brand-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                : 'bg-surface-alt text-fg hover:bg-line',
             ]"
             :data-testid="`age-group-${ageGroup.name}`"
           >
@@ -55,7 +55,7 @@
 
       <!-- League Selector -->
       <div>
-        <h3 class="text-sm font-medium text-gray-700 mb-3">League</h3>
+        <h3 class="text-sm font-medium text-fg mb-3">League</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="league in leagues"
@@ -65,7 +65,7 @@
               'px-4 py-2 text-sm rounded-md font-medium transition-colors',
               selectedLeagueId === league.id
                 ? 'bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                : 'bg-surface-alt text-fg hover:bg-line',
             ]"
           >
             {{ league.name }}
@@ -75,7 +75,7 @@
 
       <!-- Match Type Filter -->
       <div data-testid="match-type-filter">
-        <h3 class="text-sm font-medium text-gray-700 mb-3">Match Type</h3>
+        <h3 class="text-sm font-medium text-fg mb-3">Match Type</h3>
         <div class="flex flex-wrap gap-2">
           <button
             @click="selectedMatchTypeId = null"
@@ -83,7 +83,7 @@
               'px-4 py-2 text-sm rounded-md font-medium transition-colors',
               selectedMatchTypeId === null
                 ? 'bg-purple-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                : 'bg-surface-alt text-fg hover:bg-line',
             ]"
             data-testid="match-type-all"
           >
@@ -97,7 +97,7 @@
               'px-4 py-2 text-sm rounded-md font-medium transition-colors',
               selectedMatchTypeId === mt.id
                 ? 'bg-purple-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                : 'bg-surface-alt text-fg hover:bg-line',
             ]"
             :data-testid="`match-type-${mt.name}`"
           >
@@ -108,10 +108,10 @@
 
       <!-- Tournament Selector (only when Match Type = Tournament) -->
       <div v-if="isTournamentSelected" data-testid="tournament-filter">
-        <h3 class="text-sm font-medium text-gray-700 mb-3">Tournament</h3>
+        <h3 class="text-sm font-medium text-fg mb-3">Tournament</h3>
         <select
           v-model="selectedTournamentId"
-          class="block w-full sm:max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+          class="block w-full sm:max-w-md px-3 py-2 bg-card text-fg border border-line rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
           data-testid="tournament-select"
         >
           <option :value="null">All Tournaments</option>
@@ -125,7 +125,7 @@
         </select>
         <p
           v-if="filteredTournaments.length === 0"
-          class="mt-2 text-xs text-gray-500"
+          class="mt-2 text-xs text-fg-muted"
         >
           No tournaments for the selected age group.
         </p>
@@ -137,10 +137,10 @@
       >
         <!-- Season Dropdown -->
         <div class="flex-1">
-          <h3 class="text-sm font-medium text-gray-700 mb-3">Season</h3>
+          <h3 class="text-sm font-medium text-fg mb-3">Season</h3>
           <select
             v-model="selectedSeasonId"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+            class="block w-full px-3 py-2 bg-card text-fg border border-line rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             data-testid="season-filter"
           >
             <option
@@ -155,10 +155,10 @@
 
         <!-- Division Dropdown -->
         <div class="flex-1">
-          <h3 class="text-sm font-medium text-gray-700 mb-3">Division</h3>
+          <h3 class="text-sm font-medium text-fg mb-3">Division</h3>
           <select
             v-model="selectedDivisionId"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
+            class="block w-full px-3 py-2 bg-card text-fg border border-line rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
             data-testid="division-filter"
           >
             <option :value="null">All Divisions</option>
@@ -196,7 +196,7 @@
       <!-- Empty State -->
       <div
         v-else-if="leaderboardData.length === 0"
-        class="text-center py-8 text-gray-500"
+        class="text-center py-8 text-fg-muted"
       >
         No goal scorers found for the selected filters.
       </div>
@@ -204,55 +204,55 @@
       <!-- Leaderboard Table -->
       <table
         v-else
-        class="min-w-full divide-y divide-gray-200"
+        class="min-w-full divide-y divide-line"
         data-testid="leaderboard-table"
       >
-        <thead class="bg-gray-50">
+        <thead class="bg-surface-alt">
           <tr>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Rank
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Player
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-[100px] sm:max-w-[140px] md:max-w-none"
+              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider max-w-[100px] sm:max-w-[140px] md:max-w-none"
             >
               Team
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Goals
             </th>
             <th
-              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Games
             </th>
             <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Goals/Game
             </th>
           </tr>
         </thead>
         <tbody
-          class="bg-white divide-y divide-gray-200"
+          class="bg-card divide-y divide-line"
           data-testid="leaderboard-body"
         >
           <tr
             v-for="player in leaderboardData"
             :key="player.player_id"
             data-testid="leaderboard-row"
-            class="hover:bg-gray-50"
+            class="hover:bg-surface-alt"
           >
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-500"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-fg-muted"
             >
               <span
                 :class="[
@@ -263,14 +263,14 @@
                       ? 'bg-gray-200 text-gray-700'
                       : player.rank === 3
                         ? 'bg-orange-100 text-orange-800'
-                        : 'bg-transparent text-gray-500',
+                        : 'bg-transparent text-fg-muted',
                 ]"
               >
                 {{ player.rank }}
               </span>
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-medium text-fg"
             >
               <div class="flex items-center">
                 <span class="font-semibold text-base"
@@ -282,22 +282,22 @@
               </div>
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm text-gray-500 max-w-[100px] sm:max-w-[140px] md:max-w-none truncate"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm text-fg-muted max-w-[100px] sm:max-w-[140px] md:max-w-none truncate"
             >
               {{ player.team_name || 'Unknown' }}
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-semibold text-gray-900"
+              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-semibold text-fg"
             >
               {{ player.goals }}
             </td>
             <td
-              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden sm:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ player.games_played }}
             </td>
             <td
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-gray-500"
+              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
             >
               {{ player.goals_per_game }}
             </td>

@@ -1,11 +1,11 @@
 <template>
   <div class="admin-users">
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-semibold text-gray-900">User Login Activity</h2>
+      <h2 class="text-xl font-semibold text-fg">User Login Activity</h2>
       <button
         @click="activeTab === 'users' ? fetchUsers() : fetchLoginEvents()"
         :disabled="loading"
-        class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+        class="px-3 py-1.5 text-sm bg-surface-alt text-fg-muted rounded hover:bg-line disabled:opacity-50"
       >
         {{ loading ? 'Loading...' : 'Refresh' }}
       </button>
@@ -20,7 +20,7 @@
     </div>
 
     <!-- Tabs -->
-    <div class="mb-4 border-b border-gray-200">
+    <div class="mb-4 border-b border-line">
       <nav class="flex space-x-4">
         <button
           @click="
@@ -29,8 +29,8 @@
           "
           :class="[
             activeTab === 'users'
-              ? 'border-b-2 border-brand-600 text-brand-600'
-              : 'text-gray-500 hover:text-gray-700',
+              ? 'border-b-2 border-brand-600 text-brand-600 dark:border-brand-300 dark:text-brand-300'
+              : 'text-fg-muted hover:text-fg',
             'pb-2 text-sm font-medium',
           ]"
         >
@@ -43,8 +43,8 @@
           "
           :class="[
             activeTab === 'events'
-              ? 'border-b-2 border-brand-600 text-brand-600'
-              : 'text-gray-500 hover:text-gray-700',
+              ? 'border-b-2 border-brand-600 text-brand-600 dark:border-brand-300 dark:text-brand-300'
+              : 'text-fg-muted hover:text-fg',
             'pb-2 text-sm font-medium',
           ]"
         >
@@ -55,19 +55,19 @@
 
     <!-- Users Tab -->
     <div v-if="activeTab === 'users'">
-      <div v-if="loading" class="text-center py-8 text-gray-500">
+      <div v-if="loading" class="text-center py-8 text-fg-muted">
         Loading users...
       </div>
       <div
         v-else-if="users.length === 0"
-        class="text-center py-8 text-gray-500"
+        class="text-center py-8 text-fg-muted"
       >
         No users found.
       </div>
       <div v-else class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead>
-            <tr class="text-left text-gray-500 border-b border-gray-200">
+            <tr class="text-left text-fg-muted border-b border-line">
               <th class="pb-2 pr-4 font-medium">Username</th>
               <th class="pb-2 pr-4 font-medium">Display Name</th>
               <th class="pb-2 pr-4 font-medium">Role</th>
@@ -75,12 +75,16 @@
               <th class="pb-2 font-medium">Joined</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
-              <td class="py-2 pr-4 font-mono text-gray-900">
+          <tbody class="divide-y divide-line">
+            <tr
+              v-for="user in users"
+              :key="user.id"
+              class="hover:bg-surface-alt"
+            >
+              <td class="py-2 pr-4 font-mono text-fg">
                 {{ user.username }}
               </td>
-              <td class="py-2 pr-4 text-gray-700">
+              <td class="py-2 pr-4 text-fg-muted">
                 {{ user.display_name || '—' }}
               </td>
               <td class="py-2 pr-4">
@@ -88,7 +92,7 @@
                   user.role || 'user'
                 }}</span>
               </td>
-              <td class="py-2 pr-4 text-gray-600">
+              <td class="py-2 pr-4 text-fg-muted">
                 <span v-if="user.last_login_at">
                   <span
                     :class="
@@ -101,9 +105,9 @@
                   >
                   {{ formatDate(user.last_login_at) }}
                 </span>
-                <span v-else class="text-gray-400 italic">Never</span>
+                <span v-else class="text-fg-muted italic">Never</span>
               </td>
-              <td class="py-2 text-gray-500">
+              <td class="py-2 text-fg-muted">
                 {{ formatDate(user.created_at) }}
               </td>
             </tr>
@@ -121,12 +125,12 @@
           @input="debouncedFetch"
           type="text"
           placeholder="Filter by username..."
-          class="px-3 py-1.5 text-sm border border-gray-300 rounded w-48 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          class="px-3 py-1.5 text-sm bg-card text-fg border border-line rounded w-48 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
         <select
           v-model="filterSuccess"
           @change="fetchLoginEvents"
-          class="px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-500"
+          class="px-3 py-1.5 text-sm bg-card text-fg border border-line rounded focus:outline-none focus:ring-1 focus:ring-brand-500"
         >
           <option value="">All results</option>
           <option value="true">Success only</option>
@@ -134,12 +138,12 @@
         </select>
       </div>
 
-      <div v-if="loading" class="text-center py-8 text-gray-500">
+      <div v-if="loading" class="text-center py-8 text-fg-muted">
         Loading events...
       </div>
       <div
         v-else-if="events.length === 0"
-        class="text-center py-8 text-gray-500"
+        class="text-center py-8 text-fg-muted"
       >
         No login events found.
       </div>
@@ -147,7 +151,7 @@
         <div class="overflow-x-auto">
           <table class="min-w-full text-sm">
             <thead>
-              <tr class="text-left text-gray-500 border-b border-gray-200">
+              <tr class="text-left text-fg-muted border-b border-line">
                 <th class="pb-2 pr-4 font-medium">Time</th>
                 <th class="pb-2 pr-4 font-medium">Username</th>
                 <th class="pb-2 pr-4 font-medium">Result</th>
@@ -155,12 +159,16 @@
                 <th class="pb-2 font-medium">Role</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="ev in events" :key="ev.id" class="hover:bg-gray-50">
-                <td class="py-2 pr-4 text-gray-600 whitespace-nowrap">
+            <tbody class="divide-y divide-line">
+              <tr
+                v-for="ev in events"
+                :key="ev.id"
+                class="hover:bg-surface-alt"
+              >
+                <td class="py-2 pr-4 text-fg-muted whitespace-nowrap">
                   {{ formatDate(ev.created_at) }}
                 </td>
-                <td class="py-2 pr-4 font-mono text-gray-900">
+                <td class="py-2 pr-4 font-mono text-fg">
                   {{ ev.username }}
                 </td>
                 <td class="py-2 pr-4">
@@ -178,10 +186,10 @@
                     }}
                   </span>
                 </td>
-                <td class="py-2 pr-4 font-mono text-gray-500 text-xs">
+                <td class="py-2 pr-4 font-mono text-fg-muted text-xs">
                   {{ ev.client_ip || '—' }}
                 </td>
-                <td class="py-2 text-gray-600 text-xs">{{ ev.role || '—' }}</td>
+                <td class="py-2 text-fg-muted text-xs">{{ ev.role || '—' }}</td>
               </tr>
             </tbody>
           </table>
@@ -189,21 +197,21 @@
 
         <!-- Pagination -->
         <div
-          class="flex items-center justify-between mt-4 text-sm text-gray-600"
+          class="flex items-center justify-between mt-4 text-sm text-fg-muted"
         >
           <span>Showing {{ events.length }} of {{ eventTotal }} events</span>
           <div class="flex gap-2">
             <button
               @click="prevPage"
               :disabled="currentPage === 0"
-              class="px-3 py-1 border border-gray-300 rounded disabled:opacity-40 hover:bg-gray-50"
+              class="px-3 py-1 border border-line rounded disabled:opacity-40 hover:bg-surface-alt"
             >
               Previous
             </button>
             <button
               @click="nextPage"
               :disabled="(currentPage + 1) * pageSize >= eventTotal"
-              class="px-3 py-1 border border-gray-300 rounded disabled:opacity-40 hover:bg-gray-50"
+              class="px-3 py-1 border border-line rounded disabled:opacity-40 hover:bg-surface-alt"
             >
               Next
             </button>

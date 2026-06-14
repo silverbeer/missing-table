@@ -1,9 +1,9 @@
 <template>
   <div
-    class="border rounded-lg p-3 bg-white shadow-sm"
+    class="border rounded-lg p-3 bg-card shadow-sm"
     :class="{
       'border-green-400': isCompleted,
-      'border-gray-200': !isCompleted,
+      'border-line': !isCompleted,
     }"
   >
     <!-- Home team -->
@@ -14,7 +14,7 @@
       <div class="flex items-center space-x-2">
         <span
           v-if="bracketSlot.home_seed"
-          class="text-xs text-gray-400 w-4 text-right"
+          class="text-xs text-fg-muted w-4 text-right"
         >
           {{ bracketSlot.home_seed }}
         </span>
@@ -27,7 +27,7 @@
       </span>
     </div>
 
-    <hr class="border-gray-100" />
+    <hr class="border-line" />
 
     <!-- Away team -->
     <div
@@ -37,7 +37,7 @@
       <div class="flex items-center space-x-2">
         <span
           v-if="bracketSlot.away_seed"
-          class="text-xs text-gray-400 w-4 text-right"
+          class="text-xs text-fg-muted w-4 text-right"
         >
           {{ bracketSlot.away_seed }}
         </span>
@@ -53,7 +53,7 @@
     <!-- Date/Time display (view mode) -->
     <div
       v-if="bracketSlot.match_id && !editing"
-      class="mt-1 flex items-center justify-between text-xs text-gray-500"
+      class="mt-1 flex items-center justify-between text-xs text-fg-muted"
     >
       <span>
         {{ displayDate }}
@@ -61,7 +61,7 @@
       </span>
       <button
         @click="startEditing"
-        class="ml-2 text-gray-400 hover:text-brand-600"
+        class="ml-2 text-fg-muted hover:text-brand-600 dark:hover:text-brand-300"
         title="Edit date/time"
       >
         &#9998;
@@ -74,18 +74,18 @@
         <input
           type="date"
           v-model="editDate"
-          class="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          class="flex-1 text-xs border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
         <input
           type="time"
           v-model="editTime"
-          class="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          class="flex-1 text-xs border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
       </div>
       <div class="flex justify-end space-x-2">
         <button
           @click="cancelEditing"
-          class="text-xs px-2 py-1 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+          class="text-xs px-2 py-1 text-fg-muted border border-line rounded hover:bg-surface-alt"
         >
           Cancel
         </button>
@@ -171,7 +171,7 @@ export default {
     });
 
     const statusClass = computed(() => {
-      if (!props.bracketSlot.match_id) return 'text-gray-400';
+      if (!props.bracketSlot.match_id) return 'text-fg-muted';
       if (props.bracketSlot.match_status === 'completed')
         return 'text-green-600';
       if (props.bracketSlot.match_status === 'live')
