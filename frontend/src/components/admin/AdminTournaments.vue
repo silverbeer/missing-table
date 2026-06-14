@@ -2,7 +2,7 @@
   <div>
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Tournaments</h3>
+      <h3 class="text-lg font-semibold text-fg">Tournaments</h3>
       <button
         @click="openCreateTournament"
         class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
@@ -31,19 +31,17 @@
       <div
         v-for="tournament in tournaments"
         :key="tournament.id"
-        class="border border-gray-200 rounded-lg overflow-hidden"
+        class="border border-line rounded-lg overflow-hidden"
       >
         <!-- Tournament row -->
         <div
-          class="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+          class="flex items-center justify-between p-4 bg-surface-alt hover:bg-line cursor-pointer"
           @click="toggleTournament(tournament)"
         >
           <div class="flex items-center gap-4">
             <div>
               <div class="flex items-center gap-2">
-                <span class="font-medium text-gray-900">{{
-                  tournament.name
-                }}</span>
+                <span class="font-medium text-fg">{{ tournament.name }}</span>
                 <span
                   class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-yellow-50 text-yellow-700 border border-yellow-200 select-all"
                   :title="tournament.id"
@@ -52,7 +50,7 @@
                 </span>
                 <span
                   v-if="!tournament.is_active"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg-muted"
                 >
                   Inactive
                 </span>
@@ -64,7 +62,7 @@
                   {{ ag.name }}
                 </span>
               </div>
-              <div class="text-sm text-gray-500 mt-0.5">
+              <div class="text-sm text-fg-muted mt-0.5">
                 {{ formatDate(tournament.start_date) }}
                 <span v-if="tournament.end_date">
                   – {{ formatDate(tournament.end_date) }}</span
@@ -76,14 +74,14 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="text-sm text-gray-500">
+            <span class="text-sm text-fg-muted">
               {{ tournament.match_count ?? 0 }} match{{
                 (tournament.match_count ?? 0) !== 1 ? 'es' : ''
               }}
             </span>
             <button
               @click.stop="openEditTournament(tournament)"
-              class="text-brand-600 hover:text-brand-900 text-sm"
+              class="text-brand-600 dark:text-brand-300 hover:text-brand-900 text-sm"
             >
               Edit
             </button>
@@ -93,7 +91,7 @@
             >
               Delete
             </button>
-            <span class="text-gray-400 text-sm">
+            <span class="text-fg-muted text-sm">
               {{ selectedTournamentId === tournament.id ? '▲' : '▼' }}
             </span>
           </div>
@@ -113,69 +111,69 @@
             <div v-if="selectedMatches.length > 0" class="overflow-x-auto mb-4">
               <table class="min-w-full text-sm">
                 <thead>
-                  <tr class="border-b border-gray-200">
+                  <tr class="border-b border-line">
                     <th
-                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                      class="text-left py-2 pr-4 font-medium text-fg-muted text-xs uppercase"
                     >
                       Date
                     </th>
                     <th
-                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                      class="text-left py-2 pr-4 font-medium text-fg-muted text-xs uppercase"
                     >
                       Round
                     </th>
                     <th
-                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                      class="text-left py-2 pr-4 font-medium text-fg-muted text-xs uppercase"
                     >
                       Group
                     </th>
                     <th
-                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                      class="text-left py-2 pr-4 font-medium text-fg-muted text-xs uppercase"
                     >
                       Home
                     </th>
                     <th
-                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                      class="text-left py-2 pr-4 font-medium text-fg-muted text-xs uppercase"
                     >
                       Score
                     </th>
                     <th
-                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                      class="text-left py-2 pr-4 font-medium text-fg-muted text-xs uppercase"
                     >
                       Away
                     </th>
                     <th
-                      class="text-left py-2 pr-4 font-medium text-gray-500 text-xs uppercase"
+                      class="text-left py-2 pr-4 font-medium text-fg-muted text-xs uppercase"
                     >
                       Status
                     </th>
                     <th
-                      class="text-right py-2 font-medium text-gray-500 text-xs uppercase"
+                      class="text-right py-2 font-medium text-fg-muted text-xs uppercase"
                     >
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="divide-y divide-line">
                   <tr v-for="match in selectedMatches" :key="match.id">
-                    <td class="py-2 pr-4 text-gray-700">
+                    <td class="py-2 pr-4 text-fg">
                       {{ formatDate(match.match_date) }}
                     </td>
-                    <td class="py-2 pr-4 text-gray-500">
+                    <td class="py-2 pr-4 text-fg-muted">
                       {{ formatRound(match.tournament_round) }}
                     </td>
-                    <td class="py-2 pr-4 text-gray-500">
+                    <td class="py-2 pr-4 text-fg-muted">
                       {{ match.tournament_group || '—' }}
                     </td>
-                    <td class="py-2 pr-4 font-medium text-gray-900">
+                    <td class="py-2 pr-4 font-medium text-fg">
                       {{ match.home_team?.name }}
                     </td>
-                    <td class="py-2 pr-4 text-gray-700 font-mono">
+                    <td class="py-2 pr-4 text-fg font-mono">
                       <span v-if="match.home_score != null">
                         {{ match.home_score }} – {{ match.away_score }}
                         <span
                           v-if="match.home_penalty_score != null"
-                          class="text-xs text-gray-500 ml-1"
+                          class="text-xs text-fg-muted ml-1"
                         >
                           ({{ match.home_penalty_score }}–{{
                             match.away_penalty_score
@@ -183,9 +181,9 @@
                           pens)
                         </span>
                       </span>
-                      <span v-else class="text-gray-400">vs</span>
+                      <span v-else class="text-fg-muted">vs</span>
                     </td>
-                    <td class="py-2 pr-4 font-medium text-gray-900">
+                    <td class="py-2 pr-4 font-medium text-fg">
                       {{ match.away_team?.name }}
                     </td>
                     <td class="py-2 pr-4">
@@ -196,7 +194,7 @@
                     <td class="py-2 text-right">
                       <button
                         @click="openEditMatch(match)"
-                        class="text-brand-600 hover:text-brand-900 mr-3"
+                        class="text-brand-600 dark:text-brand-300 hover:text-brand-900 mr-3"
                       >
                         Edit
                       </button>
@@ -212,7 +210,7 @@
               </table>
             </div>
 
-            <p v-else class="text-gray-500 text-sm mb-4">No matches yet.</p>
+            <p v-else class="text-fg-muted text-sm mb-4">No matches yet.</p>
 
             <button
               @click="openAddMatch(tournament)"
@@ -226,7 +224,7 @@
 
       <p
         v-if="!loading && tournaments.length === 0"
-        class="text-gray-500 text-center py-8"
+        class="text-fg-muted text-center py-8"
       >
         No tournaments yet. Click "Add Tournament" to create one.
       </p>
@@ -240,20 +238,20 @@
     >
       <div class="modal-content" @click.stop>
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <h3 class="text-lg font-medium text-fg mb-4">
             {{ editingTournament ? 'Edit Tournament' : 'New Tournament' }}
           </h3>
           <form @submit.prevent="saveTournament">
             <!-- Name -->
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-fg mb-1"
                 >Name *</label
               >
               <input
                 v-model="tForm.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g. 2026 Generation adidas Cup"
               />
             </div>
@@ -261,44 +259,44 @@
             <!-- Dates -->
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Start Date *</label
                 >
                 <input
                   v-model="tForm.start_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >End Date</label
                 >
                 <input
                   v-model="tForm.end_date"
                   type="date"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
 
             <!-- Location -->
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-fg mb-1"
                 >Location</label
               >
               <input
                 v-model="tForm.location"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g. IMG Academy, Bradenton FL"
               />
             </div>
 
             <!-- Age Groups (multi-select) -->
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-fg mb-1"
                 >Age Groups</label
               >
               <div class="flex flex-wrap gap-3">
@@ -311,46 +309,44 @@
                     type="checkbox"
                     :value="ag.id"
                     v-model="tForm.age_group_ids"
-                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                    class="rounded border-line text-brand-600 focus:ring-brand-500"
                   />
-                  <span class="text-sm text-gray-700">{{ ag.name }}</span>
+                  <span class="text-sm text-fg">{{ ag.name }}</span>
                 </label>
               </div>
             </div>
 
             <!-- Description -->
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-fg mb-1"
                 >Description</label
               >
               <textarea
                 v-model="tForm.description"
                 rows="2"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Optional notes about format, teams, etc."
               ></textarea>
             </div>
 
             <!-- Logo -->
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >Logo</label
-              >
+              <label class="block text-sm font-medium text-fg mb-1">Logo</label>
               <div class="flex items-center gap-4">
                 <!-- Preview -->
                 <img
                   v-if="tLogoPreview || editingTournament?.logo_url"
                   :src="tLogoPreview || editingTournament.logo_url"
                   alt="Tournament logo preview"
-                  class="w-16 h-16 rounded-md object-contain border border-gray-200 bg-white p-1"
+                  class="w-16 h-16 rounded-md object-contain border border-line bg-white p-1"
                   data-testid="tournament-logo-preview"
                 />
                 <div
                   v-else
-                  class="w-16 h-16 rounded-md bg-gray-100 flex items-center justify-center"
+                  class="w-16 h-16 rounded-md bg-surface-alt flex items-center justify-center"
                 >
                   <svg
-                    class="w-8 h-8 text-gray-400"
+                    class="w-8 h-8 text-fg-muted"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -376,11 +372,11 @@
                     type="button"
                     @click="$refs.tLogoInput.click()"
                     :disabled="tUploadingLogo"
-                    class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                    class="px-3 py-2 text-sm font-medium text-fg bg-card border border-line rounded-md hover:bg-surface-alt disabled:opacity-50"
                   >
                     {{ tUploadingLogo ? 'Uploading...' : 'Choose Image' }}
                   </button>
-                  <p class="mt-1 text-xs text-gray-500">
+                  <p class="mt-1 text-xs text-fg-muted">
                     PNG or JPG, max 2MB. Square with transparent background
                     looks best on share cards.
                   </p>
@@ -394,9 +390,9 @@
                 v-model="tForm.is_active"
                 id="is_active"
                 type="checkbox"
-                class="h-4 w-4 text-brand-600 border-gray-300 rounded"
+                class="h-4 w-4 text-brand-600 border-line rounded"
               />
-              <label for="is_active" class="text-sm text-gray-700"
+              <label for="is_active" class="text-sm text-fg"
                 >Visible to fans (active)</label
               >
             </div>
@@ -405,7 +401,7 @@
               <button
                 type="button"
                 @click="closeTournamentModal"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
               >
                 Cancel
               </button>
@@ -432,7 +428,7 @@
     <div v-if="showMatchModal" class="modal-overlay" @click="closeMatchModal">
       <div class="modal-content modal-content-wide" @click.stop>
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <h3 class="text-lg font-medium text-fg mb-4">
             {{ editingMatch ? 'Edit Match' : 'Add Match' }}
           </h3>
           <form @submit.prevent="saveMatch">
@@ -440,20 +436,19 @@
             <!-- Edit mode: show teams as read-only text with swap option -->
             <div
               v-if="editingMatch"
-              class="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200 flex items-center gap-2"
+              class="mb-4 p-3 bg-surface-alt rounded-md border border-line flex items-center gap-2"
             >
-              <span
-                class="text-sm font-medium text-gray-900 flex-1 text-right"
-                >{{ editingMatch.home_team?.name }}</span
-              >
-              <span class="text-xs text-gray-400 font-mono">vs</span>
-              <span class="text-sm font-medium text-gray-900 flex-1">{{
+              <span class="text-sm font-medium text-fg flex-1 text-right">{{
+                editingMatch.home_team?.name
+              }}</span>
+              <span class="text-xs text-fg-muted font-mono">vs</span>
+              <span class="text-sm font-medium text-fg flex-1">{{
                 editingMatch.away_team?.name
               }}</span>
               <button
                 type="button"
                 @click="swapHomeAway"
-                class="ml-2 text-xs text-brand-600 hover:text-brand-800 border border-brand-300 rounded px-2 py-0.5"
+                class="ml-2 text-xs text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 border border-brand-300 rounded px-2 py-0.5"
                 title="Swap home and away teams"
               >
                 ⇄ Swap
@@ -462,13 +457,13 @@
             <!-- Add mode: team selector + opponent input -->
             <div v-else class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Our Team *</label
                 >
                 <select
                   v-model="mForm.our_team_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="t in leagueTeams" :key="t.id" :value="t.id">
@@ -477,17 +472,17 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Opponent *</label
                 >
                 <input
                   v-model="mForm.opponent_name"
                   type="text"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Opponent team name"
                 />
-                <p class="text-xs text-gray-400 mt-1">
+                <p class="text-xs text-fg-muted mt-1">
                   Created automatically if not in system
                 </p>
               </div>
@@ -495,7 +490,7 @@
 
             <!-- Home/Away toggle -->
             <div v-if="!editingMatch" class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-fg mb-1"
                 >Our Team Is</label
               >
               <div class="flex gap-4">
@@ -523,24 +518,24 @@
             <!-- Date + kickoff time -->
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Match Date *</label
                 >
                 <input
                   v-model="mForm.match_date"
                   type="date"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Kickoff Time</label
                 >
                 <input
                   v-model="mForm.scheduled_kickoff"
                   type="time"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
@@ -548,12 +543,12 @@
             <!-- Round + Group -->
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Round</label
                 >
                 <select
                   v-model="mForm.tournament_round"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="">— none —</option>
                   <option value="group_stage">Group Stage</option>
@@ -566,13 +561,13 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Group</label
                 >
                 <input
                   v-model="mForm.tournament_group"
                   type="text"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="e.g. Group A"
                 />
               </div>
@@ -581,13 +576,13 @@
             <!-- Age group + Season (hidden defaults when creating) -->
             <div v-if="!editingMatch" class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Age Group *</label
                 >
                 <select
                   v-model="mForm.age_group_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
@@ -596,13 +591,13 @@
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Season *</label
                 >
                 <select
                   v-model="mForm.season_id"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option :value="null" disabled>— select —</option>
                   <option v-for="s in seasons" :key="s.id" :value="s.id">
@@ -615,36 +610,36 @@
             <!-- Score + Status -->
             <div class="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Home Score</label
                 >
                 <input
                   v-model.number="mForm.home_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="—"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Away Score</label
                 >
                 <input
                   v-model.number="mForm.away_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="—"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Status</label
                 >
                 <select
                   v-model="mForm.match_status"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="scheduled">Scheduled</option>
                   <option value="completed">Completed</option>
@@ -666,26 +661,26 @@
                 Draw after regulation — enter penalty shootout scores (optional)
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Home PK Score</label
                 >
                 <input
                   v-model.number="mForm.home_penalty_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                   placeholder="—"
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1"
+                <label class="block text-sm font-medium text-fg mb-1"
                   >Away PK Score</label
                 >
                 <input
                   v-model.number="mForm.away_penalty_score"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                   placeholder="—"
                 />
               </div>
@@ -696,7 +691,7 @@
               <button
                 type="button"
                 @click="closeMatchModal"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
               >
                 Cancel
               </button>
@@ -816,12 +811,12 @@ export default {
 
     const statusClass = status => {
       const map = {
-        scheduled: 'text-gray-500',
+        scheduled: 'text-fg-muted',
         completed: 'text-green-700 font-medium',
         cancelled: 'text-red-500',
         in_progress: 'text-brand-600 font-medium',
       };
-      return map[status] || 'text-gray-500';
+      return map[status] || 'text-fg-muted';
     };
 
     const matchCountFor = id => matchCountCache.value[id] ?? 0;
@@ -1272,7 +1267,7 @@ export default {
   z-index: 1000;
 }
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 8px;
   max-width: 520px;
   width: 90%;

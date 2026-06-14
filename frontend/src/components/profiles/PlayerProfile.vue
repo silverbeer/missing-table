@@ -981,7 +981,7 @@ export default {
 .dashboard-header h1 {
   font-size: 24px;
   font-weight: 700;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0;
 }
 
@@ -1198,7 +1198,7 @@ export default {
 }
 
 .column-card {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1207,7 +1207,7 @@ export default {
 .column-card h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0 0 16px 0;
 }
 
@@ -1252,8 +1252,8 @@ export default {
   height: 40px;
   border-radius: 50%;
   border: none;
-  background: #f3f4f6;
-  color: #374151;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
   font-size: 24px;
   cursor: pointer;
   display: flex;
@@ -1264,7 +1264,7 @@ export default {
 }
 
 .carousel-btn:hover {
-  background: #e5e7eb;
+  background: rgb(var(--color-line));
 }
 
 .carousel-dots {
@@ -1277,7 +1277,7 @@ export default {
   height: 10px;
   border-radius: 50%;
   border: none;
-  background: #d1d5db;
+  background: rgb(var(--color-line));
   cursor: pointer;
   padding: 0;
   transition: all 0.2s;
@@ -1295,7 +1295,7 @@ export default {
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
 }
 
 .no-photos-icon {
@@ -1324,7 +1324,7 @@ export default {
 .no-games,
 .no-history {
   text-align: center;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   font-size: 14px;
   padding: 20px;
 }
@@ -1338,9 +1338,9 @@ export default {
 
 .history-item {
   padding: 12px;
-  background: #f9fafb;
+  background: rgb(var(--color-surface-alt));
   border-radius: 8px;
-  border-left: 3px solid #e5e7eb;
+  border-left: 3px solid rgb(var(--color-line));
 }
 
 .history-item.current {
@@ -1350,7 +1350,7 @@ export default {
 
 .history-season {
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1367,7 +1367,7 @@ export default {
 
 .history-team {
   font-size: 14px;
-  color: #4b5563;
+  color: rgb(var(--color-fg-muted));
   margin-top: 4px;
 }
 
@@ -1381,14 +1381,14 @@ export default {
 .meta-tag {
   font-size: 11px;
   padding: 2px 8px;
-  background: #e5e7eb;
+  background: rgb(var(--color-surface-alt));
   border-radius: 4px;
-  color: #4b5563;
+  color: rgb(var(--color-fg-muted));
 }
 
 /* Stats Section */
 .stats-section {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1398,7 +1398,7 @@ export default {
 .stats-section h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0 0 16px 0;
 }
 
@@ -1411,7 +1411,7 @@ export default {
 .stat-item {
   text-align: center;
   padding: 16px;
-  background: #f9fafb;
+  background: rgb(var(--color-surface-alt));
   border-radius: 8px;
 }
 
@@ -1422,7 +1422,7 @@ export default {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .stat-item.highlight .stat-value {
@@ -1431,7 +1431,7 @@ export default {
 
 .stat-label {
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-top: 4px;
   text-transform: uppercase;
 }
@@ -1447,7 +1447,7 @@ export default {
 
 .no-stats {
   text-align: center;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   padding: 20px;
 }
 
@@ -1457,7 +1457,7 @@ export default {
 
 .no-stats .hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   margin-top: 8px;
 }
 
@@ -1476,7 +1476,7 @@ export default {
 }
 
 .no-team-card p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin: 0;
 }
 
@@ -1496,14 +1496,14 @@ export default {
 .editor-modal-content {
   width: 100%;
   max-width: 1000px;
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 16px;
 }
 
 .edit-info-modal {
   width: 100%;
   max-width: 480px;
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 16px;
   overflow: hidden;
 }
@@ -1513,20 +1513,20 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   cursor: pointer;
 }
 
@@ -1542,13 +1542,13 @@ export default {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: rgb(var(--color-fg));
   margin-bottom: 6px;
 }
 
 .form-group .hint {
   font-weight: 400;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   font-size: 12px;
 }
 
@@ -1556,9 +1556,11 @@ export default {
 .form-group select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   font-size: 14px;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .form-group input:focus,
@@ -1569,15 +1571,15 @@ export default {
 }
 
 .readonly-input {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
   cursor: not-allowed;
 }
 
 .field-hint {
   display: block;
   font-size: 11px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   margin-top: 4px;
 }
 
@@ -1596,12 +1598,12 @@ export default {
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid rgb(var(--color-line));
 }
 
 .saving {
   font-size: 14px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .done-btn {
@@ -1620,7 +1622,7 @@ export default {
 
 .loading {
   text-align: center;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   padding: 20px;
 }
 
@@ -1720,8 +1722,8 @@ export default {
 }
 
 .channel-item {
-  background: white;
-  border: 1px solid #e0f2fe;
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   padding: 14px;
 }
@@ -1736,7 +1738,7 @@ export default {
 .channel-name {
   font-weight: 600;
   font-size: 14px;
-  color: #1e293b;
+  color: rgb(var(--color-fg));
 }
 
 .channel-pill {
@@ -1765,13 +1767,13 @@ export default {
 
 .channel-handle {
   font-size: 13px;
-  color: #334155;
+  color: rgb(var(--color-fg));
   margin-bottom: 8px;
 }
 
 .channel-handle-missing {
   font-size: 12px;
-  color: #94a3b8;
+  color: rgb(var(--color-fg-muted));
   font-style: italic;
   margin-bottom: 8px;
 }
@@ -1785,14 +1787,14 @@ export default {
 .channel-input {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 4px;
   font-size: 13px;
 }
 
 .channel-input:disabled {
-  background: #f3f4f6;
-  color: #9ca3af;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
 }
 
 .request-access-btn {
@@ -1816,7 +1818,7 @@ export default {
 
 .channel-status-msg {
   font-size: 12px;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
   margin: 6px 0 0;
   font-style: italic;
 }

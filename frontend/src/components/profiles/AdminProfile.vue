@@ -460,7 +460,7 @@ export default {
 
 <style scoped>
 .admin-section {
-  background-color: #f8fafc;
+  background-color: rgb(var(--color-surface-alt));
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -479,10 +479,10 @@ export default {
 }
 
 .admin-card {
-  background: white;
+  background: rgb(var(--color-card));
   padding: 20px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: center;
@@ -500,20 +500,20 @@ export default {
 }
 
 .admin-card h4 {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 10px 0 5px 0;
   font-size: 16px;
 }
 
 .admin-card p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 14px;
   margin: 0;
 }
 
 .user-management-section {
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
+  background-color: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   margin-bottom: 20px;
 }
@@ -523,14 +523,14 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   cursor: pointer;
   padding: 0;
   width: 30px;
@@ -554,9 +554,9 @@ export default {
   display: flex;
   align-items: center;
   padding: 15px;
-  background-color: #f9fafb;
+  background-color: rgb(var(--color-surface-alt));
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
 }
 
 .user-avatar {
@@ -578,7 +578,7 @@ export default {
 
 .user-details h4 {
   margin: 0 0 8px 0;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   font-size: 16px;
   font-weight: 600;
 }
@@ -593,7 +593,7 @@ export default {
 
 .info-label {
   font-weight: 600;
-  color: #4b5563;
+  color: rgb(var(--color-fg-muted));
   font-size: 12px;
 }
 
@@ -604,7 +604,7 @@ export default {
 }
 
 .user-email {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 13px;
 }
 
@@ -615,7 +615,7 @@ export default {
 }
 
 .user-created {
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   font-size: 11px;
   margin-top: 5px;
 }
@@ -631,10 +631,12 @@ export default {
 
 .role-select {
   padding: 6px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 4px;
   font-size: 14px;
   min-width: 140px;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .quick-stats {
@@ -712,8 +714,8 @@ export default {
 
 .edit-btn {
   padding: 6px 12px;
-  background-color: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background-color: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
@@ -721,8 +723,8 @@ export default {
 }
 
 .edit-btn:hover {
-  background-color: #e5e7eb;
-  border-color: #9ca3af;
+  background-color: rgb(var(--color-line));
+  border-color: rgb(var(--color-fg-muted));
 }
 
 .modal-overlay {
@@ -739,7 +741,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 8px;
   max-width: 500px;
   width: 90%;
@@ -755,12 +757,12 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   font-size: 18px;
 }
 
@@ -776,17 +778,19 @@ export default {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg));
   font-size: 14px;
 }
 
 .form-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 4px;
   font-size: 14px;
   box-sizing: border-box;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .form-input:focus {
@@ -799,7 +803,7 @@ export default {
 .help-text {
   margin-top: 4px;
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .error-message {
@@ -814,24 +818,24 @@ export default {
   justify-content: flex-end;
   gap: 12px;
   padding: 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid rgb(var(--color-line));
 }
 
 .btn-secondary {
   padding: 8px 16px;
-  background-color: white;
-  border: 1px solid #d1d5db;
+  background-color: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 4px;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: rgb(var(--color-fg));
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
+  background-color: rgb(var(--color-surface-alt));
+  border-color: rgb(var(--color-fg-muted));
 }
 
 .btn-primary {
@@ -859,6 +863,6 @@ export default {
 .loading {
   text-align: center;
   padding: 20px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 </style>

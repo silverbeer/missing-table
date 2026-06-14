@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Age Groups Management</h3>
+      <h3 class="text-lg font-semibold text-fg">Age Groups Management</h3>
       <button
         @click="showAddModal = true"
         class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium"
@@ -30,42 +30,40 @@
       v-else
       class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
     >
-      <table class="min-w-full divide-y divide-gray-300">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-line">
+        <thead class="bg-surface-alt">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Name
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Teams Count
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Created
             </th>
             <th
-              class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-card divide-y divide-line">
           <tr v-for="ageGroup in ageGroups" :key="ageGroup.id">
-            <td
-              class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
-            >
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-fg">
               {{ ageGroup.name }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ getTeamCount(ageGroup.id) }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ formatDate(ageGroup.created_at) }}
             </td>
             <td
@@ -73,7 +71,7 @@
             >
               <button
                 @click="editAgeGroup(ageGroup)"
-                class="text-brand-600 hover:text-brand-900 mr-3"
+                class="text-brand-600 dark:text-brand-300 hover:text-brand-900 dark:hover:text-brand-200 mr-3"
               >
                 Edit
               </button>
@@ -102,7 +100,7 @@
     >
       <div class="modal-content" @click.stop>
         <div class="p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <h3 class="text-lg font-medium text-fg mb-4">
             {{ showEditModal ? 'Edit Age Group' : 'Add New Age Group' }}
           </h3>
 
@@ -112,14 +110,12 @@
             "
           >
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Name</label
-              >
+              <label class="block text-sm font-medium text-fg mb-2">Name</label>
               <input
                 v-model="formData.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="e.g., U13, U14, U15..."
               />
             </div>
@@ -128,7 +124,7 @@
               <button
                 type="button"
                 @click="closeModals"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
               >
                 Cancel
               </button>
@@ -334,7 +330,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 8px;
   max-width: 500px;
   width: 90%;

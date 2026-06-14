@@ -1,10 +1,8 @@
 <template>
-  <div class="bg-white rounded-lg shadow p-4" data-testid="match-form">
+  <div class="bg-card rounded-lg shadow p-4" data-testid="match-form">
     <!-- Form Type Selection -->
     <div class="mb-4">
-      <label class="block text-sm font-medium text-gray-700 mb-2"
-        >Action Type</label
-      >
+      <label class="block text-sm font-medium text-fg mb-2">Action Type</label>
       <div class="flex space-x-4">
         <label class="inline-flex items-center">
           <input
@@ -31,14 +29,12 @@
 
     <form @submit.prevent="submitMatch" class="space-y-3">
       <!-- Season/Age Group/Match Type Row -->
-      <div class="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-md">
+      <div class="grid grid-cols-3 gap-3 p-3 bg-surface-alt rounded-md">
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1"
-            >Season</label
-          >
+          <label class="block text-xs font-medium text-fg mb-1">Season</label>
           <select
             v-model="selectedSeason"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+            class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="season-select"
           >
             <option
@@ -51,12 +47,12 @@
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1"
+          <label class="block text-xs font-medium text-fg mb-1"
             >Age Group</label
           >
           <select
             v-model="selectedAgeGroup"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+            class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="age-group-select"
           >
             <option
@@ -69,12 +65,12 @@
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1"
+          <label class="block text-xs font-medium text-fg mb-1"
             >Match Type</label
           >
           <select
             v-model="selectedMatchType"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+            class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="match-type-select"
           >
             <option
@@ -96,12 +92,12 @@
       >
         <div class="grid grid-cols-1 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1"
+            <label class="block text-xs font-medium text-fg mb-1"
               >Division <span class="text-red-500">*</span></label
             >
             <select
               v-model="selectedDivision"
-              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+              class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
               required
               data-testid="division-select"
             >
@@ -114,7 +110,7 @@
                 {{ division.name }}
               </option>
             </select>
-            <p class="text-xs text-gray-600 mt-1">
+            <p class="text-xs text-fg-muted mt-1">
               Division is required for League matches to ensure proper standings
               calculation
             </p>
@@ -129,12 +125,12 @@
       >
         <div class="grid grid-cols-1 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1"
+            <label class="block text-xs font-medium text-fg mb-1"
               >Game Status <span class="text-red-500">*</span></label
             >
             <select
               v-model="selectedStatus"
-              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+              class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
               required
               data-testid="status-select"
             >
@@ -143,7 +139,7 @@
               <option value="postponed">Postponed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-            <p class="text-xs text-gray-600 mt-1">
+            <p class="text-xs text-fg-muted mt-1">
               Status determines whether the match counts toward standings. Only
               "Completed" matches affect team standings.
             </p>
@@ -154,42 +150,40 @@
       <!-- Date, Time, and Teams Row -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1"
-            >Date</label
-          >
+          <label class="block text-xs font-medium text-fg mb-1">Date</label>
           <input
             type="date"
             v-model="matchData.date"
             id="match_date"
             required
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+            class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="date-input"
           />
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1"
+          <label class="block text-xs font-medium text-fg mb-1"
             >Kickoff Time
-            <span class="text-gray-400 text-[10px]">(optional)</span></label
+            <span class="text-fg-muted text-[10px]">(optional)</span></label
           >
           <input
             type="time"
             v-model="matchData.kickoffTime"
             id="kickoff_time"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+            class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="kickoff-time-input"
           />
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1"
+          <label class="block text-xs font-medium text-fg mb-1"
             >Home Team</label
           >
           <select
             v-model="matchData.homeTeam"
             id="home_team"
             required
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+            class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="home-team-select"
           >
             <option value="">Select Team</option>
@@ -200,14 +194,14 @@
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1"
+          <label class="block text-xs font-medium text-fg mb-1"
             >Away Team</label
           >
           <select
             v-model="matchData.awayTeam"
             id="away_team"
             required
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
+            class="block w-full rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm"
             data-testid="away-team-select"
           >
             <option value="">Select Team</option>
@@ -225,7 +219,7 @@
         data-testid="score-section"
       >
         <div class="text-center">
-          <label class="block text-xs font-medium text-gray-700 mb-1"
+          <label class="block text-xs font-medium text-fg mb-1"
             >Home Score</label
           >
           <input
@@ -234,15 +228,15 @@
             id="home_score"
             required
             min="0"
-            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-center text-lg font-bold"
+            class="block w-20 rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-center text-lg font-bold"
             data-testid="home-score-input"
           />
         </div>
 
-        <div class="text-xl font-bold text-gray-400">vs</div>
+        <div class="text-xl font-bold text-fg-muted">vs</div>
 
         <div class="text-center">
-          <label class="block text-xs font-medium text-gray-700 mb-1"
+          <label class="block text-xs font-medium text-fg mb-1"
             >Away Score</label
           >
           <input
@@ -251,7 +245,7 @@
             id="away_score"
             required
             min="0"
-            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-center text-lg font-bold"
+            class="block w-20 rounded-md border-line bg-card text-fg shadow-sm focus:border-brand-500 focus:ring-brand-500 text-center text-lg font-bold"
             data-testid="away-score-input"
           />
         </div>

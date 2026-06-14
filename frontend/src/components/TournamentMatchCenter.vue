@@ -7,13 +7,13 @@
   >
     <div class="min-h-full flex items-start justify-center p-3 sm:p-6">
       <div
-        class="relative w-full max-w-4xl bg-white rounded-lg shadow-2xl"
+        class="relative w-full max-w-4xl bg-card rounded-lg shadow-2xl"
         @click.stop
       >
         <button
           type="button"
           aria-label="Close match details"
-          class="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          class="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full text-fg-muted hover:text-fg hover:bg-surface-alt transition-colors"
           @click="handleBackFromMatchDetail"
         >
           <svg
@@ -64,10 +64,10 @@
     <!-- No tournaments -->
     <div
       v-else-if="tournaments.length === 0"
-      class="text-center py-16 text-gray-500"
+      class="text-center py-16 text-fg-muted"
     >
       <div class="text-5xl mb-4">🏆</div>
-      <p class="text-lg font-medium text-gray-700">No active tournaments</p>
+      <p class="text-lg font-medium text-fg">No active tournaments</p>
       <p class="text-sm mt-1">Check back soon for upcoming events.</p>
     </div>
 
@@ -82,7 +82,7 @@
             'px-4 py-2 rounded-full text-sm font-medium transition-colors',
             selectedId === t.id
               ? 'bg-brand-600 text-white'
-              : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+              : 'bg-card border border-line text-fg hover:border-brand-400',
           ]"
         >
           {{ t.name }}
@@ -93,7 +93,7 @@
       <div v-if="selected">
         <!-- Header card -->
         <div
-          class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6"
+          class="bg-card rounded-xl shadow-sm border border-line p-4 sm:p-6 mb-6"
         >
           <div
             class="flex flex-wrap items-start justify-between gap-3 sm:gap-4"
@@ -103,15 +103,15 @@
                 v-if="selected.logo_url"
                 :src="selected.logo_url"
                 :alt="`${selected.name} logo`"
-                class="w-14 h-14 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-md object-contain bg-white border border-gray-100 shrink-0"
+                class="w-14 h-14 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-md object-contain bg-card border border-line shrink-0"
                 data-testid="tournament-logo"
               />
               <div class="min-w-0 flex-1">
-                <h2 class="text-xl sm:text-2xl font-bold text-gray-900">
+                <h2 class="text-xl sm:text-2xl font-bold text-fg">
                   {{ selected.name }}
                 </h2>
                 <div
-                  class="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500"
+                  class="flex flex-wrap items-center gap-3 mt-2 text-sm text-fg-muted"
                 >
                   <span v-if="selected.start_date">
                     📅 {{ formatDate(selected.start_date) }}
@@ -132,7 +132,7 @@
                 </div>
                 <p
                   v-if="selected.description"
-                  class="mt-3 text-sm text-gray-600"
+                  class="mt-3 text-sm text-fg-muted"
                 >
                   {{ selected.description }}
                 </p>
@@ -142,9 +142,9 @@
               class="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-3 w-full sm:w-auto"
             >
               <div
-                class="flex items-baseline gap-1.5 sm:block sm:text-right text-sm text-gray-500"
+                class="flex items-baseline gap-1.5 sm:block sm:text-right text-sm text-fg-muted"
               >
-                <div class="text-xl sm:text-2xl font-bold text-gray-800">
+                <div class="text-xl sm:text-2xl font-bold text-fg">
                   {{ selected.matches?.length ?? 0 }}
                 </div>
                 <div>matches tracked</div>
@@ -152,7 +152,7 @@
               <!-- View toggle: List always shown; Bracket / Standings shown based on match round shape -->
               <div
                 v-if="hasBracketRounds || hasStandingsRounds"
-                class="inline-flex rounded-md border border-gray-300 bg-white p-0.5"
+                class="inline-flex rounded-md border border-line bg-card p-0.5"
               >
                 <button
                   type="button"
@@ -161,7 +161,7 @@
                     'px-3 py-1 text-xs font-medium rounded transition-colors',
                     viewMode === 'list'
                       ? 'bg-brand-600 text-white'
-                      : 'text-gray-600 hover:text-gray-900',
+                      : 'text-fg-muted hover:text-fg',
                   ]"
                 >
                   List
@@ -174,7 +174,7 @@
                     'px-3 py-1 text-xs font-medium rounded transition-colors',
                     viewMode === 'bracket'
                       ? 'bg-brand-600 text-white'
-                      : 'text-gray-600 hover:text-gray-900',
+                      : 'text-fg-muted hover:text-fg',
                   ]"
                 >
                   Bracket
@@ -187,7 +187,7 @@
                     'px-3 py-1 text-xs font-medium rounded transition-colors',
                     viewMode === 'standings'
                       ? 'bg-brand-600 text-white'
-                      : 'text-gray-600 hover:text-gray-900',
+                      : 'text-fg-muted hover:text-fg',
                   ]"
                 >
                   Standings
@@ -216,7 +216,7 @@
                 'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                 ageGroupFilter === null
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+                  : 'bg-card border border-line text-fg hover:border-indigo-400',
               ]"
             >
               All Ages
@@ -229,7 +229,7 @@
                 'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                 ageGroupFilter === ag.id
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+                  : 'bg-card border border-line text-fg hover:border-indigo-400',
               ]"
             >
               {{ ag.name }}
@@ -242,9 +242,9 @@
               v-model="teamFilter"
               type="text"
               placeholder="Filter by team…"
-              class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-48"
+              class="px-3 py-2 bg-card border border-line rounded-md text-sm text-fg focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-48"
             />
-            <span class="text-sm text-gray-500"
+            <span class="text-sm text-fg-muted"
               >{{ filteredMatches.length }} match{{
                 filteredMatches.length !== 1 ? 'es' : ''
               }}</span
@@ -255,7 +255,7 @@
                 teamFilter = '';
                 ageGroupFilter = null;
               "
-              class="text-sm text-brand-600 hover:text-brand-800"
+              class="text-sm text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200"
             >
               clear all
             </button>
@@ -264,7 +264,7 @@
           <!-- No matches -->
           <div
             v-if="selected.matches.length === 0"
-            class="text-center py-10 text-gray-500"
+            class="text-center py-10 text-fg-muted"
           >
             No matches entered yet.
           </div>
@@ -272,7 +272,7 @@
           <!-- Group stage section -->
           <div v-if="groupStageMatches.length > 0" class="mb-6">
             <h3
-              class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3"
+              class="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3"
             >
               Group Stage
             </h3>
@@ -281,17 +281,17 @@
                 v-for="match in groupStageMatches"
                 :key="match.id"
                 @click="viewMatch(match)"
-                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
+                class="bg-card rounded-lg border border-line px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
               >
                 <!-- Mobile meta row -->
                 <div class="flex items-center justify-between mb-1.5 sm:hidden">
                   <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                    <span class="text-xs text-gray-400">{{
+                    <span class="text-xs text-fg-muted">{{
                       formatMatchDate(match.match_date)
                     }}</span>
                     <span
                       v-if="match.scheduled_kickoff"
-                      class="text-xs text-gray-400"
+                      class="text-xs text-fg-muted"
                       >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
                     >
                     <span
@@ -301,7 +301,7 @@
                     >
                     <span
                       v-if="match.tournament_group"
-                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg-muted"
                       >{{ match.tournament_group }}</span
                     >
                   </div>
@@ -323,7 +323,7 @@
                     >
                     <span
                       v-else
-                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
                       >Preview</span
                     >
                   </div>
@@ -331,10 +331,10 @@
                 <!-- Main row -->
                 <div class="flex items-center gap-2 sm:gap-3">
                   <div
-                    class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
+                    class="hidden sm:block w-24 shrink-0 text-xs text-fg-muted"
                   >
                     <div>{{ formatMatchDate(match.match_date) }}</div>
-                    <div v-if="match.scheduled_kickoff" class="text-gray-500">
+                    <div v-if="match.scheduled_kickoff" class="text-fg-muted">
                       {{ formatKickoffTime(match.scheduled_kickoff) }}
                     </div>
                   </div>
@@ -346,7 +346,7 @@
                     >
                     <span
                       v-if="match.tournament_group"
-                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg-muted"
                       >{{ match.tournament_group }}</span
                     >
                   </div>
@@ -359,7 +359,7 @@
                         class="w-5 h-5 object-contain shrink-0"
                       />
                       <span
-                        class="text-sm font-medium text-gray-900 text-right truncate flex-1 min-w-0"
+                        class="text-sm font-medium text-fg text-right truncate flex-1 min-w-0"
                         >{{ match.home_team?.name }}</span
                       >
                     </div>
@@ -368,7 +368,7 @@
                         'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
                         match.home_score != null
                           ? 'bg-gray-900 text-white font-bold'
-                          : 'text-gray-400',
+                          : 'text-fg-muted',
                       ]"
                     >
                       {{
@@ -381,7 +381,7 @@
                     </span>
                     <div class="flex-1 flex items-center gap-1.5 min-w-0">
                       <span
-                        class="text-sm font-medium text-gray-900 text-left truncate flex-1 min-w-0"
+                        class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
                         >{{ match.away_team?.name }}</span
                       >
                       <img
@@ -410,7 +410,7 @@
                     >
                     <span
                       v-else
-                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
                       >Preview</span
                     >
                   </div>
@@ -422,7 +422,7 @@
           <!-- Knockout section -->
           <div v-if="knockoutMatches.length > 0" class="mb-6">
             <h3
-              class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3"
+              class="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3"
             >
               Knockout Rounds
             </h3>
@@ -431,17 +431,17 @@
                 v-for="match in knockoutMatches"
                 :key="match.id"
                 @click="viewMatch(match)"
-                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
+                class="bg-card rounded-lg border border-line px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
               >
                 <!-- Mobile meta row -->
                 <div class="flex items-center justify-between mb-1.5 sm:hidden">
                   <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                    <span class="text-xs text-gray-400">{{
+                    <span class="text-xs text-fg-muted">{{
                       formatMatchDate(match.match_date)
                     }}</span>
                     <span
                       v-if="match.scheduled_kickoff"
-                      class="text-xs text-gray-400"
+                      class="text-xs text-fg-muted"
                       >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
                     >
                     <span
@@ -473,7 +473,7 @@
                     >
                     <span
                       v-else
-                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
                       >Preview</span
                     >
                   </div>
@@ -481,10 +481,10 @@
                 <!-- Main row -->
                 <div class="flex items-center gap-2 sm:gap-3">
                   <div
-                    class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
+                    class="hidden sm:block w-24 shrink-0 text-xs text-fg-muted"
                   >
                     <div>{{ formatMatchDate(match.match_date) }}</div>
-                    <div v-if="match.scheduled_kickoff" class="text-gray-500">
+                    <div v-if="match.scheduled_kickoff" class="text-fg-muted">
                       {{ formatKickoffTime(match.scheduled_kickoff) }}
                     </div>
                   </div>
@@ -501,7 +501,7 @@
                     >
                     <span
                       v-if="match.tournament_group"
-                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg-muted"
                       >{{ match.tournament_group }}</span
                     >
                   </div>
@@ -514,7 +514,7 @@
                         class="w-5 h-5 object-contain shrink-0"
                       />
                       <span
-                        class="text-sm font-medium text-gray-900 text-right truncate flex-1 min-w-0"
+                        class="text-sm font-medium text-fg text-right truncate flex-1 min-w-0"
                         >{{ match.home_team?.name }}</span
                       >
                     </div>
@@ -523,7 +523,7 @@
                         'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
                         match.home_score != null
                           ? 'bg-gray-900 text-white font-bold'
-                          : 'text-gray-400',
+                          : 'text-fg-muted',
                       ]"
                     >
                       {{
@@ -536,7 +536,7 @@
                     </span>
                     <div class="flex-1 flex items-center gap-1.5 min-w-0">
                       <span
-                        class="text-sm font-medium text-gray-900 text-left truncate flex-1 min-w-0"
+                        class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
                         >{{ match.away_team?.name }}</span
                       >
                       <img
@@ -565,7 +565,7 @@
                     >
                     <span
                       v-else
-                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
                       >Preview</span
                     >
                   </div>
@@ -577,7 +577,7 @@
           <!-- Untagged matches (no round set) -->
           <div v-if="untaggedMatches.length > 0" class="mb-6">
             <h3
-              class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3"
+              class="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3"
             >
               Matches
             </h3>
@@ -586,17 +586,17 @@
                 v-for="match in untaggedMatches"
                 :key="match.id"
                 @click="viewMatch(match)"
-                class="bg-white rounded-lg border border-gray-200 px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
+                class="bg-card rounded-lg border border-line px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
               >
                 <!-- Mobile meta row -->
                 <div class="flex items-center justify-between mb-1.5 sm:hidden">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <span class="text-xs text-gray-400">{{
+                    <span class="text-xs text-fg-muted">{{
                       formatMatchDate(match.match_date)
                     }}</span>
                     <span
                       v-if="match.scheduled_kickoff"
-                      class="text-xs text-gray-400"
+                      class="text-xs text-fg-muted"
                       >· {{ formatKickoffTime(match.scheduled_kickoff) }}</span
                     >
                     <span
@@ -623,7 +623,7 @@
                     >
                     <span
                       v-else
-                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
                       >Preview</span
                     >
                   </div>
@@ -631,10 +631,10 @@
                 <!-- Main row -->
                 <div class="flex items-center gap-2 sm:gap-3">
                   <div
-                    class="hidden sm:block w-24 shrink-0 text-xs text-gray-400"
+                    class="hidden sm:block w-24 shrink-0 text-xs text-fg-muted"
                   >
                     <div>{{ formatMatchDate(match.match_date) }}</div>
-                    <div v-if="match.scheduled_kickoff" class="text-gray-500">
+                    <div v-if="match.scheduled_kickoff" class="text-fg-muted">
                       {{ formatKickoffTime(match.scheduled_kickoff) }}
                     </div>
                   </div>
@@ -654,7 +654,7 @@
                         class="w-5 h-5 object-contain shrink-0"
                       />
                       <span
-                        class="text-sm font-medium text-gray-900 text-right truncate flex-1 min-w-0"
+                        class="text-sm font-medium text-fg text-right truncate flex-1 min-w-0"
                         >{{ match.home_team?.name }}</span
                       >
                     </div>
@@ -663,7 +663,7 @@
                         'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
                         match.home_score != null
                           ? 'bg-gray-900 text-white font-bold'
-                          : 'text-gray-400',
+                          : 'text-fg-muted',
                       ]"
                     >
                       {{
@@ -676,7 +676,7 @@
                     </span>
                     <div class="flex-1 flex items-center gap-1.5 min-w-0">
                       <span
-                        class="text-sm font-medium text-gray-900 text-left truncate flex-1 min-w-0"
+                        class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
                         >{{ match.away_team?.name }}</span
                       >
                       <img
@@ -705,7 +705,7 @@
                     >
                     <span
                       v-else
-                      class="text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
+                      class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
                       >Preview</span
                     >
                   </div>
@@ -726,7 +726,7 @@
               class="flex flex-wrap items-center gap-2"
             >
               <span
-                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mr-1"
                 >Age</span
               >
               <button
@@ -737,7 +737,7 @@
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   bracketAgeGroupId === ag.id
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+                    : 'bg-card border border-line text-fg hover:border-indigo-400',
                 ]"
               >
                 {{ ag.name }}
@@ -748,7 +748,7 @@
               class="flex flex-wrap items-center gap-2"
             >
               <span
-                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mr-1"
                 >Bracket</span
               >
               <button
@@ -759,7 +759,7 @@
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   bracketGroup === g
                     ? 'bg-brand-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+                    : 'bg-card border border-line text-fg hover:border-brand-400',
                 ]"
               >
                 {{ g }}
@@ -777,7 +777,7 @@
                 'sm:ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                 isBracketFollowed
                   ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+                  : 'bg-card border border-line text-fg hover:border-brand-400',
               ]"
             >
               <span v-if="isBracketFollowed">✓ Following — Unfollow</span>
@@ -785,7 +785,7 @@
             </button>
             <span
               v-else-if="bracketNeedsPush"
-              class="sm:ml-auto text-xs text-gray-500"
+              class="sm:ml-auto text-xs text-fg-muted"
               data-testid="bracket-follow-push-hint"
             >
               🔔 Enable notifications in your profile to follow this bracket.
@@ -809,7 +809,7 @@
               class="flex flex-wrap items-center gap-2"
             >
               <span
-                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mr-1"
                 >Age</span
               >
               <button
@@ -820,7 +820,7 @@
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   standingsAgeGroupId === ag.id
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400',
+                    : 'bg-card border border-line text-fg hover:border-indigo-400',
                 ]"
               >
                 {{ ag.name }}
@@ -831,7 +831,7 @@
               class="flex flex-wrap items-center gap-2"
             >
               <span
-                class="text-xs font-semibold text-gray-500 uppercase tracking-wider mr-1"
+                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mr-1"
                 >Bracket</span
               >
               <button
@@ -842,7 +842,7 @@
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   standingsGroup === g
                     ? 'bg-brand-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+                    : 'bg-card border border-line text-fg hover:border-brand-400',
                 ]"
               >
                 {{ g }}
@@ -861,7 +861,7 @@
                 'sm:ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                 isStandingsBracketFollowed
                   ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:border-brand-400',
+                  : 'bg-card border border-line text-fg hover:border-brand-400',
               ]"
             >
               <span v-if="isStandingsBracketFollowed"
@@ -871,7 +871,7 @@
             </button>
             <span
               v-else-if="standingsNeedsPush"
-              class="sm:ml-auto text-xs text-gray-500"
+              class="sm:ml-auto text-xs text-fg-muted"
               data-testid="standings-bracket-follow-push-hint"
             >
               🔔 Enable notifications in your profile to follow this bracket.

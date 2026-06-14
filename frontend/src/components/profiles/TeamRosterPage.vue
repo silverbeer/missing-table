@@ -425,13 +425,13 @@ export default {
   gap: 12px;
   margin-bottom: 16px;
   padding: 12px 16px;
-  background: #f9fafb;
+  background: rgb(var(--color-surface-alt));
   border-radius: 10px;
 }
 
 .dropdown-label {
   font-size: 14px;
-  color: #374151;
+  color: rgb(var(--color-fg));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -439,10 +439,11 @@ export default {
 .club-teams-dropdown {
   flex: 1;
   padding: 10px 14px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   font-size: 14px;
-  background: white;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
   cursor: pointer;
   min-width: 0;
 }
@@ -455,7 +456,7 @@ export default {
 
 .dropdown-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   white-space: nowrap;
 }
 
@@ -466,7 +467,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 48px 16px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .loading-spinner {
@@ -510,7 +511,7 @@ export default {
 }
 
 .error-container p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-bottom: 16px;
 }
 
@@ -681,7 +682,7 @@ export default {
   justify-content: center;
   padding: 48px 16px;
   text-align: center;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .empty-state.small {
@@ -691,7 +692,7 @@ export default {
 .empty-icon {
   width: 64px;
   height: 64px;
-  background-color: #f3f4f6;
+  background-color: rgb(var(--color-surface-alt));
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -702,20 +703,20 @@ export default {
 .empty-icon svg {
   width: 32px;
   height: 32px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
 }
 
 .empty-state p {
   margin: 0;
   font-size: 16px;
   font-weight: 500;
-  color: #4b5563;
+  color: rgb(var(--color-fg));
 }
 
 .empty-subtext {
   font-size: 14px !important;
   font-weight: 400 !important;
-  color: #9ca3af !important;
+  color: rgb(var(--color-fg-muted)) !important;
   margin-top: 8px !important;
 }
 

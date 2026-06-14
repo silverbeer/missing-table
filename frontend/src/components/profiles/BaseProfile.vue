@@ -359,11 +359,11 @@ export default {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid rgb(var(--color-line));
 }
 
 .profile-header h2 {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0;
 }
 
@@ -384,11 +384,11 @@ export default {
 .loading {
   text-align: center;
   padding: 40px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .profile-info {
-  background-color: #f9fafb;
+  background-color: rgb(var(--color-surface-alt));
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -402,7 +402,7 @@ export default {
 
 .info-group label {
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg));
   min-width: 120px;
   margin-right: 10px;
 }
@@ -410,15 +410,17 @@ export default {
 .profile-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 4px;
   font-size: 14px;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .profile-input:disabled {
   background-color: transparent;
   border: none;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .role-badge {
@@ -504,7 +506,7 @@ export default {
 .field-hint {
   display: block;
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-top: 4px;
   font-style: italic;
 }
@@ -569,8 +571,8 @@ export default {
 }
 
 .channel-platform {
-  background: white;
-  border: 1px solid #e0f2fe;
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 6px;
   padding: 14px;
   margin-bottom: 12px;
@@ -585,7 +587,7 @@ export default {
 
 .channel-platform-name {
   font-weight: 600;
-  color: #1e293b;
+  color: rgb(var(--color-fg));
   font-size: 14px;
 }
 
@@ -641,7 +643,7 @@ export default {
 
 .channel-hint {
   font-size: 12px;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
   margin: 6px 0 0 0;
   font-style: italic;
 }

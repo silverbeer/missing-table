@@ -149,7 +149,7 @@ export default {
 }
 
 .loading-state p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 16px;
   margin: 0;
 }
@@ -163,7 +163,7 @@ export default {
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
-  background-color: #f9fafb;
+  background-color: rgb(var(--color-surface-alt));
   border-radius: 12px;
   margin: 20px;
 }
@@ -188,7 +188,7 @@ export default {
 .not-authenticated h3,
 .not-player h3,
 .no-team h3 {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0 0 12px 0;
   font-size: 20px;
   font-weight: 600;
@@ -197,7 +197,7 @@ export default {
 .not-authenticated p,
 .not-player p,
 .no-team p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin: 0;
   font-size: 15px;
 }
@@ -205,7 +205,7 @@ export default {
 .sub-text {
   margin-top: 8px !important;
   font-size: 14px !important;
-  color: #9ca3af !important;
+  color: rgb(var(--color-fg-muted)) !important;
 }
 
 .router-content {

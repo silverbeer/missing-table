@@ -8,8 +8,8 @@
     >
       <div class="max-w-md mx-auto">
         <div class="text-red-600 text-6xl mb-4">🚫</div>
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-        <p class="text-gray-600">
+        <h2 class="text-2xl font-bold text-fg mb-2">Access Denied</h2>
+        <p class="text-fg-muted">
           You need administrator privileges to access this page.
         </p>
       </div>
@@ -19,7 +19,7 @@
     <div v-else>
       <!-- Admin Description -->
       <div class="mb-6">
-        <p class="text-gray-600">Manage league data and configurations</p>
+        <p class="text-fg-muted">Manage league data and configurations</p>
       </div>
 
       <!-- Admin Navigation -->
@@ -30,7 +30,7 @@
           id="admin-section-select"
           v-model="currentSection"
           data-testid="admin-section-select"
-          class="sm:hidden block w-full px-3 py-2.5 text-base font-medium bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          class="sm:hidden block w-full px-3 py-2.5 text-base font-medium bg-card border border-line rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
         >
           <optgroup
             v-for="category in adminCategories"
@@ -50,7 +50,7 @@
         <!-- Desktop: two-level tab bar (categories + sub-tabs) -->
         <div class="hidden sm:block space-y-2" aria-label="Admin sections">
           <nav
-            class="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-lg"
+            class="flex flex-wrap gap-1 bg-surface-alt p-1 rounded-lg"
             aria-label="Admin categories"
           >
             <button
@@ -60,8 +60,8 @@
               :data-testid="`admin-category-${category.id}`"
               :class="[
                 currentCategory === category.id
-                  ? 'bg-white text-gray-900 shadow'
-                  : 'text-gray-600 hover:text-gray-900',
+                  ? 'bg-card text-fg shadow'
+                  : 'text-fg-muted hover:text-fg',
                 'px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap',
               ]"
             >
@@ -80,8 +80,8 @@
               :data-testid="`admin-tab-${section.id}`"
               :class="[
                 currentSection === section.id
-                  ? 'text-brand-700 border-brand-500'
-                  : 'text-gray-500 hover:text-gray-800 border-transparent hover:border-gray-300',
+                  ? 'text-brand-700 border-brand-500 dark:text-brand-300 dark:border-brand-300'
+                  : 'text-fg-muted hover:text-fg border-transparent hover:border-line',
                 'px-3 py-1.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
               ]"
             >
@@ -93,7 +93,7 @@
 
       <!-- Section Content -->
       <div
-        class="bg-white rounded-lg shadow-sm border border-gray-200"
+        class="bg-card rounded-lg shadow-sm border border-line"
         data-testid="admin-content"
       >
         <!-- Invite Requests Management -->

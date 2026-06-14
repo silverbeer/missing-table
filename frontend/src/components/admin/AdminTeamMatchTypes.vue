@@ -1,43 +1,41 @@
 <template>
-  <div class="bg-white rounded-lg shadow p-6">
+  <div class="bg-card rounded-lg shadow p-6">
     <h2 class="text-2xl font-bold mb-6">
       Manage Team Match Type Participation
     </h2>
 
     <!-- Add Team Section -->
-    <div class="mb-8 p-4 border border-gray-200 rounded-lg">
+    <div class="mb-8 p-4 border border-line rounded-lg">
       <h3 class="text-lg font-semibold mb-4">Add New Team</h3>
       <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label class="block text-sm font-medium text-fg mb-1"
             >Team Name</label
           >
           <input
             v-model="newTeam.name"
             type="text"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+            class="block w-full rounded-md bg-card text-fg border-line shadow-sm focus:border-brand-500 focus:ring-brand-500"
             placeholder="e.g., Visiting Club ABC"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
-            >City</label
-          >
+          <label class="block text-sm font-medium text-fg mb-1">City</label>
           <input
             v-model="newTeam.city"
             type="text"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+            class="block w-full rounded-md bg-card text-fg border-line shadow-sm focus:border-brand-500 focus:ring-brand-500"
             placeholder="e.g., Toronto"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label class="block text-sm font-medium text-fg mb-1"
             >Team Type</label
           >
           <select
             v-model="newTeam.teamType"
             @change="onTeamTypeChange"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+            class="block w-full rounded-md bg-card text-fg border-line shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">Select Team Type</option>
             <option value="league">League Team</option>
@@ -46,12 +44,12 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label class="block text-sm font-medium text-fg mb-1"
             >Age Group</label
           >
           <select
             v-model="newTeam.ageGroupId"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+            class="block w-full rounded-md bg-card text-fg border-line shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">Select Age Group</option>
             <option
@@ -64,9 +62,9 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+          <label class="block text-sm font-medium text-fg mb-1">
             Match Types
-            <span class="text-xs text-gray-500"
+            <span class="text-xs text-fg-muted"
               >(auto-selected based on team type)</span
             >
           </label>
@@ -80,7 +78,7 @@
                 type="checkbox"
                 :value="matchType.id"
                 v-model="newTeam.matchTypeIds"
-                class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                class="rounded border-line text-brand-600 focus:ring-brand-500"
               />
               <span class="ml-2">{{ matchType.name }}</span>
             </label>
@@ -95,7 +93,7 @@
           !newTeam.teamType ||
           newTeam.matchTypeIds.length === 0
         "
-        class="mt-4 bg-brand-500 text-white px-4 py-2 rounded-md hover:bg-brand-600 disabled:bg-gray-300"
+        class="mt-4 bg-brand-500 text-white px-4 py-2 rounded-md hover:bg-brand-600 disabled:bg-line"
       >
         Add
         {{
@@ -115,12 +113,12 @@
       <!-- Filters -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label class="block text-sm font-medium text-fg mb-1"
             >Filter by Age Group</label
           >
           <select
             v-model="filterAgeGroup"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+            class="block w-full rounded-md bg-card text-fg border-line shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">All Age Groups</option>
             <option
@@ -133,12 +131,12 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label class="block text-sm font-medium text-fg mb-1"
             >Filter by Match Type</label
           >
           <select
             v-model="filterMatchType"
-            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+            class="block w-full rounded-md bg-card text-fg border-line shadow-sm focus:border-brand-500 focus:ring-brand-500"
           >
             <option value="">All Match Types</option>
             <option
@@ -162,47 +160,47 @@
 
       <!-- Teams Table -->
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+        <table class="min-w-full divide-y divide-line">
+          <thead class="bg-surface-alt">
             <tr>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Team
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 City
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Age Groups
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Match Types
               </th>
               <th
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
+          <tbody class="bg-card divide-y divide-line">
             <tr v-for="team in filteredTeams" :key="team.id">
               <td
-                class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+                class="px-6 py-4 whitespace-nowrap text-sm font-medium text-fg"
               >
                 {{ team.name }}
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
                 {{ team.city }}
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
                 <span
                   v-for="ageGroup in team.age_groups"
                   :key="ageGroup.id"
@@ -211,7 +209,7 @@
                   {{ ageGroup.name }}
                 </span>
               </td>
-              <td class="px-6 py-4 text-sm text-gray-500">
+              <td class="px-6 py-4 text-sm text-fg-muted">
                 <div class="space-y-1">
                   <div v-for="ageGroup in team.age_groups" :key="ageGroup.id">
                     <span class="font-medium">{{ ageGroup.name }}:</span>
@@ -222,7 +220,7 @@
                       :class="
                         teamCanParticipate(team.id, matchType.id, ageGroup.id)
                           ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-500'
+                          : 'bg-surface-alt text-fg-muted'
                       "
                     >
                       {{ matchType.name }}
@@ -233,7 +231,7 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <button
                   @click="editTeam(team)"
-                  class="text-brand-600 hover:text-brand-900 mr-3"
+                  class="text-brand-600 dark:text-brand-300 hover:text-brand-900 dark:hover:text-brand-200 mr-3"
                 >
                   Edit Participation
                 </button>

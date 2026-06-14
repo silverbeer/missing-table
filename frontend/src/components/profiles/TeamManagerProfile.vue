@@ -462,7 +462,7 @@ export default {
 }
 
 .club-location {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-weight: 400;
   font-size: 0.9em;
 }
@@ -483,30 +483,32 @@ export default {
 }
 
 .team-selection-section {
-  background-color: #f0f9ff;
+  background-color: rgb(var(--color-surface-alt));
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
-  border: 1px solid #bae6fd;
+  border: 1px solid rgb(var(--color-line));
 }
 
 .team-selector label {
   display: block;
   font-weight: 600;
   margin-bottom: 10px;
-  color: #1e40af;
+  color: rgb(var(--color-fg));
 }
 
 .team-select {
   width: 100%;
   padding: 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 4px;
   font-size: 14px;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .team-management {
-  background-color: #f8fafc;
+  background-color: rgb(var(--color-surface-alt));
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -519,10 +521,10 @@ export default {
 }
 
 .management-card {
-  background: white;
+  background: rgb(var(--color-card));
   padding: 20px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: center;
@@ -540,13 +542,13 @@ export default {
 }
 
 .management-card h4 {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 10px 0 5px 0;
   font-size: 16px;
 }
 
 .management-card p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 14px;
   margin: 0 0 10px 0;
 }
@@ -559,8 +561,8 @@ export default {
 
 .players-section,
 .games-section {
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
+  background-color: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   margin-bottom: 20px;
 }
@@ -570,14 +572,14 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   cursor: pointer;
   padding: 0;
   width: 30px;
@@ -601,9 +603,9 @@ export default {
   display: flex;
   align-items: center;
   padding: 15px;
-  background-color: #f9fafb;
+  background-color: rgb(var(--color-surface-alt));
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
 }
 
 .player-avatar {
@@ -625,11 +627,11 @@ export default {
 
 .player-details h4 {
   margin: 0 0 5px 0;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .player-email {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 14px;
   margin: 0 0 5px 0;
 }
@@ -662,15 +664,15 @@ export default {
   gap: 15px;
   align-items: center;
   padding: 15px;
-  background-color: #f9fafb;
+  background-color: rgb(var(--color-surface-alt));
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   margin-bottom: 10px;
 }
 
 .game-date {
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg));
   font-size: 14px;
 }
 
@@ -681,7 +683,7 @@ export default {
 }
 
 .vs {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 12px;
 }
 
@@ -698,7 +700,7 @@ export default {
 .game-type {
   text-align: center;
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .team-stats {
@@ -721,7 +723,7 @@ export default {
 
 .stat-item {
   text-align: center;
-  background: white;
+  background: rgb(var(--color-card));
   padding: 15px;
   border-radius: 6px;
 }
@@ -734,7 +736,7 @@ export default {
 }
 
 .stat-label {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -753,19 +755,19 @@ export default {
 }
 
 .no-team-message p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-bottom: 20px;
 }
 
 .contact-admin {
-  background: white;
+  background: rgb(var(--color-card));
   padding: 20px;
   border-radius: 6px;
   text-align: left;
 }
 
 .contact-admin ul {
-  color: #374151;
+  color: rgb(var(--color-fg));
   margin: 10px 0 0 20px;
 }
 

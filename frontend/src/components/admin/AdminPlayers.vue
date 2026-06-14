@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h3 class="text-lg font-semibold text-gray-900">Players Management</h3>
+      <h3 class="text-lg font-semibold text-fg">Players Management</h3>
     </div>
 
     <!-- Search and Filters -->
@@ -11,14 +11,14 @@
           v-model="searchQuery"
           type="text"
           placeholder="Search by name or email..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           @input="debouncedSearch"
         />
       </div>
       <div class="w-48">
         <select
           v-model="selectedClubId"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           @change="fetchPlayers"
         >
           <option :value="null">All Clubs</option>
@@ -30,7 +30,7 @@
       <div class="w-48">
         <select
           v-model="selectedTeamId"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           @change="fetchPlayers"
         >
           <option :value="null">All Teams</option>
@@ -61,42 +61,42 @@
       v-else-if="!loading"
       class="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 md:rounded-lg"
     >
-      <table class="min-w-full divide-y divide-gray-300">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-line">
+        <thead class="bg-surface-alt">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Player
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Email
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Jersey #
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Current Teams
             </th>
             <th
-              class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-card divide-y divide-line">
           <tr v-for="player in players" :key="player.id">
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="flex items-center">
                 <div
-                  class="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200 flex items-center justify-center"
+                  class="h-10 w-10 flex-shrink-0 rounded-full bg-surface-alt flex items-center justify-center"
                 >
                   <img
                     v-if="player.photo_1_url"
@@ -104,24 +104,24 @@
                     class="h-10 w-10 rounded-full object-cover"
                     alt=""
                   />
-                  <span v-else class="text-gray-500 text-sm">{{
+                  <span v-else class="text-fg-muted text-sm">{{
                     getInitials(player.display_name)
                   }}</span>
                 </div>
                 <div class="ml-4">
-                  <div class="text-sm font-medium text-gray-900">
+                  <div class="text-sm font-medium text-fg">
                     {{ player.display_name || 'Unknown' }}
                   </div>
                 </div>
               </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ player.email || '-' }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               {{ player.player_number || '-' }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               <div class="flex flex-wrap gap-1">
                 <span
                   v-for="assignment in player.current_teams"
@@ -134,7 +134,7 @@
                   v-if="
                     !player.current_teams || player.current_teams.length === 0
                   "
-                  class="text-gray-400 italic"
+                  class="text-fg-muted italic"
                 >
                   No team assigned
                 </span>
@@ -145,7 +145,7 @@
             >
               <button
                 @click="openEditModal(player)"
-                class="text-brand-600 hover:text-brand-900 mr-3"
+                class="text-brand-600 dark:text-brand-300 hover:text-brand-900 dark:hover:text-brand-200 mr-3"
               >
                 Edit
               </button>
@@ -158,7 +158,7 @@
             </td>
           </tr>
           <tr v-if="players.length === 0">
-            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+            <td colspan="5" class="px-6 py-8 text-center text-fg-muted">
               No players found
             </td>
           </tr>
@@ -168,20 +168,20 @@
       <!-- Pagination -->
       <div
         v-if="totalCount > 0"
-        class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6"
+        class="bg-card px-4 py-3 flex items-center justify-between border-t border-line sm:px-6"
       >
         <div class="flex-1 flex justify-between sm:hidden">
           <button
             @click="previousPage"
             :disabled="offset === 0"
-            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            class="relative inline-flex items-center px-4 py-2 border border-line text-sm font-medium rounded-md text-fg bg-card hover:bg-surface-alt disabled:opacity-50"
           >
             Previous
           </button>
           <button
             @click="nextPage"
             :disabled="offset + limit >= totalCount"
-            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            class="ml-3 relative inline-flex items-center px-4 py-2 border border-line text-sm font-medium rounded-md text-fg bg-card hover:bg-surface-alt disabled:opacity-50"
           >
             Next
           </button>
@@ -190,7 +190,7 @@
           class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between"
         >
           <div>
-            <p class="text-sm text-gray-700">
+            <p class="text-sm text-fg">
               Showing
               <span class="font-medium">{{ offset + 1 }}</span>
               to
@@ -210,14 +210,14 @@
               <button
                 @click="previousPage"
                 :disabled="offset === 0"
-                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-line bg-card text-sm font-medium text-fg-muted hover:bg-surface-alt disabled:opacity-50"
               >
                 Previous
               </button>
               <button
                 @click="nextPage"
                 :disabled="offset + limit >= totalCount"
-                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-line bg-card text-sm font-medium text-fg-muted hover:bg-surface-alt disabled:opacity-50"
               >
                 Next
               </button>
@@ -234,24 +234,24 @@
       @click="closeModals"
     >
       <div
-        class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white"
+        class="relative top-20 mx-auto p-5 border border-line w-96 shadow-lg rounded-md bg-card"
         @click.stop
       >
         <div class="mt-3">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Player</h3>
+          <h3 class="text-lg font-medium text-fg mb-4">Edit Player</h3>
           <form @submit.prevent="updatePlayer">
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Display Name</label
               >
               <input
                 v-model="editForm.display_name"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Jersey Number</label
               >
               <input
@@ -259,11 +259,11 @@
                 type="number"
                 min="1"
                 max="99"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
+              <label class="block text-sm font-medium text-fg mb-2"
                 >Positions</label
               >
               <div class="flex flex-wrap gap-2">
@@ -276,9 +276,9 @@
                     type="checkbox"
                     :value="pos"
                     v-model="editForm.positions"
-                    class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                    class="rounded border-line text-brand-600 focus:ring-brand-500"
                   />
-                  <span class="ml-2 text-sm text-gray-700">{{ pos }}</span>
+                  <span class="ml-2 text-sm text-fg">{{ pos }}</span>
                 </label>
               </div>
             </div>
@@ -286,7 +286,7 @@
               <button
                 type="button"
                 @click="closeModals"
-                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                class="px-4 py-2 bg-surface-alt text-fg rounded-md hover:bg-line"
               >
                 Cancel
               </button>
@@ -310,17 +310,17 @@
       @click="closeModals"
     >
       <div
-        class="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white"
+        class="relative top-20 mx-auto p-5 border border-line w-[500px] shadow-lg rounded-md bg-card"
         @click.stop
       >
         <div class="mt-3">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <h3 class="text-lg font-medium text-fg mb-4">
             Manage Teams for {{ selectedPlayer?.display_name }}
           </h3>
 
           <!-- Current Team Assignments -->
           <div class="mb-6">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">
+            <h4 class="text-sm font-medium text-fg mb-2">
               Current Team Assignments
             </h4>
             <div
@@ -330,13 +330,13 @@
               <div
                 v-for="assignment in selectedPlayer.current_teams"
                 :key="assignment.id"
-                class="flex items-center justify-between p-2 bg-gray-50 rounded"
+                class="flex items-center justify-between p-2 bg-surface-alt rounded"
               >
                 <div>
                   <span class="font-medium">{{
                     assignment.team?.name || 'Unknown'
                   }}</span>
-                  <span class="text-gray-500 text-sm ml-2">
+                  <span class="text-fg-muted text-sm ml-2">
                     ({{ assignment.season?.name || 'Unknown Season' }})
                   </span>
                 </div>
@@ -348,24 +348,24 @@
                 </button>
               </div>
             </div>
-            <div v-else class="text-gray-500 text-sm">
+            <div v-else class="text-fg-muted text-sm">
               No current assignments
             </div>
           </div>
 
           <!-- Add New Assignment -->
-          <div class="border-t pt-4">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">
+          <div class="border-t border-line pt-4">
+            <h4 class="text-sm font-medium text-fg mb-2">
               Add Team Assignment
             </h4>
             <form @submit.prevent="addTeamAssignment">
               <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label class="block text-sm text-gray-600 mb-1">Season</label>
+                  <label class="block text-sm text-fg-muted mb-1">Season</label>
                   <select
                     v-model="assignmentForm.season_id"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option :value="null" disabled>Select season</option>
                     <option
@@ -378,11 +378,11 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-sm text-gray-600 mb-1">Team</label>
+                  <label class="block text-sm text-fg-muted mb-1">Team</label>
                   <select
                     v-model="assignmentForm.team_id"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option :value="null" disabled>Select team</option>
                     <option
@@ -397,7 +397,7 @@
               </div>
               <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label class="block text-sm text-gray-600 mb-1"
+                  <label class="block text-sm text-fg-muted mb-1"
                     >Jersey Number</label
                   >
                   <input
@@ -405,7 +405,7 @@
                     type="number"
                     min="1"
                     max="99"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
                 <div class="flex items-end">
@@ -413,9 +413,9 @@
                     <input
                       type="checkbox"
                       v-model="assignmentForm.is_current"
-                      class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                      class="rounded border-line text-brand-600 focus:ring-brand-500"
                     />
-                    <span class="ml-2 text-sm text-gray-700">Current team</span>
+                    <span class="ml-2 text-sm text-fg">Current team</span>
                   </label>
                 </div>
               </div>
@@ -423,7 +423,7 @@
                 <button
                   type="button"
                   @click="closeModals"
-                  class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                  class="px-4 py-2 bg-surface-alt text-fg rounded-md hover:bg-line"
                 >
                   Close
                 </button>

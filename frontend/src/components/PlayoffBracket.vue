@@ -1,7 +1,7 @@
 <template>
   <div class="playoff-bracket">
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-8 text-gray-500">
+    <div v-if="loading" class="text-center py-8 text-fg-muted">
       Loading bracket...
     </div>
 
@@ -13,7 +13,7 @@
     <!-- No bracket -->
     <div
       v-else-if="bracket.length === 0"
-      class="text-center py-8 text-gray-400 text-sm"
+      class="text-center py-8 text-fg-muted text-sm"
     >
       No playoff bracket available.
     </div>
@@ -772,10 +772,10 @@ export default {
 .tier-header {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg));
   margin-bottom: 0.75rem;
   padding-bottom: 0.25rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 /* Bracket layout — 5 columns: QF | connectors | SF | connectors | Final */
@@ -793,7 +793,7 @@ export default {
 .round-header {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   text-transform: uppercase;
   letter-spacing: 0.05em;
   text-align: center;
@@ -802,10 +802,10 @@ export default {
 
 /* Matchup cards */
 .matchup-card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 0.5rem;
   overflow: hidden;
-  background: #fff;
+  background: rgb(var(--color-card));
   font-size: 0.8125rem;
 }
 
@@ -837,7 +837,7 @@ export default {
 }
 
 .team-row + .team-row {
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid rgb(var(--color-line));
 }
 
 .team-row.winner {
@@ -849,7 +849,7 @@ export default {
 .seed {
   width: 1rem;
   text-align: right;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   font-size: 0.6875rem;
   margin-right: 0.375rem;
   flex-shrink: 0;
@@ -924,7 +924,7 @@ export default {
   position: absolute;
   right: 0;
   width: 50%;
-  border-top: 2px solid #d1d5db;
+  border-top: 2px solid rgb(var(--color-line));
 }
 
 .connector-line.top {
@@ -940,14 +940,14 @@ export default {
   right: 0;
   top: 25%;
   height: 50%;
-  border-right: 2px solid #d1d5db;
+  border-right: 2px solid rgb(var(--color-line));
 }
 
 /* Match info and controls */
 .match-info {
   padding: 0.25rem 0.5rem;
-  background: #f9fafb;
-  border-top: 1px solid #f3f4f6;
+  background: rgb(var(--color-surface-alt));
+  border-top: 1px solid rgb(var(--color-line));
   font-size: 0.6875rem;
 }
 
@@ -958,7 +958,7 @@ export default {
 }
 
 .match-date {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
 }
 
 .slot-controls {
@@ -971,15 +971,15 @@ export default {
 .advance-btn {
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  border: 1px solid #e5e7eb;
-  background: #fff;
+  border: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-card));
   cursor: pointer;
   font-size: 0.625rem;
   transition: background-color 0.15s;
 }
 
 .edit-btn:hover {
-  background: #f3f4f6;
+  background: rgb(var(--color-surface-alt));
 }
 
 .advance-btn {
@@ -1081,9 +1081,11 @@ export default {
 .date-input,
 .time-input {
   padding: 0.125rem 0.25rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 0.25rem;
   font-size: 0.625rem;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .date-input {

@@ -168,7 +168,7 @@ export default {
   aspect-ratio: 1;
   border-radius: 12px;
   overflow: hidden;
-  background-color: #f3f4f6;
+  background-color: rgb(var(--color-surface-alt));
 }
 
 .photo-container {
@@ -191,8 +191,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #e5e7eb;
-  color: #9ca3af;
+  background-color: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
 }
 
 .photo-placeholder svg {

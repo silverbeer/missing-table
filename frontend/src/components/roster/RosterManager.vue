@@ -10,15 +10,11 @@
       data-testid="roster-manager"
     >
       <!-- Header -->
-      <div
-        class="p-4 border-b border-gray-200 flex justify-between items-center"
-      >
-        <h3 class="text-lg font-semibold text-gray-900">
-          Roster: {{ teamName }}
-        </h3>
+      <div class="p-4 border-b border-line flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-fg">Roster: {{ teamName }}</h3>
         <button
           @click="$emit('close')"
-          class="text-gray-400 hover:text-gray-600"
+          class="text-fg-muted hover:text-fg"
           data-testid="close-roster-button"
         >
           <svg
@@ -38,11 +34,9 @@
       </div>
 
       <!-- Action Bar -->
-      <div
-        class="p-4 border-b border-gray-200 flex justify-between items-center"
-      >
+      <div class="p-4 border-b border-line flex justify-between items-center">
         <div class="flex items-center space-x-3">
-          <div class="text-sm text-gray-600">
+          <div class="text-sm text-fg-muted">
             {{ roster.length }} player{{ roster.length !== 1 ? 's' : '' }}
           </div>
           <!-- Bulk age-group assignment (SB-69): shows when rows are selected -->
@@ -51,12 +45,12 @@
             class="flex items-center space-x-2"
             data-testid="bulk-age-group-bar"
           >
-            <span class="text-sm text-gray-600"
+            <span class="text-sm text-fg-muted"
               >{{ selectedIds.length }} selected</span
             >
             <select
               v-model.number="bulkAgeGroupId"
-              class="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+              class="px-2 py-1 text-sm bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
               data-testid="bulk-age-group-select"
             >
               <option :value="null" disabled>Age group…</option>
@@ -77,7 +71,7 @@
         <div class="flex space-x-2">
           <button
             @click="showBulkImportModal = true"
-            class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            class="px-3 py-1.5 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
             data-testid="bulk-import-button"
           >
             Bulk Import
@@ -115,7 +109,7 @@
       <!-- Empty State -->
       <div
         v-else-if="roster.length === 0"
-        class="p-8 text-center text-gray-500"
+        class="p-8 text-center text-fg-muted"
         data-testid="roster-empty"
       >
         <div class="text-4xl mb-2">👤</div>
@@ -125,52 +119,52 @@
 
       <!-- Roster Table -->
       <div v-else class="overflow-x-auto" data-testid="roster-table-container">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+        <table class="min-w-full divide-y divide-line">
+          <thead class="bg-surface-alt">
             <tr>
               <th class="px-4 py-3 text-left w-10">
                 <input
                   type="checkbox"
                   :checked="allSelected"
                   @change="toggleSelectAll"
-                  class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  class="rounded border-line text-brand-600 focus:ring-brand-500"
                   title="Select all"
                   data-testid="select-all-checkbox"
                 />
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16"
+                class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-16"
               >
                 #
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Name
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28"
+                class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider w-28"
               >
                 Age Group
               </th>
               <th
-                class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20"
+                class="px-4 py-3 text-center text-xs font-medium text-fg-muted uppercase tracking-wider w-20"
               >
                 Account
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
               >
                 Positions
               </th>
               <th
-                class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-40"
+                class="px-4 py-3 text-right text-xs font-medium text-fg-muted uppercase tracking-wider w-40"
               >
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
+          <tbody class="bg-card divide-y divide-line">
             <tr
               v-for="player in roster"
               :key="player.id"
@@ -181,16 +175,14 @@
                   type="checkbox"
                   :value="player.id"
                   v-model="selectedIds"
-                  class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  class="rounded border-line text-brand-600 focus:ring-brand-500"
                   :data-testid="`select-player-${player.id}`"
                 />
               </td>
-              <td
-                class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900"
-              >
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-fg">
                 {{ player.jersey_number }}
               </td>
-              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-fg">
                 {{ player.display_name }}
               </td>
               <!-- Age-group badge + inline single-row quick-assign (SB-69) -->
@@ -202,7 +194,7 @@
                   class="px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   :class="
                     player.age_group_id
-                      ? 'border-gray-300 text-gray-900'
+                      ? 'border-line text-fg bg-card'
                       : 'border-amber-300 text-amber-700 bg-amber-50'
                   "
                   :data-testid="`row-age-group-${player.id}`"
@@ -221,14 +213,14 @@
                 >
                   ✓
                 </span>
-                <span v-else class="text-gray-300">—</span>
+                <span v-else class="text-fg-muted">—</span>
               </td>
-              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-fg-muted">
                 <div class="flex flex-wrap gap-1">
                   <span
                     v-for="pos in player.positions || []"
                     :key="pos"
-                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg"
                   >
                     {{ pos }}
                   </span>
@@ -239,7 +231,7 @@
               >
                 <button
                   @click="openEditModal(player)"
-                  class="text-brand-600 hover:text-brand-900"
+                  class="text-brand-600 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-200"
                   title="Edit name/positions"
                   data-testid="edit-player-button"
                 >
@@ -247,7 +239,7 @@
                 </button>
                 <button
                   @click="openChangeNumberModal(player)"
-                  class="text-gray-600 hover:text-gray-900"
+                  class="text-fg-muted hover:text-fg"
                   title="Change jersey number"
                   data-testid="change-number-button"
                 >
@@ -289,10 +281,10 @@
           data-testid="add-player-modal"
         >
           <div class="p-6">
-            <h4 class="text-lg font-medium text-gray-900 mb-4">Add Player</h4>
+            <h4 class="text-lg font-medium text-fg mb-4">Add Player</h4>
             <form @submit.prevent="addPlayer" data-testid="add-player-form">
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-fg mb-2">
                   Jersey Number <span class="text-red-500">*</span>
                 </label>
                 <input
@@ -301,39 +293,39 @@
                   min="1"
                   max="99"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="1-99"
                   data-testid="jersey-number-input"
                 />
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >First Name</label
                 >
                 <input
                   v-model="addForm.first_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Optional"
                   data-testid="first-name-input"
                 />
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Last Name</label
                 >
                 <input
                   v-model="addForm.last_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Optional"
                   data-testid="last-name-input"
                 />
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Positions</label
                 >
                 <div class="flex flex-wrap gap-2">
@@ -346,9 +338,9 @@
                       type="checkbox"
                       :value="pos"
                       v-model="addForm.positions"
-                      class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                      class="rounded border-line text-brand-600 focus:ring-brand-500"
                     />
-                    <span class="ml-1 text-sm text-gray-700">{{ pos }}</span>
+                    <span class="ml-1 text-sm text-fg">{{ pos }}</span>
                   </label>
                 </div>
               </div>
@@ -356,7 +348,7 @@
                 <button
                   type="button"
                   @click="closeInnerModals"
-                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
                 >
                   Cancel
                 </button>
@@ -387,36 +379,36 @@
           data-testid="edit-player-modal"
         >
           <div class="p-6">
-            <h4 class="text-lg font-medium text-gray-900 mb-4">
+            <h4 class="text-lg font-medium text-fg mb-4">
               Edit Player #{{ editingPlayer?.jersey_number }}
             </h4>
             <form @submit.prevent="updatePlayer" data-testid="edit-player-form">
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >First Name</label
                 >
                 <input
                   v-model="editForm.first_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   data-testid="edit-first-name-input"
                 />
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Last Name</label
                 >
                 <input
                   v-model="editForm.last_name"
                   type="text"
                   maxlength="100"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   data-testid="edit-last-name-input"
                 />
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2"
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Positions</label
                 >
                 <div class="flex flex-wrap gap-2">
@@ -429,9 +421,9 @@
                       type="checkbox"
                       :value="pos"
                       v-model="editForm.positions"
-                      class="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                      class="rounded border-line text-brand-600 focus:ring-brand-500"
                     />
-                    <span class="ml-1 text-sm text-gray-700">{{ pos }}</span>
+                    <span class="ml-1 text-sm text-fg">{{ pos }}</span>
                   </label>
                 </div>
               </div>
@@ -439,7 +431,7 @@
                 <button
                   type="button"
                   @click="closeInnerModals"
-                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
                 >
                   Cancel
                 </button>
@@ -470,10 +462,10 @@
           data-testid="change-number-modal"
         >
           <div class="p-6">
-            <h4 class="text-lg font-medium text-gray-900 mb-4">
+            <h4 class="text-lg font-medium text-fg mb-4">
               Change Jersey Number
             </h4>
-            <p class="text-sm text-gray-600 mb-4">
+            <p class="text-sm text-fg-muted mb-4">
               Current: #{{ editingPlayer?.jersey_number }} ({{
                 editingPlayer?.display_name
               }})
@@ -483,7 +475,7 @@
               data-testid="change-number-form"
             >
               <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-sm font-medium text-fg mb-2">
                   New Number <span class="text-red-500">*</span>
                 </label>
                 <input
@@ -492,7 +484,7 @@
                   min="1"
                   max="99"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   data-testid="new-jersey-number-input"
                 />
               </div>
@@ -500,7 +492,7 @@
                 <button
                   type="button"
                   @click="closeInnerModals"
-                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
                 >
                   Cancel
                 </button>
@@ -531,10 +523,10 @@
           data-testid="bulk-import-modal"
         >
           <div class="p-6">
-            <h4 class="text-lg font-medium text-gray-900 mb-4">
+            <h4 class="text-lg font-medium text-fg mb-4">
               Bulk Import Players
             </h4>
-            <p class="text-sm text-gray-600 mb-4">
+            <p class="text-sm text-fg-muted mb-4">
               Enter jersey numbers, one per line. Players will be created with
               just the number.
             </p>
@@ -543,7 +535,7 @@
                 <textarea
                   v-model="bulkImportText"
                   rows="8"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
                   placeholder="1&#10;7&#10;10&#10;11&#10;23"
                   data-testid="bulk-import-textarea"
                 ></textarea>
@@ -552,7 +544,7 @@
                 <button
                   type="button"
                   @click="closeInnerModals"
-                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
                 >
                   Cancel
                 </button>
@@ -584,16 +576,15 @@
         >
           <div class="p-6 text-center">
             <div class="text-4xl mb-4">✉️</div>
-            <h4 class="text-lg font-medium text-gray-900 mb-2">
-              Invite Created!
-            </h4>
-            <p class="text-sm text-gray-600 mb-4">
+            <h4 class="text-lg font-medium text-fg mb-2">Invite Created!</h4>
+            <p class="text-sm text-fg-muted mb-4">
               Share this code with #{{ invitePlayer?.jersey_number }}:
             </p>
-            <div class="bg-gray-100 rounded-lg p-4 mb-4">
-              <code class="text-lg font-mono font-bold text-brand-600">{{
-                inviteCode
-              }}</code>
+            <div class="bg-surface-alt rounded-lg p-4 mb-4">
+              <code
+                class="text-lg font-mono font-bold text-brand-600 dark:text-brand-300"
+                >{{ inviteCode }}</code
+              >
             </div>
             <button
               @click="copyInviteCode"
@@ -603,7 +594,7 @@
             </button>
             <button
               @click="closeInnerModals"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
             >
               Close
             </button>
@@ -1068,7 +1059,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 8px;
   max-width: 800px;
   width: 95%;

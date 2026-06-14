@@ -499,12 +499,12 @@ export default {
 .capabilities-section h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
   margin: 0 0 8px 0;
 }
 
 .section-description {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 14px;
   margin: 0 0 16px 0;
   line-height: 1.5;
@@ -521,9 +521,9 @@ export default {
   align-items: flex-start;
   gap: 16px;
   padding: 20px;
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   text-decoration: none;
   color: inherit;
   transition: all 0.2s;
@@ -556,19 +556,19 @@ export default {
   margin: 0 0 6px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .capability-content p {
   margin: 0;
   font-size: 13px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   line-height: 1.4;
 }
 
 .capability-arrow {
   font-size: 20px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   transition: transform 0.2s;
   align-self: center;
 }
@@ -593,7 +593,7 @@ export default {
 }
 
 .no-club-card p {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin: 0;
 }
 
@@ -613,7 +613,7 @@ export default {
 .edit-modal {
   width: 100%;
   max-width: 440px;
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
@@ -624,27 +624,27 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   cursor: pointer;
   padding: 0;
   line-height: 1;
 }
 
 .close-btn:hover {
-  color: #1f2937;
+  color: rgb(var(--color-fg));
 }
 
 .modal-body {
@@ -659,16 +659,18 @@ export default {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: rgb(var(--color-fg));
   margin-bottom: 6px;
 }
 
 .form-group input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   font-size: 14px;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .form-group input:focus {
@@ -689,15 +691,15 @@ export default {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-top: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-surface-alt));
 }
 
 .cancel-btn {
   padding: 10px 20px;
-  background: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   font-weight: 500;
   font-size: 14px;
@@ -706,7 +708,7 @@ export default {
 }
 
 .cancel-btn:hover {
-  background: #f3f4f6;
+  background: rgb(var(--color-surface-alt));
 }
 
 .save-btn {

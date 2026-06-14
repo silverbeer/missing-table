@@ -268,7 +268,7 @@ export default {
 
 .section-desc {
   font-size: 13px;
-  color: #475569;
+  color: rgb(var(--color-fg-muted));
   margin: 0 0 16px 0;
   line-height: 1.5;
 }
@@ -280,8 +280,8 @@ export default {
 }
 
 .platform-item {
-  background: white;
-  border: 1px solid #e0f2fe;
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   padding: 14px;
 }
@@ -296,7 +296,7 @@ export default {
 .platform-name {
   font-weight: 600;
   font-size: 14px;
-  color: #1e293b;
+  color: rgb(var(--color-fg));
 }
 
 .status-pill {
@@ -306,8 +306,8 @@ export default {
   border-radius: 10px;
 }
 .pill-none {
-  background: #f1f5f9;
-  color: #94a3b8;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
 }
 .pill-pending {
   background: #fef9c3;
@@ -331,14 +331,16 @@ export default {
 .handle-input {
   flex: 1;
   padding: 7px 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 6px;
   font-size: 13px;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
 }
 
 .handle-input:disabled {
-  background: #f9fafb;
-  color: #9ca3af;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
 }
 
 .request-btn {
@@ -370,7 +372,7 @@ export default {
 
 .status-msg {
   font-size: 12px;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
   margin: 6px 0 0;
   font-style: italic;
 }

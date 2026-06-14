@@ -20,7 +20,7 @@
           :class="
             currentStatus === tab.value
               ? 'bg-brand-600 text-white border-brand-600'
-              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              : 'bg-card text-fg border-line hover:bg-surface-alt'
           "
           @click="$emit('filter', tab.value)"
         >
@@ -38,11 +38,11 @@
           type="text"
           placeholder="MT-42"
           data-testid="support-inbox-search"
-          class="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 w-32"
+          class="px-3 py-1.5 text-sm bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 w-32"
         />
         <button
           type="submit"
-          class="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700"
+          class="px-3 py-1.5 text-sm bg-surface-alt hover:bg-line rounded-md text-fg"
           data-testid="support-inbox-search-submit"
         >
           Go
@@ -53,7 +53,7 @@
     <!-- Loading / empty / rows -->
     <div
       v-if="loading && threads.items.length === 0"
-      class="text-center text-gray-500 py-12"
+      class="text-center text-fg-muted py-12"
       data-testid="support-inbox-loading"
     >
       Loading threads…
@@ -61,7 +61,7 @@
 
     <div
       v-else-if="threads.items.length === 0"
-      class="text-center text-gray-500 py-12 bg-gray-50 rounded-lg"
+      class="text-center text-fg-muted py-12 bg-surface-alt rounded-lg"
       data-testid="support-inbox-empty"
     >
       <p class="font-medium mb-1">No threads in this view.</p>
@@ -70,20 +70,20 @@
 
     <ul
       v-else
-      class="divide-y divide-gray-200 border border-gray-200 rounded-lg bg-white"
+      class="divide-y divide-line border border-line rounded-lg bg-card"
     >
       <li
         v-for="thread in threads.items"
         :key="thread.id"
         :data-testid="`thread-row-${thread.case_number}`"
-        class="px-4 py-3 hover:bg-gray-50 cursor-pointer"
+        class="px-4 py-3 hover:bg-surface-alt cursor-pointer"
         @click="$emit('select', thread.id)"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 mb-1">
               <span
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-800"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-surface-alt text-fg"
                 :data-testid="`thread-case-${thread.case_number}`"
               >
                 MT-{{ thread.case_number }}
@@ -103,14 +103,14 @@
                 {{ thread.unread_count }}
               </span>
             </div>
-            <p class="text-sm font-medium text-gray-900 truncate">
+            <p class="text-sm font-medium text-fg truncate">
               {{ participantDisplay(thread) }}
             </p>
-            <p class="text-sm text-gray-700 truncate">
+            <p class="text-sm text-fg truncate">
               {{ thread.subject || '(no subject)' }}
             </p>
           </div>
-          <div class="text-right text-xs text-gray-500 whitespace-nowrap">
+          <div class="text-right text-xs text-fg-muted whitespace-nowrap">
             {{ relativeTime(thread.last_message_at) }}
           </div>
         </div>
@@ -121,7 +121,7 @@
     <div v-if="threads.nextCursor" class="text-center mt-4">
       <button
         type="button"
-        class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700"
+        class="px-4 py-2 text-sm bg-surface-alt hover:bg-line rounded-md text-fg"
         data-testid="support-inbox-load-more"
         :disabled="loading"
         @click="$emit('load-more')"

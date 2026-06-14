@@ -112,6 +112,6 @@ const imgClass = computed(() => {
 });
 
 const initialsClass = computed(() => {
-  return `${sizeConfig.value.text} font-bold text-slate-400`;
+  return `${sizeConfig.value.text} font-bold text-fg-muted`;
 });
 </script>

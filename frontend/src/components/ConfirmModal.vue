@@ -59,8 +59,8 @@
             </svg>
           </div>
           <div>
-            <h3 class="text-lg font-medium text-gray-900">{{ title }}</h3>
-            <p v-if="message" class="mt-1 text-sm text-gray-500">
+            <h3 class="text-lg font-medium text-fg">{{ title }}</h3>
+            <p v-if="message" class="mt-1 text-sm text-fg-muted">
               {{ message }}
             </p>
           </div>
@@ -76,7 +76,7 @@
           <button
             type="button"
             @click="$emit('cancel')"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            class="px-4 py-2 text-sm font-medium text-fg bg-surface-alt hover:bg-line rounded-md"
           >
             {{ cancelText }}
           </button>
@@ -170,7 +170,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: rgb(var(--color-card));
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   max-width: 480px;

@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- No matches in this bracket -->
-    <div v-if="!hasAnyBracket" class="text-center py-10 text-gray-500">
+    <div v-if="!hasAnyBracket" class="text-center py-10 text-fg-muted">
       No matches in this bracket yet.
     </div>
 
@@ -325,7 +325,7 @@ const BracketCell = {
           'div',
           {
             class: [
-              'h-full rounded-md border border-dashed border-gray-200 bg-gray-50/50 flex items-center justify-center text-gray-300 text-xs',
+              'h-full rounded-md border border-dashed border-line bg-surface-alt/50 flex items-center justify-center text-fg-muted text-xs',
               p.isFinal ? 'px-3 py-2' : 'px-2 py-1.5',
             ],
           },
@@ -339,8 +339,8 @@ const BracketCell = {
           type: 'button',
           onClick: () => emit('click', p.match),
           class: [
-            'w-full text-left rounded-md border bg-white px-2 py-1.5 shadow-sm hover:border-brand-400 transition-colors',
-            live ? 'border-brand-400 animate-pulse' : 'border-gray-200',
+            'w-full text-left rounded-md border bg-card px-2 py-1.5 shadow-sm hover:border-brand-400 transition-colors',
+            live ? 'border-brand-400 animate-pulse' : 'border-line',
           ],
         },
         [
@@ -351,10 +351,10 @@ const BracketCell = {
               class: [
                 'flex items-center justify-between gap-2 text-xs',
                 homeWinner.value
-                  ? 'font-bold text-gray-900'
+                  ? 'font-bold text-fg'
                   : p.match.match_status === 'completed'
-                    ? 'text-gray-400'
-                    : 'text-gray-800',
+                    ? 'text-fg-muted'
+                    : 'text-fg',
               ],
             },
             [
@@ -377,10 +377,10 @@ const BracketCell = {
               class: [
                 'flex items-center justify-between gap-2 text-xs mt-0.5',
                 awayWinner.value
-                  ? 'font-bold text-gray-900'
+                  ? 'font-bold text-fg'
                   : p.match.match_status === 'completed'
-                    ? 'text-gray-400'
-                    : 'text-gray-800',
+                    ? 'text-fg-muted'
+                    : 'text-fg',
               ],
             },
             [
@@ -401,7 +401,7 @@ const BracketCell = {
             'div',
             {
               class:
-                'mt-1 flex items-center justify-between text-[10px] text-gray-400',
+                'mt-1 flex items-center justify-between text-[10px] text-fg-muted',
             },
             [
               h('span', null, formatMatchDate(p.match.match_date)),
@@ -501,7 +501,7 @@ function formatMatchDate(d) {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgb(107 114 128);
+  color: rgb(var(--color-fg-muted));
   text-align: center;
   padding-bottom: 0.5rem;
 }
@@ -660,7 +660,7 @@ function formatMatchDate(d) {
   top: 50%;
   width: 12px;
   height: 1px;
-  background: rgb(209 213 219);
+  background: rgb(var(--color-line));
 }
 .col-5.bracket-cell::after {
   display: none;
@@ -698,7 +698,7 @@ function formatMatchDate(d) {
   top: 50%;
   width: 1px;
   height: 100%;
-  background: rgb(209 213 219);
+  background: rgb(var(--color-line));
 }
 
 /* Mobile: keep the bracket usable; rely on the outer overflow-x scroll. */
@@ -738,7 +738,7 @@ function formatMatchDate(d) {
   top: 50%;
   width: 12px;
   height: 1px;
-  background: rgb(209 213 219);
+  background: rgb(var(--color-line));
 }
 /* Vertical bridge joining a sibling pair: 100% of the (top) cell's height
  * reaches from this cell's midpoint down to its sibling's midpoint. */
@@ -748,6 +748,6 @@ function formatMatchDate(d) {
   top: 50%;
   width: 1px;
   height: 100%;
-  background: rgb(209 213 219);
+  background: rgb(var(--color-line));
 }
 </style>

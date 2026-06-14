@@ -1,17 +1,17 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold text-gray-900">Invite Requests</h2>
+      <h2 class="text-xl font-bold text-fg">Invite Requests</h2>
       <div class="flex items-center gap-4">
         <!-- Stats -->
-        <div v-if="stats" class="text-sm text-gray-600">
+        <div v-if="stats" class="text-sm text-fg-muted">
           <span class="font-medium">{{ stats.pending }}</span> pending /
           <span class="font-medium">{{ stats.total }}</span> total
         </div>
         <!-- Test email -->
         <button
           type="button"
-          class="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+          class="px-3 py-2 text-sm rounded-md border border-line text-fg hover:bg-surface-alt"
           :disabled="sendingTestEmail"
           @click="sendTestApprovalEmail"
         >
@@ -21,7 +21,7 @@
         <select
           v-model="statusFilter"
           @change="fetchRequests"
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="px-3 py-2 bg-card border border-line rounded-md text-sm text-fg focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="">All Requests</option>
           <option value="pending">Pending</option>
@@ -36,7 +36,7 @@
       <div
         class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"
       ></div>
-      <p class="mt-2 text-gray-600">Loading requests...</p>
+      <p class="mt-2 text-fg-muted">Loading requests...</p>
     </div>
 
     <!-- Error State -->
@@ -55,9 +55,9 @@
 
     <!-- Empty State -->
     <div v-else-if="requests.length === 0" class="text-center py-12">
-      <div class="text-gray-400 text-5xl mb-4">📬</div>
-      <h3 class="text-lg font-medium text-gray-900 mb-2">No invite requests</h3>
-      <p class="text-gray-600">
+      <div class="text-fg-muted text-5xl mb-4">📬</div>
+      <h3 class="text-lg font-medium text-fg mb-2">No invite requests</h3>
+      <p class="text-fg-muted">
         {{
           statusFilter
             ? `No ${statusFilter} requests found.`
@@ -68,58 +68,58 @@
 
     <!-- Requests Table -->
     <div v-else class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-line">
+        <thead class="bg-surface-alt">
           <tr>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Requester
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Team
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Reason
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Status
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Date
             </th>
             <th
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-4 py-3 text-left text-xs font-medium text-fg-muted uppercase tracking-wider"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-card divide-y divide-line">
           <tr
             v-for="request in requests"
             :key="request.id"
-            class="hover:bg-gray-50"
+            class="hover:bg-surface-alt"
           >
             <td class="px-4 py-4">
-              <div class="text-sm font-medium text-gray-900">
+              <div class="text-sm font-medium text-fg">
                 {{ request.name }}
               </div>
-              <div class="text-sm text-gray-500">{{ request.email }}</div>
+              <div class="text-sm text-fg-muted">{{ request.email }}</div>
             </td>
-            <td class="px-4 py-4 text-sm text-gray-500">
+            <td class="px-4 py-4 text-sm text-fg-muted">
               {{ request.team || '-' }}
             </td>
             <td
-              class="px-4 py-4 text-sm text-gray-500 max-w-xs truncate"
+              class="px-4 py-4 text-sm text-fg-muted max-w-xs truncate"
               :title="request.reason"
             >
               {{ request.reason || '-' }}
@@ -136,7 +136,7 @@
                 {{ request.status }}
               </span>
             </td>
-            <td class="px-4 py-4 text-sm text-gray-500">
+            <td class="px-4 py-4 text-sm text-fg-muted">
               {{ formatDate(request.created_at) }}
             </td>
             <td class="px-4 py-4 text-sm">
@@ -155,14 +155,14 @@
                 </button>
               </div>
               <div v-else class="flex flex-col gap-1 text-xs">
-                <span v-if="request.reviewed_at" class="text-gray-400">
+                <span v-if="request.reviewed_at" class="text-fg-muted">
                   {{ formatDate(request.reviewed_at) }}
                 </span>
                 <div class="flex gap-3">
                   <button
                     v-if="request.status === 'approved'"
                     :disabled="resendingIds.has(request.id)"
-                    class="text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400"
+                    class="text-blue-600 hover:text-blue-800 font-medium disabled:text-fg-muted"
                     @click="resendApprovalEmail(request)"
                   >
                     {{
@@ -170,7 +170,7 @@
                     }}
                   </button>
                   <button
-                    class="text-gray-600 hover:text-gray-800 font-medium"
+                    class="text-fg-muted hover:text-fg font-medium"
                     @click="resetToPending(request.id)"
                   >
                     Reset
@@ -186,7 +186,7 @@
     <!-- Pagination placeholder -->
     <div
       v-if="requests.length > 0"
-      class="mt-4 text-sm text-gray-500 text-center"
+      class="mt-4 text-sm text-fg-muted text-center"
     >
       Showing {{ requests.length }} requests
     </div>
