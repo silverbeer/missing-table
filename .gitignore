@@ -198,3 +198,6 @@ backend/tests/tsc/.entity_registry.*.json
 # Supabase CLI scratch
 .branches/
 .temp/
+
+# Varlock schema is reference-only — safe to commit
+!.env.schema
