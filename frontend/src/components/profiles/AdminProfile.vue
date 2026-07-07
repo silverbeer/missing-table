@@ -472,6 +472,10 @@ export default {
   font-size: 18px;
 }
 
+:global(.dark .admin-section h3) {
+  color: #779edb;
+}
+
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -640,14 +644,14 @@ export default {
 }
 
 .quick-stats {
-  background-color: #f0f9ff;
+  background-color: rgb(var(--color-surface-alt));
   padding: 20px;
   border-radius: 8px;
-  border: 1px solid #bae6fd;
+  border: 1px solid rgb(var(--color-line));
 }
 
 .quick-stats h3 {
-  color: #0c4a6e;
+  color: rgb(var(--color-fg));
   margin-bottom: 15px;
 }
 
@@ -659,7 +663,8 @@ export default {
 
 .stat-item {
   text-align: center;
-  background: white;
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   padding: 15px;
   border-radius: 6px;
 }
@@ -671,11 +676,30 @@ export default {
   margin-bottom: 5px;
 }
 
+:global(.dark .stat-number) {
+  color: #779edb;
+}
+
 .stat-label {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* Slotted #profile-fields content gets this component's scope, so BaseProfile's
+   .info-group layout doesn't apply — restore label/value spacing here. */
+.info-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.info-group label {
+  font-weight: 600;
+  color: rgb(var(--color-fg));
+  min-width: 120px;
+  margin-right: 10px;
 }
 
 .admin-level {
@@ -683,9 +707,17 @@ export default {
   font-weight: 600;
 }
 
+:global(.dark .admin-level) {
+  color: #f87171;
+}
+
 .permissions {
   color: #059669;
   font-weight: 600;
+}
+
+:global(.dark .permissions) {
+  color: #34d399;
 }
 
 .role-admin {

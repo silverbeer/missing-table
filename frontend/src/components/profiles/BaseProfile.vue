@@ -448,6 +448,23 @@ export default {
   color: #6b7280;
 }
 
+:global(.dark .role-admin) {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+:global(.dark .role-manager) {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+:global(.dark .role-player) {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+:global(.dark .role-fan) {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+}
+
 .profile-actions {
   display: flex;
   gap: 10px;

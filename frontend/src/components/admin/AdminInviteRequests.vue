@@ -42,12 +42,12 @@
     <!-- Error State -->
     <div
       v-else-if="error"
-      class="bg-red-50 border border-red-200 rounded-md p-4"
+      class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-900 rounded-md p-4"
     >
-      <p class="text-red-800">{{ error }}</p>
+      <p class="text-red-800 dark:text-red-300">{{ error }}</p>
       <button
         @click="fetchRequests"
-        class="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+        class="mt-2 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 underline"
       >
         Try again
       </button>

@@ -367,8 +367,8 @@ onMounted(refresh);
 
 <style scoped>
 .notifications-card {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 12px;
   padding: 20px;
   margin-top: 24px;
@@ -378,13 +378,13 @@ onMounted(refresh);
   margin: 0 0 4px;
   font-size: 18px;
   font-weight: 700;
-  color: #111827;
+  color: rgb(var(--color-fg));
 }
 
 .notifications-subhead {
   margin: 0 0 16px;
   font-size: 14px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   line-height: 1.4;
 }
 
@@ -416,9 +416,9 @@ onMounted(refresh);
 }
 
 .banner-muted {
-  background: #f3f4f6;
-  color: #4b5563;
-  border: 1px solid #e5e7eb;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
+  border: 1px solid rgb(var(--color-line));
 }
 
 .notifications-body {
@@ -516,7 +516,7 @@ onMounted(refresh);
 .follows-section,
 .preferences-section {
   margin-top: 20px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid rgb(var(--color-line));
   padding-top: 16px;
 }
 
@@ -525,7 +525,7 @@ onMounted(refresh);
   margin: 0 0 10px;
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg-muted));
 }
 
 .preferences-list {
@@ -553,7 +553,7 @@ onMounted(refresh);
 }
 
 .preference-label:hover {
-  background: #f9fafb;
+  background: rgb(var(--color-surface-alt));
 }
 
 .preference-checkbox {
@@ -573,7 +573,7 @@ onMounted(refresh);
 .preference-name {
   font-size: 14px;
   font-weight: 500;
-  color: #111827;
+  color: rgb(var(--color-fg));
 }
 
 .manage-section h4,
@@ -581,7 +581,7 @@ onMounted(refresh);
   margin: 0 0 10px;
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg-muted));
 }
 
 .device-list,
@@ -600,20 +600,20 @@ onMounted(refresh);
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
 }
 
 .device-label {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: rgb(var(--color-fg));
 }
 
 .device-meta {
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   margin-top: 2px;
 }
 
@@ -641,7 +641,7 @@ onMounted(refresh);
 .follows-empty {
   margin: 0;
   font-size: 13px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   line-height: 1.4;
 }
 
@@ -651,8 +651,8 @@ onMounted(refresh);
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 8px;
   font-size: 14px;
 }
@@ -666,7 +666,7 @@ onMounted(refresh);
 
 .follow-team {
   font-weight: 600;
-  color: #111827;
+  color: rgb(var(--color-fg));
   /* Allow the primary label (which now includes league + division) to wrap
      on narrow viewports instead of overflowing. */
   word-break: break-word;
@@ -674,13 +674,60 @@ onMounted(refresh);
 
 .follow-item-sub {
   font-size: 12px;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-weight: 400;
 }
 
 .follow-club {
   font-size: 12px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   flex-shrink: 0;
+}
+
+/* Dark-mode overrides for tinted banners, pills, and outline buttons whose
+   light-mode hex values have no readable dark equivalent via tokens. */
+:global(.dark .banner-warn) {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+:global(.dark .banner-error) {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+:global(.dark .enabled-pill) {
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+:global(.dark .test-button) {
+  color: #779edb;
+  border-color: #779edb;
+}
+
+:global(.dark .test-button:hover:not(:disabled)) {
+  background: rgba(119, 158, 219, 0.12);
+}
+
+:global(.dark .notifications-error) {
+  color: #fca5a5;
+}
+
+:global(.dark .notifications-success) {
+  color: #6ee7b7;
+}
+
+:global(.dark .revoke-button) {
+  color: #f87171;
+  border-color: #f87171;
+}
+
+:global(.dark .enable-button:disabled) {
+  background: #152c75;
+  color: rgba(255, 255, 255, 0.5);
 }
 </style>
