@@ -87,7 +87,7 @@
       <!-- Division Row (only for League matches) -->
       <div
         v-if="isLeagueMatch"
-        class="p-3 bg-brand-50 rounded-md border border-brand-200"
+        class="p-3 bg-brand-50 dark:bg-brand-500/10 rounded-md border border-brand-200 dark:border-brand-700"
         data-testid="division-section"
       >
         <div class="grid grid-cols-1 gap-3">
@@ -120,7 +120,7 @@
 
       <!-- Game Status Row -->
       <div
-        class="p-3 bg-green-50 rounded-md border border-green-200"
+        class="p-3 bg-green-50 dark:bg-green-500/10 rounded-md border border-green-200 dark:border-green-900"
         data-testid="status-section"
       >
         <div class="grid grid-cols-1 gap-3">
@@ -268,8 +268,9 @@
       v-if="message"
       class="mt-3 p-2 rounded-md text-sm"
       :class="{
-        'bg-green-100 text-green-700': !error,
-        'bg-red-100 text-red-700': error,
+        'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300':
+          !error,
+        'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300': error,
       }"
       data-testid="message"
     >

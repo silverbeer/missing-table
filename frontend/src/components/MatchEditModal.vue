@@ -29,10 +29,12 @@
             <span
               :class="{
                 'px-2 py-0.5 rounded text-xs font-medium': true,
-                'bg-purple-100 text-purple-800':
+                'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                   match.source === 'match-scraper',
-                'bg-gray-100 text-gray-700': match.source === 'manual',
-                'bg-yellow-100 text-yellow-700': match.source === 'import',
+                'bg-gray-100 text-gray-700 dark:bg-surface-alt dark:text-fg-muted':
+                  match.source === 'manual',
+                'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
+                  match.source === 'import',
               }"
             >
               {{ getSourceText(match.source) }}
@@ -224,7 +226,7 @@
           <!-- Error Display -->
           <div
             v-if="error"
-            class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm"
+            class="mb-4 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-900 rounded-md text-red-800 dark:text-red-300 text-sm"
             data-testid="error-message"
           >
             {{ error }}

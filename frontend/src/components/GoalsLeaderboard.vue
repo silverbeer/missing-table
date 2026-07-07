@@ -692,4 +692,18 @@ export default {
 .beta-notice-dismiss:hover {
   background-color: #fef3c7;
 }
+
+:global(.dark .beta-notice) {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+
+:global(.dark .beta-notice-dismiss) {
+  color: #fbd187;
+}
+
+:global(.dark .beta-notice-dismiss:hover) {
+  background-color: rgba(245, 158, 11, 0.15);
+}
 </style>

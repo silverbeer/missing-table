@@ -128,7 +128,7 @@
               <!-- Prompt to select club if none selected -->
               <div
                 v-else
-                class="p-4 bg-brand-50 border border-brand-200 rounded-lg text-brand-700 text-sm"
+                class="p-4 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-700 rounded-lg text-brand-700 dark:text-brand-300 text-sm"
               >
                 Please select a club to view teams and matches.
               </div>
@@ -334,7 +334,7 @@
           <!-- League Information -->
           <div
             v-if="selectedTeamLeagueInfo"
-            class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-50 border border-brand-200 rounded-md text-sm"
+            class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-700 rounded-md text-sm"
           >
             <span class="font-medium text-brand-800 dark:text-brand-200"
               >League:</span
@@ -392,7 +392,7 @@
                   seasonStats.hasFallGames &&
                   selectedTeamLeagueInfo?.sportType !== 'futsal'
                 "
-                class="p-4 bg-brand-50 rounded-lg border border-brand-100"
+                class="p-4 bg-brand-50 dark:bg-brand-500/10 rounded-lg border border-brand-100 dark:border-brand-700"
               >
                 <h4 class="font-medium text-brand-700 dark:text-brand-300 mb-2">
                   Fall Segment
@@ -419,9 +419,11 @@
                   seasonStats.hasSpringGames &&
                   selectedTeamLeagueInfo?.sportType !== 'futsal'
                 "
-                class="p-4 bg-green-50 rounded-lg border border-green-100"
+                class="p-4 bg-green-50 dark:bg-green-500/10 rounded-lg border border-green-100 dark:border-green-900"
               >
-                <h4 class="font-medium text-green-700 mb-2">Spring Segment</h4>
+                <h4 class="font-medium text-green-700 dark:text-green-300 mb-2">
+                  Spring Segment
+                </h4>
                 <div class="grid grid-cols-3 gap-2 text-sm">
                   <div class="font-medium">
                     W: {{ seasonStats.springWins || 0 }}
@@ -451,9 +453,12 @@
                       :key="index"
                       class="w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium"
                       :class="{
-                        'bg-green-100 text-green-800': result === 'W',
-                        'bg-yellow-100 text-yellow-800': result === 'D',
-                        'bg-red-100 text-red-800': result === 'L',
+                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
+                          result === 'W',
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
+                          result === 'D',
+                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
+                          result === 'L',
                         'bg-surface-alt text-fg-muted': result === '-',
                       }"
                     >
@@ -526,7 +531,7 @@
                   v-for="(match, index) in homegrownMatches"
                   :key="`homegrown-${match.id}`"
                   :class="{ 'bg-surface-alt': index % 2 === 0 }"
-                  class="cursor-pointer hover:bg-brand-50"
+                  class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
@@ -628,15 +633,15 @@
                     <span
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800':
+                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                           match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800':
+                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                           match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800':
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.match_status === 'postponed',
-                        'bg-red-100 text-red-800':
+                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                           match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800':
+                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                           match.match_status === 'live',
@@ -671,10 +676,10 @@
                       :title="getSourceTooltip(match)"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800':
+                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                           match.source === 'match-scraper',
                         'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700':
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.source === 'import',
                       }"
                     >
@@ -714,7 +719,7 @@
                   v-for="(match, index) in academyMatches"
                   :key="`academy-${match.id}`"
                   :class="{ 'bg-surface-alt': index % 2 === 0 }"
-                  class="cursor-pointer hover:bg-brand-50"
+                  class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
@@ -816,15 +821,15 @@
                     <span
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800':
+                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                           match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800':
+                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                           match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800':
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.match_status === 'postponed',
-                        'bg-red-100 text-red-800':
+                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                           match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800':
+                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                           match.match_status === 'live',
@@ -859,10 +864,10 @@
                       :title="getSourceTooltip(match)"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800':
+                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                           match.source === 'match-scraper',
                         'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700':
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.source === 'import',
                       }"
                     >
@@ -902,7 +907,7 @@
                   v-for="(match, index) in otherMatches"
                   :key="`other-${match.id}`"
                   :class="{ 'bg-surface-alt': index % 2 === 0 }"
-                  class="cursor-pointer hover:bg-brand-50"
+                  class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   @click="viewMatch(match)"
                 >
                   <td class="border-b text-center">{{ match.match_date }}</td>
@@ -1004,15 +1009,15 @@
                     <span
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800':
+                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                           match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800':
+                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                           match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800':
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.match_status === 'postponed',
-                        'bg-red-100 text-red-800':
+                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                           match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800':
+                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                           match.match_status === 'live',
@@ -1047,10 +1052,10 @@
                       :title="getSourceTooltip(match)"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800':
+                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                           match.source === 'match-scraper',
                         'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700':
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.source === 'import',
                       }"
                     >
@@ -1156,9 +1161,12 @@
                     "
                     class="px-2 py-1 rounded-full text-sm font-bold"
                     :class="{
-                      'bg-green-100 text-green-800': getResult(match) === 'W',
-                      'bg-yellow-100 text-yellow-800': getResult(match) === 'T',
-                      'bg-red-100 text-red-800': getResult(match) === 'L',
+                      'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
+                        getResult(match) === 'W',
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
+                        getResult(match) === 'T',
+                      'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
+                        getResult(match) === 'L',
                     }"
                   >
                     {{ getResult(match) }}
@@ -1172,15 +1180,15 @@
                   <span
                     :class="{
                       'px-2 py-1 rounded text-xs font-medium': true,
-                      'bg-green-100 text-green-800':
+                      'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                         match.match_status === 'completed',
-                      'bg-brand-100 text-brand-800':
+                      'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                         match.match_status === 'scheduled',
-                      'bg-yellow-100 text-yellow-800':
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                         match.match_status === 'postponed',
-                      'bg-red-100 text-red-800':
+                      'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                         match.match_status === 'cancelled',
-                      'bg-orange-100 text-orange-800':
+                      'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                         match.match_status === 'forfeit',
                       'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
                         match.match_status === 'live',
@@ -1209,10 +1217,10 @@
                     :title="getSourceTooltip(match)"
                     :class="{
                       'px-2 py-1 rounded text-xs font-medium': true,
-                      'bg-purple-100 text-purple-800':
+                      'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                         match.source === 'match-scraper',
                       'bg-surface-alt text-fg': match.source === 'manual',
-                      'bg-yellow-100 text-yellow-700':
+                      'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
                         match.source === 'import',
                     }"
                   >
@@ -1378,15 +1386,15 @@
                       class="ml-1"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800':
+                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                           match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800':
+                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                           match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800':
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.match_status === 'postponed',
-                        'bg-red-100 text-red-800':
+                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                           match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800':
+                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
                           match.match_status === 'live',
@@ -1411,10 +1419,10 @@
                       class="ml-1"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800':
+                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                           match.source === 'match-scraper',
                         'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700':
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.source === 'import',
                       }"
                     >
@@ -1577,15 +1585,15 @@
                       class="ml-1"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800':
+                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                           match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800':
+                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                           match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800':
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.match_status === 'postponed',
-                        'bg-red-100 text-red-800':
+                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                           match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800':
+                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
                           match.match_status === 'live',
@@ -1610,10 +1618,10 @@
                       class="ml-1"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800':
+                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                           match.source === 'match-scraper',
                         'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700':
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.source === 'import',
                       }"
                     >
@@ -1776,15 +1784,15 @@
                       class="ml-1"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800':
+                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                           match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800':
+                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                           match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800':
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.match_status === 'postponed',
-                        'bg-red-100 text-red-800':
+                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                           match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800':
+                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
                           match.match_status === 'live',
@@ -1809,10 +1817,10 @@
                       class="ml-1"
                       :class="{
                         'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800':
+                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
                           match.source === 'match-scraper',
                         'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700':
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
                           match.source === 'import',
                       }"
                     >
@@ -1921,9 +1929,12 @@
                     "
                     class="px-3 py-1 rounded-full text-sm font-bold"
                     :class="{
-                      'bg-green-100 text-green-800': getResult(match) === 'W',
-                      'bg-yellow-100 text-yellow-800': getResult(match) === 'T',
-                      'bg-red-100 text-red-800': getResult(match) === 'L',
+                      'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
+                        getResult(match) === 'W',
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
+                        getResult(match) === 'T',
+                      'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
+                        getResult(match) === 'L',
                     }"
                   >
                     {{ getResult(match) }}
@@ -1944,15 +1955,15 @@
                   <span
                     class="ml-1 px-2 py-0.5 rounded text-xs font-medium"
                     :class="{
-                      'bg-green-100 text-green-800':
+                      'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
                         match.match_status === 'completed',
-                      'bg-brand-100 text-brand-800':
+                      'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
                         match.match_status === 'scheduled',
-                      'bg-yellow-100 text-yellow-800':
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
                         match.match_status === 'postponed',
-                      'bg-red-100 text-red-800':
+                      'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
                         match.match_status === 'cancelled',
-                      'bg-orange-100 text-orange-800':
+                      'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                         match.match_status === 'forfeit',
                       'bg-red-600 text-white font-extrabold px-3 py-1 animate-pulse shadow-lg whitespace-nowrap':
                         match.match_status === 'live',

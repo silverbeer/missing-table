@@ -6,10 +6,10 @@
         <div class="flex items-start mb-4">
           <div
             v-if="variant === 'warning'"
-            class="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-4"
+            class="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-500/15 flex items-center justify-center mr-4"
           >
             <svg
-              class="w-6 h-6 text-yellow-600"
+              class="w-6 h-6 text-yellow-600 dark:text-yellow-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -24,10 +24,10 @@
           </div>
           <div
             v-else-if="variant === 'danger'"
-            class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-4"
+            class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/15 flex items-center justify-center mr-4"
           >
             <svg
-              class="w-6 h-6 text-red-600"
+              class="w-6 h-6 text-red-600 dark:text-red-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -42,10 +42,10 @@
           </div>
           <div
             v-else
-            class="flex-shrink-0 w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center mr-4"
+            class="flex-shrink-0 w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-500/20 flex items-center justify-center mr-4"
           >
             <svg
-              class="w-6 h-6 text-brand-600"
+              class="w-6 h-6 text-brand-600 dark:text-brand-300"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
