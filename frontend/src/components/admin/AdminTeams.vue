@@ -102,7 +102,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 v-if="team.parent_club"
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300"
               >
                 {{ team.parent_club.name }}
               </span>
@@ -111,19 +111,19 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-fg-muted">
               <span
                 v-if="team.league_name === 'Academy'"
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300"
               >
                 Academy
               </span>
               <span
                 v-else-if="team.league_name === 'Homegrown'"
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300"
               >
                 Homegrown
               </span>
               <span
                 v-else
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-surface-alt dark:text-fg"
               >
                 {{ team.league_name || 'Unknown' }}
               </span>
@@ -133,7 +133,7 @@
                 <span
                   v-for="ageGroup in (team.age_groups || []).filter(ag => ag)"
                   :key="ageGroup.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200"
                 >
                   {{ ageGroup.name }}
                 </span>
@@ -342,7 +342,7 @@
                 <span
                   v-for="ageGroup in editingTeam?.age_groups || []"
                   :key="ageGroup.id"
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200"
                 >
                   {{ ageGroup.name }}
                 </span>
