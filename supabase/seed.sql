@@ -21,7 +21,8 @@ SELECT setval('public.age_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM publ
 INSERT INTO public.seasons (id, name, start_date, end_date) VALUES
   (1, '2023-2024', '2023-09-01', '2024-06-30'),
   (2, '2024-2025', '2024-09-01', '2025-06-30'),
-  (3, '2025-2026', '2025-09-01', '2026-06-30')
+  (3, '2025-2026', '2025-09-01', '2026-06-30'),
+  (4, '2026-2027', '2026-09-01', '2027-06-30')
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('public.seasons_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.seasons));

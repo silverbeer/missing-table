@@ -104,21 +104,28 @@ class TournamentDAO(BaseDAO):
             rows = [{"tournament_id": tournament_id, "age_group_id": ag_id} for ag_id in age_group_ids]
             self.client.table("tournament_age_groups").insert(rows).execute()
 
-    @dao_cache("tournaments:active:{include_test}")
-    def get_active_tournaments(self, include_test: bool = False) -> list[dict]:
+    @dao_cache("tournaments:active:{include_test}:{season_id}")
+    def get_active_tournaments(
+        self, include_test: bool = False, season_id: int | None = None
+    ) -> list[dict]:
         """Return all active tournaments ordered by start date descending.
 
         include_test gates the SB-85 test partition: real/anonymous viewers pass
         False (test tournaments hidden); admins + test users pass True.
+        season_id, when provided, restricts results to that season.
         """
         try:
             query = (
                 self.client.table("tournaments")
-                .select("id, name, start_date, end_date, location, description, is_active, logo_url")
+                .select(
+                    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url"
+                )
                 .eq("is_active", True)
             )
             if not include_test:
                 query = query.eq("is_test", False)
+            if season_id is not None:
+                query = query.eq("season_id", season_id)
             response = query.order("start_date", desc=True).execute()
             data = self._attach_age_groups(response.data or [])
             return self._attach_match_counts(data)
@@ -132,7 +139,9 @@ class TournamentDAO(BaseDAO):
         try:
             response = (
                 self.client.table("tournaments")
-                .select("id, name, start_date, end_date, location, description, is_active, logo_url")
+                .select(
+                    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url"
+                )
                 .order("start_date", desc=True)
                 .execute()
             )
@@ -152,7 +161,9 @@ class TournamentDAO(BaseDAO):
         try:
             t_response = (
                 self.client.table("tournaments")
-                .select("id, name, start_date, end_date, location, description, is_active, logo_url")
+                .select(
+                    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url"
+                )
                 .eq("id", tournament_id)
                 .single()
                 .execute()
@@ -212,6 +223,7 @@ class TournamentDAO(BaseDAO):
     def create_tournament(
         self,
         name: str,
+        season_id: int,
         start_date: str,
         end_date: str | None = None,
         location: str | None = None,
@@ -223,6 +235,7 @@ class TournamentDAO(BaseDAO):
 
         Args:
             name: Tournament name (e.g. '2026 Generation adidas Cup')
+            season_id: Season the tournament belongs to
             start_date: ISO date string
             end_date: ISO date string (optional)
             location: Venue/city (optional)
@@ -235,6 +248,7 @@ class TournamentDAO(BaseDAO):
         """
         data = {
             "name": name,
+            "season_id": season_id,
             "start_date": start_date,
             "is_active": is_active,
         }
@@ -260,6 +274,7 @@ class TournamentDAO(BaseDAO):
         self,
         tournament_id: int,
         name: str | None = None,
+        season_id: int | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
         location: str | None = None,
@@ -275,6 +290,8 @@ class TournamentDAO(BaseDAO):
         updates: dict = {}
         if name is not None:
             updates["name"] = name
+        if season_id is not None:
+            updates["season_id"] = season_id
         if start_date is not None:
             updates["start_date"] = start_date
         if end_date is not None:
