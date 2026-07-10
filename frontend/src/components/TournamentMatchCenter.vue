@@ -1045,7 +1045,10 @@ export default {
           selectedSeasonId.value = sorted[0].id;
         }
       } catch (err) {
-        error.value = err.message;
+        // Seasons are a secondary filter; a failure here should not blank the
+        // whole view. Fall back to the unfiltered tournament list (no season
+        // selector) rather than surfacing a page-level error.
+        console.error('Error fetching seasons:', err);
       }
     };
 
