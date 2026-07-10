@@ -59,13 +59,35 @@ const mkMatch = (id, home, away, opts = {}) => ({
   away_team_club: away.__club,
 });
 
-// Mount with a pre-staged tournament + matches. We resolve the two
-// apiRequest calls (`/api/tournaments` list, then `/api/tournaments/{id}`
-// detail) so the component renders against real data, not loading state.
+// Seasons for the season selector. The component fetches these on mount and
+// defaults to the newest, so the tournament fetch is season-scoped.
+const SEASONS = [
+  {
+    id: 3,
+    name: '2025-2026',
+    start_date: '2025-09-01',
+    end_date: '2026-06-30',
+  },
+  {
+    id: 4,
+    name: '2026-2027',
+    start_date: '2026-09-01',
+    end_date: '2027-06-30',
+  },
+];
+
+// Mount with a pre-staged tournament + matches. Resolve apiRequest by URL
+// (order-independent): `/api/seasons`, the `/api/tournaments` list, and the
+// `/api/tournaments/{id}` detail — so the component renders against real data,
+// not loading state.
 async function mountWith(tournament) {
   apiRequest.mockReset();
-  apiRequest.mockResolvedValueOnce([tournament]);
-  apiRequest.mockResolvedValueOnce(tournament);
+  apiRequest.mockImplementation(url => {
+    if (url.includes('/api/seasons')) return Promise.resolve(SEASONS);
+    if (/\/api\/tournaments\/\d+/.test(url)) return Promise.resolve(tournament);
+    if (url.includes('/api/tournaments')) return Promise.resolve([tournament]);
+    return Promise.resolve(null);
+  });
   const wrapper = mount(TournamentMatchCenter, {
     global: { stubs: { MatchDetailView: true } },
   });

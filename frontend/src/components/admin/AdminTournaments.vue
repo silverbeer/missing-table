@@ -256,6 +256,24 @@
               />
             </div>
 
+            <!-- Season -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-fg mb-1"
+                >Season *</label
+              >
+              <select
+                v-model="tForm.season_id"
+                required
+                data-testid="tournament-form-season"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option :value="null" disabled>Select a season</option>
+                <option v-for="s in seasons" :key="s.id" :value="s.id">
+                  {{ s.name }}
+                </option>
+              </select>
+            </div>
+
             <!-- Dates -->
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -776,6 +794,7 @@ export default {
     function emptyTournamentForm() {
       return {
         name: '',
+        season_id: null,
         start_date: '',
         end_date: '',
         location: '',
@@ -784,6 +803,15 @@ export default {
         is_active: true,
       };
     }
+
+    // Newest season by start date — the default for a new tournament (matches
+    // the Tournaments view, which defaults to the current/newest season).
+    const newestSeasonId = () => {
+      if (!seasons.value.length) return null;
+      return [...seasons.value].sort(
+        (a, b) => new Date(b.start_date) - new Date(a.start_date)
+      )[0].id;
+    };
 
     function emptyMatchForm() {
       return {
@@ -911,6 +939,7 @@ export default {
     const openCreateTournament = () => {
       editingTournament.value = null;
       tForm.value = emptyTournamentForm();
+      tForm.value.season_id = newestSeasonId();
       tLogoPreview.value = null;
       tSelectedLogoFile.value = null;
       showTournamentModal.value = true;
@@ -920,6 +949,7 @@ export default {
       editingTournament.value = tournament;
       tForm.value = {
         name: tournament.name,
+        season_id: tournament.season_id ?? null,
         start_date: tournament.start_date,
         end_date: tournament.end_date || '',
         location: tournament.location || '',

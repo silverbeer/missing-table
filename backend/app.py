@@ -6644,6 +6644,7 @@ async def get_audit_summary(
 
 class TournamentCreate(BaseModel):
     name: str
+    season_id: int
     start_date: str
     end_date: str | None = None
     location: str | None = None
@@ -6654,6 +6655,7 @@ class TournamentCreate(BaseModel):
 
 class TournamentUpdate(BaseModel):
     name: str | None = None
+    season_id: int | None = None
     start_date: str | None = None
     end_date: str | None = None
     location: str | None = None
@@ -6698,16 +6700,19 @@ class TournamentMatchUpdate(BaseModel):
 
 @app.get("/api/tournaments")
 async def get_tournaments(
+    season_id: int | None = None,
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
-    """List all active tournaments (public).
+    """List all active tournaments (public), optionally filtered by season.
 
     Test tournaments (SB-85) are hidden from anonymous + real users; admins and
     test users see them.
     """
     try:
         include_test = viewer_sees_test_content(current_user)
-        return tournament_dao.get_active_tournaments(include_test=include_test)
+        return tournament_dao.get_active_tournaments(
+            include_test=include_test, season_id=season_id
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -6763,6 +6768,7 @@ async def admin_create_tournament(
     try:
         return tournament_dao.create_tournament(
             name=payload.name,
+            season_id=payload.season_id,
             start_date=payload.start_date,
             end_date=payload.end_date,
             location=payload.location,
@@ -6785,6 +6791,7 @@ async def admin_update_tournament(
         updated = tournament_dao.update_tournament(
             tournament_id=tournament_id,
             name=payload.name,
+            season_id=payload.season_id,
             start_date=payload.start_date,
             end_date=payload.end_date,
             location=payload.location,
