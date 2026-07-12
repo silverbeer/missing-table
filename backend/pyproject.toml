@@ -50,6 +50,7 @@ dependencies = [
     "telegram-notify",
     "discord-notify",
     "pywebpush>=2.0.1",
+    "python-multipart>=0.0.32",
 ]
 
 [tool.uv.sources]
