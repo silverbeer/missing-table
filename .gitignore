@@ -145,16 +145,8 @@ qualityplaybook-*.yaml
 missing-table-ingress-*.yaml
 letsencrypt-issuer.yaml
 
-# CrewAI Testing - Runtime cache and artifacts (local only)
-crew_testing/.test_cache.json
-crew_testing/logs/
-crew_testing/state/
-crew_testing/reports/
-crew_testing/**/test_*.py
-crew_testing/demo_*.py
-crew_testing/**/*_isolation.py
-crew_testing/*.md
-!crew_testing/README.md
+# QE plugin - local coverage history (test_manifest.json stays committable)
+.qe/coverage_history.jsonl
 
 # Test artifacts
 .coverage
@@ -173,8 +165,6 @@ backend/tests/test_matches.py
 # Root-level test examples (actual tests should be in backend/tests/)
 /tests/
 
-# Accidentally created nested directories
-backend/crew_testing/
 
 # Deprecated scripts with sensitive data
 backend/archive/deprecated-user-scripts/

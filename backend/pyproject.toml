@@ -37,12 +37,6 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.0.0",
     "jsonschema>=4.25.1",
     "kombu>=5.5.4",
-    "crewai>=0.28.0",
-    "anthropic>=0.18.0",
-    "openai>=1.0.0",
-    "langchain>=0.1.0",
-    "langchain-anthropic>=0.1.0",
-    "langchain-openai>=0.1.0",
     "pyyaml>=6.0.2",
     "pytest-playwright>=0.7.1",
     "pytest-html>=4.1.1",
@@ -56,6 +50,7 @@ dependencies = [
     "telegram-notify",
     "discord-notify",
     "pywebpush>=2.0.1",
+    "python-multipart>=0.0.32",
 ]
 
 [tool.uv.sources]
