@@ -1,0 +1,17 @@
+# QE plugin config (silverbeer/qe-plugin) — read by /qe and /generate-tests
+subprojects:
+  backend:
+    stack: python
+    test_cmd: "uv run pytest tests/ -q --tb=short"
+    coverage_cmd: "uv run pytest tests/ --cov=. --cov-report=json -q"
+    coverage_report: "coverage.json"
+    coverage_format: python-json
+    test_dir: "tests"
+    openapi_url: "http://localhost:8000/openapi.json"
+  frontend:
+    stack: node
+    test_cmd: "npm run test:run"
+    coverage_cmd: "npm run test:run -- --coverage --coverage.reporter=json-summary"
+    coverage_report: "coverage/coverage-summary.json"
+    coverage_format: istanbul-json
+    test_dir: "src"

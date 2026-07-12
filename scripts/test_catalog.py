@@ -3,7 +3,7 @@
 Test Catalog Generator
 
 Scans the test suite and generates a comprehensive catalog of all tests,
-their markers, prerequisites, and metadata for CrewAI consumption.
+their markers, prerequisites, and metadata.
 
 Usage:
     python scripts/test_catalog.py                    # Generate catalog

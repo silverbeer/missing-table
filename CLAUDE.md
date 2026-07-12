@@ -308,8 +308,8 @@ Backend-centered auth resolves k8s networking issues. All Supabase credentials s
 ### RabbitMQ/Celery Messaging
 **Status**: Phase 0 Complete | **Docs**: [docs/rabbitmq-celery/README.md](docs/rabbitmq-celery/README.md)
 
-### CrewAI Testing System
-**Status**: Phase 1 Complete (1/8 agents) | **Docs**: [crew_testing/README.md](crew_testing/README.md)
+### QE Plugin (Test Coverage & Generation)
+Testing automation is handled by the [qe plugin](https://github.com/silverbeer/qe-plugin) (`/qe`, `/generate-tests`, `@qe-engineer`), configured via `.claude/qe.yml`. It replaced the retired CrewAI experiment — see [docs/04-testing/crewai-experiment-retrospective.md](docs/04-testing/crewai-experiment-retrospective.md) for lessons learned.
 
 ---
 

@@ -18,6 +18,9 @@ This section covers the testing strategy, tools, and quality metrics for the Mis
 | **[API Contract Testing](api-contract-testing.md)** | Schemathesis, contract validation | 🔴 Advanced |
 | **[Quality Metrics](quality-metrics.md)** | Coverage goals, quality gates | 🟢 Beginner |
 | **[Test Results](test-results/)** | Historical test reports | 🟢 Beginner |
+| **[CrewAI Experiment Retrospective](crewai-experiment-retrospective.md)** | Retired agent-based test generation — lessons learned | 🟢 Beginner |
+
+**AI-assisted testing**: coverage audits and test generation now run through the [qe plugin](https://github.com/silverbeer/qe-plugin) (`/qe`, `/generate-tests`, `@qe-engineer`), configured in `.claude/qe.yml`.
 
 ---
 
