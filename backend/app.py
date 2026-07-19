@@ -1,6 +1,6 @@
 import asyncio
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -59,6 +59,7 @@ from models import (
     LineupSave,
     LiveCardEvent,
     LiveMatchClock,
+    LiveSubstitutionEvent,
     MatchPatch,
     MatchSubmissionData,
     MessageEvent,
@@ -3049,10 +3050,43 @@ async def update_match_clock(
                 detail=f"Invalid action. Must be one of: {', '.join(valid_actions)}",
             )
 
+        # Clock actions are idempotent: a retry of an already-applied action
+        # (offline client replaying its sync queue) is a no-op, not an error.
+        action_timestamp_field = {
+            "start_first_half": "kickoff_time",
+            "start_halftime": "halftime_start",
+            "start_second_half": "second_half_start",
+            "end_match": "match_end_time",
+        }
+        already_applied_field = action_timestamp_field.get(clock.action)
+        if already_applied_field and current_match.get(already_applied_field):
+            return match_dao.get_live_match_state(match_id)
+        if clock.action == "cancel_halftime" and not current_match.get("halftime_start"):
+            return match_dao.get_live_match_state(match_id)
+
+        # Offline clients may report when the action actually happened;
+        # accept it only within a sane window (not future, not ancient).
+        occurred_at_iso = None
+        if clock.occurred_at is not None:
+            occurred_at = clock.occurred_at
+            if occurred_at.tzinfo is None:
+                occurred_at = occurred_at.replace(tzinfo=UTC)
+            now = datetime.now(UTC)
+            if occurred_at > now + timedelta(minutes=2) or occurred_at < now - timedelta(hours=3):
+                raise HTTPException(
+                    status_code=400,
+                    detail="occurred_at must be within the last 3 hours and not in the future",
+                )
+            occurred_at_iso = occurred_at.isoformat()
+
         # Update the clock
         user_id = current_user.get("user_id") or current_user.get("id")
         result = match_dao.update_match_clock(
-            match_id, clock.action, updated_by=user_id, half_duration=clock.half_duration
+            match_id,
+            clock.action,
+            updated_by=user_id,
+            half_duration=clock.half_duration,
+            occurred_at=occurred_at_iso,
         )
         if not result:
             raise HTTPException(status_code=500, detail="Failed to update match clock")
@@ -3202,32 +3236,46 @@ async def post_goal(
         if not player_name and not player_id:
             raise HTTPException(status_code=400, detail="Either player_id or player_name is required")
 
-        # Calculate new scores
-        home_score = current_match.get("home_score") or 0
-        away_score = current_match.get("away_score") or 0
+        # Resolve assist player (roster only, same team, not the scorer)
+        assist_player_name = None
+        if goal.assist_player_id is not None:
+            if goal.assist_player_id == player_id:
+                raise HTTPException(status_code=400, detail="Assist player cannot be the goal scorer")
+            assist_player = roster_dao.get_player_by_id(goal.assist_player_id)
+            if not assist_player:
+                raise HTTPException(status_code=400, detail="Assist player not found")
+            if assist_player["team_id"] != goal.team_id:
+                raise HTTPException(status_code=400, detail="Assist player must be on the scoring team")
+            assist_player_name = assist_player.get("display_name", f"#{assist_player['jersey_number']}")
+
+        # Idempotency: a replayed sync request (same client_event_id) already
+        # incremented the score — return current state with no side effects.
+        if goal.client_event_id and match_event_dao.get_event_by_client_id(goal.client_event_id):
+            return match_dao.get_live_match_state(match_id)
+
+        # Match minute: offline clients send the minute they recorded at tap
+        # time; live clients fall back to the clock-derived minute.
+        if goal.match_minute is not None:
+            match_minute, extra_time = goal.match_minute, goal.extra_time
+        else:
+            match_minute, extra_time = calculate_match_minute(current_match)
 
         if goal.team_id == current_match["home_team_id"]:
-            home_score += 1
             team_name = current_match.get("home_team_name", "Home")
         else:
-            away_score += 1
             team_name = current_match.get("away_team_name", "Away")
 
-        # Update the score
-        user_id = current_user.get("user_id") or current_user.get("id")
-        result = match_dao.update_match_score(match_id, home_score, away_score, updated_by=user_id)
-        if not result:
-            raise HTTPException(status_code=500, detail="Failed to update match score")
-
-        # Calculate match minute for the goal
-        match_minute, extra_time = calculate_match_minute(current_match)
-
-        # Create goal event
         goal_message = f"GOAL! {team_name} - {player_name}"
+        if assist_player_name:
+            goal_message += f" (assist: {assist_player_name})"
         if goal.message:
             goal_message += f" ({goal.message})"
 
-        match_event_dao.create_event(
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        # Event insert FIRST: the unique index on client_event_id is the
+        # idempotency gate — score/stats side effects only run after a fresh insert.
+        event = match_event_dao.create_event(
             match_id=match_id,
             event_type="goal",
             message=goal_message,
@@ -3238,11 +3286,33 @@ async def post_goal(
             player_id=player_id,
             match_minute=match_minute,
             extra_time=extra_time,
+            assist_player_id=goal.assist_player_id,
+            assist_player_name=assist_player_name,
+            client_event_id=goal.client_event_id,
         )
+        if not event:
+            if goal.client_event_id and match_event_dao.get_event_by_client_id(goal.client_event_id):
+                # Lost a race with a concurrent replay — already applied
+                return match_dao.get_live_match_state(match_id)
+            raise HTTPException(status_code=500, detail="Failed to create goal event")
 
-        # Update player stats if player_id is provided
+        # Calculate new scores
+        home_score = current_match.get("home_score") or 0
+        away_score = current_match.get("away_score") or 0
+        if goal.team_id == current_match["home_team_id"]:
+            home_score += 1
+        else:
+            away_score += 1
+
+        result = match_dao.update_match_score(match_id, home_score, away_score, updated_by=user_id)
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to update match score")
+
+        # Update player stats if roster players are identified
         if player_id:
             player_stats_dao.increment_goals(player_id, match_id)
+        if goal.assist_player_id is not None:
+            player_stats_dao.increment_assists(goal.assist_player_id, match_id)
 
         background_tasks.add_task(
             notify_event_task,
@@ -3306,8 +3376,17 @@ async def post_live_card(
         if card.message:
             card_message += f" ({card.message})"
 
-        # Auto-calculate match minute
-        match_minute, extra_time = calculate_match_minute(current_match)
+        # Idempotency: replayed sync request returns the stored event, no side effects
+        if card.client_event_id:
+            existing = match_event_dao.get_event_by_client_id(card.client_event_id)
+            if existing:
+                return existing
+
+        # Match minute: client override (offline sync) or clock-derived
+        if card.match_minute is not None:
+            match_minute, extra_time = card.match_minute, card.extra_time
+        else:
+            match_minute, extra_time = calculate_match_minute(current_match)
 
         user_id = current_user.get("user_id") or current_user.get("id")
 
@@ -3322,9 +3401,14 @@ async def post_live_card(
             player_id=card.player_id,
             match_minute=match_minute,
             extra_time=extra_time,
+            client_event_id=card.client_event_id,
         )
 
         if not event:
+            if card.client_event_id:
+                existing = match_event_dao.get_event_by_client_id(card.client_event_id)
+                if existing:
+                    return existing
             raise HTTPException(status_code=500, detail="Failed to create card event")
 
         # Update player card stats
@@ -3383,6 +3467,12 @@ async def post_message(
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
+        # Idempotency: replayed sync request returns the stored event
+        if message.client_event_id:
+            existing = match_event_dao.get_event_by_client_id(message.client_event_id)
+            if existing:
+                return existing
+
         # Create message event
         user_id = current_user.get("user_id") or current_user.get("id")
         event = match_event_dao.create_event(
@@ -3391,9 +3481,14 @@ async def post_message(
             message=message.message,
             created_by=user_id,
             created_by_username=current_user.get("username"),
+            client_event_id=message.client_event_id,
         )
 
         if not event:
+            if message.client_event_id:
+                existing = match_event_dao.get_event_by_client_id(message.client_event_id)
+                if existing:
+                    return existing
             raise HTTPException(status_code=500, detail="Failed to post message")
 
         return event
@@ -3401,6 +3496,103 @@ async def post_message(
         raise
     except Exception as e:
         logger.error(f"Error posting message: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/matches/{match_id}/live/substitution")
+async def post_live_substitution(
+    match_id: int,
+    sub: LiveSubstitutionEvent,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Record a substitution during a live match.
+
+    Creates a substitution event in the match timeline. The match minute is
+    auto-calculated from the match clock unless the client provides one
+    (offline sync).
+
+    Only accessible by admins, club managers, and team managers who can edit this match.
+    """
+    try:
+        current_match = match_dao.get_match_by_id(match_id)
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        if sub.team_id not in [current_match["home_team_id"], current_match["away_team_id"]]:
+            raise HTTPException(status_code=400, detail="Team must be one of the match participants")
+
+        if sub.player_in_id == sub.player_out_id:
+            raise HTTPException(status_code=400, detail="Player coming on and player coming off must differ")
+
+        # Validate both players exist and are on the team
+        player_in = roster_dao.get_player_by_id(sub.player_in_id)
+        if not player_in:
+            raise HTTPException(status_code=400, detail="Player coming on not found")
+        if player_in["team_id"] != sub.team_id:
+            raise HTTPException(status_code=400, detail="Player coming on must be on the specified team")
+
+        player_out = roster_dao.get_player_by_id(sub.player_out_id)
+        if not player_out:
+            raise HTTPException(status_code=400, detail="Player coming off not found")
+        if player_out["team_id"] != sub.team_id:
+            raise HTTPException(status_code=400, detail="Player coming off must be on the specified team")
+
+        # Idempotency: replayed sync request returns the stored event
+        if sub.client_event_id:
+            existing = match_event_dao.get_event_by_client_id(sub.client_event_id)
+            if existing:
+                return existing
+
+        # Match minute: client override (offline sync) or clock-derived
+        if sub.match_minute is not None:
+            match_minute, extra_time = sub.match_minute, sub.extra_time
+        else:
+            match_minute, extra_time = calculate_match_minute(current_match)
+
+        player_in_name = player_in.get("display_name", f"#{player_in['jersey_number']}")
+        player_out_name = player_out.get("display_name", f"#{player_out['jersey_number']}")
+        sub_message = f"SUB: {player_in_name} on for {player_out_name}"
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        event = match_event_dao.create_event(
+            match_id=match_id,
+            event_type="substitution",
+            message=sub_message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+            team_id=sub.team_id,
+            player_id=sub.player_in_id,
+            player_out_id=sub.player_out_id,
+            match_minute=match_minute,
+            extra_time=extra_time,
+            client_event_id=sub.client_event_id,
+        )
+
+        if not event:
+            if sub.client_event_id:
+                existing = match_event_dao.get_event_by_client_id(sub.client_event_id)
+                if existing:
+                    return existing
+            raise HTTPException(status_code=500, detail="Failed to create substitution event")
+
+        logger.info(
+            "live_substitution_recorded",
+            match_id=match_id,
+            player_in_id=sub.player_in_id,
+            player_out_id=sub.player_out_id,
+            minute=match_minute,
+        )
+
+        return event
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording live substitution: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -3455,6 +3647,9 @@ async def delete_event(
             goal_player_id = event.get("player_id")
             if goal_player_id:
                 player_stats_dao.decrement_goals(goal_player_id, match_id)
+            assist_player_id = event.get("assist_player_id")
+            if assist_player_id:
+                player_stats_dao.decrement_assists(assist_player_id, match_id)
 
         return {"message": "Event deleted successfully"}
     except HTTPException:
@@ -3618,6 +3813,18 @@ async def post_match_add_goal(
         elif not player_name:
             raise HTTPException(status_code=400, detail="Either player_id or player_name is required")
 
+        # Resolve assist player (roster only, same team, not the scorer)
+        assist_player_name = None
+        if goal.assist_player_id is not None:
+            if goal.assist_player_id == player_id:
+                raise HTTPException(status_code=400, detail="Assist player cannot be the goal scorer")
+            assist_player = roster_dao.get_player_by_id(goal.assist_player_id)
+            if not assist_player:
+                raise HTTPException(status_code=400, detail="Assist player not found")
+            if assist_player["team_id"] != goal.team_id:
+                raise HTTPException(status_code=400, detail="Assist player must be on the specified team")
+            assist_player_name = assist_player.get("display_name", f"#{assist_player['jersey_number']}")
+
         team_name = (
             current_match.get("home_team_name")
             if goal.team_id == current_match["home_team_id"]
@@ -3625,6 +3832,8 @@ async def post_match_add_goal(
         )
 
         goal_message = f"GOAL! {team_name} - {player_name}"
+        if assist_player_name:
+            goal_message += f" (assist: {assist_player_name})"
         if goal.message:
             goal_message += f" ({goal.message})"
 
@@ -3641,14 +3850,18 @@ async def post_match_add_goal(
             player_id=player_id,
             match_minute=goal.match_minute,
             extra_time=goal.extra_time,
+            assist_player_id=goal.assist_player_id,
+            assist_player_name=assist_player_name,
         )
 
         if not event:
             raise HTTPException(status_code=500, detail="Failed to create goal event")
 
-        # Increment player goal stats (only if roster player)
+        # Increment player stats (only roster players)
         if player_id:
             player_stats_dao.increment_goals(player_id, match_id)
+        if goal.assist_player_id is not None:
+            player_stats_dao.increment_assists(goal.assist_player_id, match_id)
 
         logger.info(
             "post_match_goal_recorded",
@@ -3706,10 +3919,13 @@ async def post_match_remove_goal(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete goal event")
 
-        # Decrement player goal stats
+        # Decrement player stats
         player_id = event.get("player_id")
         if player_id:
             player_stats_dao.decrement_goals(player_id, match_id)
+        assist_player_id = event.get("assist_player_id")
+        if assist_player_id:
+            player_stats_dao.decrement_assists(assist_player_id, match_id)
 
         logger.info(
             "post_match_goal_removed",
@@ -6110,6 +6326,19 @@ async def update_goal_event(
             # Increment new player's goals
             player_stats_dao.increment_goals(new_player_id, match_id)
 
+        # If assist_player_id is changing, adjust assist stats and resolve name
+        assist_player_name = None
+        old_assist_id = event.get("assist_player_id")
+        new_assist_id = update.assist_player_id
+        if new_assist_id is not None and old_assist_id != new_assist_id:
+            assist_player = roster_dao.get_player_by_id(new_assist_id)
+            if not assist_player:
+                raise HTTPException(status_code=400, detail="Assist player not found")
+            assist_player_name = assist_player.get("display_name", f"#{assist_player['jersey_number']}")
+            if old_assist_id:
+                player_stats_dao.decrement_assists(old_assist_id, match_id)
+            player_stats_dao.increment_assists(new_assist_id, match_id)
+
         # Build update kwargs (only pass non-None fields)
         update_kwargs = {}
         if update.match_minute is not None:
@@ -6120,6 +6349,10 @@ async def update_goal_event(
             update_kwargs["player_name"] = update.player_name
         if update.player_id is not None:
             update_kwargs["player_id"] = update.player_id
+        if update.assist_player_id is not None:
+            update_kwargs["assist_player_id"] = update.assist_player_id
+        if assist_player_name is not None:
+            update_kwargs["assist_player_name"] = assist_player_name
 
         updated = match_event_dao.update_event(event_id, **update_kwargs)
         if not updated:

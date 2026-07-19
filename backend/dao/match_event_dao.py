@@ -33,6 +33,9 @@ class MatchEventDAO(BaseDAO):
         match_minute: int | None = None,
         extra_time: int | None = None,
         player_out_id: int | None = None,
+        assist_player_id: int | None = None,
+        assist_player_name: str | None = None,
+        client_event_id: str | None = None,
     ) -> dict | None:
         """Create a new match event.
 
@@ -48,6 +51,10 @@ class MatchEventDAO(BaseDAO):
             match_minute: Minute when event occurred (e.g., 22 for 22nd minute)
             extra_time: Stoppage/injury time minutes (e.g., 5 for 90+5)
             player_out_id: Player ID being substituted off (for substitution events)
+            assist_player_id: Roster player credited with the assist (goal events)
+            assist_player_name: Denormalized assister display name
+            client_event_id: Client-generated UUID; the unique index on this column
+                makes replayed inserts fail so offline sync is exactly-once
 
         Returns:
             Created event record or None on error
@@ -74,6 +81,12 @@ class MatchEventDAO(BaseDAO):
                 data["extra_time"] = extra_time
             if player_out_id is not None:
                 data["player_out_id"] = player_out_id
+            if assist_player_id is not None:
+                data["assist_player_id"] = assist_player_id
+            if assist_player_name is not None:
+                data["assist_player_name"] = assist_player_name
+            if client_event_id is not None:
+                data["client_event_id"] = client_event_id
 
             response = self.client.table("match_events").insert(data).execute()
 
@@ -147,6 +160,30 @@ class MatchEventDAO(BaseDAO):
             return None
         except Exception:
             logger.exception("Error getting match event", event_id=event_id)
+            return None
+
+    def get_event_by_client_id(self, client_event_id: str) -> dict | None:
+        """Get an event by its client-generated UUID (idempotency replay lookup).
+
+        Args:
+            client_event_id: Client-generated UUID sent with the original request
+
+        Returns:
+            Event record or None if not found
+        """
+        try:
+            response = (
+                self.client.table("match_events")
+                .select("*")
+                .eq("client_event_id", client_event_id)
+                .limit(1)
+                .execute()
+            )
+            if response.data:
+                return response.data[0]
+            return None
+        except Exception:
+            logger.exception("Error getting match event by client id", client_event_id=client_event_id)
             return None
 
     def soft_delete_event(self, event_id: int, deleted_by: str) -> bool:
@@ -244,6 +281,8 @@ class MatchEventDAO(BaseDAO):
         extra_time: int | None = None,
         player_name: str | None = None,
         player_id: int | None = None,
+        assist_player_id: int | None = None,
+        assist_player_name: str | None = None,
     ) -> dict | None:
         """Update editable fields on a match event.
 
@@ -255,6 +294,8 @@ class MatchEventDAO(BaseDAO):
             extra_time: New extra/stoppage time
             player_name: New player name
             player_id: New player ID
+            assist_player_id: New assisting player ID
+            assist_player_name: New assister display name
 
         Returns:
             Updated event record or None on error
@@ -269,6 +310,10 @@ class MatchEventDAO(BaseDAO):
                 data["player_name"] = player_name
             if player_id is not None:
                 data["player_id"] = player_id
+            if assist_player_id is not None:
+                data["assist_player_id"] = assist_player_id
+            if assist_player_name is not None:
+                data["assist_player_name"] = assist_player_name
 
             if not data:
                 return self.get_event_by_id(event_id)

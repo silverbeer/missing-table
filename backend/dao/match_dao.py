@@ -1353,6 +1353,7 @@ class MatchDAO(BaseDAO):
         action: str,
         updated_by: str | None = None,
         half_duration: int | None = None,
+        occurred_at: str | None = None,
     ) -> dict | None:
         """Update match clock based on action.
 
@@ -1362,6 +1363,8 @@ class MatchDAO(BaseDAO):
                     'cancel_halftime', 'start_second_half', 'end_match'
             updated_by: UUID of user performing the action
             half_duration: Duration of each half in minutes (only for start_first_half)
+            occurred_at: ISO timestamp to record instead of now (offline clients
+                syncing a clock action after the fact)
 
         Returns:
             Updated match state or None on error
@@ -1369,7 +1372,7 @@ class MatchDAO(BaseDAO):
         from datetime import datetime
 
         try:
-            now = datetime.now(UTC).isoformat()
+            now = occurred_at or datetime.now(UTC).isoformat()
             data: dict = {"updated_by": updated_by} if updated_by else {}
 
             if action == "start_first_half":

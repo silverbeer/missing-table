@@ -14,6 +14,7 @@ class PostMatchGoal(BaseModel):
     team_id: int = Field(..., description="ID of the team that scored")
     player_id: int | None = Field(None, description="ID of the goal scorer from roster (preferred)")
     player_name: str | None = Field(None, max_length=200, description="Name of goal scorer (when no roster)")
+    assist_player_id: int | None = Field(None, description="ID of the assisting player from roster")
     match_minute: int = Field(..., ge=1, le=130, description="Minute the goal was scored")
     extra_time: int | None = Field(None, ge=1, description="Stoppage time minutes (e.g., 3 for 45+3)")
     message: str | None = Field(None, max_length=500, description="Optional goal description")
