@@ -602,6 +602,93 @@ class PlayerStatsDAO(BaseDAO):
             return None
 
     @invalidates_cache(STATS_CACHE_PATTERN)
+    def increment_assists(self, player_id: int, match_id: int) -> dict | None:
+        """
+        Increment assist count for a player in a match.
+
+        Creates stats record if it doesn't exist.
+
+        Args:
+            player_id: Player ID
+            match_id: Match ID
+
+        Returns:
+            Updated stats dict
+        """
+        try:
+            stats = self.get_or_create_match_stats(player_id, match_id)
+            if not stats:
+                return None
+
+            current_assists = stats.get("assists", 0)
+
+            response = (
+                self.client.table("player_match_stats")
+                .update({"assists": current_assists + 1, "played": True})
+                .eq("player_id", player_id)
+                .eq("match_id", match_id)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                logger.info(
+                    "stats_assist_incremented",
+                    player_id=player_id,
+                    match_id=match_id,
+                    new_total=current_assists + 1,
+                )
+                return response.data[0]
+            return None
+
+        except Exception as e:
+            logger.error("stats_increment_assists_error", player_id=player_id, match_id=match_id, error=str(e))
+            return None
+
+    @invalidates_cache(STATS_CACHE_PATTERN)
+    def decrement_assists(self, player_id: int, match_id: int) -> dict | None:
+        """
+        Decrement assist count for a player in a match.
+
+        Won't go below 0.
+
+        Args:
+            player_id: Player ID
+            match_id: Match ID
+
+        Returns:
+            Updated stats dict
+        """
+        try:
+            stats = self.get_match_stats(player_id, match_id)
+            if not stats:
+                return None
+
+            current_assists = stats.get("assists", 0)
+            new_assists = max(0, current_assists - 1)
+
+            response = (
+                self.client.table("player_match_stats")
+                .update({"assists": new_assists})
+                .eq("player_id", player_id)
+                .eq("match_id", match_id)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                logger.info(
+                    "stats_assist_decremented",
+                    player_id=player_id,
+                    match_id=match_id,
+                    new_total=new_assists,
+                )
+                return response.data[0]
+            return None
+
+        except Exception as e:
+            logger.error("stats_decrement_assists_error", player_id=player_id, match_id=match_id, error=str(e))
+            return None
+
+    @invalidates_cache(STATS_CACHE_PATTERN)
     def set_started(self, player_id: int, match_id: int, started: bool) -> dict | None:
         """
         Set whether a player started a match.

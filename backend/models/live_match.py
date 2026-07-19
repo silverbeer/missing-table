@@ -22,6 +22,10 @@ class LiveMatchClock(BaseModel):
         le=60,
         description="Duration of each half in minutes (only for start_first_half)",
     )
+    occurred_at: datetime | None = Field(
+        None,
+        description="When the action actually happened (offline clients syncing late); defaults to now",
+    )
 
     @property
     def valid_actions(self) -> list[str]:
@@ -40,7 +44,15 @@ class GoalEvent(BaseModel):
     team_id: int = Field(..., description="ID of the team that scored")
     player_name: str | None = Field(None, max_length=200, description="Name of the goal scorer (legacy)")
     player_id: int | None = Field(None, description="ID of the goal scorer from roster (preferred)")
+    assist_player_id: int | None = Field(None, description="ID of the assisting player from roster")
     message: str | None = Field(None, max_length=500, description="Optional description")
+    match_minute: int | None = Field(
+        None, ge=0, le=130, description="Minute when scored (offline clients); defaults to clock-derived"
+    )
+    extra_time: int | None = Field(None, ge=0, le=30, description="Stoppage time minutes (with match_minute)")
+    client_event_id: str | None = Field(
+        None, max_length=36, description="Client-generated UUID for idempotent retries"
+    )
 
 
 class LiveCardEvent(BaseModel):
@@ -53,12 +65,37 @@ class LiveCardEvent(BaseModel):
     )
     card_type: str = Field(..., pattern="^(yellow_card|red_card)$", description="Type of card: yellow_card or red_card")
     message: str | None = Field(None, max_length=500, description="Optional description (e.g., reason for card)")
+    match_minute: int | None = Field(
+        None, ge=0, le=130, description="Minute of the card (offline clients); defaults to clock-derived"
+    )
+    extra_time: int | None = Field(None, ge=0, le=30, description="Stoppage time minutes (with match_minute)")
+    client_event_id: str | None = Field(
+        None, max_length=36, description="Client-generated UUID for idempotent retries"
+    )
+
+
+class LiveSubstitutionEvent(BaseModel):
+    """Model for recording a substitution during a live match."""
+
+    team_id: int = Field(..., description="ID of the team making the substitution")
+    player_in_id: int = Field(..., description="ID of the player coming on")
+    player_out_id: int = Field(..., description="ID of the player coming off")
+    match_minute: int | None = Field(
+        None, ge=0, le=130, description="Minute of the sub (offline clients); defaults to clock-derived"
+    )
+    extra_time: int | None = Field(None, ge=0, le=30, description="Stoppage time minutes (with match_minute)")
+    client_event_id: str | None = Field(
+        None, max_length=36, description="Client-generated UUID for idempotent retries"
+    )
 
 
 class MessageEvent(BaseModel):
     """Model for posting a chat message."""
 
     message: str = Field(..., min_length=1, max_length=500, description="Message content")
+    client_event_id: str | None = Field(
+        None, max_length=36, description="Client-generated UUID for idempotent retries"
+    )
 
 
 class GoalEventUpdate(BaseModel):
@@ -68,6 +105,7 @@ class GoalEventUpdate(BaseModel):
     extra_time: int | None = Field(None, ge=0, le=30, description="Extra/stoppage time minutes")
     player_name: str | None = Field(None, max_length=200, description="Name of the goal scorer")
     player_id: int | None = Field(None, description="ID of the goal scorer from roster")
+    assist_player_id: int | None = Field(None, description="ID of the assisting player from roster")
 
 
 class MatchEventResponse(BaseModel):
@@ -79,6 +117,9 @@ class MatchEventResponse(BaseModel):
     team_id: int | None = None
     player_name: str | None = None
     player_id: int | None = None
+    player_out_id: int | None = None
+    assist_player_id: int | None = None
+    assist_player_name: str | None = None
     match_minute: int | None = None
     extra_time: int | None = None
     message: str
@@ -86,6 +127,7 @@ class MatchEventResponse(BaseModel):
     created_by_username: str | None = None
     created_at: datetime
     is_deleted: bool = False
+    client_event_id: str | None = None
 
 
 class LiveMatchState(BaseModel):

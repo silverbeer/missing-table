@@ -51,6 +51,7 @@ from .live_match import (
     LiveMatchClock,
     LiveMatchState,
     LiveMatchSummary,
+    LiveSubstitutionEvent,
     MatchEventResponse,
     MessageEvent,
 )
@@ -132,6 +133,7 @@ __all__ = [
     "LiveMatchClock",
     "LiveMatchState",
     "LiveMatchSummary",
+    "LiveSubstitutionEvent",
     "MatchEventResponse",
     "MatchPatch",
     "MatchSubmissionData",
