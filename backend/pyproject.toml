@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Sports league management backend"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.115.4",
+    # fastapi 0.137 introduced _IncludedRouter, which crashes
+    # prometheus-fastapi-instrumentator's route-name lookup (500 on every
+    # router-included endpoint). Unpin once the instrumentator supports it.
+    "fastapi>=0.115.4,<0.137",
     "uvicorn>=0.32.0",
     "pydantic>=2.9.2",
     "pandas>=2.2.3",
