@@ -6,6 +6,8 @@ import re
 
 from pydantic import BaseModel, field_validator
 
+from constants.positions import normalize_positions
+
 
 class UserSignup(BaseModel):
     """Model for user signup requests."""
@@ -56,6 +58,13 @@ class UserProfile(BaseModel):
     team_id: int | None = None
     player_number: int | None = None
     positions: list[str] | None = None
+
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
+
     # Photo fields
     photo_1_url: str | None = None
     photo_2_url: str | None = None
@@ -197,6 +206,12 @@ class PlayerCustomization(BaseModel):
             raise ValueError("Color must be a valid hex color (e.g., #3B82F6)")
         return v
 
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
+
 
 class PlayerHistoryCreate(BaseModel):
     """Model for creating a player team history entry."""
@@ -217,6 +232,12 @@ class PlayerHistoryCreate(BaseModel):
             raise ValueError("Jersey number must be between 1 and 99")
         return v
 
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
+
 
 class PlayerHistoryUpdate(BaseModel):
     """Model for updating a player team history entry."""
@@ -234,6 +255,12 @@ class PlayerHistoryUpdate(BaseModel):
             raise ValueError("Jersey number must be between 1 and 99")
         return v
 
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
+
 
 class AdminPlayerUpdate(BaseModel):
     """Model for admin updating a player's profile info."""
@@ -249,6 +276,12 @@ class AdminPlayerUpdate(BaseModel):
         if v is not None and (v < 1 or v > 99):
             raise ValueError("Player number must be between 1 and 99")
         return v
+
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
 
 
 class AdminPlayerTeamAssignment(BaseModel):

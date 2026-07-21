@@ -31,7 +31,7 @@ from auth import (
     security,
     viewer_sees_test_content,
 )
-from constants import PLAYER_POSITIONS
+from constants.positions import PLAYER_POSITIONS
 from csrf_protection import provide_csrf_token
 from middleware import TraceMiddleware
 from models import (

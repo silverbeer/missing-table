@@ -266,21 +266,7 @@
               <label class="block text-sm font-medium text-fg mb-2"
                 >Positions</label
               >
-              <div class="flex flex-wrap gap-2">
-                <label
-                  v-for="pos in availablePositions"
-                  :key="pos"
-                  class="inline-flex items-center"
-                >
-                  <input
-                    type="checkbox"
-                    :value="pos"
-                    v-model="editForm.positions"
-                    class="rounded border-line text-brand-600 focus:ring-brand-500"
-                  />
-                  <span class="ml-2 text-sm text-fg">{{ pos }}</span>
-                </label>
-              </div>
+              <PositionPicker v-model="editForm.positions" />
             </div>
             <div class="flex justify-end gap-2">
               <button
@@ -469,10 +455,13 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
-import { POSITION_ABBREVIATIONS } from '@/constants/positions';
+import PositionPicker from '@/components/shared/PositionPicker.vue';
 
 export default {
   name: 'AdminPlayers',
+  components: {
+    PositionPicker,
+  },
   setup() {
     const authStore = useAuthStore();
 
@@ -511,8 +500,6 @@ export default {
       jersey_number: null,
       is_current: true,
     });
-
-    const availablePositions = POSITION_ABBREVIATIONS;
 
     // Computed
     const filteredTeams = computed(() => {
@@ -782,7 +769,6 @@ export default {
       selectedPlayer,
       editForm,
       assignmentForm,
-      availablePositions,
       filteredTeams,
 
       // Methods

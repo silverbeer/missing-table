@@ -328,21 +328,7 @@
                 <label class="block text-sm font-medium text-fg mb-2"
                   >Positions</label
                 >
-                <div class="flex flex-wrap gap-2">
-                  <label
-                    v-for="pos in availablePositions"
-                    :key="pos"
-                    class="inline-flex items-center"
-                  >
-                    <input
-                      type="checkbox"
-                      :value="pos"
-                      v-model="addForm.positions"
-                      class="rounded border-line text-brand-600 focus:ring-brand-500"
-                    />
-                    <span class="ml-1 text-sm text-fg">{{ pos }}</span>
-                  </label>
-                </div>
+                <PositionPicker v-model="addForm.positions" />
               </div>
               <div class="flex justify-end space-x-3">
                 <button
@@ -411,21 +397,7 @@
                 <label class="block text-sm font-medium text-fg mb-2"
                   >Positions</label
                 >
-                <div class="flex flex-wrap gap-2">
-                  <label
-                    v-for="pos in availablePositions"
-                    :key="pos"
-                    class="inline-flex items-center"
-                  >
-                    <input
-                      type="checkbox"
-                      :value="pos"
-                      v-model="editForm.positions"
-                      class="rounded border-line text-brand-600 focus:ring-brand-500"
-                    />
-                    <span class="ml-1 text-sm text-fg">{{ pos }}</span>
-                  </label>
-                </div>
+                <PositionPicker v-model="editForm.positions" />
               </div>
               <div class="flex justify-end space-x-3">
                 <button
@@ -609,10 +581,13 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
-import { POSITION_ABBREVIATIONS } from '@/constants/positions';
+import PositionPicker from '@/components/shared/PositionPicker.vue';
 
 export default {
   name: 'RosterManager',
+  components: {
+    PositionPicker,
+  },
   props: {
     teamId: {
       type: Number,
@@ -677,9 +652,6 @@ export default {
         roster.value.length > 0 &&
         selectedIds.value.length === roster.value.length
     );
-
-    // Available positions
-    const availablePositions = POSITION_ABBREVIATIONS;
 
     // Fetch roster data
     const fetchRoster = async () => {
@@ -1020,7 +992,6 @@ export default {
       bulkImportText,
       inviteCode,
       invitePlayer,
-      availablePositions,
       ageGroups,
       selectedIds,
       bulkAgeGroupId,
