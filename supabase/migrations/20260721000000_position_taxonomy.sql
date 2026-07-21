@@ -1,0 +1,80 @@
+-- Position taxonomy migration (SB-284)
+--
+-- The position vocabulary changed from a flat 4-3-3-shaped list to a grouped
+-- taxonomy (GK/DEF/MID/FWD -> specific codes). Side-specific codes are
+-- retired for player positions: LCB/RCB -> CB, LCM/RCM -> CM.
+--
+-- Data-only migration: player positions stay text[] (ordered, first entry =
+-- primary). Code validation lives in the backend (Pydantic), not a CHECK
+-- constraint, so future taxonomy tweaks don't need DDL.
+--
+-- match_lineups.positions is intentionally untouched: those are formation
+-- SLOT codes (LCB there is correct).
+
+-- 1. players.positions: remap legacy codes, dedupe preserving order
+--    (first occurrence wins, e.g. [LCB, RCB] -> [CB]).
+WITH remapped AS (
+    SELECT
+        p.id,
+        (
+            SELECT array_agg(code ORDER BY first_ord)
+            FROM (
+                SELECT
+                    CASE u.code
+                        WHEN 'LCB' THEN 'CB'
+                        WHEN 'RCB' THEN 'CB'
+                        WHEN 'LCM' THEN 'CM'
+                        WHEN 'RCM' THEN 'CM'
+                        ELSE u.code
+                    END AS code,
+                    min(u.ord) AS first_ord
+                FROM unnest(p.positions) WITH ORDINALITY AS u(code, ord)
+                GROUP BY 1
+            ) dedup
+        ) AS new_positions
+    FROM players p
+    WHERE p.positions && ARRAY['LCB', 'RCB', 'LCM', 'RCM']
+)
+UPDATE players p
+SET positions = r.new_positions
+FROM remapped r
+WHERE p.id = r.id;
+
+-- 2. player_team_history.positions: same remap.
+WITH remapped AS (
+    SELECT
+        h.id,
+        (
+            SELECT array_agg(code ORDER BY first_ord)
+            FROM (
+                SELECT
+                    CASE u.code
+                        WHEN 'LCB' THEN 'CB'
+                        WHEN 'RCB' THEN 'CB'
+                        WHEN 'LCM' THEN 'CM'
+                        WHEN 'RCM' THEN 'CM'
+                        ELSE u.code
+                    END AS code,
+                    min(u.ord) AS first_ord
+                FROM unnest(h.positions) WITH ORDINALITY AS u(code, ord)
+                GROUP BY 1
+            ) dedup
+        ) AS new_positions
+    FROM player_team_history h
+    WHERE h.positions && ARRAY['LCB', 'RCB', 'LCM', 'RCM']
+)
+UPDATE player_team_history h
+SET positions = r.new_positions
+FROM remapped r
+WHERE h.id = r.id;
+
+-- 3. user_profiles.positions (JSON stored as text): string-replace legacy
+--    codes. Profiles are effectively single-position today (the profile
+--    editor collapsed to one entry), so duplicate risk is nil.
+UPDATE user_profiles
+SET positions = replace(replace(replace(replace(positions,
+        '"LCB"', '"CB"'),
+        '"RCB"', '"CB"'),
+        '"LCM"', '"CM"'),
+        '"RCM"', '"CM"')
+WHERE positions ~ 'LCB|RCB|LCM|RCM';

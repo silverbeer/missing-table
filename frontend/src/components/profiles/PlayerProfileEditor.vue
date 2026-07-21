@@ -157,21 +157,9 @@
               <span class="field-hint">Set by team manager</span>
             </div>
             <div class="form-group">
-              <label for="playerPosition">Primary Position</label>
-              <select
-                id="playerPosition"
-                v-model="selectedPosition"
-                class="form-select"
-              >
-                <option value="">Select position...</option>
-                <option
-                  v-for="pos in availablePositions"
-                  :key="pos.abbreviation"
-                  :value="pos.abbreviation"
-                >
-                  {{ pos.abbreviation }} - {{ pos.full_name }}
-                </option>
-              </select>
+              <label>Positions</label>
+              <PositionPicker v-model="localState.positions" />
+              <span class="field-hint">First position is your primary</span>
             </div>
           </div>
         </div>
@@ -244,10 +232,10 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
-import { PLAYER_POSITIONS } from '@/constants/positions';
 import ColorInput from '../shared/ColorInput.vue';
 import PlayerPhotoOverlay from './PlayerPhotoOverlay.vue';
 import PlayerPhotoUpload from './PlayerPhotoUpload.vue';
+import PositionPicker from '../shared/PositionPicker.vue';
 
 export default {
   name: 'PlayerProfileEditor',
@@ -255,6 +243,7 @@ export default {
     ColorInput,
     PlayerPhotoOverlay,
     PlayerPhotoUpload,
+    PositionPicker,
   },
   emits: ['close', 'saved'],
   setup(props, { emit }) {
@@ -262,7 +251,6 @@ export default {
     const saving = ref(false);
     const error = ref(null);
     const success = ref(null);
-    const availablePositions = ref(PLAYER_POSITIONS);
 
     // Helper to parse positions (may be JSON string or array)
     const parsePositions = positions => {
@@ -359,21 +347,6 @@ export default {
         }
       }
       return null;
-    });
-
-    // Selected primary position
-    const selectedPosition = computed({
-      get: () => {
-        const positions = localState.value.positions;
-        return positions && positions.length > 0 ? positions[0] : '';
-      },
-      set: value => {
-        if (value) {
-          localState.value.positions = [value];
-        } else {
-          localState.value.positions = [];
-        }
-      },
     });
 
     // Primary position for display
@@ -494,9 +467,7 @@ export default {
       hasChanges,
       previewPhotoUrl,
       primaryPosition,
-      selectedPosition,
       overlayStyles,
-      availablePositions,
       hasClubColors,
       useClubColors,
       handlePhotoUpdate,

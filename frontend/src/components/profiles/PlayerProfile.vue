@@ -57,17 +57,9 @@
             <span class="field-hint">Set by team manager</span>
           </div>
           <div class="form-group half">
-            <label>Position</label>
-            <select v-model="editablePosition">
-              <option value="">Select...</option>
-              <option
-                v-for="pos in availablePositions"
-                :key="pos.abbreviation"
-                :value="pos.abbreviation"
-              >
-                {{ pos.abbreviation }} - {{ pos.full_name }}
-              </option>
-            </select>
+            <label>Positions</label>
+            <PositionPicker v-model="editablePositions" />
+            <span class="field-hint">First position is your primary</span>
           </div>
         </div>
         <div class="form-group">
@@ -426,10 +418,10 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import PlayerProfileEditor from './PlayerProfileEditor.vue';
 import { getApiBaseUrl } from '../../config/api';
-import { PLAYER_POSITIONS } from '@/constants/positions';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
 import LiveUpdatesSection from './LiveUpdatesSection.vue';
+import PositionPicker from '@/components/shared/PositionPicker.vue';
 
 export default {
   name: 'PlayerProfile',
@@ -438,6 +430,7 @@ export default {
     ClubLogo,
     LiveUpdatesTeaser,
     LiveUpdatesSection,
+    PositionPicker,
   },
   setup() {
     const authStore = useAuthStore();
@@ -446,12 +439,11 @@ export default {
     const loadingHistory = ref(false);
     const showEditor = ref(false);
     const showEditInfo = ref(false);
-    const availablePositions = ref(PLAYER_POSITIONS);
     const savingNumber = ref(false);
     const savingPosition = ref(false);
     const savingPersonalInfo = ref(false);
     const editableNumber = ref(null);
-    const editablePosition = ref('');
+    const editablePositions = ref([]);
     const editableFirstName = ref('');
     const editableLastName = ref('');
     const editableHometown = ref('');
@@ -612,8 +604,7 @@ export default {
 
     const initEditableFields = () => {
       editableNumber.value = authStore.state.profile?.player_number || null;
-      const positions = parsedPositions.value;
-      editablePosition.value = positions.length > 0 ? positions[0] : '';
+      editablePositions.value = [...parsedPositions.value];
       editableFirstName.value = authStore.state.profile?.first_name || '';
       editableLastName.value = authStore.state.profile?.last_name || '';
       editableHometown.value = authStore.state.profile?.hometown || '';
@@ -646,9 +637,11 @@ export default {
 
     const savePosition = async () => {
       const currentPositions = parsedPositions.value;
-      const currentPosition =
-        currentPositions.length > 0 ? currentPositions[0] : '';
-      if (editablePosition.value === currentPosition) return;
+      if (
+        JSON.stringify(editablePositions.value) ===
+        JSON.stringify(currentPositions)
+      )
+        return;
       try {
         savingPosition.value = true;
         await authStore.apiRequest(
@@ -657,14 +650,14 @@ export default {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              positions: editablePosition.value ? [editablePosition.value] : [],
+              positions: editablePositions.value,
             }),
           }
         );
         await authStore.fetchProfile();
       } catch (error) {
         console.error('Error saving position:', error);
-        editablePosition.value = currentPosition;
+        editablePositions.value = [...currentPositions];
       } finally {
         savingPosition.value = false;
       }
@@ -742,12 +735,11 @@ export default {
         }
         // Note: player_number is now set by team manager via invites, not editable by player
         const currentPositions = parsedPositions.value;
-        const currentPosition =
-          currentPositions.length > 0 ? currentPositions[0] : '';
-        if (editablePosition.value !== currentPosition) {
-          updates.positions = editablePosition.value
-            ? [editablePosition.value]
-            : [];
+        if (
+          JSON.stringify(editablePositions.value) !==
+          JSON.stringify(currentPositions)
+        ) {
+          updates.positions = editablePositions.value;
         }
 
         console.log('Saving updates:', updates);
@@ -942,9 +934,8 @@ export default {
       formatGameDate,
       getGameResult,
       getResultClass,
-      availablePositions,
       editableNumber,
-      editablePosition,
+      editablePositions,
       editableFirstName,
       editableLastName,
       editableHometown,

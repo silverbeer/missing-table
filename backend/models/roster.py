@@ -2,7 +2,9 @@
 Roster-related Pydantic models for player roster management.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from constants.positions import normalize_positions
 
 
 class RosterPlayerCreate(BaseModel):
@@ -14,6 +16,12 @@ class RosterPlayerCreate(BaseModel):
     positions: list[str] | None = None
     season_id: int
 
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
+
 
 class RosterPlayerUpdate(BaseModel):
     """Model for updating a roster entry's name or positions."""
@@ -21,6 +29,12 @@ class RosterPlayerUpdate(BaseModel):
     first_name: str | None = Field(None, max_length=100)
     last_name: str | None = Field(None, max_length=100)
     positions: list[str] | None = None
+
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
 
 
 class JerseyNumberUpdate(BaseModel):
@@ -36,6 +50,12 @@ class BulkRosterPlayer(BaseModel):
     first_name: str | None = Field(None, max_length=100)
     last_name: str | None = Field(None, max_length=100)
     positions: list[str] | None = None
+
+    @field_validator("positions")
+    @classmethod
+    def validate_positions(cls, v):
+        """Validate position codes; dedupe preserving order; map legacy codes."""
+        return normalize_positions(v)
 
 
 class BulkRosterCreate(BaseModel):
