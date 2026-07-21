@@ -6,7 +6,7 @@ import re
 
 from pydantic import BaseModel, field_validator
 
-from constants.positions import normalize_positions
+from constants.positions import Positions
 
 
 class UserSignup(BaseModel):
@@ -57,13 +57,7 @@ class UserProfile(BaseModel):
     role: str | None = None
     team_id: int | None = None
     player_number: int | None = None
-    positions: list[str] | None = None
-
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
+    positions: Positions = None
 
     # Photo fields
     photo_1_url: str | None = None
@@ -167,7 +161,7 @@ class PlayerCustomization(BaseModel):
     text_color: str | None = None
     accent_color: str | None = None
     player_number: int | None = None  # Jersey number (1-99)
-    positions: list[str] | None = None
+    positions: Positions = None
     # Social media handles (username only, not full URLs)
     instagram_handle: str | None = None
     snapchat_handle: str | None = None
@@ -206,12 +200,6 @@ class PlayerCustomization(BaseModel):
             raise ValueError("Color must be a valid hex color (e.g., #3B82F6)")
         return v
 
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
-
 
 class PlayerHistoryCreate(BaseModel):
     """Model for creating a player team history entry."""
@@ -219,7 +207,7 @@ class PlayerHistoryCreate(BaseModel):
     team_id: int
     season_id: int
     jersey_number: int | None = None
-    positions: list[str] | None = None
+    positions: Positions = None
     notes: str | None = None
     is_current: bool = False
     age_group_id: int | None = None
@@ -232,18 +220,12 @@ class PlayerHistoryCreate(BaseModel):
             raise ValueError("Jersey number must be between 1 and 99")
         return v
 
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
-
 
 class PlayerHistoryUpdate(BaseModel):
     """Model for updating a player team history entry."""
 
     jersey_number: int | None = None
-    positions: list[str] | None = None
+    positions: Positions = None
     notes: str | None = None
     is_current: bool | None = None
 
@@ -255,19 +237,13 @@ class PlayerHistoryUpdate(BaseModel):
             raise ValueError("Jersey number must be between 1 and 99")
         return v
 
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
-
 
 class AdminPlayerUpdate(BaseModel):
     """Model for admin updating a player's profile info."""
 
     display_name: str | None = None
     player_number: int | None = None
-    positions: list[str] | None = None
+    positions: Positions = None
 
     @field_validator("player_number")
     @classmethod
@@ -276,12 +252,6 @@ class AdminPlayerUpdate(BaseModel):
         if v is not None and (v < 1 or v > 99):
             raise ValueError("Player number must be between 1 and 99")
         return v
-
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
 
 
 class AdminPlayerTeamAssignment(BaseModel):

@@ -456,6 +456,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import PositionPicker from '@/components/shared/PositionPicker.vue';
+import { parsePositions } from '@/constants/positions';
 
 export default {
   name: 'AdminPlayers',
@@ -690,7 +691,8 @@ export default {
       editForm.value = {
         display_name: player.display_name || '',
         player_number: player.player_number || null,
-        positions: player.positions || [],
+        // user_profiles.positions is a TEXT column returned as a JSON string
+        positions: parsePositions(player.positions),
       };
       showEditModal.value = true;
     };

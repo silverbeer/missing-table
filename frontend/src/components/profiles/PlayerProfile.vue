@@ -93,9 +93,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <span
-          v-if="savingPersonalInfo || savingNumber || savingPosition"
-          class="saving"
+        <span v-if="savingPersonalInfo || savingNumber" class="saving"
           >Saving...</span
         >
         <button class="done-btn" @click="saveAllAndClose">Done</button>
@@ -440,7 +438,6 @@ export default {
     const showEditor = ref(false);
     const showEditInfo = ref(false);
     const savingNumber = ref(false);
-    const savingPosition = ref(false);
     const savingPersonalInfo = ref(false);
     const editableNumber = ref(null);
     const editablePositions = ref([]);
@@ -632,34 +629,6 @@ export default {
         editableNumber.value = currentNumber;
       } finally {
         savingNumber.value = false;
-      }
-    };
-
-    const savePosition = async () => {
-      const currentPositions = parsedPositions.value;
-      if (
-        JSON.stringify(editablePositions.value) ===
-        JSON.stringify(currentPositions)
-      )
-        return;
-      try {
-        savingPosition.value = true;
-        await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/auth/profile/customization`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              positions: editablePositions.value,
-            }),
-          }
-        );
-        await authStore.fetchProfile();
-      } catch (error) {
-        console.error('Error saving position:', error);
-        editablePositions.value = [...currentPositions];
-      } finally {
-        savingPosition.value = false;
       }
     };
 
@@ -941,10 +910,8 @@ export default {
       editableHometown,
       editableDisplayName,
       savingNumber,
-      savingPosition,
       savingPersonalInfo,
       savePlayerNumber,
-      savePosition,
       savePersonalInfo,
       saveDisplayName,
       saveAllAndClose,

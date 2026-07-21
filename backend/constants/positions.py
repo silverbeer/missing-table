@@ -8,6 +8,10 @@ A player's positions are an ORDERED list of specific codes; the first entry
 is their primary position. Each code belongs to exactly one broad group.
 """
 
+from typing import Annotated
+
+from pydantic import AfterValidator
+
 POSITION_GROUPS: dict[str, list[str]] = {
     "GK": ["GK"],
     "DEF": ["CB", "LB", "RB", "LWB", "RWB"],
@@ -76,3 +80,8 @@ def normalize_positions(positions: list[str] | None) -> list[str] | None:
             seen.add(code)
             normalized.append(code)
     return normalized
+
+
+# Shared Pydantic field type: use `positions: Positions = None` on any model
+# with a positions field so validation can't be forgotten.
+Positions = Annotated[list[str] | None, AfterValidator(normalize_positions)]
