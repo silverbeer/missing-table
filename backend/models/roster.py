@@ -15,6 +15,7 @@ class RosterPlayerCreate(BaseModel):
     last_name: str | None = Field(None, max_length=100)
     positions: Positions = None
     season_id: int
+    age_group_id: int | None = None
 
 
 class RosterPlayerUpdate(BaseModel):
@@ -44,6 +45,7 @@ class BulkRosterCreate(BaseModel):
     """Model for bulk creating roster entries."""
 
     season_id: int
+    age_group_id: int | None = None
     players: list[BulkRosterPlayer] = Field(..., min_length=1)
 
 
@@ -82,6 +84,7 @@ class RosterPlayerResponse(BaseModel):
     has_account: bool
     # Plain list on the response model: reads must not 500 on stale codes.
     positions: list[str] | None = None
+    age_group_id: int | None = None
     is_active: bool
 
     class Config:

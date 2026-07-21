@@ -326,6 +326,21 @@
               </div>
               <div class="mb-4">
                 <label class="block text-sm font-medium text-fg mb-2"
+                  >Age Group</label
+                >
+                <select
+                  v-model="addForm.age_group_id"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  data-testid="add-player-age-group"
+                >
+                  <option :value="null">No age group</option>
+                  <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
+                    {{ ag.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-fg mb-2"
                   >Positions</label
                 >
                 <PositionPicker v-model="addForm.positions" />
@@ -499,16 +514,36 @@
               Bulk Import Players
             </h4>
             <p class="text-sm text-fg-muted mb-4">
-              Enter jersey numbers, one per line. Players will be created with
-              just the number.
+              One player per line: a jersey number, optionally followed by last
+              and first name (e.g. <code>7, Smith, Gabe</code>). Names can be
+              added later.
             </p>
             <form @submit.prevent="bulkImport" data-testid="bulk-import-form">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-fg mb-2"
+                  >Age Group</label
+                >
+                <select
+                  v-model="bulkImportAgeGroupId"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  data-testid="bulk-import-age-group"
+                >
+                  <option :value="null">No age group</option>
+                  <option v-for="ag in ageGroups" :key="ag.id" :value="ag.id">
+                    {{ ag.name }}
+                  </option>
+                </select>
+                <p class="mt-1 text-xs text-fg-muted">
+                  Jersey numbers are unique within an age group — umbrella clubs
+                  can reuse numbers across squads.
+                </p>
+              </div>
               <div class="mb-4">
                 <textarea
                   v-model="bulkImportText"
                   rows="8"
                   class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
-                  placeholder="1&#10;7&#10;10&#10;11&#10;23"
+                  placeholder="1&#10;7, Smith, Gabe&#10;10, Jones&#10;11&#10;23"
                   data-testid="bulk-import-textarea"
                 ></textarea>
               </div>
@@ -629,6 +664,7 @@ export default {
       first_name: '',
       last_name: '',
       positions: [],
+      age_group_id: props.ageGroupId ?? null,
     });
 
     const editForm = ref({
@@ -640,6 +676,7 @@ export default {
     const editingPlayer = ref(null);
     const newJerseyNumber = ref(null);
     const bulkImportText = ref('');
+    const bulkImportAgeGroupId = ref(props.ageGroupId ?? null);
     const inviteCode = ref('');
     const invitePlayer = ref(null);
 
@@ -744,6 +781,7 @@ export default {
           positions:
             addForm.value.positions.length > 0 ? addForm.value.positions : null,
           season_id: props.seasonId,
+          age_group_id: addForm.value.age_group_id ?? null,
         };
 
         await authStore.apiRequest(
@@ -850,19 +888,29 @@ export default {
         formLoading.value = true;
         error.value = null;
 
-        // Parse jersey numbers from text
-        const numbers = bulkImportText.value
+        // Parse lines: "7" or "7, Lastname" or "7, Lastname, Firstname"
+        const players = bulkImportText.value
           .split('\n')
-          .map(line => parseInt(line.trim()))
-          .filter(num => !isNaN(num) && num >= 1 && num <= 99);
+          .map(line => line.trim())
+          .filter(Boolean)
+          .map(line => {
+            const [numPart, lastName, firstName] = line
+              .split(',')
+              .map(s => s.trim());
+            const num = parseInt(numPart);
+            if (isNaN(num) || num < 1 || num > 99) return null;
+            const entry = { jersey_number: num };
+            if (lastName) entry.last_name = lastName;
+            if (firstName) entry.first_name = firstName;
+            return entry;
+          })
+          .filter(Boolean);
 
-        if (numbers.length === 0) {
+        if (players.length === 0) {
           error.value = 'No valid jersey numbers found';
           formLoading.value = false;
           return;
         }
-
-        const players = numbers.map(num => ({ jersey_number: num }));
 
         const response = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/teams/${props.teamId}/roster/bulk`,
@@ -870,6 +918,7 @@ export default {
             method: 'POST',
             body: JSON.stringify({
               season_id: props.seasonId,
+              age_group_id: bulkImportAgeGroupId.value ?? null,
               players: players,
             }),
           }
@@ -965,6 +1014,7 @@ export default {
         first_name: '',
         last_name: '',
         positions: [],
+        age_group_id: props.ageGroupId ?? null,
       };
     };
 
@@ -989,6 +1039,7 @@ export default {
       editingPlayer,
       newJerseyNumber,
       bulkImportText,
+      bulkImportAgeGroupId,
       inviteCode,
       invitePlayer,
       ageGroups,
