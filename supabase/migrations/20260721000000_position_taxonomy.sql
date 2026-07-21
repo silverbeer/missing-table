@@ -68,27 +68,63 @@ SET positions = r.new_positions
 FROM remapped r
 WHERE h.id = r.id;
 
--- 3. user_profiles.positions (JSON stored as text): same remap + dedupe as
---    parts 1-2. The old AdminPlayers checkbox UI could write multi-position
---    arrays here (e.g. ["LCB","RCB"]), so a bare string-replace would mint
---    duplicates (["CB","CB"]); remap through jsonb with first-occurrence
---    dedupe instead.
-UPDATE user_profiles up
-SET positions = (
-    SELECT coalesce(jsonb_agg(code ORDER BY first_ord), '[]'::jsonb)::text
-    FROM (
-        SELECT
-            CASE u.code
-                WHEN 'LCB' THEN 'CB'
-                WHEN 'RCB' THEN 'CB'
-                WHEN 'LCM' THEN 'CM'
-                WHEN 'RCM' THEN 'CM'
-                ELSE u.code
-            END AS code,
-            min(u.ord) AS first_ord
-        FROM jsonb_array_elements_text(up.positions::jsonb) WITH ORDINALITY AS u(code, ord)
-        GROUP BY 1
-    ) dedup
-)
-WHERE up.positions ~ 'LCB|RCB|LCM|RCM'
-  AND up.positions ~ '^\s*\[';  -- only valid JSON arrays
+-- 3. user_profiles.positions: same remap + dedupe as parts 1-2. The old
+--    AdminPlayers checkbox UI could write multi-position arrays here (e.g.
+--    ["LCB","RCB"]), so a bare string-replace would mint duplicates
+--    (["CB","CB"]); remap through jsonb with first-occurrence dedupe.
+--
+--    Column type differs by environment (schema drift): jsonb in prod,
+--    text (JSON string) in the local baseline. PL/pgSQL only plans the
+--    branch it executes, so each branch can assume its column type.
+DO $$
+DECLARE
+    col_type text;
+BEGIN
+    SELECT data_type INTO col_type
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_profiles'
+      AND column_name = 'positions';
+
+    IF col_type = 'jsonb' THEN
+        UPDATE user_profiles up
+        SET positions = (
+            SELECT coalesce(jsonb_agg(code ORDER BY first_ord), '[]'::jsonb)
+            FROM (
+                SELECT
+                    CASE u.code
+                        WHEN 'LCB' THEN 'CB'
+                        WHEN 'RCB' THEN 'CB'
+                        WHEN 'LCM' THEN 'CM'
+                        WHEN 'RCM' THEN 'CM'
+                        ELSE u.code
+                    END AS code,
+                    min(u.ord) AS first_ord
+                FROM jsonb_array_elements_text(up.positions) WITH ORDINALITY AS u(code, ord)
+                GROUP BY 1
+            ) dedup
+        )
+        WHERE jsonb_typeof(up.positions) = 'array'
+          AND up.positions::text ~ '"(LCB|RCB|LCM|RCM)"';
+    ELSE
+        UPDATE user_profiles up
+        SET positions = (
+            SELECT coalesce(jsonb_agg(code ORDER BY first_ord), '[]'::jsonb)::text
+            FROM (
+                SELECT
+                    CASE u.code
+                        WHEN 'LCB' THEN 'CB'
+                        WHEN 'RCB' THEN 'CB'
+                        WHEN 'LCM' THEN 'CM'
+                        WHEN 'RCM' THEN 'CM'
+                        ELSE u.code
+                    END AS code,
+                    min(u.ord) AS first_ord
+                FROM jsonb_array_elements_text(up.positions::jsonb) WITH ORDINALITY AS u(code, ord)
+                GROUP BY 1
+            ) dedup
+        )
+        WHERE up.positions ~ '"(LCB|RCB|LCM|RCM)"'
+          AND up.positions ~ '^\s*\[';  -- only valid JSON arrays
+    END IF;
+END $$;
