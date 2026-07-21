@@ -398,6 +398,28 @@
               <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label class="block text-sm text-fg-muted mb-1"
+                    >Age Group</label
+                  >
+                  <select
+                    v-model="assignmentForm.age_group_id"
+                    class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option :value="null">Auto (from team)</option>
+                    <option
+                      v-for="ageGroup in ageGroups"
+                      :key="ageGroup.id"
+                      :value="ageGroup.id"
+                    >
+                      {{ ageGroup.name }}
+                    </option>
+                  </select>
+                  <p class="mt-1 text-xs text-fg-muted">
+                    Set explicitly for umbrella teams (e.g. IFA fields U13–U15)
+                    or to play a player up.
+                  </p>
+                </div>
+                <div>
+                  <label class="block text-sm text-fg-muted mb-1"
                     >Jersey Number</label
                   >
                   <input
@@ -408,16 +430,16 @@
                     class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
-                <div class="flex items-end">
-                  <label class="inline-flex items-center">
-                    <input
-                      type="checkbox"
-                      v-model="assignmentForm.is_current"
-                      class="rounded border-line text-brand-600 focus:ring-brand-500"
-                    />
-                    <span class="ml-2 text-sm text-fg">Current team</span>
-                  </label>
-                </div>
+              </div>
+              <div class="mb-4">
+                <label class="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    v-model="assignmentForm.is_current"
+                    class="rounded border-line text-brand-600 focus:ring-brand-500"
+                  />
+                  <span class="ml-2 text-sm text-fg">Current team</span>
+                </label>
               </div>
               <div class="flex justify-end gap-2">
                 <button
@@ -459,6 +481,7 @@ export default {
     const clubs = ref([]);
     const teams = ref([]);
     const seasons = ref([]);
+    const ageGroups = ref([]);
     const loading = ref(false);
     const formLoading = ref(false);
     const error = ref(null);
@@ -484,6 +507,7 @@ export default {
     const assignmentForm = ref({
       team_id: null,
       season_id: null,
+      age_group_id: null,
       jersey_number: null,
       is_current: true,
     });
@@ -571,6 +595,18 @@ export default {
       }
     };
 
+    const fetchAgeGroups = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/age-groups`,
+          { method: 'GET' }
+        );
+        ageGroups.value = response;
+      } catch (err) {
+        console.error('Error fetching age groups:', err);
+      }
+    };
+
     const updatePlayer = async () => {
       try {
         formLoading.value = true;
@@ -604,6 +640,7 @@ export default {
             body: JSON.stringify({
               team_id: assignmentForm.value.team_id,
               season_id: assignmentForm.value.season_id,
+              age_group_id: assignmentForm.value.age_group_id,
               jersey_number: assignmentForm.value.jersey_number,
               is_current: assignmentForm.value.is_current,
             }),
@@ -622,6 +659,7 @@ export default {
         assignmentForm.value = {
           team_id: null,
           season_id: null,
+          age_group_id: null,
           jersey_number: null,
           is_current: true,
         };
@@ -675,6 +713,7 @@ export default {
       assignmentForm.value = {
         team_id: null,
         season_id: null,
+        age_group_id: null,
         jersey_number: null,
         is_current: true,
       };
@@ -719,6 +758,7 @@ export default {
       fetchClubs();
       fetchTeams();
       fetchSeasons();
+      fetchAgeGroups();
     });
 
     return {
@@ -727,6 +767,7 @@ export default {
       clubs,
       teams,
       seasons,
+      ageGroups,
       loading,
       formLoading,
       error,
