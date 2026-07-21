@@ -1613,16 +1613,27 @@ async def get_admin_players(
     team_id: int | None = None,
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
+    include_roster_only: bool = Query(default=True),
+    season_id: int | None = None,
     current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """Get all players with team assignments for admin management.
 
-    Supports filtering by search text, club, and team.
-    Returns paginated results with current team assignments.
+    Supports filtering by search text, club, and team. Returns paginated
+    results with current team assignments. When include_roster_only is set
+    (default), roster-only players (no account) are appended with
+    source='roster'; season_id scopes that population (default: current
+    season by date).
     """
     try:
         result = player_dao.get_all_players_admin(
-            search=search, club_id=club_id, team_id=team_id, limit=limit, offset=offset
+            search=search,
+            club_id=club_id,
+            team_id=team_id,
+            limit=limit,
+            offset=offset,
+            include_roster_only=include_roster_only,
+            season_id=season_id,
         )
         return result
 

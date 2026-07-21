@@ -51,6 +51,26 @@ preserving order.
 
 ---
 
+## Unified Admin Players View (SB-286, July 2026)
+
+**Admin → Teams & Players → Players** shows two merged populations:
+
+- **Account players** — `user_profiles` with role `team-player` (signed up
+  via invite). `source: 'account'`.
+- **Roster-only players** — `players`-table rows with no linked account
+  (`user_profile_id IS NULL`), added by jersey number. `source: 'roster'`,
+  badged "No account" in the UI. Scoped to the current season by default
+  (`season_id` query param overrides).
+
+Linked roster rows are excluded from the roster population automatically, so
+nobody appears twice. The tab's **+ Add Player** button creates a roster
+entry via `POST /api/teams/{id}/roster` (team, season, age group, jersey,
+optional names/positions) — same endpoint as the team Roster manager.
+Roster-only rows are edited via the team roster; account rows via
+Edit/Teams actions.
+
+---
+
 ## Implementation Checklist
 
 ### Phase 1: Database Schema

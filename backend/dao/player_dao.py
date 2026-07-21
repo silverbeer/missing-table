@@ -607,10 +607,21 @@ class PlayerDAO(BaseDAO):
         team_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
+        include_roster_only: bool = False,
+        season_id: int | None = None,
     ) -> dict:
         """
         Get all players with their current team assignments for admin management.
         No caching - admin queries should always be fresh.
+
+        Two populations are merged (SB-286):
+        - "account" players: user_profiles with role team-player
+        - "roster" players: players-table rows with no linked account
+          (user_profile_id IS NULL) - kids added by jersey number.
+          Linked roster rows are excluded automatically, so a player never
+          appears twice.
+        Each item carries source: 'account' | 'roster'; ids come from
+        different tables, so consumers must key on (source, id).
 
         Args:
             search: Optional text search on display_name or email
@@ -618,6 +629,10 @@ class PlayerDAO(BaseDAO):
             team_id: Optional filter by team ID
             limit: Max number of results (default 50)
             offset: Offset for pagination (default 0)
+            include_roster_only: Also include roster-only players
+            season_id: Season scope for the roster-only population (defaults
+                to the current season by date; account players are not
+                season-scoped)
 
         Returns:
             Dict with 'players' list and 'total' count
@@ -688,12 +703,121 @@ class PlayerDAO(BaseDAO):
                     .execute()
                 )
                 player["current_teams"] = history_response.data or []
+                player["source"] = "account"
+
+            # Merge in roster-only players (players table, no linked account).
+            # Linked rows have user_profile_id set and are excluded, so an
+            # account holder never appears twice. Appended after the account
+            # page rather than interleaved - roster-only counts are small at
+            # MT scale, so cross-source pagination isn't worth the complexity.
+            if include_roster_only:
+                roster_players = self._get_roster_only_players(
+                    search=search, club_id=club_id, team_id=team_id, season_id=season_id
+                )
+                players.extend(roster_players)
+                total += len(roster_players)
 
             return {"players": players, "total": total}
 
         except Exception as e:
             logger.error(f"Error fetching players for admin: {e}")
             return {"players": [], "total": 0}
+
+    def _get_roster_only_players(
+        self,
+        search: str | None = None,
+        club_id: int | None = None,
+        team_id: int | None = None,
+        season_id: int | None = None,
+    ) -> list[dict]:
+        """Roster entries (players table) with no linked account, shaped like
+        admin player items: source='roster', synthetic current_teams entry so
+        the admin UI renders them without branching."""
+        try:
+            if season_id is None:
+                from datetime import date
+
+                today = date.today().isoformat()
+                season_response = (
+                    self.client.table("seasons")
+                    .select("id")
+                    .lte("start_date", today)
+                    .gte("end_date", today)
+                    .limit(1)
+                    .execute()
+                )
+                if not season_response.data:
+                    return []
+                season_id = season_response.data[0]["id"]
+
+            query = (
+                self.client.table("players")
+                .select(
+                    """
+                id,
+                team_id,
+                season_id,
+                jersey_number,
+                first_name,
+                last_name,
+                positions,
+                age_group_id,
+                is_active,
+                team:teams(id, name, club_id, club:clubs(id, name)),
+                season:seasons(id, name),
+                age_group:age_groups(id, name)
+                """
+                )
+                .is_("user_profile_id", "null")
+                .eq("season_id", season_id)
+                .eq("is_active", True)
+            )
+            if search:
+                query = query.or_(f"first_name.ilike.%{search}%,last_name.ilike.%{search}%")
+            if team_id:
+                query = query.eq("team_id", team_id)
+            elif club_id:
+                teams_response = self.client.table("teams").select("id").eq("club_id", club_id).execute()
+                team_ids = [t["id"] for t in (teams_response.data or [])]
+                if not team_ids:
+                    return []
+                query = query.in_("team_id", team_ids)
+
+            response = query.order("jersey_number").limit(500).execute()
+
+            items = []
+            for row in response.data or []:
+                name = " ".join(filter(None, [row.get("first_name"), row.get("last_name")]))
+                items.append(
+                    {
+                        "id": row["id"],
+                        "source": "roster",
+                        "display_name": name or f"#{row['jersey_number']}",
+                        "email": None,
+                        "player_number": row["jersey_number"],
+                        "positions": row.get("positions"),
+                        "photo_1_url": None,
+                        "profile_photo_slot": None,
+                        "team_id": row["team_id"],
+                        "age_group": row.get("age_group"),
+                        "current_teams": [
+                            {
+                                "id": f"roster-{row['id']}",
+                                "team_id": row["team_id"],
+                                "season_id": row["season_id"],
+                                "jersey_number": row["jersey_number"],
+                                "is_current": True,
+                                "team": row.get("team"),
+                                "season": row.get("season"),
+                            }
+                        ],
+                    }
+                )
+            return items
+
+        except Exception as e:
+            logger.error(f"Error fetching roster-only players: {e}")
+            return []
 
     @invalidates_cache(PLAYERS_CACHE_PATTERN)
     def update_player_admin(
