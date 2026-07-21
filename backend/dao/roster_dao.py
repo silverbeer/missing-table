@@ -108,20 +108,30 @@ class RosterDAO(BaseDAO):
             logger.error("roster_get_player_error", player_id=player_id, error=str(e))
             return None
 
-    def get_player_by_jersey(self, team_id: int, season_id: int, jersey_number: int) -> dict | None:
+    def get_player_by_jersey(
+        self,
+        team_id: int,
+        season_id: int,
+        jersey_number: int,
+        age_group_id: int | None = ...,  # sentinel: not passed = any age group
+    ) -> dict | None:
         """
-        Get roster entry by jersey number (unique within team/season).
+        Get roster entry by jersey number (unique within team/season/age group).
 
         Args:
             team_id: Team ID
             season_id: Season ID
             jersey_number: Jersey number to look up
+            age_group_id: When provided (including None), scope the lookup to
+                that age group to match the unique constraint
+                (team, season, age_group, jersey). Omit to match any age group
+                (legacy behavior).
 
         Returns:
             Player dict with computed display_name, or None if not found
         """
         try:
-            response = (
+            query = (
                 self.client.table("players")
                 .select("""
                 *,
@@ -132,8 +142,13 @@ class RosterDAO(BaseDAO):
                 .eq("team_id", team_id)
                 .eq("season_id", season_id)
                 .eq("jersey_number", jersey_number)
-                .execute()
             )
+            if age_group_id is not ...:
+                if age_group_id is None:
+                    query = query.is_("age_group_id", "null")
+                else:
+                    query = query.eq("age_group_id", age_group_id)
+            response = query.execute()
 
             if response.data and len(response.data) > 0:
                 return self._add_display_name(response.data[0])
@@ -217,6 +232,7 @@ class RosterDAO(BaseDAO):
         last_name: str | None = None,
         positions: list[str] | None = None,
         created_by: str | None = None,
+        age_group_id: int | None = None,
     ) -> dict | None:
         """
         Create a new roster entry.
@@ -224,11 +240,13 @@ class RosterDAO(BaseDAO):
         Args:
             team_id: Team ID
             season_id: Season ID
-            jersey_number: Jersey number (1-99, unique per team/season)
+            jersey_number: Jersey number (1-99, unique per team/season/age group)
             first_name: Optional first name
             last_name: Optional last name
             positions: Optional list of position codes
             created_by: Optional user ID of creator
+            age_group_id: Age group for umbrella teams; jersey numbers are
+                unique per (team, season, age_group)
 
         Returns:
             Created player dict, or None on error
@@ -248,6 +266,8 @@ class RosterDAO(BaseDAO):
                 data["positions"] = positions
             if created_by:
                 data["created_by"] = created_by
+            if age_group_id is not None:
+                data["age_group_id"] = age_group_id
 
             response = self.client.table("players").insert(data).execute()
 
@@ -272,6 +292,7 @@ class RosterDAO(BaseDAO):
         season_id: int,
         players: list[dict],
         created_by: str | None = None,
+        age_group_id: int | None = None,
     ) -> list[dict]:
         """
         Create multiple roster entries at once.
@@ -281,6 +302,8 @@ class RosterDAO(BaseDAO):
             season_id: Season ID
             players: List of dicts with jersey_number, optional first_name, last_name, positions
             created_by: Optional user ID of creator
+            age_group_id: Age group applied to every created entry (umbrella
+                teams; jersey numbers are unique per team/season/age group)
 
         Returns:
             List of created player dicts
@@ -302,6 +325,8 @@ class RosterDAO(BaseDAO):
                     entry["positions"] = p["positions"]
                 if created_by:
                     entry["created_by"] = created_by
+                if age_group_id is not None:
+                    entry["age_group_id"] = age_group_id
                 data.append(entry)
 
             response = self.client.table("players").insert(data).execute()

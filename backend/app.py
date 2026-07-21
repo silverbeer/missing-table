@@ -5452,10 +5452,17 @@ async def create_roster_entry(
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
 
-        # Check if jersey number is already taken
-        existing = roster_dao.get_player_by_jersey(team_id, player.season_id, player.jersey_number)
+        # Check if jersey number is already taken within the age group
+        # (jerseys are unique per team/season/age group for umbrella teams)
+        existing = roster_dao.get_player_by_jersey(
+            team_id, player.season_id, player.jersey_number, age_group_id=player.age_group_id
+        )
         if existing:
-            raise HTTPException(status_code=409, detail=f"Jersey number {player.jersey_number} is already taken")
+            scope = " in this age group" if player.age_group_id is not None else ""
+            raise HTTPException(
+                status_code=409,
+                detail=f"Jersey number {player.jersey_number} is already taken{scope} for this season",
+            )
 
         # Create roster entry
         created = roster_dao.create_player(
@@ -5466,6 +5473,7 @@ async def create_roster_entry(
             last_name=player.last_name,
             positions=player.positions,
             created_by=current_user["user_id"],
+            age_group_id=player.age_group_id,
         )
 
         if not created:
@@ -5498,9 +5506,15 @@ async def bulk_create_roster(
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
 
-        # Get existing roster to filter duplicates
+        # Get existing roster to filter duplicates. Jerseys are unique per
+        # (team, season, age group): scope the check to the import's age group
+        # so umbrella teams can reuse numbers across squads.
         existing_roster = roster_dao.get_team_roster(team_id, data.season_id)
-        existing_numbers = {p["jersey_number"] for p in existing_roster}
+        existing_numbers = {
+            p["jersey_number"]
+            for p in existing_roster
+            if p.get("age_group_id") == data.age_group_id
+        }
 
         # Filter out duplicates
         new_players = [p.model_dump() for p in data.players if p.jersey_number not in existing_numbers]
@@ -5509,8 +5523,9 @@ async def bulk_create_roster(
             return {
                 "success": True,
                 "created": [],
-                "skipped": len(data.players),
-                "message": "All jersey numbers already exist",
+                "created_count": 0,
+                "skipped_count": len(data.players),
+                "message": "All jersey numbers already exist in this age group",
             }
 
         # Bulk create
@@ -5519,6 +5534,7 @@ async def bulk_create_roster(
             season_id=data.season_id,
             players=new_players,
             created_by=current_user["user_id"],
+            age_group_id=data.age_group_id,
         )
 
         return {

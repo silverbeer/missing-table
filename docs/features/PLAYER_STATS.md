@@ -56,8 +56,8 @@ preserving order.
 ### Phase 1: Database Schema
 
 - [x] Create `players` table migration
-  - [x] Fields: id, team_id, season_id, jersey_number, first_name, last_name, user_profile_id, positions, is_active
-  - [x] Unique constraint: (team_id, season_id, jersey_number)
+  - [x] Fields: id, team_id, season_id, jersey_number, first_name, last_name, user_profile_id, positions, age_group_id, is_active
+  - [x] Unique constraint: (team_id, season_id, age_group_id, jersey_number) NULLS NOT DISTINCT (SB-285)
   - [x] Indexes: team_season, user_profile
 - [x] Create `player_match_stats` table migration
   - [x] Fields: id, player_id, match_id, started, minutes_played, goals
@@ -205,10 +205,14 @@ CREATE TABLE players (
     last_name VARCHAR(100),
     user_profile_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
     positions TEXT[],  -- ordered specific codes; first = primary (see taxonomy below)
+    age_group_id INTEGER REFERENCES age_groups(id),  -- squad within umbrella teams
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(team_id, season_id, jersey_number)
+    -- SB-285: jerseys unique per age group so umbrella clubs (e.g. IFA
+    -- fielding U13-U19 on one team row) can reuse numbers across squads.
+    -- NULLS NOT DISTINCT: rows without an age group behave as one squad.
+    UNIQUE NULLS NOT DISTINCT (team_id, season_id, age_group_id, jersey_number)
 );
 
 -- player_match_stats table
