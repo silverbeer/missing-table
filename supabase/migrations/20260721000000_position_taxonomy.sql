@@ -68,13 +68,27 @@ SET positions = r.new_positions
 FROM remapped r
 WHERE h.id = r.id;
 
--- 3. user_profiles.positions (JSON stored as text): string-replace legacy
---    codes. Profiles are effectively single-position today (the profile
---    editor collapsed to one entry), so duplicate risk is nil.
-UPDATE user_profiles
-SET positions = replace(replace(replace(replace(positions,
-        '"LCB"', '"CB"'),
-        '"RCB"', '"CB"'),
-        '"LCM"', '"CM"'),
-        '"RCM"', '"CM"')
-WHERE positions ~ 'LCB|RCB|LCM|RCM';
+-- 3. user_profiles.positions (JSON stored as text): same remap + dedupe as
+--    parts 1-2. The old AdminPlayers checkbox UI could write multi-position
+--    arrays here (e.g. ["LCB","RCB"]), so a bare string-replace would mint
+--    duplicates (["CB","CB"]); remap through jsonb with first-occurrence
+--    dedupe instead.
+UPDATE user_profiles up
+SET positions = (
+    SELECT coalesce(jsonb_agg(code ORDER BY first_ord), '[]'::jsonb)::text
+    FROM (
+        SELECT
+            CASE u.code
+                WHEN 'LCB' THEN 'CB'
+                WHEN 'RCB' THEN 'CB'
+                WHEN 'LCM' THEN 'CM'
+                WHEN 'RCM' THEN 'CM'
+                ELSE u.code
+            END AS code,
+            min(u.ord) AS first_ord
+        FROM jsonb_array_elements_text(up.positions::jsonb) WITH ORDINALITY AS u(code, ord)
+        GROUP BY 1
+    ) dedup
+)
+WHERE up.positions ~ 'LCB|RCB|LCM|RCM'
+  AND up.positions ~ '^\s*\[';  -- only valid JSON arrays

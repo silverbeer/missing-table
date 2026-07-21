@@ -56,27 +56,35 @@
 
 <script>
 import { ref, watch } from 'vue';
-import { GROUP_NAMES, POSITION_GROUPS } from '@/constants/positions';
+import {
+  GROUP_NAMES,
+  POSITION_GROUPS,
+  parsePositions,
+} from '@/constants/positions';
 
 export default {
   name: 'PositionPicker',
   props: {
-    // Ordered array of position codes; index 0 = primary.
+    // Ordered array of position codes; index 0 = primary. A JSON string is
+    // tolerated (user_profiles.positions is a TEXT column) and parsed.
     modelValue: {
-      type: Array,
+      type: [Array, String],
       default: () => [],
     },
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {
     // Internal copy so rapid toggles don't read a stale prop (the parent's
-    // v-model update lands asynchronously).
-    const selected = ref([...props.modelValue]);
+    // v-model update lands asynchronously). parsePositions normalizes stale
+    // data on the way in: JSON strings from user_profiles and legacy codes
+    // (LCB -> CB) that predate the taxonomy migration.
+    const selected = ref(parsePositions(props.modelValue));
     watch(
       () => props.modelValue,
       value => {
-        if (JSON.stringify(value) !== JSON.stringify(selected.value)) {
-          selected.value = [...value];
+        const parsed = parsePositions(value);
+        if (JSON.stringify(parsed) !== JSON.stringify(selected.value)) {
+          selected.value = parsed;
         }
       }
     );

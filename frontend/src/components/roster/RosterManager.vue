@@ -775,10 +775,9 @@ export default {
         const updateData = {
           first_name: editForm.value.first_name || null,
           last_name: editForm.value.last_name || null,
-          positions:
-            editForm.value.positions.length > 0
-              ? editForm.value.positions
-              : null,
+          // Always send the array: [] clears positions (null would mean
+          // "keep current" to the backend, silently ignoring a clear).
+          positions: editForm.value.positions,
         };
 
         await authStore.apiRequest(

@@ -26,6 +26,31 @@ Create a roster management system with player statistics tracking. Players can e
 
 ---
 
+## Position Taxonomy (SB-284, July 2026)
+
+Player `positions` is an **ordered array of specific position codes** — the
+first entry is the player's **primary** position. Each code belongs to exactly
+one broad group, used for lineup-slot filtering:
+
+| Group | Codes |
+|-------|-------|
+| GK  | GK |
+| DEF | CB, LB, RB, LWB, RWB |
+| MID | CDM, CM, CAM, LM, RM |
+| FWD | LW, RW, ST, CF |
+
+Retired side-specific codes are remapped on write and were migrated in the DB:
+LCB/RCB → CB, LCM/RCM → CM. Formation *slot* codes in `match_lineups.positions`
+(LCB, RST, futsal FIX/PIV/…) are a separate vocabulary and unaffected.
+
+Source of truth: `frontend/src/constants/positions.js`, hand-mirrored in
+`backend/constants/positions.py` (parity enforced by
+`backend/tests/unit/test_position_constants.py`). Backend request models use
+the shared `Positions` Pydantic type, which validates codes and dedupes while
+preserving order.
+
+---
+
 ## Implementation Checklist
 
 ### Phase 1: Database Schema
@@ -179,7 +204,7 @@ CREATE TABLE players (
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     user_profile_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
-    positions TEXT[],
+    positions TEXT[],  -- ordered specific codes; first = primary (see taxonomy below)
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),

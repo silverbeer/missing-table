@@ -21,33 +21,6 @@ export const GROUP_NAMES = {
   FWD: 'Forward',
 };
 
-const POSITION_NAMES = {
-  GK: 'Goalkeeper',
-  CB: 'Center Back',
-  LB: 'Left Back',
-  RB: 'Right Back',
-  LWB: 'Left Wing Back',
-  RWB: 'Right Wing Back',
-  CDM: 'Defensive Midfielder',
-  CM: 'Central Midfielder',
-  CAM: 'Attacking Midfielder',
-  LM: 'Left Midfielder',
-  RM: 'Right Midfielder',
-  LW: 'Left Winger',
-  RW: 'Right Winger',
-  ST: 'Striker',
-  CF: 'Center Forward',
-};
-
-// Flat list of { code, name, group } in group order.
-export const PLAYER_POSITIONS = Object.entries(POSITION_GROUPS).flatMap(
-  ([group, codes]) =>
-    codes.map(code => ({ code, name: POSITION_NAMES[code], group }))
-);
-
-// Convenience: just codes (legacy export name kept for compatibility).
-export const POSITION_ABBREVIATIONS = PLAYER_POSITIONS.map(p => p.code);
-
 // Old side-specific codes that may still exist in cached/stale data.
 export const LEGACY_POSITION_MAP = {
   LCB: 'CB',
@@ -62,7 +35,10 @@ const CODE_TO_GROUP = Object.fromEntries(
   )
 );
 
-/** Broad group (GK/DEF/MID/FWD) for a specific position code, or null. */
+/**
+ * Broad group (GK/DEF/MID/FWD) for a specific position code, or null.
+ * Consumer: lineup-slot filtering (SB-288).
+ */
 export function groupForPosition(code) {
   const canonical = LEGACY_POSITION_MAP[code] || code;
   return CODE_TO_GROUP[canonical] || null;
@@ -73,9 +49,41 @@ export function primaryPosition(positions) {
   return positions && positions.length > 0 ? positions[0] : null;
 }
 
+/**
+ * Parse a positions value into a clean ordered array of canonical codes.
+ * Handles the three shapes that reach the frontend: a real array
+ * (players.positions text[]), a JSON string (user_profiles.positions TEXT),
+ * and null/undefined. Legacy codes (LCB/RCB/LCM/RCM) are remapped and
+ * duplicates dropped (first occurrence wins).
+ */
+export function parsePositions(positions) {
+  let list = positions;
+  if (!list) return [];
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const raw of list) {
+    const code = LEGACY_POSITION_MAP[raw] || raw;
+    if (!seen.has(code)) {
+      seen.add(code);
+      result.push(code);
+    }
+  }
+  return result;
+}
+
 // Formation SLOT code -> group. Formation slots keep side-specific codes
 // (LCB, RST, ...); this maps every slot code in config/formations.js
 // (soccer + futsal) to the group used for player filtering.
+// Consumer: lineup-slot filtering (SB-288); coverage pinned by the backend
+// parity test.
 export const SLOT_TO_GROUP = {
   // goalkeeper
   GK: 'GK',

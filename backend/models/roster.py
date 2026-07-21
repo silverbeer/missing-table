@@ -2,9 +2,9 @@
 Roster-related Pydantic models for player roster management.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
-from constants.positions import normalize_positions
+from constants.positions import Positions
 
 
 class RosterPlayerCreate(BaseModel):
@@ -13,14 +13,8 @@ class RosterPlayerCreate(BaseModel):
     jersey_number: int = Field(..., ge=1, le=99, description="Jersey number (1-99)")
     first_name: str | None = Field(None, max_length=100)
     last_name: str | None = Field(None, max_length=100)
-    positions: list[str] | None = None
+    positions: Positions = None
     season_id: int
-
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
 
 
 class RosterPlayerUpdate(BaseModel):
@@ -28,13 +22,7 @@ class RosterPlayerUpdate(BaseModel):
 
     first_name: str | None = Field(None, max_length=100)
     last_name: str | None = Field(None, max_length=100)
-    positions: list[str] | None = None
-
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
+    positions: Positions = None
 
 
 class JerseyNumberUpdate(BaseModel):
@@ -49,13 +37,7 @@ class BulkRosterPlayer(BaseModel):
     jersey_number: int = Field(..., ge=1, le=99)
     first_name: str | None = Field(None, max_length=100)
     last_name: str | None = Field(None, max_length=100)
-    positions: list[str] | None = None
-
-    @field_validator("positions")
-    @classmethod
-    def validate_positions(cls, v):
-        """Validate position codes; dedupe preserving order; map legacy codes."""
-        return normalize_positions(v)
+    positions: Positions = None
 
 
 class BulkRosterCreate(BaseModel):
@@ -98,6 +80,7 @@ class RosterPlayerResponse(BaseModel):
     display_name: str  # Computed: full name or "#23"
     user_profile_id: str | None = None
     has_account: bool
+    # Plain list on the response model: reads must not 500 on stale codes.
     positions: list[str] | None = None
     is_active: bool
 
