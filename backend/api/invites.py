@@ -19,17 +19,37 @@ from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from services import InviteService, TeamManagerService
 from supabase import create_client
 
-# Initialize database connection with service role for admin operations
-supabase_url = os.getenv("SUPABASE_URL", "")
-service_key = os.getenv("SUPABASE_SERVICE_KEY")
+_service_client = None
 
-# Create service role client for admin operations that bypass RLS
-if service_key:
-    service_client = create_client(supabase_url, service_key)
-else:
-    # Fallback to regular connection if service key not available
-    db_conn_holder_obj = DbConnectionHolder()
-    service_client = db_conn_holder_obj.client
+
+def _get_service_client():
+    """Service-role client for admin operations that bypass RLS.
+
+    Built lazily on first use: this module is imported before app.py's
+    load_dotenv(.env.local, override=True) runs, so reading SUPABASE_URL at
+    import time can bind to a stale value from .env (this broke local invite
+    creation after the SB-113 port move).
+    """
+    global _service_client
+    if _service_client is None:
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        service_key = os.getenv("SUPABASE_SERVICE_KEY")
+        if supabase_url and service_key:
+            _service_client = create_client(supabase_url, service_key)
+        else:
+            # Fallback to regular connection if service key not available
+            _service_client = DbConnectionHolder().client
+    return _service_client
+
+
+class _ServiceClientProxy:
+    """Defers client construction until an attribute is touched."""
+
+    def __getattr__(self, name):
+        return getattr(_get_service_client(), name)
+
+
+service_client = _ServiceClientProxy()
 
 router = APIRouter(prefix="/api/invites", tags=["invites"])
 
@@ -41,7 +61,8 @@ class CreateInviteRequest(BaseModel):
     age_group_id: int
     email: str | None = None
     player_id: int | None = None  # Links to existing roster entry (for team_player invites)
-    jersey_number: int | None = Field(None, ge=1, le=99)  # Creates roster entry on redemption
+    jersey_number: int | None = Field(None, ge=1, le=99)  # Claims that roster spot on redemption
+    season_id: int | None = None  # Season scope for roster claims; default = current season
     note: str | None = Field(None, max_length=500)  # Personal note about who the invite was sent to
 
 
@@ -262,11 +283,14 @@ async def create_team_player_invite_admin(
             email=request.email,
             player_id=request.player_id,
             jersey_number=request.jersey_number,
+            season_id=request.season_id,
             note=request.note,
         )
 
         return invitation
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -389,11 +413,14 @@ async def create_team_player_invite(request: CreateInviteRequest, current_user=D
             email=request.email,
             player_id=request.player_id,
             jersey_number=request.jersey_number,
+            season_id=request.season_id,
             note=request.note,
         )
 
         return invitation
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

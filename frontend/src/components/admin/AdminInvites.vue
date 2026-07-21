@@ -108,7 +108,7 @@
           </select>
         </div>
 
-        <!-- Jersey Number (for team_player invites) -->
+        <!-- Jersey Number + Season (for team_player invites) -->
         <div v-if="newInvite.inviteType === 'team_player'">
           <label class="block text-sm font-medium text-fg mb-2"
             >Jersey Number (Optional)</label
@@ -123,8 +123,28 @@
             class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <p class="mt-1 text-xs text-fg-muted">
-            If provided, a roster entry will be created when the invite is
-            accepted.
+            The player must already be on the roster with this number — when
+            they accept the invite, their account claims that roster spot.
+          </p>
+        </div>
+        <div v-if="newInvite.inviteType === 'team_player'">
+          <label class="block text-sm font-medium text-fg mb-2">Season</label>
+          <select
+            v-model="newInvite.seasonId"
+            data-testid="invite-season-select"
+            class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <option :value="null">Current season (default)</option>
+            <option
+              v-for="season in seasons"
+              :key="season.id"
+              :value="season.id"
+            >
+              {{ season.name }}
+            </option>
+          </select>
+          <p class="mt-1 text-xs text-fg-muted">
+            The season whose roster spot the invite claims.
           </p>
         </div>
 
@@ -756,6 +776,7 @@ const isAdmin = computed(() => authStore.userRole.value === 'admin');
 // State
 const teams = ref([]);
 const ageGroups = ref([]);
+const seasons = ref([]);
 const clubs = ref([]);
 const invites = ref([]);
 const loading = ref(false);
@@ -851,6 +872,7 @@ const newInvite = ref({
   ageGroupId: '',
   email: '',
   jerseyNumber: null,
+  seasonId: null,
   note: '',
 });
 
@@ -870,6 +892,12 @@ const fetchReferenceData = async () => {
       headers,
     });
     ageGroups.value = await ageGroupsResponse.json();
+
+    // Fetch seasons (team_player invites pin a season for the roster claim)
+    const seasonsResponse = await fetch(`${getApiBaseUrl()}/api/seasons`, {
+      headers,
+    });
+    seasons.value = await seasonsResponse.json();
 
     // Fetch clubs
     const clubsResponse = await fetch(`${getApiBaseUrl()}/api/clubs`, {
@@ -944,12 +972,14 @@ const createInvite = async () => {
         email: newInvite.value.email || null,
         note: newInvite.value.note || null,
       };
-      // Add jersey_number for team_player invites
-      if (
-        newInvite.value.inviteType === 'team_player' &&
-        newInvite.value.jerseyNumber
-      ) {
-        requestBody.jersey_number = newInvite.value.jerseyNumber;
+      // Add jersey_number + season for team_player invites
+      if (newInvite.value.inviteType === 'team_player') {
+        if (newInvite.value.jerseyNumber) {
+          requestBody.jersey_number = newInvite.value.jerseyNumber;
+        }
+        if (newInvite.value.seasonId) {
+          requestBody.season_id = newInvite.value.seasonId;
+        }
       }
       body = JSON.stringify(requestBody);
     }
@@ -975,6 +1005,7 @@ const createInvite = async () => {
       ageGroupId: '',
       email: '',
       jerseyNumber: null,
+      seasonId: null,
       note: '',
     };
 
