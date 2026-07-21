@@ -101,15 +101,44 @@
             Clear Position
           </button>
 
-          <!-- Available players -->
-          <button
-            v-for="player in availablePlayersForModal"
-            :key="player.id"
-            @click="assignPlayer(player.id, selectedPosition)"
-            class="player-option"
-          >
-            #{{ player.jersey_number }} {{ player.display_name }}
-          </button>
+          <!-- Suggested: players whose position group matches the slot -->
+          <template v-if="slotGroup && suggestedPlayers.length > 0">
+            <div class="player-section-label">{{ groupNames[slotGroup] }}s</div>
+            <button
+              v-for="player in suggestedPlayers"
+              :key="player.id"
+              @click="assignPlayer(player.id, selectedPosition)"
+              class="player-option suggested"
+            >
+              #{{ player.jersey_number }} {{ player.display_name }}
+              <span class="player-positions">{{
+                parsePositions(player.positions).join(' ')
+              }}</span>
+            </button>
+          </template>
+
+          <!-- Everyone else (incl. players with no positions set) -->
+          <template v-if="otherPlayers.length > 0">
+            <div
+              v-if="slotGroup && suggestedPlayers.length > 0"
+              class="player-section-label"
+            >
+              Other players
+            </div>
+            <button
+              v-for="player in otherPlayers"
+              :key="player.id"
+              @click="assignPlayer(player.id, selectedPosition)"
+              class="player-option"
+            >
+              #{{ player.jersey_number }} {{ player.display_name }}
+              <span
+                v-if="parsePositions(player.positions).length"
+                class="player-positions"
+                >{{ parsePositions(player.positions).join(' ') }}</span
+              >
+            </button>
+          </template>
 
           <div v-if="availablePlayersForModal.length === 0" class="no-players">
             No available players
@@ -134,6 +163,15 @@ import {
   getDefaultFormation,
   getFormationOptions,
 } from '../../config/formations';
+import {
+  SLOT_TO_GROUP,
+  GROUP_NAMES,
+  groupForPosition,
+  primaryPosition,
+  parsePositions,
+} from '@/constants/positions';
+
+const groupNames = GROUP_NAMES;
 
 const props = defineProps({
   teamId: {
@@ -200,6 +238,43 @@ const availablePlayersForModal = computed(() => {
 
   // Available = not assigned elsewhere
   return props.roster.filter(p => !assignedIds.has(p.id));
+});
+
+// SB-288: partition modal candidates by position-group fit for the clicked
+// slot. Soft partition, not a hard filter - quick-added rosters often have
+// empty positions and must stay selectable.
+const slotGroup = computed(() =>
+  selectedPosition.value ? SLOT_TO_GROUP[selectedPosition.value] || null : null
+);
+
+const suggestedPlayers = computed(() => {
+  if (!slotGroup.value) return [];
+  return availablePlayersForModal.value
+    .filter(p =>
+      parsePositions(p.positions).some(
+        code => groupForPosition(code) === slotGroup.value
+      )
+    )
+    .sort((a, b) => {
+      // Primary-position match first, then jersey number
+      const aPrimary =
+        groupForPosition(primaryPosition(parsePositions(a.positions))) ===
+        slotGroup.value
+          ? 0
+          : 1;
+      const bPrimary =
+        groupForPosition(primaryPosition(parsePositions(b.positions))) ===
+        slotGroup.value
+          ? 0
+          : 1;
+      return aPrimary - bPrimary || a.jersey_number - b.jersey_number;
+    });
+});
+
+const otherPlayers = computed(() => {
+  if (!slotGroup.value) return availablePlayersForModal.value;
+  const suggestedIds = new Set(suggestedPlayers.value.map(p => p.id));
+  return availablePlayersForModal.value.filter(p => !suggestedIds.has(p.id));
 });
 
 // Computed: has the lineup changed from initial state?
@@ -561,6 +636,30 @@ watch(
 
 .player-option.clear-option:hover {
   background: rgba(244, 67, 54, 0.1);
+}
+
+.player-option.suggested {
+  border-color: #2e7d32;
+}
+
+.player-option.suggested:hover {
+  border-color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.player-section-label {
+  color: #888;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.player-positions {
+  float: right;
+  color: #888;
+  font-size: 12px;
 }
 
 .no-players {
