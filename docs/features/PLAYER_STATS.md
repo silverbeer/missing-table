@@ -96,6 +96,25 @@ current-season lookup at redemption, with the same block-on-miss behavior.
 
 ---
 
+## Lineup Position Filtering (SB-288, July 2026)
+
+Clicking a formation slot in the lineup editor partitions the player picker:
+
+- **Suggested** — players whose position group (via `SLOT_TO_GROUP` +
+  `groupForPosition`) matches the slot's group, primary-position matches
+  first. A GK slot suggests goalkeepers; an LCB slot suggests defenders.
+- **Other players** — everyone else, including players with no positions set
+  (quick-added rosters stay fully selectable — it's a soft partition, never
+  a hard filter).
+
+Formation slot codes are a separate vocabulary from player position codes
+(slots keep side-specific codes like LCB/RST); `SLOT_TO_GROUP` in
+`frontend/src/constants/positions.js` maps all soccer + futsal slot codes to
+groups, coverage pinned by both the backend parity test and
+`LineupManager.positions.spec.js`.
+
+---
+
 ## Implementation Checklist
 
 ### Phase 1: Database Schema
