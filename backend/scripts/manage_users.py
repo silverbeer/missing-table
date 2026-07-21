@@ -1360,8 +1360,17 @@ def roster_command(
             season_id = 3
             console.print(f"[dim]Using current season (ID: {season_id})[/dim]")
 
-        # Parse positions
-        pos_list = [p.strip().upper() for p in positions.split(",")] if positions else None
+        # Parse and validate positions (SB-293: this path writes to the DB
+        # directly, bypassing the API's Pydantic validation)
+        pos_list = None
+        if positions:
+            from constants.positions import normalize_positions
+
+            try:
+                pos_list = normalize_positions([p.strip().upper() for p in positions.split(",")])
+            except ValueError as e:
+                console.print(f"[red]❌ {e}[/red]")
+                raise typer.Exit(1) from e
 
         if not confirm:
             if not Confirm.ask(f"⚠️  Add user to roster (Team {team_id}, Jersey #{jersey})?"):

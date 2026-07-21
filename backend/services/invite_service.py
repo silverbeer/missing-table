@@ -37,6 +37,56 @@ class InviteService:
 
         raise Exception("Could not generate unique invite code after 100 attempts")
 
+    def _get_current_season_id(self) -> int | None:
+        """Current season by today's date, or None."""
+        try:
+            from datetime import date
+
+            today = date.today().isoformat()
+            response = (
+                self.supabase.table("seasons")
+                .select("id")
+                .lte("start_date", today)
+                .gte("end_date", today)
+                .limit(1)
+                .execute()
+            )
+            return response.data[0]["id"] if response.data else None
+        except Exception as e:
+            logger.error(f"Error resolving current season: {e}")
+            return None
+
+    def _find_roster_spot(
+        self,
+        team_id: int,
+        season_id: int,
+        jersey_number: int,
+        age_group_id: int | None,
+    ) -> dict | None:
+        """Find the roster row a jersey-number invite would claim.
+
+        Scoped to the age group to match the players unique constraint
+        (team, season, age_group, jersey) - umbrella teams can field the same
+        number in several squads. age_group_id=None matches NULL rows only.
+        """
+        try:
+            query = (
+                self.supabase.table("players")
+                .select("id, user_profile_id, first_name, last_name")
+                .eq("team_id", team_id)
+                .eq("season_id", season_id)
+                .eq("jersey_number", jersey_number)
+            )
+            if age_group_id is None:
+                query = query.is_("age_group_id", "null")
+            else:
+                query = query.eq("age_group_id", age_group_id)
+            response = query.limit(1).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error looking up roster spot: {e}")
+            return None
+
     def create_invitation(
         self,
         invited_by_user_id: str,
@@ -49,6 +99,7 @@ class InviteService:
         jersey_number: int | None = None,
         expires_in_days: int = 7,
         note: str | None = None,
+        season_id: int | None = None,
     ) -> dict:
         """
         Create a new invitation
@@ -61,11 +112,19 @@ class InviteService:
             club_id: ID of the club (required for club_manager and club_fan invite types)
             email: Optional email to pre-fill during registration
             player_id: Optional roster entry ID (for team_player invites - links account to existing roster)
-            jersey_number: Optional jersey number (for team_player invites - creates roster on redemption)
+            jersey_number: Optional jersey number (for team_player invites - claims roster on redemption)
             expires_in_days: Number of days until invite expires
+            season_id: Season the invite applies to (team_player roster claims).
+                Defaults to the current season by date, stored on the invite so
+                redemption doesn't guess.
 
         Returns:
             Created invitation record
+
+        Raises:
+            ValueError: On invalid parameters, including a team_player
+                jersey-number invite with no matching unclaimed roster spot -
+                caught at creation so the admin fixes it, not the registrant.
         """
         try:
             # Validate parameters based on invite type
@@ -77,6 +136,7 @@ class InviteService:
                 age_group_id = None
                 player_id = None  # No roster linking for club-level invites
                 jersey_number = None
+                season_id = None
             else:
                 if not team_id:
                     raise ValueError("team_id is required for team-level invites")
@@ -84,6 +144,46 @@ class InviteService:
                     raise ValueError("age_group_id is required for team-level invites")
                 # Derive club_id from the team's parent club
                 club_id = self._get_team_club_id(team_id)
+
+            if invite_type == "team_player":
+                # Pin the season at creation time (SB-287).
+                if season_id is None:
+                    season_id = self._get_current_season_id()
+                    if season_id is None:
+                        raise ValueError("No current season found; pass season_id explicitly")
+
+                # A jersey-number invite must point at an existing, unclaimed
+                # roster spot - blocking here beats blocking the kid at signup.
+                if jersey_number and not player_id:
+                    spot = self._find_roster_spot(team_id, season_id, jersey_number, age_group_id)
+                    if spot is None:
+                        raise ValueError(
+                            f"No roster spot with jersey #{jersey_number} for this "
+                            f"team/season/age group. Add the player to the roster first."
+                        )
+                    if spot.get("user_profile_id"):
+                        raise ValueError(
+                            f"Jersey #{jersey_number} is already claimed by another account."
+                        )
+                    player_id = spot["id"]
+                elif player_id:
+                    # Direct roster-entry invite: verify it exists and is unclaimed.
+                    check = (
+                        self.supabase.table("players")
+                        .select("id, user_profile_id, jersey_number")
+                        .eq("id", player_id)
+                        .limit(1)
+                        .execute()
+                    )
+                    if not check.data:
+                        raise ValueError("That roster entry no longer exists.")
+                    if check.data[0].get("user_profile_id"):
+                        raise ValueError(
+                            "That roster spot is already claimed by another account."
+                        )
+                    jersey_number = jersey_number or check.data[0].get("jersey_number")
+            else:
+                season_id = None
 
             # Generate unique invite code
             invite_code = self.generate_invite_code()
@@ -102,6 +202,7 @@ class InviteService:
                 "email": email,
                 "player_id": player_id,
                 "jersey_number": jersey_number,
+                "season_id": season_id,
                 "status": "pending",
                 "expires_at": expires_at.isoformat(),
                 "note": note,
@@ -208,7 +309,7 @@ class InviteService:
                 }
 
             logger.info(f"Invite code {code} is valid!")
-            return {
+            result = {
                 "valid": True,
                 "id": invitation["id"],
                 "invite_type": invitation["invite_type"],
@@ -222,12 +323,82 @@ class InviteService:
                 "invited_by_user_id": invitation.get("invited_by_user_id"),
                 "player_id": invitation.get("player_id"),
                 "jersey_number": invitation.get("jersey_number"),
+                "season_id": invitation.get("season_id"),
                 "player": player_info,
             }
+
+            # Roster-claim preflight for team_player invites (SB-287): the
+            # signup flow blocks registration when the spot can't be claimed.
+            if invitation["invite_type"] == "team_player":
+                claimable, reason = self.check_claimable(result)
+                result["claimable"] = claimable
+                result["claim_reason"] = reason
+
+            return result
 
         except Exception as e:
             logger.error(f"Error validating invite code {code}: {e}", exc_info=True)
             return None
+
+    def check_claimable(self, invitation: dict) -> tuple[bool, str | None]:
+        """Can this team_player invite's roster spot still be claimed?
+
+        Called BEFORE the auth user is created at signup, so a dead invite
+        never produces an orphan account. Returns (claimable, reason).
+        Invites with no roster hook (no player_id, no jersey_number) are
+        trivially claimable.
+        """
+        if invitation.get("invite_type") != "team_player":
+            return True, None
+
+        player_id = invitation.get("player_id")
+        jersey_number = invitation.get("jersey_number")
+
+        if player_id:
+            try:
+                response = (
+                    self.supabase.table("players")
+                    .select("id, user_profile_id")
+                    .eq("id", player_id)
+                    .limit(1)
+                    .execute()
+                )
+            except Exception as e:
+                logger.error(f"Error checking roster spot {player_id}: {e}")
+                return False, "Could not verify the roster spot. Please try again."
+            if not response.data:
+                return False, (
+                    "The roster spot for this invite no longer exists. "
+                    "Ask your team manager for a new invite."
+                )
+            if response.data[0].get("user_profile_id"):
+                return False, (
+                    "This roster spot has already been claimed by another account. "
+                    "Ask your team manager for a new invite."
+                )
+            return True, None
+
+        if jersey_number:
+            # Legacy invite (pre-SB-287) carrying only a jersey number.
+            season_id = invitation.get("season_id") or self._get_current_season_id()
+            if season_id is None:
+                return False, "No current season found. Contact your team manager."
+            spot = self._find_roster_spot(
+                invitation["team_id"], season_id, jersey_number, invitation.get("age_group_id")
+            )
+            if spot is None:
+                return False, (
+                    f"No roster spot with jersey #{jersey_number} exists for this team. "
+                    "Ask your team manager to add you to the roster first."
+                )
+            if spot.get("user_profile_id"):
+                return False, (
+                    f"Jersey #{jersey_number} has already been claimed by another account. "
+                    "Ask your team manager for a new invite."
+                )
+            return True, None
+
+        return True, None
 
     def redeem_invitation(self, code: str, user_id: str) -> bool:
         """
@@ -291,17 +462,28 @@ class InviteService:
                             age_group_id=invitation.get("age_group_id"),
                         )
                     elif invitation.get("jersey_number"):
-                        # Create new roster entry with jersey number and link user
-                        # Also creates player_team_history entry
+                        # Claim the existing roster entry for this jersey
+                        # number (SB-287: no auto-create - the spot must exist,
+                        # which check_claimable verified before signup).
                         jersey = invitation.get("jersey_number")
-                        logger.info(f"Creating roster entry for jersey #{jersey}")
-                        self._create_and_link_roster_entry(
+                        logger.info(f"Claiming roster spot for jersey #{jersey}")
+                        claimed = self._claim_roster_entry(
                             user_id=user_id,
                             team_id=invitation.get("team_id"),
-                            jersey_number=invitation.get("jersey_number"),
+                            jersey_number=jersey,
                             age_group_id=invitation.get("age_group_id"),
-                            invited_by_user_id=invitation.get("invited_by_user_id"),
+                            season_id=invitation.get("season_id"),
                         )
+                        if not claimed:
+                            # Race: spot vanished/claimed between the signup
+                            # pre-check and redemption. The auth user exists
+                            # with its role but no roster link - loud log so
+                            # an admin can reconcile.
+                            logger.error(
+                                f"ROSTER CLAIM FAILED after signup: user {user_id}, "
+                                f"invite {code}, jersey #{jersey}, "
+                                f"team {invitation.get('team_id')} - manual link needed"
+                            )
                     else:
                         logger.info("No player_id or jersey_number on invite - skipping roster")
 
@@ -393,8 +575,17 @@ class InviteService:
                 if mapping_response.data:
                     age_group_id = mapping_response.data[0]["age_group_id"]
 
-            # Update the players table to link user_profile_id
-            response = self.supabase.table("players").update({"user_profile_id": user_id}).eq("id", player_id).execute()
+            # Update the players table to link user_profile_id. The
+            # user_profile_id IS NULL guard makes the claim atomic: if another
+            # account claimed the spot since the signup pre-check, zero rows
+            # update and we fail instead of stealing the link.
+            response = (
+                self.supabase.table("players")
+                .update({"user_profile_id": user_id})
+                .eq("id", player_id)
+                .is_("user_profile_id", "null")
+                .execute()
+            )
 
             if response.data:
                 logger.info(f"Linked user {user_id} to roster entry {player_id}")
@@ -423,153 +614,76 @@ class InviteService:
             logger.error(f"Error linking user to roster entry: {e}")
             return False
 
-    def _create_and_link_roster_entry(
+    def _claim_roster_entry(
         self,
         user_id: str,
         team_id: int,
         jersey_number: int,
         age_group_id: int | None = None,
-        invited_by_user_id: str | None = None,
+        season_id: int | None = None,
     ) -> bool:
         """
-        Create a new roster entry and link a user account to it, or link to
-        an existing roster entry if one already exists with that jersey number.
-        Also creates a player_team_history entry for the UI roster view.
-
-        Called when a player accepts an invitation that included a jersey number
-        but no existing player_id.
+        Claim the existing unclaimed roster entry matching the invite's
+        (team, season, age group, jersey). NO auto-create (SB-287): if the
+        spot doesn't exist the claim fails - creation-time validation and the
+        signup pre-check should have prevented reaching here.
 
         Args:
             user_id: The user ID to link
             team_id: The team ID for the roster entry
             jersey_number: The jersey number for the roster entry
             age_group_id: The age group ID from the invite
-            invited_by_user_id: The user who created the invite (for created_by field)
+            season_id: Season from the invitation; falls back to
+                current-by-date only for legacy invites without one
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Get the current season (based on today's date being within start_date and end_date)
-            from datetime import date
+            if season_id is None:
+                season_id = self._get_current_season_id()
+                if season_id is None:
+                    logger.error("No current season found - cannot claim roster entry")
+                    return False
 
-            today = date.today().isoformat()
-
-            season_response = (
-                self.supabase.table("seasons")
-                .select("id")
-                .lte("start_date", today)
-                .gte("end_date", today)
-                .limit(1)
-                .execute()
-            )
-
-            if not season_response.data:
-                logger.error("No current season found - cannot create roster entry")
+            spot = self._find_roster_spot(team_id, season_id, jersey_number, age_group_id)
+            if spot is None:
+                logger.error(
+                    f"No roster spot for jersey #{jersey_number} "
+                    f"(team {team_id}, season {season_id}, age group {age_group_id})"
+                )
                 return False
-
-            season_id = season_response.data[0]["id"]
+            if spot.get("user_profile_id"):
+                logger.warning(
+                    f"Roster entry {spot['id']} (jersey #{jersey_number}) "
+                    f"already linked to user {spot['user_profile_id']}"
+                )
+                return False
 
             # Get team details for league_id and division_id
             team_response = (
                 self.supabase.table("teams").select("league_id, division_id").eq("id", team_id).limit(1).execute()
             )
-
             league_id = None
             division_id = None
             if team_response.data:
                 league_id = team_response.data[0].get("league_id")
                 division_id = team_response.data[0].get("division_id")
 
-            # Get age_group_id from team_mappings if not provided by the invite
-            if age_group_id is None:
-                mapping_response = (
-                    self.supabase.table("team_mappings")
-                    .select("age_group_id")
-                    .eq("team_id", team_id)
-                    .limit(1)
-                    .execute()
-                )
-                if mapping_response.data:
-                    age_group_id = mapping_response.data[0]["age_group_id"]
-
-            # Check if a player with this jersey number already exists
-            existing_response = (
-                self.supabase.table("players")
-                .select("id, user_profile_id")
-                .eq("team_id", team_id)
-                .eq("season_id", season_id)
-                .eq("jersey_number", jersey_number)
-                .limit(1)
-                .execute()
+            # Link (atomic: guarded on user_profile_id IS NULL inside)
+            return self._link_user_to_roster_entry(
+                user_id=user_id,
+                player_id=spot["id"],
+                team_id=team_id,
+                season_id=season_id,
+                age_group_id=age_group_id,
+                league_id=league_id,
+                division_id=division_id,
+                jersey_number=jersey_number,
             )
 
-            if existing_response.data:
-                # Player exists - link user to existing roster entry
-                existing_player = existing_response.data[0]
-                player_id = existing_player["id"]
-
-                if existing_player.get("user_profile_id"):
-                    logger.warning(
-                        f"Roster entry {player_id} (jersey #{jersey_number}) "
-                        f"already linked to user {existing_player['user_profile_id']}"
-                    )
-                    return False
-
-                # Link user to existing roster entry (will also create player_team_history)
-                return self._link_user_to_roster_entry(
-                    user_id=user_id,
-                    player_id=player_id,
-                    team_id=team_id,
-                    season_id=season_id,
-                    age_group_id=age_group_id,
-                    league_id=league_id,
-                    division_id=division_id,
-                    jersey_number=jersey_number,
-                )
-
-            # Create new roster entry with user already linked
-            player_data = {
-                "team_id": team_id,
-                "season_id": season_id,
-                "jersey_number": jersey_number,
-                "user_profile_id": user_id,
-                "is_active": True,
-            }
-
-            if invited_by_user_id:
-                player_data["created_by"] = invited_by_user_id
-
-            response = self.supabase.table("players").insert(player_data).execute()
-
-            if response.data:
-                player_id = response.data[0]["id"]
-                logger.info(
-                    f"Created roster entry {player_id} with jersey #{jersey_number} "
-                    f"for user {user_id} on team {team_id}"
-                )
-
-                # Also create player_team_history entry for UI roster view
-                self._create_player_team_history(
-                    user_id=user_id,
-                    team_id=team_id,
-                    season_id=season_id,
-                    age_group_id=age_group_id,
-                    league_id=league_id,
-                    division_id=division_id,
-                    jersey_number=jersey_number,
-                )
-
-                # Invalidate caches
-                clear_cache("mt:dao:roster:*")
-                clear_cache("mt:dao:players:*")
-                return True
-
-            logger.warning(f"Failed to create roster entry for user {user_id}")
-            return False
-
         except Exception as e:
-            logger.error(f"Error creating and linking roster entry: {e}")
+            logger.error(f"Error claiming roster entry: {e}")
             return False
 
     def _create_player_team_history(
@@ -597,12 +711,23 @@ class InviteService:
             league_id: League ID
             division_id: Division ID
             jersey_number: Jersey number
-            positions: List of positions (e.g., ['MF', 'FW'])
+            positions: List of position codes (e.g., ['CM', 'ST'] - validated
+                against constants.positions.VALID_POSITIONS)
 
         Returns:
             True if successful, False otherwise
         """
         try:
+            # Direct DB write bypasses the Pydantic models - validate here
+            # so invalid/legacy codes can't re-enter the DB (SB-293).
+            if positions:
+                from constants.positions import normalize_positions
+
+                try:
+                    positions = normalize_positions(positions)
+                except ValueError as e:
+                    logger.warning(f"Dropping invalid positions on history insert: {e}")
+                    positions = None
             # Check if entry already exists for this player/team/season
             existing = (
                 self.supabase.table("player_team_history")

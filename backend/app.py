@@ -412,6 +412,15 @@ async def signup(request: Request, user_data: UserSignup):
                         detail=f"This invite code is for {invite_info['email']}. Please use that email address.",
                     )
 
+            # Roster-claim preflight (SB-287): block BEFORE creating the auth
+            # user when the invite's roster spot can't be claimed - no orphan
+            # accounts, and the registrant gets an actionable message.
+            if invite_info.get("claimable") is False:
+                raise HTTPException(
+                    status_code=400,
+                    detail=invite_info.get("claim_reason") or "This invite can no longer be used.",
+                )
+
         # Validate username availability
         username_available = await check_username_available(db_conn_holder_obj.client, user_data.username)
         if not username_available:
@@ -916,6 +925,14 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
             raise HTTPException(status_code=400, detail="Invalid or expired invite code")
 
         oauth_logger = oauth_logger.bind(invite_type=invite_info.get("invite_type"))
+
+        # Roster-claim preflight (SB-287): reject before completing the
+        # profile so an unclaimable invite doesn't mint a mis-roled account.
+        if invite_info.get("claimable") is False:
+            raise HTTPException(
+                status_code=400,
+                detail=invite_info.get("claim_reason") or "This invite can no longer be used.",
+            )
 
         # Extract user info for signup
         display_name = (

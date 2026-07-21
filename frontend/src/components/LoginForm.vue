@@ -335,6 +335,14 @@ export default {
         if (response.ok) {
           const data = await response.json();
           inviteInfo.value = data;
+          // Roster-claim preflight (SB-287): the invite is real but its
+          // roster spot can't be claimed - block before the user fills
+          // out the form.
+          if (data.claimable === false) {
+            authStore.setError(
+              data.claim_reason || 'This invite can no longer be used.'
+            );
+          }
         } else {
           inviteInfo.value = null;
           authStore.setError('Invalid or expired invite code');

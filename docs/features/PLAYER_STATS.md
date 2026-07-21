@@ -71,6 +71,31 @@ Edit/Teams actions.
 
 ---
 
+## Invite Claim by Jersey Number (SB-287, July 2026)
+
+A `team_player` invite with a jersey number **claims an existing roster
+spot** when the player registers — it never auto-creates roster rows.
+
+Flow:
+1. Admin/team manager adds the player to the roster (jersey number, per age
+   group), then creates the invite. **Creation validates** that an unclaimed
+   roster spot exists for `(team, season, age group, jersey)` and pins the
+   exact `player_id` on the invitation; the **season is stored on the
+   invitation** (`invitations.season_id`, default = current season) so
+   redemption never guesses from the date.
+2. `GET /api/invites/validate/{code}` returns `claimable` + `claim_reason`
+   for team_player invites. Signup (password and OAuth) checks this **before
+   creating the auth user** — an unclaimable invite blocks registration with
+   an actionable message instead of minting an orphan account.
+3. On redemption the claim sets `players.user_profile_id` with an atomic
+   `IS NULL` guard (a race with another claimant fails loudly instead of
+   stealing the link) and writes the `player_team_history` entry.
+
+Legacy invites (jersey but no `player_id`/`season_id`) fall back to a
+current-season lookup at redemption, with the same block-on-miss behavior.
+
+---
+
 ## Implementation Checklist
 
 ### Phase 1: Database Schema
