@@ -2,6 +2,13 @@
   <div>
     <div class="flex justify-between items-center mb-6">
       <h3 class="text-lg font-semibold text-fg">Players Management</h3>
+      <button
+        @click="openAddModal"
+        class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md"
+        data-testid="admin-add-player-button"
+      >
+        + Add Player
+      </button>
     </div>
 
     <!-- Search and Filters -->
@@ -37,6 +44,17 @@
           <option v-for="team in filteredTeams" :key="team.id" :value="team.id">
             {{ team.name }}
           </option>
+        </select>
+      </div>
+      <div class="w-44">
+        <select
+          v-model="sourceFilter"
+          class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+          data-testid="source-filter"
+        >
+          <option value="all">All Players</option>
+          <option value="account">With Account</option>
+          <option value="roster">Roster Only</option>
         </select>
       </div>
     </div>
@@ -92,7 +110,10 @@
           </tr>
         </thead>
         <tbody class="bg-card divide-y divide-line">
-          <tr v-for="player in players" :key="player.id">
+          <tr
+            v-for="player in visiblePlayers"
+            :key="`${player.source}-${player.id}`"
+          >
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="flex items-center">
                 <div
@@ -111,6 +132,11 @@
                 <div class="ml-4">
                   <div class="text-sm font-medium text-fg">
                     {{ player.display_name || 'Unknown' }}
+                    <span
+                      v-if="player.source === 'roster'"
+                      class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800"
+                      >No account</span
+                    >
                   </div>
                 </div>
               </div>
@@ -143,21 +169,26 @@
             <td
               class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
             >
-              <button
-                @click="openEditModal(player)"
-                class="text-brand-600 dark:text-brand-300 hover:text-brand-900 dark:hover:text-brand-200 mr-3"
+              <template v-if="player.source !== 'roster'">
+                <button
+                  @click="openEditModal(player)"
+                  class="text-brand-600 dark:text-brand-300 hover:text-brand-900 dark:hover:text-brand-200 mr-3"
+                >
+                  Edit
+                </button>
+                <button
+                  @click="openTeamsModal(player)"
+                  class="text-green-600 hover:text-green-900"
+                >
+                  Teams
+                </button>
+              </template>
+              <span v-else class="text-fg-muted text-xs italic"
+                >Managed via team roster</span
               >
-                Edit
-              </button>
-              <button
-                @click="openTeamsModal(player)"
-                class="text-green-600 hover:text-green-900"
-              >
-                Teams
-              </button>
             </td>
           </tr>
-          <tr v-if="players.length === 0">
+          <tr v-if="visiblePlayers.length === 0">
             <td colspan="5" class="px-6 py-8 text-center text-fg-muted">
               No players found
             </td>
@@ -282,6 +313,141 @@
                 class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 disabled:opacity-50"
               >
                 {{ formLoading ? 'Saving...' : 'Save' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Player Modal (roster entry, no account needed) -->
+    <div
+      v-if="showAddModal"
+      class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+      @click="closeModals"
+    >
+      <div
+        class="relative top-20 mx-auto p-5 border border-line w-[480px] shadow-lg rounded-md bg-card"
+        @click.stop
+        data-testid="admin-add-player-modal"
+      >
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-fg mb-1">Add Player</h3>
+          <p class="text-sm text-fg-muted mb-4">
+            Creates a roster entry — no account needed. The player can claim it
+            later via an invite with their jersey number.
+          </p>
+          <form @submit.prevent="submitAddPlayer">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-sm text-fg-muted mb-1">Team</label>
+                <select
+                  v-model="addPlayerForm.team_id"
+                  required
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option :value="null" disabled>Select team</option>
+                  <option v-for="team in teams" :key="team.id" :value="team.id">
+                    {{ team.name }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm text-fg-muted mb-1">Season</label>
+                <select
+                  v-model="addPlayerForm.season_id"
+                  required
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option :value="null" disabled>Select season</option>
+                  <option
+                    v-for="season in seasons"
+                    :key="season.id"
+                    :value="season.id"
+                  >
+                    {{ season.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-sm text-fg-muted mb-1"
+                  >Age Group</label
+                >
+                <select
+                  v-model="addPlayerForm.age_group_id"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option :value="null">No age group</option>
+                  <option
+                    v-for="ageGroup in ageGroups"
+                    :key="ageGroup.id"
+                    :value="ageGroup.id"
+                  >
+                    {{ ageGroup.name }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm text-fg-muted mb-1"
+                  >Jersey Number</label
+                >
+                <input
+                  v-model.number="addPlayerForm.jersey_number"
+                  type="number"
+                  min="1"
+                  max="99"
+                  required
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-sm text-fg-muted mb-1"
+                  >First Name</label
+                >
+                <input
+                  v-model="addPlayerForm.first_name"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Optional"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-fg-muted mb-1"
+                  >Last Name</label
+                >
+                <input
+                  v-model="addPlayerForm.last_name"
+                  type="text"
+                  maxlength="100"
+                  placeholder="Optional"
+                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="block text-sm text-fg-muted mb-1">Positions</label>
+              <PositionPicker v-model="addPlayerForm.positions" />
+            </div>
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                @click="closeModals"
+                class="px-4 py-2 bg-surface-alt text-fg rounded-md hover:bg-line"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="formLoading"
+                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                data-testid="admin-save-player-button"
+              >
+                {{ formLoading ? 'Adding...' : 'Add Player' }}
               </button>
             </div>
           </form>
@@ -481,10 +647,12 @@ export default {
     const offset = ref(0);
     const limit = ref(50);
     const totalCount = ref(0);
+    const sourceFilter = ref('all'); // all | account | roster
 
     // Modal state
     const showEditModal = ref(false);
     const showTeamsModal = ref(false);
+    const showAddModal = ref(false);
     const selectedPlayer = ref(null);
 
     // Form state
@@ -502,10 +670,25 @@ export default {
       is_current: true,
     });
 
+    const addPlayerForm = ref({
+      team_id: null,
+      season_id: null,
+      age_group_id: null,
+      jersey_number: null,
+      first_name: '',
+      last_name: '',
+      positions: [],
+    });
+
     // Computed
     const filteredTeams = computed(() => {
       if (!selectedClubId.value) return teams.value;
       return teams.value.filter(t => t.club_id === selectedClubId.value);
+    });
+
+    const visiblePlayers = computed(() => {
+      if (sourceFilter.value === 'all') return players.value;
+      return players.value.filter(p => p.source === sourceFilter.value);
     });
 
     // Debounced search
@@ -712,7 +895,51 @@ export default {
     const closeModals = () => {
       showEditModal.value = false;
       showTeamsModal.value = false;
+      showAddModal.value = false;
       selectedPlayer.value = null;
+    };
+
+    const openAddModal = () => {
+      addPlayerForm.value = {
+        team_id: selectedTeamId.value ?? null,
+        season_id: null,
+        age_group_id: null,
+        jersey_number: null,
+        first_name: '',
+        last_name: '',
+        positions: [],
+      };
+      showAddModal.value = true;
+    };
+
+    const submitAddPlayer = async () => {
+      try {
+        formLoading.value = true;
+        error.value = null;
+        await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/teams/${addPlayerForm.value.team_id}/roster`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              season_id: addPlayerForm.value.season_id,
+              age_group_id: addPlayerForm.value.age_group_id,
+              jersey_number: addPlayerForm.value.jersey_number,
+              first_name: addPlayerForm.value.first_name || null,
+              last_name: addPlayerForm.value.last_name || null,
+              positions:
+                addPlayerForm.value.positions.length > 0
+                  ? addPlayerForm.value.positions
+                  : null,
+            }),
+          }
+        );
+        await fetchPlayers();
+        closeModals();
+      } catch (err) {
+        error.value = err.message;
+      } finally {
+        formLoading.value = false;
+      }
     };
 
     // Pagination
@@ -766,12 +993,16 @@ export default {
       offset,
       limit,
       totalCount,
+      sourceFilter,
       showEditModal,
       showTeamsModal,
+      showAddModal,
       selectedPlayer,
       editForm,
       assignmentForm,
+      addPlayerForm,
       filteredTeams,
+      visiblePlayers,
 
       // Methods
       fetchPlayers,
@@ -781,6 +1012,8 @@ export default {
       endTeamAssignment,
       openEditModal,
       openTeamsModal,
+      openAddModal,
+      submitAddPlayer,
       closeModals,
       previousPage,
       nextPage,
