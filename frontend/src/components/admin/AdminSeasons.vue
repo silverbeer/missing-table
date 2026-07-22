@@ -65,13 +65,14 @@
           <tr
             v-for="season in seasons"
             :key="season.id"
-            :class="{ 'bg-brand-50': isCurrentSeason(season) }"
+            :class="{ 'bg-brand-50': season.is_current }"
           >
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-fg">
               {{ season.name }}
               <span
-                v-if="isCurrentSeason(season)"
+                v-if="season.is_current"
                 class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800"
+                data-testid="current-season-badge"
               >
                 Current
               </span>
@@ -91,6 +92,14 @@
             <td
               class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
             >
+              <button
+                v-if="!season.is_current"
+                @click="setCurrentSeason(season)"
+                class="text-green-600 hover:text-green-900 mr-3"
+                :data-testid="`set-current-${season.id}`"
+              >
+                Set current
+              </button>
               <button
                 @click="editSeason(season)"
                 class="text-brand-600 dark:text-brand-300 hover:text-brand-900 dark:hover:text-brand-200 mr-3"
@@ -167,6 +176,22 @@
               </div>
             </div>
 
+            <div class="mb-4">
+              <label class="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  v-model="formData.is_current"
+                  class="rounded border-line text-brand-600 focus:ring-brand-500"
+                  data-testid="season-is-current-checkbox"
+                />
+                <span class="ml-2 text-sm text-fg">Set as current season</span>
+              </label>
+              <p class="mt-1 text-xs text-fg-muted">
+                Season dropdowns across the app default to the current season.
+                Setting this clears the flag from any other season.
+              </p>
+            </div>
+
             <div class="flex justify-end space-x-3">
               <button
                 type="button"
@@ -221,6 +246,7 @@ export default {
       name: '',
       start_date: '',
       end_date: '',
+      is_current: false,
     });
 
     const fetchSeasons = async () => {
@@ -237,6 +263,21 @@ export default {
         error.value = err.message;
       } finally {
         loading.value = false;
+      }
+    };
+
+    const setCurrentSeason = async season => {
+      try {
+        formLoading.value = true;
+        await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/seasons/${season.id}/current`,
+          { method: 'PUT' }
+        );
+        await fetchSeasons();
+      } catch (err) {
+        error.value = err.message;
+      } finally {
+        formLoading.value = false;
       }
     };
 
@@ -258,13 +299,6 @@ export default {
 
     const getMatchesCount = seasonId => {
       return matchCountsBySeasonId.value[seasonId] ?? 0;
-    };
-
-    const isCurrentSeason = season => {
-      const now = new Date();
-      const startDate = new Date(season.start_date);
-      const endDate = new Date(season.end_date);
-      return now >= startDate && now <= endDate;
     };
 
     const formatDate = dateString => {
@@ -350,6 +384,7 @@ export default {
         name: '',
         start_date: '',
         end_date: '',
+        is_current: false,
       };
     };
 
@@ -366,12 +401,12 @@ export default {
       showEditModal,
       formData,
       getMatchesCount,
-      isCurrentSeason,
       formatDate,
       createSeason,
       editSeason,
       updateSeason,
       deleteSeason,
+      setCurrentSeason,
       closeModals,
     };
   },

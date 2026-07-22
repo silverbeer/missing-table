@@ -735,20 +735,28 @@ class PlayerDAO(BaseDAO):
         the admin UI renders them without branching."""
         try:
             if season_id is None:
-                from datetime import date
-
-                today = date.today().isoformat()
-                season_response = (
-                    self.client.table("seasons")
-                    .select("id")
-                    .lte("start_date", today)
-                    .gte("end_date", today)
-                    .limit(1)
-                    .execute()
+                # Prefer the admin-set current season (is_current flag), else
+                # the date-spanning season.
+                flagged = (
+                    self.client.table("seasons").select("id").eq("is_current", True).limit(1).execute()
                 )
-                if not season_response.data:
-                    return []
-                season_id = season_response.data[0]["id"]
+                if flagged.data:
+                    season_id = flagged.data[0]["id"]
+                else:
+                    from datetime import date
+
+                    today = date.today().isoformat()
+                    season_response = (
+                        self.client.table("seasons")
+                        .select("id")
+                        .lte("start_date", today)
+                        .gte("end_date", today)
+                        .limit(1)
+                        .execute()
+                    )
+                    if not season_response.data:
+                        return []
+                    season_id = season_response.data[0]["id"]
 
             query = (
                 self.client.table("players")

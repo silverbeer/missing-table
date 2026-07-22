@@ -4504,7 +4504,9 @@ async def delete_age_group(age_group_id: int, current_user: dict[str, Any] = Dep
 async def create_season(season: SeasonCreate, current_user: dict[str, Any] = Depends(require_admin)):
     """Create a new season (admin only)."""
     try:
-        result = season_dao.create_season(season.name, season.start_date, season.end_date)
+        result = season_dao.create_season(
+            season.name, season.start_date, season.end_date, is_current=season.is_current
+        )
         return result
     except Exception as e:
         logger.error(f"Error creating season: {e!s}", exc_info=True)
@@ -4515,7 +4517,9 @@ async def create_season(season: SeasonCreate, current_user: dict[str, Any] = Dep
 async def update_season(season_id: int, season: SeasonUpdate, current_user: dict[str, Any] = Depends(require_admin)):
     """Update a season (admin only)."""
     try:
-        result = season_dao.update_season(season_id, season.name, season.start_date, season.end_date)
+        result = season_dao.update_season(
+            season_id, season.name, season.start_date, season.end_date, is_current=season.is_current
+        )
         if not result:
             raise HTTPException(status_code=404, detail="Season not found")
         return result
@@ -4523,6 +4527,22 @@ async def update_season(season_id: int, season: SeasonUpdate, current_user: dict
         raise
     except Exception as e:
         logger.error(f"Error updating season: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.put("/api/seasons/{season_id}/current")
+async def set_current_season(season_id: int, current_user: dict[str, Any] = Depends(require_admin)):
+    """Mark a season as the current season (admin only). Clears the flag from
+    all other seasons — exactly one season is current at a time."""
+    try:
+        result = season_dao.set_current_season(season_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Season not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting current season: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

@@ -38,8 +38,13 @@ class InviteService:
         raise Exception("Could not generate unique invite code after 100 attempts")
 
     def _get_current_season_id(self) -> int | None:
-        """Current season by today's date, or None."""
+        """Current season id — prefers the admin-set is_current flag, falling
+        back to the date-spanning season (matches season_dao.get_current_season)."""
         try:
+            flagged = self.supabase.table("seasons").select("id").eq("is_current", True).limit(1).execute()
+            if flagged.data:
+                return flagged.data[0]["id"]
+
             from datetime import date
 
             today = date.today().isoformat()

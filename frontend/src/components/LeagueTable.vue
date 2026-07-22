@@ -555,10 +555,10 @@ export default {
           (a, b) => new Date(b.start_date) - new Date(a.start_date)
         );
 
-        // Set 2025-2026 as default if available
-        const currentSeason = data.find(s => s.name === '2025-2026');
-        if (currentSeason) {
-          selectedSeasonId.value = currentSeason.id;
+        // Default to the admin-set current season (falls back to newest).
+        const current = data.find(s => s.is_current) || seasons.value[0];
+        if (current) {
+          selectedSeasonId.value = current.id;
         }
       } catch (err) {
         console.error('Error fetching seasons:', err);
