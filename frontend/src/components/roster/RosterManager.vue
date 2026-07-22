@@ -36,8 +36,34 @@
       <!-- Action Bar -->
       <div class="p-4 border-b border-line flex justify-between items-center">
         <div class="flex items-center space-x-3">
+          <!-- Season selector: roster is scoped to (team, season, age group).
+               Defaults to the current season. -->
+          <select
+            v-model.number="selectedSeasonId"
+            class="px-2 py-1 text-sm bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            data-testid="roster-season-select"
+          >
+            <option v-for="s in seasons" :key="s.id" :value="s.id">
+              {{ s.name }}
+            </option>
+          </select>
+          <!-- Age-group filter: scope the roster to one squad of an
+               umbrella team (e.g. IFA U15). -->
+          <select
+            v-model="ageGroupFilter"
+            class="px-2 py-1 text-sm bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            data-testid="roster-age-group-filter"
+          >
+            <option value="">All age groups</option>
+            <option v-for="ag in ageGroupOptions" :key="ag.id" :value="ag.id">
+              {{ ag.name }}
+            </option>
+            <option value="none">Unassigned</option>
+          </select>
           <div class="text-sm text-fg-muted">
-            {{ roster.length }} player{{ roster.length !== 1 ? 's' : '' }}
+            {{ filteredRoster.length }} player{{
+              filteredRoster.length !== 1 ? 's' : ''
+            }}
           </div>
           <!-- Bulk age-group assignment (SB-69): shows when rows are selected -->
           <div
@@ -108,12 +134,13 @@
 
       <!-- Empty State -->
       <div
-        v-else-if="roster.length === 0"
+        v-else-if="filteredRoster.length === 0"
         class="p-8 text-center text-fg-muted"
         data-testid="roster-empty"
       >
         <div class="text-4xl mb-2">👤</div>
-        <p>No players on roster yet</p>
+        <p v-if="roster.length === 0">No players on roster yet</p>
+        <p v-else>No players in this age group</p>
         <p class="text-sm mt-1">Add players individually or use bulk import</p>
       </div>
 
@@ -166,7 +193,7 @@
           </thead>
           <tbody class="bg-card divide-y divide-line">
             <tr
-              v-for="player in roster"
+              v-for="player in filteredRoster"
               :key="player.id"
               :data-testid="`roster-row-${player.id}`"
             >
@@ -613,7 +640,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import PositionPicker from '@/components/shared/PositionPicker.vue';
@@ -639,6 +666,13 @@ export default {
     ageGroupId: {
       type: Number,
       default: null,
+    },
+    // Age groups this team actually fields (from team.age_groups). When
+    // provided, the age-group filter/selectors are scoped to these instead
+    // of every age group globally.
+    teamAgeGroups: {
+      type: Array,
+      default: () => [],
     },
   },
   emits: ['close'],
@@ -680,14 +714,57 @@ export default {
     const inviteCode = ref('');
     const invitePlayer = ref(null);
 
+    // Season selector: default to the season AdminTeams considers current
+    // (newest); the roster is scoped to (team, season, age group).
+    const seasons = ref([]);
+    const selectedSeasonId = ref(props.seasonId);
+
     // Age-group assignment (SB-69)
     const ageGroups = ref([]);
     const selectedIds = ref([]);
     const bulkAgeGroupId = ref(null);
+
+    // Age-group filter: scope the visible roster to one squad of an umbrella
+    // team. '' = all, 'none' = players with no age group, else the id.
+    // Default to "All" (so untagged players stay visible and can be assigned),
+    // except when the team fields exactly one age group.
+    const ageGroupFilter = ref(
+      props.teamAgeGroups.length === 1 ? props.teamAgeGroups[0].id : ''
+    );
+
+    // Selector options: the team's fielded age groups when known, else the
+    // global list fetched from /api/age-groups.
+    const ageGroupOptions = computed(() =>
+      props.teamAgeGroups.length ? props.teamAgeGroups : ageGroups.value
+    );
+
+    const filteredRoster = computed(() => {
+      if (ageGroupFilter.value === '') return roster.value;
+      if (ageGroupFilter.value === 'none') {
+        return roster.value.filter(p => p.age_group_id == null);
+      }
+      return roster.value.filter(
+        p => p.age_group_id === Number(ageGroupFilter.value)
+      );
+    });
+
+    // Keep Add Player / Bulk Import defaulting to the chosen squad.
+    const currentFilterAgeGroupId = computed(() => {
+      const v = ageGroupFilter.value;
+      return v === '' || v === 'none' ? null : Number(v);
+    });
+    watch(currentFilterAgeGroupId, id => {
+      addForm.value.age_group_id = id;
+      bulkImportAgeGroupId.value = id;
+    });
+    // Seed the add/bulk defaults from the initial filter value.
+    addForm.value.age_group_id = currentFilterAgeGroupId.value;
+    bulkImportAgeGroupId.value = currentFilterAgeGroupId.value;
+
     const allSelected = computed(
       () =>
-        roster.value.length > 0 &&
-        selectedIds.value.length === roster.value.length
+        filteredRoster.value.length > 0 &&
+        filteredRoster.value.every(p => selectedIds.value.includes(p.id))
     );
 
     // Fetch roster data
@@ -696,7 +773,7 @@ export default {
         loading.value = true;
         error.value = null;
         const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/teams/${props.teamId}/roster?season_id=${props.seasonId}`,
+          `${getApiBaseUrl()}/api/teams/${props.teamId}/roster?season_id=${selectedSeasonId.value}`,
           { method: 'GET' }
         );
         roster.value = response.roster || [];
@@ -720,9 +797,29 @@ export default {
       }
     };
 
-    // Select-all toggle for the bulk assignment (SB-69)
+    const fetchSeasons = async () => {
+      try {
+        seasons.value = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/seasons`,
+          { method: 'GET' }
+        );
+      } catch (err) {
+        console.error('Error fetching seasons:', err);
+      }
+    };
+
+    // Refetch the roster when the season changes.
+    watch(selectedSeasonId, () => {
+      selectedIds.value = [];
+      fetchRoster();
+    });
+
+    // Select-all toggle for the bulk assignment (SB-69) — scoped to the
+    // currently visible (filtered) rows.
     const toggleSelectAll = () => {
-      selectedIds.value = allSelected.value ? [] : roster.value.map(p => p.id);
+      selectedIds.value = allSelected.value
+        ? []
+        : filteredRoster.value.map(p => p.id);
     };
 
     // Assign an age group to a set of players via the bulk endpoint (SB-69)
@@ -736,7 +833,7 @@ export default {
           {
             method: 'PATCH',
             body: JSON.stringify({
-              season_id: props.seasonId,
+              season_id: selectedSeasonId.value,
               player_ids: ids,
               age_group_id: ageGroupId,
             }),
@@ -780,7 +877,7 @@ export default {
           last_name: addForm.value.last_name || null,
           positions:
             addForm.value.positions.length > 0 ? addForm.value.positions : null,
-          season_id: props.seasonId,
+          season_id: selectedSeasonId.value,
           age_group_id: addForm.value.age_group_id ?? null,
         };
 
@@ -917,7 +1014,7 @@ export default {
           {
             method: 'POST',
             body: JSON.stringify({
-              season_id: props.seasonId,
+              season_id: selectedSeasonId.value,
               age_group_id: bulkImportAgeGroupId.value ?? null,
               players: players,
             }),
@@ -1014,7 +1111,8 @@ export default {
         first_name: '',
         last_name: '',
         positions: [],
-        age_group_id: props.ageGroupId ?? null,
+        // Default to the age group currently being filtered/managed.
+        age_group_id: currentFilterAgeGroupId.value,
       };
     };
 
@@ -1022,6 +1120,7 @@ export default {
     onMounted(() => {
       fetchRoster();
       fetchAgeGroups();
+      fetchSeasons();
     });
 
     return {
@@ -1042,7 +1141,12 @@ export default {
       bulkImportAgeGroupId,
       inviteCode,
       invitePlayer,
+      seasons,
+      selectedSeasonId,
       ageGroups,
+      ageGroupFilter,
+      ageGroupOptions,
+      filteredRoster,
       selectedIds,
       bulkAgeGroupId,
       allSelected,
