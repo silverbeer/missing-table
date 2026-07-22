@@ -610,7 +610,7 @@
       :team-id="selectedTeamForRoster.id"
       :team-name="selectedTeamForRoster.name"
       :season-id="currentSeasonId"
-      :age-group-id="selectedTeamForRoster.age_groups?.[0]?.id"
+      :team-age-groups="selectedTeamForRoster.age_groups || []"
       @close="closeRosterModal"
     />
   </div>

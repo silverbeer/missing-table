@@ -28,6 +28,11 @@ const AGE_GROUPS = [
   { id: 3, name: 'U15' },
 ];
 
+const SEASONS = [
+  { id: 3, name: '2025-2026' },
+  { id: 2, name: '2024-2025' },
+];
+
 // Player 1 is untagged (age_group_id null), player 2 already tagged U15.
 const ROSTER = [
   { id: 1, jersey_number: 7, display_name: 'Kid Seven', age_group_id: null },
@@ -41,6 +46,9 @@ const wireMock = () => {
     }
     if (url.endsWith('/api/age-groups')) {
       return Promise.resolve([...AGE_GROUPS]);
+    }
+    if (url.endsWith('/api/seasons')) {
+      return Promise.resolve([...SEASONS]);
     }
     if (url.includes('/roster')) {
       return Promise.resolve({ roster: ROSTER.map(p => ({ ...p })) });
@@ -129,5 +137,63 @@ describe('RosterManager per-row quick assign (SB-69)', () => {
     const body = JSON.parse(call[1].body);
     expect(body.player_ids).toEqual([1]);
     expect(body.age_group_id).toBe(2);
+  });
+});
+
+describe('RosterManager age-group + season scoping (SB-286 roster view)', () => {
+  const mountScoped = async () => {
+    const wrapper = mount(RosterManager, {
+      props: {
+        teamId: 42,
+        teamName: 'IFA',
+        seasonId: 3,
+        teamAgeGroups: AGE_GROUPS,
+      },
+    });
+    await flushPromises();
+    return wrapper;
+  };
+
+  it('shows all players by default, then filters to one age group', async () => {
+    const wrapper = await mountScoped();
+
+    // Default "All age groups": both rows visible.
+    expect(wrapper.find('[data-testid="roster-row-1"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="roster-row-2"]').exists()).toBe(true);
+
+    // Filter to U15 (id 3): only the tagged player remains.
+    await wrapper.find('[data-testid="roster-age-group-filter"]').setValue('3');
+    expect(wrapper.find('[data-testid="roster-row-2"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="roster-row-1"]').exists()).toBe(false);
+
+    // "Unassigned" shows only the untagged player.
+    await wrapper
+      .find('[data-testid="roster-age-group-filter"]')
+      .setValue('none');
+    expect(wrapper.find('[data-testid="roster-row-1"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="roster-row-2"]').exists()).toBe(false);
+  });
+
+  it('Add Player defaults its age group to the active filter', async () => {
+    const wrapper = await mountScoped();
+    await wrapper.find('[data-testid="roster-age-group-filter"]').setValue('3');
+    expect(wrapper.vm.addForm.age_group_id).toBe(3);
+    // Back to "All" clears the default.
+    await wrapper.find('[data-testid="roster-age-group-filter"]').setValue('');
+    expect(wrapper.vm.addForm.age_group_id).toBe(null);
+  });
+
+  it('refetches the roster when the season changes', async () => {
+    const wrapper = await mountScoped();
+    const before = apiRequestMock.mock.calls.filter(c =>
+      c[0].includes('/roster?season_id=')
+    ).length;
+    await wrapper.find('[data-testid="roster-season-select"]').setValue('2');
+    await flushPromises();
+    const rosterCalls = apiRequestMock.mock.calls.filter(c =>
+      c[0].includes('/roster?season_id=')
+    );
+    expect(rosterCalls.length).toBe(before + 1);
+    expect(rosterCalls.at(-1)[0]).toContain('season_id=2');
   });
 });
