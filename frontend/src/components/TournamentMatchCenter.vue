@@ -1036,13 +1036,15 @@ export default {
           `${getApiBaseUrl()}/api/seasons`,
           { method: 'GET' }
         );
-        // Newest first, so seasons[0] is the current/default season.
+        // Newest first, so seasons[0] is the fallback default.
         const sorted = (data || []).sort(
           (a, b) => new Date(b.start_date) - new Date(a.start_date)
         );
         seasons.value = sorted;
-        if (sorted.length > 0 && selectedSeasonId.value == null) {
-          selectedSeasonId.value = sorted[0].id;
+        // Default to the admin-set current season, else newest.
+        const current = sorted.find(s => s.is_current) || sorted[0];
+        if (current && selectedSeasonId.value == null) {
+          selectedSeasonId.value = current.id;
         }
       } catch (err) {
         // Seasons are a secondary filter; a failure here should not blank the

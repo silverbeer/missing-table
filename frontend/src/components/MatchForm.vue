@@ -374,9 +374,13 @@ export default {
         );
         if (activeSeasonsResponse.ok) {
           activeSeasons.value = await activeSeasonsResponse.json();
-          // Default to first active season
-          if (activeSeasons.value.length > 0) {
-            selectedSeason.value = activeSeasons.value[0].id;
+          // Default to the admin-set current season if it's active, else the
+          // first active season.
+          const current =
+            activeSeasons.value.find(s => s.is_current) ||
+            activeSeasons.value[0];
+          if (current) {
+            selectedSeason.value = current.id;
           }
         }
 

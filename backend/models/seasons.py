@@ -11,6 +11,7 @@ class SeasonCreate(BaseModel):
     name: str
     start_date: str
     end_date: str
+    is_current: bool = False
 
 
 class SeasonUpdate(BaseModel):
@@ -19,6 +20,7 @@ class SeasonUpdate(BaseModel):
     name: str
     start_date: str
     end_date: str
+    is_current: bool | None = None
 
 
 class AgeGroupCreate(BaseModel):

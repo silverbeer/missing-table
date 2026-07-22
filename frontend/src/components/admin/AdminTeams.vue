@@ -817,9 +817,11 @@ export default {
           }
         );
         seasons.value = response;
-        // Set current season to the most recent one (first in list, assuming sorted desc)
-        if (response.length > 0) {
-          currentSeasonId.value = response[0].id;
+        // Default to the admin-set current season, else the newest (response
+        // is ordered newest-first).
+        const current = response.find(s => s.is_current) || response[0];
+        if (current) {
+          currentSeasonId.value = current.id;
         }
       } catch (err) {
         console.error('Error fetching seasons:', err);

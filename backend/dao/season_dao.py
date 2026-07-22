@@ -105,22 +105,61 @@ class SeasonDAO(BaseDAO):
 
     @dao_cache("seasons:current")
     def get_current_season(self) -> dict | None:
-        """Get the current active season based on today's date."""
-        try:
-            today = date.today().isoformat()
+        """Get the current season.
 
+        Prefers the admin-set `is_current` flag (exactly one season). Falls
+        back to the date-spanning season for older data that predates the
+        flag, so the off-season gap no longer yields None when a season is
+        flagged.
+        """
+        try:
+            flagged = self.client.table("seasons").select("*").eq("is_current", True).limit(1).execute()
+            if flagged.data:
+                return flagged.data[0]
+
+            # Legacy fallback: the season spanning today.
+            today = date.today().isoformat()
             response = (
                 self.client.table("seasons")
                 .select("*")
                 .lte("start_date", today)
                 .gte("end_date", today)
-                .single()
+                .limit(1)
                 .execute()
             )
-
-            return response.data
+            return response.data[0] if response.data else None
         except Exception as e:
             logger.info("No current season found", error=str(e))
+            return None
+
+    def get_current_season_id(self) -> int | None:
+        """Convenience: id of the current season, or None."""
+        season = self.get_current_season()
+        return season["id"] if season else None
+
+    @invalidates_cache(SEASONS_CACHE_PATTERN)
+    def set_current_season(self, season_id: int) -> dict | None:
+        """Mark one season current, clearing the flag from all others.
+
+        Two ordered updates — clear every current row, then set the target —
+        so the partial unique index (seasons_single_current) never sees two
+        TRUE values.
+        """
+        try:
+            self.client.table("seasons").update({"is_current": False}).eq("is_current", True).execute()
+            self.client.table("seasons").update({"is_current": True}).eq("id", season_id).execute()
+            return self.get_season_by_id(season_id)
+        except Exception as e:
+            logger.exception("Error setting current season")
+            raise e
+
+    def get_season_by_id(self, season_id: int) -> dict | None:
+        """Fetch a single season by id."""
+        try:
+            resp = self.client.table("seasons").select("*").eq("id", season_id).limit(1).execute()
+            return resp.data[0] if resp.data else None
+        except Exception:
+            logger.exception("Error fetching season by id")
             return None
 
     # Cache key lives in the `matches:` namespace so it's invalidated by
@@ -207,22 +246,35 @@ class SeasonDAO(BaseDAO):
     # === Season CRUD Methods ===
 
     @invalidates_cache(SEASONS_CACHE_PATTERN)
-    def create_season(self, name: str, start_date: str, end_date: str) -> dict:
-        """Create a new season."""
+    def create_season(
+        self, name: str, start_date: str, end_date: str, is_current: bool = False
+    ) -> dict:
+        """Create a new season. When is_current, it becomes the sole current season."""
         try:
             result = (
                 self.client.table("seasons")
                 .insert({"name": name, "start_date": start_date, "end_date": end_date})
                 .execute()
             )
-            return result.data[0]
+            created = result.data[0]
+            if is_current:
+                return self.set_current_season(created["id"]) or created
+            return created
         except Exception as e:
             logger.exception("Error creating season")
             raise e
 
     @invalidates_cache(SEASONS_CACHE_PATTERN)
-    def update_season(self, season_id: int, name: str, start_date: str, end_date: str) -> dict | None:
-        """Update a season."""
+    def update_season(
+        self,
+        season_id: int,
+        name: str,
+        start_date: str,
+        end_date: str,
+        is_current: bool | None = None,
+    ) -> dict | None:
+        """Update a season. is_current=True makes it the sole current season;
+        is_current is otherwise left untouched (pass explicitly to change it)."""
         try:
             result = (
                 self.client.table("seasons")
@@ -230,7 +282,10 @@ class SeasonDAO(BaseDAO):
                 .eq("id", season_id)
                 .execute()
             )
-            return result.data[0] if result.data else None
+            updated = result.data[0] if result.data else None
+            if is_current:
+                return self.set_current_season(season_id) or updated
+            return updated
         except Exception as e:
             logger.exception("Error updating season")
             raise e
