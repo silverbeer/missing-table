@@ -25,6 +25,7 @@
       :assignments="assignments"
       :roster="roster"
       :sport-type="sportType"
+      :warn-positions="outOfPositionSlots"
       @position-clicked="openPlayerSelector"
     />
 
@@ -53,13 +54,24 @@
       <div v-else-if="unassignedPlayers.length === 0" class="no-bench">
         All players assigned
       </div>
-      <div v-else class="bench-list">
-        <div
-          v-for="player in unassignedPlayers"
-          :key="player.id"
-          class="bench-player"
-        >
-          #{{ player.jersey_number }} {{ player.display_name }}
+      <!-- SB-288+: bench grouped by position category with position chips -->
+      <div v-else class="bench-groups">
+        <div v-for="group in benchGroups" :key="group.key" class="bench-group">
+          <div class="bench-group-label">{{ group.label }}</div>
+          <div class="bench-list">
+            <div
+              v-for="player in group.players"
+              :key="player.id"
+              class="bench-player"
+            >
+              #{{ player.jersey_number }} {{ player.display_name }}
+              <span
+                v-if="parsePositions(player.positions).length"
+                class="bench-positions"
+                >{{ parsePositions(player.positions).join(' ') }}</span
+              >
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -72,6 +84,14 @@
         class="clear-button"
       >
         Clear All
+      </button>
+      <button
+        @click="autoSuggestXI"
+        :disabled="roster.length === 0 || openSlotCount === 0 || saving"
+        class="suggest-button"
+        title="Fill open slots with best-fit players"
+      >
+        Auto-fill
       </button>
       <button
         @click="handleSave"
@@ -277,6 +297,69 @@ const otherPlayers = computed(() => {
   return availablePlayersForModal.value.filter(p => !suggestedIds.has(p.id));
 });
 
+// Position-group ordering used by the bench and auto-fill.
+const GROUP_ORDER = ['GK', 'DEF', 'MID', 'FWD'];
+
+// SB-288+: unassigned bench players grouped by their PRIMARY position group,
+// GK -> DEF -> MID -> FWD, with an "Unassigned" bucket for players who have no
+// positions set (quick-added rosters).
+const benchGroups = computed(() => {
+  const buckets = new Map();
+  for (const player of unassignedPlayers.value) {
+    const group = groupForPosition(
+      primaryPosition(parsePositions(player.positions))
+    );
+    const key = group || 'NONE';
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(player);
+  }
+  const result = [];
+  for (const key of GROUP_ORDER) {
+    if (buckets.has(key)) {
+      result.push({
+        key,
+        label: `${GROUP_NAMES[key]}s`,
+        players: buckets.get(key),
+      });
+    }
+  }
+  if (buckets.has('NONE')) {
+    result.push({
+      key: 'NONE',
+      label: 'No position set',
+      players: buckets.get('NONE'),
+    });
+  }
+  return result;
+});
+
+// SB-288+: formation slots whose assigned player is out of position (their
+// position group doesn't include the slot's group). Players with no positions
+// set are never flagged. Consumed by FormationField's amber marker.
+const outOfPositionSlots = computed(() => {
+  const slots = [];
+  for (const assign of assignments.value) {
+    const group = SLOT_TO_GROUP[assign.position];
+    if (!group) continue;
+    const player = props.roster.find(p => p.id === assign.player_id);
+    const codes = parsePositions(player?.positions);
+    if (codes.length === 0) continue;
+    if (!codes.some(code => groupForPosition(code) === group)) {
+      slots.push(assign.position);
+    }
+  }
+  return slots;
+});
+
+// Number of empty slots in the current formation (drives Auto-fill enablement).
+const openSlotCount = computed(() => {
+  const formations = getFormations(props.sportType);
+  const formation = formations[selectedFormation.value];
+  if (!formation) return 0;
+  const filled = new Set(assignments.value.map(a => a.position));
+  return formation.positions.filter(p => !filled.has(p.position)).length;
+});
+
 // Computed: has the lineup changed from initial state?
 const hasChanges = computed(() => {
   if (!originalLineup.value) {
@@ -372,6 +455,63 @@ function handleFormationChange() {
 // Clear all assignments
 function handleClear() {
   assignments.value = [];
+  emitChange();
+}
+
+// Fit score of a player for a slot group: 2 = primary in group,
+// 1 = secondary position in group, 0 = no match / unknown.
+function fitScore(player, group) {
+  if (!group) return 0;
+  const codes = parsePositions(player.positions);
+  if (codes.length === 0) return 0;
+  if (groupForPosition(primaryPosition(codes)) === group) return 2;
+  if (codes.some(code => groupForPosition(code) === group)) return 1;
+  return 0;
+}
+
+// SB-288+: one-tap "Auto-fill" — assign best-fit unassigned players to every
+// OPEN slot (existing assignments are kept). Slots are filled GK->DEF->MID->FWD
+// (formation order), each taking the highest-fit remaining player; ties break
+// on jersey number. Non-matching fills still happen so the XI completes, but
+// they surface via the out-of-position marker for the user to fix.
+function autoSuggestXI() {
+  const formations = getFormations(props.sportType);
+  const formation = formations[selectedFormation.value];
+  if (!formation) return;
+
+  const filled = new Set(assignments.value.map(a => a.position));
+  let pool = unassignedPlayers.value.slice();
+
+  for (const slot of formation.positions) {
+    if (filled.has(slot.position)) continue;
+    if (pool.length === 0) break;
+
+    const group = SLOT_TO_GROUP[slot.position] || null;
+    let best = pool[0];
+    let bestScore = fitScore(best, group);
+    for (const player of pool) {
+      const score = fitScore(player, group);
+      if (
+        score > bestScore ||
+        (score === bestScore &&
+          (player.jersey_number || 999) < (best.jersey_number || 999))
+      ) {
+        best = player;
+        bestScore = score;
+      }
+    }
+
+    assignments.value.push({
+      player_id: best.id,
+      position: slot.position,
+      jersey_number: best.jersey_number,
+      display_name:
+        best.display_name ||
+        `${best.first_name || ''} ${best.last_name || ''}`.trim(),
+    });
+    pool = pool.filter(p => p.id !== best.id);
+  }
+
   emitChange();
 }
 
@@ -519,6 +659,21 @@ watch(
   line-height: 1.4;
 }
 
+.bench-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bench-group-label {
+  color: #888;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
 .bench-list {
   display: flex;
   flex-wrap: wrap;
@@ -531,6 +686,12 @@ watch(
   border-radius: 4px;
   font-size: 13px;
   color: #ccc;
+}
+
+.bench-positions {
+  margin-left: 6px;
+  color: #888;
+  font-size: 11px;
 }
 
 .lineup-actions {
@@ -557,6 +718,16 @@ watch(
 }
 
 .clear-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggest-button {
+  background: #2196f3;
+  color: white;
+}
+
+.suggest-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
