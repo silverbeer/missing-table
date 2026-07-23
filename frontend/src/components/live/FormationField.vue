@@ -128,6 +128,7 @@
         :class="{
           assigned: getAssignment(pos.position),
           clickable: !readonly,
+          'out-of-position': isOutOfPosition(pos.position),
         }"
         :transform="`translate(${pos.x}, ${scaleY(pos.y)})`"
         @click="handlePositionClick(pos.position)"
@@ -135,8 +136,27 @@
         <!-- Marker circle -->
         <circle
           r="5"
-          :class="['marker-circle', { assigned: getAssignment(pos.position) }]"
+          :class="[
+            'marker-circle',
+            {
+              assigned: getAssignment(pos.position),
+              'out-of-position': isOutOfPosition(pos.position),
+            },
+          ]"
         />
+
+        <!-- SB-288+: out-of-position warning badge -->
+        <text
+          v-if="isOutOfPosition(pos.position)"
+          class="warn-badge"
+          text-anchor="middle"
+          dominant-baseline="central"
+          x="4.5"
+          y="-4.5"
+          font-size="4.5"
+        >
+          !
+        </text>
 
         <!-- Jersey number or position code -->
         <text
@@ -188,9 +208,20 @@ const props = defineProps({
     type: String,
     default: 'soccer',
   },
+  // SB-288+: formation slot codes whose assigned player doesn't play that
+  // slot's position group. Rendered with an amber ring + "!" badge.
+  warnPositions: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const emit = defineEmits(['position-clicked']);
+
+// True when a slot is assigned a player who's out of position for it.
+function isOutOfPosition(positionCode) {
+  return props.warnPositions.includes(positionCode);
+}
 
 // Get positions for the current formation
 const formationPositions = computed(() => {
@@ -300,6 +331,18 @@ function handlePositionClick(positionCode) {
   fill: #2196f3;
   stroke: white;
   stroke-width: 0.8;
+}
+
+.marker-circle.out-of-position {
+  fill: #b7791f;
+  stroke: #fbbf24;
+  stroke-width: 1;
+}
+
+.warn-badge {
+  fill: #fbbf24;
+  font-weight: bold;
+  pointer-events: none;
 }
 
 .marker-text {
