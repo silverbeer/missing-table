@@ -39,12 +39,14 @@ describe('LineupManager auto-fill (SB-288+)', () => {
 
   it('keeps existing assignments and only fills the empty slots', async () => {
     const wrapper = mountLineup();
-    // Pre-assign the striker to GK (deliberately wrong) via the modal path.
+    // Pre-assign a player to GK via the jersey field, then verify auto-fill
+    // leaves it untouched.
     wrapper
       .findComponent({ name: 'FormationField' })
       .vm.$emit('position-clicked', 'GK');
     await wrapper.vm.$nextTick();
-    await wrapper.findAll('.player-option')[1].trigger('click'); // first real player
+    await wrapper.find('.jersey-input').setValue('4'); // Def Two (id 2)
+    await wrapper.find('.jersey-add').trigger('click');
 
     const before = posFor(lastChange(wrapper), 'GK').player_id;
     await wrapper.find('.suggest-button').trigger('click');

@@ -111,17 +111,80 @@ export function useMatchLineup(matchId, matchData) {
   }
 
   /**
+   * Materialize placeholder players before saving a lineup.
+   *
+   * A jersey number typed into the picker for a player who isn't on the roster
+   * yet is held as a negative player_id (-jersey). On save those numbers are
+   * bulk-created as roster rows (the backend skips ones that already exist),
+   * then the lineup positions are remapped to the new real ids. Mirrors the
+   * android LineupScreen flow.
+   *
+   * Returns { ok, positions } or { ok: false, error }.
+   */
+  async function materializePlaceholders(teamId, positions) {
+    const placeholderNumbers = [
+      ...new Set(positions.filter(p => p.player_id < 0).map(p => -p.player_id)),
+    ];
+    if (placeholderNumbers.length === 0) return { ok: true, positions };
+
+    const match = unwrapMatchData(matchData);
+    const season_id = match?.season_id;
+    if (!season_id) {
+      return { ok: false, error: 'No season set for this match' };
+    }
+    const age_group_id = match?.age_group_id ?? null;
+    const base = getApiBaseUrl();
+
+    // Create the missing jersey numbers (duplicates are skipped server-side).
+    await authStore.apiRequest(`${base}/api/teams/${teamId}/roster/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({
+        season_id,
+        age_group_id,
+        players: placeholderNumbers.map(n => ({ jersey_number: n })),
+      }),
+    });
+
+    // Refetch (age-scoped when known) and remap number -> new id.
+    const ageParam =
+      age_group_id != null ? `&age_group_id=${age_group_id}` : '';
+    const rosterResponse = await authStore.apiRequest(
+      `${base}/api/teams/${teamId}/roster?season_id=${season_id}${ageParam}`
+    );
+    const idByNumber = new Map(
+      (rosterResponse?.roster || []).map(p => [p.jersey_number, p.id])
+    );
+    const remapped = positions.map(p =>
+      p.player_id < 0
+        ? { ...p, player_id: idByNumber.get(-p.player_id) ?? p.player_id }
+        : p
+    );
+    if (remapped.some(p => p.player_id < 0)) {
+      return {
+        ok: false,
+        error: 'Could not create roster entries for the entered numbers',
+      };
+    }
+    return { ok: true, positions: remapped };
+  }
+
+  /**
    * Save lineup for a team. Updates the corresponding local ref.
    */
   async function saveLineup(teamId, formationName, positions) {
     try {
+      const materialized = await materializePlaceholders(teamId, positions);
+      if (!materialized.ok) {
+        return { success: false, error: materialized.error };
+      }
+
       const response = await authStore.apiRequest(
         `${getApiBaseUrl()}/api/matches/${matchId}/lineup/${teamId}`,
         {
           method: 'PUT',
           body: JSON.stringify({
             formation_name: formationName,
-            positions,
+            positions: materialized.positions,
           }),
         }
       );
