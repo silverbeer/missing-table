@@ -202,6 +202,30 @@ if [ "$RESTORE_DATA" = true ]; then
         docker exec "$DB_CONTAINER" psql -U postgres -d postgres \
             -c "UPDATE public.leagues SET sport_type = 'futsal' WHERE LOWER(name) LIKE '%futsal%' AND sport_type != 'futsal';" \
             2>/dev/null && echo -e "${GREEN}Futsal leagues updated${NC}" || echo -e "${YELLOW}Could not update Futsal leagues${NC}"
+
+        # Resync sequences to each table's MAX(id). The data restore loads rows
+        # with explicit ids but leaves the id sequences at their default, so the
+        # first manual INSERT into any restored table (e.g. scheduling a match)
+        # fails with a duplicate-PK error until the sequence is advanced.
+        echo -e "${YELLOW}Resyncing id sequences after restore...${NC}"
+        docker exec "$DB_CONTAINER" psql -U postgres -d postgres 2>/dev/null <<'SQL' \
+            && echo -e "${GREEN}Sequences resynced${NC}" || echo -e "${YELLOW}Could not resync sequences${NC}"
+DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT s.relname AS seq, t.relname AS tbl, a.attname AS col
+    FROM pg_class s
+    JOIN pg_depend d ON d.objid = s.oid AND d.deptype = 'a'
+    JOIN pg_class t ON t.oid = d.refobjid
+    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+    WHERE s.relkind = 'S' AND t.relnamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE format('SELECT setval(%L, COALESCE((SELECT MAX(%I) FROM public.%I), 1))',
+                   r.seq, r.col, r.tbl);
+  END LOOP;
+END $$;
+SQL
     else
         echo -e "${YELLOW}db_tools.sh not found, skipping data restore${NC}"
     fi
