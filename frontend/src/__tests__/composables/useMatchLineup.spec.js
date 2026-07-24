@@ -266,5 +266,73 @@ describe('useMatchLineup', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Save failed');
     });
+
+    it('bulk-creates placeholder jerseys and remaps them before saving', async () => {
+      const calls = [];
+      mockAuthStore.apiRequest = vi.fn((url, opts) => {
+        calls.push({ url, method: opts?.method || 'GET', body: opts?.body });
+        if (url.includes('/roster/bulk')) {
+          return Promise.resolve({ success: true, created: [] });
+        }
+        if (url.includes('/roster?')) {
+          return Promise.resolve({ roster: [{ id: 501, jersey_number: 77 }] });
+        }
+        return Promise.resolve({ formation_name: '4-3-3', positions: [] });
+      });
+
+      const matchData = ref(createMatchData({ age_group_id: 3 }));
+      const { saveLineup } = useMatchLineup(1, matchData);
+
+      const result = await saveLineup(10, '4-3-3', [
+        { player_id: 1, position: 'GK' },
+        { player_id: -77, position: 'ST' }, // placeholder
+      ]);
+
+      expect(result.success).toBe(true);
+
+      const bulk = calls.find(c => c.url.includes('/roster/bulk'));
+      expect(bulk.method).toBe('POST');
+      expect(bulk.body).toContain('"jersey_number":77');
+      expect(bulk.body).toContain('"season_id":3');
+      expect(bulk.body).toContain('"age_group_id":3');
+
+      const put = calls.find(c => c.method === 'PUT');
+      expect(put.body).toContain('"player_id":501');
+      expect(put.body).not.toContain('-77');
+    });
+
+    it('skips bulk create when there are no placeholders', async () => {
+      const urls = [];
+      mockAuthStore.apiRequest = vi.fn(url => {
+        urls.push(url);
+        return Promise.resolve({});
+      });
+
+      const matchData = ref(createMatchData());
+      const { saveLineup } = useMatchLineup(1, matchData);
+
+      await saveLineup(10, '4-3-3', [{ player_id: 1, position: 'GK' }]);
+
+      expect(urls.some(u => u.includes('/roster/bulk'))).toBe(false);
+    });
+
+    it('returns an error when a placeholder number cannot be created', async () => {
+      mockAuthStore.apiRequest = vi.fn(url => {
+        if (url.includes('/roster/bulk'))
+          return Promise.resolve({ success: true });
+        if (url.includes('/roster?')) return Promise.resolve({ roster: [] });
+        return Promise.resolve({});
+      });
+
+      const matchData = ref(createMatchData());
+      const { saveLineup } = useMatchLineup(1, matchData);
+
+      const result = await saveLineup(10, '4-3-3', [
+        { player_id: -5, position: 'ST' },
+      ]);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/Could not create/);
+    });
   });
 });

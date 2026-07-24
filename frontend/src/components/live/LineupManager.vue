@@ -112,6 +112,28 @@
         <h3 class="modal-title">Select Player for {{ selectedPosition }}</h3>
 
         <div class="player-list">
+          <!-- Enter a jersey number directly — works even with an empty roster;
+               unknown numbers become placeholders materialized on save. -->
+          <div class="jersey-entry">
+            <input
+              v-model="jerseyInput"
+              type="number"
+              min="1"
+              max="99"
+              inputmode="numeric"
+              placeholder="Jersey #"
+              class="jersey-input"
+              @keyup.enter="assignJersey"
+            />
+            <button
+              class="jersey-add"
+              :disabled="!jerseyInput"
+              @click="assignJersey"
+            >
+              Add
+            </button>
+          </div>
+
           <!-- Option to clear position -->
           <button
             v-if="getAssignmentForPosition(selectedPosition)"
@@ -121,7 +143,7 @@
             Clear Position
           </button>
 
-          <!-- Suggested: players whose position group matches the slot -->
+          <!-- Players whose position group matches the slot. -->
           <template v-if="slotGroup && suggestedPlayers.length > 0">
             <div class="player-section-label">{{ groupNames[slotGroup] }}s</div>
             <button
@@ -137,14 +159,10 @@
             </button>
           </template>
 
-          <!-- Everyone else (incl. players with no positions set) -->
-          <template v-if="otherPlayers.length > 0">
-            <div
-              v-if="slotGroup && suggestedPlayers.length > 0"
-              class="player-section-label"
-            >
-              Other players
-            </div>
+          <!-- Fallback: only when no one fits the slot's group (e.g. a
+               quick-added roster with no positions) so the picker never
+               dead-ends. Otherwise the list is filtered to fitting players. -->
+          <template v-else-if="otherPlayers.length > 0">
             <button
               v-for="player in otherPlayers"
               :key="player.id"
@@ -160,8 +178,11 @@
             </button>
           </template>
 
-          <div v-if="availablePlayersForModal.length === 0" class="no-players">
-            No available players
+          <div
+            v-if="suggestedPlayers.length === 0 && otherPlayers.length === 0"
+            class="no-players"
+          >
+            No roster players — enter a jersey number above
           </div>
         </div>
 
@@ -235,6 +256,8 @@ const assignments = ref([]); // Array of { player_id, position, jersey_number, d
 const showPlayerModal = ref(false);
 const selectedPosition = ref(null);
 const originalLineup = ref(null);
+// Jersey number typed into the open picker (reset each time it opens).
+const jerseyInput = ref('');
 
 // Formation options
 const formationOptions = computed(() => getFormationOptions(props.sportType));
@@ -396,7 +419,35 @@ function getAssignmentForPosition(positionCode) {
 // Open player selection modal for a position
 function openPlayerSelector(positionCode) {
   selectedPosition.value = positionCode;
+  jerseyInput.value = '';
   showPlayerModal.value = true;
+}
+
+// Assign by jersey number. A number already on the roster picks that player;
+// an unknown number becomes a placeholder (negative id) that useMatchLineup
+// materializes into a roster row on save.
+function assignJersey() {
+  const num = parseInt(jerseyInput.value, 10);
+  if (!num || num < 1 || num > 99) return;
+
+  const existing = props.roster.find(p => p.jersey_number === num);
+  if (existing) {
+    assignPlayer(existing.id, selectedPosition.value);
+    return;
+  }
+
+  assignments.value = assignments.value.filter(
+    a => a.position !== selectedPosition.value
+  );
+  assignments.value.push({
+    player_id: -num,
+    position: selectedPosition.value,
+    jersey_number: num,
+    display_name: `#${num}`,
+  });
+  jerseyInput.value = '';
+  closePlayerModal();
+  emitChange();
 }
 
 // Close player modal
@@ -780,6 +831,43 @@ watch(
   flex-direction: column;
   gap: 8px;
   margin-bottom: 20px;
+}
+
+.jersey-entry {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.jersey-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  background: #16213e;
+  color: white;
+  font-size: 15px;
+}
+
+.jersey-input:focus {
+  outline: none;
+  border-color: #2196f3;
+}
+
+.jersey-add {
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  background: #2196f3;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jersey-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .player-option {
