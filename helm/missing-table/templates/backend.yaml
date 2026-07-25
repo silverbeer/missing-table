@@ -123,6 +123,35 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: vapid-subject
               optional: true
+        # Cloudflare R2 — match-photo storage (SB-31) + Android APK distribution
+        # (SB-313). Optional: the pod boots without them; r2_client.is_configured()
+        # returns False and both photo upload AND the APK download endpoint return
+        # 503 until ESO populates these from AWS Secrets Manager. R2_ANDROID_BUCKET
+        # is not set here — the backend defaults it to "mt-android-releases".
+        - name: R2_ACCOUNT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: r2-account-id
+              optional: true
+        - name: R2_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: r2-access-key-id
+              optional: true
+        - name: R2_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: r2-secret-access-key
+              optional: true
+        - name: R2_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: r2-bucket
+              optional: true
         # Global kill switch for live-match notifications. Defaults to true.
         - name: NOTIFICATIONS_ENABLED
           value: {{ .Values.notifications.enabled | default true | quote }}
