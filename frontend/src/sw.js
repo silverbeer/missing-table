@@ -16,9 +16,11 @@
  *  5. Receives Web Push messages and displays notifications.
  *  6. Routes notification clicks to the live match view (or app root).
  *
- * Deliberately NOT done here:
- *  - clientsClaim / skipWaiting on install — UpdateAvailablePrompt handles
- *    new versions explicitly via user click, no surprise reloads.
+ * Update behavior:
+ *  - skipWaiting fires on the SKIP_WAITING message (below), triggered
+ *    automatically by usePwaUpdate's onNeedRefresh so new builds activate +
+ *    reload without waiting for a user click (avoids stale cached bundles
+ *    after a deploy). UpdateAvailablePrompt remains a manual fallback.
  */
 
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
@@ -84,8 +86,8 @@ registerRoute(
 // Update flow
 // ---------------------------------------------------------------------------
 
-// When the page asks us to activate immediately (from UpdateAvailablePrompt's
-// reload button), do it. Otherwise wait for the next natural page load.
+// When the page asks us to activate immediately (usePwaUpdate auto-triggers
+// this on a new build; UpdateAvailablePrompt's reload button is the fallback).
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
