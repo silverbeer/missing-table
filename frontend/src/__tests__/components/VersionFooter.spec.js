@@ -81,6 +81,17 @@ describe('VersionFooter visibility gating', () => {
     expect(wrapper.text()).toContain('Need help?');
   });
 
+  it('shows the Android install link (to the R2 apk) for everyone', async () => {
+    mockAuthStore = createUnauthenticatedStore();
+    const wrapper = await mountFooter();
+
+    const link = wrapper.find('[data-testid="android-install-link"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes('href')).toMatch(
+      /r2\.dev\/latest\/missingtable\.apk$/
+    );
+  });
+
   it('still emits open-whats-new from the version button for members', async () => {
     mockAuthStore = createAuthenticatedUserStore();
     const wrapper = await mountFooter();
