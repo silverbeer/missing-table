@@ -6603,7 +6603,12 @@ async def get_android_apk_url(
     """Return a short-lived presigned download URL for the latest Android APK."""
     if not r2_client.is_configured():
         raise HTTPException(status_code=503, detail=r2_client.R2_NOT_CONFIGURED_MSG)
-    return {"download_url": r2_client.get_apk_download_url()}
+    return {
+        "download_url": r2_client.get_apk_download_url(),
+        # From R2 object metadata (release CI stamps it); None when absent so
+        # the app can decide whether an update banner is warranted (SB-322).
+        "version_code": r2_client.get_apk_version_code(),
+    }
 
 
 # Health check

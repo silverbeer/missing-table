@@ -144,3 +144,21 @@ def get_apk_download_url(expires_in: int = ANDROID_APK_URL_TTL_SECONDS) -> str:
         Params={"Bucket": _android_bucket(), "Key": ANDROID_APK_KEY},
         ExpiresIn=expires_in,
     )
+
+
+def get_apk_version_code() -> int | None:
+    """Latest APK versionCode, read from R2 object metadata (SB-322).
+
+    The Android release CI stamps `versioncode` metadata on upload so the app
+    can offer in-app updates (sideloaded APK — no store update channel). Older
+    uploads lack the metadata and any R2 error degrades to None, which the app
+    treats as "no update information".
+    """
+    try:
+        client = _get_client()
+        head = client.head_object(Bucket=_android_bucket(), Key=ANDROID_APK_KEY)
+        raw = (head.get("Metadata") or {}).get("versioncode")
+        return int(raw) if raw else None
+    except Exception:
+        logger.warning("r2_apk_version_lookup_failed", exc_info=True)
+        return None
