@@ -64,15 +64,19 @@
             data-testid="footer-support-link"
           />
         </div>
-        <div class="android-line">
-          <a
-            :href="androidApkUrl"
+        <!-- Invite-only: the APK is private; only authenticated users can get a
+             short-lived download URL from the backend. -->
+        <div v-if="authStore.isAuthenticated.value" class="android-line">
+          <button
+            type="button"
             class="android-link"
+            :disabled="androidLoading"
             title="Android only. After it downloads, allow installs from unknown sources if prompted."
             data-testid="android-install-link"
+            @click="downloadAndroidApk"
           >
-            📱 Install the Android app
-          </a>
+            📱 {{ androidLoading ? 'Preparing…' : 'Install the Android app' }}
+          </button>
         </div>
       </div>
 
@@ -90,6 +94,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { getApiBaseUrl } from '@/config/api';
 import SupportEmailLink from '@/components/SupportEmailLink.vue';
 
 export default {
@@ -104,12 +109,27 @@ export default {
     const currentYear = computed(() => new Date().getFullYear());
     const errorDismissed = ref(false);
 
-    // Public download for the Android scorer APK (SB-313). Served from the
-    // mt-android-releases Cloudflare R2 bucket; the `latest` key is overwritten
-    // by CI on each release. Swap to https://downloads.missingtable.com/... once
-    // the DNS zone moves to Cloudflare and the branded R2 custom domain is bound.
-    const androidApkUrl =
-      'https://pub-aacd08f9e26c407d84191373d808d1c4.r2.dev/latest/missingtable.apk';
+    // Android scorer APK download (SB-313). MT is invite-only, so the APK lives
+    // in a PRIVATE R2 bucket. The button (shown only to authenticated users)
+    // asks the backend for a short-lived presigned URL and navigates to it —
+    // the URL is never embedded in the shipped bundle.
+    const androidLoading = ref(false);
+    const downloadAndroidApk = async () => {
+      if (androidLoading.value) return;
+      androidLoading.value = true;
+      try {
+        const res = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/android/apk-url`
+        );
+        if (res?.download_url) {
+          window.location.href = res.download_url;
+        }
+      } catch (err) {
+        console.error('Failed to get Android APK download URL:', err);
+      } finally {
+        androidLoading.value = false;
+      }
+    };
 
     // Pre-fill support email with the user's account context when logged in.
     // Falls through to a generic "Help request" subject + empty body for
@@ -197,7 +217,8 @@ export default {
       retryFetch,
       supportSubject,
       supportBody,
-      androidApkUrl,
+      androidLoading,
+      downloadAndroidApk,
     };
   },
 };
@@ -293,10 +314,22 @@ export default {
 }
 
 .android-link {
+  /* Rendered as a <button> but styled as an inline link. */
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
   color: rgb(var(--color-fg-muted));
   font-weight: 500;
   text-decoration: underline dotted;
   text-underline-offset: 2px;
+}
+
+.android-link:disabled {
+  cursor: default;
+  opacity: 0.7;
+  text-decoration: none;
 }
 
 .android-link:hover {

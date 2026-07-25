@@ -6593,6 +6593,19 @@ async def get_login_events(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# Android app download (SB-313). MT is invite-only, so the APK lives in a
+# private R2 bucket and is never anonymously downloadable. Any authenticated
+# user may fetch a short-lived presigned URL to install/update the app.
+@app.get("/api/android/apk-url")
+async def get_android_apk_url(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Return a short-lived presigned download URL for the latest Android APK."""
+    if not r2_client.is_configured():
+        raise HTTPException(status_code=503, detail=r2_client.R2_NOT_CONFIGURED_MSG)
+    return {"download_url": r2_client.get_apk_download_url()}
+
+
 # Health check
 @app.get("/health")
 async def health_check():

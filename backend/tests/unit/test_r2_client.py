@@ -15,7 +15,7 @@ import r2_client
 @pytest.fixture(autouse=True)
 def _reset_r2_client_cache_and_env(monkeypatch):
     """Drop the boto3 client cache + ensure R2 env vars are clean per test."""
-    for var in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_ENDPOINT_URL"):
+    for var in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_ENDPOINT_URL", "R2_ANDROID_BUCKET"):
         monkeypatch.delenv(var, raising=False)
     r2_client._reset_client_for_tests()
     yield
@@ -83,6 +83,30 @@ class TestGetClient:
         client_a = r2_client._get_client()
         client_b = r2_client._get_client()
         assert client_a is client_b
+
+
+class TestAndroidApk:
+    def _configure(self, monkeypatch):
+        monkeypatch.setenv("R2_ACCOUNT_ID", "abc123")
+        monkeypatch.setenv("R2_ACCESS_KEY_ID", "key")
+        monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "secret")
+        monkeypatch.setenv("R2_BUCKET", "mt-match-photos")
+
+    def test_key_and_default_bucket(self):
+        assert r2_client.ANDROID_APK_KEY == "latest/missingtable.apk"
+        assert r2_client._android_bucket() == "mt-android-releases"
+        assert r2_client.ANDROID_APK_URL_TTL_SECONDS == 300
+
+    def test_android_bucket_can_be_overridden(self, monkeypatch):
+        monkeypatch.setenv("R2_ANDROID_BUCKET", "custom-releases")
+        assert r2_client._android_bucket() == "custom-releases"
+
+    def test_presigned_url_targets_android_bucket_and_key(self, monkeypatch):
+        self._configure(monkeypatch)
+        url = r2_client.get_apk_download_url()
+        assert "mt-android-releases" in url
+        assert "latest/missingtable.apk" in url
+        assert "X-Amz-Signature" in url  # genuinely presigned, not a bare URL
 
 
 class TestConstants:
