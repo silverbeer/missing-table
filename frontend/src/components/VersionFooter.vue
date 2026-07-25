@@ -77,6 +77,13 @@
           >
             📱 {{ androidLoading ? 'Preparing…' : 'Install the Android app' }}
           </button>
+          <div
+            v-if="androidError"
+            class="android-error"
+            data-testid="android-install-error"
+          >
+            {{ androidError }}
+          </div>
         </div>
       </div>
 
@@ -114,18 +121,28 @@ export default {
     // asks the backend for a short-lived presigned URL and navigates to it —
     // the URL is never embedded in the shipped bundle.
     const androidLoading = ref(false);
+    const androidError = ref('');
     const downloadAndroidApk = async () => {
       if (androidLoading.value) return;
       androidLoading.value = true;
+      androidError.value = '';
+      const url = `${getApiBaseUrl()}/api/android/apk-url`;
+      console.info('[android-apk] requesting download url:', url);
       try {
-        const res = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/android/apk-url`
-        );
+        const res = await authStore.apiRequest(url);
+        console.info('[android-apk] response:', res);
         if (res?.download_url) {
+          console.info('[android-apk] navigating to presigned url');
           window.location.href = res.download_url;
+        } else {
+          // 2xx but nothing usable — surface it instead of silently no-op'ing.
+          androidError.value = 'Download unavailable — no URL returned.';
+          console.error('[android-apk] no download_url in response:', res);
         }
       } catch (err) {
-        console.error('Failed to get Android APK download URL:', err);
+        // apiRequest throws on non-2xx (401/403/503/…) — show the reason.
+        androidError.value = `Download failed: ${err?.message || err}`;
+        console.error('[android-apk] request failed:', err);
       } finally {
         androidLoading.value = false;
       }
@@ -218,6 +235,7 @@ export default {
       supportSubject,
       supportBody,
       androidLoading,
+      androidError,
       downloadAndroidApk,
     };
   },
@@ -330,6 +348,12 @@ export default {
   cursor: default;
   opacity: 0.7;
   text-decoration: none;
+}
+
+.android-error {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #f87171;
 }
 
 .android-link:hover {
