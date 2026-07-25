@@ -2814,7 +2814,10 @@ async def upload_match_photo(
     max 1920x1920 JPEG q85 before upload.
     """
     if not r2_client.is_configured():
-        raise HTTPException(status_code=503, detail=r2_client.R2_NOT_CONFIGURED_MSG)
+        logger.error("match_photo_upload_unavailable: R2 not configured")
+        raise HTTPException(
+            status_code=503, detail="Photo upload is temporarily unavailable."
+        )
 
     if file.content_type not in _MATCH_PHOTO_ALLOWED_TYPES:
         raise HTTPException(
@@ -6601,14 +6604,27 @@ async def get_android_apk_url(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Return a short-lived presigned download URL for the latest Android APK."""
+    # Client-facing errors stay generic — never leak env-var names / internal
+    # config to end users. The real reason is logged server-side.
     if not r2_client.is_configured():
-        raise HTTPException(status_code=503, detail=r2_client.R2_NOT_CONFIGURED_MSG)
-    return {
-        "download_url": r2_client.get_apk_download_url(),
-        # From R2 object metadata (release CI stamps it); None when absent so
-        # the app can decide whether an update banner is warranted (SB-322).
-        "version_code": r2_client.get_apk_version_code(),
-    }
+        logger.error("android_apk_url_unavailable: R2 not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="The Android app download is temporarily unavailable.",
+        )
+    try:
+        return {
+            "download_url": r2_client.get_apk_download_url(),
+            # From R2 object metadata (release CI stamps it); None when absent so
+            # the app can decide whether an update banner is warranted (SB-322).
+            "version_code": r2_client.get_apk_version_code(),
+        }
+    except Exception as e:
+        logger.error(f"android_apk_url_failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="The Android app download is temporarily unavailable.",
+        ) from e
 
 
 # Health check

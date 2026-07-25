@@ -135,13 +135,13 @@ export default {
           console.info('[android-apk] navigating to presigned url');
           window.location.href = res.download_url;
         } else {
-          // 2xx but nothing usable — surface it instead of silently no-op'ing.
-          androidError.value = 'Download unavailable — no URL returned.';
+          // Generic user message; real details go to the console only — never
+          // surface backend/config internals to end users.
+          androidError.value = "The Android app isn't available right now.";
           console.error('[android-apk] no download_url in response:', res);
         }
       } catch (err) {
-        // apiRequest throws on non-2xx (401/403/503/…) — show the reason.
-        androidError.value = `Download failed: ${err?.message || err}`;
+        androidError.value = "The Android app isn't available right now.";
         console.error('[android-apk] request failed:', err);
       } finally {
         androidLoading.value = false;
