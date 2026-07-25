@@ -81,14 +81,35 @@ describe('VersionFooter visibility gating', () => {
     expect(wrapper.text()).toContain('Need help?');
   });
 
-  it('shows the Android install link (to the R2 apk) for everyone', async () => {
+  it('hides the Android install button from anonymous visitors (invite-only)', async () => {
     mockAuthStore = createUnauthenticatedStore();
     const wrapper = await mountFooter();
 
-    const link = wrapper.find('[data-testid="android-install-link"]');
-    expect(link.exists()).toBe(true);
-    expect(link.attributes('href')).toMatch(
-      /r2\.dev\/latest\/missingtable\.apk$/
+    expect(wrapper.find('[data-testid="android-install-link"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('shows the Android install button to authenticated users', async () => {
+    mockAuthStore = createAuthenticatedUserStore();
+    const wrapper = await mountFooter();
+
+    const btn = wrapper.find('[data-testid="android-install-link"]');
+    expect(btn.exists()).toBe(true);
+    // No public URL is embedded — it's a button that fetches a presigned URL.
+    expect(btn.attributes('href')).toBeUndefined();
+  });
+
+  it('fetches a presigned URL from the backend when the install button is clicked', async () => {
+    mockAuthStore = createAuthenticatedUserStore();
+    mockAuthStore.apiRequest = vi.fn(() =>
+      Promise.resolve({ download_url: 'https://r2.example/signed/app.apk' })
+    );
+    const wrapper = await mountFooter();
+
+    await wrapper.find('[data-testid="android-install-link"]').trigger('click');
+    expect(mockAuthStore.apiRequest).toHaveBeenCalledWith(
+      expect.stringContaining('/api/android/apk-url')
     );
   });
 

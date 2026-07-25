@@ -115,3 +115,32 @@ def delete_photo(key: str) -> None:
     client = _get_client()
     client.delete_object(Bucket=_bucket(), Key=key)
     logger.info("r2_delete_succeeded", key=key)
+
+
+# ── Android APK distribution (SB-313) ────────────────────────────────────────
+# The release CI uploads the signed APK to a SEPARATE, PRIVATE bucket
+# (mt-android-releases). It's private on purpose: MT is invite-only, so the APK
+# must not be anonymously downloadable. The backend hands authenticated users a
+# short-lived presigned URL instead.
+
+ANDROID_APK_KEY = "latest/missingtable.apk"
+ANDROID_APK_URL_TTL_SECONDS = 300  # 5 min: minted per authenticated request
+
+
+def _android_bucket() -> str:
+    return os.environ.get("R2_ANDROID_BUCKET", "mt-android-releases")
+
+
+def get_apk_download_url(expires_in: int = ANDROID_APK_URL_TTL_SECONDS) -> str:
+    """Mint a short-lived presigned GET URL for the latest Android APK.
+
+    Reuses the account-level R2 client; the backend's R2 credentials must have
+    read access to R2_ANDROID_BUCKET (default 'mt-android-releases'). Local HMAC
+    signing, no network call.
+    """
+    client = _get_client()
+    return client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": _android_bucket(), "Key": ANDROID_APK_KEY},
+        ExpiresIn=expires_in,
+    )
