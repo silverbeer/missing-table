@@ -64,6 +64,16 @@
             data-testid="footer-support-link"
           />
         </div>
+        <div class="android-line">
+          <a
+            :href="androidApkUrl"
+            class="android-link"
+            title="Android only. After it downloads, allow installs from unknown sources if prompted."
+            data-testid="android-install-link"
+          >
+            📱 Install the Android app
+          </a>
+        </div>
       </div>
 
       <!-- Status indicator (right side) — ops info, admins only -->
@@ -93,6 +103,13 @@ export default {
     const status = ref('healthy');
     const currentYear = computed(() => new Date().getFullYear());
     const errorDismissed = ref(false);
+
+    // Public download for the Android scorer APK (SB-313). Served from the
+    // mt-android-releases Cloudflare R2 bucket; the `latest` key is overwritten
+    // by CI on each release. Swap to https://downloads.missingtable.com/... once
+    // the DNS zone moves to Cloudflare and the branded R2 custom domain is bound.
+    const androidApkUrl =
+      'https://pub-aacd08f9e26c407d84191373d808d1c4.r2.dev/latest/missingtable.apk';
 
     // Pre-fill support email with the user's account context when logged in.
     // Falls through to a generic "Help request" subject + empty body for
@@ -180,6 +197,7 @@ export default {
       retryFetch,
       supportSubject,
       supportBody,
+      androidApkUrl,
     };
   },
 };
@@ -268,6 +286,22 @@ export default {
 
 .support-footer-link {
   font-weight: 500;
+}
+
+.android-line {
+  font-size: 0.8125rem;
+}
+
+.android-link {
+  color: rgb(var(--color-fg-muted));
+  font-weight: 500;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.android-link:hover {
+  color: #1e40af;
+  text-decoration: underline;
 }
 
 .status-indicator {
