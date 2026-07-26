@@ -40,18 +40,27 @@ const TEAMS = [
   },
 ];
 
+// Per-test participation rows returned by GET /api/teams/{id}/match-types.
+let participationRows = [];
+
 // On mount AdminTeams loads teams + age-groups/clubs/divisions/leagues/match-types/seasons.
-const byUrl = url => {
+const byUrl = (url, opts) => {
+  const method = (opts && opts.method) || 'GET';
+  // GET /api/teams/{id}/match-types → current per-age participation.
+  if (url.endsWith('/match-types') && method === 'GET') {
+    return Promise.resolve(participationRows);
+  }
   if (url.includes('/api/teams'))
     return Promise.resolve(TEAMS.map(t => ({ ...t })));
   return Promise.resolve([]);
 };
 
 const mountTeams = () => {
+  participationRows = [];
   mockAuthStore = {
     userRole: { value: 'admin' },
     userClubId: { value: null },
-    apiRequest: vi.fn(url => byUrl(url)),
+    apiRequest: vi.fn((url, opts) => byUrl(url, opts)),
   };
   return mount(AdminTeams);
 };
@@ -105,11 +114,11 @@ describe('AdminTeams search', () => {
   });
 });
 
-// Regression: the Edit Team "Game Types" checkboxes must hit the backend's
-// /match-types route with a match_type_id field. A prior bug called a
-// non-existent /game-types route with game_type_id, so saves 404'd and
-// participation silently never persisted.
-describe('AdminTeams game-type participation', () => {
+// Per-age-group match-type participation matrix (SB-362). Each cell is one
+// (match_type, age_group) pair, editable independently. Regression guards:
+// (1) the correct /match-types route + match_type_id field (never /game-types),
+// (2) toggling one age group must not touch the others.
+describe('AdminTeams match-type participation matrix', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -117,60 +126,104 @@ describe('AdminTeams game-type participation', () => {
   const callsMatching = pred =>
     mockAuthStore.apiRequest.mock.calls.filter(([url]) => pred(url));
 
-  it('adds new game types via /match-types with match_type_id', async () => {
+  // U15 = id 10, U14 = id 11. Friendly = 3.
+  const TEAM = {
+    id: 3,
+    name: 'IFA',
+    club_id: null,
+    academy_team: false,
+    age_groups: [
+      { id: 10, name: 'U15' },
+      { id: 11, name: 'U14' },
+    ],
+  };
+
+  it('loads current participation into the matrix on edit', async () => {
     const wrapper = mountTeams();
     await flushPromises();
 
-    const vm = wrapper.vm;
-    vm.editingTeam = {
-      id: 3,
-      name: 'PDA Tigers',
-      age_groups: [{ id: 10 }],
-      team_game_types: [],
-    };
-    vm.formData.name = 'PDA Tigers';
-    vm.formData.gameTypeIds = [3]; // Friendly
+    participationRows = [{ match_type_id: 3, age_group_id: 11 }]; // Friendly @ U14
+
+    await wrapper.vm.editTeam({ ...TEAM });
+    await flushPromises();
+
+    expect(wrapper.vm.hasParticipation(3, 11)).toBe(true); // U14 on
+    expect(wrapper.vm.hasParticipation(3, 10)).toBe(false); // U15 off
+  });
+
+  it('adds Friendly for U15 only, via POST /match-types with match_type_id', async () => {
+    const wrapper = mountTeams();
+    await flushPromises();
+
+    participationRows = [{ match_type_id: 3, age_group_id: 11 }]; // Friendly @ U14
+    await wrapper.vm.editTeam({ ...TEAM });
+    await flushPromises();
+
+    wrapper.vm.toggleParticipation(3, 10); // enable Friendly @ U15
 
     vi.clearAllMocks();
-    await vm.updateTeam();
+    await wrapper.vm.updateTeam();
 
-    // No call to the non-existent /game-types route.
+    // Never hits the old non-existent route.
     expect(callsMatching(u => u.includes('/game-types'))).toHaveLength(0);
 
-    const [url, opts] = callsMatching(u =>
+    // Exactly one add, for U15 — U14 (unchanged) is untouched.
+    const posts = callsMatching(u =>
       u.endsWith('/api/teams/3/match-types')
-    )[0];
-    expect(url).toBe('http://localhost:8000/api/teams/3/match-types');
-    expect(opts.method).toBe('POST');
-    expect(JSON.parse(opts.body)).toEqual({
+    ).filter(([, opts]) => opts?.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(JSON.parse(posts[0][1].body)).toEqual({
       match_type_id: 3,
       age_group_id: 10,
     });
+    // No deletes.
+    expect(callsMatching(u => /\/match-types\/\d+\/\d+$/.test(u))).toHaveLength(
+      0
+    );
   });
 
-  it('removes deselected game types via DELETE on /match-types', async () => {
+  it('removes Friendly from one age group via DELETE /match-types/{mt}/{ag}', async () => {
     const wrapper = mountTeams();
     await flushPromises();
 
-    const vm = wrapper.vm;
-    vm.editingTeam = {
-      id: 3,
-      name: 'PDA Tigers',
-      age_groups: [{ id: 10 }],
-      team_game_types: [{ game_type_id: 3 }],
-    };
-    vm.formData.name = 'PDA Tigers';
-    vm.formData.gameTypeIds = []; // unchecked Friendly
+    participationRows = [
+      { match_type_id: 3, age_group_id: 10 },
+      { match_type_id: 3, age_group_id: 11 },
+    ];
+    await wrapper.vm.editTeam({ ...TEAM });
+    await flushPromises();
+
+    wrapper.vm.toggleParticipation(3, 10); // disable Friendly @ U15
 
     vi.clearAllMocks();
-    await vm.updateTeam();
-
-    expect(callsMatching(u => u.includes('/game-types'))).toHaveLength(0);
+    await wrapper.vm.updateTeam();
 
     const [url, opts] = callsMatching(u =>
       u.endsWith('/api/teams/3/match-types/3/10')
     )[0];
     expect(url).toBe('http://localhost:8000/api/teams/3/match-types/3/10');
     expect(opts.method).toBe('DELETE');
+
+    // U14 untouched: no POST/DELETE referencing age group 11.
+    expect(callsMatching(u => u.endsWith('/3/11'))).toHaveLength(0);
+    const posts = callsMatching(u =>
+      u.endsWith('/api/teams/3/match-types')
+    ).filter(([, o]) => o?.method === 'POST');
+    expect(posts).toHaveLength(0);
+  });
+
+  it('makes no participation calls when nothing changed', async () => {
+    const wrapper = mountTeams();
+    await flushPromises();
+
+    participationRows = [{ match_type_id: 3, age_group_id: 10 }];
+    await wrapper.vm.editTeam({ ...TEAM });
+    await flushPromises();
+
+    vi.clearAllMocks();
+    await wrapper.vm.updateTeam();
+
+    // Only the team PUT, no add/remove.
+    expect(callsMatching(u => u.includes('/match-types'))).toHaveLength(0);
   });
 });

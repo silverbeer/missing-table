@@ -671,17 +671,51 @@ class TeamDAO(BaseDAO):
 
     # === Team Match Type Participation Methods ===
 
+    def get_team_match_type_participation(self, team_id: int) -> list[dict]:
+        """Get a team's active per-age-group match-type participation rows.
+
+        Returns [{match_type_id, age_group_id}] for rows with is_active=True.
+        Used by the admin per-age participation matrix to render current state.
+        """
+        response = (
+            self.client.table("team_match_types")
+            .select("match_type_id, age_group_id")
+            .eq("team_id", team_id)
+            .eq("is_active", True)
+            .execute()
+        )
+        return response.data
+
     def add_team_match_type_participation(self, team_id: int, match_type_id: int, age_group_id: int) -> bool:
-        """Add a team's participation in a specific match type and age group."""
+        """Add (or reactivate) a team's participation in a match type + age group.
+
+        remove_team_match_type_participation soft-deletes (is_active=False), so a
+        prior removal leaves a row that a blind insert would collide with on the
+        (team, match_type, age_group) unique key. Reactivate it when present;
+        otherwise insert a fresh row.
+        """
         try:
-            self.client.table("team_match_types").insert(
-                {
-                    "team_id": team_id,
-                    "match_type_id": match_type_id,
-                    "age_group_id": age_group_id,
-                    "is_active": True,
-                }
-            ).execute()
+            existing = (
+                self.client.table("team_match_types")
+                .select("id")
+                .eq("team_id", team_id)
+                .eq("match_type_id", match_type_id)
+                .eq("age_group_id", age_group_id)
+                .execute()
+            )
+            if existing.data:
+                self.client.table("team_match_types").update({"is_active": True}).eq(
+                    "id", existing.data[0]["id"]
+                ).execute()
+            else:
+                self.client.table("team_match_types").insert(
+                    {
+                        "team_id": team_id,
+                        "match_type_id": match_type_id,
+                        "age_group_id": age_group_id,
+                        "is_active": True,
+                    }
+                ).execute()
             return True
         except Exception:
             logger.exception("Error adding team match type participation")

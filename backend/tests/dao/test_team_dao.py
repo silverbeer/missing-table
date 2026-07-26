@@ -590,6 +590,72 @@ class TestMatchTypeParticipation:
         assert len(participation.data) > 0
         assert participation.data[0]['is_active'] is False
 
+    def test_get_participation_returns_active_rows(self, team_dao, test_team_factory, test_data_ids):
+        """get_team_match_type_participation returns only active (match_type, age_group) rows."""
+        match_type_id = test_data_ids['match_type_ids'][0]
+        age_group_id = test_data_ids['age_group_ids'][0]
+        team_id = test_team_factory(
+            name="Test Get Participation",
+            match_type_ids=[match_type_id],
+            age_group_ids=[age_group_id],
+        )
+        assert team_id is not None
+
+        rows = team_dao.get_team_match_type_participation(team_id)
+        assert isinstance(rows, list)
+        assert any(
+            r['match_type_id'] == match_type_id and r['age_group_id'] == age_group_id
+            for r in rows
+        )
+
+    def test_get_participation_excludes_soft_deleted(self, team_dao, test_team_factory, test_data_ids):
+        """A soft-deleted (is_active=False) row must not appear in participation."""
+        match_type_id = test_data_ids['match_type_ids'][0]
+        age_group_id = test_data_ids['age_group_ids'][0]
+        team_id = test_team_factory(
+            name="Test Participation Excludes Soft-Deleted",
+            match_type_ids=[match_type_id],
+            age_group_ids=[age_group_id],
+        )
+        assert team_id is not None
+
+        team_dao.remove_team_match_type_participation(team_id, match_type_id, age_group_id)
+
+        rows = team_dao.get_team_match_type_participation(team_id)
+        assert not any(
+            r['match_type_id'] == match_type_id and r['age_group_id'] == age_group_id
+            for r in rows
+        )
+
+    def test_add_reactivates_soft_deleted_participation(self, team_dao, test_team_factory, test_data_ids):
+        """Re-adding a soft-deleted participation reactivates the row (no duplicate/conflict).
+
+        remove_team_match_type_participation soft-deletes, so a blind insert on
+        re-add would collide with the existing (team, match_type, age_group) row.
+        add_team_match_type_participation must flip is_active back to True instead.
+        """
+        match_type_id = test_data_ids['match_type_ids'][0]
+        age_group_id = test_data_ids['age_group_ids'][0]
+        team_id = test_team_factory(
+            name="Test Reactivate Participation",
+            match_type_ids=[],
+            age_group_ids=[age_group_id],
+        )
+        assert team_id is not None
+
+        assert team_dao.add_team_match_type_participation(team_id, match_type_id, age_group_id) is True
+        assert team_dao.remove_team_match_type_participation(team_id, match_type_id, age_group_id) is True
+        # Re-add: should reactivate, not raise or duplicate.
+        assert team_dao.add_team_match_type_participation(team_id, match_type_id, age_group_id) is True
+
+        rows = team_dao.client.table('team_match_types').select('*')\
+            .eq('team_id', team_id)\
+            .eq('match_type_id', match_type_id)\
+            .eq('age_group_id', age_group_id)\
+            .execute()
+        assert len(rows.data) == 1  # reactivated in place, not duplicated
+        assert rows.data[0]['is_active'] is True
+
 
 # ============================================================================
 # Club Association Tests
