@@ -384,10 +384,12 @@
               </p>
             </div>
 
-            <div class="mb-4">
+            <!-- Create mode: team-wide game types, applied to every selected
+                 age group when the team is created. -->
+            <div v-if="!showEditModal" class="mb-4">
               <label class="block text-sm font-medium text-fg mb-2">
                 Game Types Participation
-                <span v-if="!showEditModal" class="text-xs text-fg-muted"
+                <span class="text-xs text-fg-muted"
                   >(auto-selected based on team type)</span
                 >
               </label>
@@ -406,9 +408,66 @@
                   <span class="ml-2">{{ gameType.name }}</span>
                 </label>
               </div>
-              <p v-if="showEditModal" class="text-xs text-fg-muted mt-1">
-                Note: This will update game type participation for all age
-                groups this team is assigned to
+            </div>
+
+            <!-- Edit mode: per-age-group match-type participation matrix. Each
+                 checkbox is one (match type, age group) cell, so participation
+                 can be set for a single age group independently. -->
+            <div v-else class="mb-4">
+              <label class="block text-sm font-medium text-fg mb-2">
+                Match Type Participation
+              </label>
+              <div
+                v-if="(editingTeam?.age_groups || []).length"
+                class="overflow-x-auto"
+              >
+                <table class="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th class="text-left font-medium text-fg-muted py-1 pr-3">
+                        Age Group
+                      </th>
+                      <th
+                        v-for="gameType in gameTypes"
+                        :key="gameType.id"
+                        class="text-center font-medium text-fg-muted py-1 px-2"
+                      >
+                        {{ gameType.name }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="ageGroup in editingTeam.age_groups"
+                      :key="ageGroup.id"
+                      data-participation-row
+                    >
+                      <td class="py-1 pr-3 text-fg">{{ ageGroup.name }}</td>
+                      <td
+                        v-for="gameType in gameTypes"
+                        :key="gameType.id"
+                        class="text-center py-1 px-2"
+                      >
+                        <input
+                          type="checkbox"
+                          :checked="hasParticipation(gameType.id, ageGroup.id)"
+                          :data-participation-cell="`${gameType.id}:${ageGroup.id}`"
+                          @change="
+                            toggleParticipation(gameType.id, ageGroup.id)
+                          "
+                          class="rounded border-line text-brand-600 focus:ring-brand-500"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p v-else class="text-xs text-fg-muted">
+                Assign an age group first (via the "Leagues" button) to set
+                match type participation.
+              </p>
+              <p class="text-xs text-fg-muted mt-1">
+                Enable each match type per age group. Changes apply on Update.
               </p>
             </div>
 
@@ -671,6 +730,23 @@ export default {
       divisionId: null,
     });
 
+    // Per-age-group match-type participation (Edit Team matrix). Keys are
+    // `${matchTypeId}:${ageGroupId}` for currently-enabled cells;
+    // participationOriginal snapshots the loaded state so updateTeam can diff.
+    const participation = ref(new Set());
+    const participationOriginal = ref(new Set());
+
+    const partKey = (matchTypeId, ageGroupId) => `${matchTypeId}:${ageGroupId}`;
+    const hasParticipation = (matchTypeId, ageGroupId) =>
+      participation.value.has(partKey(matchTypeId, ageGroupId));
+    const toggleParticipation = (matchTypeId, ageGroupId) => {
+      const key = partKey(matchTypeId, ageGroupId);
+      const next = new Set(participation.value);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      participation.value = next;
+    };
+
     const mappingForm = ref({
       league_id: '',
       age_group_id: '',
@@ -915,37 +991,37 @@ export default {
       }
     };
 
-    const editTeam = team => {
+    const editTeam = async team => {
       editingTeam.value = team;
-
-      // Determine team type based on current game type participation
-      let teamType = 'league'; // default
-      const teamGameTypes = team.team_game_types || [];
-      const hasLeague = teamGameTypes.some(tgt => tgt.game_type_id === 1);
-      const hasTournament = teamGameTypes.some(tgt => tgt.game_type_id === 2);
-      const hasFriendly = teamGameTypes.some(tgt => tgt.game_type_id === 3);
-      const hasPlayoff = teamGameTypes.some(tgt => tgt.game_type_id === 4);
-
-      if (!hasLeague && !hasTournament && !hasPlayoff && hasFriendly) {
-        teamType = 'guest';
-      } else if (!hasLeague && hasTournament && hasFriendly && !hasPlayoff) {
-        teamType = 'tournament';
-      }
-
-      // Get unique game type IDs from all age groups
-      const gameTypeIds = [
-        ...new Set(teamGameTypes.map(tgt => tgt.game_type_id)),
-      ];
 
       formData.value = {
         name: team.name,
         city: team.city,
         parentClubId: team.club_id || null,
-        teamType: teamType,
+        teamType: 'league',
         ageGroupIds: (team.age_groups || []).map(ag => ag.id),
-        gameTypeIds: gameTypeIds,
+        gameTypeIds: [],
         academyTeam: team.academy_team || false,
       };
+
+      // Load current per-age-group match-type participation for the matrix.
+      participation.value = new Set();
+      participationOriginal.value = new Set();
+      try {
+        const rows = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/teams/${team.id}/match-types`,
+          { method: 'GET' }
+        );
+        const loaded = new Set(
+          (rows || []).map(r => partKey(r.match_type_id, r.age_group_id))
+        );
+        participation.value = loaded;
+        participationOriginal.value = new Set(loaded);
+      } catch (err) {
+        console.error('Failed to load match-type participation:', err);
+        error.value = 'Failed to load match-type participation.';
+      }
+
       showEditModal.value = true;
     };
 
@@ -966,71 +1042,62 @@ export default {
           }
         );
 
-        // Update game type participations if changed
-        const currentGameTypes = editingTeam.value.team_game_types || [];
-        const currentGameTypeIds = [
-          ...new Set(currentGameTypes.map(tgt => tgt.game_type_id)),
-        ];
-        const newGameTypeIds = formData.value.gameTypeIds;
+        // Diff the per-age-group participation matrix and apply each change
+        // via the add/remove match-type endpoints. Each cell is one
+        // (match_type, age_group) pair, so we can target a single age group
+        // without touching the others. Failures are collected and surfaced
+        // rather than silently swallowed.
+        const added = [...participation.value].filter(
+          key => !participationOriginal.value.has(key)
+        );
+        const removed = [...participationOriginal.value].filter(
+          key => !participation.value.has(key)
+        );
+        const participationErrors = [];
 
-        // Track per-call failures so we surface them instead of silently
-        // succeeding — a swallowed error here previously made the whole save
-        // look successful when no participation was actually persisted.
-        const gameTypeErrors = [];
-
-        // Remove game types that are no longer selected
-        for (const gameTypeId of currentGameTypeIds) {
-          if (!newGameTypeIds.includes(gameTypeId)) {
-            // Remove for all age groups
-            for (const ageGroup of editingTeam.value.age_groups || []) {
-              try {
-                await authStore.apiRequest(
-                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/match-types/${gameTypeId}/${ageGroup.id}`,
-                  {
-                    method: 'DELETE',
-                  }
-                );
-              } catch (err) {
-                console.error(
-                  `Failed to remove game type ${gameTypeId} for age group ${ageGroup.id}:`,
-                  err
-                );
-                gameTypeErrors.push(err);
+        for (const key of added) {
+          const [matchTypeId, ageGroupId] = key.split(':').map(Number);
+          try {
+            await authStore.apiRequest(
+              `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/match-types`,
+              {
+                method: 'POST',
+                body: JSON.stringify({
+                  match_type_id: matchTypeId,
+                  age_group_id: ageGroupId,
+                }),
               }
-            }
+            );
+          } catch (err) {
+            console.error(
+              `Failed to add match type ${matchTypeId} for age group ${ageGroupId}:`,
+              err
+            );
+            participationErrors.push(err);
           }
         }
 
-        // Add new game types
-        for (const gameTypeId of newGameTypeIds) {
-          if (!currentGameTypeIds.includes(gameTypeId)) {
-            // Add for all age groups
-            for (const ageGroup of editingTeam.value.age_groups || []) {
-              try {
-                await authStore.apiRequest(
-                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/match-types`,
-                  {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      match_type_id: gameTypeId,
-                      age_group_id: ageGroup.id,
-                    }),
-                  }
-                );
-              } catch (err) {
-                console.error(
-                  `Failed to add game type ${gameTypeId} for age group ${ageGroup.id}:`,
-                  err
-                );
-                gameTypeErrors.push(err);
+        for (const key of removed) {
+          const [matchTypeId, ageGroupId] = key.split(':').map(Number);
+          try {
+            await authStore.apiRequest(
+              `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/match-types/${matchTypeId}/${ageGroupId}`,
+              {
+                method: 'DELETE',
               }
-            }
+            );
+          } catch (err) {
+            console.error(
+              `Failed to remove match type ${matchTypeId} for age group ${ageGroupId}:`,
+              err
+            );
+            participationErrors.push(err);
           }
         }
 
-        if (gameTypeErrors.length > 0) {
+        if (participationErrors.length > 0) {
           error.value =
-            'Team saved, but game type participation failed to update. Please try again.';
+            'Team saved, but some match-type changes failed to apply. Please try again.';
           await fetchTeams();
           return;
         }
@@ -1148,6 +1215,8 @@ export default {
         leagueId: null,
         divisionId: null,
       };
+      participation.value = new Set();
+      participationOriginal.value = new Set();
     };
 
     onMounted(async () => {
@@ -1189,6 +1258,10 @@ export default {
       selectedTeamForRoster,
       editingTeam,
       formData,
+      participation,
+      participationOriginal,
+      hasParticipation,
+      toggleParticipation,
       mappingForm,
       onTeamTypeChange,
       createTeam,

@@ -4733,6 +4733,23 @@ async def delete_team(team_id: int, current_user: dict[str, Any] = Depends(requi
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/teams/{team_id}/match-types")
+async def get_team_match_type_participation(
+    team_id: int,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Get a team's active per-age-group match-type participation (admin only).
+
+    Returns [{match_type_id, age_group_id}] so the admin UI can render which
+    match types are enabled for each of the team's age groups.
+    """
+    try:
+        return team_dao.get_team_match_type_participation(team_id)
+    except Exception as e:
+        logger.error(f"Error retrieving team match type participation: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @app.post("/api/teams/{team_id}/match-types")
 async def add_team_match_type_participation(
     team_id: int,
