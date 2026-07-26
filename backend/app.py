@@ -6613,11 +6613,14 @@ async def get_android_apk_url(
             detail="The Android app download is temporarily unavailable.",
         )
     try:
+        # From R2 object metadata (release CI stamps both); None when absent.
+        # version_code drives the update banner (SB-322); min_version_code
+        # drives the force-upgrade gate (SB-328).
+        version_code, min_version_code = r2_client.get_apk_versions()
         return {
             "download_url": r2_client.get_apk_download_url(),
-            # From R2 object metadata (release CI stamps it); None when absent so
-            # the app can decide whether an update banner is warranted (SB-322).
-            "version_code": r2_client.get_apk_version_code(),
+            "version_code": version_code,
+            "min_version_code": min_version_code,
         }
     except Exception as e:
         logger.error(f"android_apk_url_failed: {e}", exc_info=True)

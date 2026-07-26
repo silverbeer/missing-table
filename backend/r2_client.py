@@ -146,19 +146,24 @@ def get_apk_download_url(expires_in: int = ANDROID_APK_URL_TTL_SECONDS) -> str:
     )
 
 
-def get_apk_version_code() -> int | None:
-    """Latest APK versionCode, read from R2 object metadata (SB-322).
+def get_apk_versions() -> tuple[int | None, int | None]:
+    """(version_code, min_version_code) from the latest APK's R2 metadata.
 
-    The Android release CI stamps `versioncode` metadata on upload so the app
-    can offer in-app updates (sideloaded APK — no store update channel). Older
-    uploads lack the metadata and any R2 error degrades to None, which the app
-    treats as "no update information".
+    The Android release CI stamps `versioncode` (this build) and
+    `minversioncode` (oldest still-supported build — SB-328 force-upgrade) on
+    upload. One head_object serves both. Missing metadata or any R2 error
+    degrades to None, which the app treats as "no update information".
     """
     try:
         client = _get_client()
         head = client.head_object(Bucket=_android_bucket(), Key=ANDROID_APK_KEY)
-        raw = (head.get("Metadata") or {}).get("versioncode")
-        return int(raw) if raw else None
+        meta = head.get("Metadata") or {}
+
+        def _int(key: str) -> int | None:
+            raw = meta.get(key)
+            return int(raw) if raw else None
+
+        return _int("versioncode"), _int("minversioncode")
     except Exception:
         logger.warning("r2_apk_version_lookup_failed", exc_info=True)
-        return None
+        return None, None
