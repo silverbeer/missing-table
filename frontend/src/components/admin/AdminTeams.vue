@@ -973,6 +973,11 @@ export default {
         ];
         const newGameTypeIds = formData.value.gameTypeIds;
 
+        // Track per-call failures so we surface them instead of silently
+        // succeeding — a swallowed error here previously made the whole save
+        // look successful when no participation was actually persisted.
+        const gameTypeErrors = [];
+
         // Remove game types that are no longer selected
         for (const gameTypeId of currentGameTypeIds) {
           if (!newGameTypeIds.includes(gameTypeId)) {
@@ -980,7 +985,7 @@ export default {
             for (const ageGroup of editingTeam.value.age_groups || []) {
               try {
                 await authStore.apiRequest(
-                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/game-types/${gameTypeId}/${ageGroup.id}`,
+                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/match-types/${gameTypeId}/${ageGroup.id}`,
                   {
                     method: 'DELETE',
                   }
@@ -990,6 +995,7 @@ export default {
                   `Failed to remove game type ${gameTypeId} for age group ${ageGroup.id}:`,
                   err
                 );
+                gameTypeErrors.push(err);
               }
             }
           }
@@ -1002,11 +1008,11 @@ export default {
             for (const ageGroup of editingTeam.value.age_groups || []) {
               try {
                 await authStore.apiRequest(
-                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/game-types`,
+                  `${getApiBaseUrl()}/api/teams/${editingTeam.value.id}/match-types`,
                   {
                     method: 'POST',
                     body: JSON.stringify({
-                      game_type_id: gameTypeId,
+                      match_type_id: gameTypeId,
                       age_group_id: ageGroup.id,
                     }),
                   }
@@ -1016,9 +1022,17 @@ export default {
                   `Failed to add game type ${gameTypeId} for age group ${ageGroup.id}:`,
                   err
                 );
+                gameTypeErrors.push(err);
               }
             }
           }
+        }
+
+        if (gameTypeErrors.length > 0) {
+          error.value =
+            'Team saved, but game type participation failed to update. Please try again.';
+          await fetchTeams();
+          return;
         }
 
         await fetchTeams();

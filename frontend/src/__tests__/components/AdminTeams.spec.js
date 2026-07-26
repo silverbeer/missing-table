@@ -104,3 +104,73 @@ describe('AdminTeams search', () => {
     expect(wrapper.findAll('[data-team-row]')).toHaveLength(0);
   });
 });
+
+// Regression: the Edit Team "Game Types" checkboxes must hit the backend's
+// /match-types route with a match_type_id field. A prior bug called a
+// non-existent /game-types route with game_type_id, so saves 404'd and
+// participation silently never persisted.
+describe('AdminTeams game-type participation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const callsMatching = pred =>
+    mockAuthStore.apiRequest.mock.calls.filter(([url]) => pred(url));
+
+  it('adds new game types via /match-types with match_type_id', async () => {
+    const wrapper = mountTeams();
+    await flushPromises();
+
+    const vm = wrapper.vm;
+    vm.editingTeam = {
+      id: 3,
+      name: 'PDA Tigers',
+      age_groups: [{ id: 10 }],
+      team_game_types: [],
+    };
+    vm.formData.name = 'PDA Tigers';
+    vm.formData.gameTypeIds = [3]; // Friendly
+
+    vi.clearAllMocks();
+    await vm.updateTeam();
+
+    // No call to the non-existent /game-types route.
+    expect(callsMatching(u => u.includes('/game-types'))).toHaveLength(0);
+
+    const [url, opts] = callsMatching(u =>
+      u.endsWith('/api/teams/3/match-types')
+    )[0];
+    expect(url).toBe('http://localhost:8000/api/teams/3/match-types');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({
+      match_type_id: 3,
+      age_group_id: 10,
+    });
+  });
+
+  it('removes deselected game types via DELETE on /match-types', async () => {
+    const wrapper = mountTeams();
+    await flushPromises();
+
+    const vm = wrapper.vm;
+    vm.editingTeam = {
+      id: 3,
+      name: 'PDA Tigers',
+      age_groups: [{ id: 10 }],
+      team_game_types: [{ game_type_id: 3 }],
+    };
+    vm.formData.name = 'PDA Tigers';
+    vm.formData.gameTypeIds = []; // unchecked Friendly
+
+    vi.clearAllMocks();
+    await vm.updateTeam();
+
+    expect(callsMatching(u => u.includes('/game-types'))).toHaveLength(0);
+
+    const [url, opts] = callsMatching(u =>
+      u.endsWith('/api/teams/3/match-types/3/10')
+    )[0];
+    expect(url).toBe('http://localhost:8000/api/teams/3/match-types/3/10');
+    expect(opts.method).toBe('DELETE');
+  });
+});
