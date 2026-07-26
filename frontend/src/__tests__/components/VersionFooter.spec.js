@@ -26,6 +26,14 @@ const mountFooter = async () => {
   return wrapper;
 };
 
+// SB-346: the install link is UA-gated for non-admins. jsdom's default UA is
+// desktop, so Android must be opted into per test.
+const setUserAgent = ua =>
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua);
+
+const ANDROID_UA =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/125 Mobile Safari/537.36';
+
 describe('VersionFooter visibility gating', () => {
   beforeEach(() => {
     global.fetch = vi.fn(() =>
@@ -90,7 +98,8 @@ describe('VersionFooter visibility gating', () => {
     );
   });
 
-  it('shows the Android install button to authenticated users', async () => {
+  it('shows the Android install button to authenticated users on Android', async () => {
+    setUserAgent(ANDROID_UA);
     mockAuthStore = createAuthenticatedUserStore();
     const wrapper = await mountFooter();
 
@@ -100,7 +109,28 @@ describe('VersionFooter visibility gating', () => {
     expect(btn.attributes('href')).toBeUndefined();
   });
 
+  it('hides the Android install button from non-admins on other platforms (SB-346)', async () => {
+    // jsdom default UA = desktop
+    mockAuthStore = createAuthenticatedUserStore();
+    const wrapper = await mountFooter();
+
+    expect(wrapper.find('[data-testid="android-install-link"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('always shows the Android install button to admins (testing convenience, SB-346)', async () => {
+    // desktop UA + admin store
+    mockAuthStore = createMockAuthStore();
+    const wrapper = await mountFooter();
+
+    expect(wrapper.find('[data-testid="android-install-link"]').exists()).toBe(
+      true
+    );
+  });
+
   it('fetches a presigned URL from the backend when the install button is clicked', async () => {
+    setUserAgent(ANDROID_UA);
     mockAuthStore = createAuthenticatedUserStore();
     mockAuthStore.apiRequest = vi.fn(() =>
       Promise.resolve({ download_url: 'https://r2.example/signed/app.apk' })
