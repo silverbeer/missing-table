@@ -1,8 +1,8 @@
 name: Security Scanning
 
 on:
-  push:
-    branches: [ main, develop ]
+  # No push trigger: PRs are scanned pre-merge and the daily schedule scans
+  # main, so push runs were redundant (SB-355 — ~140 Actions minutes/month).
   pull_request:
     branches: [ main ]
   schedule:

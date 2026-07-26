@@ -1,8 +1,10 @@
 name: Publish Quality Reports
 
 on:
+  # main-only: reports publish to the public quality site, so feature-branch
+  # runs were pure waste (SB-355 — ~170 Actions minutes/month).
   push:
-    branches: ['**']
+    branches: [main]
   workflow_dispatch:
 
 env:

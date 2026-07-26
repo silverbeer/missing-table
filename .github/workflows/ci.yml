@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # push is main-only: PR branches are covered by the pull_request trigger,
+  # and the old branches:'**' push trigger double-ran every PR push (SB-355 —
+  # ~420 wasted Actions minutes/month).
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: ['**']
 
