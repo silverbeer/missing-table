@@ -46,12 +46,12 @@ create_e2e_user() {
     # First try to set role (will create profile if user exists in auth)
     echo -e "  ${YELLOW}Setting role to ${role}...${NC}"
 
-    if uv run python manage_users.py role --user "${username}" --role "${role}" --confirm 2>/dev/null; then
+    if uv run python scripts/manage_users.py role --user "${username}" --role "${role}" --confirm 2>/dev/null; then
         echo -e "  ${GREEN}Role updated (or profile created)${NC}"
     else
         # User doesn't exist, create them
         echo -e "  ${GREEN}User doesn't exist, creating...${NC}"
-        uv run python manage_users.py create \
+        uv run python scripts/manage_users.py create \
             --email "${username}@missingtable.local" \
             --password "${password}" \
             --role "${role}" \
@@ -81,7 +81,7 @@ echo "  3. Username: e2e_player / Password: PlayerPassword123! (team-player)"
 echo "  4. Username: e2e_fan / Password: FanPassword123! (team-fan)"
 echo ""
 echo -e "${BLUE}Verify users:${NC}"
-echo "  APP_ENV=${ENV} uv run python backend/manage_users.py list"
+echo "  APP_ENV=${ENV} uv run python backend/scripts/manage_users.py list"
 echo ""
 echo -e "${YELLOW}Note:${NC} These users use the e2e_ prefix to distinguish them from"
 echo "development test users (tom, tom_ifa, etc.)"
