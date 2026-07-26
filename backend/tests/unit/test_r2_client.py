@@ -108,31 +108,39 @@ class TestAndroidApk:
         assert "latest/missingtable.apk" in url
         assert "X-Amz-Signature" in url  # genuinely presigned, not a bare URL
 
-    def test_version_code_read_from_metadata(self, monkeypatch):
+    def test_versions_read_from_metadata(self, monkeypatch):
         class _Fake:
             def head_object(self, Bucket, Key):
                 assert Bucket == "mt-android-releases"
                 assert Key == "latest/missingtable.apk"
+                return {"Metadata": {"versioncode": "42", "minversioncode": "41"}}
+
+        monkeypatch.setattr(r2_client, "_client", _Fake())
+        assert r2_client.get_apk_versions() == (42, 41)
+
+    def test_versions_partial_metadata(self, monkeypatch):
+        class _Fake:
+            def head_object(self, Bucket, Key):
                 return {"Metadata": {"versioncode": "42"}}
 
         monkeypatch.setattr(r2_client, "_client", _Fake())
-        assert r2_client.get_apk_version_code() == 42
+        assert r2_client.get_apk_versions() == (42, None)
 
-    def test_version_code_none_when_metadata_absent(self, monkeypatch):
+    def test_versions_none_when_metadata_absent(self, monkeypatch):
         class _Fake:
             def head_object(self, Bucket, Key):
                 return {"Metadata": {}}
 
         monkeypatch.setattr(r2_client, "_client", _Fake())
-        assert r2_client.get_apk_version_code() is None
+        assert r2_client.get_apk_versions() == (None, None)
 
-    def test_version_code_none_on_r2_error(self, monkeypatch):
+    def test_versions_none_on_r2_error(self, monkeypatch):
         class _Fake:
             def head_object(self, Bucket, Key):
                 raise RuntimeError("boom")
 
         monkeypatch.setattr(r2_client, "_client", _Fake())
-        assert r2_client.get_apk_version_code() is None
+        assert r2_client.get_apk_versions() == (None, None)
 
 
 class TestConstants:
