@@ -160,50 +160,130 @@
             <th
               class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Games Played"
+              :aria-sort="ariaSort('played')"
             >
-              GP
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-played"
+                @click="toggleSort('played')"
+              >
+                GP<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('played')
+                }}</span>
+              </button>
             </th>
             <th
               class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Wins"
+              :aria-sort="ariaSort('wins')"
             >
-              W
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-wins"
+                @click="toggleSort('wins')"
+              >
+                W<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('wins')
+                }}</span>
+              </button>
             </th>
             <th
               class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Draws"
+              :aria-sort="ariaSort('draws')"
             >
-              D
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-draws"
+                @click="toggleSort('draws')"
+              >
+                D<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('draws')
+                }}</span>
+              </button>
             </th>
             <th
               class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Losses"
+              :aria-sort="ariaSort('losses')"
             >
-              L
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-losses"
+                @click="toggleSort('losses')"
+              >
+                L<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('losses')
+                }}</span>
+              </button>
             </th>
             <th
               class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Goals For"
+              :aria-sort="ariaSort('goals_for')"
             >
-              GF
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-goals-for"
+                @click="toggleSort('goals_for')"
+              >
+                GF<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('goals_for')
+                }}</span>
+              </button>
             </th>
             <th
               class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Goals Against"
+              :aria-sort="ariaSort('goals_against')"
             >
-              GA
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-goals-against"
+                @click="toggleSort('goals_against')"
+              >
+                GA<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('goals_against')
+                }}</span>
+              </button>
             </th>
             <th
               class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Goal Difference"
+              :aria-sort="ariaSort('goal_difference')"
             >
-              GD
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-goal-difference"
+                @click="toggleSort('goal_difference')"
+              >
+                GD<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('goal_difference')
+                }}</span>
+              </button>
             </th>
             <th
               class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-brand-200 uppercase tracking-wider"
               title="Points"
+              :aria-sort="ariaSort('points')"
             >
-              Pts
+              <button
+                type="button"
+                class="sort-header"
+                data-testid="sort-points"
+                @click="toggleSort('points')"
+              >
+                Pts<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret('points')
+                }}</span>
+              </button>
             </th>
             <th
               class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
@@ -226,15 +306,17 @@
           data-testid="standings-body"
         >
           <tr
-            v-for="(team, index) in tableData"
+            v-for="team in sortedTableData"
             :key="team.team"
             class="hover:bg-surface-alt transition-colors"
             data-testid="standings-row"
           >
+            <!-- League position, not row number: sorting by GF must not renumber
+                 the standings. -->
             <td
               class="px-1 sm:px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-fg-muted"
             >
-              {{ index + 1 }}
+              {{ team.standingsRank }}
             </td>
             <td
               class="hidden md:table-cell px-1 sm:px-2 md:px-3 py-3 md:py-4 whitespace-nowrap text-xs text-center"
@@ -396,6 +478,57 @@ export default {
   setup(props, { emit }) {
     const authStore = useAuthStore();
     const tableData = ref([]);
+
+    // Column sorting (SB-427). A null sortKey means league position — the
+    // default, so the standings still read as standings until asked otherwise.
+    const sortKey = ref(null);
+    const sortDir = ref('desc');
+
+    // Stamp league position before any re-ordering, so the rank column keeps
+    // showing where a team actually sits in the table.
+    const rankedTableData = computed(() =>
+      tableData.value.map((team, index) => ({
+        ...team,
+        standingsRank: index + 1,
+      }))
+    );
+
+    const sortedTableData = computed(() => {
+      if (!sortKey.value) return rankedTableData.value;
+      const key = sortKey.value;
+      const direction = sortDir.value === 'asc' ? 1 : -1;
+      return [...rankedTableData.value].sort((a, b) => {
+        const av = Number(a[key] ?? 0);
+        const bv = Number(b[key] ?? 0);
+        // Ties fall back to league position, so equal rows never shuffle.
+        return av === bv
+          ? a.standingsRank - b.standingsRank
+          : (av - bv) * direction;
+      });
+    });
+
+    // desc (answers "who has the most") -> asc -> back to league position.
+    const toggleSort = key => {
+      if (sortKey.value !== key) {
+        sortKey.value = key;
+        sortDir.value = 'desc';
+      } else if (sortDir.value === 'desc') {
+        sortDir.value = 'asc';
+      } else {
+        sortKey.value = null;
+        sortDir.value = 'desc';
+      }
+    };
+
+    const ariaSort = key => {
+      if (sortKey.value !== key) return 'none';
+      return sortDir.value === 'asc' ? 'ascending' : 'descending';
+    };
+
+    const sortCaret = key => {
+      if (sortKey.value !== key) return '';
+      return sortDir.value === 'asc' ? ' ▲' : ' ▼';
+    };
     const teams = ref([]); // Store all teams for name→id mapping
     const ageGroups = ref([]);
     const leagues = ref([]);
@@ -764,6 +897,12 @@ export default {
 
     return {
       tableData,
+      sortedTableData,
+      sortKey,
+      sortDir,
+      toggleSort,
+      ariaSort,
+      sortCaret,
       hasQopData,
       qopWeekOf,
       ageGroups,
@@ -787,3 +926,37 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+/* Header buttons inherit the th's type styling — the header must still look
+   like a header, not a form control. */
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-header:hover {
+  color: #fff;
+}
+
+.sort-header:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Reserve the caret's width so activating a sort doesn't nudge the columns. */
+.sort-caret {
+  display: inline-block;
+  min-width: 0.75em;
+}
+</style>
