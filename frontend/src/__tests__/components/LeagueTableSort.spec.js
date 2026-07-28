@@ -82,6 +82,12 @@ const mountTable = () => {
   mockAuthStore = {
     isAuthenticated: { value: false },
     userRole: { value: null },
+    // The component reads these on mount (filterLeaguesByClub, team preselect).
+    // Omitting them throws inside an un-awaited promise, which vitest reports as
+    // an unhandled rejection and fails the run even with every test green.
+    isAdmin: { value: false },
+    userClubId: { value: null },
+    userTeamId: { value: null },
     apiRequest: vi.fn(url => {
       if (url.includes('/api/table')) {
         return Promise.resolve({
