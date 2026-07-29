@@ -402,14 +402,8 @@
 </template>
 
 <script>
-import {
-  ref,
-  computed,
-  onMounted,
-  onUnmounted,
-  watch,
-  defineAsyncComponent,
-} from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { lazyView } from './utils/lazyView';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { getApiBaseUrl } from './config/api';
@@ -431,44 +425,61 @@ import UpdateAvailablePrompt from './components/UpdateAvailablePrompt.vue';
 // shown on first paint. Each becomes its own chunk, fetched only when its tab
 // is opened — keeps the initial bundle (and TTI) small. TournamentMatchCenter
 // pulls the heavy bracket components, so this is the biggest single win.
-const MatchForm = defineAsyncComponent(
-  () => import('./components/MatchForm.vue')
+//
+// lazyView (SB-439) rather than a bare defineAsyncComponent: on a failed chunk
+// fetch — routine for tabs left open across a deploy — the bare version renders
+// nothing at all, leaving a blank pane under a working nav.
+const MatchForm = lazyView(
+  () => import('./components/MatchForm.vue'),
+  'MatchForm'
 );
-const MatchesView = defineAsyncComponent(
-  () => import('./components/MatchesView.vue')
+const MatchesView = lazyView(
+  () => import('./components/MatchesView.vue'),
+  'MatchesView'
 );
-const MatchDetailView = defineAsyncComponent(
-  () => import('./components/MatchDetailView.vue')
+const MatchDetailView = lazyView(
+  () => import('./components/MatchDetailView.vue'),
+  'MatchDetailView'
 );
-const GoalsLeaderboard = defineAsyncComponent(
-  () => import('./components/GoalsLeaderboard.vue')
+const GoalsLeaderboard = lazyView(
+  () => import('./components/GoalsLeaderboard.vue'),
+  'GoalsLeaderboard'
 );
-const ForgotPasswordForm = defineAsyncComponent(
-  () => import('./components/ForgotPasswordForm.vue')
+const ForgotPasswordForm = lazyView(
+  () => import('./components/ForgotPasswordForm.vue'),
+  'ForgotPasswordForm'
 );
-const ResetPasswordForm = defineAsyncComponent(
-  () => import('./components/ResetPasswordForm.vue')
+const ResetPasswordForm = lazyView(
+  () => import('./components/ResetPasswordForm.vue'),
+  'ResetPasswordForm'
 );
-const ProfileRouter = defineAsyncComponent(
-  () => import('./components/ProfileRouter.vue')
+const ProfileRouter = lazyView(
+  () => import('./components/ProfileRouter.vue'),
+  'ProfileRouter'
 );
-const TeamRosterRouter = defineAsyncComponent(
-  () => import('./components/profiles/TeamRosterRouter.vue')
+const TeamRosterRouter = lazyView(
+  () => import('./components/profiles/TeamRosterRouter.vue'),
+  'TeamRosterRouter'
 );
-const AdminPanel = defineAsyncComponent(
-  () => import('./components/AdminPanel.vue')
+const AdminPanel = lazyView(
+  () => import('./components/AdminPanel.vue'),
+  'AdminPanel'
 );
-const TournamentMatchCenter = defineAsyncComponent(
-  () => import('./components/TournamentMatchCenter.vue')
+const TournamentMatchCenter = lazyView(
+  () => import('./components/TournamentMatchCenter.vue'),
+  'TournamentMatchCenter'
 );
-const QoPStandings = defineAsyncComponent(
-  () => import('./components/QoPStandings.vue')
+const QoPStandings = lazyView(
+  () => import('./components/QoPStandings.vue'),
+  'QoPStandings'
 );
-const WhatsNewView = defineAsyncComponent(
-  () => import('./components/WhatsNewView.vue')
+const WhatsNewView = lazyView(
+  () => import('./components/WhatsNewView.vue'),
+  'WhatsNewView'
 );
-const LiveMatchView = defineAsyncComponent(() =>
-  import('./components/live').then(m => m.LiveMatchView)
+const LiveMatchView = lazyView(
+  () => import('./components/live').then(m => m.LiveMatchView),
+  'LiveMatchView'
 );
 
 export default {
