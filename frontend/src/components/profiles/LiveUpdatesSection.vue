@@ -386,4 +386,45 @@ export default {
   color: #dc2626;
   margin-top: 10px;
 }
+
+/* Dark-mode overrides (SB-440). Without these the whole card stays a pale blue
+   panel in dark mode, wrapping dark `--color-card` rows — inverted nesting —
+   and the tinted pills/messages keep their light-mode text colours. */
+:global(.dark .live-updates-section) {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+:global(.dark .live-updates-section .section-title) {
+  color: #7dd3fc;
+}
+
+:global(.dark .live-updates-section .pill-pending) {
+  background: rgba(234, 179, 8, 0.16);
+  color: #fde047;
+}
+
+:global(.dark .live-updates-section .pill-approved) {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+}
+
+:global(.dark .live-updates-section .pill-denied) {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+:global(.dark .live-updates-section .approved-msg) {
+  color: #6ee7b7;
+}
+
+:global(.dark .live-updates-section .status-msg.denied),
+:global(.dark .live-updates-section .error-msg) {
+  color: #fca5a5;
+}
+
+:global(.dark .live-updates-section .request-btn:disabled) {
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg-muted));
+}
 </style>
