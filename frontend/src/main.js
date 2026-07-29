@@ -7,6 +7,11 @@ import App from './App.vue';
 import './style.css';
 // Side-effect import: registers the PWA service worker (no-op in dev).
 import './composables/usePwaUpdate';
+import { installChunkErrorHandler } from './utils/lazyView';
+
+// SB-439: recover from chunk 404s after a deploy instead of painting a blank
+// pane. Covers modulepreload failures; lazyView() covers the loader itself.
+installChunkErrorHandler();
 
 const app = createApp(App);
 
