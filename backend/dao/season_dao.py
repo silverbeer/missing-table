@@ -18,6 +18,11 @@ logger = structlog.get_logger()
 # Cache patterns for invalidation
 SEASONS_CACHE_PATTERN = "mt:dao:seasons:*"
 AGE_GROUPS_CACHE_PATTERN = "mt:dao:age_groups:*"
+# Rosters and current-team lookups are resolved against the current season
+# (SB-441/SB-442), so they go stale the moment it changes. Their cache keys
+# carry no season component and live for 24h, which would otherwise leave every
+# roster wrong for a day right when it matters most.
+PLAYERS_CACHE_PATTERN = "mt:dao:players:*"
 
 
 class SeasonDAO(BaseDAO):
@@ -137,7 +142,7 @@ class SeasonDAO(BaseDAO):
         season = self.get_current_season()
         return season["id"] if season else None
 
-    @invalidates_cache(SEASONS_CACHE_PATTERN)
+    @invalidates_cache(SEASONS_CACHE_PATTERN, PLAYERS_CACHE_PATTERN)
     def set_current_season(self, season_id: int) -> dict | None:
         """Mark one season current, clearing the flag from all others.
 

@@ -274,7 +274,9 @@ class PlayerDAO(BaseDAO):
         """
         Get all players currently on a team for the team roster page.
 
-        Uses player_team_history to support multi-team players.
+        Uses player_team_history to support multi-team players, scoped to the
+        current season: `is_current` rows can exist for the same player and team
+        in more than one season, which listed them once per row (SB-442).
 
         Returns player profiles with fields needed for player cards:
         - id, display_name, player_number, positions
@@ -297,9 +299,12 @@ class PlayerDAO(BaseDAO):
             query = (
                 self.client.table("player_team_history")
                 .select("""
+                id,
                 player_id,
                 jersey_number,
                 positions,
+                season_id,
+                season:seasons(id, start_date),
                 user_profiles!player_team_history_player_id_fkey(
                     id,
                     display_name,
@@ -325,9 +330,14 @@ class PlayerDAO(BaseDAO):
                 query = query.eq("age_group_id", age_group_id)
             response = query.execute()
 
+            # Same rule as get_all_current_player_teams: this season's rows, or
+            # the newest season present if the roster hasn't been rebuilt yet —
+            # better than showing an empty squad in the pre-season gap.
+            entries = select_current_teams(response.data or [], self._current_season_id())
+
             # Flatten the results - extract user_profiles and merge with history data
             players = []
-            for entry in response.data or []:
+            for entry in entries:
                 profile = entry.get("user_profiles")
                 if profile:
                     # Use jersey_number from history if available, fallback to profile
