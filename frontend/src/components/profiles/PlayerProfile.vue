@@ -1640,167 +1640,34 @@ export default {
   }
 }
 
-/* Channel access section */
-.channel-section {
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 12px;
-  padding: 20px;
-  margin-top: 20px;
+/* Dark-mode overrides (SB-440). The rules above hardcode pale tints as
+   surfaces, but the text on them is `rgb(var(--color-fg))` — near-white in
+   dark mode, so the content vanished against its own card. Same approach as
+   NotificationsCard: keep the hue, drop it to a translucent tint over the dark
+   surface, and lift the accent text to a light shade. */
+:global(.dark .individual-stats) {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.28);
 }
 
-.channel-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0369a1;
-  margin: 0 0 8px 0;
+:global(.dark .stat-item.highlight) {
+  background: rgba(16, 185, 129, 0.12);
 }
 
-.channel-desc {
-  font-size: 13px;
-  color: #475569;
-  margin: 0 0 16px 0;
-  line-height: 1.5;
+:global(.dark .stat-item.highlight .stat-value) {
+  color: #6ee7b7;
 }
 
-.inline-link {
-  background: none;
-  border: none;
-  color: #0284c7;
-  cursor: pointer;
-  padding: 0;
-  font-size: inherit;
-  text-decoration: underline;
+:global(.dark .history-item.current) {
+  background: rgba(16, 185, 129, 0.1);
 }
 
-.channel-platforms {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+:global(.dark .no-team-card) {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
-.channel-item {
-  background: rgb(var(--color-card));
-  border: 1px solid rgb(var(--color-line));
-  border-radius: 8px;
-  padding: 14px;
-}
-
-.channel-item-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.channel-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: rgb(var(--color-fg));
-}
-
-.channel-pill {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.pill-none {
-  background: #f1f5f9;
-  color: #94a3b8;
-}
-.pill-pending {
-  background: #fef9c3;
-  color: #a16207;
-}
-.pill-approved {
-  background: #dcfce7;
-  color: #15803d;
-}
-.pill-denied {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.channel-handle {
-  font-size: 13px;
-  color: rgb(var(--color-fg));
-  margin-bottom: 8px;
-}
-
-.channel-handle-missing {
-  font-size: 12px;
-  color: rgb(var(--color-fg-muted));
-  font-style: italic;
-  margin-bottom: 8px;
-}
-
-.channel-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.channel-input {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid rgb(var(--color-line));
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.channel-input:disabled {
-  background: rgb(var(--color-surface-alt));
-  color: rgb(var(--color-fg-muted));
-}
-
-.request-access-btn {
-  background: #0ea5e9;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  margin-top: 4px;
-}
-
-.request-access-btn:hover {
-  background: #0284c7;
-}
-.request-access-btn:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
-}
-
-.channel-status-msg {
-  font-size: 12px;
-  color: rgb(var(--color-fg-muted));
-  margin: 6px 0 0;
-  font-style: italic;
-}
-
-.channel-status-msg.denied {
-  color: #dc2626;
-}
-
-.channel-approved-msg {
-  font-size: 13px;
-  color: #15803d;
-  font-weight: 600;
-  margin-top: 6px;
-}
-
-.channel-error-msg {
-  font-size: 13px;
-  color: #dc2626;
-  margin-top: 10px;
-}
-
-@media (max-width: 600px) {
-  .channel-platforms {
-    grid-template-columns: 1fr;
-  }
+:global(.dark .no-team-card h3) {
+  color: #fca5a5;
 }
 </style>
