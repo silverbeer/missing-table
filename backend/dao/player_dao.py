@@ -18,6 +18,50 @@ logger = structlog.get_logger()
 PLAYERS_CACHE_PATTERN = "mt:dao:players:*"
 
 
+def _season_sort_key(row: dict) -> tuple:
+    """Newest season first, then newest row first. Missing dates sort last."""
+    season = row.get("season") or {}
+    start = season.get("start_date") or ""
+    # Empty start_date must sort last, so flag it separately rather than relying
+    # on "" comparing low under reverse ordering.
+    return (bool(start), start, row.get("id") or 0)
+
+
+def select_current_teams(rows: list[dict], current_season_id: int | None) -> list[dict]:
+    """Pick the rows describing the teams a player is on *now*.
+
+    `is_current` alone is not enough: nothing clears the flag when a player moves
+    to a new season, so rows accumulate across seasons and the caller (My Club)
+    ends up showing whichever one Postgres returned first (SB-441).
+
+    Args:
+        rows: player_team_history rows with `is_current=true`, each carrying an
+            embedded `season` object.
+        current_season_id: id of the season the app considers current, or None
+            when that can't be resolved.
+
+    Returns:
+        The current season's rows when the player has any; otherwise every row
+        from the newest season they do have, so a player not yet rostered for
+        the new season still sees their last team instead of nothing. Always
+        ordered newest season first.
+    """
+    if not rows:
+        return []
+
+    ordered = sorted(rows, key=_season_sort_key, reverse=True)
+
+    if current_season_id is not None:
+        in_current = [r for r in ordered if r.get("season_id") == current_season_id]
+        if in_current:
+            return in_current
+
+    # No row for the current season — fall back to the newest season present,
+    # keeping every team from that season (a player can be on two at once).
+    newest_season_id = ordered[0].get("season_id")
+    return [r for r in ordered if r.get("season_id") == newest_season_id]
+
+
 class PlayerDAO(BaseDAO):
     """Data access object for player/user profile operations."""
 
@@ -380,10 +424,13 @@ class PlayerDAO(BaseDAO):
 
     def get_all_current_player_teams(self, player_id: str) -> list[dict]:
         """
-        Get ALL current team assignments for a player (is_current=true).
+        Get the player's team assignments for the current season.
 
-        This supports players being on multiple teams simultaneously
-        (e.g., for futsal/soccer leagues).
+        Still supports players being on multiple teams simultaneously
+        (e.g. futsal + outdoor) — but only within one season. `is_current` rows
+        left behind by earlier seasons are filtered out here, and the result is
+        ordered newest season first so callers that take the first entry get a
+        stable answer (SB-441).
         No caching - this is used for real-time checks.
 
         Args:
@@ -409,10 +456,26 @@ class PlayerDAO(BaseDAO):
                 .eq("is_current", True)
                 .execute()
             )
-            return response.data or []
+            return select_current_teams(response.data or [], self._current_season_id())
         except Exception as e:
             logger.error(f"Error fetching all current player teams: {e}")
             return []
+
+    def _current_season_id(self) -> int | None:
+        """Id of the season the app treats as current, or None if unresolvable.
+
+        Delegates to SeasonDAO so this follows the same rule as everywhere else:
+        the admin-set `seasons.is_current` flag, falling back to whichever season
+        spans today.
+        """
+        try:
+            from dao.season_dao import SeasonDAO
+
+            season = SeasonDAO(self.connection_holder).get_current_season()
+            return season.get("id") if season else None
+        except Exception as e:
+            logger.error(f"Error resolving current season: {e}")
+            return None
 
     @invalidates_cache(PLAYERS_CACHE_PATTERN)
     def create_player_history_entry(
@@ -495,11 +558,34 @@ class PlayerDAO(BaseDAO):
                 .execute()
             )
             if response.data and len(response.data) > 0:
+                if is_current:
+                    self._clear_current_in_other_seasons(player_id, season_id)
                 return self.get_player_history_entry_by_id(response.data[0]["id"])
             return None
         except Exception as e:
             logger.error(f"Error creating/updating player history entry: {e}")
             return None
+
+    def _clear_current_in_other_seasons(self, player_id: str, season_id: int) -> None:
+        """Drop `is_current` from this player's rows in every other season.
+
+        A player can hold several current teams at once (futsal + outdoor), but
+        only inside one season. Without this, last season's rows keep the flag
+        forever and My Club can land on a team the player has moved on from
+        (SB-441). Best-effort: a failure here must not fail the write that
+        triggered it.
+        """
+        try:
+            (
+                self.client.table("player_team_history")
+                .update({"is_current": False, "updated_at": "now()"})
+                .eq("player_id", player_id)
+                .eq("is_current", True)
+                .neq("season_id", season_id)
+                .execute()
+            )
+        except Exception as e:
+            logger.error(f"Error clearing is_current on other seasons: {e}")
 
     def get_player_history_entry_by_id(self, history_id: int) -> dict | None:
         """
@@ -568,12 +654,15 @@ class PlayerDAO(BaseDAO):
                 update_data["notes"] = notes
             if is_current is not None:
                 update_data["is_current"] = is_current
-                # Note: We allow multiple current teams (for futsal/multi-league players)
-                # So we don't automatically unset is_current on other entries
 
             response = self.client.table("player_team_history").update(update_data).eq("id", history_id).execute()
 
             if response.data and len(response.data) > 0:
+                if is_current:
+                    row = response.data[0]
+                    # Multiple current teams within one season stay allowed
+                    # (futsal + outdoor); other seasons' rows get cleared.
+                    self._clear_current_in_other_seasons(row["player_id"], row["season_id"])
                 return self.get_player_history_entry_by_id(history_id)
             return None
         except Exception as e:
