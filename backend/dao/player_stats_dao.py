@@ -129,6 +129,12 @@ class PlayerStatsDAO(BaseDAO):
             games_started = sum(1 for s in stats if s.get("started"))
             total_minutes = sum(s.get("minutes_played", 0) for s in stats)
             total_goals = sum(s.get("goals", 0) for s in stats)
+            # assists and cards have been columns on player_match_stats all along;
+            # they simply weren't summed here, so nothing downstream could show
+            # them (SB-433).
+            total_assists = sum(s.get("assists", 0) for s in stats)
+            total_yellow_cards = sum(s.get("yellow_cards", 0) for s in stats)
+            total_red_cards = sum(s.get("red_cards", 0) for s in stats)
 
             return {
                 "player_id": player_id,
@@ -137,6 +143,9 @@ class PlayerStatsDAO(BaseDAO):
                 "games_started": games_started,
                 "total_minutes": total_minutes,
                 "total_goals": total_goals,
+                "total_assists": total_assists,
+                "total_yellow_cards": total_yellow_cards,
+                "total_red_cards": total_red_cards,
             }
 
         except Exception as e:
@@ -183,6 +192,9 @@ class PlayerStatsDAO(BaseDAO):
                             "games_started": stats["games_started"],
                             "total_minutes": stats["total_minutes"],
                             "total_goals": stats["total_goals"],
+                            "total_assists": stats["total_assists"],
+                            "total_yellow_cards": stats["total_yellow_cards"],
+                            "total_red_cards": stats["total_red_cards"],
                         }
                     )
 
