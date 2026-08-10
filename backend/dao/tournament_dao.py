@@ -9,7 +9,7 @@ Handles all database operations for tournaments, including:
 
 import structlog
 
-from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, dao_cache, invalidates_cache
 
 logger = structlog.get_logger()
 
@@ -73,18 +73,26 @@ class TournamentDAO(BaseDAO):
             t["age_groups"] = by_tid[t["id"]]
         return tournaments
 
-    def _attach_match_counts(self, tournaments: list[dict]) -> list[dict]:
-        """Fetch match counts from the matches table and attach to each tournament."""
+    def _attach_match_counts(
+        self, tournaments: list[dict], include_test: bool = False
+    ) -> list[dict]:
+        """Fetch match counts from the matches table and attach to each tournament.
+
+        include_test gates the SB-591 test partition, so a test fixture entered
+        into a real tournament does not inflate its published match count.
+        """
         if not tournaments:
             return tournaments
         ids = [t["id"] for t in tournaments]
         try:
-            rows = (
-                self.client.table("matches")
+            count_query = (
+                self.client.table(MATCHES_READ_RELATION)
                 .select("tournament_id")
                 .in_("tournament_id", ids)
-                .execute()
-            ).data or []
+            )
+            if not include_test:
+                count_query = count_query.eq("is_test", False)
+            rows = count_query.execute().data or []
         except Exception:
             logger.exception("Error fetching tournament match counts")
             rows = []
@@ -128,14 +136,18 @@ class TournamentDAO(BaseDAO):
                 query = query.eq("season_id", season_id)
             response = query.order("start_date", desc=True).execute()
             data = self._attach_age_groups(response.data or [])
-            return self._attach_match_counts(data)
+            return self._attach_match_counts(data, include_test=include_test)
         except Exception:
             logger.exception("Error fetching active tournaments")
             return []
 
     @dao_cache("tournaments:all")
     def get_all_tournaments(self) -> list[dict]:
-        """Return all tournaments (admin use)."""
+        """Return all tournaments (admin use).
+
+        Admin-only, so match counts deliberately include test fixtures — this is
+        the view an admin uses to confirm the TSC test world exists (SB-591).
+        """
         try:
             response = (
                 self.client.table("tournaments")
@@ -146,17 +158,20 @@ class TournamentDAO(BaseDAO):
                 .execute()
             )
             data = self._attach_age_groups(response.data or [])
-            return self._attach_match_counts(data)
+            return self._attach_match_counts(data, include_test=True)
         except Exception:
             logger.exception("Error fetching all tournaments")
             return []
 
-    @dao_cache("tournaments:by_id:{tournament_id}")
-    def get_tournament_by_id(self, tournament_id: int) -> dict | None:
+    @dao_cache("tournaments:by_id:{tournament_id}:test{include_test}")
+    def get_tournament_by_id(self, tournament_id: int, include_test: bool = False) -> dict | None:
         """Return tournament with all matches for tracked teams.
 
         Matches are enriched with home/away team names so the frontend
         can display them without additional lookups.
+
+        include_test gates the SB-591 test partition on the match list; it is
+        part of the cache key so the two audiences never share a response.
         """
         try:
             t_response = (
@@ -174,8 +189,8 @@ class TournamentDAO(BaseDAO):
             tournament = self._attach_age_groups([t_response.data])[0]
 
             # Fetch matches linked to this tournament
-            m_response = (
-                self.client.table("matches")
+            m_query = (
+                self.client.table(MATCHES_READ_RELATION)
                 .select("""
                     id,
                     match_date,
@@ -193,9 +208,10 @@ class TournamentDAO(BaseDAO):
                     away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url))
                 """)
                 .eq("tournament_id", tournament_id)
-                .order("match_date", desc=False)
-                .execute()
             )
+            if not include_test:
+                m_query = m_query.eq("is_test", False)
+            m_response = m_query.order("match_date", desc=False).execute()
 
             # Flatten the nested club under each team into a top-level
             # `home_team_club` / `away_team_club` on the match, matching the

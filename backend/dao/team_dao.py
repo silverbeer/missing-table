@@ -11,7 +11,7 @@ Handles all database operations related to teams including:
 
 import structlog
 
-from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, dao_cache, invalidates_cache
 
 logger = structlog.get_logger()
 
@@ -328,12 +328,13 @@ class TeamDAO(BaseDAO):
         )
         return [*response.data]
 
-    @dao_cache("teams:club:{club_id}")
-    def get_club_teams(self, club_id: int) -> list[dict]:
+    @dao_cache("teams:club:{club_id}:test{include_test}")
+    def get_club_teams(self, club_id: int, include_test: bool = False) -> list[dict]:
         """Get all teams for a club across all leagues.
 
         Args:
             club_id: The club ID from the clubs table
+            include_test: SB-591 test partition gate for the match counts
 
         Returns:
             List of teams belonging to this club with team_mappings included,
@@ -374,8 +375,15 @@ class TeamDAO(BaseDAO):
         # Get match counts for all teams in one query
         match_counts = {}
         if team_ids:
-            home_matches = self.client.table("matches").select("home_team_id").in_("home_team_id", team_ids).execute()
-            away_matches = self.client.table("matches").select("away_team_id").in_("away_team_id", team_ids).execute()
+            # SB-591: count through the test-partition view so a test fixture
+            # never inflates a real team's match count.
+            home_q = self.client.table(MATCHES_READ_RELATION).select("home_team_id").in_("home_team_id", team_ids)
+            away_q = self.client.table(MATCHES_READ_RELATION).select("away_team_id").in_("away_team_id", team_ids)
+            if not include_test:
+                home_q = home_q.eq("is_test", False)
+                away_q = away_q.eq("is_test", False)
+            home_matches = home_q.execute()
+            away_matches = away_q.execute()
             for match in home_matches.data:
                 tid = match["home_team_id"]
                 match_counts[tid] = match_counts.get(tid, 0) + 1
@@ -774,17 +782,25 @@ class TeamDAO(BaseDAO):
             return club_response.data[0]
         return None
 
-    def get_team_game_counts(self) -> dict[int, int]:
+    def get_team_game_counts(self, include_test: bool = False) -> dict[int, int]:
         """Get game counts for all teams in a single optimized query.
 
         Returns a dictionary mapping team_id -> game_count.
+
+        include_test gates the SB-591 test partition. The RPC applies the same
+        rule server-side; the Python fallback below mirrors it.
         """
         try:
-            response = self.client.rpc("get_team_game_counts").execute()
+            response = self.client.rpc(
+                "get_team_game_counts", {"p_include_test": include_test}
+            ).execute()
 
             if not response.data:
                 # Fallback to Python aggregation
-                matches = self.client.table("matches").select("home_team_id,away_team_id").execute()
+                fallback = self.client.table(MATCHES_READ_RELATION).select("home_team_id,away_team_id")
+                if not include_test:
+                    fallback = fallback.eq("is_test", False)
+                matches = fallback.execute()
                 counts = {}
                 for match in matches.data:
                     home_id = match["home_team_id"]

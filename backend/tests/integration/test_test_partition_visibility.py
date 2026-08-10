@@ -63,11 +63,21 @@ def world():
     ).execute().data[0]
 
     today = datetime.now(UTC).date().isoformat()
+    # tournaments.season_id became NOT NULL in 20260709000000_add_tournament_season.sql,
+    # which landed after this fixture was written — the inserts below failed until it
+    # was supplied.
+    season_rows = admin.table("seasons").select("id").order("id").limit(1).execute().data
+    if not season_rows:
+        pytest.skip("No seasons in the local DB; seed it first")
+    season_id = season_rows[0]["id"]
+
     test_tourney = admin.table("tournaments").insert(
-        {"name": _unique("ZZ Test Cup"), "start_date": today, "is_active": True, "is_test": True}
+        {"name": _unique("ZZ Test Cup"), "start_date": today, "season_id": season_id,
+         "is_active": True, "is_test": True}
     ).execute().data[0]
     real_tourney = admin.table("tournaments").insert(
-        {"name": _unique("ZZ Real Cup"), "start_date": today, "is_active": True, "is_test": False}
+        {"name": _unique("ZZ Real Cup"), "start_date": today, "season_id": season_id,
+         "is_active": True, "is_test": False}
     ).execute().data[0]
 
     # Raw inserts above bypass the DAO's invalidates_cache, so stale cached

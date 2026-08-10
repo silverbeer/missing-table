@@ -45,6 +45,14 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+# SB-591 Phase 2 test partition. Match READS go through this view, which carries
+# a derived is_test flag (the match's league, tournament, either club, or either
+# team's league is is_test); WRITES stay on the "matches" table. Embedded selects
+# resolve identically from either relation, so callers swap only the relation
+# name and add `.eq("is_test", False)` for non-test viewers. Defined here rather
+# than in match_dao so every DAO can share it without importing match_dao.
+MATCHES_READ_RELATION = "matches_with_test"
+
 # Shared Redis client for all DAOs
 _redis_client = None
 

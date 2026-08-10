@@ -2093,7 +2093,9 @@ async def get_season_match_counts(current_user: dict[str, Any] = Depends(require
     Supabase's 1000-row default and showed bogus counts.
     """
     try:
-        return season_dao.get_match_counts_by_season()
+        return season_dao.get_match_counts_by_season(
+            include_test=viewer_sees_test_content(current_user)
+        )
     except Exception as e:
         logger.error(f"Error retrieving season match counts: {e!s}", exc_info=True)
         raise HTTPException(
@@ -2355,6 +2357,7 @@ async def get_matches(
             match_type=match_type,
             start_date=start_date,
             end_date=end_date,
+            include_test=viewer_sees_test_content(current_user),
         )
 
         # Enrich matches with card event data
@@ -2392,7 +2395,9 @@ async def get_live_matches(
     Returns minimal data for efficient polling.
     """
     try:
-        live_matches = match_dao.get_live_matches()
+        live_matches = match_dao.get_live_matches(
+            include_test=viewer_sees_test_content(current_user)
+        )
         return live_matches
     except Exception as e:
         logger.error(f"Error getting live matches: {e!s}", exc_info=True)
@@ -2420,6 +2425,7 @@ async def get_match_preview(
             season_id=season_id,
             age_group_id=age_group_id,
             recent_count=recent_count,
+            include_test=viewer_sees_test_content(current_user),
         )
 
         # Augment preview with QoP ranking data
@@ -2499,7 +2505,9 @@ async def get_match(
     """Get a specific match by ID (requires authentication)."""
     try:
         # Use get_match_by_id for efficient single-match lookup with club data
-        match = match_dao.get_match_by_id(match_id)
+        match = match_dao.get_match_by_id(
+            match_id, include_test=viewer_sees_test_content(current_user)
+        )
 
         if not match:
             raise HTTPException(status_code=404, detail=f"Match with ID {match_id} not found")
@@ -2935,7 +2943,12 @@ async def get_matches_by_team(
 ):
     """Get matches for a specific team."""
     try:
-        matches = match_dao.get_matches_by_team(team_id, season_id=season_id, age_group_id=age_group_id)
+        matches = match_dao.get_matches_by_team(
+            team_id,
+            season_id=season_id,
+            age_group_id=age_group_id,
+            include_test=viewer_sees_test_content(current_user),
+        )
         if not matches:
             return []
 
@@ -3030,7 +3043,9 @@ async def get_live_match_state(
     Returns match data with clock fields for the live match view.
     """
     try:
-        match_state = match_dao.get_live_match_state(match_id)
+        match_state = match_dao.get_live_match_state(
+            match_id, include_test=viewer_sees_test_content(current_user)
+        )
         if not match_state:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3083,6 +3098,12 @@ async def update_match_clock(
 
         # Clock actions are idempotent: a retry of an already-applied action
         # (offline client replaying its sync queue) is a no-op, not an error.
+        #
+        # The state reads on the write paths below pass include_test=True on
+        # purpose (SB-591): the caller has already been authorised to mutate
+        # this match, so re-applying the visibility filter here would return
+        # None mid-scoring and break an Android dry run against the TSC test
+        # world. Visibility is enforced on the read endpoints, not here.
         action_timestamp_field = {
             "start_first_half": "kickoff_time",
             "start_halftime": "halftime_start",
@@ -3091,9 +3112,9 @@ async def update_match_clock(
         }
         already_applied_field = action_timestamp_field.get(clock.action)
         if already_applied_field and current_match.get(already_applied_field):
-            return match_dao.get_live_match_state(match_id)
+            return match_dao.get_live_match_state(match_id, include_test=True)
         if clock.action == "cancel_halftime" and not current_match.get("halftime_start"):
-            return match_dao.get_live_match_state(match_id)
+            return match_dao.get_live_match_state(match_id, include_test=True)
 
         # Offline clients may report when the action actually happened;
         # accept it only within a sane window (not future, not ancient).
@@ -3282,7 +3303,7 @@ async def post_goal(
         # Idempotency: a replayed sync request (same client_event_id) already
         # incremented the score — return current state with no side effects.
         if goal.client_event_id and match_event_dao.get_event_by_client_id(goal.client_event_id):
-            return match_dao.get_live_match_state(match_id)
+            return match_dao.get_live_match_state(match_id, include_test=True)
 
         # Match minute: offline clients send the minute they recorded at tap
         # time; live clients fall back to the clock-derived minute.
@@ -3324,7 +3345,7 @@ async def post_goal(
         if not event:
             if goal.client_event_id and match_event_dao.get_event_by_client_id(goal.client_event_id):
                 # Lost a race with a concurrent replay — already applied
-                return match_dao.get_live_match_state(match_id)
+                return match_dao.get_live_match_state(match_id, include_test=True)
             raise HTTPException(status_code=500, detail="Failed to create goal event")
 
         # Calculate new scores
@@ -4335,6 +4356,7 @@ async def get_table(
             age_group_id=age_group_id,
             division_id=division_id,
             match_type=match_type,
+            include_test=viewer_sees_test_content(current_user),
         )
 
         logger.info(
@@ -4433,6 +4455,7 @@ async def get_goals_leaderboard(
             match_type_id=match_type_id,
             tournament_id=tournament_id,
             limit=limit,
+            include_test=viewer_sees_test_content(current_user),
         )
 
         logger.info(
@@ -4865,7 +4888,13 @@ async def get_club_teams(
 ):
     """Get all teams for a specific club."""
     try:
-        teams = team_dao.get_club_teams(club_id) if include_stats else team_dao.get_club_teams_basic(club_id)
+        teams = (
+            team_dao.get_club_teams(
+                club_id, include_test=viewer_sees_test_content(current_user)
+            )
+            if include_stats
+            else team_dao.get_club_teams_basic(club_id)
+        )
         if not teams:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
 
@@ -5837,12 +5866,16 @@ async def delete_roster_entry(
 async def get_player_stats(
     player_id: int,
     season_id: int = Query(..., description="Season ID for stats"),
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
     """
     Get aggregated stats for a roster player in a season.
 
     Returns games_played, games_started, total_minutes, total_goals.
     Public endpoint - stats are visible to everyone.
+
+    The viewer is resolved optionally (SB-591): anonymous and real users get
+    totals excluding test matches, admins and test users get everything.
     """
     try:
         # Verify player exists
@@ -5851,7 +5884,9 @@ async def get_player_stats(
             raise HTTPException(status_code=404, detail="Player not found")
 
         # Get season stats
-        stats = player_stats_dao.get_player_season_stats(player_id, season_id)
+        stats = player_stats_dao.get_player_season_stats(
+            player_id, season_id, include_test=viewer_sees_test_content(current_user)
+        )
 
         return {
             "player_id": player_id,
@@ -5878,12 +5913,16 @@ async def get_player_stats(
 async def get_team_stats(
     team_id: int,
     season_id: int = Query(..., description="Season ID for stats"),
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
     """
     Get aggregated stats for all players on a team in a season.
 
     Returns list of players with their stats, sorted by goals (descending).
     Public endpoint - stats are visible to everyone.
+
+    The viewer is resolved optionally (SB-591) so test matches never inflate a
+    real player's totals for anonymous or real users.
     """
     try:
         # Verify team exists
@@ -5892,7 +5931,9 @@ async def get_team_stats(
             raise HTTPException(status_code=404, detail="Team not found")
 
         # Get team stats
-        stats = player_stats_dao.get_team_stats(team_id, season_id)
+        stats = player_stats_dao.get_team_stats(
+            team_id, season_id, include_test=viewer_sees_test_content(current_user)
+        )
 
         return {
             "team_id": team_id,
@@ -6777,7 +6818,12 @@ async def get_agent_match_summary(
     to a specific date window (e.g. last weekend only).
     """
     try:
-        targets = match_dao.get_match_summary(season, score_from=score_from, score_to=score_to)
+        targets = match_dao.get_match_summary(
+            season,
+            score_from=score_from,
+            score_to=score_to,
+            include_test=viewer_sees_test_content(current_user),
+        )
         return {
             "season": season,
             "generated_at": datetime.now(UTC).isoformat(),
@@ -6815,6 +6861,7 @@ async def get_agent_matches(
             season=season,
             start_date=start_date,
             end_date=end_date,
+            include_test=viewer_sees_test_content(current_user),
         )
         return {"matches": matches}
     except Exception as e:
@@ -7069,10 +7116,19 @@ async def get_tournaments(
 
 
 @app.get("/api/tournaments/{tournament_id}")
-async def get_tournament(tournament_id: int):
-    """Get tournament detail with matches (public)."""
+async def get_tournament(
+    tournament_id: int,
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+):
+    """Get tournament detail with matches (public).
+
+    The viewer is resolved optionally (SB-591): the tournament's match list is
+    filtered to real fixtures unless the caller is an admin or test user.
+    """
     try:
-        tournament = tournament_dao.get_tournament_by_id(tournament_id)
+        tournament = tournament_dao.get_tournament_by_id(
+            tournament_id, include_test=viewer_sees_test_content(current_user)
+        )
         if not tournament:
             raise HTTPException(status_code=404, detail="Tournament not found")
         return tournament

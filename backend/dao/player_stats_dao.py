@@ -9,7 +9,7 @@ Handles all database operations for player statistics:
 
 import structlog
 
-from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, dao_cache, invalidates_cache
 
 logger = structlog.get_logger()
 
@@ -95,14 +95,19 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_get_or_create_error", player_id=player_id, match_id=match_id, error=str(e))
             return None
 
-    @dao_cache("stats:player:{player_id}:season:{season_id}")
-    def get_player_season_stats(self, player_id: int, season_id: int) -> dict | None:
+    @dao_cache("stats:player:{player_id}:season:{season_id}:test{include_test}")
+    def get_player_season_stats(
+        self, player_id: int, season_id: int, include_test: bool = False
+    ) -> dict | None:
         """
         Get aggregated stats for a player across a season.
 
         Args:
             player_id: Player ID
             season_id: Season ID
+            include_test: SB-591 test partition. Minutes and goals from a test
+                match must not inflate a real player's season totals, so this is
+                part of the cache key.
 
         Returns:
             Aggregated stats dict with games_played, games_started,
@@ -113,9 +118,9 @@ class PlayerStatsDAO(BaseDAO):
             # Need to join with matches to filter by season
             response = (
                 self.client.table("player_match_stats")
-                .select("""
+                .select(f"""
                 *,
-                match:matches!inner(id, season_id)
+                match:{MATCHES_READ_RELATION}!inner(id, season_id, is_test)
             """)
                 .eq("player_id", player_id)
                 .eq("match.season_id", season_id)
@@ -123,6 +128,8 @@ class PlayerStatsDAO(BaseDAO):
             )
 
             stats = response.data or []
+            if not include_test:
+                stats = [s for s in stats if not (s.get("match") or {}).get("is_test")]
 
             # Aggregate - only count games where player actually participated
             games_played = sum(1 for s in stats if s.get("played") or s.get("started"))
@@ -143,14 +150,16 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_season_error", player_id=player_id, season_id=season_id, error=str(e))
             return None
 
-    @dao_cache("stats:team:{team_id}:season:{season_id}")
-    def get_team_stats(self, team_id: int, season_id: int) -> list[dict]:
+    @dao_cache("stats:team:{team_id}:season:{season_id}:test{include_test}")
+    def get_team_stats(self, team_id: int, season_id: int, include_test: bool = False) -> list[dict]:
         """
         Get aggregated stats for all players on a team for a season.
 
         Args:
             team_id: Team ID
             season_id: Season ID
+            include_test: SB-591 test partition gate, threaded through to each
+                player's season aggregation.
 
         Returns:
             List of player stats dicts sorted by goals (descending)
@@ -171,7 +180,9 @@ class PlayerStatsDAO(BaseDAO):
             result = []
             for player in players:
                 # Get season stats for each player
-                stats = self.get_player_season_stats(player["id"], season_id)
+                stats = self.get_player_season_stats(
+                    player["id"], season_id, include_test=include_test
+                )
                 if stats:
                     result.append(
                         {
@@ -194,7 +205,7 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_team_error", team_id=team_id, season_id=season_id, error=str(e))
             return []
 
-    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:mt{match_type_id}:t{tournament_id}:lim{limit}")
+    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:mt{match_type_id}:t{tournament_id}:lim{limit}:test{include_test}")
     def get_goals_leaderboard(
         self,
         season_id: int,
@@ -204,6 +215,7 @@ class PlayerStatsDAO(BaseDAO):
         match_type_id: int | None = None,
         tournament_id: int | None = None,
         limit: int = 50,
+        include_test: bool = False,
     ) -> list[dict]:
         """
         Get top goal scorers filtered by league/division/age group/match type/tournament.
@@ -233,7 +245,7 @@ class PlayerStatsDAO(BaseDAO):
                     goals,
                     started,
                     played,
-                    match:matches!inner(
+                    match:matches_with_test!inner(
                         id,
                         season_id,
                         match_status,
@@ -241,6 +253,7 @@ class PlayerStatsDAO(BaseDAO):
                         tournament_id,
                         division_id,
                         age_group_id,
+                        is_test,
                         division:divisions(
                             id,
                             league_id
@@ -276,6 +289,11 @@ class PlayerStatsDAO(BaseDAO):
                 s for s in stats
                 if s.get("match", {}).get("match_status") in ("completed", "forfeit")
             ]
+            # SB-591 test partition: a goal scored in a test match must never
+            # reach a real viewer's leaderboard. Filtered here rather than in the
+            # query for the same reason as the status filter above.
+            if not include_test:
+                stats = [s for s in stats if not s.get("match", {}).get("is_test")]
             if match_type_id is not None:
                 stats = [
                     s for s in stats
@@ -290,7 +308,9 @@ class PlayerStatsDAO(BaseDAO):
                 # For matches with a division, check division.league_id directly.
                 # For playoff matches (division_id is null), check if the player's
                 # team plays in this league by looking at their divisional matches.
-                league_team_ids = self._get_league_team_ids(league_id, season_id)
+                league_team_ids = self._get_league_team_ids(
+                    league_id, season_id, include_test=include_test
+                )
                 stats = [
                     s for s in stats
                     if (s.get("match", {}).get("division") or {}).get("league_id") == league_id
@@ -351,10 +371,16 @@ class PlayerStatsDAO(BaseDAO):
             )
             raise
 
-    def _get_league_team_ids(self, league_id: int, season_id: int) -> set[int]:
+    def _get_league_team_ids(
+        self, league_id: int, season_id: int, include_test: bool = False
+    ) -> set[int]:
         """Get team IDs that participate in a league via their divisional matches.
 
         Used to attribute playoff goals (which have no division) to the correct league.
+
+        include_test gates the SB-591 test partition. A test club entered into a
+        real division would otherwise pull its team into the real leaderboard's
+        universe via this lookup.
         """
         try:
             # Get divisions belonging to this league
@@ -369,13 +395,15 @@ class PlayerStatsDAO(BaseDAO):
                 return set()
 
             # Get teams that have matches in those divisions for this season
-            matches_response = (
-                self.client.table("matches")
+            matches_query = (
+                self.client.table(MATCHES_READ_RELATION)
                 .select("home_team_id, away_team_id")
                 .eq("season_id", season_id)
                 .in_("division_id", division_ids)
-                .execute()
             )
+            if not include_test:
+                matches_query = matches_query.eq("is_test", False)
+            matches_response = matches_query.execute()
             team_ids = set()
             for m in matches_response.data or []:
                 team_ids.add(m["home_team_id"])

@@ -4,6 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from dao.base_dao import MATCHES_READ_RELATION
+
 
 @pytest.mark.unit
 class TestGetMatchSummary:
@@ -62,7 +64,7 @@ class TestGetMatchSummary:
                 mock.eq.return_value = mock
                 mock.limit.return_value = mock
                 mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == "matches":
+            elif name == MATCHES_READ_RELATION:
                 mock.select.return_value = mock
                 mock.eq.return_value = mock
                 mock.neq.return_value = mock
@@ -120,7 +122,7 @@ class TestGetMatchSummary:
                 mock.eq.return_value = mock
                 mock.limit.return_value = mock
                 mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == "matches":
+            elif name == MATCHES_READ_RELATION:
                 mock.select.return_value = mock
                 mock.eq.return_value = mock
                 mock.neq.return_value = mock
@@ -180,7 +182,7 @@ class TestGetMatchSummary:
                 mock.eq.return_value = mock
                 mock.limit.return_value = mock
                 mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == "matches":
+            elif name == MATCHES_READ_RELATION:
                 mock.select.return_value = mock
                 mock.eq.return_value = mock
                 mock.neq.return_value = mock
