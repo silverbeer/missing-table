@@ -13,7 +13,13 @@ import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
 
-from dao.base_dao import BaseDAO, clear_cache, dao_cache, invalidates_cache
+from dao.base_dao import (
+    MATCHES_READ_RELATION,
+    BaseDAO,
+    clear_cache,
+    dao_cache,
+    invalidates_cache,
+)
 from dao.exceptions import DuplicateRecordError
 from dao.standings import (
     calculate_standings_with_extras,
@@ -375,6 +381,7 @@ class MatchDAO(BaseDAO):
         match_type: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
+        include_test: bool = False,
     ) -> list[dict]:
         """Get all matches with optional filters.
 
@@ -386,9 +393,11 @@ class MatchDAO(BaseDAO):
             match_type: Filter by match type name
             start_date: Filter by start date (YYYY-MM-DD)
             end_date: Filter by end date (YYYY-MM-DD)
+            include_test: SB-591 test partition. Real/anonymous viewers pass
+                False (test matches hidden); admins + test users pass True.
         """
         try:
-            query = self.client.table("matches").select("""
+            query = self.client.table(MATCHES_READ_RELATION).select("""
                 *,
                 home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
                 away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
@@ -399,6 +408,8 @@ class MatchDAO(BaseDAO):
             """)
 
             # Apply filters
+            if not include_test:
+                query = query.eq("is_test", False)
             if season_id:
                 query = query.eq("season_id", season_id)
             if age_group_id:
@@ -474,6 +485,7 @@ class MatchDAO(BaseDAO):
         season_name: str,
         score_from: str | None = None,
         score_to: str | None = None,
+        include_test: bool = False,
     ) -> list[dict]:
         """Get match summary statistics grouped by age group, league, and division.
 
@@ -484,6 +496,9 @@ class MatchDAO(BaseDAO):
             season_name: Season name, e.g. '2025-2026'.
             score_from: If set, only count needs_score for matches >= this date.
             score_to: If set, only count needs_score for matches <= this date.
+            include_test: SB-591 test partition. Defaults False so the scraper
+                agent's "what is missing" counts are not skewed by hand-created
+                test fixtures, which are never scraped.
         """
         from collections import defaultdict
         from datetime import date, timedelta
@@ -503,8 +518,8 @@ class MatchDAO(BaseDAO):
         _offset = 0
         all_matches: list[dict] = []
         while True:
-            response = (
-                self.client.table("matches")
+            page_query = (
+                self.client.table(MATCHES_READ_RELATION)
                 .select("""
                     match_date, match_status, home_score, away_score, scheduled_kickoff,
                     age_group:age_groups(name),
@@ -512,9 +527,10 @@ class MatchDAO(BaseDAO):
                 """)
                 .eq("season_id", season_id)
                 .neq("match_status", "cancelled")
-                .range(_offset, _offset + _page_size - 1)
-                .execute()
             )
+            if not include_test:
+                page_query = page_query.eq("is_test", False)
+            response = page_query.range(_offset, _offset + _page_size - 1).execute()
             all_matches.extend(response.data)
             if len(response.data) < _page_size:
                 break
@@ -576,12 +592,19 @@ class MatchDAO(BaseDAO):
         return summaries
 
     def get_matches_by_team(
-        self, team_id: int, season_id: int | None = None, age_group_id: int | None = None
+        self,
+        team_id: int,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        include_test: bool = False,
     ) -> list[dict]:
-        """Get all matches for a specific team."""
+        """Get all matches for a specific team.
+
+        include_test gates the SB-591 test partition.
+        """
         try:
             query = (
-                self.client.table("matches")
+                self.client.table(MATCHES_READ_RELATION)
                 .select("""
                 *,
                 home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
@@ -592,6 +615,9 @@ class MatchDAO(BaseDAO):
                 division:divisions(id, name)
             """)
             )
+
+            if not include_test:
+                query = query.eq("is_test", False)
 
             query = query.or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
 
@@ -650,6 +676,7 @@ class MatchDAO(BaseDAO):
         season_id: int | None = None,
         age_group_id: int | None = None,
         recent_count: int = 5,
+        include_test: bool = False,
     ) -> dict:
         """Get match preview data: recent form, common opponents, and head-to-head history.
 
@@ -659,6 +686,7 @@ class MatchDAO(BaseDAO):
             season_id: Season for recent form and common opponents (None = all seasons)
             age_group_id: Optional filter to restrict to a specific age group
             recent_count: How many recent matches to return per team
+            include_test: SB-591 test partition gate
 
         Returns:
             Dict with home_team_recent, away_team_recent, common_opponents, head_to_head
@@ -701,11 +729,13 @@ class MatchDAO(BaseDAO):
 
         def build_base_query(team_id: int):
             q = (
-                self.client.table("matches")
+                self.client.table(MATCHES_READ_RELATION)
                 .select(select_str)
                 .or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
                 .in_("match_status", ["completed", "forfeit"])
             )
+            if not include_test:
+                q = q.eq("is_test", False)
             if season_id:
                 q = q.eq("season_id", season_id)
             if age_group_id:
@@ -805,11 +835,13 @@ class MatchDAO(BaseDAO):
                 target_birth_year = _birth_year_from_labels(ag_name, season_name)
 
             h2h_query = (
-                self.client.table("matches")
+                self.client.table(MATCHES_READ_RELATION)
                 .select(select_str)
                 .or_(f"home_team_id.eq.{home_team_id},away_team_id.eq.{home_team_id}")
                 .in_("match_status", ["completed", "forfeit"])
             )
+            if not include_test:
+                h2h_query = h2h_query.eq("is_test", False)
             h2h_resp = h2h_query.order("match_date", desc=True).execute()
             head_to_head = [
                 flatten(m)
@@ -1016,12 +1048,18 @@ class MatchDAO(BaseDAO):
             logger.exception("Error updating match")
             return None
 
-    @dao_cache("matches:by_id:{match_id}")
-    def get_match_by_id(self, match_id: int) -> dict | None:
-        """Get a single match by ID with all related data."""
+    @dao_cache("matches:by_id:{match_id}:{include_test}")
+    def get_match_by_id(self, match_id: int, include_test: bool = False) -> dict | None:
+        """Get a single match by ID with all related data.
+
+        include_test gates the SB-591 test partition. The cache key varies by
+        include_test so a test match fetched by an admin is never served from
+        cache to a real viewer (and a real viewer's miss is never cached as the
+        admin's answer).
+        """
         try:
-            response = (
-                self.client.table("matches")
+            query = (
+                self.client.table(MATCHES_READ_RELATION)
                 .select("""
                     *,
                     home_team:teams!matches_home_team_id_fkey(
@@ -1042,8 +1080,10 @@ class MatchDAO(BaseDAO):
                     tournament:tournaments(id, name, logo_url)
                 """)
                 .eq("id", match_id)
-                .execute()
             )
+            if not include_test:
+                query = query.eq("is_test", False)
+            response = query.execute()
 
             if response.data and len(response.data) > 0:
                 match = response.data[0]
@@ -1135,13 +1175,14 @@ class MatchDAO(BaseDAO):
             logger.exception("Error deleting match")
             return False
 
-    @dao_cache("matches:table:{season_id}:{age_group_id}:{division_id}:{match_type}")
+    @dao_cache("matches:table:{season_id}:{age_group_id}:{division_id}:{match_type}:{include_test}")
     def get_league_table(
         self,
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
         match_type: str = "League",
+        include_test: bool = False,
     ) -> list[dict]:
         """
         Generate league table with optional filters.
@@ -1154,6 +1195,9 @@ class MatchDAO(BaseDAO):
             age_group_id: Filter by age group
             division_id: Filter by division
             match_type: Filter by match type name (default: "League")
+            include_test: SB-591 test partition. A test match must not move a
+                real team's points, so this is part of the cache key — the two
+                audiences never share a computed table.
 
         Returns:
             List of team standings sorted by points, goal difference, goals scored
@@ -1167,7 +1211,9 @@ class MatchDAO(BaseDAO):
                 match_type=match_type,
             )
             # Fetch matches from database
-            matches = self._fetch_matches_for_standings(season_id, age_group_id, division_id)
+            matches = self._fetch_matches_for_standings(
+                season_id, age_group_id, division_id, include_test=include_test
+            )
 
             # Apply filters using pure functions
             matches = filter_by_match_type(matches, match_type)
@@ -1187,6 +1233,7 @@ class MatchDAO(BaseDAO):
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
+        include_test: bool = False,
     ) -> list[dict]:
         """
         Fetch matches from database for standings calculation.
@@ -1198,6 +1245,7 @@ class MatchDAO(BaseDAO):
             season_id: Filter by season
             age_group_id: Filter by age group
             division_id: Filter by division
+            include_test: SB-591 test partition gate
 
         Returns:
             List of match dictionaries from database
@@ -1208,7 +1256,7 @@ class MatchDAO(BaseDAO):
             age_group_id=age_group_id,
             division_id=division_id,
         )
-        query = self.client.table("matches").select("""
+        query = self.client.table(MATCHES_READ_RELATION).select("""
             *,
             home_team:teams!matches_home_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
             away_team:teams!matches_away_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
@@ -1216,6 +1264,8 @@ class MatchDAO(BaseDAO):
         """)
 
         # Apply database-level filters
+        if not include_test:
+            query = query.eq("is_test", False)
         if season_id:
             query = query.eq("season_id", season_id)
         if age_group_id:
@@ -1228,14 +1278,18 @@ class MatchDAO(BaseDAO):
 
     # === Live Match Methods ===
 
-    def get_live_matches(self) -> list[dict]:
+    def get_live_matches(self, include_test: bool = False) -> list[dict]:
         """Get all matches with status 'live'.
 
         Returns minimal data for the LIVE tab polling.
+
+        include_test gates the SB-591 test partition. This is the endpoint an
+        Android dry run drives, so a rehearsal must not appear on the public
+        LIVE tab.
         """
         try:
-            response = (
-                self.client.table("matches")
+            query = (
+                self.client.table(MATCHES_READ_RELATION)
                 .select("""
                     id,
                     match_status,
@@ -1247,8 +1301,10 @@ class MatchDAO(BaseDAO):
                     away_team:teams!matches_away_team_id_fkey(id, name)
                 """)
                 .eq("match_status", "live")
-                .execute()
             )
+            if not include_test:
+                query = query.eq("is_test", False)
+            response = query.execute()
 
             # Flatten the response
             result = []
@@ -1271,14 +1327,16 @@ class MatchDAO(BaseDAO):
             logger.exception("Error getting live matches")
             return []
 
-    def get_live_match_state(self, match_id: int) -> dict | None:
+    def get_live_match_state(self, match_id: int, include_test: bool = False) -> dict | None:
         """Get full live match state including clock timestamps.
 
         Returns match data with clock fields for the live match view.
+
+        include_test gates the SB-591 test partition.
         """
         try:
-            response = (
-                self.client.table("matches")
+            query = (
+                self.client.table(MATCHES_READ_RELATION)
                 .select("""
                     *,
                     home_team:teams!matches_home_team_id_fkey(
@@ -1292,9 +1350,10 @@ class MatchDAO(BaseDAO):
                     division:divisions(id, name, leagues(id, name, sport_type))
                 """)
                 .eq("id", match_id)
-                .single()
-                .execute()
             )
+            if not include_test:
+                query = query.eq("is_test", False)
+            response = query.single().execute()
 
             if not response.data:
                 return None
@@ -1547,6 +1606,7 @@ class MatchDAO(BaseDAO):
         season: str,
         start_date: str | None = None,
         end_date: str | None = None,
+        include_test: bool = False,
     ) -> list[dict]:
         """Get individual match records for the audit agent's comparison step.
 
@@ -1561,6 +1621,8 @@ class MatchDAO(BaseDAO):
             season:     e.g. "2025-2026".
             start_date: If set, only return matches on or after this date (YYYY-MM-DD).
             end_date:   If set, only return matches on or before this date (YYYY-MM-DD).
+            include_test: SB-591 test partition. Defaults False so the audit
+                agent never reports a test fixture as a real-data discrepancy.
 
         Returns:
             List of match dicts with fields the audit comparator expects.
@@ -1608,7 +1670,7 @@ class MatchDAO(BaseDAO):
 
         try:
             query = (
-                self.client.table("matches")
+                self.client.table(MATCHES_READ_RELATION)
                 .select(
                     "match_id, match_date, scheduled_kickoff, home_score, away_score, match_status, "
                     "home_team:teams!matches_home_team_id_fkey(name), "
@@ -1619,6 +1681,8 @@ class MatchDAO(BaseDAO):
                 .eq("division_id", division_id)
                 .neq("match_status", "cancelled")
             )
+            if not include_test:
+                query = query.eq("is_test", False)
             if start_date:
                 query = query.gte("match_date", start_date)
             if end_date:

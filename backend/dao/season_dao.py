@@ -11,7 +11,7 @@ from datetime import date
 
 import structlog
 
-from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, dao_cache, invalidates_cache
 
 logger = structlog.get_logger()
 
@@ -169,8 +169,8 @@ class SeasonDAO(BaseDAO):
 
     # Cache key lives in the `matches:` namespace so it's invalidated by
     # MATCHES_CACHE_PATTERN whenever any match is created/updated/deleted.
-    @dao_cache("matches:counts_by_season")
-    def get_match_counts_by_season(self) -> list[dict]:
+    @dao_cache("matches:counts_by_season:{include_test}")
+    def get_match_counts_by_season(self, include_test: bool = False) -> list[dict]:
         """Return [{season_id, match_count}] for every season.
 
         Backs the Admin → Seasons page (SB-61). The previous client-side
@@ -182,21 +182,30 @@ class SeasonDAO(BaseDAO):
         One row per season; missing seasons (no matches) still appear with
         match_count=0 — the seasons list is the source of truth, the count
         is just a join.
+
+        include_test gates the SB-591 test partition; it is part of the cache
+        key so the two audiences never share a count.
         """
         try:
             # PostgREST embedded resource with count: one round-trip for
             # every season and its match count. Falls back to N+1 if the
             # embedded count isn't accepted.
-            response = (
-                self.client.table("seasons")
-                .select("id, matches(count)")
-                .execute()
+            #
+            # The embed targets the matches_with_test view rather than the
+            # matches table so the test partition can be filtered inside the
+            # embedded resource (verified: the embedded is_test filter is
+            # applied to the count, not just the outer row).
+            query = self.client.table("seasons").select(
+                f"id, {MATCHES_READ_RELATION}(count)"
             )
+            if not include_test:
+                query = query.eq(f"{MATCHES_READ_RELATION}.is_test", False)
+            response = query.execute()
             counts = []
             for row in response.data or []:
-                # `matches` comes back as a list of {count: N} when the
-                # embedded count modifier is honored.
-                matches_field = row.get("matches") or []
+                # comes back as a list of {count: N} when the embedded count
+                # modifier is honored.
+                matches_field = row.get(MATCHES_READ_RELATION) or []
                 if isinstance(matches_field, list) and matches_field:
                     match_count = matches_field[0].get("count") or 0
                 else:
@@ -214,13 +223,14 @@ class SeasonDAO(BaseDAO):
                 counts = []
                 for season in seasons:
                     sid = season["id"]
-                    resp = (
-                        self.client.table("matches")
+                    fallback = (
+                        self.client.table(MATCHES_READ_RELATION)
                         .select("id", count="exact")
                         .eq("season_id", sid)
-                        .limit(0)
-                        .execute()
                     )
+                    if not include_test:
+                        fallback = fallback.eq("is_test", False)
+                    resp = fallback.limit(0).execute()
                     counts.append(
                         {"season_id": sid, "match_count": resp.count or 0}
                     )
