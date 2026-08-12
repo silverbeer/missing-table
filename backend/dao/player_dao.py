@@ -460,7 +460,9 @@ class PlayerDAO(BaseDAO):
                     division:divisions(id, name)
                 ),
                 season:seasons(id, name, start_date, end_date),
-                age_group:age_groups(id, name)
+                age_group:age_groups(id, name),
+                league:leagues(id, name),
+                division:divisions(id, name)
             """)
                 .eq("player_id", player_id)
                 .eq("is_current", True)

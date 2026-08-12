@@ -66,6 +66,25 @@ export const useAuthStore = () => {
   const userTeamId = computed(() => state.profile?.team_id);
   const userClubId = computed(() => state.profile?.club_id);
 
+  // The user's current-season team assignment, from player_team_history via
+  // /api/auth/me. Views personalize their age-group / league / division defaults
+  // from this instead of falling back to the app-wide U14 constant (SB-599).
+  // `current_teams` is ordered newest season first, so the first entry wins for
+  // players on more than one team (e.g. outdoor + futsal).
+  const currentTeam = computed(() => state.profile?.current_teams?.[0] || null);
+  // Falls back to profile.team_id, which invite-code signup sets but the roster
+  // manager does not.
+  const userCurrentTeamId = computed(
+    () => currentTeam.value?.team_id ?? state.profile?.team_id ?? null
+  );
+  const userAgeGroupId = computed(
+    () => currentTeam.value?.age_group?.id ?? null
+  );
+  const userLeagueId = computed(() => currentTeam.value?.league?.id ?? null);
+  const userDivisionId = computed(
+    () => currentTeam.value?.division?.id ?? null
+  );
+
   // Actions
   const setLoading = loading => {
     state.loading = loading;
@@ -1064,6 +1083,11 @@ export const useAuthStore = () => {
     userRole,
     userTeamId,
     userClubId,
+    currentTeam,
+    userCurrentTeamId,
+    userAgeGroupId,
+    userLeagueId,
+    userDivisionId,
 
     // Actions
     signup,

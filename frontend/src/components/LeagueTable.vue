@@ -9,7 +9,7 @@
           <button
             v-for="ageGroup in ageGroups"
             :key="ageGroup.id"
-            @click="selectedAgeGroupId = ageGroup.id"
+            @click="selectAgeGroup(ageGroup.id)"
             :class="[
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedAgeGroupId === ageGroup.id
@@ -535,7 +535,14 @@ export default {
     const divisions = ref([]);
     const allDivisions = ref([]); // Store all divisions for filtering
     const seasons = ref([]);
-    const selectedAgeGroupId = ref(2); // Default to U14
+    const selectedAgeGroupId = ref(2); // Default to U14 (anonymous fallback)
+    // True once the viewer picks an age group themselves, so a late-arriving
+    // profile can't yank the table back to their own age group (SB-599).
+    const ageGroupTouched = ref(false);
+    const selectAgeGroup = id => {
+      ageGroupTouched.value = true;
+      selectedAgeGroupId.value = id;
+    };
     const selectedLeagueId = ref(null); // Default to first league
     const selectedDivisionId = ref(1); // Default to Northeast
     const selectedSeasonId = ref(2); // Default to 2024-2025
@@ -563,9 +570,12 @@ export default {
         );
         ageGroups.value = data.sort((a, b) => a.name.localeCompare(b.name));
 
-        // Set U14 as default if available
+        // Prefer the viewer's own age group; U14 is the anonymous fallback.
+        const personal = authStore.userAgeGroupId?.value;
         const u14 = data.find(ag => ag.name === 'U14');
-        if (u14) {
+        if (personal && data.some(ag => ag.id === personal)) {
+          selectedAgeGroupId.value = personal;
+        } else if (u14) {
           selectedAgeGroupId.value = u14.id;
         }
       } catch (err) {
@@ -829,6 +839,27 @@ export default {
       }
     );
 
+    // On a cold load the profile can resolve after this component mounts, so the
+    // personalization in fetchAgeGroups() has nothing to read. Re-apply it when the
+    // profile lands — but never over a choice the viewer already made (SB-599).
+    watch(
+      () => authStore.userAgeGroupId?.value,
+      personal => {
+        if (!personal || ageGroupTouched.value) return;
+        if (props.filterKey > 0 && props.initialAgeGroupId) return;
+        if (!ageGroups.value.some(ag => ag.id === personal)) return;
+        selectedAgeGroupId.value = personal;
+
+        const personalLeagueId = authStore.userLeagueId?.value;
+        const personalDivisionId = authStore.userDivisionId?.value;
+        if (personalLeagueId && personalDivisionId) {
+          selectedLeagueId.value = personalLeagueId;
+          filterDivisionsByLeague();
+          selectedDivisionId.value = personalDivisionId;
+        }
+      }
+    );
+
     onMounted(async () => {
       console.log('LeagueTable component mounted');
       console.log('Initial props:', {
@@ -864,30 +895,47 @@ export default {
         if (props.initialDivisionId) {
           selectedDivisionId.value = props.initialDivisionId;
         }
-      } else if (!authStore.isAdmin.value && authStore.userTeamId.value) {
-        // For non-admins without explicit filters, auto-select based on their team
-        try {
-          // Fetch the user's team to get its league and division
-          const teams = await authStore.apiRequest(
-            `${getApiBaseUrl()}/api/teams`
-          );
-          const userTeam = teams.find(t => t.id === authStore.userTeamId.value);
+      } else if (
+        !authStore.isAdmin.value &&
+        authStore.userCurrentTeamId?.value
+      ) {
+        // For non-admins without explicit filters, auto-select based on their team.
+        // The league/division on their current-season roster row is authoritative
+        // (it is age-specific), so prefer it over the team-level lookup (SB-599).
+        const personalLeagueId = authStore.userLeagueId?.value;
+        const personalDivisionId = authStore.userDivisionId?.value;
+        if (personalLeagueId && personalDivisionId) {
+          selectedLeagueId.value = personalLeagueId;
+          selectedDivisionId.value = personalDivisionId;
+          filterDivisionsByLeague();
+        } else {
+          try {
+            // Fetch the user's team to get its league and division
+            const teams = await authStore.apiRequest(
+              `${getApiBaseUrl()}/api/teams`
+            );
+            const userTeam = teams.find(
+              t => t.id === authStore.userCurrentTeamId?.value
+            );
 
-          if (userTeam) {
-            // Get division for selected age group
-            // Ensure type-safe lookup: divisions_by_age_group uses string keys
-            const division =
-              userTeam.divisions_by_age_group[String(selectedAgeGroupId.value)];
-            if (division) {
-              selectedLeagueId.value = division.league_id;
-              selectedDivisionId.value = division.id;
+            if (userTeam) {
+              // Get division for selected age group
+              // Ensure type-safe lookup: divisions_by_age_group uses string keys
+              const division =
+                userTeam.divisions_by_age_group[
+                  String(selectedAgeGroupId.value)
+                ];
+              if (division) {
+                selectedLeagueId.value = division.league_id;
+                selectedDivisionId.value = division.id;
 
-              // Re-filter divisions by league
-              filterDivisionsByLeague();
+                // Re-filter divisions by league
+                filterDivisionsByLeague();
+              }
             }
+          } catch (err) {
+            console.error('Error fetching user team info:', err);
           }
-        } catch (err) {
-          console.error('Error fetching user team info:', err);
         }
       }
 
@@ -910,6 +958,7 @@ export default {
       divisions,
       seasons,
       selectedAgeGroupId,
+      selectAgeGroup,
       selectedLeagueId,
       selectedLeagueName,
       selectedDivisionId,
