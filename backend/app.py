@@ -1842,15 +1842,25 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
         # Get fresh profile data with team AND club info
         profile = player_dao.get_user_profile_with_relationships(current_user["user_id"]) or {}
 
-        # For team-players, include current team assignments from player_team_history.
-        # This is the source of truth for team membership (user_profiles.team_id is only
-        # set during invite-code signup, not when added via roster manager).
+        # Include current team assignments from player_team_history. This is the source
+        # of truth for team membership (user_profiles.team_id is only set during
+        # invite-code signup, not when added via roster manager). Any non-admin role can
+        # hold history rows, and the frontend personalizes its age-group / league /
+        # division defaults from the first entry (SB-599).
         current_teams = []
         role = profile.get("role", "team-fan")
-        if role == "team-player":
+        if role != "admin":
             teams_data = player_dao.get_all_current_player_teams(current_user["user_id"])
             current_teams = [
-                {"team_id": t.get("team_id"), "team": t.get("team"), "season": t.get("season")} for t in teams_data
+                {
+                    "team_id": t.get("team_id"),
+                    "team": t.get("team"),
+                    "season": t.get("season"),
+                    "age_group": t.get("age_group"),
+                    "league": t.get("league"),
+                    "division": t.get("division"),
+                }
+                for t in teams_data
             ]
 
         return {

@@ -144,6 +144,48 @@ How it works (frontend `stores/auth.js`):
 > Fix = align the dashboard fields above; the repo config + test prevent the
 > local side from drifting again.
 
+##### Roster context drives personalized defaults (SB-599)
+
+`/api/auth/me` returns a `current_teams` array built from `player_team_history`
+via `player_dao.get_all_current_player_teams()`. It is the source of truth for
+team membership — `user_profiles.team_id` is only set during invite-code signup,
+not when a player is added through the roster manager.
+
+Each entry carries the viewer's **current-season roster context**:
+
+```jsonc
+{
+  "team_id": 19,
+  "team":      { "id": 19, "name": "IFA", "club": { … } },
+  "season":    { "id": 184, "name": "2026-2027" },
+  "age_group": { "id": 3, "name": "U15" },        // SB-599
+  "league":    { "id": 1, "name": "Homegrown" },  // SB-599
+  "division":  { "id": 1, "name": "Northeast" }   // SB-599
+}
+```
+
+Entries are ordered newest season first (`select_current_teams`, SB-441), so the
+first one is the answer for a player on more than one team (e.g. outdoor +
+futsal). It is computed for every **non-admin** role — admins browse all age
+groups, so there is nothing to personalize and no reason to pay for the query.
+
+The auth store exposes this as `currentTeam`, `userCurrentTeamId`,
+`userAgeGroupId`, `userLeagueId` and `userDivisionId`. The Table and Matches
+views use them to open on the viewer's own age group / league / division instead
+of the app-wide **U14 + Homegrown + Northeast** fallback, and to preselect their
+club and team on the My Club tab.
+
+Two rules the views must preserve:
+
+- **Never override a manual pick.** Each view tracks whether the viewer chose an
+  age group; a profile that resolves after mount only applies when they haven't.
+- **`league`/`division` come from the roster row, not the team.** Club teams are
+  umbrella records spanning several age groups, so the team-level league and
+  division can't answer "which one is this viewer in".
+
+Anonymous visitors, admins, and users with no current roster row keep the U14
+fallback.
+
 ##### Backend auth clients must be stateless (SB-115)
 
 The backend's shared Supabase clients (`auth_ops_client`, `auth_service_client`

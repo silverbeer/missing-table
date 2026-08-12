@@ -312,6 +312,12 @@ export const createMockAuthStore = (overrides = {}) => ({
   canBrowseAll: { value: true },
   userTeamId: { value: null },
   userClubId: { value: null },
+  // Current-season roster context used for personalized filter defaults (SB-599)
+  currentTeam: { value: null },
+  userCurrentTeamId: { value: null },
+  userAgeGroupId: { value: null },
+  userLeagueId: { value: null },
+  userDivisionId: { value: null },
   apiRequest: vi.fn(() => Promise.resolve([])),
   ...overrides,
 });
@@ -331,6 +337,7 @@ export const createTeamManagerAuthStore = (teamId = 1, clubId = 1) =>
     canBrowseAll: { value: false },
     userTeamId: { value: teamId },
     userClubId: { value: clubId },
+    userCurrentTeamId: { value: teamId },
   });
 
 // Convenience factory for regular authenticated user
@@ -348,6 +355,7 @@ export const createAuthenticatedUserStore = () =>
     canBrowseAll: { value: false },
     userTeamId: { value: 1 },
     userClubId: { value: 1 },
+    userCurrentTeamId: { value: 1 },
   });
 
 // Convenience factory for unauthenticated state
