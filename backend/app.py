@@ -2612,7 +2612,7 @@ async def update_match(
     try:
         # Get current match to check permissions (also the before-snapshot for
         # the score-change notification below).
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -2643,7 +2643,7 @@ async def update_match(
         )
         if updated_match:
             # Notify followers if this write set/changed the final score (SB-77).
-            after = match_dao.get_match_by_id(match_id)
+            after = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
             _maybe_notify_final_score(background_tasks, current_match, after)
             return {"message": "Match updated successfully"}
         else:
@@ -2668,7 +2668,7 @@ async def patch_match(
     try:
         # Get current match to check permissions and get existing values (also
         # the before-snapshot for the score-change notification below).
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -2738,7 +2738,7 @@ async def patch_match(
         if updated_match:
             # Notify followers if this write set/changed the final score (SB-77).
             # This is the path match-scraper uses to post league results.
-            after = match_dao.get_match_by_id(match_id)
+            after = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
             _maybe_notify_final_score(background_tasks, current_match, after)
             # Return the updated match data directly from update_match
             # This avoids read-after-write consistency issues
@@ -2760,7 +2760,7 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
     """Delete a match (admin or team manager only)."""
     try:
         # Get current match to check permissions
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -2843,7 +2843,7 @@ async def upload_match_photo(
             detail=f"Invalid file type. Allowed: PNG, JPG. Got: {file.content_type}",
         )
 
-    current_match = match_dao.get_match_by_id(match_id)
+    current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
     if not current_match:
         raise HTTPException(status_code=404, detail="Match not found")
 
@@ -2911,7 +2911,7 @@ async def delete_match_photo(
     current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """Delete a match's photo from R2 and clear photo_url/photo_key on the match."""
-    current_match = match_dao.get_match_by_id(match_id)
+    current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
     if not current_match:
         raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3083,8 +3083,15 @@ async def update_match_clock(
     Only accessible by admins, club managers, and team managers who can edit this match.
     """
     try:
-        # Get current match to check permissions
-        current_match = match_dao.get_match_by_id(match_id)
+        # Get current match to check permissions.
+        #
+        # include_test is required here (SB-647). get_match_by_id defaults it
+        # to False and filters is_test rows out, so without it every write
+        # against the TSC test world 404s on this line, before any permission
+        # check runs — which blocked the Android dry run entirely. Pass the
+        # viewer's own visibility rather than a blanket True: a real user
+        # still gets 404, admins and flagged test users get through.
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3207,7 +3214,7 @@ async def reopen_match(
     Only accessible by admins, club managers, and team managers who can edit this match.
     """
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3265,7 +3272,7 @@ async def post_goal(
     """
     try:
         # Get current match to check permissions and current scores
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3409,7 +3416,7 @@ async def post_live_card(
     The match minute is auto-calculated from the match clock.
     """
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3525,7 +3532,7 @@ async def post_message(
     """
     try:
         # Verify match exists
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3576,7 +3583,7 @@ async def post_live_substitution(
     Only accessible by admins, club managers, and team managers who can edit this match.
     """
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3670,7 +3677,7 @@ async def delete_event(
     """
     try:
         # Get current match to check permissions
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3855,7 +3862,7 @@ async def post_match_add_goal(
     Does NOT modify the match score (already set).
     """
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3953,7 +3960,7 @@ async def post_match_remove_goal(
     Soft-deletes the event and decrements the player's goal count.
     """
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -4013,7 +4020,7 @@ async def post_match_add_substitution(
 ):
     """Record a substitution for a completed match."""
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -4080,7 +4087,7 @@ async def post_match_remove_substitution(
 ):
     """Remove a substitution event from a completed match."""
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -4132,7 +4139,7 @@ async def post_match_add_card(
     Creates a card event and updates the player's card count in player_match_stats.
     """
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -4211,7 +4218,7 @@ async def post_match_remove_card(
 ):
     """Remove a card event from a completed match."""
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -4271,7 +4278,7 @@ async def post_match_get_stats(
 ):
     """Get player stats for a team in a completed match."""
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -4297,7 +4304,7 @@ async def post_match_update_stats(
 ):
     """Batch update player stats (started, minutes_played) for a team in a completed match."""
     try:
-        current_match = match_dao.get_match_by_id(match_id)
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -7349,7 +7356,7 @@ async def admin_update_tournament_match(
         # Snapshot before the write so we only notify on a real score change —
         # the skill's upsert loop frequently re-PUTs metadata or identical
         # scores, which must stay silent. (SB-77)
-        before = match_dao.get_match_by_id(match_id)
+        before = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         updated = tournament_dao.update_tournament_match(
             match_id=match_id,
             home_score=payload.home_score,

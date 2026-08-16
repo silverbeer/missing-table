@@ -288,3 +288,59 @@ class TestSeasonMatchCounts:
         assert resp.status_code == 200
         by_season = {r["season_id"]: r["match_count"] for r in resp.json()}
         assert by_season.get(world["season_id"], 0) >= 6
+
+
+class TestWritePartition:
+    """SB-647: writes must respect the same partition the reads do.
+
+    The Phase 2 work fixed the read endpoints but left every write handler
+    calling get_match_by_id() without include_test, so it defaulted to False
+    and 404'd on the test world before any permission check ran. Reading a
+    TSC match worked, scoring one did not — which blocked the Android dry run
+    on its very first action.
+    """
+
+    @pytest.mark.parametrize("key", HIDDEN_FROM_REAL)
+    def test_admin_can_start_the_clock_on_a_test_match(self, world, key):
+        with _as(_ADMIN) as client:
+            resp = client.post(
+                f"/api/matches/{world[key]['id']}/live/clock",
+                json={"action": "start_first_half", "half_duration": 45},
+            )
+        assert resp.status_code != 404, f"clock 404'd on {key}: {resp.text[:200]}"
+
+    @pytest.mark.parametrize("key", HIDDEN_FROM_REAL)
+    def test_admin_can_post_a_goal_on_a_test_match(self, world, key):
+        match = world[key]
+        with _as(_ADMIN) as client:
+            resp = client.post(
+                f"/api/matches/{match['id']}/live/goal",
+                json={"team_id": match["home_team_id"], "player_name": "Tester"},
+            )
+        assert resp.status_code != 404, f"goal 404'd on {key}: {resp.text[:200]}"
+
+    @pytest.mark.parametrize("key", HIDDEN_FROM_REAL)
+    def test_admin_can_post_a_card_on_a_test_match(self, world, key):
+        match = world[key]
+        with _as(_ADMIN) as client:
+            resp = client.post(
+                f"/api/matches/{match['id']}/live/card",
+                json={
+                    "team_id": match["home_team_id"],
+                    "card_type": "yellow_card",
+                    "player_name": "Tester",
+                },
+            )
+        assert resp.status_code != 404, f"card 404'd on {key}: {resp.text[:200]}"
+
+    @pytest.mark.parametrize("key", HIDDEN_FROM_REAL)
+    def test_a_real_viewer_still_cannot_write_to_a_test_match(self, world, key):
+        """The fix must not disable the partition — only honour the viewer."""
+        with _as(_REAL_FAN) as client:
+            resp = client.post(
+                f"/api/matches/{world[key]['id']}/live/clock",
+                json={"action": "start_first_half", "half_duration": 45},
+            )
+        assert resp.status_code in (401, 403, 404), (
+            f"a real viewer reached a test match's clock on {key}: {resp.status_code}"
+        )
