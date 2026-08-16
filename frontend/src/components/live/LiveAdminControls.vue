@@ -241,13 +241,13 @@
               @click="selectedDuration = 40"
               :class="['preset-button', { selected: selectedDuration === 40 }]"
             >
-              40 (U14-15)
+              40 (U14)
             </button>
             <button
               @click="selectedDuration = 45"
               :class="['preset-button', { selected: selectedDuration === 45 }]"
             >
-              45 (U16+)
+              45 (U15+)
             </button>
           </div>
           <div class="duration-input-row">
@@ -740,13 +740,16 @@ const canSubmitGoal = computed(() => {
   return false;
 });
 
-// Compute default duration based on age group
+// Compute default duration based on age group. U15 and up play 45-minute
+// halves (SB-646 — U15 previously defaulted to 40, which silently skewed the
+// clock, the halftime prompt and extra time for the whole match).
+// Only a default: the 20-60 input below overrides it for tournaments and
+// friendlies that play something else.
 const defaultDuration = computed(() => {
   const ageGroup = props.matchState?.age_group_name?.toLowerCase() || '';
   if (ageGroup.includes('u13') || ageGroup.includes('u-13')) return 35;
   if (ageGroup.includes('u14') || ageGroup.includes('u-14')) return 40;
-  if (ageGroup.includes('u15') || ageGroup.includes('u-15')) return 40;
-  // U16, U17, U19 and default
+  // U15, U16, U17, U19 and default
   return 45;
 });
 

@@ -307,3 +307,60 @@ describe('LiveAdminControls card modal — Other option (SB-117)', () => {
     expect(payload.cardType).toBe('yellow_card');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Start Match modal — half-duration default per age group (SB-646)
+// ---------------------------------------------------------------------------
+
+describe('LiveAdminControls start modal — half duration default (SB-646)', () => {
+  /** Opens the Start Match modal and returns the duration input element. */
+  const openStartModal = async ageGroupName => {
+    const wrapper = mountControls({
+      matchPeriod: 'Not Started',
+      matchState: { ...baseMatchState, age_group_name: ageGroupName },
+    });
+    await wrapper.find('.control-button.start').trigger('click');
+    await wrapper.vm.$nextTick();
+    return wrapper;
+  };
+
+  it.each([
+    ['U13', 35],
+    ['U14', 40],
+    ['U15', 45], // the regression: was 40
+    ['U16', 45],
+    ['U17', 45],
+    ['U19', 45],
+  ])('defaults %s to %i minutes per half', async (ageGroup, expected) => {
+    const wrapper = await openStartModal(ageGroup);
+    expect(wrapper.vm.selectedDuration).toBe(expected);
+  });
+
+  it.each(['u15', 'U-15', 'U15 Boys'])(
+    'matches %s case- and format-insensitively',
+    async ageGroup => {
+      const wrapper = await openStartModal(ageGroup);
+      expect(wrapper.vm.selectedDuration).toBe(45);
+    }
+  );
+
+  it('falls back to 45 when the age group is missing', async () => {
+    const wrapper = await openStartModal(undefined);
+    expect(wrapper.vm.selectedDuration).toBe(45);
+  });
+
+  it('lets the user override the default for a short-half tournament', async () => {
+    const wrapper = await openStartModal('U15');
+    wrapper.vm.selectedDuration = 30;
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.find('.submit-button').attributes('disabled')
+    ).toBeUndefined();
+  });
+
+  it('labels the presets by the age groups that actually use them', async () => {
+    const wrapper = await openStartModal('U15');
+    const labels = wrapper.findAll('.preset-button').map(b => b.text());
+    expect(labels).toEqual(['35 (U13)', '40 (U14)', '45 (U15+)']);
+  });
+});
