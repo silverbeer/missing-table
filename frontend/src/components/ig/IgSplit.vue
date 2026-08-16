@@ -23,8 +23,18 @@
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
-        <path :d="panelPath" fill="#0a1224" />
-        <path :d="panelPath" fill="#0f172a" :opacity="0.6" />
+        <!-- Same tear, drawn twice: the accent copy sits a few px to the
+             right so it peeks out along the rip like colored paper
+             backing the torn sheet. Cheaper and sharper than a second
+             generated path, and it keeps the two edges perfectly
+             congruent. -->
+        <path
+          :d="panelPath"
+          :fill="accentColor"
+          transform="translate(7,0)"
+          :opacity="0.9"
+        />
+        <path :d="panelPath" fill="#0B0B0D" />
       </svg>
       <div class="panel-top">
         <div class="panel-top-row">
@@ -49,7 +59,11 @@
       </div>
 
       <div class="hero">
-        <span class="hero-eyebrow" data-testid="ig-eyebrow">
+        <span
+          class="hero-eyebrow"
+          data-testid="ig-eyebrow"
+          :style="{ background: accentColor, color: accentTextColor }"
+        >
           {{ ageGroupLabel }}
         </span>
         <h1 class="hero-title" data-testid="ig-status">
@@ -121,7 +135,10 @@
         />
       </div>
 
-      <div class="footer-band">
+      <div
+        class="footer-band"
+        :style="{ background: accentColor, color: accentTextColor }"
+      >
         <div class="footer-row">
           <div class="footer-date" data-testid="ig-date">
             {{ shortDateLabel
@@ -228,7 +245,9 @@ export default {
   width: 1080px;
   height: 1080px;
   overflow: hidden;
-  background: #0a1224;
+  /* Neutral near-black rather than navy, so club accents read as the
+     club's color instead of shifting blue against a blue ground. */
+  background: #0b0b0d;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
     Arial, sans-serif;
@@ -353,17 +372,18 @@ export default {
 
 .hero-title {
   font-size: 116px;
-  font-weight: 900;
+  /* Anton ships a single 400 weight. Asking for 900 here would make the
+     browser synthesise a fake bold on top of an already-heavy face. */
+  font-weight: 400;
   line-height: 0.88;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.005em;
   margin: 0;
   text-transform: uppercase;
-  font-family:
-    Impact, 'Haettenschweiler', 'Arial Narrow Bold', 'Bebas Neue', 'Oswald',
-    sans-serif;
-  font-style: italic;
-  transform: skewX(-4deg);
-  transform-origin: left center;
+  font-family: Anton, 'Arial Narrow Bold', sans-serif;
+  /* No font-style: italic and no skewX(). Anton has no italic cut, so
+     both were synthesising a slant — and stacking them applied it
+     twice. A real condensed face upright reads better than a faked
+     oblique. */
   /* Solid white + layered shadow for depth. Avoid background-clip:text;
      html2canvas renders that as transparent in the downloaded PNG. */
   color: #ffffff;
@@ -456,10 +476,9 @@ export default {
 }
 
 .footer-band {
-  /* Subtle gradient + warm inner highlight reads more polished than a
-     flat fill. Diagonal so the right side (under the torn-paper crop)
-     stays a touch brighter and catches the eye. */
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%);
+  /* Flat accent, set inline from accentColor so the band tracks the
+     club's brand color. Previously a fixed red gradient, which both
+     ignored the clubs and dated the card. */
   /* Inset from the panel edges so the rounded corners are visible. The
      right inset stays small because the torn-paper SVG crops further
      in; the left/bottom insets are the visible breathing room. */
@@ -469,14 +488,11 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #ffffff;
   font-weight: 700;
   letter-spacing: 0.04em;
-  /* Soft drop shadow + 1px top inner highlight = depth without
-     ornament. html2canvas handles both. */
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  /* Soft drop shadow for lift. The inset white highlight went with the
+     gradient — on a flat fill it just muddies the top edge. */
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
 .footer-row {
@@ -499,7 +515,10 @@ export default {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.95);
+  /* Inherit the band's accent-aware text color rather than assuming
+     white — the band is light when the accent is light. */
+  color: inherit;
+  opacity: 0.9;
 }
 
 .photo,
