@@ -80,3 +80,61 @@ def test_call_sites_derive_visibility_from_the_viewer():
         "viewer_sees_test_content(current_user). A constant True would let real "
         "users reach test matches; a constant False reintroduces SB-647."
     )
+
+
+# ---------------------------------------------------------------------------
+# SB-649 — the same defect one layer down, in the DAO's own read-backs
+# ---------------------------------------------------------------------------
+
+MATCH_DAO_PY = Path(__file__).resolve().parents[2] / "dao" / "match_dao.py"
+
+# Methods that mutate and then read the row back to return it. The read-back
+# must pass include_test=True: the caller was already authorised to write, so
+# re-applying the partition returns None and the handler reports a 500 for an
+# update that actually succeeded.
+MUTATING_METHODS = {"update_match_clock", "reopen_match", "update_match_score"}
+
+
+def _dao_readbacks() -> list[tuple[str, ast.Call]]:
+    """(enclosing method, call) for every self.get_live_match_state(...) in the DAO."""
+    tree = ast.parse(MATCH_DAO_PY.read_text())
+    found = []
+    for fn in ast.walk(tree):
+        if not isinstance(fn, ast.FunctionDef):
+            continue
+        for node in ast.walk(fn):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "get_live_match_state"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "self"
+            ):
+                found.append((fn.name, node))
+    return found
+
+
+def test_the_known_mutating_methods_still_exist():
+    """Guard the guard: a rename must not silently empty this test."""
+    names = {name for name, _ in _dao_readbacks()}
+    missing = MUTATING_METHODS - names
+    assert not missing, (
+        f"{sorted(missing)} no longer read state back via get_live_match_state — "
+        "were they renamed or refactored? Update MUTATING_METHODS."
+    )
+
+
+def test_post_write_readbacks_pass_include_test():
+    offenders = [
+        f"{name} (match_dao.py:{call.lineno})"
+        for name, call in _dao_readbacks()
+        if name in MUTATING_METHODS
+        and not any(kw.arg == "include_test" for kw in call.keywords)
+    ]
+    assert not offenders, (
+        "these post-write read-backs omit include_test: "
+        + ", ".join(offenders)
+        + ". get_live_match_state defaults it to False and filters is_test rows, "
+        "so the write succeeds and the caller still sees a failure (SB-649). "
+        "Pass include_test=True — the caller was already authorised to write."
+    )

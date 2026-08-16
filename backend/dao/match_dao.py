@@ -1502,8 +1502,15 @@ class MatchDAO(BaseDAO):
                 action=action,
             )
 
-            # Return updated state
-            return self.get_live_match_state(match_id)
+            # Return updated state.
+            #
+            # include_test=True is required (SB-649): this reads back a row the
+            # caller was already authorised to write, so re-applying the test
+            # partition here would return None for a test match and make the
+            # handler report a 500 for an update that actually succeeded.
+            # Visibility is enforced on the read endpoints, not on a write's
+            # own read-back.
+            return self.get_live_match_state(match_id, include_test=True)
 
         except Exception:
             logger.exception("Error updating match clock", match_id=match_id, action=action)
@@ -1551,7 +1558,8 @@ class MatchDAO(BaseDAO):
                 return None
 
             logger.info("match_reopened", match_id=match_id, updated_by=updated_by)
-            return self.get_live_match_state(match_id)
+            # include_test=True — read-back of an authorised write (SB-649).
+            return self.get_live_match_state(match_id, include_test=True)
 
         except Exception:
             logger.exception("Error reopening match", match_id=match_id)
@@ -1597,7 +1605,8 @@ class MatchDAO(BaseDAO):
                 away_score=away_score,
             )
 
-            return self.get_live_match_state(match_id)
+            # include_test=True — read-back of an authorised write (SB-649).
+            return self.get_live_match_state(match_id, include_test=True)
 
         except Exception:
             logger.exception("Error updating match score", match_id=match_id)
