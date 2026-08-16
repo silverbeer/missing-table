@@ -29,7 +29,11 @@
     <meta name="application-name" content="Missing Table">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Inter 800/900 are loaded because the Instagram share cards use those
+         weights; without them the browser synthesises a fake bold from 700
+         and the heavy type renders smeared. Anton is the share-card headline
+         face (single 400 weight, no italic cut). -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&display=swap" rel="stylesheet">
   </head>
   <body>
     <noscript>

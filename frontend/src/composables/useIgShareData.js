@@ -31,6 +31,73 @@ const initialsFor = name => {
     .toUpperCase();
 };
 
+// The dark ground the cards are drawn on, and MT's own accent used
+// whenever a club color can't be trusted. Kept here so the contrast
+// math and the templates agree on one value.
+export const CARD_GROUND = '#0B0B0D';
+export const MT_ACCENT = '#FFC400';
+
+// Seeded placeholder written for clubs nobody has branded yet. It is a
+// gray stand-in, not a brand color, so it must never drive the accent.
+const PLACEHOLDER_CLUB_COLORS = new Set(['#6b7280', '#374151']);
+
+// Deliberately below WCAG's 3:1 floor for graphical elements. That bar
+// is calibrated for small UI indicators that must be picked out at a
+// glance; the accent here is a large filled block (chip, footer band,
+// torn-edge underlay) where much less contrast still reads clearly.
+//
+// Calibrated against New York Red Bulls' #B22222, which scores 2.94:1
+// on this ground. It is an obviously visible red, and rejecting a real
+// club's brand color over 0.06 of a ratio point would be the wrong
+// trade. The dark colors this needs to catch are far below: #00008B is
+// 1.29, #0A2240 is 1.23, #000000 is 0.94.
+const MIN_ACCENT_CONTRAST = 2.5;
+
+// How long after a season opens a friendly still counts as preseason.
+//
+// Bounded by the real fixtures on both sides: the Aug 2026 friendlies
+// sit 22 days after the 2026-2027 opening and must be caught, while the
+// Oct 2025 friendlies sit 40 days after the 2025-2026 opening and must
+// not be. 30 days separates them with room either way.
+const PRESEASON_WINDOW_DAYS = 30;
+
+const isPlaceholderClubColor = hex =>
+  PLACEHOLDER_CLUB_COLORS.has(String(hex).trim().toLowerCase());
+
+const parseHex = hex => {
+  let h = String(hex).trim().replace('#', '');
+  if (h.length === 3) {
+    h = h
+      .split('')
+      .map(c => c + c)
+      .join('');
+  }
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+};
+
+// WCAG relative luminance.
+const relativeLuminance = hex => {
+  const rgb = parseHex(hex);
+  if (!rgb) return 0;
+  const [r, g, b] = rgb.map(v => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+const contrastRatio = (a, b) => {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+};
+
 // Format a goal event's minute the same way the in-app scoreboard does
 // (MatchDetailView.formatMinute): "22'" or, with stoppage time, "90+5'".
 const formatGoalMinute = event => {
@@ -82,6 +149,40 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
   const awayColor = computed(
     () => matchRef.value?.away_team_club?.primary_color || '#EF4444'
   );
+  // Accent color for the card's one bright moment (eyebrow chip, footer
+  // band, torn-edge underlay). Prefer the home club's brand color, then
+  // the away club's, then MT's own yellow.
+  //
+  // Two things make this less obvious than "just use the club color":
+  //
+  // 1. Most clubs have no real color. 105 of 127 sit on the seeded default
+  //    #6B7280, which is a gray placeholder, not a brand decision. Treating
+  //    it as a brand color would paint most cards the same dead gray.
+  // 2. Of the clubs that DO set one, several are navy or near-black
+  //    (#00008B, #0A2240, #0b0a0f, #000000). Those vanish against the dark
+  //    card ground, so the accent would silently disappear on exactly the
+  //    fixtures where a club bothered to set a color.
+  //
+  // So: skip the placeholder, then require the survivor to actually be
+  // visible before using it.
+  const accentColor = computed(() => {
+    const candidates = [
+      matchRef.value?.home_team_club?.primary_color,
+      matchRef.value?.away_team_club?.primary_color,
+    ];
+    for (const c of candidates) {
+      if (!c || isPlaceholderClubColor(c)) continue;
+      if (contrastRatio(c, CARD_GROUND) >= MIN_ACCENT_CONTRAST) return c;
+    }
+    return MT_ACCENT;
+  });
+
+  // Text that sits ON the accent (footer band, eyebrow chip). A light
+  // accent like MT yellow needs dark text; a dark accent needs white.
+  const accentTextColor = computed(() =>
+    relativeLuminance(accentColor.value) > 0.45 ? '#0B0B0D' : '#FFFFFF'
+  );
+
   const homeScore = computed(() => matchRef.value?.home_score ?? 0);
   const awayScore = computed(() => matchRef.value?.away_score ?? 0);
   const homeInitials = computed(() => initialsFor(homeTeamName.value));
@@ -124,9 +225,49 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
     return map[normalized] || normalized.replace(/\b\w/g, c => c.toUpperCase());
   });
 
+  // A friendly played in the run-up to the season proper is a preseason
+  // friendly, and that is what the card should say — "Friendly" alone
+  // undersells a fixture people are travelling to.
+  //
+  // There is no preseason flag in the data: match_types holds only
+  // League / Tournament / Friendly / Playoff. Nor does comparing against
+  // the season start work — 2026-2027 starts 2026-08-01 and these
+  // fixtures are late August, so they fall after it, not before.
+  //
+  // What actually separates preseason from a mid-season friendly is
+  // whether competitive play has started yet, so that is what this
+  // measures: a friendly inside PRESEASON_WINDOW_DAYS of the season
+  // opening. It is a heuristic and it is deliberately narrow — a
+  // friendly in October is not preseason and must not be labelled one.
+  //
+  // Replace with a real `seasons.preseason_end_date` when that lands;
+  // this reads it already and only falls back to the window when absent.
+  const isPreseasonFriendly = computed(() => {
+    const type = cleanName(matchRef.value?.match_type_name);
+    if (!type || type.toLowerCase() !== 'friendly') return false;
+
+    const matchDate = matchRef.value?.match_date;
+    const seasonStart = matchRef.value?.season_start_date;
+    if (!matchDate || !seasonStart) return false;
+
+    const explicitEnd = matchRef.value?.preseason_end_date;
+    if (explicitEnd) return matchDate <= explicitEnd;
+
+    const start = new Date(`${seasonStart}T00:00:00`);
+    const played = new Date(`${matchDate}T00:00:00`);
+    if (Number.isNaN(start.valueOf()) || Number.isNaN(played.valueOf())) {
+      return false;
+    }
+
+    const days = (played - start) / 86400000;
+    return days >= 0 && days <= PRESEASON_WINDOW_DAYS;
+  });
+
   const metaLabel = computed(() => {
     const parts = [];
-    const matchType = cleanName(matchRef.value?.match_type_name);
+    const matchType = isPreseasonFriendly.value
+      ? 'Preseason Friendly'
+      : cleanName(matchRef.value?.match_type_name);
     if (matchType) parts.push(matchType);
 
     const divisionName = cleanName(matchRef.value?.division_name);
@@ -280,6 +421,8 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
     awayLogoUrl,
     homeColor,
     awayColor,
+    accentColor,
+    accentTextColor,
     homeScore,
     awayScore,
     homeInitials,

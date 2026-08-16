@@ -348,8 +348,23 @@ export default {
       const el = captureCard.value?.root;
       if (!el) throw new Error('Capture card not mounted');
 
+      // html2canvas rasterises from computed styles at call time. If a
+      // webfont hasn't finished loading it silently falls back, so the
+      // on-screen preview looks right while the downloaded PNG — the
+      // thing that actually gets posted — is set in a fallback face.
+      // Wait for the headline font specifically, then for the rest.
+      if (document.fonts) {
+        try {
+          await document.fonts.load('400 116px Anton');
+          await document.fonts.ready;
+        } catch {
+          // A font that fails to load shouldn't block the download; the
+          // card still renders, just in the fallback face.
+        }
+      }
+
       const canvas = await html2canvas(el, {
-        backgroundColor: '#0f172a',
+        backgroundColor: '#0b0b0d',
         scale: 1, // Already rendered at 1080x1080.
         useCORS: true,
         allowTaint: false,
