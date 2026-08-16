@@ -79,7 +79,11 @@ class TestReopenMatchDAO:
             result = dao.reopen_match(123, updated_by="user-uuid-1")
 
         assert result is sentinel_state
-        mock_state.assert_called_once_with(123)
+        # include_test=True is load-bearing (SB-649): this reads back a row the
+        # caller was already authorised to write. Without it the partition
+        # filter returns None for a test match, and the endpoint reports a 500
+        # for a reopen that actually succeeded.
+        mock_state.assert_called_once_with(123, include_test=True)
 
         # Verify update payload
         update_chain.update.assert_called_once()
