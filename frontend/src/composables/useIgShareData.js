@@ -53,6 +53,14 @@ const PLACEHOLDER_CLUB_COLORS = new Set(['#6b7280', '#374151']);
 // 1.29, #0A2240 is 1.23, #000000 is 0.94.
 const MIN_ACCENT_CONTRAST = 2.5;
 
+// How long after a season opens a friendly still counts as preseason.
+//
+// Bounded by the real fixtures on both sides: the Aug 2026 friendlies
+// sit 22 days after the 2026-2027 opening and must be caught, while the
+// Oct 2025 friendlies sit 40 days after the 2025-2026 opening and must
+// not be. 30 days separates them with room either way.
+const PRESEASON_WINDOW_DAYS = 30;
+
 const isPlaceholderClubColor = hex =>
   PLACEHOLDER_CLUB_COLORS.has(String(hex).trim().toLowerCase());
 
@@ -217,9 +225,49 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
     return map[normalized] || normalized.replace(/\b\w/g, c => c.toUpperCase());
   });
 
+  // A friendly played in the run-up to the season proper is a preseason
+  // friendly, and that is what the card should say — "Friendly" alone
+  // undersells a fixture people are travelling to.
+  //
+  // There is no preseason flag in the data: match_types holds only
+  // League / Tournament / Friendly / Playoff. Nor does comparing against
+  // the season start work — 2026-2027 starts 2026-08-01 and these
+  // fixtures are late August, so they fall after it, not before.
+  //
+  // What actually separates preseason from a mid-season friendly is
+  // whether competitive play has started yet, so that is what this
+  // measures: a friendly inside PRESEASON_WINDOW_DAYS of the season
+  // opening. It is a heuristic and it is deliberately narrow — a
+  // friendly in October is not preseason and must not be labelled one.
+  //
+  // Replace with a real `seasons.preseason_end_date` when that lands;
+  // this reads it already and only falls back to the window when absent.
+  const isPreseasonFriendly = computed(() => {
+    const type = cleanName(matchRef.value?.match_type_name);
+    if (!type || type.toLowerCase() !== 'friendly') return false;
+
+    const matchDate = matchRef.value?.match_date;
+    const seasonStart = matchRef.value?.season_start_date;
+    if (!matchDate || !seasonStart) return false;
+
+    const explicitEnd = matchRef.value?.preseason_end_date;
+    if (explicitEnd) return matchDate <= explicitEnd;
+
+    const start = new Date(`${seasonStart}T00:00:00`);
+    const played = new Date(`${matchDate}T00:00:00`);
+    if (Number.isNaN(start.valueOf()) || Number.isNaN(played.valueOf())) {
+      return false;
+    }
+
+    const days = (played - start) / 86400000;
+    return days >= 0 && days <= PRESEASON_WINDOW_DAYS;
+  });
+
   const metaLabel = computed(() => {
     const parts = [];
-    const matchType = cleanName(matchRef.value?.match_type_name);
+    const matchType = isPreseasonFriendly.value
+      ? 'Preseason Friendly'
+      : cleanName(matchRef.value?.match_type_name);
     if (matchType) parts.push(matchType);
 
     const divisionName = cleanName(matchRef.value?.division_name);

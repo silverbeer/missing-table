@@ -90,6 +90,80 @@ describe('IG share accent color', () => {
   });
 });
 
+describe('preseason friendly labelling', () => {
+  const metaFor = overrides => {
+    const { metaLabel } = useIgShareData(
+      ref({
+        home_team_name: 'Home FC',
+        away_team_name: 'Away FC',
+        match_type_name: 'Friendly',
+        season_name: '2026-2027',
+        ...overrides,
+      }),
+      ref('preview'),
+      ref([])
+    );
+    return metaLabel.value;
+  };
+
+  it('labels a friendly just after the season opens as preseason', () => {
+    // The real fixture: 2026-2027 opens 2026-08-01, match is 22 days in.
+    expect(
+      metaFor({ match_date: '2026-08-23', season_start_date: '2026-08-01' })
+    ).toContain('PRESEASON FRIENDLY');
+  });
+
+  it('does NOT label a mid-season friendly as preseason', () => {
+    // The Oct 2025 friendlies sit 40 days after the 2025-2026 opening.
+    // Calling these preseason would be plainly wrong on a public post.
+    const label = metaFor({
+      match_date: '2025-10-11',
+      season_start_date: '2025-09-01',
+      season_name: '2025-2026',
+    });
+    expect(label).not.toContain('PRESEASON');
+    expect(label).toContain('FRIENDLY');
+  });
+
+  it('never labels a non-friendly as preseason', () => {
+    expect(
+      metaFor({
+        match_type_name: 'League',
+        match_date: '2026-08-23',
+        season_start_date: '2026-08-01',
+      })
+    ).not.toContain('PRESEASON');
+  });
+
+  it('prefers an explicit preseason_end_date over the date window', () => {
+    // Once seasons.preseason_end_date exists it must win, including when
+    // it disagrees with the heuristic.
+    expect(
+      metaFor({
+        match_date: '2026-09-20',
+        season_start_date: '2026-08-01',
+        preseason_end_date: '2026-09-30',
+      })
+    ).toContain('PRESEASON FRIENDLY');
+
+    expect(
+      metaFor({
+        match_date: '2026-08-23',
+        season_start_date: '2026-08-01',
+        preseason_end_date: '2026-08-10',
+      })
+    ).not.toContain('PRESEASON');
+  });
+
+  it('falls back to plain Friendly when the season start is unknown', () => {
+    // Older payloads have no season_start_date; guessing would be worse
+    // than saying less.
+    const label = metaFor({ match_date: '2026-08-23' });
+    expect(label).not.toContain('PRESEASON');
+    expect(label).toContain('FRIENDLY');
+  });
+});
+
 describe('IG share accent text color', () => {
   it('uses dark text on a light accent', () => {
     expect(accentTextFor('#FFC400', null)).toBe('#0B0B0D');

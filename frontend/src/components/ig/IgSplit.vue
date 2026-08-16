@@ -72,8 +72,12 @@
         </h1>
       </div>
 
+      <!-- Stacked home / VS / away. Three rows rather than a side-by-side
+           trio: the panel is now too narrow for two team names abreast,
+           and stacking lets each name run at a readable size instead of
+           wrapping into a column an inch wide. -->
       <div class="matchup">
-        <div class="crest-block">
+        <div class="team-row">
           <div
             class="crest"
             :class="{ 'crest-filled': !homeLogoUrl }"
@@ -93,18 +97,21 @@
           </div>
         </div>
 
-        <div class="vs-block">
+        <div class="vs-row">
           <template v-if="isResult">
             <div class="score" data-testid="ig-score">
               {{ homeScore }} – {{ awayScore }}
             </div>
           </template>
           <template v-else>
-            <div class="vs" data-testid="ig-vs">VS</div>
+            <div class="vs" data-testid="ig-vs" :style="{ color: accentColor }">
+              VS
+            </div>
           </template>
+          <div class="vs-rule" :style="{ background: accentColor }"></div>
         </div>
 
-        <div class="crest-block">
+        <div class="team-row">
           <div
             class="crest"
             :class="{ 'crest-filled': !awayLogoUrl }"
@@ -200,8 +207,12 @@ export default {
     // because html2canvas 1.4.1 ignores clip-path: polygon() during
     // capture, leaving the PNG with a straight edge.
     const panelPath = computed(() => {
+      // Strong lean: the panel gives up ~half its width by the bottom so
+      // the photo opens out toward the lower right, where the action in
+      // a match photo usually sits (feet, ball). A gentler angle wasted
+      // the frame on flat panel.
       const topX = 600;
-      const bottomX = 480;
+      const bottomX = 250;
       const height = 1080;
       const hash = n => {
         const s = Math.sin(n) * 43758.5453;
@@ -259,12 +270,16 @@ export default {
   position: absolute;
   top: 0;
   left: 0;
-  width: 620px;
+  width: 540px;
   height: 100%;
   z-index: 2;
-  /* Right padding clears the diagonal torn-edge (top ~600, bottom ~480)
-     so content stays inside the visible shape at every y. */
-  padding: 56px 140px 48px 48px;
+  /* Right padding clears the diagonal torn edge so content stays inside
+     the visible shape at every y. The tear now leans hard (600 -> 250 in
+     the 620-wide path space), so the bottom of the panel is much
+     narrower than the top — the footer band handles that with its own
+     negative right margin rather than padding the whole column for the
+     worst case, which would strand the headline in a thin gutter. */
+  padding: 56px 96px 48px 48px;
   display: flex;
   flex-direction: column;
   /* No CSS background — the inline SVG below paints the torn-shape fill
@@ -344,9 +359,12 @@ export default {
 }
 
 .meta {
-  font-size: 18px;
+  /* Tracked in a touch from the old 18px/0.18em so the longest real
+     label — "PRESEASON FRIENDLY · 2026-2027" — stays on one line in the
+     narrowed panel. */
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.75);
 }
 
@@ -371,7 +389,10 @@ export default {
 }
 
 .hero-title {
-  font-size: 116px;
+  /* Sized to fit the narrowed panel's content width without crossing the
+     torn edge. Anton is condensed, so this still reads far larger than
+     the old 116px Inter did. */
+  font-size: 88px;
   /* Anton ships a single 400 weight. Asking for 900 here would make the
      browser synthesise a fake bold on top of an already-heavy face. */
   font-weight: 400;
@@ -394,11 +415,34 @@ export default {
 
 .matchup {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 28px;
+  margin-bottom: 28px;
+}
+
+.team-row {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+}
+
+.vs-row {
+  display: flex;
+  align-items: center;
   gap: 16px;
-  margin-top: 32px;
-  margin-bottom: 32px;
+  /* Sit the VS under the crest lane so the three rows read as one
+     stack rather than three unrelated lines. */
+  padding-left: 22px;
+}
+
+.vs-rule {
+  height: 3px;
+  flex: 1;
+  border-radius: 2px;
+  opacity: 0.55;
 }
 
 .panel-scorers {
@@ -407,18 +451,10 @@ export default {
   margin-bottom: 28px;
 }
 
-.crest-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-}
-
 .crest {
-  width: 120px;
-  height: 120px;
+  width: 86px;
+  height: 86px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -444,27 +480,25 @@ export default {
 }
 
 .team-name {
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.15;
-  text-align: center;
+  font-family: Anton, 'Arial Narrow Bold', sans-serif;
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  min-width: 0;
   word-break: break-word;
-  max-width: 100%;
-}
-
-.vs-block {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 80px;
 }
 
 .vs {
-  font-size: 56px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.92);
+  /* Anton at a big optical size, in the accent, is the "cooler VS" —
+     a condensed display cut carrying color, rather than bold Inter. */
+  font-family: Anton, 'Arial Narrow Bold', sans-serif;
+  font-weight: 400;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
 }
 
 .score {
@@ -479,11 +513,13 @@ export default {
   /* Flat accent, set inline from accentColor so the band tracks the
      club's brand color. Previously a fixed red gradient, which both
      ignored the clubs and dated the card. */
-  /* Inset from the panel edges so the rounded corners are visible. The
-     right inset stays small because the torn-paper SVG crops further
-     in; the left/bottom insets are the visible breathing room. */
-  margin: 24px -116px -24px -24px;
-  padding: 18px 124px 18px 28px;
+  /* Runs out past the panel as a banner across the photo. The tear now
+     ends far to the left at the bottom, so the band no longer has to
+     reserve a wide right padding to stay inside the torn shape — it
+     deliberately overhangs instead, which also stops the date and handle
+     wrapping in a narrow column. */
+  margin: 24px -190px -24px -24px;
+  padding: 18px 32px;
   border-radius: 18px;
   display: flex;
   flex-direction: column;
@@ -498,16 +534,19 @@ export default {
 .footer-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: 22px;
+  align-items: baseline;
+  gap: 20px;
+  font-size: 21px;
 }
 
 .footer-date {
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .footer-handle {
-  font-size: 22px;
+  font-size: 21px;
+  white-space: nowrap;
 }
 
 .footer-tagline {
