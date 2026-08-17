@@ -151,13 +151,23 @@ export default {
       return name || `#${row.jersey_number}`;
     };
 
-    // Every player, not only scorers. With GP in the table an appearance is a
-    // contribution, and a squad list where someone is simply missing reads worse
-    // than one where they are present on zero (SB-670).
+    // Everyone who took part, not only scorers. An appearance is a
+    // contribution, so a player with games and no goals belongs here — while a
+    // squad member who has not played a minute does not, since a row of zeroes
+    // says something untrue about them (SB-670).
+    //
+    // A recorded goal, assist or card also counts as taking part. It ought to
+    // imply an appearance and normally does, but the appearance flags and the
+    // event counters are written by different paths, and a scorer missing from
+    // the scorers table would be a worse bug than one surplus row.
+    const played = computed(() =>
+      stats.value.filter(p => STAT_COLUMNS.some(col => (p[col.field] || 0) > 0))
+    );
+
     const rows = computed(() => {
       const primary = FIELD_BY_KEY[sortKey.value] || 'total_goals';
 
-      return [...stats.value].sort((a, b) => {
+      return [...played.value].sort((a, b) => {
         const byPrimary = (b[primary] || 0) - (a[primary] || 0);
         if (byPrimary !== 0) return byPrimary;
         // Goals then assists break the tie before a name does, so two players
@@ -174,15 +184,11 @@ export default {
       });
     });
 
-    // Nothing has been recorded for anyone. Distinct from "everyone scored
-    // zero": one is a season nobody logged, the other a season nobody scored in,
-    // and rendering the first as a squad of zeroes is exactly the absent-as-zero
-    // pun the CLAUDE.md rule forbids.
-    const nothingLogged = computed(
-      () =>
-        !stats.value.length ||
-        stats.value.every(p => STAT_COLUMNS.every(col => !(p[col.field] || 0)))
-    );
+    // Nobody took part in anything that was recorded. Distinct from "everyone
+    // scored zero": one is a season nobody logged, the other a season nobody
+    // scored in, and rendering the first as a table of zeroes is the
+    // absent-as-zero pun the CLAUDE.md rule forbids.
+    const nothingLogged = computed(() => !played.value.length);
 
     // Rank and medal follow the column being sorted, so the tint always marks
     // the leaders in what the reader is currently looking at.

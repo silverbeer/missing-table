@@ -2,7 +2,7 @@
  * GoldenBoot.vue — team season leaders (SB-433).
  *
  * Rules pinned here:
- *  (a) every player appears, including one who has done nothing recordable
+ *  (a) every player who took part appears; one who never played does not
  *  (b) default sort is goals, descending
  *  (c) ties break on goals then assists before falling back to a name
  *  (d) the top three rank cells carry a medal tint, following the sorted column
@@ -90,15 +90,47 @@ beforeEach(() => {
 });
 
 describe('GoldenBoot (SB-433)', () => {
-  it('lists every player, including one who has not scored', async () => {
+  it('lists everyone who took part, scorer or not', async () => {
     const wrapper = mountBoot();
     await flushPromises();
 
     const names = bodyRows(wrapper).map(cells => cells[1]);
     expect(names).toHaveLength(6);
-    expect(names.join(' ')).toContain('Owen Reilly'); // assists only
+    expect(names.join(' ')).toContain('Owen Reilly'); // assists, no goals
     // Appearances are a contribution now that GP is a column.
     expect(names.join(' ')).toContain('Quiet Defender');
+  });
+
+  it('leaves out a squad member who has never played', async () => {
+    const wrapper = mountBoot([
+      player(1, 9, 'Played', 'Once', { games_played: 1 }),
+      player(2, 8, 'Never', 'Played', { games_played: 0, games_started: 0 }),
+    ]);
+    await flushPromises();
+
+    const names = bodyRows(wrapper).map(cells => cells[1]);
+    expect(names.join(' ')).toContain('Played Once');
+    // A row of zeroes would say something untrue about them.
+    expect(names.join(' ')).not.toContain('Never Played');
+  });
+
+  it('keeps a scorer whose appearance was never flagged', async () => {
+    // Appearance flags and event counters are written by different paths; a
+    // scorer missing from the scorers table is the worse failure.
+    const wrapper = mountBoot([
+      player(1, 9, 'Ghost', 'Scorer', {
+        games_played: 0,
+        games_started: 0,
+        total_goals: 2,
+      }),
+    ]);
+    await flushPromises();
+
+    expect(
+      bodyRows(wrapper)
+        .map(c => c[1])
+        .join(' ')
+    ).toContain('Ghost Scorer');
   });
 
   it('defaults to goals descending', async () => {
@@ -164,8 +196,8 @@ describe('GoldenBoot (SB-433)', () => {
   });
 
   it('explains an unlogged season instead of showing a squad of zeroes', async () => {
-    // Every stat zero for everyone: nothing was recorded, which is not the same
-    // as a season in which nobody scored.
+    // Nobody took part in anything recorded — not the same as a season in
+    // which nobody scored.
     const wrapper = mountBoot([
       player(6, 2, 'Quiet', 'Defender', { games_played: 0, games_started: 0 }),
       player(7, 3, 'Also', 'Quiet', { games_played: 0, games_started: 0 }),
