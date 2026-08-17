@@ -2,12 +2,13 @@
  * GoldenBoot.vue — team season leaders (SB-433).
  *
  * Rules pinned here:
- *  (a) only players with a goal or an assist appear
+ *  (a) every player appears, including one who has done nothing recordable
  *  (b) default sort is goals, descending
  *  (c) ties break on goals then assists before falling back to a name
  *  (d) the top three rank cells carry a medal tint, following the sorted column
  *  (e) clicking a header re-sorts and moves the active-column marker
  *  (f) nothing logged renders an explanatory empty state, never a table of zeroes
+ *  (g) no medals when the leader leads on zero
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -48,9 +49,9 @@ const SQUAD = [
     total_yellow_cards: 3,
   }),
   player(4, 6, 'Sam', 'Okafor', { total_goals: 3, total_assists: 6 }),
-  // Assists only — must still appear.
+  // Assists only.
   player(5, 4, 'Owen', 'Reilly', { total_assists: 3 }),
-  // Played, contributed nothing recordable — must NOT appear.
+  // Appearances but nothing else — still belongs in the squad list (SB-670).
   player(6, 2, 'Quiet', 'Defender', { total_yellow_cards: 1 }),
 ];
 
@@ -89,14 +90,15 @@ beforeEach(() => {
 });
 
 describe('GoldenBoot (SB-433)', () => {
-  it('lists only players with a goal or an assist', async () => {
+  it('lists every player, including one who has not scored', async () => {
     const wrapper = mountBoot();
     await flushPromises();
 
     const names = bodyRows(wrapper).map(cells => cells[1]);
-    expect(names).toHaveLength(5);
+    expect(names).toHaveLength(6);
     expect(names.join(' ')).toContain('Owen Reilly'); // assists only
-    expect(names.join(' ')).not.toContain('Quiet Defender'); // neither
+    // Appearances are a contribution now that GP is a column.
+    expect(names.join(' ')).toContain('Quiet Defender');
   });
 
   it('defaults to goals descending', async () => {
@@ -106,7 +108,9 @@ describe('GoldenBoot (SB-433)', () => {
     const names = bodyRows(wrapper).map(cells => cells[1]);
     expect(names[0]).toContain('Gabe Drake');
     expect(names[1]).toContain('Marcus Chen');
-    expect(names[names.length - 1]).toContain('Owen Reilly');
+    // Owen has assists but no goals; the defender has neither, so he trails.
+    expect(names[names.length - 2]).toContain('Owen Reilly');
+    expect(names[names.length - 1]).toContain('Quiet Defender');
   });
 
   it('breaks a tie on the sorted column with goals, then assists', async () => {
@@ -159,14 +163,47 @@ describe('GoldenBoot (SB-433)', () => {
     expect(headers).toEqual(['GP', 'GS', 'G', 'A', 'YC', 'RC']);
   });
 
-  it('explains an empty table instead of showing zeroes', async () => {
-    const wrapper = mountBoot([player(6, 2, 'Quiet', 'Defender')]);
+  it('explains an unlogged season instead of showing a squad of zeroes', async () => {
+    // Every stat zero for everyone: nothing was recorded, which is not the same
+    // as a season in which nobody scored.
+    const wrapper = mountBoot([
+      player(6, 2, 'Quiet', 'Defender', { games_played: 0, games_started: 0 }),
+      player(7, 3, 'Also', 'Quiet', { games_played: 0, games_started: 0 }),
+    ]);
     await flushPromises();
 
     expect(wrapper.find('table').exists()).toBe(false);
-    expect(wrapper.text()).toContain('No goals or assists recorded yet');
-    // Never imply the team failed to score — say it was not tracked.
+    expect(wrapper.text()).toContain('Nothing recorded for this squad yet');
     expect(wrapper.text()).toContain('once matches are scored in the app');
+  });
+
+  it('shows the table once anything at all is logged', async () => {
+    // Appearances but no goals: honest zeroes, so the table belongs.
+    const wrapper = mountBoot([
+      player(6, 2, 'Quiet', 'Defender', { games_played: 4, games_started: 2 }),
+    ]);
+    await flushPromises();
+
+    expect(wrapper.find('table').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Quiet Defender');
+  });
+
+  it('awards no medals when the leader leads on zero', async () => {
+    const wrapper = mountBoot([
+      player(1, 9, 'No', 'Goals', { games_played: 5 }),
+      player(2, 8, 'Also', 'None', { games_played: 4 }),
+      player(3, 7, 'Still', 'None', { games_played: 3 }),
+    ]);
+    await flushPromises();
+
+    const rankCells = wrapper.findAll('tbody .gb-rank-col');
+    expect(rankCells[0].classes()).not.toContain('gb-medal-gold');
+
+    // Sorted by GP, where there is something to lead on, the tint returns.
+    await wrapper.findAll('thead .gb-sort-button')[0].trigger('click');
+    expect(wrapper.findAll('tbody .gb-rank-col')[0].classes()).toContain(
+      'gb-medal-gold'
+    );
   });
 
   it('defaults to the current season and league games only', async () => {
