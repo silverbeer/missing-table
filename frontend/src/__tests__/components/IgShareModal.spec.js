@@ -48,11 +48,16 @@ const makeFile = ({
   return new File([blob], name, { type });
 };
 
+// Defaults to the manager case (canPersistPhoto: true) because most of
+// these tests exercise the photo-upload path. SB-659 made persistence
+// opt-in, so a viewer without edit rights skips the upload entirely —
+// covered separately in the "photo persistence permission" block.
 const mountModal = (props = {}) =>
   mount(IgShareModal, {
     props: {
       open: true,
       match: createMockMatch(),
+      canPersistPhoto: true,
       ...props,
     },
   });
@@ -288,5 +293,111 @@ describe('IgShareModal', () => {
         /failed/i
       );
     });
+  });
+});
+
+describe('IgShareModal — photo persistence permission (SB-659)', () => {
+  beforeEach(() => {
+    mockAuthStore = createMockAuthStore();
+  });
+
+  it('does not upload the photo when the viewer cannot persist', async () => {
+    // A player generating a card for their own match: the photo stays in
+    // their browser and no write is attempted. Previously the whole modal
+    // was hidden from them; now it works, minus persistence.
+    const wrapper = mountModal({ canPersistPhoto: false });
+
+    const input = wrapper.find('[data-testid="ig-file-input"]');
+    Object.defineProperty(input.element, 'files', {
+      value: [makeFile()],
+      configurable: true,
+    });
+    await input.trigger('change');
+    await wrapper.find('[data-testid="ig-download-button"]').trigger('click');
+    await flushPromises();
+
+    expect(mockAuthStore.apiRequest).not.toHaveBeenCalled();
+  });
+
+  it('still lets that viewer generate a card', async () => {
+    const wrapper = mountModal({ canPersistPhoto: false });
+    await wrapper.find('[data-testid="ig-download-button"]').trigger('click');
+    await flushPromises();
+
+    // No upload error surfaced — skipping persistence is normal here, not
+    // a failure the user should be told about.
+    expect(wrapper.find('[data-testid="ig-upload-error"]').exists()).toBe(
+      false
+    );
+  });
+});
+
+describe('IgShareModal — accent picker (SB-659)', () => {
+  beforeEach(() => {
+    mockAuthStore = createMockAuthStore();
+  });
+
+  it('offers both clubs plus the Missing Table default', () => {
+    const wrapper = mountModal();
+    expect(wrapper.find('[data-testid="ig-accent-home"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="ig-accent-away"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="ig-accent-mt"]').exists()).toBe(true);
+  });
+
+  it('defaults to auto when the viewer has no team in the match', () => {
+    const wrapper = mountModal({ viewerTeamId: null });
+    expect(wrapper.vm.accentPreference).toBe('auto');
+  });
+
+  it("defaults to the viewer's own club when they are the away team", () => {
+    // The reported case: an IFA player looking at Red Bulls vs IFA should
+    // get IFA's colors without touching the picker, even though the home
+    // club would win the automatic resolution.
+    const wrapper = mountModal({ viewerTeamId: 2 });
+    expect(wrapper.vm.accentPreference).toBe('away');
+  });
+
+  it("defaults to the viewer's own club when they are the home team", () => {
+    const wrapper = mountModal({ viewerTeamId: 1 });
+    expect(wrapper.vm.accentPreference).toBe('home');
+  });
+
+  it('ignores a viewer team that is not playing in this match', () => {
+    const wrapper = mountModal({ viewerTeamId: 999 });
+    expect(wrapper.vm.accentPreference).toBe('auto');
+  });
+
+  it('disables a club whose color is the seeded placeholder gray', () => {
+    const wrapper = mountModal({
+      match: createMockMatch({
+        home_team_club: { logo_url: null, primary_color: '#6B7280' },
+      }),
+    });
+    const home = wrapper.find('[data-testid="ig-accent-home"]');
+    expect(home.attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="ig-accent-note"]').text()).toBeTruthy();
+  });
+
+  it('disables a club whose color is too dark to see on the card', () => {
+    const wrapper = mountModal({
+      match: createMockMatch({
+        away_team_club: { logo_url: null, primary_color: '#000000' },
+      }),
+    });
+    expect(
+      wrapper.find('[data-testid="ig-accent-away"]').attributes('disabled')
+    ).toBeDefined();
+  });
+
+  it('does not preselect the viewer club when that club is unusable', () => {
+    // Falling back to auto is better than showing "IFA" selected while the
+    // card renders a different color.
+    const wrapper = mountModal({
+      viewerTeamId: 1,
+      match: createMockMatch({
+        home_team_club: { logo_url: null, primary_color: '#6B7280' },
+      }),
+    });
+    expect(wrapper.vm.accentPreference).toBe('auto');
   });
 });

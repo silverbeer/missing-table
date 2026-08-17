@@ -12,6 +12,7 @@
     :photo-is-cross-origin="photoIsCrossOrigin"
     :events="events"
     :mode="mode"
+    :accent-preference="accentPreference"
   />
 </template>
 
@@ -48,6 +49,13 @@ export default {
       type: String,
       default: 'overlay',
       validator: v => SHARE_CARD_TEMPLATES.includes(v),
+    },
+    // SB-659: which team's colors drive the accent. 'auto' keeps the
+    // home-then-away-then-MT resolution.
+    accentPreference: {
+      type: String,
+      default: 'auto',
+      validator: v => ['auto', 'home', 'away', 'mt'].includes(v),
     },
   },
   setup(props) {

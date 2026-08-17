@@ -134,7 +134,34 @@ const byGoalTime = (a, b) =>
 // tournament matches that have no division.
 const cleanName = v => (v && v !== 'Unknown' && v !== 'unknown' ? v : null);
 
-export function useIgShareData(matchRef, modeRef, eventsRef) {
+/**
+ * Is this club color usable as the card accent?
+ *
+ * Rejects the seeded placeholder gray (a stand-in, not a brand decision)
+ * and anything too dark to see on the card ground. Exported so the modal
+ * can explain why an option is greyed out instead of silently swapping
+ * the color the user asked for.
+ */
+export const isUsableAccent = hex =>
+  !!hex &&
+  !isPlaceholderClubColor(hex) &&
+  contrastRatio(hex, CARD_GROUND) >= MIN_ACCENT_CONTRAST;
+
+/**
+ * @param matchRef  ref to the match
+ * @param modeRef   ref to 'preview' | 'result'
+ * @param eventsRef ref to match events
+ * @param accentPreferenceRef optional ref to 'auto' | 'home' | 'away' | 'mt'.
+ *   'auto' keeps the automatic home-then-away-then-MT resolution. An
+ *   explicit side is honoured when that club's color is usable, and falls
+ *   back rather than emitting an invisible accent.
+ */
+export function useIgShareData(
+  matchRef,
+  modeRef,
+  eventsRef,
+  accentPreferenceRef = null
+) {
   const homeTeamName = computed(() => matchRef.value?.home_team_name || '');
   const awayTeamName = computed(() => matchRef.value?.away_team_name || '');
   const homeLogoUrl = computed(
@@ -165,14 +192,22 @@ export function useIgShareData(matchRef, modeRef, eventsRef) {
   //
   // So: skip the placeholder, then require the survivor to actually be
   // visible before using it.
+  //
+  // SB-659: the automatic order is only a default. Someone posting to their
+  // own club's feed wants their own club's colors, which on e.g. Red Bulls
+  // vs IFA is the away side — so an explicit preference wins when the
+  // chosen club's color is actually usable.
   const accentColor = computed(() => {
-    const candidates = [
-      matchRef.value?.home_team_club?.primary_color,
-      matchRef.value?.away_team_club?.primary_color,
-    ];
-    for (const c of candidates) {
-      if (!c || isPlaceholderClubColor(c)) continue;
-      if (contrastRatio(c, CARD_GROUND) >= MIN_ACCENT_CONTRAST) return c;
+    const home = matchRef.value?.home_team_club?.primary_color;
+    const away = matchRef.value?.away_team_club?.primary_color;
+    const pref = accentPreferenceRef?.value || 'auto';
+
+    if (pref === 'mt') return MT_ACCENT;
+    if (pref === 'home' && isUsableAccent(home)) return home;
+    if (pref === 'away' && isUsableAccent(away)) return away;
+
+    for (const c of [home, away]) {
+      if (isUsableAccent(c)) return c;
     }
     return MT_ACCENT;
   });

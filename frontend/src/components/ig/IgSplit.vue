@@ -190,11 +190,17 @@ export default {
       required: true,
       validator: v => ['preview', 'result'].includes(v),
     },
+    // SB-659: which team's colors drive the accent.
+    accentPreference: {
+      type: String,
+      default: 'auto',
+      validator: v => ['auto', 'home', 'away', 'mt'].includes(v),
+    },
   },
   setup(props) {
     const root = ref(null);
-    const { match, mode, events } = toRefs(props);
-    const data = useIgShareData(match, mode, events);
+    const { match, mode, events, accentPreference } = toRefs(props);
+    const data = useIgShareData(match, mode, events, accentPreference);
     const photoCrossOrigin = computed(() =>
       props.photoIsCrossOrigin ? 'anonymous' : null
     );
