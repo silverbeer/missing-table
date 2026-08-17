@@ -5930,6 +5930,7 @@ async def get_player_stats(
 async def get_team_stats(
     team_id: int,
     season_id: int = Query(..., description="Season ID for stats"),
+    match_type_id: int | None = Query(None, description="Restrict to one competition; omit for all"),
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
     """
@@ -5940,6 +5941,10 @@ async def get_team_stats(
 
     The viewer is resolved optionally (SB-591) so test matches never inflate a
     real player's totals for anonymous or real users.
+
+    match_type_id narrows to a single competition (SB-433) — a squad leaderboard
+    that silently mixes friendlies into league totals is not comparable with the
+    league table beside it.
     """
     try:
         # Verify team exists
@@ -5949,13 +5954,17 @@ async def get_team_stats(
 
         # Get team stats
         stats = player_stats_dao.get_team_stats(
-            team_id, season_id, include_test=viewer_sees_test_content(current_user)
+            team_id,
+            season_id,
+            include_test=viewer_sees_test_content(current_user),
+            match_type_id=match_type_id,
         )
 
         return {
             "team_id": team_id,
             "team_name": team.get("name"),
             "season_id": season_id,
+            "match_type_id": match_type_id,
             "players": stats,
         }
 
