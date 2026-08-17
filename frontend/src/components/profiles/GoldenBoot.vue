@@ -2,7 +2,31 @@
   <section class="golden-boot">
     <header class="gb-header">
       <h3 class="gb-title">Golden Boot</h3>
-      <span v-if="seasonName" class="gb-season">{{ seasonName }}</span>
+      <!-- Rendered only once the options exist. A <select> whose v-model is set
+           before its v-for options have arrived keeps displaying the option that
+           was there first, so the control would read "All" while the model — and
+           the request — said League. -->
+      <div v-if="filtersReady" class="gb-filters">
+        <select
+          v-model="selectedSeasonId"
+          class="gb-filter"
+          aria-label="Season"
+        >
+          <option v-for="s in seasons" :key="s.id" :value="s.id">
+            {{ s.name }}
+          </option>
+        </select>
+        <select
+          v-model="selectedMatchTypeId"
+          class="gb-filter"
+          aria-label="Competition"
+        >
+          <option v-for="t in matchTypes" :key="t.id" :value="t.id">
+            {{ t.name }}
+          </option>
+          <option value="all">All</option>
+        </select>
+      </div>
     </header>
 
     <div v-if="loading" class="gb-state">Loading season stats...</div>
@@ -89,6 +113,10 @@ const STAT_COLUMNS = [
   { key: 'rc', short: 'RC', label: 'red cards', field: 'total_red_cards' },
 ];
 
+// The "every competition" choice. A sentinel, not null, so the <select> and the
+// model cannot disagree about which option is selected.
+const ALL_COMPETITIONS = 'all';
+
 const FIELD_BY_KEY = Object.fromEntries(
   STAT_COLUMNS.map(c => [c.key, c.field])
 );
@@ -103,8 +131,17 @@ export default {
     const loading = ref(true);
     const error = ref(null);
     const stats = ref([]);
-    const seasonName = ref('');
     const sortKey = ref('goals');
+
+    const seasons = ref([]);
+    const matchTypes = ref([]);
+    const selectedSeasonId = ref(null);
+    // 'all' rather than null: a null-valued <option> carries no value attribute,
+    // so the browser falls back to its label and the select reports "All" no
+    // matter which entry Vue marked selected. An explicit sentinel keeps the DOM
+    // and the model agreeing.
+    const selectedMatchTypeId = ref(ALL_COMPETITIONS);
+    const filtersReady = ref(false);
 
     const statColumns = STAT_COLUMNS;
 
@@ -154,32 +191,59 @@ export default {
       sortKey.value = key;
     };
 
+    // Defaults: current season, league games only. A leaderboard that silently
+    // folds friendlies and tournaments into one total is not comparable with the
+    // league table beside it, so "All" has to be asked for.
+    const loadFilters = async () => {
+      const [seasonList, typeList] = await Promise.all([
+        authStore.apiRequest(`${getApiBaseUrl()}/api/seasons`, {
+          method: 'GET',
+        }),
+        authStore.apiRequest(`${getApiBaseUrl()}/api/match-types`, {
+          method: 'GET',
+        }),
+      ]);
+
+      seasons.value = seasonList || [];
+      matchTypes.value = typeList || [];
+
+      const currentSeason =
+        seasons.value.find(s => s.is_current) || seasons.value[0];
+      selectedSeasonId.value = currentSeason?.id ?? null;
+
+      const league = matchTypes.value.find(
+        t => (t.name || '').toLowerCase() === 'league'
+      );
+      // No league type configured is not an error — fall back to every
+      // competition rather than rendering an empty board.
+      selectedMatchTypeId.value = league?.id ?? ALL_COMPETITIONS;
+
+      filtersReady.value = true;
+      return !!currentSeason;
+    };
+
     const fetchStats = async () => {
-      if (!props.teamId) return;
+      if (!props.teamId || !filtersReady.value || !selectedSeasonId.value) {
+        return;
+      }
       loading.value = true;
       error.value = null;
 
       try {
-        // Same current-season resolution the rest of the app uses.
-        const seasons = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/seasons`,
-          { method: 'GET' }
-        );
-        const season =
-          (seasons || []).find(s => s.is_current) || (seasons || [])[0];
-        if (!season) {
-          error.value = 'No season configured';
-          return;
+        const params = new URLSearchParams({
+          season_id: String(selectedSeasonId.value),
+        });
+        if (selectedMatchTypeId.value !== ALL_COMPETITIONS) {
+          params.set('match_type_id', String(selectedMatchTypeId.value));
         }
-        seasonName.value = season.name || '';
 
         const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/teams/${props.teamId}/stats?season_id=${season.id}`,
+          `${getApiBaseUrl()}/api/teams/${props.teamId}/stats?${params}`,
           { method: 'GET' }
         );
         stats.value = Array.isArray(response)
           ? response
-          : response?.stats || [];
+          : response?.players || [];
       } catch (err) {
         console.error('Error loading team stats:', err);
         error.value = 'Could not load season stats';
@@ -188,14 +252,38 @@ export default {
       }
     };
 
-    onMounted(fetchStats);
+    const init = async () => {
+      loading.value = true;
+      error.value = null;
+      try {
+        const hasSeason = await loadFilters();
+        if (!hasSeason) {
+          error.value = 'No season configured';
+          loading.value = false;
+          return;
+        }
+      } catch (err) {
+        console.error('Error loading stat filters:', err);
+        error.value = 'Could not load season stats';
+        loading.value = false;
+        return;
+      }
+      await fetchStats();
+    };
+
+    onMounted(init);
     watch(() => props.teamId, fetchStats);
+    watch([selectedSeasonId, selectedMatchTypeId], fetchStats);
 
     return {
       loading,
       error,
       rows,
-      seasonName,
+      filtersReady,
+      seasons,
+      matchTypes,
+      selectedSeasonId,
+      selectedMatchTypeId,
       sortKey,
       statColumns,
       playerName,
@@ -225,9 +313,23 @@ export default {
   color: #111827;
 }
 
-.gb-season {
+.gb-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.gb-filter {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: #374151;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.gb-filter:hover {
+  border-color: #9ca3af;
 }
 
 .gb-state {

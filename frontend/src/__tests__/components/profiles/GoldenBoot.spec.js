@@ -14,7 +14,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import GoldenBoot from '@/components/profiles/GoldenBoot.vue';
 
-const SEASONS = [{ id: 7, name: '2026', is_current: true }];
+const SEASONS = [
+  { id: 6, name: '2025', is_current: false },
+  { id: 7, name: '2026', is_current: true },
+];
+
+const MATCH_TYPES = [
+  { id: 1, name: 'League' },
+  { id: 2, name: 'Friendly' },
+  { id: 3, name: 'Tournament' },
+];
 
 const player = (id, jersey, first, last, over = {}) => ({
   player_id: id,
@@ -57,11 +66,20 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/config/api', () => ({ getApiBaseUrl: () => 'http://test' }));
 
 const mountBoot = (stats = SQUAD) => {
-  apiRequest.mockImplementation(url =>
-    Promise.resolve(url.includes('/api/seasons') ? SEASONS : stats)
-  );
+  apiRequest.mockImplementation(url => {
+    if (url.includes('/api/seasons')) return Promise.resolve(SEASONS);
+    if (url.includes('/api/match-types')) return Promise.resolve(MATCH_TYPES);
+    return Promise.resolve({ players: stats });
+  });
   return mount(GoldenBoot, { props: { teamId: 42 } });
 };
+
+/** The URL of the most recent team-stats request. */
+const lastStatsUrl = () =>
+  apiRequest.mock.calls
+    .map(c => c[0])
+    .filter(u => u.includes('/stats'))
+    .slice(-1)[0];
 
 const bodyRows = wrapper =>
   wrapper.findAll('tbody tr').map(tr => tr.findAll('td').map(td => td.text()));
@@ -149,6 +167,60 @@ describe('GoldenBoot (SB-433)', () => {
     expect(wrapper.text()).toContain('No goals or assists recorded yet');
     // Never imply the team failed to score — say it was not tracked.
     expect(wrapper.text()).toContain('once matches are scored in the app');
+  });
+
+  it('defaults to the current season and league games only', async () => {
+    const wrapper = mountBoot();
+    await flushPromises();
+
+    const url = lastStatsUrl();
+    expect(url).toContain('season_id=7'); // is_current
+    expect(url).toContain('match_type_id=1'); // League
+
+    await wrapper.vm.$nextTick();
+    const selects = wrapper.findAll('.gb-filter');
+    expect(selects[0].element.value).toBe('7');
+    expect(selects[1].element.value).toBe('1');
+  });
+
+  it('refetches when the competition changes, and omits the param for All', async () => {
+    const wrapper = mountBoot();
+    await flushPromises();
+
+    const competition = wrapper.findAll('.gb-filter')[1];
+    await competition.findAll('option')[2].setSelected(); // Tournament
+    await flushPromises();
+    expect(lastStatsUrl()).toContain('match_type_id=3');
+
+    // "All" is the absence of the filter, not a value the API knows.
+    await competition.findAll('option')[3].setSelected(); // All
+    await flushPromises();
+    expect(lastStatsUrl()).not.toContain('match_type_id');
+    expect(lastStatsUrl()).toContain('season_id=7');
+  });
+
+  it('refetches when the season changes', async () => {
+    const wrapper = mountBoot();
+    await flushPromises();
+
+    await wrapper.findAll('.gb-filter')[0].findAll('option')[0].setSelected();
+    await flushPromises();
+
+    expect(lastStatsUrl()).toContain('season_id=6');
+  });
+
+  it('falls back to all competitions when no league type exists', async () => {
+    apiRequest.mockImplementation(url => {
+      if (url.includes('/api/seasons')) return Promise.resolve(SEASONS);
+      if (url.includes('/api/match-types'))
+        return Promise.resolve([{ id: 2, name: 'Friendly' }]);
+      return Promise.resolve({ players: SQUAD });
+    });
+    mount(GoldenBoot, { props: { teamId: 42 } });
+    await flushPromises();
+
+    // Better a full board than an empty one built on an assumption.
+    expect(lastStatsUrl()).not.toContain('match_type_id');
   });
 
   it('surfaces a load failure rather than an empty leaderboard', async () => {
