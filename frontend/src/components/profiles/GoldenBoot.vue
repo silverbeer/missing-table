@@ -35,11 +35,12 @@
 
     <!-- Absent is not zero (CLAUDE.md: "Most Teams Have No User Data"). An empty
          table would read as "nobody scored"; this says nothing has been logged. -->
-    <div v-else-if="!rows.length" class="gb-state gb-state-empty">
-      <p class="gb-empty-title">No goals or assists recorded yet</p>
+    <div v-else-if="nothingLogged" class="gb-state gb-state-empty">
+      <p class="gb-empty-title">Nothing recorded for this squad yet</p>
       <p class="gb-empty-hint">
-        Goals and assists appear here once matches are scored in the app.
-        Results from the league feed do not include who scored.
+        Appearances, goals and assists appear here once matches are scored in
+        the app. Results from the league feed do not include who played or who
+        scored.
       </p>
     </div>
 
@@ -150,18 +151,23 @@ export default {
       return name || `#${row.jersey_number}`;
     };
 
-    // Only players who did something. A roster listing every squad member at
-    // 0 and 0 buries the four who scored, and reads as a judgement on the rest.
-    const contributors = computed(() =>
-      stats.value.filter(
-        p => (p.total_goals || 0) > 0 || (p.total_assists || 0) > 0
-      )
+    // Everyone who took part, not only scorers. An appearance is a
+    // contribution, so a player with games and no goals belongs here — while a
+    // squad member who has not played a minute does not, since a row of zeroes
+    // says something untrue about them (SB-670).
+    //
+    // A recorded goal, assist or card also counts as taking part. It ought to
+    // imply an appearance and normally does, but the appearance flags and the
+    // event counters are written by different paths, and a scorer missing from
+    // the scorers table would be a worse bug than one surplus row.
+    const played = computed(() =>
+      stats.value.filter(p => STAT_COLUMNS.some(col => (p[col.field] || 0) > 0))
     );
 
     const rows = computed(() => {
       const primary = FIELD_BY_KEY[sortKey.value] || 'total_goals';
 
-      return [...contributors.value].sort((a, b) => {
+      return [...played.value].sort((a, b) => {
         const byPrimary = (b[primary] || 0) - (a[primary] || 0);
         if (byPrimary !== 0) return byPrimary;
         // Goals then assists break the tie before a name does, so two players
@@ -178,13 +184,23 @@ export default {
       });
     });
 
+    // Nobody took part in anything that was recorded. Distinct from "everyone
+    // scored zero": one is a season nobody logged, the other a season nobody
+    // scored in, and rendering the first as a table of zeroes is the
+    // absent-as-zero pun the CLAUDE.md rule forbids.
+    const nothingLogged = computed(() => !played.value.length);
+
     // Rank and medal follow the column being sorted, so the tint always marks
     // the leaders in what the reader is currently looking at.
     const medalClass = index => {
+      if (index > 2) return '';
+      // No medals for leading on nothing — sorted by goals on a team that has
+      // not scored, the top three would otherwise be tinted for zero.
+      const primary = FIELD_BY_KEY[sortKey.value] || 'total_goals';
+      if (!(rows.value[0]?.[primary] || 0)) return '';
       if (index === 0) return 'gb-medal-gold';
       if (index === 1) return 'gb-medal-silver';
-      if (index === 2) return 'gb-medal-bronze';
-      return '';
+      return 'gb-medal-bronze';
     };
 
     const sortBy = key => {
@@ -279,6 +295,7 @@ export default {
       loading,
       error,
       rows,
+      nothingLogged,
       filtersReady,
       seasons,
       matchTypes,
