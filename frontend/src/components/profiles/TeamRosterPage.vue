@@ -181,6 +181,11 @@
           @click="handlePlayerClick"
         />
       </div>
+
+      <!-- Season leaders. Rendered outside the roster-empty branch on purpose:
+           these stats come from logged match events, so they can exist for a
+           squad whose roster cards have not been filled in. -->
+      <GoldenBoot v-if="resolvedTeamId" :team-id="resolvedTeamId" />
     </template>
   </div>
 </template>
@@ -190,12 +195,14 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import PlayerCard from './PlayerCard.vue';
+import GoldenBoot from './GoldenBoot.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
 
 export default {
   name: 'TeamRosterPage',
   components: {
     PlayerCard,
+    GoldenBoot,
     FollowButton,
   },
   emits: ['viewPlayer'],
@@ -225,6 +232,17 @@ export default {
 
     // Player count
     const playerCount = computed(() => players.value.length);
+
+    // Whichever team the page is actually showing. Mirrors the resolution order
+    // in fetchTeamPlayers so the stats table can never end up describing a
+    // different squad from the roster above it.
+    const resolvedTeamId = computed(
+      () =>
+        team.value?.id ||
+        selectedTeamId.value ||
+        authStore.state.profile?.team_id ||
+        null
+    );
 
     // Club initials for placeholder logo
     const clubInitials = computed(() => {
@@ -392,6 +410,7 @@ export default {
       players,
       teamName,
       playerCount,
+      resolvedTeamId,
       clubInitials,
       teamHeaderStyle,
       logoPlaceholderStyle,
