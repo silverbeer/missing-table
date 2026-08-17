@@ -283,10 +283,13 @@ class MatchEventDAO(BaseDAO):
         player_id: int | None = None,
         assist_player_id: int | None = None,
         assist_player_name: str | None = None,
+        clear_assist: bool = False,
     ) -> dict | None:
         """Update editable fields on a match event.
 
-        Only updates fields that are provided (non-None).
+        Only updates fields that are provided (non-None), so `None` means
+        "leave unchanged" — which is why removing an assist needs its own flag
+        rather than a null id (SB-432).
 
         Args:
             event_id: Event to update
@@ -296,6 +299,8 @@ class MatchEventDAO(BaseDAO):
             player_id: New player ID
             assist_player_id: New assisting player ID
             assist_player_name: New assister display name
+            clear_assist: Drop the assist entirely — both the id and the
+                denormalized name. Takes precedence over the two assist args.
 
         Returns:
             Updated event record or None on error
@@ -314,6 +319,9 @@ class MatchEventDAO(BaseDAO):
                 data["assist_player_id"] = assist_player_id
             if assist_player_name is not None:
                 data["assist_player_name"] = assist_player_name
+            if clear_assist:
+                data["assist_player_id"] = None
+                data["assist_player_name"] = None
 
             if not data:
                 return self.get_event_by_id(event_id)
