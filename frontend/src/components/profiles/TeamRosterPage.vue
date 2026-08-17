@@ -292,17 +292,46 @@ export default {
       }
     };
 
+    // A team to start from, for a user who belongs to a club rather than to a
+    // squad. fetchClubTeams derives its club from the team already loaded,
+    // which is the wrong way round here — there is no team yet.
+    const firstTeamInClub = async () => {
+      const clubId = authStore.state.profile?.club_id;
+      if (!clubId) return null;
+
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/clubs/${clubId}/teams`,
+          { method: 'GET' }
+        );
+        if (Array.isArray(response) && response.length) {
+          clubTeams.value = response;
+          selectedClubTeamId.value = response[0].id;
+          return response[0].id;
+        }
+      } catch (err) {
+        console.error('Error resolving a team from the club:', err);
+      }
+      return null;
+    };
+
     // Fetch team players from API
     const fetchTeamPlayers = async (teamId = null) => {
       loading.value = true;
       error.value = null;
 
       try {
-        // Use provided teamId or selectedTeamId or user's team_id
-        const targetTeamId =
+        // Use provided teamId or selectedTeamId or user's team_id, and fall
+        // back to the club. Club managers and club fans carry a club_id and no
+        // team_id, so without this the page errors for exactly the roles it was
+        // opened to (SB-668).
+        let targetTeamId =
           teamId || selectedTeamId.value || authStore.state.profile?.team_id;
         if (!targetTeamId) {
-          error.value = 'You are not assigned to a team';
+          targetTeamId = await firstTeamInClub();
+        }
+        if (!targetTeamId) {
+          error.value = 'You are not assigned to a team or club';
           loading.value = false;
           return;
         }
@@ -320,7 +349,9 @@ export default {
 
         if (!response.ok) {
           if (response.status === 403) {
-            error.value = 'You can only view your own team roster';
+            // The server allows any team inside your own club, so a 403 here
+            // means a different club — not "not your team".
+            error.value = 'You can only view teams in your own club';
           } else if (response.status === 404) {
             error.value = 'Team not found';
           } else {
