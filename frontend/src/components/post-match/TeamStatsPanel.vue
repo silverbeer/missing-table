@@ -71,6 +71,23 @@
             class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
           />
         </div>
+        <div v-if="canPickAssist" class="flex-1 min-w-[120px]">
+          <label class="text-slate-400 text-xs block mb-1">Assist</label>
+          <select
+            v-model="goalForm.assist_player_id"
+            class="w-full bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600"
+          >
+            <option value="">No assist</option>
+            <option v-for="p in assistRosterOptions" :key="p.id" :value="p.id">
+              #{{ p.jersey_number }}
+              {{
+                p.display_name ||
+                `${p.first_name || ''} ${p.last_name || ''}`.trim() ||
+                `#${p.jersey_number}`
+              }}
+            </option>
+          </select>
+        </div>
         <div class="w-20">
           <label class="text-slate-400 text-xs block mb-1">Minute</label>
           <input
@@ -457,6 +474,7 @@ export default {
     const goalForm = ref({
       player_id: '',
       player_name: '',
+      assist_player_id: '',
       match_minute: null,
       extra_time: null,
     });
@@ -532,6 +550,29 @@ export default {
       return !!goalForm.value.player_name.trim();
     });
 
+    // The scorer can't assist their own goal — the API rejects it, so keep them
+    // out of the options instead of erroring after the fact.
+    const assistRosterOptions = computed(() =>
+      props.roster.filter(p => p.id !== goalForm.value.player_id)
+    );
+
+    // Only a roster scorer can carry an assist: the API takes a player id, and
+    // a free-text scorer has none.
+    const canPickAssist = computed(
+      () => !!goalForm.value.player_id && assistRosterOptions.value.length > 0
+    );
+
+    // A scorer change can leave the assist pointing at the new scorer, which
+    // the API would reject.
+    watch(
+      () => goalForm.value.player_id,
+      newVal => {
+        if (!newVal || goalForm.value.assist_player_id === newVal) {
+          goalForm.value.assist_player_id = '';
+        }
+      }
+    );
+
     const canSubmitCard = computed(() => {
       if (props.roster.length > 0) return !!cardForm.value.player_id;
       return !!cardForm.value.player_name.trim();
@@ -550,10 +591,14 @@ export default {
       if (goalForm.value.extra_time) {
         data.extra_time = goalForm.value.extra_time;
       }
+      if (goalForm.value.player_id && goalForm.value.assist_player_id) {
+        data.assist_player_id = goalForm.value.assist_player_id;
+      }
       emit('add-goal', data);
       goalForm.value = {
         player_id: '',
         player_name: '',
+        assist_player_id: '',
         match_minute: null,
         extra_time: null,
       };
@@ -630,6 +675,8 @@ export default {
       cardEvents,
       canSubmitGoal,
       canSubmitCard,
+      assistRosterOptions,
+      canPickAssist,
       formatMinute,
       playerDisplayName,
       onStartedChanged,

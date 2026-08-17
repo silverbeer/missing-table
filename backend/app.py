@@ -6468,14 +6468,33 @@ async def update_goal_event(
             # Increment new player's goals
             player_stats_dao.increment_goals(new_player_id, match_id)
 
-        # If assist_player_id is changing, adjust assist stats and resolve name
+        # If assist_player_id is changing, adjust assist stats and resolve name.
+        #
+        # An explicit null means "clear the assist", which `is not None` cannot
+        # express — so distinguish a field that was sent from one that was
+        # omitted. Without this an assist could be added and changed but never
+        # removed, which is the one correction a mis-tap actually needs (SB-432).
         assist_player_name = None
+        clear_assist = False
         old_assist_id = event.get("assist_player_id")
         new_assist_id = update.assist_player_id
-        if new_assist_id is not None and old_assist_id != new_assist_id:
+        assist_sent = "assist_player_id" in update.model_fields_set
+
+        if assist_sent and new_assist_id is None:
+            clear_assist = True
+            if old_assist_id:
+                player_stats_dao.decrement_assists(old_assist_id, match_id)
+        elif new_assist_id is not None and old_assist_id != new_assist_id:
+            # The same rules the create path enforces (app.py:3308-3318). Editing
+            # must not be able to reach a state a new goal would be rejected for.
+            scorer_id = new_player_id if new_player_id is not None else old_player_id
+            if scorer_id is not None and new_assist_id == scorer_id:
+                raise HTTPException(status_code=400, detail="Assist player cannot be the goal scorer")
             assist_player = roster_dao.get_player_by_id(new_assist_id)
             if not assist_player:
                 raise HTTPException(status_code=400, detail="Assist player not found")
+            if event.get("team_id") is not None and assist_player["team_id"] != event["team_id"]:
+                raise HTTPException(status_code=400, detail="Assist player must be on the scoring team")
             assist_player_name = assist_player.get("display_name", f"#{assist_player['jersey_number']}")
             if old_assist_id:
                 player_stats_dao.decrement_assists(old_assist_id, match_id)
@@ -6495,6 +6514,11 @@ async def update_goal_event(
             update_kwargs["assist_player_id"] = update.assist_player_id
         if assist_player_name is not None:
             update_kwargs["assist_player_name"] = assist_player_name
+        if clear_assist:
+            # A flag, not a null id: the DAO treats None as "leave unchanged",
+            # and both columns have to go together or the denormalized name
+            # outlives the id it described and the timeline renders a phantom.
+            update_kwargs["clear_assist"] = True
 
         updated = match_event_dao.update_event(event_id, **update_kwargs)
         if not updated:
