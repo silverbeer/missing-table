@@ -67,7 +67,7 @@ def _clock(action, match=None):
 
         try:
             client = TestClient(app)
-            response = client.post(f"/api/matches/123/live/clock", json={"action": action})
+            response = client.post("/api/matches/123/live/clock", json={"action": action})
         finally:
             app.dependency_overrides.clear()
 
