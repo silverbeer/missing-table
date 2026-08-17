@@ -125,6 +125,72 @@ Full-stack web application for MLS Next sports league standings and match schedu
 
 ---
 
+## CRITICAL: Most Teams Have No User Data
+
+**Absent user data is the normal state, not an error state.** Design every component for it.
+
+MT holds two kinds of data, and they fail in opposite directions:
+
+| Kind | Examples | Source | Coverage |
+|------|----------|--------|----------|
+| **System-generated** | match results, schedules, standings | MT scraper (MLS Next) | Every team, always |
+| **User-generated** | rosters, players, live scores, goals, assists | club/team managers | **The exception, not the rule** |
+
+A team exists in the database because the scraper created it, not because anyone signed up. So the
+default team has a season of results and nothing else. Adoption is the product goal — recruiting
+parents as team managers to build rosters, live-score matches, and record goals and assists — so
+every screen is either recruiting a manager or serving one, and a screen that breaks without a
+roster recruits nobody.
+
+### The three states — design all three, never default into one
+
+Every component that depends on user data handles:
+
+| State | Meaning | What the UI does |
+|-------|---------|------------------|
+| **Unclaimed** | no manager has claimed this team | show scraped data + a claim call-to-action |
+| **Claimed, empty** | manager exists, roster not built yet | show scraped data + a nudge to finish setup |
+| **Populated** | roster and/or match events exist | the full experience |
+
+These are distinct in the data model too: `null` (never provided) and `[]` (provided, empty) mean
+different things and must not be collapsed. The difference is the adoption funnel — how many
+claimed teams never finished a roster is the metric that tells us where onboarding fails.
+
+A loading skeleton is not an empty state. It promises data that is not coming.
+
+### Rules
+
+1. **Missing user data is `200`, never `404`.** The team exists — the scraper made it. A 404 says
+   otherwise, and it puts a routine, expected condition on the error path where it triggers
+   retries, alerts, and monitoring noise.
+2. **Never pun absent into zero.** "No goals recorded" ≠ "0 goals scored". A player page for an
+   untracked team must not render `0 G / 0 A` — that is a measurement claim about someone nobody
+   measured. Absent renders as absent (`—`, "not tracked"), and aggregates skip it rather than
+   summing it as zero.
+3. **Aggregates state their denominator.** A league-wide top-scorer list where 12% of teams log
+   goals ranks *who tracks*, not who scores. Any cross-team statistic ships with its coverage
+   ("from 9 of 74 teams reporting") or it does not ship.
+4. **Degrade per field, not per page.** A team with a roster but no logged goals still shows the
+   roster. One missing field never blanks a section, and never blanks a sibling section.
+5. **Scraped data wins on results; user data wins on attribution.** When a manager's logged goals
+   disagree with the scraped final score, the scraped score stands as the result and the user
+   events stand as who did what. A manual entry never rewrites a scraped score, and a re-scrape
+   never wipes goal attribution. Surface the disagreement rather than silently resolving it.
+6. **Provenance is queryable.** Every record carries whether it came from the scraper or a user,
+   and which user. Needed for the conflict rule above, for the audit trail on rosters of minors,
+   and for coverage numbers.
+
+### Testing
+
+**The default fixture is a team with scraped matches and no user data.** Populated rosters are the
+special case in tests because they are the special case in production. A test suite whose fixtures
+all have full rosters proves nothing about the experience most visitors get.
+
+Every component and endpoint that depends on user data needs a test per state above — including
+the assertion that absent does not render as zero.
+
+---
+
 ## Key Commands
 
 ### Service Management
@@ -322,4 +388,4 @@ Testing automation is handled by the [qe plugin](https://github.com/silverbeer/q
 
 ---
 
-**Last Updated**: 2026-06-11
+**Last Updated**: 2026-08-16
