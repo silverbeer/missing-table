@@ -17,6 +17,20 @@ logger = structlog.get_logger()
 STATS_CACHE_PATTERN = "mt:dao:stats:*"
 
 
+# Statuses that mean the match was actually contested. `scheduled`, `postponed`
+# and `cancelled` never happened, so nothing recorded against them is an
+# appearance (SB-671).
+#
+# `forfeit` is included for the same reason get_goals_leaderboard includes it —
+# a forfeited match can still have been played, and can carry real goals.
+#
+# `live` is included here and deliberately *not* in get_goals_leaderboard. A
+# squad's own board should move as its match is played, which is the whole point
+# of recording starters at kickoff; a league-wide leaderboard should not reorder
+# itself mid-match. Same column, different question.
+PLAYED_STATUSES = ("live", "completed", "forfeit")
+
+
 class PlayerStatsDAO(BaseDAO):
     """Data access object for player statistics operations."""
 
@@ -128,7 +142,7 @@ class PlayerStatsDAO(BaseDAO):
                 self.client.table("player_match_stats")
                 .select(f"""
                 *,
-                match:{MATCHES_READ_RELATION}!inner(id, season_id, is_test, match_type_id)
+                match:{MATCHES_READ_RELATION}!inner(id, season_id, is_test, match_type_id, match_status)
             """)
                 .eq("player_id", player_id)
                 .eq("match.season_id", season_id)
@@ -140,6 +154,14 @@ class PlayerStatsDAO(BaseDAO):
                 stats = [s for s in stats if not (s.get("match") or {}).get("is_test")]
             if match_type_id is not None:
                 stats = [s for s in stats if (s.get("match") or {}).get("match_type_id") == match_type_id]
+
+            # Only matches that actually happened. A lineup saved for a
+            # scheduled match, or a match started and then reverted to
+            # scheduled, leaves appearance rows behind that nothing cleans up —
+            # so the aggregation asks whether the match was played rather than
+            # trusting the rows to be tidy (SB-671). This also repairs existing
+            # data, which a cleanup hook could not.
+            stats = [s for s in stats if (s.get("match") or {}).get("match_status") in PLAYED_STATUSES]
 
             # Aggregate - only count games where player actually participated
             games_played = sum(1 for s in stats if s.get("played") or s.get("started"))

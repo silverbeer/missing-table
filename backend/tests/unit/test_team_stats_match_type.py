@@ -35,6 +35,8 @@ def _row(goals, assists, match_type_id, is_test=False):
             "season_id": 7,
             "is_test": is_test,
             "match_type_id": match_type_id,
+            # Played, so the SB-671 status filter lets these through.
+            "match_status": "completed",
         },
     }
 

@@ -3176,6 +3176,30 @@ async def update_match_clock(
             created_by_username=current_user.get("username"),
         )
 
+        # Kickoff is what makes a starter a starter (SB-671). The lineup is only
+        # a plan until this point — recording appearances when it was saved meant
+        # a squad's GP rose days before the match, and a lineup entered for a
+        # game that was never played counted forever.
+        #
+        # The idempotency guard above means this cannot double-write: a replayed
+        # start_first_half returns before reaching here.
+        if clock.action == "start_first_half":
+            try:
+                lineups = lineup_dao.get_lineups_for_match(match_id)
+                started_count = 0
+                for side in ("home", "away"):
+                    lineup_row = lineups.get(side) or {}
+                    for position in lineup_row.get("positions") or []:
+                        player_id = position.get("player_id")
+                        if player_id:
+                            player_stats_dao.set_started(player_id, match_id, started=True)
+                            started_count += 1
+                logger.info("kickoff_appearances_recorded", match_id=match_id, players=started_count)
+            except Exception:
+                # A stats failure must not stop a match from starting — the
+                # scorer is pitch-side and cannot debug this.
+                logger.exception("Failed to record kickoff appearances", match_id=match_id)
+
         # When a match ends, invalidate stats cache so leaderboard picks up new goals
         if clock.action == "end_match":
             from dao.base_dao import clear_cache
@@ -3779,7 +3803,11 @@ async def save_lineup(
     """Save or update lineup for a team in a match.
 
     Only accessible by admins, club managers, and team managers who can edit this match.
-    When lineup is saved, also marks all assigned players as started in player_match_stats.
+
+    Saving a lineup deliberately records no appearance. A lineup is a plan, and a
+    plan can be written days ahead or changed before kickoff — counting it as a
+    game played meant a squad's GP rose the moment Sunday's lineup was entered on
+    Friday (SB-671). Appearances are recorded when the match actually kicks off.
     """
     try:
         # Get user ID from current user
@@ -3799,10 +3827,6 @@ async def save_lineup(
 
         if not saved_lineup:
             raise HTTPException(status_code=500, detail="Failed to save lineup")
-
-        # Mark all players in lineup as started
-        for position in lineup.positions:
-            player_stats_dao.set_started(position.player_id, match_id, started=True)
 
         logger.info(
             "Lineup saved",
