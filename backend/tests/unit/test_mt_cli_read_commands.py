@@ -278,6 +278,42 @@ class TestMatchShow:
 
 
 @pytest.mark.unit
+class TestLoginWithoutATerminal:
+    """getpass cannot suppress echo without a TTY, so it warns, echoes the
+    password and aborts. Refuse up front instead."""
+
+    def test_non_tty_refuses_and_names_the_alternatives(self, monkeypatch):
+        monkeypatch.delenv("MT_PASSWORD", raising=False)
+        monkeypatch.setattr(mt_cli, "_load_env_vars", lambda: {})
+        monkeypatch.setattr(mt_cli.sys.stdin, "isatty", lambda: False)
+
+        result = runner.invoke(mt_cli.app, ["login", "tom"])
+
+        assert result.exit_code == 1
+        assert "MT_PASSWORD" in result.output
+        assert "TEST_USER_PASSWORD_TOM" in result.output
+        # Never reach getpass: it would echo the password into the transcript.
+        assert "Password for" not in result.output
+
+    def test_mt_password_env_is_used_without_prompting(self, monkeypatch):
+        monkeypatch.setenv("MT_PASSWORD", "hunter2")
+        monkeypatch.setattr(mt_cli, "_load_env_vars", lambda: {})
+        monkeypatch.setattr(mt_cli.sys.stdin, "isatty", lambda: False)
+
+        fake = MagicMock()
+        fake.login.return_value = {"access_token": "t", "refresh_token": "r", "user": {"role": "admin"}}
+        monkeypatch.setattr(mt_cli, "MissingTableClient", lambda **kw: fake)
+        monkeypatch.setattr(mt_cli, "save_state", lambda state: None)
+
+        result = runner.invoke(mt_cli.app, ["login", "tom"])
+
+        assert result.exit_code == 0
+        fake.login.assert_called_once_with("tom", "hunter2")
+        # The password itself must never be printed.
+        assert "hunter2" not in result.output
+
+
+@pytest.mark.unit
 class TestExpiredSession:
     """A dead token should read as advice, not as a stack trace."""
 

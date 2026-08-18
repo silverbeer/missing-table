@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import UTC, datetime
 from getpass import getpass
 from pathlib import Path
@@ -363,6 +364,19 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
 
     if password:
         console.print(f"[dim]Using password from {env_key}[/dim]")
+    elif os.environ.get("MT_PASSWORD"):
+        password = os.environ["MT_PASSWORD"]
+        console.print("[dim]Using password from MT_PASSWORD[/dim]")
+    elif not sys.stdin.isatty():
+        # getpass cannot turn off echo without a terminal, so it warns, echoes
+        # the password and aborts. Refuse up front instead: an agent shell or a
+        # piped session should be told what to do, not shown a typed password.
+        console.print("[red]No terminal available for a password prompt.[/red]")
+        console.print(
+            f"Set [cyan]MT_PASSWORD[/cyan] or [cyan]{env_key}[/cyan], "
+            "or run [cyan]mt login[/cyan] in a terminal."
+        )
+        raise typer.Exit(1)
     else:
         password = getpass(f"Password for {username}: ")
 

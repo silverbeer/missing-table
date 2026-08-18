@@ -237,6 +237,7 @@ Answer a data question here before reaching for the database.
 ```bash
 uv tool install --editable ./backend   # once; `mt` then works from anywhere
 mt login                               # session expires; read commands say so
+MT_PASSWORD=... mt login               # no TTY (agent shell, pipe, CI)
 ```
 
 ```bash
