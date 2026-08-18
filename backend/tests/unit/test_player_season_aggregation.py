@@ -22,6 +22,9 @@ def _dao_with(rows):
     return dao
 
 
+# SB-671 filters on match status, so every fixture row carries a played match.
+PLAYED_MATCH = {"id": 1, "season_id": 1, "is_test": False, "match_status": "completed"}
+
 MATCHES = [
     # started, full 90, scored twice, one assist, booked
     {
@@ -32,6 +35,7 @@ MATCHES = [
         "assists": 1,
         "yellow_cards": 1,
         "red_cards": 0,
+        "match": PLAYED_MATCH,
     },
     # off the bench, one assist
     {
@@ -42,6 +46,7 @@ MATCHES = [
         "assists": 1,
         "yellow_cards": 0,
         "red_cards": 0,
+        "match": PLAYED_MATCH,
     },
     # sent off
     {
@@ -52,6 +57,7 @@ MATCHES = [
         "assists": 0,
         "yellow_cards": 0,
         "red_cards": 1,
+        "match": PLAYED_MATCH,
     },
     # unused sub — must not count as an appearance
     {
@@ -62,6 +68,7 @@ MATCHES = [
         "assists": 0,
         "yellow_cards": 0,
         "red_cards": 0,
+        "match": PLAYED_MATCH,
     },
 ]
 
