@@ -278,6 +278,36 @@ class TestMatchShow:
 
 
 @pytest.mark.unit
+class TestExpiredSession:
+    """A dead token should read as advice, not as a stack trace."""
+
+    def test_read_commands_advise_login_instead_of_tracebacking(self, client):
+        from api_client import AuthenticationError
+
+        client.get_teams.side_effect = AuthenticationError("Invalid or expired token", 401)
+        client.get_seasons.side_effect = AuthenticationError("Invalid or expired token", 401)
+
+        for argv in (
+            ["team", "stats", "IFA U15"],
+            ["team", "matches", "IFA U15"],
+            ["player", "stats", "9"],
+        ):
+            result = runner.invoke(mt_cli.app, argv)
+            assert result.exit_code == 1, argv
+            assert "mt login" in result.output, argv
+            assert "Traceback" not in result.output, argv
+
+    def test_an_api_error_is_reported_not_raised(self, client):
+        from api_client import APIError
+
+        client.get_team_stats.side_effect = APIError("boom", 500)
+        result = runner.invoke(mt_cli.app, ["team", "stats", "IFA U15"])
+
+        assert result.exit_code == 1
+        assert "API error" in result.output
+
+
+@pytest.mark.unit
 class TestPlayerStats:
     def test_renders_a_season_line(self, client):
         result = runner.invoke(mt_cli.app, ["player", "stats", "9"])

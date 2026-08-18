@@ -1078,6 +1078,26 @@ def _fail(message: str) -> None:
     raise typer.Exit(1)
 
 
+def _api(fn, *args, **kwargs):
+    """Call the API, turning a dead session into advice rather than a traceback.
+
+    The write commands already catch this; the read commands did not, so an
+    expired token dumped a full rich traceback at someone who only asked for a
+    table (SB-672).
+    """
+    try:
+        return fn(*args, **kwargs)
+    except AuthenticationError:
+        console.print("[red]Session expired.[/red] Run [cyan]mt login[/cyan] and try again.")
+        raise typer.Exit(1) from None
+    except ResolutionError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from None
+    except APIError as exc:
+        console.print(f"[red]API error: {exc}[/red]")
+        raise typer.Exit(1) from None
+
+
 @team_app.command("stats")
 def team_stats(
     team: str = typer.Argument(..., help="Team name or id"),
@@ -1091,19 +1111,15 @@ def team_stats(
     """The Golden Boot board for a team."""
     client, _ = get_client()
 
-    try:
-        team_row = resolve_team(client, team)
-        season_row = resolve_season(client, season)
-        match_type = resolve_match_type(client, competition)
-    except ResolutionError as exc:
-        _fail(str(exc))
-    except APIError as exc:
-        _fail(f"API error: {exc}")
+    team_row = _api(resolve_team, client, team)
+    season_row = _api(resolve_season, client, season)
+    match_type = _api(resolve_match_type, client, competition)
 
     if not season_row:
         _fail("No season configured")
 
-    payload = client.get_team_stats(
+    payload = _api(
+        client.get_team_stats,
         team_row["id"],
         season_id=season_row["id"],
         match_type_id=(match_type or {}).get("id"),
@@ -1143,13 +1159,10 @@ def team_matches(
     """Matches for a team, with the status that decides whether they count."""
     client, _ = get_client()
 
-    try:
-        team_row = resolve_team(client, team)
-        season_row = resolve_season(client, season)
-    except ResolutionError as exc:
-        _fail(str(exc))
+    team_row = _api(resolve_team, client, team)
+    season_row = _api(resolve_season, client, season)
 
-    matches = client.get_games_by_team(team_row["id"], season_id=(season_row or {}).get("id")) or []
+    matches = _api(client.get_games_by_team, team_row["id"], season_id=(season_row or {}).get("id")) or []
     if not matches:
         console.print(f"[yellow]No matches for {team_row.get('name', team)}.[/yellow]")
         return
@@ -1185,10 +1198,7 @@ def match_show(match_id: int = typer.Argument(..., help="Match ID")):
     """One match: status, lineups and events."""
     client, _ = get_client()
 
-    try:
-        match = client.get_game(match_id)
-    except APIError as exc:
-        _fail(f"Could not load match {match_id}: {exc}")
+    match = _api(client.get_game, match_id)
 
     status = match.get("match_status", "?")
     counts = status in ("live", "completed", "forfeit")
@@ -1247,12 +1257,9 @@ def player_stats(
     """A player's season line."""
     client, _ = get_client()
 
-    try:
-        season_row = resolve_season(client, season)
-    except ResolutionError as exc:
-        _fail(str(exc))
+    season_row = _api(resolve_season, client, season)
 
-    stats = client.get_roster_player_stats(player_id, season_id=(season_row or {}).get("id"))
+    stats = _api(client.get_roster_player_stats, player_id, season_id=(season_row or {}).get("id"))
     if not stats:
         console.print("[yellow]No stats for that player.[/yellow]")
         return
