@@ -12,8 +12,8 @@
       <p>Please log in to view your team.</p>
     </div>
 
-    <!-- Not a player -->
-    <div v-else-if="userRole !== 'team-player'" class="not-player">
+    <!-- No stake in any squad -->
+    <div v-else-if="!canSeeTeamPage" class="not-player">
       <div class="info-icon">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -29,8 +29,11 @@
           />
         </svg>
       </div>
-      <h3>Players Only</h3>
-      <p>The team roster is only available for team players.</p>
+      <h3>No Squad Access</h3>
+      <p>
+        The team page is available to players, team and club managers, and fans
+        of a club.
+      </p>
     </div>
 
     <!-- No team assigned -->
@@ -75,6 +78,7 @@
 <script>
 import { ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { hasAnyRole, TEAM_PAGE_ROLES } from '@/utils/roles';
 import TeamRosterPage from './TeamRosterPage.vue';
 import PlayerDetailView from './PlayerDetailView.vue';
 
@@ -93,10 +97,23 @@ export default {
       return authStore.state.profile?.role || 'team-fan';
     });
 
-    // Check if user has a team assigned (via user_profiles.team_id or player_team_history)
+    // The same list App.vue gates the tab on. Kept in one place because these
+    // two checks drifted apart once already: the tab appeared and the page
+    // behind it said "Players Only" (SB-668).
+    const canSeeTeamPage = computed(() =>
+      hasAnyRole(TEAM_PAGE_ROLES, userRole.value)
+    );
+
+    // A squad to show. A club manager or club fan has no team_id and no player
+    // history, but belongs to a club — TeamRosterPage resolves a team from it,
+    // so requiring a team here would lock them out of a page built for them.
     const hasTeam = computed(() => {
       const profile = authStore.state.profile;
-      return !!profile?.team_id || profile?.current_teams?.length > 0;
+      return (
+        !!profile?.team_id ||
+        profile?.current_teams?.length > 0 ||
+        !!profile?.club_id
+      );
     });
 
     // Handle clicking on a player card
@@ -108,6 +125,7 @@ export default {
       authStore,
       selectedPlayerId,
       userRole,
+      canSeeTeamPage,
       hasTeam,
       handleViewPlayer,
     };

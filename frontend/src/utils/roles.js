@@ -23,3 +23,22 @@ export function hasAnyRole(required, role) {
   if (!actual) return false;
   return required.some(r => normalizeRole(r) === actual);
 }
+
+/**
+ * Who may see the team page — roster, Golden Boot board and all.
+ *
+ * Defined once because it is checked twice: App.vue decides whether the My Club
+ * tab appears, and TeamRosterRouter decides whether the page renders. Those two
+ * lists drifted apart the first time (SB-668), so the tab appeared and the page
+ * behind it said "Players Only".
+ *
+ * Written in one spelling; hasAnyRole normalizes the other.
+ */
+export const TEAM_PAGE_ROLES = [
+  'admin',
+  'club_manager',
+  'club-fan',
+  'team-manager',
+  'team-player',
+  'team-fan',
+];
