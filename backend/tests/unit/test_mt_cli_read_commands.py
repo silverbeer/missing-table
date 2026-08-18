@@ -278,6 +278,83 @@ class TestMatchShow:
 
 
 @pytest.mark.unit
+class TestLoginViaOnePassword:
+    """The prod env file holds no password, so op is the path that makes a
+    non-interactive prod login possible at all."""
+
+    def _no_other_sources(self, monkeypatch):
+        monkeypatch.delenv("MT_PASSWORD", raising=False)
+        monkeypatch.setattr(mt_cli, "_load_env_vars", lambda: {})
+        monkeypatch.setattr(mt_cli.sys.stdin, "isatty", lambda: False)
+
+    def _fake_op(self, monkeypatch, returncode=0, stdout="s3cret"):
+        calls = []
+
+        def fake_run(argv, **kwargs):
+            calls.append(argv)
+            return MagicMock(returncode=returncode, stdout=stdout)
+
+        monkeypatch.setattr(mt_cli.subprocess, "run", fake_run)
+        return calls
+
+    def _fake_client(self, monkeypatch):
+        fake = MagicMock()
+        fake.login.return_value = {"access_token": "t", "refresh_token": "r", "user": {"role": "admin"}}
+        monkeypatch.setattr(mt_cli, "MissingTableClient", lambda **kw: fake)
+        monkeypatch.setattr(mt_cli, "save_state", lambda state: None)
+        return fake
+
+    def test_reads_the_password_from_op(self, monkeypatch):
+        self._no_other_sources(monkeypatch)
+        calls = self._fake_op(monkeypatch)
+        fake = self._fake_client(monkeypatch)
+
+        result = runner.invoke(mt_cli.app, ["login", "tom"])
+
+        assert result.exit_code == 0
+        assert calls[0][:2] == ["op", "read"]
+        fake.login.assert_called_once_with("tom", "s3cret")
+        # The reference may be shown; the secret never.
+        assert "s3cret" not in result.output
+
+    def test_op_failure_falls_through_rather_than_exploding(self, monkeypatch):
+        self._no_other_sources(monkeypatch)
+        self._fake_op(monkeypatch, returncode=1, stdout="")
+
+        result = runner.invoke(mt_cli.app, ["login", "tom"])
+
+        # Locked vault is an ordinary situation: advise, do not stack-trace.
+        assert result.exit_code == 1
+        assert "MT_PASSWORD" in result.output
+
+    def test_missing_op_binary_falls_through(self, monkeypatch):
+        self._no_other_sources(monkeypatch)
+
+        def boom(*a, **k):
+            raise FileNotFoundError("op")
+
+        monkeypatch.setattr(mt_cli.subprocess, "run", boom)
+
+        result = runner.invoke(mt_cli.app, ["login", "tom"])
+
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+
+    def test_reference_defaults_to_the_env_item(self, monkeypatch):
+        monkeypatch.delenv("MT_OP_ITEM", raising=False)
+        monkeypatch.setattr(mt_cli, "mt_config_get", lambda key, default="": "")
+        monkeypatch.setattr(mt_cli, "get_current_env", lambda: "prod")
+
+        assert mt_cli.op_reference("tom") == "op://Personal/mt-prod/credential"
+
+    def test_reference_is_overridable(self, monkeypatch):
+        monkeypatch.setenv("MT_OP_ITEM", "op://Work/mt-{env}/{user}-password")
+        monkeypatch.setattr(mt_cli, "get_current_env", lambda: "dev")
+
+        assert mt_cli.op_reference("gabe") == "op://Work/mt-dev/gabe-password"
+
+
+@pytest.mark.unit
 class TestLoginWithoutATerminal:
     """getpass cannot suppress echo without a TTY, so it warns, echoes the
     password and aborts. Refuse up front instead."""

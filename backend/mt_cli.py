@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from datetime import UTC, datetime
 from getpass import getpass
@@ -189,6 +190,43 @@ def require_active_match(state: CLIState) -> int:
 
 
 # --- Helpers ---
+
+
+def op_reference(username: str) -> str:
+    """Where mt looks in 1Password for this environment's login.
+
+    Overridable with MT_OP_ITEM or an `op_item` line in .mt-config, so a second
+    account or vault does not need a code change. Defaults to the mt-<env> item
+    the account already uses for infrastructure secrets.
+    """
+    explicit = os.environ.get("MT_OP_ITEM") or mt_config_get("op_item")
+    if explicit:
+        return explicit.replace("{env}", get_current_env()).replace("{user}", username)
+    return f"op://Personal/mt-{get_current_env()}/credential"
+
+
+def password_from_op(username: str) -> str | None:
+    """Read the login password from 1Password, or None if unavailable.
+
+    Never raises: 1Password not installed, locked, or the field missing are all
+    ordinary situations that should fall through to the next source rather than
+    stop the command. Output is deliberately not logged — a password in a
+    terminal transcript is permanent.
+    """
+    reference = op_reference(username)
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["op", "read", reference],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
 
 
 def _load_env_vars() -> dict[str, str]:
@@ -367,6 +405,9 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
     elif os.environ.get("MT_PASSWORD"):
         password = os.environ["MT_PASSWORD"]
         console.print("[dim]Using password from MT_PASSWORD[/dim]")
+    elif (from_op := password_from_op(username)) is not None:
+        password = from_op
+        console.print(f"[dim]Using password from {op_reference(username)}[/dim]")
     elif not sys.stdin.isatty():
         # getpass cannot turn off echo without a terminal, so it warns, echoes
         # the password and aborts. Refuse up front instead: an agent shell or a
