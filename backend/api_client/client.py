@@ -973,12 +973,27 @@ class MissingTableClient:
         response = self._request("GET", f"/api/teams/{team_id}/players")
         return response.json()
 
-    def get_team_stats(self, team_id: int, season_id: int | None = None) -> dict[str, Any]:
-        """Get team stats."""
+    def get_team_stats(
+        self,
+        team_id: int,
+        season_id: int | None = None,
+        match_type_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Get team stats.
+
+        match_type_id narrows to one competition (SB-433); omit it for all.
+        """
         params = {}
         if season_id is not None:
             params["season_id"] = season_id
+        if match_type_id is not None:
+            params["match_type_id"] = match_type_id
         response = self._request("GET", f"/api/teams/{team_id}/stats", params=params or None)
+        return response.json()
+
+    def get_match_types(self) -> list[dict[str, Any]]:
+        """Get the competition vocabulary (League, Friendly, Tournament, ...)."""
+        response = self._request("GET", "/api/match-types")
         return response.json()
 
     # Team match types
