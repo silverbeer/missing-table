@@ -404,7 +404,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { lazyView } from './utils/lazyView';
-import { hasAnyRole } from './utils/roles';
+import { hasAnyRole, TEAM_PAGE_ROLES } from './utils/roles';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { getApiBaseUrl } from './config/api';
@@ -614,18 +614,9 @@ export default {
         id: 'my-club',
         name: 'My Club',
         requiresAuth: true,
-        // Everyone with a stake in a squad, not just its players (SB-668). The
-        // page carries the roster and the Golden Boot board, and a manager
-        // seeing what their own squad looks like is the recruiting pitch
-        // (SB-426). Spellings are normalized, so only one form is listed.
-        requiresRole: [
-          'admin',
-          'club_manager',
-          'club-fan',
-          'team-manager',
-          'team-player',
-          'team-fan',
-        ],
+        // Everyone with a stake in a squad, not just its players (SB-668).
+        // Shared with TeamRosterRouter so the tab and the page cannot disagree.
+        requiresRole: TEAM_PAGE_ROLES,
       },
       {
         id: 'admin',
