@@ -318,6 +318,11 @@ class TestLoginViaOnePassword:
         return calls
 
     def _fake_client(self, monkeypatch):
+        # get_base_url reads backend/.env.<env>, which CI does not have — it
+        # exits 1 rather than raising, so the test saw a clean failure with no
+        # message. Stub it, and the state file with it.
+        monkeypatch.setattr(mt_cli, "get_base_url", lambda: "http://test")
+        monkeypatch.setattr(mt_cli, "load_state", lambda: mt_cli.CLIState())
         fake = MagicMock()
         fake.login.return_value = {"access_token": "t", "refresh_token": "r", "user": {"role": "admin"}}
         monkeypatch.setattr(mt_cli, "MissingTableClient", lambda **kw: fake)
@@ -401,6 +406,8 @@ class TestLoginWithoutATerminal:
         fake.login.return_value = {"access_token": "t", "refresh_token": "r", "user": {"role": "admin"}}
         monkeypatch.setattr(mt_cli, "MissingTableClient", lambda **kw: fake)
         monkeypatch.setattr(mt_cli, "save_state", lambda state: None)
+        monkeypatch.setattr(mt_cli, "get_base_url", lambda: "http://test")
+        monkeypatch.setattr(mt_cli, "load_state", lambda: mt_cli.CLIState())
 
         result = runner.invoke(mt_cli.app, ["login", "tom"])
 
