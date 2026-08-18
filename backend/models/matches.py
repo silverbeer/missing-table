@@ -45,6 +45,12 @@ class MatchPatch(BaseModel):
     status: str | None = None
     external_match_id: str | None = None  # External match identifier
     scheduled_kickoff: datetime | None = None  # Scheduled kickoff datetime in UTC
+    # Minutes per half. Normally set once by start_first_half, but that action
+    # is idempotent, so a wrong value chosen at kickoff was previously
+    # uncorrectable (SB-678). The clock is derived from timestamps + this
+    # value, so patching it immediately corrects the displayed minute, the
+    # halftime prompt and extra time. Recorded events keep their own minutes.
+    half_duration: int | None = None
     home_penalty_score: int | None = None  # Penalty shootout score (only when regulation ends in draw)
     away_penalty_score: int | None = None
 
