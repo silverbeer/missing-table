@@ -229,6 +229,34 @@ helm upgrade missing-table ./missing-table --namespace missing-table -f ./missin
 
 ---
 
+## The `mt` CLI
+
+A thin HTTP client over the API — live scoring and, since SB-672, read commands.
+Answer a data question here before reaching for the database.
+
+```bash
+uv tool install --editable ./backend   # once; `mt` then works from anywhere
+mt login                               # session expires; read commands say so
+```
+
+```bash
+mt team stats "IFA U15"                # the Golden Boot board
+mt team stats "IFA U15" -c all         # every competition (default: League)
+mt team matches "IFA U15"              # with the status column
+mt match show 1190                     # status, lineups, events
+mt player stats 42
+mt search --age U15 --days 30
+mt match start 1053                    # live scoring: goal, message, halftime, end
+```
+
+**Only `live`, `completed` and `forfeit` matches count towards season stats**
+(SB-671). `mt team matches` prints the status precisely so a "why is GP wrong"
+question is one command, not a database session.
+
+`STAT_FIELDS` and `took_part` in `mt_cli.py` mirror `GoldenBoot.vue`. Change one
+and change the other — a stat that disagrees between CLI and web is worse than
+one missing from either.
+
 ## Production Environment
 
 **LKE (Linode Kubernetes Engine)** - Current production platform.
