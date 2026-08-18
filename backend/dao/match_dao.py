@@ -1002,6 +1002,7 @@ class MatchDAO(BaseDAO):
         updated_by: str | None = None,
         external_match_id: str | None = None,
         scheduled_kickoff: str | None = None,
+        half_duration: int | None = None,
     ) -> dict | None:
         """Update an existing match with audit trail and optional external match_id.
 
@@ -1029,6 +1030,10 @@ class MatchDAO(BaseDAO):
                 data["match_id"] = external_match_id
             if scheduled_kickoff is not None:  # Allow explicit None to clear scheduled_kickoff
                 data["scheduled_kickoff"] = scheduled_kickoff
+            # Minutes per half (SB-678). start_first_half is idempotent, so this
+            # is the only way to correct a duration chosen wrongly at kickoff.
+            if half_duration is not None:
+                data["half_duration"] = half_duration
 
             # Execute update
             response = self.client.table("matches").update(data).eq("id", match_id).execute()
@@ -1046,8 +1051,11 @@ class MatchDAO(BaseDAO):
             clear_cache(PLAYOFF_CACHE_PATTERN)
             clear_cache(TOURNAMENTS_CACHE_PATTERN)
 
-            # Get the updated match to return with full relations
-            return self.get_match_by_id(match_id)
+            # Get the updated match to return with full relations.
+            # include_test=True: read-back of an authorised write (SB-649 class)
+            # — without it a PATCH against the TSC test world returns None and
+            # the endpoint reports failure for an update that succeeded.
+            return self.get_match_by_id(match_id, include_test=True)
 
         except Exception:
             logger.exception("Error updating match")

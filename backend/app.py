@@ -2682,6 +2682,10 @@ async def patch_match(
         if match_patch.away_score is not None and match_patch.away_score < 0:
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
+        # Same bounds the clients enforce on the half-length picker (SB-678).
+        if match_patch.half_duration is not None and not (20 <= match_patch.half_duration <= 60):
+            raise HTTPException(status_code=400, detail="half_duration must be between 20 and 60")
+
         # Validate match_status if provided (must match database CHECK constraint)
         valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled", "forfeit"]
         status_to_check = match_patch.match_status or match_patch.status
@@ -2721,6 +2725,7 @@ async def patch_match(
             "scheduled_kickoff": match_patch.scheduled_kickoff.isoformat()
             if match_patch.scheduled_kickoff is not None
             else current_match.get("scheduled_kickoff"),
+            "half_duration": match_patch.half_duration,
             "updated_by": current_user.get("user_id"),
         }
 

@@ -138,3 +138,36 @@ def test_post_write_readbacks_pass_include_test():
         "so the write succeeds and the caller still sees a failure (SB-649). "
         "Pass include_test=True — the caller was already authorised to write."
     )
+
+
+# ---------------------------------------------------------------------------
+# SB-678 — update_match's read-back is the same shape as SB-649
+# ---------------------------------------------------------------------------
+
+def test_update_match_reads_back_with_include_test():
+    """PATCH on a test match must not report failure for a successful write.
+
+    update_match ends with get_match_by_id(...) to return full relations. That
+    is a read-back of an authorised write, so it must bypass the partition —
+    otherwise patching a TSC fixture returns None and the endpoint reports an
+    error for an update that landed. Same defect family as SB-647/SB-649.
+    """
+    tree = ast.parse(MATCH_DAO_PY.read_text())
+    fn = next(
+        (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "update_match"),
+        None,
+    )
+    assert fn is not None, "update_match not found — was it renamed?"
+
+    readbacks = [
+        node
+        for node in ast.walk(fn)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "get_match_by_id"
+    ]
+    assert readbacks, "update_match no longer reads the row back — update this test"
+    for call in readbacks:
+        assert any(kw.arg == "include_test" for kw in call.keywords), (
+            f"update_match's read-back at match_dao.py:{call.lineno} omits include_test"
+        )
