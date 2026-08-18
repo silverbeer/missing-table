@@ -603,3 +603,82 @@ describe('MatchDetailView', () => {
     });
   });
 });
+
+// =============================================================================
+// TESTS: INSTAGRAM SHARE SCOPING (SB-659)
+// =============================================================================
+
+describe('MatchDetailView — Instagram share scoping', () => {
+  // The match under test: team 1 (club 10) vs team 2 (club 20).
+  const scopedMatch = () =>
+    createMockMatch({
+      home_team_id: 1,
+      away_team_id: 2,
+      home_team_club: { id: 10, logo_url: null, primary_color: '#B22222' },
+      away_team_club: { id: 20, logo_url: null, primary_color: '#B38B00' },
+    });
+
+  const mountAs = async authOverrides => {
+    mockAuthStore = createMockAuthStore({
+      isAdmin: { value: false },
+      ...authOverrides,
+    });
+    mockAuthStore.apiRequest = createMockApiRequestForMatch(scopedMatch());
+    const wrapper = mountMatchDetailView();
+    await flushPromises();
+    return wrapper;
+  };
+
+  const igButton = wrapper => wrapper.find('[data-testid="ig-share-button"]');
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('lets an admin share any match', async () => {
+    const wrapper = await mountAs({
+      isAdmin: { value: true },
+      userTeamId: { value: null },
+      userClubId: { value: null },
+    });
+    expect(igButton(wrapper).exists()).toBe(true);
+  });
+
+  it('lets a player of one of the teams share', async () => {
+    // The reported case: gabe35, team-player on a playing team.
+    const wrapper = await mountAs({ userTeamId: { value: 2 } });
+    expect(igButton(wrapper).exists()).toBe(true);
+  });
+
+  it('lets a club fan of one of the clubs share', async () => {
+    // No team_id at all — club affiliation is the only claim they have.
+    const wrapper = await mountAs({ userClubId: { value: 20 } });
+    expect(igButton(wrapper).exists()).toBe(true);
+  });
+
+  it('does NOT let an unaffiliated signed-in user share', async () => {
+    // A card for two clubs this person has no connection to is not the
+    // sharing this feature exists for.
+    const wrapper = await mountAs({
+      userTeamId: { value: 999 },
+      userClubId: { value: 999 },
+    });
+    expect(igButton(wrapper).exists()).toBe(false);
+  });
+
+  it('does NOT let a signed-in user with no affiliation at all share', async () => {
+    const wrapper = await mountAs({
+      userTeamId: { value: null },
+      userClubId: { value: null },
+    });
+    expect(igButton(wrapper).exists()).toBe(false);
+  });
+
+  it('does not show the button to anonymous visitors', async () => {
+    const wrapper = await mountAs({
+      isAuthenticated: { value: false },
+      userTeamId: { value: 2 },
+    });
+    expect(igButton(wrapper).exists()).toBe(false);
+  });
+});

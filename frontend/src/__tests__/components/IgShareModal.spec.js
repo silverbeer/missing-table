@@ -400,4 +400,33 @@ describe('IgShareModal — accent picker (SB-659)', () => {
     });
     expect(wrapper.vm.accentPreference).toBe('auto');
   });
+
+  it("defaults to the viewer's club when they have no team (club fan)", () => {
+    // A club fan has club_id but no team_id, so team matching cannot help.
+    const wrapper = mountModal({
+      viewerTeamId: null,
+      viewerClubId: 20,
+      match: createMockMatch({
+        home_team_club: { id: 10, logo_url: null, primary_color: '#B22222' },
+        away_team_club: { id: 20, logo_url: null, primary_color: '#B38B00' },
+      }),
+    });
+    expect(wrapper.vm.accentPreference).toBe('away');
+  });
+
+  it('prefers the team claim over the club claim', () => {
+    // Team is the more specific affiliation; if the two ever disagree the
+    // team the viewer actually plays for should win.
+    const wrapper = mountModal({
+      viewerTeamId: 1,
+      viewerClubId: 20,
+      match: createMockMatch({
+        home_team_id: 1,
+        away_team_id: 2,
+        home_team_club: { id: 10, logo_url: null, primary_color: '#B22222' },
+        away_team_club: { id: 20, logo_url: null, primary_color: '#B38B00' },
+      }),
+    });
+    expect(wrapper.vm.accentPreference).toBe('home');
+  });
 });

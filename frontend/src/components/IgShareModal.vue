@@ -285,6 +285,9 @@ export default {
     // Seeds the accent choice so a player gets their own club's colors
     // without touching the picker. Null for admins and neutrals.
     viewerTeamId: { type: Number, default: null },
+    // The viewer's club, when it is one of the two playing. Covers club
+    // fans and club managers, who have no team_id of their own.
+    viewerClubId: { type: Number, default: null },
   },
   emits: ['close', 'photo-uploaded'],
   setup(props, { emit }) {
@@ -355,12 +358,24 @@ export default {
         .join(' · ');
     });
 
-    // Which side, if any, the viewer's team is on.
+    // Which side, if any, the viewer belongs to. Team first — it is the
+    // more specific claim — then club, which is all a club fan or club
+    // manager has.
     const viewerSide = computed(() => {
-      const id = props.viewerTeamId;
-      if (!id || !props.match) return null;
-      if (id === props.match.home_team_id) return 'home';
-      if (id === props.match.away_team_id) return 'away';
+      const m = props.match;
+      if (!m) return null;
+
+      const teamId = props.viewerTeamId;
+      if (teamId) {
+        if (teamId === m.home_team_id) return 'home';
+        if (teamId === m.away_team_id) return 'away';
+      }
+
+      const clubId = props.viewerClubId;
+      if (clubId) {
+        if (clubId === m.home_team_club?.id) return 'home';
+        if (clubId === m.away_team_club?.id) return 'away';
+      }
       return null;
     });
 
