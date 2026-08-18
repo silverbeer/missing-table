@@ -1054,18 +1054,41 @@ SORT_FIELDS = {key.lower(): field for key, field in STAT_FIELDS}
 
 
 def resolve_team(client, term: str) -> dict:
-    """One team, by id or by name substring."""
+    """One team, by id or by name.
+
+    Team names carry no age group — the squad shown as "IFA U15 HG" on the team
+    page is the team named "IFA" — so a plausible-looking query matches nothing.
+    A bare "no team" is a dead end, so near-misses are offered instead.
+    """
     if str(term).isdigit():
         return client.get_team(int(term))
 
-    needle = term.lower()
-    matches = [t for t in (client.get_teams() or []) if needle in (t.get("name") or "").lower()]
-    if not matches:
-        raise ResolutionError(f"No team matching {term!r}")
+    teams = client.get_teams() or []
+    needle = term.lower().strip()
+
+    # An exact name wins outright: "IFA" should resolve, even though a dozen
+    # other teams have it as a prefix.
+    exact = [t for t in teams if (t.get("name") or "").lower().strip() == needle]
+    if len(exact) == 1:
+        return exact[0]
+
+    matches = [t for t in teams if needle in (t.get("name") or "").lower()]
+    if len(matches) == 1:
+        return matches[0]
     if len(matches) > 1:
         names = ", ".join(t.get("name", "?") for t in matches[:6])
-        raise ResolutionError(f"{len(matches)} teams match {term!r}: {names}")
-    return matches[0]
+        more = "" if len(matches) <= 6 else f" (+{len(matches) - 6} more)"
+        raise ResolutionError(f"{len(matches)} teams match {term!r}: {names}{more}")
+
+    # Nothing contains the whole string. Fall back to word-by-word so a query
+    # that mixes a club with an age group still points somewhere useful.
+    tokens = [w for w in needle.split() if w]
+    near = [t for t in teams if any(w in (t.get("name") or "").lower() for w in tokens)]
+    if near:
+        names = ", ".join(t.get("name", "?") for t in near[:8])
+        more = "" if len(near) <= 8 else f" (+{len(near) - 8} more)"
+        raise ResolutionError(f"No team named {term!r}. Did you mean: {names}{more}")
+    raise ResolutionError(f"No team matching {term!r}")
 
 
 def resolve_season(client, name: str | None = None) -> dict | None:

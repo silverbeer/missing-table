@@ -145,6 +145,26 @@ class TestResolution:
         with pytest.raises(ResolutionError):
             resolve_team(_stub_client(), "nonesuch")
 
+    def test_an_exact_name_beats_a_crowd_of_prefixes(self):
+        stub = _stub_client()
+        stub.get_teams.return_value = [
+            {"id": 19, "name": "IFA"},
+            {"id": 123, "name": "IFA Academy"},
+            {"id": 183, "name": "IFA Elite Futsal 2012 Blue"},
+        ]
+        # "IFA" is a real team, not an ambiguous prefix.
+        assert resolve_team(stub, "IFA")["id"] == 19
+
+    def test_a_query_with_no_substring_match_suggests_near_misses(self):
+        stub = _stub_client()
+        stub.get_teams.return_value = [{"id": 19, "name": "IFA"}, {"id": 5, "name": "Boston Bolts"}]
+        # Team names carry no age group, so "IFA U15" matches nothing at all —
+        # a bare "no team" would be a dead end.
+        with pytest.raises(ResolutionError) as exc:
+            resolve_team(stub, "IFA U15")
+        assert "Did you mean" in str(exc.value)
+        assert "IFA" in str(exc.value)
+
     def test_season_defaults_to_current(self):
         assert resolve_season(_stub_client())["id"] == 7
 
