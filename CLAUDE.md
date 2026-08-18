@@ -229,6 +229,54 @@ helm upgrade missing-table ./missing-table --namespace missing-table -f ./missin
 
 ---
 
+## The `mt` CLI
+
+A thin HTTP client over the API — live scoring and, since SB-672, read commands.
+Answer a data question here before reaching for the database.
+
+```bash
+uv tool install --editable ./backend   # once; `mt` then works from anywhere
+mt login                               # session expires; read commands say so
+```
+
+```bash
+mt team stats "IFA U15"                # the Golden Boot board
+mt team stats "IFA U15" -c all         # every competition (default: League)
+mt team matches "IFA U15"              # with the status column
+mt match show 1190                     # status, lineups, events
+mt player stats 42
+mt search --age U15 --days 30
+mt match start 1053                    # live scoring: goal, message, halftime, end
+```
+
+### Login
+
+`mt login` looks for a password in this order, and stops at the first hit:
+
+1. `TEST_USER_PASSWORD_<USER>` in `backend/.env.<env>` — local test users only;
+   **`.env.prod` deliberately holds none**
+2. `MT_PASSWORD` — for CI, where the value comes from a secret store
+3. **1Password**, `op read op://Personal/mt-<env>/credential`, overridable with
+   `MT_OP_ITEM` or an `op_item` line in `.mt-config` (`{env}` and `{user}` are
+   substituted)
+4. an interactive prompt
+
+With no terminal and no password source it refuses rather than prompting:
+`getpass` cannot suppress echo without a TTY, so prompting there prints the
+password and then fails anyway.
+
+**Never run `MT_PASSWORD=... mt login` from an agent shell** — the command line
+is echoed into the session transcript, which is exactly how a secret becomes
+permanent. Use 1Password, or a real terminal.
+
+**Only `live`, `completed` and `forfeit` matches count towards season stats**
+(SB-671). `mt team matches` prints the status precisely so a "why is GP wrong"
+question is one command, not a database session.
+
+`STAT_FIELDS` and `took_part` in `mt_cli.py` mirror `GoldenBoot.vue`. Change one
+and change the other — a stat that disagrees between CLI and web is worse than
+one missing from either.
+
 ## Production Environment
 
 **LKE (Linode Kubernetes Engine)** - Current production platform.
