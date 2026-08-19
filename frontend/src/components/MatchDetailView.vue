@@ -720,6 +720,9 @@
         :open="igShareOpen"
         :match="match"
         :events="events"
+        :can-persist-photo="canPersistMatchPhoto"
+        :viewer-team-id="viewerTeamId"
+        :viewer-club-id="viewerClubId"
         @close="closeIgShare"
         @photo-uploaded="onPhotoUploaded"
       />
@@ -1083,9 +1086,78 @@ export default {
       return false;
     });
 
-    // SB-32: Same permission gates the Instagram share. Mirrors the backend
-    // can_edit_match check that protects POST /api/matches/{id}/photo.
-    const canShareMatchPhoto = canManageLineup;
+    // SB-659: Sharing and persisting are different permissions, and this
+    // used to conflate them.
+    //
+    // Generating the card is read-only — IgShareModal renders from a local
+    // object URL and rasterises in the browser, so it is just a picture of
+    // data the viewer can already see. Anyone signed in may do it, players
+    // very much included: they are the people most likely to post about
+    // their own match, and a shared card is MT's best route to recruiting
+    // the next team manager. Gating that on edit rights worked against the
+    // whole point of the feature.
+    //
+    // Writing the photo onto the match (POST /api/matches/{id}/photo) is a
+    // different matter — it persists to R2, everyone sees it afterwards,
+    // and these are photos of minors. That stays with the managers, via
+    // canPersistMatchPhoto below.
+    //
+    // Sharing is scoped by affiliation rather than by role: you may make a
+    // card for a match your own club or team is playing in, whatever your
+    // role — fan, player, manager alike. Admins get everything. A neutral
+    // signed-in user gets nothing, because a card for two clubs a person
+    // has no connection to is not the sharing this feature is for.
+    const isAffiliatedWithMatch = computed(() => {
+      if (!match.value) return false;
+      const teamId = authStore.userTeamId.value;
+      if (
+        teamId &&
+        (teamId === match.value.home_team_id ||
+          teamId === match.value.away_team_id)
+      ) {
+        return true;
+      }
+      // Club affiliation covers club managers and club fans, and also team
+      // people whose club_id the store derives from their current teams.
+      const clubId = authStore.userClubId.value;
+      if (!clubId) return false;
+      return (
+        clubId === match.value.home_team_club?.id ||
+        clubId === match.value.away_team_club?.id
+      );
+    });
+
+    const canShareMatchPhoto = computed(
+      () =>
+        !!match.value &&
+        authStore.isAuthenticated.value &&
+        (authStore.isAdmin.value || isAffiliatedWithMatch.value)
+    );
+    const canPersistMatchPhoto = canManageLineup;
+
+    // The club the viewer belongs to, when it is one of the two playing.
+    // Lets a club fan with no team_id still get their own club's colors.
+    const viewerClubId = computed(() => {
+      const clubId = authStore.userClubId.value;
+      if (!clubId || !match.value) return null;
+      return clubId === match.value.home_team_club?.id ||
+        clubId === match.value.away_team_club?.id
+        ? clubId
+        : null;
+    });
+
+    // Which of the two teams, if either, the viewer belongs to. Drives the
+    // default accent color: a player or manager posting about their own
+    // match wants their own club's colors without having to ask for them.
+    // Null for admins and neutrals, who fall back to automatic resolution.
+    const viewerTeamId = computed(() => {
+      const teamId = authStore.userTeamId.value;
+      if (!teamId || !match.value) return null;
+      return teamId === match.value.home_team_id ||
+        teamId === match.value.away_team_id
+        ? teamId
+        : null;
+    });
 
     const openIgShare = () => {
       igShareOpen.value = true;
@@ -1191,6 +1263,9 @@ export default {
       // IG share (SB-32)
       igShareOpen,
       canShareMatchPhoto,
+      canPersistMatchPhoto,
+      viewerTeamId,
+      viewerClubId,
       openIgShare,
       closeIgShare,
       onPhotoUploaded,

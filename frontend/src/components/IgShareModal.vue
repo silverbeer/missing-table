@@ -81,6 +81,44 @@
           </button>
         </div>
 
+        <!-- SB-659: accent picker. Defaults to the viewer's own club when
+             they are on one of these teams, since that is almost always the
+             feed the card is going to. -->
+        <div class="ig-accent-picker" data-testid="ig-accent-picker">
+          <span class="ig-accent-heading">Card colors</span>
+          <div role="radiogroup" aria-label="Card colors" class="ig-accent-row">
+            <button
+              v-for="opt in accentOptions"
+              :key="opt.value"
+              type="button"
+              role="radio"
+              :aria-checked="accentPreference === opt.value"
+              :disabled="opt.disabled"
+              :title="opt.reason || `Use ${opt.label} colors`"
+              :data-testid="`ig-accent-${opt.value}`"
+              class="ig-accent-option"
+              :class="{
+                'ig-accent-active': accentPreference === opt.value,
+                'ig-accent-disabled': opt.disabled,
+              }"
+              @click="!opt.disabled && (accentPreference = opt.value)"
+            >
+              <span
+                class="ig-accent-swatch"
+                :style="{ background: opt.color || 'transparent' }"
+              ></span>
+              <span class="ig-accent-label">{{ opt.label }}</span>
+            </button>
+          </div>
+          <p
+            v-if="unavailableAccentReason"
+            class="ig-accent-note"
+            data-testid="ig-accent-note"
+          >
+            {{ unavailableAccentReason }}
+          </p>
+        </div>
+
         <!-- Photo picker -->
         <label class="ig-file-picker" data-testid="ig-file-picker">
           <input
@@ -130,6 +168,7 @@
               :events="events"
               :mode="mode"
               :template="template"
+              :accent-preference="accentPreference"
               data-testid="ig-preview-card"
             />
           </div>
@@ -180,6 +219,7 @@
         :events="events"
         :mode="mode"
         :template="template"
+        :accent-preference="accentPreference"
         data-testid="ig-capture-card"
       />
     </div>
@@ -190,6 +230,7 @@
 import { computed, ref, watch } from 'vue';
 import html2canvas from 'html2canvas';
 import IgShareCard from './IgShareCard.vue';
+import { isUsableAccent, MT_ACCENT } from '@/composables/useIgShareData';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 
@@ -236,6 +277,17 @@ export default {
     // Goal/card events for the match. Used to render scorers on the
     // result card when the match was live-scored (SB-33).
     events: { type: Array, default: () => [] },
+    // SB-659: generating a card is open to anyone signed in, but writing
+    // the photo onto the match is not. False hides the upload affordance
+    // rather than letting it fail against the backend.
+    canPersistPhoto: { type: Boolean, default: false },
+    // The team the viewer belongs to, when it is one of the two playing.
+    // Seeds the accent choice so a player gets their own club's colors
+    // without touching the picker. Null for admins and neutrals.
+    viewerTeamId: { type: Number, default: null },
+    // The viewer's club, when it is one of the two playing. Covers club
+    // fans and club managers, who have no team_id of their own.
+    viewerClubId: { type: Number, default: null },
   },
   emits: ['close', 'photo-uploaded'],
   setup(props, { emit }) {
@@ -257,8 +309,75 @@ export default {
 
     const mode = ref('preview');
     const template = ref('overlay');
+    // 'auto' | 'home' | 'away' | 'mt'
+    const accentPreference = ref('auto');
 
     const hasTournamentRound = computed(() => !!props.match?.tournament_round);
+
+    // SB-659: accent options, with the unusable ones disabled and a reason
+    // attached. A club whose color is the seeded gray or too dark to see on
+    // the card cannot be offered — but saying so beats silently handing back
+    // a different color than the one that was clicked.
+    const accentOptions = computed(() => {
+      const m = props.match || {};
+      const side = (value, club, teamName) => {
+        const color = club?.primary_color || null;
+        const usable = isUsableAccent(color);
+        return {
+          value,
+          label: teamName || (value === 'home' ? 'Home' : 'Away'),
+          color: usable ? color : null,
+          disabled: !usable,
+          reason: !color
+            ? 'No club color on file'
+            : !usable
+              ? 'Too dark or unset — would not be visible'
+              : null,
+        };
+      };
+      return [
+        side('home', m.home_team_club, m.home_team_name),
+        side('away', m.away_team_club, m.away_team_name),
+        {
+          value: 'mt',
+          label: 'Missing Table',
+          color: MT_ACCENT,
+          disabled: false,
+          reason: null,
+        },
+      ];
+    });
+
+    // One line explaining any greyed-out club, so a user whose own team is
+    // unavailable learns it is missing club data rather than a bug.
+    const unavailableAccentReason = computed(() => {
+      const blocked = accentOptions.value.filter(o => o.disabled);
+      if (!blocked.length) return null;
+      return blocked
+        .map(o => `${o.label}: ${o.reason.toLowerCase()}`)
+        .join(' · ');
+    });
+
+    // Which side, if any, the viewer belongs to. Team first — it is the
+    // more specific claim — then club, which is all a club fan or club
+    // manager has.
+    const viewerSide = computed(() => {
+      const m = props.match;
+      if (!m) return null;
+
+      const teamId = props.viewerTeamId;
+      if (teamId) {
+        if (teamId === m.home_team_id) return 'home';
+        if (teamId === m.away_team_id) return 'away';
+      }
+
+      const clubId = props.viewerClubId;
+      if (clubId) {
+        if (clubId === m.home_team_club?.id) return 'home';
+        if (clubId === m.away_team_club?.id) return 'away';
+      }
+      return null;
+    });
 
     const availableTemplates = computed(() =>
       TEMPLATES.filter(t => !t.tournamentOnly || hasTournamentRound.value)
@@ -277,6 +396,16 @@ export default {
         template.value = hasTournamentRound.value
           ? 'tournament-round'
           : 'overlay';
+        // Default the accent to the viewer's own club when they are on one
+        // of these two teams and that club's color is actually usable —
+        // otherwise leave it automatic rather than preselecting an option
+        // that resolves to something else.
+        const side = viewerSide.value;
+        const sideOption = side
+          ? accentOptions.value.find(o => o.value === side)
+          : null;
+        accentPreference.value =
+          sideOption && !sideOption.disabled ? side : 'auto';
       },
       { immediate: true }
     );
@@ -313,6 +442,11 @@ export default {
     // download the card).
     const ensurePhotoUploaded = async () => {
       if (!photoFile.value || uploadedKey.value) return true;
+      // SB-659: viewers without edit rights can still build and download a
+      // card — the photo just stays local to their browser. Skip the request
+      // rather than firing one the backend will refuse, which would put a
+      // permission error in front of someone doing nothing wrong.
+      if (!props.canPersistPhoto) return true;
 
       const formData = new FormData();
       formData.append('file', photoFile.value);
@@ -443,6 +577,9 @@ export default {
       mode,
       template,
       availableTemplates,
+      accentPreference,
+      accentOptions,
+      unavailableAccentReason,
       isCompleted,
       canPickMode,
       busy,
@@ -584,6 +721,80 @@ export default {
 .ig-template-sub {
   font-size: 11px;
   opacity: 0.75;
+}
+
+/* SB-659: accent picker */
+.ig-accent-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ig-accent-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ig-accent-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ig-accent-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 0;
+}
+
+.ig-accent-option:hover:not(.ig-accent-disabled) {
+  background: #f1f5f9;
+}
+
+.ig-accent-active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: white;
+}
+
+.ig-accent-disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ig-accent-swatch {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  /* Outline so a dark or absent swatch is still a visible chip rather
+     than a hole in the button. */
+  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.55);
+}
+
+.ig-accent-label {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.ig-accent-note {
+  font-size: 11px;
+  color: #64748b;
+  margin: 0;
 }
 
 .ig-file-picker {
