@@ -404,6 +404,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { lazyView } from './utils/lazyView';
+import { hasAnyRole, TEAM_PAGE_ROLES } from './utils/roles';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { getApiBaseUrl } from './config/api';
@@ -613,7 +614,9 @@ export default {
         id: 'my-club',
         name: 'My Club',
         requiresAuth: true,
-        requiresRole: ['team-player'],
+        // Everyone with a stake in a squad, not just its players (SB-668).
+        // Shared with TeamRosterRouter so the tab and the page cannot disagree.
+        requiresRole: TEAM_PAGE_ROLES,
       },
       {
         id: 'admin',
@@ -636,9 +639,12 @@ export default {
           // Don't show auth-required tabs if user is not authenticated
           if (!authStore.isAuthenticated.value) return false;
 
-          // Check role requirements
+          // Check role requirements. Roles are stored in both spellings —
+          // user_profiles permits club-fan and club_fan, team-manager and
+          // team_manager, and so on — so an exact match silently excludes real
+          // users depending on which invite created them (SB-668).
           if (tab.requiresRole) {
-            return tab.requiresRole.includes(userRole);
+            return hasAnyRole(tab.requiresRole, userRole);
           }
 
           return true;

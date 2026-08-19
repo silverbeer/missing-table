@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from datetime import UTC, datetime
 from getpass import getpass
 from pathlib import Path
@@ -43,8 +45,12 @@ from api_client.models import (
 app = typer.Typer(help="MT Match Tracking CLI")
 match_app = typer.Typer(help="Live match tracking commands")
 tournament_app = typer.Typer(help="Tournament + bracket seeding commands (admin)")
+team_app = typer.Typer(help="Team stats and matches (read-only)")
+player_app = typer.Typer(help="Player stats (read-only)")
 app.add_typer(match_app, name="match")
 app.add_typer(tournament_app, name="tournament")
+app.add_typer(team_app, name="team")
+app.add_typer(player_app, name="player")
 console = Console()
 
 # Valid tournament_round values accepted by the backend (mirrors
@@ -184,6 +190,43 @@ def require_active_match(state: CLIState) -> int:
 
 
 # --- Helpers ---
+
+
+def op_reference(username: str) -> str:
+    """Where mt looks in 1Password for this environment's login.
+
+    Overridable with MT_OP_ITEM or an `op_item` line in .mt-config, so a second
+    account or vault does not need a code change. Defaults to the mt-<env> item
+    the account already uses for infrastructure secrets.
+    """
+    explicit = os.environ.get("MT_OP_ITEM") or mt_config_get("op_item")
+    if explicit:
+        return explicit.replace("{env}", get_current_env()).replace("{user}", username)
+    return f"op://Personal/mt-{get_current_env()}/credential"
+
+
+def password_from_op(username: str) -> str | None:
+    """Read the login password from 1Password, or None if unavailable.
+
+    Never raises: 1Password not installed, locked, or the field missing are all
+    ordinary situations that should fall through to the next source rather than
+    stop the command. Output is deliberately not logged — a password in a
+    terminal transcript is permanent.
+    """
+    reference = op_reference(username)
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["op", "read", reference],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
 
 
 def _load_env_vars() -> dict[str, str]:
@@ -359,6 +402,22 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
 
     if password:
         console.print(f"[dim]Using password from {env_key}[/dim]")
+    elif os.environ.get("MT_PASSWORD"):
+        password = os.environ["MT_PASSWORD"]
+        console.print("[dim]Using password from MT_PASSWORD[/dim]")
+    elif (from_op := password_from_op(username)) is not None:
+        password = from_op
+        console.print(f"[dim]Using password from {op_reference(username)}[/dim]")
+    elif not sys.stdin.isatty():
+        # getpass cannot turn off echo without a terminal, so it warns, echoes
+        # the password and aborts. Refuse up front instead: an agent shell or a
+        # piped session should be told what to do, not shown a typed password.
+        console.print("[red]No terminal available for a password prompt.[/red]")
+        console.print(
+            f"Set [cyan]MT_PASSWORD[/cyan] or [cyan]{env_key}[/cyan], "
+            "or run [cyan]mt login[/cyan] in a terminal."
+        )
+        raise typer.Exit(1)
     else:
         password = getpass(f"Password for {username}: ")
 
@@ -966,6 +1025,328 @@ def tournament_score(
         f"[green]Match #{match} → {home_score}-{away_score} ({status})[/green]  "
         "[dim]fulltime notification fired to bracket + team followers[/dim]"
     )
+
+
+# --- Read commands (SB-672) -------------------------------------------------
+#
+# `mt` could drive a match but not ask about one, so a data question ("why does
+# this squad show 3 games played after 2 friendlies?") meant reading source and
+# running SQL by hand. These go over HTTP with the existing `mt login` session —
+# no database credentials anywhere.
+
+
+class ResolutionError(Exception):
+    """A name did not resolve to exactly one thing."""
+
+
+# Mirrors GoldenBoot.vue, in the same order. A stat that disagrees between the
+# CLI and the web board is worse than one missing from either.
+STAT_FIELDS = [
+    ("GP", "games_played"),
+    ("GS", "games_started"),
+    ("G", "total_goals"),
+    ("A", "total_assists"),
+    ("YC", "total_yellow_cards"),
+    ("RC", "total_red_cards"),
+]
+
+SORT_FIELDS = {key.lower(): field for key, field in STAT_FIELDS}
+
+
+def resolve_team(client, term: str) -> dict:
+    """One team, by id or by name.
+
+    Team names carry no age group — the squad shown as "IFA U15 HG" on the team
+    page is the team named "IFA" — so a plausible-looking query matches nothing.
+    A bare "no team" is a dead end, so near-misses are offered instead.
+    """
+    if str(term).isdigit():
+        return client.get_team(int(term))
+
+    teams = client.get_teams() or []
+    needle = term.lower().strip()
+
+    # An exact name wins outright: "IFA" should resolve, even though a dozen
+    # other teams have it as a prefix.
+    exact = [t for t in teams if (t.get("name") or "").lower().strip() == needle]
+    if len(exact) == 1:
+        return exact[0]
+
+    matches = [t for t in teams if needle in (t.get("name") or "").lower()]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        names = ", ".join(t.get("name", "?") for t in matches[:6])
+        more = "" if len(matches) <= 6 else f" (+{len(matches) - 6} more)"
+        raise ResolutionError(f"{len(matches)} teams match {term!r}: {names}{more}")
+
+    # Nothing contains the whole string. Fall back to word-by-word so a query
+    # that mixes a club with an age group still points somewhere useful.
+    tokens = [w for w in needle.split() if w]
+    near = [t for t in teams if any(w in (t.get("name") or "").lower() for w in tokens)]
+    if near:
+        names = ", ".join(t.get("name", "?") for t in near[:8])
+        more = "" if len(near) <= 8 else f" (+{len(near) - 8} more)"
+        raise ResolutionError(f"No team named {term!r}. Did you mean: {names}{more}")
+    raise ResolutionError(f"No team matching {term!r}")
+
+
+def resolve_season(client, name: str | None = None) -> dict | None:
+    """The named season, or the current one."""
+    seasons = client.get_seasons() or []
+    if name:
+        needle = name.lower()
+        matches = [s for s in seasons if needle in (s.get("name") or "").lower()]
+        if not matches:
+            raise ResolutionError(f"No season matching {name!r}")
+        return matches[0]
+    return next((s for s in seasons if s.get("is_current")), seasons[0] if seasons else None)
+
+
+def resolve_match_type(client, name: str | None = None) -> dict | None:
+    """The named competition, or League by default. None means every competition.
+
+    Defaulting to League matches the web board: a squad total that silently
+    folds friendlies in is not comparable with the league table beside it.
+    """
+    if name and name.lower() == "all":
+        return None
+
+    types = client.get_match_types() or []
+    needle = (name or "league").lower()
+    matches = [t for t in types if needle in (t.get("name") or "").lower()]
+    if matches:
+        return matches[0]
+    if name:
+        raise ResolutionError(f"No competition matching {name!r}")
+    # No League configured is not an error — show everything rather than nothing.
+    return None
+
+
+def took_part(player: dict) -> bool:
+    """Did this player do anything recordable? Mirrors the web board (SB-670)."""
+    return any((player.get(field) or 0) > 0 for _, field in STAT_FIELDS)
+
+
+def _player_label(p: dict) -> str:
+    name = f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip()
+    jersey = p.get("jersey_number")
+    if name and jersey:
+        return f"#{jersey} {name}"
+    return name or (f"#{jersey}" if jersey else "?")
+
+
+def sort_stats(players: list[dict], sort_key: str = "g") -> list[dict]:
+    """Sort as the web board does: chosen column, then goals, then assists, then name."""
+    primary = SORT_FIELDS.get(sort_key.lower(), "total_goals")
+
+    def key(p: dict):
+        return (
+            -(p.get(primary) or 0),
+            -(p.get("total_goals") or 0),
+            -(p.get("total_assists") or 0),
+            _player_label(p),
+        )
+
+    return sorted(players, key=key)
+
+
+def _fail(message: str) -> None:
+    console.print(f"[red]{message}[/red]")
+    raise typer.Exit(1)
+
+
+def _api(fn, *args, **kwargs):
+    """Call the API, turning a dead session into advice rather than a traceback.
+
+    The write commands already catch this; the read commands did not, so an
+    expired token dumped a full rich traceback at someone who only asked for a
+    table (SB-672).
+    """
+    try:
+        return fn(*args, **kwargs)
+    except AuthenticationError:
+        console.print("[red]Session expired.[/red] Run [cyan]mt login[/cyan] and try again.")
+        raise typer.Exit(1) from None
+    except ResolutionError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from None
+    except APIError as exc:
+        console.print(f"[red]API error: {exc}[/red]")
+        raise typer.Exit(1) from None
+
+
+@team_app.command("stats")
+def team_stats(
+    team: str = typer.Argument(..., help="Team name or id"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+    competition: str = typer.Option(
+        None, "--competition", "-c", help="League (default), Friendly, Tournament, or 'all'"
+    ),
+    sort: str = typer.Option("g", "--sort", help="Column to sort by: gp, gs, g, a, yc, rc"),
+    everyone: bool = typer.Option(False, "--everyone", help="Include players who have not played"),
+):
+    """The Golden Boot board for a team."""
+    client, _ = get_client()
+
+    team_row = _api(resolve_team, client, team)
+    season_row = _api(resolve_season, client, season)
+    match_type = _api(resolve_match_type, client, competition)
+
+    if not season_row:
+        _fail("No season configured")
+
+    payload = _api(
+        client.get_team_stats,
+        team_row["id"],
+        season_id=season_row["id"],
+        match_type_id=(match_type or {}).get("id"),
+    )
+    players = payload.get("players") if isinstance(payload, dict) else payload
+    players = players or []
+    if not everyone:
+        players = [p for p in players if took_part(p)]
+
+    scope = (match_type or {}).get("name", "All competitions")
+    title = f"Golden Boot — {team_row.get('name', team)} · {season_row.get('name', '?')} · {scope}"
+
+    if not players:
+        console.print(f"[yellow]Nothing recorded for {team_row.get('name', team)} in {scope}.[/yellow]")
+        console.print("[dim]Appearances and goals appear once matches are scored in the app.[/dim]")
+        return
+
+    table = Table(title=title)
+    table.add_column("#", style="dim", no_wrap=True)
+    table.add_column("Player", style="white")
+    for label, _field in STAT_FIELDS:
+        table.add_column(label, justify="right", style="cyan")
+
+    for rank, p in enumerate(sort_stats(players, sort), start=1):
+        table.add_row(str(rank), _player_label(p), *[str(p.get(f) or 0) for _, f in STAT_FIELDS])
+
+    console.print(table)
+    console.print(f"[dim]{len(players)} player(s) · sorted by {sort.upper()}[/dim]")
+
+
+@team_app.command("matches")
+def team_matches(
+    team: str = typer.Argument(..., help="Team name or id"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+    limit: int = typer.Option(20, "--limit", "-l", help="How many to show"),
+):
+    """Matches for a team, with the status that decides whether they count."""
+    client, _ = get_client()
+
+    team_row = _api(resolve_team, client, team)
+    season_row = _api(resolve_season, client, season)
+
+    matches = _api(client.get_games_by_team, team_row["id"], season_id=(season_row or {}).get("id")) or []
+    if not matches:
+        console.print(f"[yellow]No matches for {team_row.get('name', team)}.[/yellow]")
+        return
+
+    table = Table(title=f"Matches — {team_row.get('name', team)}")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Date", style="magenta")
+    table.add_column("Status", style="yellow")
+    table.add_column("Competition", style="dim")
+    table.add_column("Home", style="white")
+    table.add_column("Away", style="white")
+    table.add_column("Score", justify="right")
+
+    for m in matches[:limit]:
+        home_score, away_score = m.get("home_score"), m.get("away_score")
+        score = f"{home_score}-{away_score}" if home_score is not None and away_score is not None else "-"
+        table.add_row(
+            str(m.get("id", "?")),
+            str(m.get("match_date", "?")),
+            str(m.get("match_status", "?")),
+            str(m.get("match_type_name") or (m.get("match_type") or {}).get("name") or "?"),
+            str(m.get("home_team_name", "?")),
+            str(m.get("away_team_name", "?")),
+            score,
+        )
+
+    console.print(table)
+    console.print("[dim]Only live, completed and forfeit matches count towards season stats (SB-671).[/dim]")
+
+
+@match_app.command("show")
+def match_show(match_id: int = typer.Argument(..., help="Match ID")):
+    """One match: status, lineups and events."""
+    client, _ = get_client()
+
+    match = _api(client.get_game, match_id)
+
+    status = match.get("match_status", "?")
+    counts = status in ("live", "completed", "forfeit")
+    console.print(
+        Panel(
+            f"[bold]{match.get('home_team_name', '?')}[/bold] vs [bold]{match.get('away_team_name', '?')}[/bold]\n"
+            f"{match.get('match_date', '?')} · status [yellow]{status}[/yellow]\n"
+            f"Counts towards season stats: {'[green]yes[/green]' if counts else '[red]no[/red]'}",
+            title=f"Match {match_id}",
+        )
+    )
+
+    for side in ("home", "away"):
+        team_id = match.get(f"{side}_team_id")
+        if not team_id:
+            continue
+        try:
+            lineup = client.get_lineup(match_id, team_id)
+        except APIError:
+            lineup = None
+        positions = (lineup or {}).get("positions") or []
+        label = match.get(f"{side}_team_name", side)
+        if not positions:
+            console.print(f"[dim]{label}: no lineup saved[/dim]")
+            continue
+        table = Table(title=f"{label} lineup ({len(positions)})")
+        table.add_column("Position", style="dim")
+        table.add_column("Player", style="white")
+        for pos in positions:
+            table.add_row(str(pos.get("position", "?")), _player_label(pos))
+        console.print(table)
+
+    try:
+        events = client.get_match_events(match_id) or []
+    except APIError:
+        events = []
+    if events:
+        table = Table(title="Events")
+        table.add_column("Min", justify="right", style="dim")
+        table.add_column("Type", style="yellow")
+        table.add_column("Message", style="white")
+        for e in reversed(events):
+            table.add_row(str(e.get("match_minute") or "-"), str(e.get("event_type", "?")), str(e.get("message", "")))
+        console.print(table)
+
+    # Appearance rows are not exposed by the API, so this shows who was listed,
+    # not who is counted. Saying so beats implying completeness.
+    console.print("[dim]Per-player appearance records are not exposed by the API; lineup shown instead.[/dim]")
+
+
+@player_app.command("stats")
+def player_stats(
+    player_id: int = typer.Argument(..., help="Roster player id"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+):
+    """A player's season line."""
+    client, _ = get_client()
+
+    season_row = _api(resolve_season, client, season)
+
+    stats = _api(client.get_roster_player_stats, player_id, season_id=(season_row or {}).get("id"))
+    if not stats:
+        console.print("[yellow]No stats for that player.[/yellow]")
+        return
+
+    table = Table(title=f"Player {player_id} · {(season_row or {}).get('name', '?')}")
+    for label, _f in STAT_FIELDS:
+        table.add_column(label, justify="right", style="cyan")
+    table.add_row(*[str(stats.get(f) or 0) for _, f in STAT_FIELDS])
+    console.print(table)
 
 
 if __name__ == "__main__":

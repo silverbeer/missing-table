@@ -2682,6 +2682,10 @@ async def patch_match(
         if match_patch.away_score is not None and match_patch.away_score < 0:
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
+        # Same bounds the clients enforce on the half-length picker (SB-678).
+        if match_patch.half_duration is not None and not (20 <= match_patch.half_duration <= 60):
+            raise HTTPException(status_code=400, detail="half_duration must be between 20 and 60")
+
         # Validate match_status if provided (must match database CHECK constraint)
         valid_statuses = ["scheduled", "live", "completed", "postponed", "cancelled", "forfeit"]
         status_to_check = match_patch.match_status or match_patch.status
@@ -2721,6 +2725,7 @@ async def patch_match(
             "scheduled_kickoff": match_patch.scheduled_kickoff.isoformat()
             if match_patch.scheduled_kickoff is not None
             else current_match.get("scheduled_kickoff"),
+            "half_duration": match_patch.half_duration,
             "updated_by": current_user.get("user_id"),
         }
 
@@ -3175,6 +3180,30 @@ async def update_match_clock(
             created_by=user_id,
             created_by_username=current_user.get("username"),
         )
+
+        # Kickoff is what makes a starter a starter (SB-671). The lineup is only
+        # a plan until this point — recording appearances when it was saved meant
+        # a squad's GP rose days before the match, and a lineup entered for a
+        # game that was never played counted forever.
+        #
+        # The idempotency guard above means this cannot double-write: a replayed
+        # start_first_half returns before reaching here.
+        if clock.action == "start_first_half":
+            try:
+                lineups = lineup_dao.get_lineups_for_match(match_id)
+                started_count = 0
+                for side in ("home", "away"):
+                    lineup_row = lineups.get(side) or {}
+                    for position in lineup_row.get("positions") or []:
+                        player_id = position.get("player_id")
+                        if player_id:
+                            player_stats_dao.set_started(player_id, match_id, started=True)
+                            started_count += 1
+                logger.info("kickoff_appearances_recorded", match_id=match_id, players=started_count)
+            except Exception:
+                # A stats failure must not stop a match from starting — the
+                # scorer is pitch-side and cannot debug this.
+                logger.exception("Failed to record kickoff appearances", match_id=match_id)
 
         # When a match ends, invalidate stats cache so leaderboard picks up new goals
         if clock.action == "end_match":
@@ -3779,7 +3808,11 @@ async def save_lineup(
     """Save or update lineup for a team in a match.
 
     Only accessible by admins, club managers, and team managers who can edit this match.
-    When lineup is saved, also marks all assigned players as started in player_match_stats.
+
+    Saving a lineup deliberately records no appearance. A lineup is a plan, and a
+    plan can be written days ahead or changed before kickoff — counting it as a
+    game played meant a squad's GP rose the moment Sunday's lineup was entered on
+    Friday (SB-671). Appearances are recorded when the match actually kicks off.
     """
     try:
         # Get user ID from current user
@@ -3799,10 +3832,6 @@ async def save_lineup(
 
         if not saved_lineup:
             raise HTTPException(status_code=500, detail="Failed to save lineup")
-
-        # Mark all players in lineup as started
-        for position in lineup.positions:
-            player_stats_dao.set_started(position.player_id, match_id, started=True)
 
         logger.info(
             "Lineup saved",
@@ -5930,6 +5959,7 @@ async def get_player_stats(
 async def get_team_stats(
     team_id: int,
     season_id: int = Query(..., description="Season ID for stats"),
+    match_type_id: int | None = Query(None, description="Restrict to one competition; omit for all"),
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
     """
@@ -5940,6 +5970,10 @@ async def get_team_stats(
 
     The viewer is resolved optionally (SB-591) so test matches never inflate a
     real player's totals for anonymous or real users.
+
+    match_type_id narrows to a single competition (SB-433) — a squad leaderboard
+    that silently mixes friendlies into league totals is not comparable with the
+    league table beside it.
     """
     try:
         # Verify team exists
@@ -5949,13 +5983,17 @@ async def get_team_stats(
 
         # Get team stats
         stats = player_stats_dao.get_team_stats(
-            team_id, season_id, include_test=viewer_sees_test_content(current_user)
+            team_id,
+            season_id,
+            include_test=viewer_sees_test_content(current_user),
+            match_type_id=match_type_id,
         )
 
         return {
             "team_id": team_id,
             "team_name": team.get("name"),
             "season_id": season_id,
+            "match_type_id": match_type_id,
             "players": stats,
         }
 
@@ -6468,14 +6506,33 @@ async def update_goal_event(
             # Increment new player's goals
             player_stats_dao.increment_goals(new_player_id, match_id)
 
-        # If assist_player_id is changing, adjust assist stats and resolve name
+        # If assist_player_id is changing, adjust assist stats and resolve name.
+        #
+        # An explicit null means "clear the assist", which `is not None` cannot
+        # express — so distinguish a field that was sent from one that was
+        # omitted. Without this an assist could be added and changed but never
+        # removed, which is the one correction a mis-tap actually needs (SB-432).
         assist_player_name = None
+        clear_assist = False
         old_assist_id = event.get("assist_player_id")
         new_assist_id = update.assist_player_id
-        if new_assist_id is not None and old_assist_id != new_assist_id:
+        assist_sent = "assist_player_id" in update.model_fields_set
+
+        if assist_sent and new_assist_id is None:
+            clear_assist = True
+            if old_assist_id:
+                player_stats_dao.decrement_assists(old_assist_id, match_id)
+        elif new_assist_id is not None and old_assist_id != new_assist_id:
+            # The same rules the create path enforces (app.py:3308-3318). Editing
+            # must not be able to reach a state a new goal would be rejected for.
+            scorer_id = new_player_id if new_player_id is not None else old_player_id
+            if scorer_id is not None and new_assist_id == scorer_id:
+                raise HTTPException(status_code=400, detail="Assist player cannot be the goal scorer")
             assist_player = roster_dao.get_player_by_id(new_assist_id)
             if not assist_player:
                 raise HTTPException(status_code=400, detail="Assist player not found")
+            if event.get("team_id") is not None and assist_player["team_id"] != event["team_id"]:
+                raise HTTPException(status_code=400, detail="Assist player must be on the scoring team")
             assist_player_name = assist_player.get("display_name", f"#{assist_player['jersey_number']}")
             if old_assist_id:
                 player_stats_dao.decrement_assists(old_assist_id, match_id)
@@ -6495,6 +6552,11 @@ async def update_goal_event(
             update_kwargs["assist_player_id"] = update.assist_player_id
         if assist_player_name is not None:
             update_kwargs["assist_player_name"] = assist_player_name
+        if clear_assist:
+            # A flag, not a null id: the DAO treats None as "leave unchanged",
+            # and both columns have to go together or the denormalized name
+            # outlives the id it described and the timeline renders a phantom.
+            update_kwargs["clear_assist"] = True
 
         updated = match_event_dao.update_event(event_id, **update_kwargs)
         if not updated:

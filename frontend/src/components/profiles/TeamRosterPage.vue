@@ -1,5 +1,42 @@
 <template>
   <div class="team-roster-page">
+    <!-- SB-792: admin team browser. Shown whenever an admin is viewing, both
+         before they have chosen (as the only content) and after (as a way to
+         switch squads without leaving the page). -->
+    <div v-if="allTeams.length" class="admin-team-picker">
+      <label class="dropdown-label" for="admin-team-select">
+        Viewing team:
+      </label>
+      <select
+        id="admin-team-select"
+        v-model="adminSelectedTeamId"
+        @change="onAdminTeamChange"
+        class="club-teams-dropdown"
+        data-testid="admin-team-select"
+      >
+        <option :value="null" disabled>Choose a team…</option>
+        <option v-for="t in allTeams" :key="t.id" :value="t.id">
+          {{ t.club?.name ? `${t.club.name} — ` : '' }}{{ t.name
+          }}{{ t.age_group?.name ? ` (${t.age_group.name})` : '' }}
+        </option>
+      </select>
+      <span class="dropdown-hint">Admin — any team</span>
+    </div>
+
+    <!-- Nothing chosen yet. An admin belongs to no squad, so there is no
+         sensible default to load; asking beats guessing. -->
+    <div
+      v-if="needsTeamChoice"
+      class="choose-team-state"
+      data-testid="admin-choose-team"
+    >
+      <h3>Choose a team</h3>
+      <p>
+        You are signed in as an admin, so you are not tied to a squad. Pick any
+        team above to see its roster and Golden Boot board.
+      </p>
+    </div>
+
     <!-- Club Teams Dropdown -->
     <div v-if="clubTeams.length > 1" class="club-teams-dropdown-container">
       <label class="dropdown-label">Club Teams:</label>
@@ -21,7 +58,8 @@
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="loading-container">
+    <div v-if="needsTeamChoice"></div>
+    <div v-else-if="loading" class="loading-container">
       <div class="loading-spinner"></div>
       <p>Loading team roster...</p>
     </div>
@@ -181,6 +219,11 @@
           @click="handlePlayerClick"
         />
       </div>
+
+      <!-- Season leaders. Rendered outside the roster-empty branch on purpose:
+           these stats come from logged match events, so they can exist for a
+           squad whose roster cards have not been filled in. -->
+      <GoldenBoot v-if="resolvedTeamId" :team-id="resolvedTeamId" />
     </template>
   </div>
 </template>
@@ -189,13 +232,16 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
+import { hasAnyRole } from '@/utils/roles';
 import PlayerCard from './PlayerCard.vue';
+import GoldenBoot from './GoldenBoot.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
 
 export default {
   name: 'TeamRosterPage',
   components: {
     PlayerCard,
+    GoldenBoot,
     FollowButton,
   },
   emits: ['viewPlayer'],
@@ -214,6 +260,24 @@ export default {
     const clubTeams = ref([]);
     const selectedClubTeamId = ref(null);
 
+    // SB-792: admin team browser. An admin has no team_id and no club_id, so
+    // every fallback in fetchTeamPlayers comes up empty and the page has
+    // nothing to show. Give them the whole list to choose from instead.
+    const allTeams = ref([]);
+    const adminSelectedTeamId = ref(null);
+
+    // True while an admin has not yet chosen a team. Deliberately a prompt
+    // rather than a default: auto-loading the first of 183 teams and titling
+    // it "My Club" would present a guess as an answer.
+    const needsTeamChoice = computed(
+      () =>
+        hasAnyRole(['admin'], authStore.state.profile?.role) &&
+        !authStore.state.profile?.team_id &&
+        !authStore.state.profile?.club_id &&
+        !currentTeams.value.length &&
+        !adminSelectedTeamId.value
+    );
+
     // Get team name
     const teamName = computed(() => {
       if (team.value?.name) {
@@ -225,6 +289,17 @@ export default {
 
     // Player count
     const playerCount = computed(() => players.value.length);
+
+    // Whichever team the page is actually showing. Mirrors the resolution order
+    // in fetchTeamPlayers so the stats table can never end up describing a
+    // different squad from the roster above it.
+    const resolvedTeamId = computed(
+      () =>
+        team.value?.id ||
+        selectedTeamId.value ||
+        authStore.state.profile?.team_id ||
+        null
+    );
 
     // Club initials for placeholder logo
     const clubInitials = computed(() => {
@@ -274,17 +349,71 @@ export default {
       }
     };
 
+    // A team to start from, for a user who belongs to a club rather than to a
+    // squad. fetchClubTeams derives its club from the team already loaded,
+    // which is the wrong way round here — there is no team yet.
+    const firstTeamInClub = async () => {
+      const clubId = authStore.state.profile?.club_id;
+      if (!clubId) return null;
+
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/clubs/${clubId}/teams`,
+          { method: 'GET' }
+        );
+        if (Array.isArray(response) && response.length) {
+          clubTeams.value = response;
+          selectedClubTeamId.value = response[0].id;
+          return response[0].id;
+        }
+      } catch (err) {
+        console.error('Error resolving a team from the club:', err);
+      }
+      return null;
+    };
+
+    // Every team, for the admin picker. Sorted by club then team so a long
+    // flat list is at least navigable.
+    const fetchAllTeams = async () => {
+      try {
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/teams`,
+          { method: 'GET' }
+        );
+        const list = Array.isArray(response) ? response : response?.teams || [];
+        allTeams.value = [...list].sort((a, b) =>
+          `${a.club?.name || ''} ${a.name}`.localeCompare(
+            `${b.club?.name || ''} ${b.name}`
+          )
+        );
+      } catch (err) {
+        console.error('Error loading teams for admin picker:', err);
+      }
+    };
+
+    const onAdminTeamChange = async () => {
+      if (!adminSelectedTeamId.value) return;
+      selectedTeamId.value = adminSelectedTeamId.value;
+      await fetchTeamPlayers(adminSelectedTeamId.value);
+    };
+
     // Fetch team players from API
     const fetchTeamPlayers = async (teamId = null) => {
       loading.value = true;
       error.value = null;
 
       try {
-        // Use provided teamId or selectedTeamId or user's team_id
-        const targetTeamId =
+        // Use provided teamId or selectedTeamId or user's team_id, and fall
+        // back to the club. Club managers and club fans carry a club_id and no
+        // team_id, so without this the page errors for exactly the roles it was
+        // opened to (SB-668).
+        let targetTeamId =
           teamId || selectedTeamId.value || authStore.state.profile?.team_id;
         if (!targetTeamId) {
-          error.value = 'You are not assigned to a team';
+          targetTeamId = await firstTeamInClub();
+        }
+        if (!targetTeamId) {
+          error.value = 'You are not assigned to a team or club';
           loading.value = false;
           return;
         }
@@ -302,7 +431,9 @@ export default {
 
         if (!response.ok) {
           if (response.status === 403) {
-            error.value = 'You can only view your own team roster';
+            // The server allows any team inside your own club, so a 403 here
+            // means a different club — not "not your team".
+            error.value = 'You can only view teams in your own club';
           } else if (response.status === 404) {
             error.value = 'Team not found';
           } else {
@@ -382,6 +513,14 @@ export default {
 
     onMounted(async () => {
       await fetchCurrentTeams();
+      if (needsTeamChoice.value) {
+        // Load the picker only. Calling fetchTeamPlayers here would fail its
+        // resolution chain and paint an error over a page that is working
+        // exactly as intended.
+        await fetchAllTeams();
+        loading.value = false;
+        return;
+      }
       await fetchTeamPlayers();
     });
 
@@ -392,6 +531,7 @@ export default {
       players,
       teamName,
       playerCount,
+      resolvedTeamId,
       clubInitials,
       teamHeaderStyle,
       logoPlaceholderStyle,
@@ -406,6 +546,11 @@ export default {
       selectedClubTeamId,
       onClubTeamChange,
       isPlayerOnTeam,
+      // Admin team browser
+      allTeams,
+      adminSelectedTeamId,
+      needsTeamChoice,
+      onAdminTeamChange,
     };
   },
 };
@@ -419,6 +564,40 @@ export default {
 }
 
 /* Club Teams Dropdown */
+/* SB-792: admin team browser. Same shape as the club-teams dropdown so the
+   two read as one control in the rare case both are present. */
+.admin-team-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgb(var(--color-surface-alt));
+  border-radius: 10px;
+}
+
+.choose-team-state {
+  padding: 48px 24px;
+  text-align: center;
+  background: rgb(var(--color-surface-alt));
+  border-radius: 10px;
+}
+
+.choose-team-state h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgb(var(--color-fg));
+}
+
+.choose-team-state p {
+  margin: 0 auto;
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgb(var(--color-fg-muted));
+}
+
 .club-teams-dropdown-container {
   display: flex;
   align-items: center;

@@ -360,7 +360,13 @@ export function useLiveMatch(matchId) {
     }
   }
 
-  async function postGoal(teamId, playerName, message = null, playerId = null) {
+  async function postGoal(
+    teamId,
+    playerName,
+    message = null,
+    playerId = null,
+    assistPlayerId = null
+  ) {
     try {
       const goalData = {
         team_id: teamId,
@@ -372,6 +378,12 @@ export function useLiveMatch(matchId) {
         goalData.player_id = playerId;
       } else if (playerName) {
         goalData.player_name = playerName;
+      }
+
+      // Optional by design — most goals have no assist. The API only accepts a
+      // roster player, so a free-text scorer can never carry one.
+      if (assistPlayerId) {
+        goalData.assist_player_id = assistPlayerId;
       }
 
       const response = await authStore.apiRequest(

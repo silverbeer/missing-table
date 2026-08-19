@@ -17,6 +17,20 @@ logger = structlog.get_logger()
 STATS_CACHE_PATTERN = "mt:dao:stats:*"
 
 
+# Statuses that mean the match was actually contested. `scheduled`, `postponed`
+# and `cancelled` never happened, so nothing recorded against them is an
+# appearance (SB-671).
+#
+# `forfeit` is included for the same reason get_goals_leaderboard includes it —
+# a forfeited match can still have been played, and can carry real goals.
+#
+# `live` is included here and deliberately *not* in get_goals_leaderboard. A
+# squad's own board should move as its match is played, which is the whole point
+# of recording starters at kickoff; a league-wide leaderboard should not reorder
+# itself mid-match. Same column, different question.
+PLAYED_STATUSES = ("live", "completed", "forfeit")
+
+
 class PlayerStatsDAO(BaseDAO):
     """Data access object for player statistics operations."""
 
@@ -95,9 +109,13 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_get_or_create_error", player_id=player_id, match_id=match_id, error=str(e))
             return None
 
-    @dao_cache("stats:player:{player_id}:season:{season_id}:test{include_test}")
+    @dao_cache("stats:player:{player_id}:season:{season_id}:test{include_test}:mt{match_type_id}")
     def get_player_season_stats(
-        self, player_id: int, season_id: int, include_test: bool = False
+        self,
+        player_id: int,
+        season_id: int,
+        include_test: bool = False,
+        match_type_id: int | None = None,
     ) -> dict | None:
         """
         Get aggregated stats for a player across a season.
@@ -108,6 +126,10 @@ class PlayerStatsDAO(BaseDAO):
             include_test: SB-591 test partition. Minutes and goals from a test
                 match must not inflate a real player's season totals, so this is
                 part of the cache key.
+            match_type_id: Restrict to one competition — league, friendly,
+                tournament. None means all of them. It is part of the cache key
+                for the same reason include_test is: without it a league-only
+                request would be served an all-competitions total (SB-433).
 
         Returns:
             Aggregated stats dict with games_played, games_started,
@@ -120,7 +142,7 @@ class PlayerStatsDAO(BaseDAO):
                 self.client.table("player_match_stats")
                 .select(f"""
                 *,
-                match:{MATCHES_READ_RELATION}!inner(id, season_id, is_test)
+                match:{MATCHES_READ_RELATION}!inner(id, season_id, is_test, match_type_id, match_status)
             """)
                 .eq("player_id", player_id)
                 .eq("match.season_id", season_id)
@@ -130,12 +152,28 @@ class PlayerStatsDAO(BaseDAO):
             stats = response.data or []
             if not include_test:
                 stats = [s for s in stats if not (s.get("match") or {}).get("is_test")]
+            if match_type_id is not None:
+                stats = [s for s in stats if (s.get("match") or {}).get("match_type_id") == match_type_id]
+
+            # Only matches that actually happened. A lineup saved for a
+            # scheduled match, or a match started and then reverted to
+            # scheduled, leaves appearance rows behind that nothing cleans up —
+            # so the aggregation asks whether the match was played rather than
+            # trusting the rows to be tidy (SB-671). This also repairs existing
+            # data, which a cleanup hook could not.
+            stats = [s for s in stats if (s.get("match") or {}).get("match_status") in PLAYED_STATUSES]
 
             # Aggregate - only count games where player actually participated
             games_played = sum(1 for s in stats if s.get("played") or s.get("started"))
             games_started = sum(1 for s in stats if s.get("started"))
             total_minutes = sum(s.get("minutes_played", 0) for s in stats)
             total_goals = sum(s.get("goals", 0) for s in stats)
+            # assists and cards have been columns on player_match_stats all along;
+            # they simply weren't summed here, so nothing downstream could show
+            # them (SB-433).
+            total_assists = sum(s.get("assists", 0) for s in stats)
+            total_yellow_cards = sum(s.get("yellow_cards", 0) for s in stats)
+            total_red_cards = sum(s.get("red_cards", 0) for s in stats)
 
             return {
                 "player_id": player_id,
@@ -144,14 +182,23 @@ class PlayerStatsDAO(BaseDAO):
                 "games_started": games_started,
                 "total_minutes": total_minutes,
                 "total_goals": total_goals,
+                "total_assists": total_assists,
+                "total_yellow_cards": total_yellow_cards,
+                "total_red_cards": total_red_cards,
             }
 
         except Exception as e:
             logger.error("stats_season_error", player_id=player_id, season_id=season_id, error=str(e))
             return None
 
-    @dao_cache("stats:team:{team_id}:season:{season_id}:test{include_test}")
-    def get_team_stats(self, team_id: int, season_id: int, include_test: bool = False) -> list[dict]:
+    @dao_cache("stats:team:{team_id}:season:{season_id}:test{include_test}:mt{match_type_id}")
+    def get_team_stats(
+        self,
+        team_id: int,
+        season_id: int,
+        include_test: bool = False,
+        match_type_id: int | None = None,
+    ) -> list[dict]:
         """
         Get aggregated stats for all players on a team for a season.
 
@@ -160,6 +207,9 @@ class PlayerStatsDAO(BaseDAO):
             season_id: Season ID
             include_test: SB-591 test partition gate, threaded through to each
                 player's season aggregation.
+            match_type_id: Restrict to one competition; None means all. Part of
+                the cache key, or a league-only request gets served an
+                all-competitions total (SB-433).
 
         Returns:
             List of player stats dicts sorted by goals (descending)
@@ -181,7 +231,7 @@ class PlayerStatsDAO(BaseDAO):
             for player in players:
                 # Get season stats for each player
                 stats = self.get_player_season_stats(
-                    player["id"], season_id, include_test=include_test
+                    player["id"], season_id, include_test=include_test, match_type_id=match_type_id
                 )
                 if stats:
                     result.append(
@@ -194,6 +244,9 @@ class PlayerStatsDAO(BaseDAO):
                             "games_started": stats["games_started"],
                             "total_minutes": stats["total_minutes"],
                             "total_goals": stats["total_goals"],
+                            "total_assists": stats["total_assists"],
+                            "total_yellow_cards": stats["total_yellow_cards"],
+                            "total_red_cards": stats["total_red_cards"],
                         }
                     )
 

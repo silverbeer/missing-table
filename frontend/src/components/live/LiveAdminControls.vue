@@ -195,6 +195,24 @@
           />
         </div>
 
+        <div v-if="canPickAssist" class="form-group">
+          <label for="assist-select">Assist (optional)</label>
+          <select
+            id="assist-select"
+            v-model="selectedAssistPlayerId"
+            class="player-select"
+          >
+            <option :value="null">No assist</option>
+            <option
+              v-for="player in assistRosterOptions"
+              :key="player.id"
+              :value="player.id"
+            >
+              {{ formatPlayerOption(player) }}
+            </option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label for="goal-message">Description (optional)</label>
           <input
@@ -563,6 +581,7 @@ const goalTeamId = ref(null);
 const goalPlayerName = ref('');
 const goalMessage = ref('');
 const selectedPlayerId = ref(null);
+const selectedAssistPlayerId = ref(null);
 
 // Roster state
 const homeRoster = ref([]);
@@ -730,6 +749,22 @@ const currentTeamRoster = computed(() => {
   return awayRoster.value;
 });
 
+// The scorer can't assist their own goal — the API rejects that combination
+// (app.py:3308-3318), so leave it out of the options rather than let it be
+// picked and then error.
+const assistRosterOptions = computed(() =>
+  currentTeamRoster.value.filter(p => p.id !== selectedPlayerId.value)
+);
+
+// A free-text scorer ("Other") has no roster id, and the API only accepts a
+// roster player as assister, so there is nothing sensible to offer.
+const canPickAssist = computed(
+  () =>
+    !!selectedPlayerId.value &&
+    selectedPlayerId.value !== 'other' &&
+    assistRosterOptions.value.length > 0
+);
+
 // Compute whether goal can be submitted
 const canSubmitGoal = computed(() => {
   if (!goalTeamId.value) return false;
@@ -796,11 +831,25 @@ watch(showGoalModal, async newVal => {
   }
 });
 
+// A scorer change can leave an assist pointing at the player who now scored,
+// or at someone on the team that was just switched away from. Either would be
+// rejected server-side, so drop it here.
+watch(selectedPlayerId, newVal => {
+  if (
+    !newVal ||
+    newVal === 'other' ||
+    selectedAssistPlayerId.value === newVal
+  ) {
+    selectedAssistPlayerId.value = null;
+  }
+});
+
 // Handle team selection
 function selectTeam(teamId) {
   goalTeamId.value = teamId;
   // Reset player selection when team changes
   selectedPlayerId.value = null;
+  selectedAssistPlayerId.value = null;
   goalPlayerName.value = '';
 }
 
@@ -809,6 +858,7 @@ function closeGoalModal() {
   showGoalModal.value = false;
   goalTeamId.value = null;
   selectedPlayerId.value = null;
+  selectedAssistPlayerId.value = null;
   goalPlayerName.value = '';
   goalMessage.value = '';
 }
@@ -917,6 +967,7 @@ function submitGoal() {
     teamId: goalTeamId.value,
     playerName,
     playerId,
+    assistPlayerId: playerId ? selectedAssistPlayerId.value || null : null,
     message: goalMessage.value.trim() || null,
   });
 

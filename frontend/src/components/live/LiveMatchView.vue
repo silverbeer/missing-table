@@ -130,8 +130,20 @@ async function handleReopenMatch() {
   }
 }
 
-async function handlePostGoal({ teamId, playerName, message, playerId }) {
-  const result = await postGoal(teamId, playerName, message, playerId);
+async function handlePostGoal({
+  teamId,
+  playerName,
+  message,
+  playerId,
+  assistPlayerId,
+}) {
+  const result = await postGoal(
+    teamId,
+    playerName,
+    message,
+    playerId,
+    assistPlayerId
+  );
   if (!result.success) {
     alert(result.error || 'Failed to post goal');
   }
