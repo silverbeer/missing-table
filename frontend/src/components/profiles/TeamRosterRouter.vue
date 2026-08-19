@@ -104,10 +104,20 @@ export default {
       hasAnyRole(TEAM_PAGE_ROLES, userRole.value)
     );
 
+    // Admins belong to no squad and no club by design, not by omission, so
+    // every affiliation check below is false for them. Without this they get
+    // "No Team Assigned" and no way forward — the one role meant to see
+    // everything ends up with less access than a fan (SB-792). They pick a
+    // team on the page instead.
+    const canBrowseAnyTeam = computed(() =>
+      hasAnyRole(['admin'], userRole.value)
+    );
+
     // A squad to show. A club manager or club fan has no team_id and no player
     // history, but belongs to a club — TeamRosterPage resolves a team from it,
     // so requiring a team here would lock them out of a page built for them.
     const hasTeam = computed(() => {
+      if (canBrowseAnyTeam.value) return true;
       const profile = authStore.state.profile;
       return (
         !!profile?.team_id ||
@@ -126,6 +136,7 @@ export default {
       selectedPlayerId,
       userRole,
       canSeeTeamPage,
+      canBrowseAnyTeam,
       hasTeam,
       handleViewPlayer,
     };

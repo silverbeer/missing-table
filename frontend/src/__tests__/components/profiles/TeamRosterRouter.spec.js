@@ -90,3 +90,28 @@ describe('TeamRosterRouter access (SB-668)', () => {
     }
   });
 });
+
+describe('TeamRosterRouter admin access (SB-792)', () => {
+  it('renders the page for an admin with no team and no club', () => {
+    // An admin belongs to no squad by design, so every affiliation check is
+    // false for them. Before this they hit "No Team Assigned" with no way
+    // forward — the role meant to see everything reaching less than a fan.
+    const wrapper = mountRouter('admin', { team_id: null, club_id: null });
+
+    expect(wrapper.find('.roster-page').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('No Team Assigned');
+  });
+
+  it('still asks a non-admin with no affiliation to get assigned', () => {
+    // The admin bypass must not leak to everyone else: a player genuinely
+    // waiting on a team assignment should still be told so.
+    const wrapper = mountRouter('team-player', {
+      team_id: null,
+      club_id: null,
+      current_teams: [],
+    });
+
+    expect(wrapper.find('.roster-page').exists()).toBe(false);
+    expect(wrapper.text()).toContain('No Team Assigned');
+  });
+});
