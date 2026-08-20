@@ -71,8 +71,13 @@
               <th class="pb-2 pr-4 font-medium">Username</th>
               <th class="pb-2 pr-4 font-medium">Display Name</th>
               <th class="pb-2 pr-4 font-medium">Role</th>
+              <th class="pb-2 pr-4 font-medium">Team</th>
+              <th class="pb-2 pr-4 font-medium">Club</th>
               <th class="pb-2 pr-4 font-medium">Last Login</th>
-              <th class="pb-2 font-medium">Joined</th>
+              <th class="pb-2 pr-4 font-medium">Joined</th>
+              <th class="pb-2 font-medium">
+                <span class="sr-only">Edit</span>
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line">
@@ -92,6 +97,19 @@
                   user.role || 'user'
                 }}</span>
               </td>
+              <!-- SB-803: affiliation was in the payload all along but never
+                   shown, so an account named for a club and attached to
+                   nothing looked identical to a correct one. -->
+              <td class="py-2 pr-4" :class="affiliationClass(user, 'team')">
+                {{
+                  user.team_name || (user.team_id ? `#${user.team_id}` : '—')
+                }}
+              </td>
+              <td class="py-2 pr-4" :class="affiliationClass(user, 'club')">
+                {{
+                  user.club_name || (user.club_id ? `#${user.club_id}` : '—')
+                }}
+              </td>
               <td class="py-2 pr-4 text-fg-muted">
                 <span v-if="user.last_login_at">
                   <span
@@ -107,12 +125,141 @@
                 </span>
                 <span v-else class="text-fg-muted italic">Never</span>
               </td>
-              <td class="py-2 text-fg-muted">
+              <td class="py-2 pr-4 text-fg-muted">
                 {{ formatDate(user.created_at) }}
+              </td>
+              <td class="py-2">
+                <button
+                  type="button"
+                  class="px-2.5 py-1 text-xs font-medium rounded border border-line hover:bg-surface-alt"
+                  :data-testid="`edit-user-${user.username}`"
+                  @click="openEditor(user)"
+                >
+                  Edit
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
+
+        <!-- SB-803: edit sheet. Full-screen on small viewports on purpose —
+             this gets used one-handed at a match, where an inline row edit is
+             unusable. -->
+        <div
+          v-if="editing"
+          class="fixed inset-0 z-50 flex sm:items-center sm:justify-center bg-black/50"
+          data-testid="user-editor"
+          @click.self="closeEditor"
+        >
+          <div
+            class="bg-card w-full h-full sm:h-auto sm:max-w-md sm:rounded-xl p-5 overflow-y-auto flex flex-col gap-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="text-lg font-semibold text-fg">
+                  {{ editing.username }}
+                </h3>
+                <p class="text-xs text-fg-muted">
+                  {{ editing.display_name || 'No display name' }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="text-fg-muted hover:text-fg text-xl leading-none px-2"
+                data-testid="user-editor-close"
+                aria-label="Close"
+                @click="closeEditor"
+              >
+                &times;
+              </button>
+            </div>
+
+            <label class="flex flex-col gap-1">
+              <span
+                class="text-xs font-medium text-fg-muted uppercase tracking-wide"
+                >Role</span
+              >
+              <select
+                v-model="form.role"
+                data-testid="edit-role"
+                class="px-3 py-2.5 rounded-lg border border-line bg-surface text-fg"
+              >
+                <option v-for="r in ROLE_OPTIONS" :key="r" :value="r">
+                  {{ r }}
+                </option>
+              </select>
+            </label>
+
+            <label class="flex flex-col gap-1">
+              <span
+                class="text-xs font-medium text-fg-muted uppercase tracking-wide"
+                >Team</span
+              >
+              <input
+                v-model="teamSearch"
+                type="search"
+                placeholder="Search teams…"
+                data-testid="team-search"
+                class="px-3 py-2.5 rounded-lg border border-line bg-surface text-fg"
+              />
+              <select
+                v-model="form.team_id"
+                size="5"
+                data-testid="edit-team"
+                class="px-3 py-2 rounded-lg border border-line bg-surface text-fg"
+              >
+                <option :value="null">— No team —</option>
+                <option v-for="t in filteredTeams" :key="t.id" :value="t.id">
+                  {{ t.name }}
+                </option>
+              </select>
+            </label>
+
+            <label class="flex flex-col gap-1">
+              <span
+                class="text-xs font-medium text-fg-muted uppercase tracking-wide"
+                >Club</span
+              >
+              <select
+                v-model="form.club_id"
+                data-testid="edit-club"
+                class="px-3 py-2.5 rounded-lg border border-line bg-surface text-fg"
+              >
+                <option :value="null">— No club —</option>
+                <option v-for="c in clubs" :key="c.id" :value="c.id">
+                  {{ c.name }}
+                </option>
+              </select>
+            </label>
+
+            <p
+              v-if="saveError"
+              class="text-sm text-red-500"
+              data-testid="save-error"
+            >
+              {{ saveError }}
+            </p>
+
+            <div class="flex gap-2 mt-auto sm:mt-2">
+              <button
+                type="button"
+                class="flex-1 px-4 py-2.5 rounded-lg border border-line text-fg"
+                @click="closeEditor"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="flex-1 px-4 py-2.5 rounded-lg bg-brand-600 text-white font-medium disabled:opacity-50"
+                data-testid="save-user"
+                :disabled="saving || !isDirty"
+                @click="saveUser"
+              >
+                {{ saving ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -223,7 +370,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 
@@ -261,6 +408,122 @@ export default {
         error.value = err.message || 'Failed to fetch users';
       } finally {
         loading.value = false;
+      }
+    };
+
+    // --- SB-803: editing ---
+    // Written in the hyphen convention; the backend accepts both spellings and
+    // roles.js normalizes. Do not introduce a third form here.
+    const ROLE_OPTIONS = [
+      'admin',
+      'club_manager',
+      'club-fan',
+      'team-manager',
+      'team-player',
+      'team-fan',
+    ];
+
+    const editing = ref(null);
+    const form = ref({ role: null, team_id: null, club_id: null });
+    const saving = ref(false);
+    const saveError = ref(null);
+    const teams = ref([]);
+    const clubs = ref([]);
+    const teamSearch = ref('');
+
+    // 183 teams in a phone-sized list is unusable, so the list is filtered
+    // rather than scrolled.
+    const filteredTeams = computed(() => {
+      const q = teamSearch.value.trim().toLowerCase();
+      const list = q
+        ? teams.value.filter(t => (t.name || '').toLowerCase().includes(q))
+        : teams.value;
+      return list.slice(0, 50);
+    });
+
+    const isDirty = computed(() => {
+      if (!editing.value) return false;
+      return (
+        form.value.role !== editing.value.role ||
+        form.value.team_id !== (editing.value.team_id ?? null) ||
+        form.value.club_id !== (editing.value.club_id ?? null)
+      );
+    });
+
+    // Flag an affiliation the role implies but the account lacks. This is the
+    // state four real accounts are in, and it was invisible before.
+    const affiliationClass = (user, kind) => {
+      const role = (user.role || '').replace(/_/g, '-');
+      const expectsTeam = role.startsWith('team-') && role !== 'team-fan';
+      const expectsClub = role.startsWith('club-');
+      const missing =
+        (kind === 'team' && expectsTeam && !user.team_id) ||
+        (kind === 'club' && expectsClub && !user.club_id);
+      return missing ? 'text-amber-600 font-medium' : 'text-fg-muted';
+    };
+
+    const loadPickerData = async () => {
+      if (teams.value.length && clubs.value.length) return;
+      try {
+        const [teamData, clubData] = await Promise.all([
+          authStore.apiRequest(`${getApiBaseUrl()}/api/teams`, {
+            method: 'GET',
+          }),
+          authStore.apiRequest(`${getApiBaseUrl()}/api/clubs`, {
+            method: 'GET',
+          }),
+        ]);
+        const t = Array.isArray(teamData) ? teamData : teamData?.teams || [];
+        const c = Array.isArray(clubData) ? clubData : clubData?.clubs || [];
+        teams.value = [...t].sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '')
+        );
+        clubs.value = [...c].sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '')
+        );
+      } catch (err) {
+        saveError.value = err.message || 'Failed to load teams and clubs';
+      }
+    };
+
+    const openEditor = async user => {
+      saveError.value = null;
+      teamSearch.value = '';
+      editing.value = user;
+      form.value = {
+        role: user.role,
+        team_id: user.team_id ?? null,
+        club_id: user.club_id ?? null,
+      };
+      await loadPickerData();
+    };
+
+    const closeEditor = () => {
+      editing.value = null;
+      saveError.value = null;
+    };
+
+    const saveUser = async () => {
+      if (!editing.value || !isDirty.value) return;
+      saving.value = true;
+      saveError.value = null;
+      try {
+        await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/admin/users/${editing.value.id}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form.value),
+          }
+        );
+        closeEditor();
+        await fetchUsers();
+      } catch (err) {
+        // Guardrail rejections (last admin, own role) arrive here as the
+        // message the user needs to read, so surface it rather than a generic.
+        saveError.value = err.message || 'Failed to save';
+      } finally {
+        saving.value = false;
       }
     };
 
@@ -338,6 +601,21 @@ export default {
     onMounted(fetchUsers);
 
     return {
+      // SB-803 editing
+      ROLE_OPTIONS,
+      editing,
+      form,
+      saving,
+      saveError,
+      teams,
+      clubs,
+      teamSearch,
+      filteredTeams,
+      isDirty,
+      affiliationClass,
+      openEditor,
+      closeEditor,
+      saveUser,
       loading,
       error,
       activeTab,
