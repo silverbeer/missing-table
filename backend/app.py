@@ -6090,17 +6090,39 @@ async def get_player_profile(user_id: str, current_user: dict[str, Any] = Depend
                 if club_data and club_data.get("id"):
                     target_club_ids.add(club_data["id"])
 
-            # Get current user's teams and club IDs
-            user_teams = player_dao.get_all_current_player_teams(current_user["user_id"])
+            # The viewer's clubs, from every source that can establish one.
+            #
+            # This used to read player_team_history alone, which meant it
+            # authorized almost nobody: 32 of 33 accounts have no history rows.
+            # Club managers and fans carry club_id and never appear in that
+            # table, team managers carry team_id, and admins carry neither — so
+            # the intersection below was empty and the endpoint refused
+            # everyone except the one account with history, plus self-views
+            # (SB-797). Mirrors the resolution in get_team_players.
             user_club_ids = set()
-            for team_entry in user_teams:
-                team_data = team_entry.get("team", {})
-                club_data = team_data.get("club", {})
-                if club_data and club_data.get("id"):
-                    user_club_ids.add(club_data["id"])
+
+            if current_user.get("club_id"):
+                user_club_ids.add(current_user["club_id"])
+
+            if current_user.get("team_id"):
+                viewer_team = team_dao.get_team_by_id(current_user["team_id"])
+                if viewer_team and viewer_team.get("club_id"):
+                    user_club_ids.add(viewer_team["club_id"])
+
+            if not user_club_ids:
+                user_teams = player_dao.get_all_current_player_teams(current_user["user_id"])
+                for team_entry in user_teams:
+                    team_data = team_entry.get("team", {})
+                    club_data = team_data.get("club", {})
+                    if club_data and club_data.get("id"):
+                        user_club_ids.add(club_data["id"])
+
+            # Admins belong to no club, so no intersection can ever succeed for
+            # them. They browse any profile by design.
+            is_admin = current_user.get("role") == "admin"
 
             # Authorization: must share at least one club
-            if not (user_club_ids & target_club_ids):
+            if not is_admin and not (user_club_ids & target_club_ids):
                 raise HTTPException(status_code=403, detail="You can only view profiles of players in your club")
 
         target_team_id = target_profile.get("team_id")
