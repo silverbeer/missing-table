@@ -593,13 +593,15 @@ async def login(request: Request, user_data: UserLogin):
 
             # Record login event
             try:
-                auth_service_client.table("login_events").insert({
-                    "user_id": str(response.user.id),
-                    "username": user_data.username,
-                    "client_ip": client_ip,
-                    "success": True,
-                    "role": profile.get("role"),
-                }).execute()
+                auth_service_client.table("login_events").insert(
+                    {
+                        "user_id": str(response.user.id),
+                        "username": user_data.username,
+                        "client_ip": client_ip,
+                        "success": True,
+                        "role": profile.get("role"),
+                    }
+                ).execute()
             except Exception as log_err:
                 logger.warning(f"Failed to record login event: {log_err}")
 
@@ -628,12 +630,14 @@ async def login(request: Request, user_data: UserLogin):
             auth_logger.warning("auth_login_failed", reason="invalid_credentials")
             # Record failed login event
             try:
-                auth_service_client.table("login_events").insert({
-                    "username": user_data.username,
-                    "client_ip": client_ip,
-                    "success": False,
-                    "failure_reason": "invalid_credentials",
-                }).execute()
+                auth_service_client.table("login_events").insert(
+                    {
+                        "username": user_data.username,
+                        "client_ip": client_ip,
+                        "success": False,
+                        "failure_reason": "invalid_credentials",
+                    }
+                ).execute()
             except Exception as log_err:
                 logger.warning(f"Failed to record login event: {log_err}")
             raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -645,12 +649,14 @@ async def login(request: Request, user_data: UserLogin):
         logger.error(f"Login error: {e}", exc_info=True)
         # Record failed login event
         try:
-            auth_service_client.table("login_events").insert({
-                "username": user_data.username,
-                "client_ip": client_ip,
-                "success": False,
-                "failure_reason": "account_error",
-            }).execute()
+            auth_service_client.table("login_events").insert(
+                {
+                    "username": user_data.username,
+                    "client_ip": client_ip,
+                    "success": False,
+                    "failure_reason": "account_error",
+                }
+            ).execute()
         except Exception as log_err:
             logger.warning(f"Failed to record login event: {log_err}")
         raise HTTPException(status_code=401, detail="Invalid credentials") from e
@@ -2103,9 +2109,7 @@ async def get_season_match_counts(current_user: dict[str, Any] = Depends(require
     Supabase's 1000-row default and showed bogus counts.
     """
     try:
-        return season_dao.get_match_counts_by_season(
-            include_test=viewer_sees_test_content(current_user)
-        )
+        return season_dao.get_match_counts_by_season(include_test=viewer_sees_test_content(current_user))
     except Exception as e:
         logger.error(f"Error retrieving season match counts: {e!s}", exc_info=True)
         raise HTTPException(
@@ -2326,9 +2330,7 @@ async def add_team(
                     f"Returning existing team: {existing['name']} (id={existing['id']}, division_id={team.division_id})"
                 )
                 return {"message": "Team already exists", "team": existing}
-            logger.error(
-                f"Duplicate (name, division_id) for '{team.name}'/{team.division_id} but lookup found nothing"
-            )
+            logger.error(f"Duplicate (name, division_id) for '{team.name}'/{team.division_id} but lookup found nothing")
 
         logger.error(f"Error adding team: {error_str}", exc_info=True)
 
@@ -2405,9 +2407,7 @@ async def get_live_matches(
     Returns minimal data for efficient polling.
     """
     try:
-        live_matches = match_dao.get_live_matches(
-            include_test=viewer_sees_test_content(current_user)
-        )
+        live_matches = match_dao.get_live_matches(include_test=viewer_sees_test_content(current_user))
         return live_matches
     except Exception as e:
         logger.error(f"Error getting live matches: {e!s}", exc_info=True)
@@ -2465,9 +2465,7 @@ async def get_match_preview(
             ):
                 preview.update(qop_defaults)
             else:
-                qop_data = QoPRankingsDAO.get_latest_with_delta(
-                    match_dao.client, home_division_id, home_age_group_id
-                )
+                qop_data = QoPRankingsDAO.get_latest_with_delta(match_dao.client, home_division_id, home_age_group_id)
                 if not qop_data.get("has_data"):
                     preview.update(qop_defaults)
                 else:
@@ -2489,13 +2487,15 @@ async def get_match_preview(
                     home_rank, home_rank_change = find_team_rank(home_team_id, home_name)
                     away_rank, away_rank_change = find_team_rank(away_team_id, away_name)
 
-                    preview.update({
-                        "has_qop_data": True,
-                        "home_qop_rank": home_rank,
-                        "home_qop_rank_change": home_rank_change,
-                        "away_qop_rank": away_rank,
-                        "away_qop_rank_change": away_rank_change,
-                    })
+                    preview.update(
+                        {
+                            "has_qop_data": True,
+                            "home_qop_rank": home_rank,
+                            "home_qop_rank_change": home_rank_change,
+                            "away_qop_rank": away_rank,
+                            "away_qop_rank_change": away_rank_change,
+                        }
+                    )
         except Exception:
             logger.warning("Failed to fetch QoP data for match preview", exc_info=True)
             preview.update(qop_defaults)
@@ -2515,9 +2515,7 @@ async def get_match(
     """Get a specific match by ID (requires authentication)."""
     try:
         # Use get_match_by_id for efficient single-match lookup with club data
-        match = match_dao.get_match_by_id(
-            match_id, include_test=viewer_sees_test_content(current_user)
-        )
+        match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
 
         if not match:
             raise HTTPException(status_code=404, detail=f"Match with ID {match_id} not found")
@@ -2838,9 +2836,7 @@ async def upload_match_photo(
     """
     if not r2_client.is_configured():
         logger.error("match_photo_upload_unavailable: R2 not configured")
-        raise HTTPException(
-            status_code=503, detail="Photo upload is temporarily unavailable."
-        )
+        raise HTTPException(status_code=503, detail="Photo upload is temporarily unavailable.")
 
     if file.content_type not in _MATCH_PHOTO_ALLOWED_TYPES:
         raise HTTPException(
@@ -2938,10 +2934,7 @@ async def delete_match_photo(
             )
 
     response = (
-        match_dao.client.table("matches")
-        .update({"photo_url": None, "photo_key": None})
-        .eq("id", match_id)
-        .execute()
+        match_dao.client.table("matches").update({"photo_url": None, "photo_key": None}).eq("id", match_id).execute()
     )
     if not response.data:
         raise HTTPException(status_code=500, detail="Failed to clear photo metadata")
@@ -3058,9 +3051,7 @@ async def get_live_match_state(
     Returns match data with clock fields for the live match view.
     """
     try:
-        match_state = match_dao.get_live_match_state(
-            match_id, include_test=viewer_sees_test_content(current_user)
-        )
+        match_state = match_dao.get_live_match_state(match_id, include_test=viewer_sees_test_content(current_user))
         if not match_state:
             raise HTTPException(status_code=404, detail="Match not found")
 
@@ -3247,9 +3238,7 @@ async def reopen_match(
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
-        if not auth_manager.can_edit_match(
-            current_user, current_match["home_team_id"], current_match["away_team_id"]
-        ):
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
             raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
 
         if current_match.get("match_status") != "completed":
@@ -4419,9 +4408,7 @@ async def get_table(
         qop_week_of = None
         if division_id and age_group_id:
             try:
-                qop_data = QoPRankingsDAO.get_latest_with_delta(
-                    match_dao.client, division_id, age_group_id
-                )
+                qop_data = QoPRankingsDAO.get_latest_with_delta(match_dao.client, division_id, age_group_id)
                 has_qop_data = qop_data.get("has_data", False)
                 qop_week_of = qop_data.get("week_of")
 
@@ -4576,9 +4563,7 @@ async def delete_age_group(age_group_id: int, current_user: dict[str, Any] = Dep
 async def create_season(season: SeasonCreate, current_user: dict[str, Any] = Depends(require_admin)):
     """Create a new season (admin only)."""
     try:
-        result = season_dao.create_season(
-            season.name, season.start_date, season.end_date, is_current=season.is_current
-        )
+        result = season_dao.create_season(season.name, season.start_date, season.end_date, is_current=season.is_current)
         return result
     except Exception as e:
         logger.error(f"Error creating season: {e!s}", exc_info=True)
@@ -4935,9 +4920,7 @@ async def get_club_teams(
     """Get all teams for a specific club."""
     try:
         teams = (
-            team_dao.get_club_teams(
-                club_id, include_test=viewer_sees_test_content(current_user)
-            )
+            team_dao.get_club_teams(club_id, include_test=viewer_sees_test_content(current_user))
             if include_stats
             else team_dao.get_club_teams_basic(club_id)
         )
@@ -4979,9 +4962,8 @@ async def create_club(club: Club, current_user: dict[str, Any] = Depends(require
         # Idempotency: clubs.name is unique. If we hit that constraint, the
         # caller asked to create a club that's already there — fetch the
         # existing row and return it with 200 instead of 409.
-        is_name_dup = (
-            "duplicate key value violates unique constraint" in error_str.lower()
-            and ("clubs_name_unique" in error_str.lower() or "clubs_name_key" in error_str.lower())
+        is_name_dup = "duplicate key value violates unique constraint" in error_str.lower() and (
+            "clubs_name_unique" in error_str.lower() or "clubs_name_key" in error_str.lower()
         )
         if is_name_dup:
             existing = club_dao.get_club_by_name(club.name)
@@ -5485,6 +5467,11 @@ async def get_team_players(
             raise HTTPException(status_code=404, detail="Team not found")
         requested_club_id = requested_team.get("club_id")
 
+        # Admins belong to no club, so the membership check below can never
+        # pass for them — user_club_ids comes out empty and every team is
+        # refused. They browse any squad by design (SB-793).
+        is_admin = current_user.get("role") == "admin"
+
         # Get user's club_id from their profile's team_id, club_id, or player_team_history
         user_club_ids = set()
 
@@ -5500,7 +5487,9 @@ async def get_team_players(
 
         # Also check player_team_history for current team assignments.
         # Players added via roster manager have entries here but not in user_profiles.team_id.
-        if not user_club_ids:
+        # Skipped for admins — the result is never consulted, and this is an
+        # extra query on every roster they open.
+        if not user_club_ids and not is_admin:
             current_teams = player_dao.get_all_current_player_teams(current_user["user_id"])
             for ct in current_teams:
                 team_data = ct.get("team")
@@ -5510,7 +5499,7 @@ async def get_team_players(
                         user_club_ids.add(club["id"])
 
         # Authorization: user must belong to a team in the same club
-        if requested_club_id not in user_club_ids:
+        if not is_admin and requested_club_id not in user_club_ids:
             raise HTTPException(status_code=403, detail="You can only view rosters for teams in your club")
 
         # Get team info with relationships
@@ -5653,11 +5642,7 @@ async def bulk_create_roster(
         # (team, season, age group): scope the check to the import's age group
         # so umbrella teams can reuse numbers across squads.
         existing_roster = roster_dao.get_team_roster(team_id, data.season_id)
-        existing_numbers = {
-            p["jersey_number"]
-            for p in existing_roster
-            if p.get("age_group_id") == data.age_group_id
-        }
+        existing_numbers = {p["jersey_number"] for p in existing_roster if p.get("age_group_id") == data.age_group_id}
 
         # Filter out duplicates
         new_players = [p.model_dump() for p in data.players if p.jersey_number not in existing_numbers]
@@ -6666,18 +6651,25 @@ async def clear_cache_by_type(
 async def get_all_users(current_user: dict[str, Any] = Depends(require_admin)):
     """Get all users with their last login time (admin only)."""
     try:
-        profiles_resp = auth_service_client.table("user_profiles").select(
-            "id, username, display_name, role, email, team_id, club_id, created_at"
-        ).order("username").execute()
+        profiles_resp = (
+            auth_service_client.table("user_profiles")
+            .select("id, username, display_name, role, email, team_id, club_id, created_at")
+            .order("username")
+            .execute()
+        )
         profiles = profiles_resp.data or []
 
         # Get last login time for each user
         if profiles:
             user_ids = [p["id"] for p in profiles]
             # Fetch most recent login event per user_id
-            events_resp = auth_service_client.table("login_events").select(
-                "user_id, success, created_at"
-            ).in_("user_id", user_ids).order("created_at", desc=True).execute()
+            events_resp = (
+                auth_service_client.table("login_events")
+                .select("user_id, success, created_at")
+                .in_("user_id", user_ids)
+                .order("created_at", desc=True)
+                .execute()
+            )
             events = events_resp.data or []
 
             # Build a map of user_id -> last login info
@@ -6711,10 +6703,15 @@ async def get_login_events(
 ):
     """Get login events with optional filters (admin only)."""
     try:
-        query = auth_service_client.table("login_events").select(
-            "id, user_id, username, client_ip, success, failure_reason, role, created_at",
-            count="exact",
-        ).order("created_at", desc=True).range(offset, offset + limit - 1)
+        query = (
+            auth_service_client.table("login_events")
+            .select(
+                "id, user_id, username, client_ip, success, failure_reason, role, created_at",
+                count="exact",
+            )
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+        )
 
         if username:
             query = query.ilike("username", f"%{username}%")
@@ -7187,9 +7184,7 @@ async def get_tournaments(
     """
     try:
         include_test = viewer_sees_test_content(current_user)
-        return tournament_dao.get_active_tournaments(
-            include_test=include_test, season_id=season_id
-        )
+        return tournament_dao.get_active_tournaments(include_test=include_test, season_id=season_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -7351,9 +7346,7 @@ async def admin_upload_tournament_logo(
 
         public_url = storage.from_("tournament-logos").get_public_url(file_path)
 
-        updated = tournament_dao.update_tournament(
-            tournament_id=tournament_id, logo_url=public_url
-        )
+        updated = tournament_dao.update_tournament(tournament_id=tournament_id, logo_url=public_url)
         if not updated:
             raise HTTPException(status_code=404, detail=f"Tournament with id {tournament_id} not found")
 
@@ -7541,9 +7534,7 @@ async def get_qop_rankings(
         return cached
 
     try:
-        result = QoPRankingsDAO.get_with_delta(
-            match_dao.client, division_id, age_group_id, snapshot_id
-        )
+        result = QoPRankingsDAO.get_with_delta(match_dao.client, division_id, age_group_id, snapshot_id)
         if result.get("has_data"):
             cache_set(cache_key, result, ttl=3600)
         return result
