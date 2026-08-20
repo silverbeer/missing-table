@@ -299,11 +299,6 @@
             <TournamentMatchCenter />
           </div>
 
-          <!-- Leaderboard -->
-          <div v-if="currentTab === 'leaderboard'" class="p-4">
-            <GoalsLeaderboard />
-          </div>
-
           <!-- QoP Rankings -->
           <div v-if="currentTab === 'qop'" class="p-4">
             <QoPStandings />
@@ -442,10 +437,6 @@ const MatchDetailView = lazyView(
   () => import('./components/MatchDetailView.vue'),
   'MatchDetailView'
 );
-const GoalsLeaderboard = lazyView(
-  () => import('./components/GoalsLeaderboard.vue'),
-  'GoalsLeaderboard'
-);
 const ForgotPasswordForm = lazyView(
   () => import('./components/ForgotPasswordForm.vue'),
   'ForgotPasswordForm'
@@ -491,7 +482,6 @@ export default {
     LandingPreview,
     MatchesView,
     MatchDetailView,
-    GoalsLeaderboard,
     AuthNav,
     LoginForm,
     ForgotPasswordForm,
@@ -597,12 +587,6 @@ export default {
       { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
       { id: 'match-center', name: 'Tournaments', requiresAuth: true },
-      {
-        id: 'leaderboard',
-        name: 'Leaderboard',
-        requiresAuth: true,
-        isBeta: true,
-      },
       { id: 'qop', name: 'QoP', requiresAuth: true },
       {
         id: 'add-match',
