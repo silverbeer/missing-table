@@ -1,6 +1,7 @@
 import { reactive, computed } from 'vue';
 import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
 import { getTraceHeaders } from '../utils/traceContext';
+import { hasAnyRole } from '../utils/roles';
 import { getApiBaseUrl } from '../config/api';
 import { supabase, getOAuthRedirectUrl } from '../config/supabase';
 import {
@@ -46,16 +47,34 @@ const decodeJwtExp = token => {
 export const useAuthStore = () => {
   // Computed properties
   const isAuthenticated = computed(() => !!state.session);
-  const isAdmin = computed(() => state.profile?.role === 'admin');
-  const isClubManager = computed(() => state.profile?.role === 'club_manager');
-  const isClubFan = computed(() => state.profile?.role === 'club_fan');
-  const hasClubAccess = computed(() => !!state.profile?.club_id);
-  const isTeamManager = computed(
-    () =>
-      state.profile?.role === 'team-manager' ||
-      state.profile?.role === 'team_manager'
+  // SB-798: compare through hasAnyRole rather than by exact string.
+  //
+  // user_profiles_role_check accepts both spellings of most roles — club-fan
+  // and club_fan, team-manager and team_manager — and real accounts exist under
+  // each, because one signup path used to write the underscore form while the
+  // others wrote the hyphen form. An exact match therefore covered only the
+  // half of its audience that happened to come through the right door, and did
+  // so silently: no error, just a capability quietly missing.
+  //
+  // isTeamManager already had a hand-rolled or-chain for exactly this reason.
+  // Its neighbours did not, which is the inconsistency this removes.
+  //
+  // club_manager is the exception and stays a single spelling: 'club-manager'
+  // is not permitted by the constraint at all.
+  const isAdmin = computed(() => hasAnyRole(['admin'], state.profile?.role));
+  const isClubManager = computed(() =>
+    hasAnyRole(['club_manager'], state.profile?.role)
   );
-  const isPlayer = computed(() => state.profile?.role === 'team-player');
+  const isClubFan = computed(() =>
+    hasAnyRole(['club-fan'], state.profile?.role)
+  );
+  const hasClubAccess = computed(() => !!state.profile?.club_id);
+  const isTeamManager = computed(() =>
+    hasAnyRole(['team-manager'], state.profile?.role)
+  );
+  const isPlayer = computed(() =>
+    hasAnyRole(['team-player'], state.profile?.role)
+  );
   // Players can browse all leagues/divisions but not edit
   const canBrowseAll = computed(() => isAdmin.value || isPlayer.value);
   const canManageTeam = computed(
