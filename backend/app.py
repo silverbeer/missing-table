@@ -28,6 +28,7 @@ from auth import (
     require_admin_or_service_account,
     require_match_management_permission,
     require_team_manager_or_admin,
+    role_for_invite_type,
     security,
     viewer_sees_test_content,
 )
@@ -348,14 +349,7 @@ async def _update_existing_user_role(user_data, invite_info, audit_logger):
             user_id = existing_profile["id"]
 
         # Map invite type to user role
-        role_mapping = {
-            "club_manager": "club_manager",
-            "club_fan": "club-fan",
-            "team_manager": "team-manager",
-            "team_player": "team-player",
-            "team_fan": "team-fan",
-        }
-        new_role = role_mapping.get(invite_info["invite_type"], "team-fan")
+        new_role = role_for_invite_type(invite_info["invite_type"])
 
         # Update user profile with new role and invite info
         update_data = {
@@ -468,14 +462,7 @@ async def signup(request: Request, user_data: UserSignup):
             # If signup with invite code, override role and team
             if invite_info:
                 # Map invite type to user role
-                role_mapping = {
-                    "club_manager": "club_manager",
-                    "club_fan": "club-fan",
-                    "team_manager": "team-manager",
-                    "team_player": "team-player",
-                    "team_fan": "team-fan",
-                }
-                profile_data["role"] = role_mapping.get(invite_info["invite_type"], "team-fan")
+                profile_data["role"] = role_for_invite_type(invite_info["invite_type"])
                 profile_data["team_id"] = invite_info.get("team_id")
                 profile_data["club_id"] = invite_info.get("club_id")
 
@@ -529,14 +516,7 @@ async def signup(request: Request, user_data: UserSignup):
                 logger.info(f"Found existing auth user: {existing_user.id if existing_user else None}")
                 if existing_user:
                     # Map invite type to user role
-                    role_mapping = {
-                        "club_manager": "club_manager",
-                        "club_fan": "club-fan",
-                        "team_manager": "team-manager",
-                        "team_player": "team-player",
-                        "team_fan": "team-fan",
-                    }
-                    new_role = role_mapping.get(invite_info["invite_type"], "team-fan")
+                    new_role = role_for_invite_type(invite_info["invite_type"])
 
                     # Update user profile with new role, username, and invite info
                     update_data = {
@@ -963,15 +943,9 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
             )
 
         # Either new user OR trigger-created stub that needs to be completed
-        # Map invite_type to role
-        invite_type_to_role = {
-            "club_manager": "club_manager",
-            "club_fan": "club_fan",
-            "team_manager": "team-manager",
-            "team_player": "team-player",
-            "team_fan": "team-fan",
-        }
-        role = invite_type_to_role.get(invite_info.get("invite_type"), "team-fan")
+        # Was a fourth, divergent copy of this mapping: it produced "club_fan"
+        # where the other three produced "club-fan" (SB-798).
+        role = role_for_invite_type(invite_info.get("invite_type"))
 
         # Generate a unique username from email
         base_username = email.split("@")[0].replace(".", "_").replace("-", "_")[:40]

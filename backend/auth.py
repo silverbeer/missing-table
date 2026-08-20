@@ -23,6 +23,36 @@ load_dotenv()
 _jwks_client: PyJWKClient | None = None
 
 logger = logging.getLogger(__name__)
+
+# Canonical role for each invite_type (SB-798).
+#
+# This mapping existed in four places and one of them disagreed: the email /
+# OAuth signup path mapped club_fan -> "club_fan" while the other three mapped
+# it to "club-fan". Both spellings pass user_profiles_role_check, so nothing
+# failed — the database simply accumulated the same role under two names
+# depending on which door a user came through, and every exact-match comparison
+# downstream then covered only half of them.
+#
+# Note the asymmetry is real, not a typo to "fix": club_manager is canonically
+# the UNDERSCORE form, and "club-manager" is not permitted by the constraint at
+# all. The others are canonically hyphenated.
+INVITE_TYPE_TO_ROLE: dict[str, str] = {
+    "club_manager": "club_manager",
+    "club_fan": "club-fan",
+    "team_manager": "team-manager",
+    "team_player": "team-player",
+    "team_fan": "team-fan",
+}
+
+# Role assigned when an invite carries no recognisable type.
+DEFAULT_ROLE = "team-fan"
+
+
+def role_for_invite_type(invite_type: str | None) -> str:
+    """Canonical role for an invite_type, or the default for anything unknown."""
+    return INVITE_TYPE_TO_ROLE.get(invite_type or "", DEFAULT_ROLE)
+
+
 security = HTTPBearer()
 
 
