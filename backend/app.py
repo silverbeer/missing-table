@@ -6687,10 +6687,151 @@ async def get_all_users(current_user: dict[str, Any] = Depends(require_admin)):
                 profile["last_login_at"] = info.get("last_login_at")
                 profile["last_login_success"] = info.get("last_login_success")
 
+        # Resolve affiliation to names (SB-803). The list previously carried
+        # team_id and club_id but the UI showed neither, so an admin could not
+        # see that an account named for a club was attached to nothing. Ids
+        # alone do not fix that — a column of integers is no more readable.
+        team_names: dict[int, str] = {}
+        club_names: dict[int, str] = {}
+        team_ids = {p["team_id"] for p in profiles if p.get("team_id")}
+        club_ids = {p["club_id"] for p in profiles if p.get("club_id")}
+        if team_ids:
+            teams_resp = auth_service_client.table("teams").select("id, name").in_("id", list(team_ids)).execute()
+            team_names = {t["id"]: t["name"] for t in (teams_resp.data or [])}
+        if club_ids:
+            clubs_resp = auth_service_client.table("clubs").select("id, name").in_("id", list(club_ids)).execute()
+            club_names = {c["id"]: c["name"] for c in (clubs_resp.data or [])}
+        for profile in profiles:
+            profile["team_name"] = team_names.get(profile.get("team_id"))
+            profile["club_name"] = club_names.get(profile.get("club_id"))
+
         return {"users": profiles, "total": len(profiles)}
     except Exception as e:
         logger.error(f"Error fetching users: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+class AdminUserUpdate(BaseModel):
+    """Fields an admin may change on another user's profile (SB-803).
+
+    All optional: a request changes only what it sends. `None` is a real value
+    for team_id and club_id — it is how an assignment is cleared — so the
+    "was this field sent at all?" question is answered with
+    model_fields_set, not by testing for None.
+    """
+
+    role: str | None = None
+    team_id: int | None = None
+    club_id: int | None = None
+
+
+@app.patch("/api/admin/users/{user_id}")
+async def update_user_profile_admin(
+    user_id: str,
+    payload: AdminUserUpdate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Update a user's role, team or club (admin only).
+
+    Exists because editing a user previously required shell access to
+    scripts/manage_users.py. That is fine at a desk and useless at a match,
+    which is where the need actually arises (SB-803).
+    """
+    try:
+        sent = payload.model_fields_set
+        if not sent:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        target_resp = (
+            auth_service_client.table("user_profiles")
+            .select("id, username, role, team_id, club_id")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        target = (target_resp.data or [None])[0]
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        updates: dict[str, Any] = {}
+        for field in ("role", "team_id", "club_id"):
+            if field in sent:
+                updates[field] = getattr(payload, field)
+
+        # Guardrails on the admin role. Losing every admin locks everyone out
+        # of exactly the screen that could undo it, and an admin removing
+        # their own role is nearly always a misclick.
+        if "role" in updates and target["role"] == "admin" and updates["role"] != "admin":
+            if target["id"] == current_user["user_id"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="You cannot remove your own admin role. Ask another admin.",
+                )
+            admin_count_resp = auth_service_client.table("user_profiles").select("id").eq("role", "admin").execute()
+            if len(admin_count_resp.data or []) <= 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot remove the last admin.",
+                )
+
+        # Referential checks. The role/affiliation combination is deliberately
+        # NOT enforced — accounts already exist as team-fans with no team, and
+        # refusing to save would make those unfixable here.
+        if updates.get("team_id") is not None and not team_dao.get_team_by_id(updates["team_id"]):
+            raise HTTPException(status_code=400, detail="Team not found")
+        if updates.get("club_id") is not None:
+            # ClubDAO has no get-by-id; get_all_clubs is already cached and the
+            # list is ~130 rows, so a membership test is cheaper than adding a
+            # DAO method for one call site.
+            known_club_ids = {c["id"] for c in club_dao.get_all_clubs(include_team_counts=False)}
+            if updates["club_id"] not in known_club_ids:
+                raise HTTPException(status_code=400, detail="Club not found")
+
+        changes = {
+            field: {"from": target.get(field), "to": value}
+            for field, value in updates.items()
+            if target.get(field) != value
+        }
+        if not changes:
+            return {"success": True, "user_id": user_id, "changes": {}}
+
+        auth_service_client.table("user_profiles").update(updates).eq("id", user_id).execute()
+
+        # Record before returning. A privilege change with no trail of who made
+        # it is the part of this feature that would be hard to live with.
+        try:
+            auth_service_client.table("admin_user_audit_log").insert(
+                {
+                    "actor_id": current_user["user_id"],
+                    "actor_username": current_user.get("username"),
+                    "target_id": user_id,
+                    "target_username": target.get("username"),
+                    "changes": changes,
+                }
+            ).execute()
+        except Exception:
+            # A failed audit write must not silently discard a successful
+            # update, but it must be loud.
+            logger.exception(
+                "Admin user update succeeded but the audit write failed",
+                actor=current_user.get("username"),
+                target=target.get("username"),
+                changes=changes,
+            )
+
+        logger.info(
+            "Admin updated user profile",
+            actor=current_user.get("username"),
+            target=target.get("username"),
+            changes=changes,
+        )
+        return {"success": True, "user_id": user_id, "changes": changes}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user profile: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update user") from e
 
 
 @app.get("/api/admin/users/login-events")
