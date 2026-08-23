@@ -5761,8 +5761,12 @@ async def update_jersey_number(
         if player["team_id"] != team_id:
             raise HTTPException(status_code=404, detail="Player not on this team")
 
-        # Check if new number is available
-        existing = roster_dao.get_player_by_jersey(team_id, player["season_id"], data.new_number)
+        # Check if new number is available. Scope to the player's age group to
+        # match the unique index (team, season, age group, jersey) - umbrella
+        # teams reuse numbers across squads.
+        existing = roster_dao.get_player_by_jersey(
+            team_id, player["season_id"], data.new_number, age_group_id=player.get("age_group_id")
+        )
         if existing and existing["id"] != player_id:
             raise HTTPException(status_code=409, detail=f"Jersey number {data.new_number} is already taken")
 
@@ -5835,7 +5839,10 @@ async def delete_roster_entry(
     current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
     """
-    Remove a player from the roster (soft delete).
+    Remove a player from the roster.
+
+    Soft delete when the player has match history, hard delete when nothing
+    references them (SB-809). The jersey number is reissuable either way.
 
     Requires admin or team_manager role.
     """
@@ -5847,7 +5854,7 @@ async def delete_roster_entry(
         if player["team_id"] != team_id:
             raise HTTPException(status_code=404, detail="Player not on this team")
 
-        # Soft delete
+        # Soft delete if the player has history, hard delete otherwise
         success = roster_dao.delete_player(player_id)
 
         if not success:

@@ -116,7 +116,10 @@ class RosterDAO(BaseDAO):
         age_group_id: int | None = ...,  # sentinel: not passed = any age group
     ) -> dict | None:
         """
-        Get roster entry by jersey number (unique within team/season/age group).
+        Get the active roster entry by jersey number.
+
+        Soft-deleted rows are ignored: their numbers are reissuable
+        (SB-809), so a tombstone must not report the number as taken.
 
         Args:
             team_id: Team ID
@@ -142,6 +145,7 @@ class RosterDAO(BaseDAO):
                 .eq("team_id", team_id)
                 .eq("season_id", season_id)
                 .eq("jersey_number", jersey_number)
+                .eq("is_active", True)
             )
             if age_group_id is not ...:
                 if age_group_id is None:
@@ -552,12 +556,58 @@ class RosterDAO(BaseDAO):
             )
             return None
 
+    def player_has_history(self, player_id: int) -> bool:
+        """
+        Whether anything in the database depends on this player.
+
+        History is match events (scored, assisted, substituted off), computed
+        match stats, a linked user account, or an invitation. A player with any
+        of these must be soft-deleted: `player_match_stats` cascades on delete,
+        and the two `match_events` assist/sub FKs are ON DELETE NO ACTION, so a
+        hard delete would either destroy stats or fail outright.
+
+        Errs on the side of True: if the check itself fails we keep the row.
+        """
+        try:
+            row = self.client.table("players").select("user_profile_id").eq("id", player_id).execute()
+            if row.data and row.data[0].get("user_profile_id"):
+                return True
+
+            events = (
+                self.client.table("match_events")
+                .select("id")
+                .or_(f"player_id.eq.{player_id},assist_player_id.eq.{player_id},player_out_id.eq.{player_id}")
+                .limit(1)
+                .execute()
+            )
+            if events.data:
+                return True
+
+            stats = self.client.table("player_match_stats").select("id").eq("player_id", player_id).limit(1).execute()
+            if stats.data:
+                return True
+
+            invites = self.client.table("invitations").select("id").eq("player_id", player_id).limit(1).execute()
+            return bool(invites.data)
+
+        except Exception as e:
+            logger.error("roster_history_check_error", player_id=player_id, error=str(e))
+            return True
+
     # === Delete Operations ===
 
     @invalidates_cache(ROSTER_CACHE_PATTERN)
     def delete_player(self, player_id: int) -> bool:
         """
-        Remove a roster entry (soft delete by setting is_active=false).
+        Remove a roster entry.
+
+        Soft delete (is_active=false) when the player has history, so goals,
+        assists and stats keep pointing at a real row. Hard delete when nothing
+        references them - a placeholder that never played leaves no tombstone
+        (SB-809).
+
+        Either way the jersey number becomes reissuable: the unique index is
+        scoped to active rows.
 
         Args:
             player_id: Player ID to remove
@@ -566,10 +616,13 @@ class RosterDAO(BaseDAO):
             True if successful, False on error
         """
         try:
+            if not self.player_has_history(player_id):
+                return self._hard_delete(player_id)
+
             response = self.client.table("players").update({"is_active": False}).eq("id", player_id).execute()
 
             if response.data and len(response.data) > 0:
-                logger.info("roster_player_deleted", player_id=player_id)
+                logger.info("roster_player_deleted", player_id=player_id, mode="soft")
                 return True
             return False
 
@@ -577,12 +630,25 @@ class RosterDAO(BaseDAO):
             logger.error("roster_delete_error", player_id=player_id, error=str(e))
             return False
 
+    def _hard_delete(self, player_id: int) -> bool:
+        """Permanently remove a roster entry. Caller must invalidate the cache."""
+        try:
+            self.client.table("players").delete().eq("id", player_id).execute()
+
+            logger.info("roster_player_deleted", player_id=player_id, mode="hard")
+            return True
+
+        except Exception as e:
+            logger.error("roster_hard_delete_error", player_id=player_id, error=str(e))
+            return False
+
     @invalidates_cache(ROSTER_CACHE_PATTERN)
     def hard_delete_player(self, player_id: int) -> bool:
         """
         Permanently remove a roster entry.
 
-        Use sparingly - soft delete (delete_player) is preferred.
+        Use sparingly - delete_player already hard-deletes players with no
+        history and soft-deletes the rest.
 
         Args:
             player_id: Player ID to remove
@@ -591,10 +657,7 @@ class RosterDAO(BaseDAO):
             True if successful, False on error
         """
         try:
-            self.client.table("players").delete().eq("id", player_id).execute()
-
-            logger.info("roster_player_hard_deleted", player_id=player_id)
-            return True
+            return self._hard_delete(player_id)
 
         except Exception as e:
             logger.error("roster_hard_delete_error", player_id=player_id, error=str(e))
