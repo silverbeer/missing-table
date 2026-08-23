@@ -96,6 +96,28 @@ current-season lookup at redemption, with the same block-on-miss behavior.
 
 ---
 
+## Deleting a Player and Reusing a Jersey Number (SB-809, August 2026)
+
+`DELETE /api/teams/{team_id}/roster/{player_id}` picks its strategy from
+whether anything depends on the player (`RosterDAO.player_has_history`):
+
+| Player has... | Delete is | Why |
+|---|---|---|
+| match events, match stats, a linked account, or an invitation | **soft** (`is_active = false`) | `player_match_stats.player_id` is `ON DELETE CASCADE`, and `match_events.assist_player_id` / `player_out_id` are `ON DELETE NO ACTION` — a hard delete would destroy stats or fail outright. The row stays so goals and assists keep pointing at it. |
+| nothing | **hard** | A placeholder that never played leaves no tombstone. |
+
+The jersey number is reissuable either way. Uniqueness is enforced by the
+partial index `players_active_team_season_ag_jersey_key` on
+`(team_id, season_id, age_group_id, jersey_number) NULLS NOT DISTINCT
+WHERE is_active` — soft-deleted rows are outside it. `get_player_by_jersey`
+filters on `is_active` to match, so a tombstone never reports a number as
+taken.
+
+Two **active** players still cannot share a number in the same team, season
+and age group: that returns `409`.
+
+---
+
 ## Lineup Position Filtering (SB-288, July 2026)
 
 Clicking a formation slot in the lineup editor partitions the player picker:
