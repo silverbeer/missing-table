@@ -81,7 +81,7 @@ Quick subcommand map:
 | Find a tournament by name | `tournament find "<name>"` |
 | List a tournament's existing matches (for upsert mapping) | `tournament matches <tournament_id>` |
 | Create a tournament | `tournament create --name --start-date [--end-date --age-group-ids 1,2,3]` |
-| Add a match to a tournament | `match create --tournament-id --our-team-id --opponent-name --match-date --age-group-id --season-id [--home-score ... --tournament-round ...]` |
+| Add a match to a tournament | `match create --tournament-id --home-team-id\|--home-team-name --away-team-id\|--away-team-name --match-date --age-group-id --season-id [--home-score ... --tournament-round ...]` |
 | Update an existing match (fill in scores/status) | `match update --tournament-id --match-id [--home-score ... --away-score ... --match-status completed ...]` |
 
 ## Workflow
@@ -210,12 +210,11 @@ Build the create-list and update-list, show the user a short plan ("N to create,
 ```bash
 cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt.py match create \
   --tournament-id <id> \
-  --our-team-id <one-of-our-tracked-teams> \
-  --opponent-name "<the other team's name as a string>" \
+  --home-team-id <existing-team> | --home-team-name "<home team's name>" \
+  --away-team-id <existing-team> | --away-team-name "<away team's name>" \
   --match-date YYYY-MM-DD \
   --age-group-id <id> \
   --season-id <id> \
-  --home/--away \
   [--home-score 2 --away-score 1] \
   [--home-penalty-score 5 --away-penalty-score 4] \
   [--match-status completed|scheduled|in_progress] \
@@ -244,8 +243,8 @@ cd backend && uv run python ../.claude/skills/load-tournament-matches/scripts/mt
 
 **Important semantics:**
 
-- **Create** takes `our_team_id` (an existing tracked team) + `opponent_name` (a string). The backend auto-resolves the opponent: exact-match an existing team, otherwise create a lightweight tournament-only team. So you don't have to create both sides as full teams — only the "our team" side needs to be a real tracked team. **Update** works on the match `id` directly and never touches team identities (unless you pass `--swap-home-away` to fix a reversed fixture).
-- For **MLS Next Cup specifically**: the user is loading the bracket to make the tournament look great in MT, but their own team may not be in it. So most matches will have `opponent_name` pointing to an opposing team and `our_team_id` pointing to whatever tracked team is closest. If neither team is "ours", pick the home team to be `our_team_id` and let `is_home=True`.
+- **Create** names both sides directly (SB-819). Per side pass exactly one of `--{home,away}-team-id` (an existing team) or `--{home,away}-team-name` (a string). A name is resolved by exact match, otherwise a lightweight tournament-only team is created — so neither side has to be a full tracked team. Prefer the id when you already know it: name matching is exact, so a typo creates a duplicate. **Update** works on the match `id` directly and never touches team identities (unless you pass `--swap-home-away` to fix a reversed fixture).
+- For **MLS Next Cup specifically**: the user is loading the bracket to make the tournament look great in MT, but their own team may not be in it. That is fine — there is no "our team" side to nominate, so just name whichever teams actually played.
 - **Penalty shootout scores** are only valid when the regulation score is a draw. Always pass both `--home-penalty-score` and `--away-penalty-score` together or neither — on both create and update.
 - **`match_status`**: when a score is final use `completed`; a not-yet-played matchup is `scheduled`. When filling in a score on a previously-scheduled match, pass `--match-status completed` alongside the scores.
 - The orientation matters: scores are **home : away**. If the screenshot's home team is the existing match's away team, either map the scores accordingly or use `--swap-home-away`.

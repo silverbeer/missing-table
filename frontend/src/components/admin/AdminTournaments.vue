@@ -472,62 +472,35 @@
                 ⇄ Swap
               </button>
             </div>
-            <!-- Add mode: team selector + opponent input -->
+            <!-- Add mode: both sides named directly. A tournament often has
+                 no "our team" — an admin loading a bracket may track neither
+                 side (SB-819). -->
             <div v-else class="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label class="block text-sm font-medium text-fg mb-1"
-                  >Our Team *</label
-                >
-                <select
-                  v-model="mForm.our_team_id"
-                  required
-                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
-                >
-                  <option :value="null" disabled>— select —</option>
-                  <option v-for="t in leagueTeams" :key="t.id" :value="t.id">
-                    {{ t.name }}{{ t.league_name ? ` (${t.league_name})` : '' }}
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-fg mb-1"
-                  >Opponent *</label
+                  >Home Team *</label
                 >
                 <TeamCombobox
-                  v-model="mForm.opponent_team_id"
-                  v-model:create-name="mForm.opponent_name"
-                  :teams="opponentTeams"
+                  v-model="mForm.home_team_id"
+                  v-model:create-name="mForm.home_team_name"
+                  :teams="teamOptions"
                   :age-group-id="mForm.age_group_id"
                   required
                   placeholder="Search teams…"
                 />
               </div>
-            </div>
-
-            <!-- Home/Away toggle -->
-            <div v-if="!editingMatch" class="mb-4">
-              <label class="block text-sm font-medium text-fg mb-1"
-                >Our Team Is</label
-              >
-              <div class="flex gap-4">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    v-model="mForm.is_home"
-                    type="radio"
-                    :value="true"
-                    class="text-brand-600"
-                  />
-                  <span class="text-sm">Home</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    v-model="mForm.is_home"
-                    type="radio"
-                    :value="false"
-                    class="text-brand-600"
-                  />
-                  <span class="text-sm">Away</span>
-                </label>
+              <div>
+                <label class="block text-sm font-medium text-fg mb-1"
+                  >Away Team *</label
+                >
+                <TeamCombobox
+                  v-model="mForm.away_team_id"
+                  v-model:create-name="mForm.away_team_name"
+                  :teams="teamOptions"
+                  :age-group-id="mForm.age_group_id"
+                  required
+                  placeholder="Search teams…"
+                />
               </div>
             </div>
 
@@ -750,18 +723,9 @@ export default {
     const seasons = ref([]);
     const allTeams = ref([]);
 
-    // League teams = teams with a league association (league_id or league_name set
-    // by DAO processing). Falls back to all teams so the dropdown is never empty.
-    const leagueTeams = computed(() => {
-      const withLeague = allTeams.value.filter(
-        t => t.league_id != null || t.league_name
-      );
-      return withLeague.length > 0 ? withLeague : allTeams.value;
-    });
-
-    // Opponents come from the full list, not leagueTeams: a tournament
-    // opponent is often a lightweight team with no league (SB-817).
-    const opponentTeams = computed(() =>
+    // Both sides of a fixture pick from every team, including the lightweight
+    // tournament-only ones that have no league at all (SB-817, SB-819).
+    const teamOptions = computed(() =>
       [...allTeams.value].sort((a, b) =>
         (a.name || '').localeCompare(b.name || '')
       )
@@ -823,10 +787,10 @@ export default {
 
     function emptyMatchForm() {
       return {
-        our_team_id: null,
-        opponent_team_id: null,
-        opponent_name: '',
-        is_home: true,
+        home_team_id: null,
+        home_team_name: '',
+        away_team_id: null,
+        away_team_name: '',
         match_date: '',
         scheduled_kickoff: '',
         tournament_round: '',
@@ -1115,10 +1079,10 @@ export default {
     const openEditMatch = match => {
       editingMatch.value = match;
       mForm.value = {
-        our_team_id: null,
-        opponent_team_id: null,
-        opponent_name: '',
-        is_home: true,
+        home_team_id: null,
+        home_team_name: '',
+        away_team_id: null,
+        away_team_name: '',
         match_date: match.match_date,
         scheduled_kickoff: match.scheduled_kickoff
           ? (() => {
@@ -1189,13 +1153,14 @@ export default {
             mForm.value.away_score != null &&
             mForm.value.home_score === mForm.value.away_score;
           const payload = {
-            our_team_id: mForm.value.our_team_id,
-            // Exactly one identifies the opponent: a picked team wins, a
-            // deliberate "create new team" falls back to the name (SB-817).
-            ...(mForm.value.opponent_team_id != null
-              ? { opponent_team_id: mForm.value.opponent_team_id }
-              : { opponent_name: mForm.value.opponent_name }),
-            is_home: mForm.value.is_home,
+            // Per side exactly one field: a picked team wins, a deliberate
+            // "create new team" falls back to the name (SB-817).
+            ...(mForm.value.home_team_id != null
+              ? { home_team_id: mForm.value.home_team_id }
+              : { home_team_name: mForm.value.home_team_name }),
+            ...(mForm.value.away_team_id != null
+              ? { away_team_id: mForm.value.away_team_id }
+              : { away_team_name: mForm.value.away_team_name }),
             match_date: mForm.value.match_date,
             age_group_id: mForm.value.age_group_id,
             season_id: mForm.value.season_id,
@@ -1256,8 +1221,7 @@ export default {
       error,
       ageGroups,
       seasons,
-      leagueTeams,
-      opponentTeams,
+      teamOptions,
       selectedTournamentId,
       selectedMatches,
       matchesLoading,

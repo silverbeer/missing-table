@@ -118,11 +118,26 @@ class TournamentCreate(BaseModel):
 
 
 class TournamentMatchCreate(BaseModel):
-    our_team_id: int = Field(..., title="Our Team Id")
-    opponent_name: str = Field(..., title="Opponent Name")
+    """New tournament fixture (mirrors app.py TournamentMatchCreate).
+
+    Name each side directly: per side give exactly one of `*_team_id` (an
+    existing team) or `*_team_name` (created if unknown). A tournament often has
+    no "our team" at all, so there is no tracked-team side (SB-819).
+
+    `our_team_id` / `opponent_*` / `is_home` are the deprecated pre-SB-819 form,
+    still accepted by the backend.
+    """
+
     match_date: str = Field(..., title="Match Date")
     age_group_id: int = Field(..., title="Age Group Id")
     season_id: int = Field(..., title="Season Id")
+    home_team_id: int | None = Field(None, title="Home Team Id")
+    home_team_name: str | None = Field(None, title="Home Team Name")
+    away_team_id: int | None = Field(None, title="Away Team Id")
+    away_team_name: str | None = Field(None, title="Away Team Name")
+    our_team_id: int | None = Field(None, title="Our Team Id")
+    opponent_team_id: int | None = Field(None, title="Opponent Team Id")
+    opponent_name: str | None = Field(None, title="Opponent Name")
     is_home: bool = Field(True, title="Is Home")
     home_score: int | None = Field(None, title="Home Score")
     away_score: int | None = Field(None, title="Away Score")

@@ -7283,10 +7283,17 @@ class TournamentUpdate(BaseModel):
 
 
 class TournamentMatchCreate(BaseModel):
-    our_team_id: int
-    # Exactly one of opponent_team_id / opponent_name identifies the opponent.
-    # Picking an existing team is preferred: name resolution matches exactly, so
-    # a typo mints a duplicate lightweight team (SB-817).
+    # Per side, exactly one of *_team_id / *_team_name. Picking an existing team
+    # is preferred: name resolution matches exactly, so a typo mints a duplicate
+    # lightweight team (SB-817).
+    home_team_id: int | None = None
+    home_team_name: str | None = None
+    away_team_id: int | None = None
+    away_team_name: str | None = None
+    # Deprecated pre-SB-819 form, kept so existing clients keep working. A
+    # tournament often has no "our team" at all — an admin loading a bracket may
+    # track neither side — so home/away is the shape everything else uses.
+    our_team_id: int | None = None
     opponent_team_id: int | None = None
     opponent_name: str | None = None
     match_date: str
@@ -7516,11 +7523,19 @@ async def admin_create_tournament_match(
     current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Add a match to a tournament (admin)."""
-    if payload.opponent_team_id is None and not (payload.opponent_name or "").strip():
-        raise HTTPException(status_code=422, detail="Either opponent_team_id or opponent_name is required")
+    has_home = payload.home_team_id is not None or (payload.home_team_name or "").strip()
+    if not has_home and payload.our_team_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Provide home_team_id/home_team_name and away_team_id/away_team_name",
+        )
     try:
         created = tournament_dao.create_tournament_match(
             tournament_id=tournament_id,
+            home_team_id=payload.home_team_id,
+            home_team_name=payload.home_team_name,
+            away_team_id=payload.away_team_id,
+            away_team_name=payload.away_team_name,
             our_team_id=payload.our_team_id,
             opponent_name=payload.opponent_name,
             opponent_team_id=payload.opponent_team_id,

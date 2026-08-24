@@ -98,11 +98,13 @@ class TestOpponentByNameStillWorks:
 
 
 class TestOpponentRequired:
+    """The deprecated our_team/opponent form still has to name an opponent."""
+
     def test_neither_id_nor_name_is_rejected(self, dao):
         _capture_insert(dao)
         dao.get_or_create_opponent_team = MagicMock()
 
-        with pytest.raises(ValueError, match="opponent_team_id or opponent_name"):
+        with pytest.raises(ValueError, match="away_team_id or away_team_name"):
             dao.create_tournament_match(**BASE, opponent_name=None)
 
         dao.get_or_create_opponent_team.assert_not_called()
@@ -111,7 +113,7 @@ class TestOpponentRequired:
         _capture_insert(dao)
         dao.get_or_create_opponent_team = MagicMock()
 
-        with pytest.raises(ValueError, match="opponent_team_id or opponent_name"):
+        with pytest.raises(ValueError, match="away_team_id or away_team_name"):
             dao.create_tournament_match(**BASE, opponent_name="")
 
         dao.get_or_create_opponent_team.assert_not_called()

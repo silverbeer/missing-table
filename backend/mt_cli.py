@@ -956,12 +956,11 @@ def tournament_add_match(
     home_id, home_name = _resolve_team_id(client, home)
 
     payload = TournamentMatchCreate(
-        our_team_id=home_id,
-        opponent_name=away,
+        home_team_id=home_id,
+        away_team_name=away,
         match_date=date,
         age_group_id=age_group_id,
         season_id=season_id,
-        is_home=True,
         home_score=home_score,
         away_score=away_score,
         match_status=status,
