@@ -363,7 +363,11 @@ class TournamentDAO(BaseDAO):
         # team, not report it as new (SB-822).
         if not exact:
             alias_response = (
-                self.client.table("team_aliases").select("team_id").ilike("alias", normalized).limit(1).execute()
+                self.client.table("team_aliases")
+                .select("team_id")
+                .ilike("external_name", normalized)
+                .limit(1)
+                .execute()
             )
             if alias_response.data:
                 aliased = (
@@ -425,7 +429,7 @@ class TournamentDAO(BaseDAO):
         # IFA, and how a post-rename feed carrying 'Long Island Soccer Club'
         # would split that club's history.
         alias_response = (
-            self.client.table("team_aliases").select("team_id").ilike("alias", normalized).limit(1).execute()
+            self.client.table("team_aliases").select("team_id").ilike("external_name", normalized).limit(1).execute()
         )
         if alias_response.data:
             team_id = alias_response.data[0]["team_id"]
