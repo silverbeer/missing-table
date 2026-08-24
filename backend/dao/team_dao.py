@@ -180,10 +180,7 @@ class TeamDAO(BaseDAO):
         match.
         """
         mapping_response = (
-            self.client.table("team_mappings")
-            .select("team_id")
-            .eq("age_group_id", age_group_id)
-            .execute()
+            self.client.table("team_mappings").select("team_id").eq("age_group_id", age_group_id).execute()
         )
         team_ids = list({r["team_id"] for r in mapping_response.data})
         if not team_ids:
@@ -240,6 +237,67 @@ class TeamDAO(BaseDAO):
         if response.data and len(response.data) > 0:
             return response.data[0]
         return None
+
+    def resolve_team_by_name(self, name: str) -> dict | None:
+        """Resolve any string a source might use for a team to the team row.
+
+        Checks teams.name first, then team_aliases (SB-822). Returns None only
+        when the name is genuinely unknown.
+
+        This is the single resolution point every name-based lookup should use.
+        Before it existed, a feed spelling a team differently did not match —
+        and on the tournament path it did not fail either, it created a second
+        team. 'Intercontinental Football Academy of New England' produced a
+        duplicate IFA exactly that way.
+
+        Matching is case-insensitive and whitespace-normalised on both sides,
+        mirroring the unique index on lower(alias).
+        """
+        normalized = " ".join((name or "").strip().split())
+        if not normalized:
+            return None
+
+        direct = self.get_team_by_name(normalized)
+        if direct:
+            return direct
+
+        alias_resp = self.client.table("team_aliases").select("team_id").ilike("alias", normalized).limit(1).execute()
+        if not alias_resp.data:
+            return None
+
+        team_id = alias_resp.data[0]["team_id"]
+        resolved = self.get_team_by_id(team_id)
+        if resolved:
+            logger.info(
+                "Resolved team via alias",
+                alias=normalized,
+                team_id=team_id,
+                team_name=resolved.get("name"),
+            )
+        return resolved
+
+    @invalidates_cache(TEAMS_CACHE_PATTERN)
+    def add_team_alias(self, team_id: int, alias: str, kind: str = "feed_variant", note: str | None = None) -> dict:
+        """Record a string that should resolve to this team."""
+        row = {
+            "team_id": team_id,
+            "alias": " ".join(alias.strip().split()),
+            "kind": kind,
+            "note": note,
+        }
+        response = self.client.table("team_aliases").insert(row).execute()
+        return response.data[0] if response.data else {}
+
+    def get_team_aliases(self, team_id: int) -> list[dict]:
+        """Every alias recorded for a team."""
+        response = (
+            self.client.table("team_aliases")
+            .select("id, alias, kind, note, created_at")
+            .eq("team_id", team_id)
+            .order("alias")
+            .execute()
+        )
+        return response.data or []
 
     def get_team_by_name_and_division(self, name: str, division_id: int | None) -> dict | None:
         """Get a team by name (exact match, case-sensitive) within a specific division.
@@ -791,9 +849,7 @@ class TeamDAO(BaseDAO):
         rule server-side; the Python fallback below mirrors it.
         """
         try:
-            response = self.client.rpc(
-                "get_team_game_counts", {"p_include_test": include_test}
-            ).execute()
+            response = self.client.rpc("get_team_game_counts", {"p_include_test": include_test}).execute()
 
             if not response.data:
                 # Fallback to Python aggregation
