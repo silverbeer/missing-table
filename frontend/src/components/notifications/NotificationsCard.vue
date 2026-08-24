@@ -8,14 +8,23 @@
       </p>
     </header>
 
-    <!-- iOS-not-standalone gate -->
+    <!-- iOS-not-standalone gate. This used to be the end of the road: it told
+         users to install but pointed at nothing, and the install banner it
+         referred to wasn't clickable either (SB-810). Now it opens the guide. -->
     <div v-if="isIosBlocked" class="notifications-banner banner-warn">
-      <strong>Install MT to your home screen first.</strong>
+      <strong>Add Missing Table to your home screen first.</strong>
       <span>
-        iOS requires the app to be installed before notifications can be
-        enabled. Use Share → "Add to Home Screen" in Safari, then come back
-        here.
+        iPhones only allow notifications from apps on the home screen — a
+        browser tab can't receive them. It's a one-time setup and takes about 15
+        seconds.
       </span>
+      <button
+        class="banner-action"
+        data-testid="notifications-ios-guide"
+        @click="openGuide"
+      >
+        Show me how
+      </button>
     </div>
 
     <!-- Permission denied -->
@@ -229,6 +238,7 @@ import { usePushNotifications } from '../../composables/usePushNotifications';
 import { useTeamFollows } from '../../composables/useTeamFollows';
 import { useBracketFollows } from '../../composables/useBracketFollows';
 import { useNotificationPreferences } from '../../composables/useNotificationPreferences';
+import { openSetupGuide } from '../../composables/useNotificationSetup';
 
 const {
   isSupported,
@@ -265,6 +275,10 @@ const {
   setPreference,
   setCards,
 } = useNotificationPreferences();
+
+function openGuide() {
+  openSetupGuide('install');
+}
 
 const subscriptions = ref([]);
 const lastMessage = ref('');
@@ -401,6 +415,26 @@ onMounted(refresh);
 
 .notifications-banner strong {
   font-weight: 700;
+}
+
+.banner-action {
+  display: block;
+  margin-top: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: #92400e;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.banner-action:hover,
+.banner-action:focus-visible {
+  background: #78350f;
+  outline: none;
 }
 
 .banner-warn {

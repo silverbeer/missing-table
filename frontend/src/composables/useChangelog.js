@@ -5,7 +5,7 @@
  * build time (scripts/copy-changelog.mjs). We fetch it, split it into release
  * sections on the `## [version] — title` headings, and render each body to
  * HTML with `marked`. "Seen" state is per-device in localStorage (matches
- * IosInstallTooltip) — used to chip releases that are new since the last visit.
+ * InstallBanner) — used to chip releases that are new since the last visit.
  */
 
 import { ref } from 'vue';

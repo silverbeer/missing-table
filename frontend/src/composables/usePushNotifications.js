@@ -98,9 +98,12 @@ export function usePushNotifications() {
       hasBackendSubscription.value === true
   );
   const isBlocked = computed(() => permission.value === 'denied');
-  const isIosBlocked = computed(
-    () => isSupported.value && isIosNonStandalone()
-  );
+  // Deliberately NOT gated on isSupported: iOS doesn't expose PushManager
+  // outside standalone mode, so an iPhone tab fails the support check and
+  // would otherwise fall through to "not supported on this browser" — a
+  // dead end, when the honest answer is "install it to your home screen
+  // first" (SB-810).
+  const isIosBlocked = computed(() => isIosNonStandalone());
 
   async function fetchVapidPublicKey() {
     const resp = await fetch(`${getApiBaseUrl()}/api/push/vapid-public-key`);

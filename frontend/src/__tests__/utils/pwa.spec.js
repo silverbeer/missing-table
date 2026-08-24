@@ -13,7 +13,15 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { isIosSafari, isStandalone, isIosNonStandalone } from '@/utils/pwa';
+import {
+  isIos,
+  isIosSafari,
+  isStandalone,
+  isIosNonStandalone,
+  detectBrowser,
+  getInstallSteps,
+  isTouchDevice,
+} from '@/utils/pwa';
 
 const IOS_SAFARI_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
@@ -149,5 +157,140 @@ describe('isIosNonStandalone', () => {
     });
     stubMatchMedia(false);
     expect(isIosNonStandalone()).toBe(false);
+  });
+});
+
+// --- SB-810 -----------------------------------------------------------------
+// Every iOS browser is WebKit, so the install requirement is identical across
+// them. Detection used to be Safari-only, which meant iPhone users on Chrome
+// were told nothing at all.
+
+const IOS_FIREFOX_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/120.0 Mobile/15E148 Safari/605.1.15';
+
+describe('isIos — browser-independent', () => {
+  it('true for iOS Safari', () => {
+    stubNavigator({ userAgent: IOS_SAFARI_UA });
+    expect(isIos()).toBe(true);
+  });
+
+  it('true for iOS Chrome — same WebKit, same install rules', () => {
+    stubNavigator({ userAgent: IOS_CHROME_UA });
+    expect(isIos()).toBe(true);
+  });
+
+  it('true for iOS Firefox', () => {
+    stubNavigator({ userAgent: IOS_FIREFOX_UA });
+    expect(isIos()).toBe(true);
+  });
+
+  it('false for Android Chrome', () => {
+    stubNavigator({
+      userAgent: ANDROID_CHROME_UA,
+      platform: 'Linux armv8l',
+      maxTouchPoints: 5,
+    });
+    expect(isIos()).toBe(false);
+  });
+});
+
+describe('isIosNonStandalone — covers non-Safari iOS browsers', () => {
+  it('true for iOS Chrome not yet installed (regression: used to be false)', () => {
+    stubNavigator({ userAgent: IOS_CHROME_UA, standalone: false });
+    stubMatchMedia(false);
+    expect(isIosNonStandalone()).toBe(true);
+  });
+
+  it('false for iOS Chrome once installed', () => {
+    stubNavigator({ userAgent: IOS_CHROME_UA, standalone: true });
+    stubMatchMedia(true);
+    expect(isIosNonStandalone()).toBe(false);
+  });
+});
+
+describe('detectBrowser', () => {
+  it('identifies iOS Safari', () => {
+    stubNavigator({ userAgent: IOS_SAFARI_UA });
+    expect(detectBrowser()).toBe('safari');
+  });
+
+  it('identifies iOS Chrome (CriOS)', () => {
+    stubNavigator({ userAgent: IOS_CHROME_UA });
+    expect(detectBrowser()).toBe('chrome');
+  });
+
+  it('identifies iOS Firefox (FxiOS)', () => {
+    stubNavigator({ userAgent: IOS_FIREFOX_UA });
+    expect(detectBrowser()).toBe('firefox');
+  });
+});
+
+describe('getInstallSteps', () => {
+  it('returns Safari-specific steps on iOS Safari', () => {
+    stubNavigator({ userAgent: IOS_SAFARI_UA, standalone: false });
+    stubMatchMedia(false);
+    const guide = getInstallSteps();
+    expect(guide.browserLabel).toBe('Safari');
+    expect(guide.steps).toHaveLength(3);
+    expect(guide.steps[0].detail).toMatch(/bottom/i);
+  });
+
+  it('flags the below-the-fold share-sheet step — where users give up', () => {
+    stubNavigator({ userAgent: IOS_SAFARI_UA, standalone: false });
+    stubMatchMedia(false);
+    const emphasised = getInstallSteps().steps.filter(s => s.emphasis);
+    expect(emphasised).toHaveLength(1);
+    expect(emphasised[0].title).toMatch(/Add to Home Screen/);
+  });
+
+  it("gives Chrome users their own menu, not Safari's bottom toolbar", () => {
+    stubNavigator({ userAgent: IOS_CHROME_UA, standalone: false });
+    stubMatchMedia(false);
+    const guide = getInstallSteps();
+    expect(guide.browserLabel).toBe('Chrome');
+    expect(guide.steps[0].title).toMatch(/Chrome menu/);
+  });
+
+  it('returns null once installed — nothing left to teach', () => {
+    stubNavigator({ userAgent: IOS_SAFARI_UA, standalone: true });
+    stubMatchMedia(true);
+    expect(getInstallSteps()).toBeNull();
+  });
+
+  it('returns null off iOS — no install step is required there', () => {
+    stubNavigator({
+      userAgent: ANDROID_CHROME_UA,
+      platform: 'Linux armv8l',
+      maxTouchPoints: 5,
+      standalone: false,
+    });
+    stubMatchMedia(false);
+    expect(getInstallSteps()).toBeNull();
+  });
+});
+
+describe('isTouchDevice', () => {
+  it('true on iPhone', () => {
+    stubNavigator({ userAgent: IOS_SAFARI_UA });
+    expect(isTouchDevice()).toBe(true);
+  });
+
+  it('true on Android', () => {
+    stubNavigator({
+      userAgent: ANDROID_CHROME_UA,
+      platform: 'Linux armv8l',
+      maxTouchPoints: 5,
+    });
+    expect(isTouchDevice()).toBe(true);
+  });
+
+  it('false on a desktop Mac — an unsolicited modal there is just noise', () => {
+    stubNavigator({
+      userAgent: MAC_SAFARI_UA,
+      platform: 'MacIntel',
+      maxTouchPoints: 0,
+    });
+    stubMatchMedia(false);
+    expect(isTouchDevice()).toBe(false);
   });
 });

@@ -1,56 +1,75 @@
 <template>
-  <button
-    v-if="visible"
-    type="button"
-    class="follow-button"
-    :class="[
-      `follow-button--${variant}`,
-      { 'is-following': following, 'is-busy': busy },
-    ]"
-    :disabled="busy"
-    :aria-pressed="following"
-    :aria-label="
-      following
-        ? `Unfollow ${teamName || 'team'}`
-        : `Follow ${teamName || 'team'}`
-    "
-    data-testid="follow-button"
-    @click="onClick"
-  >
-    <svg
-      v-if="!following"
-      class="follow-icon"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
+  <div v-if="visible" class="follow-wrap">
+    <button
+      type="button"
+      class="follow-button"
+      :class="[
+        `follow-button--${variant}`,
+        { 'is-following': following, 'is-busy': busy },
+      ]"
+      :disabled="busy"
+      :aria-pressed="following"
+      :aria-label="
+        following
+          ? `Unfollow ${teamName || 'team'}`
+          : `Follow ${teamName || 'team'}`
+      "
+      data-testid="follow-button"
+      @click="onClick"
     >
-      <path
-        d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-      />
-    </svg>
-    <svg
-      v-else
-      class="follow-icon"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
+      <svg
+        v-if="!following"
+        class="follow-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+        />
+      </svg>
+      <svg
+        v-else
+        class="follow-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          fill-rule="evenodd"
+          d="M16.704 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414L8.5 12.086l6.79-6.793a1 1 0 011.414 0z"
+          clip-rule="evenodd"
+        />
+      </svg>
+      <span class="follow-label">{{ label }}</span>
+    </button>
+
+    <!-- Following a team only saves it to a list — it does NOT turn on push.
+         Before SB-810 nothing said so, so users tapped Follow, saw green, and
+         waited for alerts that were never coming. -->
+    <button
+      v-if="following && !alertsLive"
+      type="button"
+      class="follow-hint"
+      data-testid="follow-alerts-hint"
+      @click="openGuide"
     >
-      <path
-        fill-rule="evenodd"
-        d="M16.704 5.293a1 1 0 010 1.414l-7.5 7.5a1 1 0 01-1.414 0l-3.5-3.5a1 1 0 011.414-1.414L8.5 12.086l6.79-6.793a1 1 0 011.414 0z"
-        clip-rule="evenodd"
-      />
-    </svg>
-    <span class="follow-label">{{ label }}</span>
-  </button>
+      <span class="follow-hint-dot" aria-hidden="true"></span>
+      Alerts aren’t on yet — set up
+    </button>
+  </div>
 </template>
 
 <script setup>
 import { computed, ref, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import { useTeamFollows } from '../../composables/useTeamFollows';
+import {
+  useNotificationSetup,
+  openSetupGuide,
+} from '../../composables/useNotificationSetup';
 
 const props = defineProps({
   teamId: { type: [Number, String], required: true },
@@ -65,7 +84,12 @@ const props = defineProps({
 });
 
 const authStore = useAuthStore();
-const { isFollowing, toggle, ensureLoaded, loaded } = useTeamFollows();
+const { isFollowing, toggle, ensureLoaded, loaded, follows } = useTeamFollows();
+const { isComplete, shouldPromptUnprompted } = useNotificationSetup();
+
+// "Live" means a push would actually arrive: installed where required,
+// permission granted, and a subscription registered on the backend.
+const alertsLive = computed(() => isComplete.value);
 
 const busy = ref(false);
 
@@ -79,11 +103,28 @@ const label = computed(() => {
   return following.value ? 'Following' : 'Follow';
 });
 
+function openGuide() {
+  openSetupGuide('follow');
+}
+
 async function onClick() {
   if (busy.value) return;
+  const wasFollowing = following.value;
+  // Their very first follow is the one moment where the gap between "saved to
+  // a list" and "a push will reach me" is both invisible and freshly relevant.
+  // Later follows get the persistent hint chip instead — opening a modal on
+  // every follow would be nagging, not teaching.
+  const isFirstEverFollow = !wasFollowing && follows.value.length === 0;
   busy.value = true;
   try {
-    await toggle(props.teamId);
+    const result = await toggle(props.teamId);
+    if (
+      isFirstEverFollow &&
+      result?.success !== false &&
+      shouldPromptUnprompted.value
+    ) {
+      openSetupGuide('follow');
+    }
   } finally {
     busy.value = false;
   }
@@ -95,6 +136,43 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.follow-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.follow-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: rgb(180, 83, 9);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.follow-hint:hover,
+.follow-hint:focus-visible {
+  background: rgba(245, 158, 11, 0.28);
+  outline: none;
+}
+
+.follow-hint-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(245, 158, 11);
+  flex-shrink: 0;
+}
+
 .follow-button {
   display: inline-flex;
   align-items: center;
