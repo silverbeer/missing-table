@@ -339,14 +339,14 @@ export default {
 }
 
 .tournament-logo {
-  height: 88px;
-  width: 88px;
+  height: 104px;
+  width: 104px;
   flex-shrink: 0;
   margin-left: 8px;
-  padding: 8px;
+  padding: 4px;
   box-sizing: border-box;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 .tournament-logo-img {

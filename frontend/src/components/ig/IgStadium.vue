@@ -227,13 +227,13 @@ export default {
 }
 
 .tournament-logo {
-  height: 84px;
-  width: 84px;
+  height: 100px;
+  width: 100px;
   margin-right: 16px;
-  padding: 8px;
+  padding: 4px;
   box-sizing: border-box;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   flex-shrink: 0;
 }
 
