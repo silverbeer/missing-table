@@ -20,6 +20,9 @@ TOURNAMENTS_CACHE_PATTERN = "mt:dao:tournaments:*"
 # row: the SB-77 follower-notify detector sees no change and never fires, and
 # even when it does the dispatcher formats the push with the stale score.
 MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
+# Creating a lightweight opponent adds a row the cached team lists must show —
+# otherwise the next Add Match still can't pick it and creates it again (SB-817).
+TEAMS_CACHE_PATTERN = "mt:dao:teams:*"
 
 # match_type_id=2 is "Tournament" (seed data)
 TOURNAMENT_MATCH_TYPE_ID = 2
@@ -390,6 +393,7 @@ class TournamentDAO(BaseDAO):
 
         return {"exact": exact, "similar": similar}
 
+    @invalidates_cache(TEAMS_CACHE_PATTERN)
     def get_or_create_opponent_team(self, name: str, age_group_id: int) -> int:
         """Find an existing team by name or create a lightweight tournament-only team.
 
@@ -451,7 +455,7 @@ class TournamentDAO(BaseDAO):
         self,
         tournament_id: int,
         our_team_id: int,
-        opponent_name: str,
+        opponent_name: str | None,
         match_date: str,
         age_group_id: int,
         season_id: int,
@@ -465,16 +469,21 @@ class TournamentDAO(BaseDAO):
         tournament_round: str | None = None,
         tournament_round_order: int | None = None,
         scheduled_kickoff: str | None = None,
+        opponent_team_id: int | None = None,
     ) -> dict:
         """Create a match linked to a tournament.
 
-        The opponent team is resolved by name — created automatically if not
-        already in the database.
+        The opponent is either picked (`opponent_team_id`) or resolved by name,
+        in which case a lightweight team is created if the name is unknown.
+        Picking is preferred: name resolution matches exactly, so a typo mints a
+        duplicate team (SB-817).
 
         Args:
             tournament_id: Tournament this match belongs to
             our_team_id: ID of the tracked team (IFA, Cedar Stars, etc.)
-            opponent_name: Opponent's name as plain text
+            opponent_name: Opponent's name as plain text. Ignored when
+                `opponent_team_id` is given; required otherwise.
+            opponent_team_id: ID of an existing team chosen by the caller
             match_date: ISO date string (YYYY-MM-DD)
             age_group_id: Age group for both teams
             season_id: Season this match falls within
@@ -491,7 +500,12 @@ class TournamentDAO(BaseDAO):
         if tournament_round and tournament_round not in VALID_ROUNDS:
             raise ValueError(f"Invalid tournament_round '{tournament_round}'. Must be one of {VALID_ROUNDS}")
 
-        opponent_id = self.get_or_create_opponent_team(opponent_name, age_group_id)
+        if opponent_team_id is not None:
+            opponent_id = opponent_team_id
+        elif opponent_name:
+            opponent_id = self.get_or_create_opponent_team(opponent_name, age_group_id)
+        else:
+            raise ValueError("Either opponent_team_id or opponent_name is required")
 
         home_team_id = our_team_id if is_home else opponent_id
         away_team_id = opponent_id if is_home else our_team_id
