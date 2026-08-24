@@ -18,15 +18,19 @@ LONG_NAME = "Intercontinental Football Academy of New England"
 IFA = {"id": 19, "name": "IFA", "city": "Boston, MA", "club_id": 1}
 
 
-def _team_dao(direct=None, alias_team_id=None, by_id=None):
+def _team_dao(direct=None, alias_rows=None, by_id=None):
     from dao.team_dao import TeamDAO
 
     dao = object.__new__(TeamDAO)
     dao.connection_holder = MagicMock()
     client = MagicMock()
+    _tables: dict = {}
 
     def table(name):
+        if name in _tables:
+            return _tables[name]
         t = MagicMock()
+        _tables[name] = t
         t.select.return_value = t
         t.ilike.return_value = t
         t.eq.return_value = t
@@ -35,7 +39,7 @@ def _team_dao(direct=None, alias_team_id=None, by_id=None):
         if name == "teams":
             t.execute.return_value = MagicMock(data=[direct] if direct else [])
         elif name == "team_aliases":
-            t.execute.return_value = MagicMock(data=[{"team_id": alias_team_id}] if alias_team_id else [])
+            t.execute.return_value = MagicMock(data=alias_rows or [])
         else:
             t.execute.return_value = MagicMock(data=[])
         return t
@@ -56,14 +60,16 @@ class TestResolveTeamByName:
 
     def test_alias_resolves_to_the_canonical_team(self):
         # The case that produced a duplicate before this existed.
-        dao = _team_dao(direct=None, alias_team_id=19, by_id=IFA)
+        dao = _team_dao(
+            direct=None, alias_rows=[{"team_id": 19, "league_id": None, "source": "mlssoccer.com"}], by_id=IFA
+        )
         resolved = dao.resolve_team_by_name(LONG_NAME)
         assert resolved["name"] == "IFA"
 
     def test_unknown_name_resolves_to_none(self):
         # None is the correct answer for a genuinely new team. Callers decide
         # what to do about it; the point is that they get to decide.
-        dao = _team_dao(direct=None, alias_team_id=None)
+        dao = _team_dao(direct=None, alias_rows=[])
         assert dao.resolve_team_by_name("Some Brand New Club") is None
 
     def test_whitespace_is_normalised_before_lookup(self):
@@ -75,6 +81,33 @@ class TestResolveTeamByName:
         dao = _team_dao(direct=IFA)
         assert dao.resolve_team_by_name(empty) is None
 
+    def test_an_ambiguous_alias_refuses_to_guess(self):
+        # The table is scoped (external_name, league_id, source), so the same
+        # string can legitimately point at different teams in different
+        # leagues. This resolver is league-agnostic, and silently picking the
+        # wrong team is worse than reporting the name unresolved.
+        dao = _team_dao(
+            direct=None,
+            alias_rows=[
+                {"team_id": 19, "league_id": 1, "source": "mlssoccer.com"},
+                {"team_id": 77, "league_id": 2, "source": "mlssoccer.com"},
+            ],
+            by_id=IFA,
+        )
+        assert dao.resolve_team_by_name("Shared Name") is None
+
+    def test_the_same_team_via_several_sources_still_resolves(self):
+        # Two feeds spelling one team the same way is not ambiguity.
+        dao = _team_dao(
+            direct=None,
+            alias_rows=[
+                {"team_id": 19, "league_id": 1, "source": "mlssoccer.com"},
+                {"team_id": 19, "league_id": 1, "source": "kitman"},
+            ],
+            by_id=IFA,
+        )
+        assert dao.resolve_team_by_name(LONG_NAME)["id"] == 19
+
 
 def _tournament_dao(exact=None, alias_team_id=None):
     from dao.tournament_dao import TournamentDAO
@@ -83,9 +116,13 @@ def _tournament_dao(exact=None, alias_team_id=None):
     dao.connection_holder = MagicMock()
     client = MagicMock()
     created = {"calls": []}
+    _tables: dict = {}
 
     def table(name):
+        if name in _tables:
+            return _tables[name]
         t = MagicMock()
+        _tables[name] = t
         t.select.return_value = t
         t.ilike.return_value = t
         t.eq.return_value = t
@@ -109,6 +146,35 @@ def _tournament_dao(exact=None, alias_team_id=None):
     client.table.side_effect = table
     dao.client = client
     return dao, created
+
+
+@pytest.mark.unit
+class TestAliasQueryUsesTheRealColumn:
+    """The alias column is `external_name`, not `alias`.
+
+    The table pre-existed in production under a different shape than the one
+    first written here, and the mocks happily returned rows for a filter on a
+    column that does not exist — so the column name has to be asserted
+    explicitly or a rename slips through into prod (it did once).
+    """
+
+    def test_resolver_filters_on_external_name(self):
+        dao = _team_dao(direct=None, alias_rows=[], by_id=None)
+        dao.resolve_team_by_name("Anything")
+
+        alias_table = dao.client.table("team_aliases")
+        filters = [c.args[0] for c in alias_table.ilike.call_args_list if c.args]
+        assert "external_name" in filters
+        assert "alias" not in filters
+
+    def test_opponent_lookup_filters_on_external_name(self):
+        dao, _ = _tournament_dao(exact=None, alias_team_id=None)
+        dao.get_or_create_opponent_team("Anything", age_group_id=2)
+
+        alias_table = dao.client.table("team_aliases")
+        filters = [c.args[0] for c in alias_table.ilike.call_args_list if c.args]
+        assert "external_name" in filters
+        assert "alias" not in filters
 
 
 @pytest.mark.unit

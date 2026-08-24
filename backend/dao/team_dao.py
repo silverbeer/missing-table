@@ -241,8 +241,8 @@ class TeamDAO(BaseDAO):
     def resolve_team_by_name(self, name: str) -> dict | None:
         """Resolve any string a source might use for a team to the team row.
 
-        Checks teams.name first, then team_aliases (SB-822). Returns None only
-        when the name is genuinely unknown.
+        Checks teams.name first, then team_aliases.external_name (SB-822).
+        Returns None only when the name is genuinely unknown.
 
         This is the single resolution point every name-based lookup should use.
         Before it existed, a feed spelling a team differently did not match —
@@ -251,7 +251,13 @@ class TeamDAO(BaseDAO):
         duplicate IFA exactly that way.
 
         Matching is case-insensitive and whitespace-normalised on both sides,
-        mirroring the unique index on lower(alias).
+        mirroring the unique index on lower(external_name).
+
+        Alias rows are scoped by (external_name, league_id, source), so the same
+        string CAN legitimately point at different teams in different leagues.
+        This resolver is league-agnostic, so when a name is ambiguous it returns
+        None rather than guessing — picking the wrong team silently is worse
+        than reporting the name as unresolved.
         """
         normalized = " ".join((name or "").strip().split())
         if not normalized:
@@ -261,11 +267,26 @@ class TeamDAO(BaseDAO):
         if direct:
             return direct
 
-        alias_resp = self.client.table("team_aliases").select("team_id").ilike("alias", normalized).limit(1).execute()
-        if not alias_resp.data:
+        alias_resp = (
+            self.client.table("team_aliases")
+            .select("team_id, league_id, source")
+            .ilike("external_name", normalized)
+            .execute()
+        )
+        rows = alias_resp.data or []
+        if not rows:
             return None
 
-        team_id = alias_resp.data[0]["team_id"]
+        team_ids = {r["team_id"] for r in rows}
+        if len(team_ids) > 1:
+            logger.warning(
+                "Alias is ambiguous across leagues — refusing to guess",
+                alias=normalized,
+                team_ids=sorted(team_ids),
+            )
+            return None
+
+        team_id = rows[0]["team_id"]
         resolved = self.get_team_by_id(team_id)
         if resolved:
             logger.info(
@@ -273,17 +294,31 @@ class TeamDAO(BaseDAO):
                 alias=normalized,
                 team_id=team_id,
                 team_name=resolved.get("name"),
+                source=rows[0].get("source"),
             )
         return resolved
 
     @invalidates_cache(TEAMS_CACHE_PATTERN)
-    def add_team_alias(self, team_id: int, alias: str, kind: str = "feed_variant", note: str | None = None) -> dict:
-        """Record a string that should resolve to this team."""
+    def add_team_alias(
+        self,
+        team_id: int,
+        external_name: str,
+        source: str = "mlssoccer.com",
+        kind: str = "feed_variant",
+        league_id: int | None = None,
+    ) -> dict:
+        """Record a string that should resolve to this team.
+
+        league_id is optional: a former name belongs to the club, not to a
+        league. source records which external system uses the spelling, which
+        matters now that MLS Next has moved from mlssoccer.com to kitman.
+        """
         row = {
             "team_id": team_id,
-            "alias": " ".join(alias.strip().split()),
+            "external_name": " ".join(external_name.strip().split()),
+            "source": source,
             "kind": kind,
-            "note": note,
+            "league_id": league_id,
         }
         response = self.client.table("team_aliases").insert(row).execute()
         return response.data[0] if response.data else {}
@@ -292,9 +327,9 @@ class TeamDAO(BaseDAO):
         """Every alias recorded for a team."""
         response = (
             self.client.table("team_aliases")
-            .select("id, alias, kind, note, created_at")
+            .select("id, external_name, source, kind, league_id, created_at")
             .eq("team_id", team_id)
-            .order("alias")
+            .order("external_name")
             .execute()
         )
         return response.data or []
