@@ -115,14 +115,36 @@ FROM teams
 WHERE name IN ('TSC A-Team', 'TSC B-Team', 'TSC C-Team', 'TSC D-Team');
 
 -- ---------------------------------------------------------------------------
--- 3. Rosters. 16 per squad: 11 starters + 5 on the bench, so a substitution is
---    a real decision rather than the only option. Jersey numbers 1..16 — the
---    scorer grid is navigated by number under time pressure, so they must be
---    present and stable across reseeds.
+-- 3. Rosters. ONLY TSC A-Team is populated — 16 players, 11 starters plus 5 on
+--    the bench so a substitution is a real decision rather than the only
+--    option. Numbers are stable across reseeds, because the scorer grid is
+--    navigated by number under time pressure — and deliberately NOT a
+--    contiguous 1..16, since real squads never are.
 --
---    Names are "<Letter><n> Tester" (e.g. "A7 Tester") so a human watching a
---    dry run can tell instantly which squad a tile belongs to.
+--    The other three squads are deliberately EMPTY. That mirrors prod today:
+--    one club has entered a roster and the rest have not. A dry run must
+--    therefore exercise BOTH paths — picking a known player, and free-text
+--    entry against a squad with no roster at all — because on match day the
+--    opposition will not have one.
+--
+--    Names are "First L." (e.g. "Diego M."), which is the shape real rosters
+--    take and short enough for a tile. The cast is drawn from the history of
+--    the world game, each wearing the number they actually wore.
+--
+--    Five of them share the initial "B." — Beckenbauer, Baresi, Best, Buffon,
+--    Ballack — and two are Sergios. That is deliberate: telling near-identical
+--    names apart at speed is exactly the case that bites at a pitch, and a
+--    roster of conveniently distinct names would not test it.
 -- ---------------------------------------------------------------------------
+
+-- Clear any squad that should be empty. Previous seeds populated all four.
+-- match_lineups keeps its positions as jsonb rather than child rows, so only
+-- player_match_stats needs clearing before the players themselves.
+DELETE FROM player_match_stats WHERE player_id IN (
+    SELECT p.id FROM players p JOIN teams t ON t.id = p.team_id
+    WHERE t.name IN ('TSC B-Team', 'TSC C-Team', 'TSC D-Team'));
+DELETE FROM players WHERE team_id IN (
+    SELECT id FROM teams WHERE name IN ('TSC B-Team', 'TSC C-Team', 'TSC D-Team'));
 
 INSERT INTO players (team_id, season_id, age_group_id, jersey_number,
                      first_name, last_name, positions, is_active)
@@ -131,19 +153,49 @@ SELECT
     (SELECT season_id    FROM tsc_anchor),
     (SELECT age_group_id FROM tsc_anchor),
     n.jersey,
-    t.letter || n.jersey::text,
-    'Tester',
+    n.given,
+    n.surname,
     ARRAY[n.position],
     true
 FROM tsc_teams t
 CROSS JOIN (VALUES
-    ( 1, 'GK'),  ( 2, 'RB'),  ( 3, 'LB'),  ( 4, 'CB'),
-    ( 5, 'CB'),  ( 6, 'CDM'), ( 7, 'RM'),  ( 8, 'CM'),
-    ( 9, 'ST'),  (10, 'CAM'), (11, 'LM'),
+    -- Each shirt is the number that player actually wore, and the position
+    -- is the one they played. A roster where the numbers are arbitrary is a
+    -- worse test: the scorer grid is navigated by number, and a nonsense
+    -- pairing is noticed as "wrong" rather than read as data.
+    --
+    -- The great 10s (Maradona, Pele, Zidane, Messi) cannot all appear —
+    -- there is one number 10 — so the squad is built from players whose
+    -- numbers do not collide.
+    ( 1, 'GK',  'Lev',       'Y.'),   -- Yashin, 1
+    ( 2, 'RB',  'Dani',      'A.'),   -- Alves, 2
+    ( 3, 'LB',  'Paolo',     'M.'),   -- Maldini, 3
+    ( 4, 'CB',  'Sergio',    'R.'),   -- Ramos, 4
+    ( 5, 'CB',  'Franz',     'B.'),   -- Beckenbauer, 5
+    ( 6, 'CDM', 'Franco',    'B.'),   -- Baresi, 6
+    ( 7, 'RM',  'George',    'B.'),   -- Best, 7
+    ( 8, 'CM',  'Andres',    'I.'),   -- Iniesta, 8
+    ( 9, 'ST',  'Ronaldo',   'N.'),   -- Nazario, 9
+    (10, 'CAM', 'Diego',     'M.'),   -- Maradona, 10
+    (11, 'LM',  'Ryan',      'G.'),   -- Giggs, 11
     -- bench
-    (12, 'GK'),  (13, 'CB'),  (14, 'CM'),  (15, 'RW'), (16, 'ST')
-) AS n(jersey, position)
-ON CONFLICT (team_id, season_id, age_group_id, jersey_number) DO NOTHING;
+    (12, 'GK',  'Gianluigi', 'B.'),   -- Buffon, 12 at Parma
+    (13, 'CM',  'Michael',   'B.'),   -- Ballack, 13
+    (14, 'CM',  'Johan',     'C.'),   -- Cruyff, 14
+    (15, 'CB',  'Nemanja',   'V.'),   -- Vidic, 15
+    (16, 'ST',  'Sergio',    'A.'),   -- Aguero, 16 at Atletico
+    (30, 'RW',  'Lionel',    'M.')    -- Messi, 30 on his Barcelona debut
+) AS n(jersey, position, given, surname)
+WHERE t.name = 'TSC A-Team'
+-- DO UPDATE, not DO NOTHING: the squad already exists after the first seed,
+-- so DO NOTHING silently kept whatever names were there and a change to the
+-- roster above would never take effect. Reseeding must be able to correct
+-- names and positions, not just fill gaps.
+ON CONFLICT (team_id, season_id, age_group_id, jersey_number) DO UPDATE
+    SET first_name = EXCLUDED.first_name,
+        last_name  = EXCLUDED.last_name,
+        positions  = EXCLUDED.positions,
+        is_active  = true;
 
 -- ---------------------------------------------------------------------------
 -- 4. Fixtures.
