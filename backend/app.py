@@ -7284,7 +7284,11 @@ class TournamentUpdate(BaseModel):
 
 class TournamentMatchCreate(BaseModel):
     our_team_id: int
-    opponent_name: str
+    # Exactly one of opponent_team_id / opponent_name identifies the opponent.
+    # Picking an existing team is preferred: name resolution matches exactly, so
+    # a typo mints a duplicate lightweight team (SB-817).
+    opponent_team_id: int | None = None
+    opponent_name: str | None = None
     match_date: str
     age_group_id: int
     season_id: int
@@ -7512,11 +7516,14 @@ async def admin_create_tournament_match(
     current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Add a match to a tournament (admin)."""
+    if payload.opponent_team_id is None and not (payload.opponent_name or "").strip():
+        raise HTTPException(status_code=422, detail="Either opponent_team_id or opponent_name is required")
     try:
         created = tournament_dao.create_tournament_match(
             tournament_id=tournament_id,
             our_team_id=payload.our_team_id,
             opponent_name=payload.opponent_name,
+            opponent_team_id=payload.opponent_team_id,
             match_date=payload.match_date,
             age_group_id=payload.age_group_id,
             season_id=payload.season_id,

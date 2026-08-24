@@ -493,16 +493,14 @@
                 <label class="block text-sm font-medium text-fg mb-1"
                   >Opponent *</label
                 >
-                <input
-                  v-model="mForm.opponent_name"
-                  type="text"
+                <TeamCombobox
+                  v-model="mForm.opponent_team_id"
+                  v-model:create-name="mForm.opponent_name"
+                  :teams="opponentTeams"
+                  :age-group-id="mForm.age_group_id"
                   required
-                  class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  placeholder="Opponent team name"
+                  placeholder="Search teams…"
                 />
-                <p class="text-xs text-fg-muted mt-1">
-                  Created automatically if not in system
-                </p>
               </div>
             </div>
 
@@ -739,9 +737,11 @@ import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import { ROUND_LABELS_LONG as ROUND_LABELS } from '../../utils/tournamentRounds';
+import TeamCombobox from '../ui/TeamCombobox.vue';
 
 export default {
   name: 'AdminTournaments',
+  components: { TeamCombobox },
   setup() {
     const authStore = useAuthStore();
 
@@ -758,6 +758,14 @@ export default {
       );
       return withLeague.length > 0 ? withLeague : allTeams.value;
     });
+
+    // Opponents come from the full list, not leagueTeams: a tournament
+    // opponent is often a lightweight team with no league (SB-817).
+    const opponentTeams = computed(() =>
+      [...allTeams.value].sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '')
+      )
+    );
 
     // ── tournament list ──
     const tournaments = ref([]);
@@ -816,6 +824,7 @@ export default {
     function emptyMatchForm() {
       return {
         our_team_id: null,
+        opponent_team_id: null,
         opponent_name: '',
         is_home: true,
         match_date: '',
@@ -1107,6 +1116,7 @@ export default {
       editingMatch.value = match;
       mForm.value = {
         our_team_id: null,
+        opponent_team_id: null,
         opponent_name: '',
         is_home: true,
         match_date: match.match_date,
@@ -1180,7 +1190,11 @@ export default {
             mForm.value.home_score === mForm.value.away_score;
           const payload = {
             our_team_id: mForm.value.our_team_id,
-            opponent_name: mForm.value.opponent_name,
+            // Exactly one identifies the opponent: a picked team wins, a
+            // deliberate "create new team" falls back to the name (SB-817).
+            ...(mForm.value.opponent_team_id != null
+              ? { opponent_team_id: mForm.value.opponent_team_id }
+              : { opponent_name: mForm.value.opponent_name }),
             is_home: mForm.value.is_home,
             match_date: mForm.value.match_date,
             age_group_id: mForm.value.age_group_id,
@@ -1243,6 +1257,7 @@ export default {
       ageGroups,
       seasons,
       leagueTeams,
+      opponentTeams,
       selectedTournamentId,
       selectedMatches,
       matchesLoading,
