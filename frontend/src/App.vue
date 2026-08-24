@@ -29,7 +29,8 @@
     </div>
 
     <!-- PWA chrome: install prompt, offline indicator, update banner -->
-    <IosInstallTooltip />
+    <InstallBanner />
+    <NotificationSetupGuide />
     <OfflineIndicator />
     <UpdateAvailablePrompt />
 
@@ -413,7 +414,10 @@ import LandingPreview from './components/LandingPreview.vue';
 import AuthNav from './components/AuthNav.vue';
 import LoginForm from './components/LoginForm.vue';
 import VersionFooter from './components/VersionFooter.vue';
-import IosInstallTooltip from './components/IosInstallTooltip.vue';
+import InstallBanner from './components/InstallBanner.vue';
+import NotificationSetupGuide from './components/notifications/NotificationSetupGuide.vue';
+import { useNotificationSetup } from './composables/useNotificationSetup';
+import { isTouchDevice } from './utils/pwa';
 import OfflineIndicator from './components/OfflineIndicator.vue';
 import UpdateAvailablePrompt from './components/UpdateAvailablePrompt.vue';
 
@@ -494,13 +498,15 @@ export default {
     VersionFooter,
     WhatsNewView,
     LiveMatchView,
-    IosInstallTooltip,
+    InstallBanner,
+    NotificationSetupGuide,
     OfflineIndicator,
     UpdateAvailablePrompt,
   },
   setup() {
     const authStore = useAuthStore();
     const adminAttention = useAdminAttentionCounts();
+    const notificationSetup = useNotificationSetup();
     const currentTab = ref('table');
     // Deep link from a push notification: ?matchId=<id> opens MatchDetailView
     // as an overlay (SB-86). Works for any match status, incl. completed.
@@ -843,6 +849,27 @@ export default {
           selectedLiveMatchId.value = null;
         }
       }
+    );
+
+    // First authenticated visit on a phone: offer the notification setup
+    // guide once. On iPhone the install step is a hard prerequisite for push
+    // and there is no way for the user to discover that on their own — Apple
+    // exposes no install API, so nothing can prompt them but us (SB-810).
+    //
+    // Gated on shouldPromptUnprompted, which needs the follows list loaded
+    // before it can tell "brand new" from "already set up", and which respects
+    // a previous "not now" for 30 days.
+    watch(
+      () => authStore.isAuthenticated.value,
+      async isAuth => {
+        if (!isAuth) return;
+        if (!isTouchDevice()) return;
+        await notificationSetup.ensureFollowsLoaded();
+        if (notificationSetup.shouldPromptUnprompted.value) {
+          notificationSetup.open('first-login');
+        }
+      },
+      { immediate: true }
     );
 
     // Start/stop admin attention-counts polling tied to admin status.
