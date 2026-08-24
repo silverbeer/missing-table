@@ -44,6 +44,15 @@ vi.mock('@/composables/useTeamFollows', () => ({
   }),
 }));
 
+const installState = { canInstall: ref(false) };
+vi.mock('@/composables/useInstallPrompt', () => ({
+  useInstallPrompt: () => ({
+    canInstall: computed(() => installState.canInstall.value),
+    prompting: computed(() => false),
+    promptInstall: vi.fn(),
+  }),
+}));
+
 const pwa = { ios: false, standalone: false };
 vi.mock('@/utils/pwa', () => ({
   isIos: () => pwa.ios,
@@ -69,6 +78,7 @@ function reset() {
   followsState.loaded.value = true;
   pwa.ios = false;
   pwa.standalone = false;
+  installState.canInstall.value = false;
   localStorage.clear();
   _resetNotificationSetupForTest();
 }
@@ -220,5 +230,45 @@ describe('dismissPrompt', () => {
     expect(() => s.dismissPrompt()).not.toThrow();
     expect(s.guideOpen.value).toBe(false);
     Storage.prototype.setItem = original;
+  });
+});
+
+describe('optional install step (SB-813)', () => {
+  it('offers install on Android when the browser makes it available', () => {
+    installState.canInstall.value = true;
+    const steps = useNotificationSetup().steps.value;
+    const install = steps.find(s => s.key === 'install');
+    expect(install).toBeDefined();
+    expect(install.required).toBe(false);
+    expect(install.label).toMatch(/optional/i);
+  });
+
+  it('omits it entirely when the browser has not offered one', () => {
+    const keys = useNotificationSetup().steps.value.map(s => s.key);
+    expect(keys).not.toContain('install');
+  });
+
+  it('never blocks completion — push works in a tab on Android', () => {
+    installState.canInstall.value = true;
+    pushState.isEnabled.value = true;
+    followsState.follows.value = [{ team_id: 19 }];
+    const s = useNotificationSetup();
+    // Uninstalled, but fully set up for notifications. Saying otherwise would
+    // invent a barrier Google doesn't impose.
+    expect(s.currentStep.value).toBe('done');
+    expect(s.isComplete.value).toBe(true);
+  });
+
+  it('never becomes the current step outside iOS', () => {
+    installState.canInstall.value = true;
+    expect(useNotificationSetup().currentStep.value).toBe('enable');
+  });
+
+  it('keeps install REQUIRED on iOS, where it really is', () => {
+    pwa.ios = true;
+    const install = useNotificationSetup().steps.value.find(
+      s => s.key === 'install'
+    );
+    expect(install.required).toBe(true);
   });
 });
