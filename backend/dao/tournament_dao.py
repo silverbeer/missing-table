@@ -76,9 +76,7 @@ class TournamentDAO(BaseDAO):
             t["age_groups"] = by_tid[t["id"]]
         return tournaments
 
-    def _attach_match_counts(
-        self, tournaments: list[dict], include_test: bool = False
-    ) -> list[dict]:
+    def _attach_match_counts(self, tournaments: list[dict], include_test: bool = False) -> list[dict]:
         """Fetch match counts from the matches table and attach to each tournament.
 
         include_test gates the SB-591 test partition, so a test fixture entered
@@ -88,11 +86,7 @@ class TournamentDAO(BaseDAO):
             return tournaments
         ids = [t["id"] for t in tournaments]
         try:
-            count_query = (
-                self.client.table(MATCHES_READ_RELATION)
-                .select("tournament_id")
-                .in_("tournament_id", ids)
-            )
+            count_query = self.client.table(MATCHES_READ_RELATION).select("tournament_id").in_("tournament_id", ids)
             if not include_test:
                 count_query = count_query.eq("is_test", False)
             rows = count_query.execute().data or []
@@ -116,9 +110,7 @@ class TournamentDAO(BaseDAO):
             self.client.table("tournament_age_groups").insert(rows).execute()
 
     @dao_cache("tournaments:active:{include_test}:{season_id}")
-    def get_active_tournaments(
-        self, include_test: bool = False, season_id: int | None = None
-    ) -> list[dict]:
+    def get_active_tournaments(self, include_test: bool = False, season_id: int | None = None) -> list[dict]:
         """Return all active tournaments ordered by start date descending.
 
         include_test gates the SB-85 test partition: real/anonymous viewers pass
@@ -128,9 +120,7 @@ class TournamentDAO(BaseDAO):
         try:
             query = (
                 self.client.table("tournaments")
-                .select(
-                    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url"
-                )
+                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
                 .eq("is_active", True)
             )
             if not include_test:
@@ -154,9 +144,7 @@ class TournamentDAO(BaseDAO):
         try:
             response = (
                 self.client.table("tournaments")
-                .select(
-                    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url"
-                )
+                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
                 .order("start_date", desc=True)
                 .execute()
             )
@@ -179,9 +167,7 @@ class TournamentDAO(BaseDAO):
         try:
             t_response = (
                 self.client.table("tournaments")
-                .select(
-                    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url"
-                )
+                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
                 .eq("id", tournament_id)
                 .single()
                 .execute()
@@ -372,6 +358,23 @@ class TournamentDAO(BaseDAO):
         )
         exact = exact_response.data[0] if exact_response.data else None
 
+        # Fall back to aliases so the combobox finds a team by any string a
+        # feed uses for it — typing the long official name should surface the
+        # team, not report it as new (SB-822).
+        if not exact:
+            alias_response = (
+                self.client.table("team_aliases").select("team_id").ilike("alias", normalized).limit(1).execute()
+            )
+            if alias_response.data:
+                aliased = (
+                    self.client.table("teams")
+                    .select("id, name, league_id, division_id, club_id")
+                    .eq("id", alias_response.data[0]["team_id"])
+                    .limit(1)
+                    .execute()
+                )
+                exact = aliased.data[0] if aliased.data else None
+
         # Similar: name contains any significant word (>= 4 chars) from query
         similar: list[dict] = []
         if not exact:
@@ -410,29 +413,42 @@ class TournamentDAO(BaseDAO):
         normalized = self._normalize_team_name(name)
 
         # Exact case-insensitive match
-        response = (
-            self.client.table("teams")
-            .select("id, name")
-            .ilike("name", normalized)
-            .limit(1)
-            .execute()
-        )
+        response = self.client.table("teams").select("id, name").ilike("name", normalized).limit(1).execute()
         if response.data:
             team_id = response.data[0]["id"]
             logger.info("Found existing team for tournament opponent", name=normalized, team_id=team_id)
             return team_id
 
+        # Then aliases (SB-822). This check is the reason the table exists: a
+        # miss here does not fail, it CREATES a team. That is how
+        # 'Intercontinental Football Academy of New England' became a duplicate
+        # IFA, and how a post-rename feed carrying 'Long Island Soccer Club'
+        # would split that club's history.
+        alias_response = (
+            self.client.table("team_aliases").select("team_id").ilike("alias", normalized).limit(1).execute()
+        )
+        if alias_response.data:
+            team_id = alias_response.data[0]["team_id"]
+            logger.info(
+                "Resolved tournament opponent via alias — no team created",
+                alias=normalized,
+                team_id=team_id,
+            )
+            return team_id
+
         # Create lightweight team: no league, division, or club
         team_response = (
             self.client.table("teams")
-            .insert({
-                "name": name,
-                "city": "",
-                "academy_team": False,
-                "club_id": None,
-                "league_id": None,
-                "division_id": None,
-            })
+            .insert(
+                {
+                    "name": name,
+                    "city": "",
+                    "academy_team": False,
+                    "club_id": None,
+                    "league_id": None,
+                    "division_id": None,
+                }
+            )
             .execute()
         )
         if not team_response.data:
@@ -441,11 +457,13 @@ class TournamentDAO(BaseDAO):
         team_id = team_response.data[0]["id"]
 
         # Add age group mapping so the team can appear in age-group-filtered queries
-        self.client.table("team_mappings").insert({
-            "team_id": team_id,
-            "age_group_id": age_group_id,
-            "division_id": None,
-        }).execute()
+        self.client.table("team_mappings").insert(
+            {
+                "team_id": team_id,
+                "age_group_id": age_group_id,
+                "division_id": None,
+            }
+        ).execute()
 
         logger.info("Created tournament opponent team", name=name, team_id=team_id, age_group_id=age_group_id)
         return team_id
@@ -619,9 +637,7 @@ class TournamentDAO(BaseDAO):
         if tournament_round and tournament_round not in VALID_ROUNDS:
             raise ValueError(f"Invalid tournament_round '{tournament_round}'. Must be one of {VALID_ROUNDS}")
         if swap_home_away and (home_team_id is not None or away_team_id is not None):
-            raise ValueError(
-                "swap_home_away is mutually exclusive with home_team_id / away_team_id"
-            )
+            raise ValueError("swap_home_away is mutually exclusive with home_team_id / away_team_id")
 
         updates: dict = {}
         if home_score is not None:
@@ -652,11 +668,7 @@ class TournamentDAO(BaseDAO):
         if swap_home_away:
             # Fetch current team IDs to swap them
             current = (
-                self.client.table("matches")
-                .select("home_team_id, away_team_id")
-                .eq("id", match_id)
-                .single()
-                .execute()
+                self.client.table("matches").select("home_team_id, away_team_id").eq("id", match_id).single().execute()
             ).data
             if current:
                 updates["home_team_id"] = current["away_team_id"]
@@ -666,12 +678,7 @@ class TournamentDAO(BaseDAO):
             return None
 
         try:
-            response = (
-                self.client.table("matches")
-                .update(updates)
-                .eq("id", match_id)
-                .execute()
-            )
+            response = self.client.table("matches").update(updates).eq("id", match_id).execute()
             return response.data[0] if response.data else None
         except Exception:
             logger.exception("Error updating tournament match", match_id=match_id)
