@@ -344,13 +344,13 @@ export default {
 }
 
 .ig-tournament-logo {
-  height: 108px;
-  width: 108px;
+  height: 120px;
+  width: 120px;
   margin-left: 12px;
-  padding: 10px;
+  padding: 5px;
   box-sizing: border-box;
   background: #ffffff;
-  border-radius: 14px;
+  border-radius: 16px;
   flex-shrink: 0;
 }
 

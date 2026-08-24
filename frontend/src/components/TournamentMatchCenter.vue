@@ -389,22 +389,12 @@
                           >{{ match.home_team?.name }}</span
                         >
                       </div>
-                      <span
-                        :class="[
-                          'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
-                          match.home_score != null
-                            ? 'bg-gray-900 text-white font-bold'
-                            : 'text-fg-muted',
-                        ]"
-                      >
-                        {{
-                          match.home_score != null && match.away_score != null
-                            ? match.home_penalty_score != null
-                              ? `${match.home_score}–${match.away_score} (${match.home_penalty_score}-${match.away_penalty_score}pk)`
-                              : `${match.home_score}–${match.away_score}`
-                            : 'vs'
-                        }}
-                      </span>
+                      <ScorePill
+                        :home-score="match.home_score"
+                        :away-score="match.away_score"
+                        :home-penalty-score="match.home_penalty_score"
+                        :away-penalty-score="match.away_penalty_score"
+                      />
                       <div class="flex-1 flex items-center gap-1.5 min-w-0">
                         <span
                           class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
@@ -547,22 +537,12 @@
                           >{{ match.home_team?.name }}</span
                         >
                       </div>
-                      <span
-                        :class="[
-                          'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
-                          match.home_score != null
-                            ? 'bg-gray-900 text-white font-bold'
-                            : 'text-fg-muted',
-                        ]"
-                      >
-                        {{
-                          match.home_score != null && match.away_score != null
-                            ? match.home_penalty_score != null
-                              ? `${match.home_score}–${match.away_score} (${match.home_penalty_score}-${match.away_penalty_score}pk)`
-                              : `${match.home_score}–${match.away_score}`
-                            : 'vs'
-                        }}
-                      </span>
+                      <ScorePill
+                        :home-score="match.home_score"
+                        :away-score="match.away_score"
+                        :home-penalty-score="match.home_penalty_score"
+                        :away-penalty-score="match.away_penalty_score"
+                      />
                       <div class="flex-1 flex items-center gap-1.5 min-w-0">
                         <span
                           class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
@@ -690,22 +670,12 @@
                           >{{ match.home_team?.name }}</span
                         >
                       </div>
-                      <span
-                        :class="[
-                          'text-xs sm:text-sm font-mono px-1.5 sm:px-2 py-0.5 rounded shrink-0',
-                          match.home_score != null
-                            ? 'bg-gray-900 text-white font-bold'
-                            : 'text-fg-muted',
-                        ]"
-                      >
-                        {{
-                          match.home_score != null && match.away_score != null
-                            ? match.home_penalty_score != null
-                              ? `${match.home_score}–${match.away_score} (${match.home_penalty_score}-${match.away_penalty_score}pk)`
-                              : `${match.home_score}–${match.away_score}`
-                            : 'vs'
-                        }}
-                      </span>
+                      <ScorePill
+                        :home-score="match.home_score"
+                        :away-score="match.away_score"
+                        :home-penalty-score="match.home_penalty_score"
+                        :away-penalty-score="match.away_penalty_score"
+                      />
                       <div class="flex-1 flex items-center gap-1.5 min-w-0">
                         <span
                           class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
@@ -925,6 +895,7 @@ import { getApiBaseUrl } from '../config/api';
 import TournamentBracket from './TournamentBracket.vue';
 import TournamentStandings from './TournamentStandings.vue';
 import MatchDetailView from './MatchDetailView.vue';
+import ScorePill from './ui/ScorePill.vue';
 import { useBracketFollows } from '../composables/useBracketFollows';
 import { usePushNotifications } from '../composables/usePushNotifications';
 import { ROUND_LABELS_SHORT as ROUND_LABELS } from '../utils/tournamentRounds';
@@ -948,7 +919,12 @@ const BRACKET_ROUNDS = new Set([
 
 export default {
   name: 'TournamentMatchCenter',
-  components: { TournamentBracket, TournamentStandings, MatchDetailView },
+  components: {
+    TournamentBracket,
+    TournamentStandings,
+    MatchDetailView,
+    ScorePill,
+  },
   setup() {
     const authStore = useAuthStore();
     const bracketFollows = useBracketFollows();
