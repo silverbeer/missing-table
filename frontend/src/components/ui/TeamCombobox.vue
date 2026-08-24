@@ -36,10 +36,6 @@
     >
       ＋ Will create new team “{{ createName }}”
     </p>
-    <p v-else class="text-xs text-fg-muted mt-1">
-      Pick an existing team, or choose “Create new team” for one MT has never
-      seen.
-    </p>
 
     <ul
       v-if="open && options.length"

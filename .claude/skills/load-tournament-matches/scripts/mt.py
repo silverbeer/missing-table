@@ -503,12 +503,17 @@ VALID_ROUNDS = {
 @match_app.command("create")
 def match_create(
     tournament_id: int = typer.Option(..., "--tournament-id"),
-    our_team_id: int = typer.Option(..., "--our-team-id"),
-    opponent_name: str = typer.Option(..., "--opponent-name"),
+    home_team_id: int | None = typer.Option(None, "--home-team-id", help="Existing team on the home side"),
+    home_team_name: str | None = typer.Option(
+        None, "--home-team-name", help="Home team by name; created if unknown"
+    ),
+    away_team_id: int | None = typer.Option(None, "--away-team-id", help="Existing team on the away side"),
+    away_team_name: str | None = typer.Option(
+        None, "--away-team-name", help="Away team by name; created if unknown"
+    ),
     match_date: str = typer.Option(..., "--match-date"),
     age_group_id: int = typer.Option(..., "--age-group-id"),
     season_id: int = typer.Option(..., "--season-id"),
-    is_home: bool = typer.Option(True, "--home/--away"),
     home_score: int | None = typer.Option(None, "--home-score"),
     away_score: int | None = typer.Option(None, "--away-score"),
     home_penalty_score: int | None = typer.Option(None, "--home-penalty-score"),
@@ -523,16 +528,28 @@ def match_create(
     ),
     scheduled_kickoff: str | None = typer.Option(None, "--scheduled-kickoff"),
 ) -> None:
-    """Add a match to a tournament. our_team_id is one of our tracked teams; opponent_name is the visitor."""
+    """Add a match to a tournament.
+
+    Name both sides directly: per side give exactly one of --{home,away}-team-id
+    (an existing team) or --{home,away}-team-name (created if unknown). Neither
+    side has to be a team MT tracks (SB-819).
+    """
     if tournament_round is not None and tournament_round not in VALID_ROUNDS:
         _err_exit(f"invalid --tournament-round '{tournament_round}'; must be one of: {sorted(VALID_ROUNDS)}")
+    for side, tid, tname in (
+        ("home", home_team_id, home_team_name),
+        ("away", away_team_id, away_team_name),
+    ):
+        if tid is None and not (tname or "").strip():
+            _err_exit(f"give --{side}-team-id or --{side}-team-name")
     payload = TournamentMatchCreate(
-        our_team_id=our_team_id,
-        opponent_name=opponent_name,
+        home_team_id=home_team_id,
+        home_team_name=home_team_name,
+        away_team_id=away_team_id,
+        away_team_name=away_team_name,
         match_date=match_date,
         age_group_id=age_group_id,
         season_id=season_id,
-        is_home=is_home,
         home_score=home_score,
         away_score=away_score,
         home_penalty_score=home_penalty_score,

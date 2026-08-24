@@ -450,15 +450,37 @@ class TournamentDAO(BaseDAO):
         logger.info("Created tournament opponent team", name=name, team_id=team_id, age_group_id=age_group_id)
         return team_id
 
+    def _resolve_side(
+        self,
+        side: str,
+        team_id: int | None,
+        team_name: str | None,
+        age_group_id: int,
+    ) -> int:
+        """Resolve one side of a fixture to a team id.
+
+        A picked id wins over a name: the name may be stale text left in the
+        form after the pick (SB-817).
+        """
+        if team_id is not None:
+            return team_id
+        if team_name and team_name.strip():
+            return self.get_or_create_opponent_team(team_name.strip(), age_group_id)
+        raise ValueError(f"Either {side}_team_id or {side}_team_name is required")
+
     @invalidates_cache(TOURNAMENTS_CACHE_PATTERN, MATCHES_CACHE_PATTERN)
     def create_tournament_match(
         self,
         tournament_id: int,
-        our_team_id: int,
-        opponent_name: str | None,
         match_date: str,
         age_group_id: int,
         season_id: int,
+        home_team_id: int | None = None,
+        home_team_name: str | None = None,
+        away_team_id: int | None = None,
+        away_team_name: str | None = None,
+        our_team_id: int | None = None,
+        opponent_name: str | None = None,
         is_home: bool = True,
         home_score: int | None = None,
         away_score: int | None = None,
@@ -473,21 +495,25 @@ class TournamentDAO(BaseDAO):
     ) -> dict:
         """Create a match linked to a tournament.
 
-        The opponent is either picked (`opponent_team_id`) or resolved by name,
-        in which case a lightweight team is created if the name is unknown.
-        Picking is preferred: name resolution matches exactly, so a typo mints a
-        duplicate team (SB-817).
+        Each side is either picked by id or resolved by name, and an unknown
+        name creates a lightweight tournament-only team. Picking is preferred:
+        name resolution matches exactly, so a typo mints a duplicate (SB-817).
+
+        Sides are named home/away because a tournament often has no "our team"
+        at all — an admin loading a bracket may track neither side (SB-819).
+        The older `our_team_id` + `is_home` + `opponent_*` form still works and
+        is mapped onto home/away here.
 
         Args:
             tournament_id: Tournament this match belongs to
-            our_team_id: ID of the tracked team (IFA, Cedar Stars, etc.)
-            opponent_name: Opponent's name as plain text. Ignored when
-                `opponent_team_id` is given; required otherwise.
-            opponent_team_id: ID of an existing team chosen by the caller
             match_date: ISO date string (YYYY-MM-DD)
             age_group_id: Age group for both teams
             season_id: Season this match falls within
-            is_home: True if our_team_id is the home team
+            home_team_id / away_team_id: existing teams chosen by the caller
+            home_team_name / away_team_name: team names, created if unknown.
+                Per side, give exactly one of id / name.
+            our_team_id, opponent_name, opponent_team_id, is_home: deprecated
+                pre-SB-819 form, mapped onto the home/away pair
             home_score / away_score: Scores (None = not yet played)
             match_status: 'scheduled', 'completed', etc.
             tournament_group: e.g. 'Group A'
@@ -500,15 +526,22 @@ class TournamentDAO(BaseDAO):
         if tournament_round and tournament_round not in VALID_ROUNDS:
             raise ValueError(f"Invalid tournament_round '{tournament_round}'. Must be one of {VALID_ROUNDS}")
 
-        if opponent_team_id is not None:
-            opponent_id = opponent_team_id
-        elif opponent_name:
-            opponent_id = self.get_or_create_opponent_team(opponent_name, age_group_id)
-        else:
-            raise ValueError("Either opponent_team_id or opponent_name is required")
+        # Deprecated form: map "our team + opponent" onto the home/away pair.
+        if home_team_id is None and home_team_name is None and our_team_id is not None:
+            if is_home:
+                home_team_id = our_team_id
+                away_team_id, away_team_name = opponent_team_id, opponent_name
+            else:
+                away_team_id = our_team_id
+                home_team_id, home_team_name = opponent_team_id, opponent_name
 
-        home_team_id = our_team_id if is_home else opponent_id
-        away_team_id = opponent_id if is_home else our_team_id
+        home_id = self._resolve_side("home", home_team_id, home_team_name, age_group_id)
+        away_id = self._resolve_side("away", away_team_id, away_team_name, age_group_id)
+
+        if home_id == away_id:
+            raise ValueError("A team cannot play itself")
+
+        home_team_id, away_team_id = home_id, away_id
 
         data: dict = {
             "home_team_id": home_team_id,
