@@ -30,6 +30,19 @@ CLUBS = [
     {"id": 160, "name": "Long Island Soccer Club", "city": "Long Island, NY"},
 ]
 
+# What GET /api/clubs/{id} returns — the fields PUT would blank if a rename
+# did not resend them.
+CLUB_19_FULL = {
+    "id": 19,
+    "name": "New York Red Bulls",
+    "city": "Harrison, NJ",
+    "website": "https://example.test",
+    "description": "desc",
+    "logo_url": "https://cdn.test/19.png",
+    "primary_color": "#B22222",
+    "secondary_color": "#FDE047",
+}
+
 
 def _client():
     client = MagicMock()
@@ -45,7 +58,8 @@ def _client():
     client.update_team_profile.return_value = {"id": 34, "name": "Red Bull New York"}
     client.create_team.return_value = {"team": {"id": 900, "name": "Connecticut United FC"}}
     client.create_club.return_value = {"id": 901, "name": "Connecticut United FC"}
-    client.update_club.return_value = {"id": 19, "name": "Red Bull New York"}
+    client.get_club.return_value = CLUB_19_FULL
+    client.update_club_profile.return_value = {"id": 19, "name": "Red Bull New York"}
     client.add_team_alias.return_value = {"success": True}
     client.get_team_aliases.return_value = {"aliases": []}
     return client
@@ -194,15 +208,15 @@ class TestClubCommands:
         result = _run(["club", "rename", "19", "--name", "Red Bull New York", "--yes"], client)
 
         assert result.exit_code == 0, result.output
-        client.update_club.assert_called_once()
-        assert client.update_club.call_args.kwargs["name"] == "Red Bull New York"
+        client.update_club_profile.assert_called_once()
+        assert client.update_club_profile.call_args.kwargs["name"] == "Red Bull New York"
 
     def test_club_resolves_by_name_not_just_id(self):
         client = _client()
         result = _run(["club", "rename", "Long Island Soccer Club", "--name", "The Island FC West", "--yes"], client)
 
         assert result.exit_code == 0, result.output
-        assert client.update_club.call_args.args[0] == 160
+        assert client.update_club_profile.call_args.args[0] == 160
 
     def test_ambiguous_club_name_refuses_rather_than_picking(self):
         client = _client()
@@ -213,7 +227,26 @@ class TestClubCommands:
         result = _run(["club", "rename", "Island FC", "--name", "X", "--yes"], client)
 
         assert result.exit_code == 1
-        client.update_club.assert_not_called()
+        client.update_club_profile.assert_not_called()
+
+    def test_rename_preserves_crest_and_colours(self):
+        """PUT /api/clubs/{id} takes the full Club model — it replaces.
+
+        A rename that sent only name+city would blank logo_url and the brand
+        colours, and the IG cards would silently fall back to MT yellow with no
+        error anywhere. Found by actually running the command, after the
+        mocked tests passed.
+        """
+        client = _client()
+        result = _run(["club", "rename", "19", "--name", "Red Bull New York", "--yes"], client)
+
+        assert result.exit_code == 0, result.output
+        kwargs = client.update_club_profile.call_args.kwargs
+        assert kwargs["logo_url"] == "https://cdn.test/19.png"
+        assert kwargs["primary_color"] == "#B22222"
+        assert kwargs["secondary_color"] == "#FDE047"
+        assert kwargs["city"] == "Harrison, NJ"
+        assert kwargs["website"] == "https://example.test"
 
     def test_create_club(self):
         client = _client()
