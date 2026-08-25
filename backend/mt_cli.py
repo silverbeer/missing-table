@@ -37,6 +37,7 @@ from api_client.models import (
     GoalEvent,
     LiveMatchClock,
     MessageEvent,
+    Team,
     TournamentCreate,
     TournamentMatchCreate,
     TournamentMatchUpdate,
@@ -45,12 +46,16 @@ from api_client.models import (
 app = typer.Typer(help="MT Match Tracking CLI")
 match_app = typer.Typer(help="Live match tracking commands")
 tournament_app = typer.Typer(help="Tournament + bracket seeding commands (admin)")
-team_app = typer.Typer(help="Team stats and matches (read-only)")
+team_app = typer.Typer(help="Team stats, matches, and admin edits")
 player_app = typer.Typer(help="Player stats (read-only)")
+club_app = typer.Typer(help="Club admin: create and rename")
+alias_app = typer.Typer(help="Team name aliases (admin)")
 app.add_typer(match_app, name="match")
 app.add_typer(tournament_app, name="tournament")
 app.add_typer(team_app, name="team")
 app.add_typer(player_app, name="player")
+app.add_typer(club_app, name="club")
+team_app.add_typer(alias_app, name="alias")
 console = Console()
 
 # Valid tournament_round values accepted by the backend (mirrors
@@ -165,10 +170,7 @@ def get_client() -> tuple[MissingTableClient, CLIState]:
     """Get an authenticated MissingTableClient and current state."""
     state = load_state()
     if not state.access_token:
-        console.print(
-            "[red]Not logged in[/red]\n"
-            "[yellow]Login first:[/yellow] mt login <username>"
-        )
+        console.print("[red]Not logged in[/red]\n" "[yellow]Login first:[/yellow] mt login <username>")
         raise typer.Exit(1)
 
     client = MissingTableClient(
@@ -181,10 +183,7 @@ def get_client() -> tuple[MissingTableClient, CLIState]:
 def require_active_match(state: CLIState) -> int:
     """Return the active match_id from state, or exit with an error."""
     if not state.match_id:
-        console.print(
-            "[red]No active match[/red]\n"
-            "[yellow]Start a match first:[/yellow] mt match start <match_id>"
-        )
+        console.print("[red]No active match[/red]\n" "[yellow]Start a match first:[/yellow] mt match start <match_id>")
         raise typer.Exit(1)
     return state.match_id
 
@@ -414,8 +413,7 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
         # piped session should be told what to do, not shown a typed password.
         console.print("[red]No terminal available for a password prompt.[/red]")
         console.print(
-            f"Set [cyan]MT_PASSWORD[/cyan] or [cyan]{env_key}[/cyan], "
-            "or run [cyan]mt login[/cyan] in a terminal."
+            f"Set [cyan]MT_PASSWORD[/cyan] or [cyan]{env_key}[/cyan], " "or run [cyan]mt login[/cyan] in a terminal."
         )
         raise typer.Exit(1)
     else:
@@ -556,10 +554,7 @@ def start(
     try:
         match = client.get_game(match_id)
     except AuthenticationError:
-        console.print(
-            "[red]Session expired[/red]\n"
-            "[yellow]Login again:[/yellow] mt login <username>"
-        )
+        console.print("[red]Session expired[/red]\n" "[yellow]Login again:[/yellow] mt login <username>")
         raise typer.Exit(1) from None
     except APIError as e:
         console.print(f"[red]{e}[/red]")
@@ -608,9 +603,7 @@ def goal(
     player_id = None
     player_display = None
     if player:
-        player_id, player_display = _resolve_player(
-            client, team_id, live.get("season_id"), player
-        )
+        player_id, player_display = _resolve_player(client, team_id, live.get("season_id"), player)
 
     # Build and post goal event
     goal_event = GoalEvent(
@@ -763,9 +756,7 @@ def _resolve_age_group_id(client: MissingTableClient, name: str) -> int:
         if lower in g.get("name", "").lower():
             return g["id"]
     available = ", ".join(sorted(g.get("name", "?") for g in groups))
-    console.print(
-        f"[red]Age group '{name}' not found[/red]\n[yellow]Available:[/yellow] {available}"
-    )
+    console.print(f"[red]Age group '{name}' not found[/red]\n[yellow]Available:[/yellow] {available}")
     raise typer.Exit(1)
 
 
@@ -781,8 +772,7 @@ def _resolve_season_id(client: MissingTableClient, season: str | None) -> int:
     current = client.get_current_season()
     if not current or "id" not in current:
         console.print(
-            "[red]No current season set[/red]\n"
-            "[yellow]Pass --season explicitly (e.g. --season 2025-2026)[/yellow]"
+            "[red]No current season set[/red]\n" "[yellow]Pass --season explicitly (e.g. --season 2025-2026)[/yellow]"
         )
         raise typer.Exit(1)
     return current["id"]
@@ -800,9 +790,7 @@ def _resolve_team_id(client: MissingTableClient, name: str) -> tuple[int, str]:
     similar = result.get("similar") or []
     hint = ""
     if similar:
-        hint = "\n[yellow]Did you mean:[/yellow] " + ", ".join(
-            t.get("name", "?") for t in similar[:5]
-        )
+        hint = "\n[yellow]Did you mean:[/yellow] " + ", ".join(t.get("name", "?") for t in similar[:5])
     console.print(f"[red]No exact team match for '{name}'[/red]{hint}")
     raise typer.Exit(1)
 
@@ -815,9 +803,7 @@ def tournament_create(
     name: str = typer.Option(..., "--name", "-n", help="Tournament name"),
     start: str = typer.Option(..., "--start", "-s", help="Start date (YYYY-MM-DD)"),
     end: str = typer.Option(None, "--end", "-e", help="End date (YYYY-MM-DD)"),
-    age: list[str] = typer.Option(
-        None, "--age", "-a", help="Age group(s), e.g. -a U14 (repeatable)"
-    ),
+    age: list[str] = typer.Option(None, "--age", "-a", help="Age group(s), e.g. -a U14 (repeatable)"),
     location: str = typer.Option(None, "--location", help="Location"),
     description: str = typer.Option(None, "--description", help="Description"),
     inactive: bool = typer.Option(False, "--inactive", help="Create as inactive"),
@@ -923,16 +909,10 @@ def tournament_add_match(
     away: str = typer.Option(..., "--away", help="Away team name (created if new)"),
     age: str = typer.Option(..., "--age", "-a", help="Age group, e.g. U14"),
     date: str = typer.Option(..., "--date", "-d", help="Match date (YYYY-MM-DD)"),
-    bracket: str = typer.Option(
-        None, "--bracket", "-b", help="Bracket / tournament_group, e.g. 'Bracket A'"
-    ),
-    round_: str = typer.Option(
-        "group_stage", "--round", "-r", help=f"Round ({', '.join(sorted(VALID_ROUNDS))})"
-    ),
+    bracket: str = typer.Option(None, "--bracket", "-b", help="Bracket / tournament_group, e.g. 'Bracket A'"),
+    round_: str = typer.Option("group_stage", "--round", "-r", help=f"Round ({', '.join(sorted(VALID_ROUNDS))})"),
     order: int = typer.Option(None, "--order", help="tournament_round_order (bracket position)"),
-    kickoff: str = typer.Option(
-        None, "--kickoff", "-k", help="Scheduled kickoff ISO ts, e.g. 2026-06-07T14:00:00Z"
-    ),
+    kickoff: str = typer.Option(None, "--kickoff", "-k", help="Scheduled kickoff ISO ts, e.g. 2026-06-07T14:00:00Z"),
     home_score: int = typer.Option(None, "--home-score", help="Home score"),
     away_score: int = typer.Option(None, "--away-score", help="Away score"),
     status: str = typer.Option("scheduled", "--status", help="Match status"),
@@ -945,8 +925,7 @@ def tournament_add_match(
     """
     if round_ not in VALID_ROUNDS:
         console.print(
-            f"[red]Invalid round '{round_}'[/red]\n"
-            f"[yellow]Valid:[/yellow] {', '.join(sorted(VALID_ROUNDS))}"
+            f"[red]Invalid round '{round_}'[/red]\n" f"[yellow]Valid:[/yellow] {', '.join(sorted(VALID_ROUNDS))}"
         )
         raise typer.Exit(1)
 
@@ -977,10 +956,7 @@ def tournament_add_match(
 
     mid = created.get("id", "?")
     bracket_label = f" [{bracket}]" if bracket else ""
-    console.print(
-        f"[green]Added match #{mid}[/green]{bracket_label} {home_name} vs {away} "
-        f"({age}, {round_})"
-    )
+    console.print(f"[green]Added match #{mid}[/green]{bracket_label} {home_name} vs {away} " f"({age}, {round_})")
 
 
 @tournament_app.command("remove-match")
@@ -1012,9 +988,7 @@ def tournament_score(
     follower notification — this is what bracket followers receive.
     """
     client, _ = get_client()
-    payload = TournamentMatchUpdate(
-        home_score=home_score, away_score=away_score, match_status=status
-    )
+    payload = TournamentMatchUpdate(home_score=home_score, away_score=away_score, match_status=status)
     try:
         client.update_tournament_match(tournament, match, payload)
     except APIError as e:
@@ -1345,6 +1319,258 @@ def player_stats(
     for label, _f in STAT_FIELDS:
         table.add_column(label, justify="right", style="cyan")
     table.add_row(*[str(stats.get(f) or 0) for _, f in STAT_FIELDS])
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# Team and club admin writes (SB-824)
+#
+# `team` was read-only, so a season's identity changes — renames, new clubs —
+# had to be clicked through Admin forms. Rollover is a scripted, repeatable,
+# reviewable operation, and it happens against a deadline.
+# ---------------------------------------------------------------------------
+
+
+# U19 is id 7; there is no id 6. Resolved by name so nobody has to know that.
+def _resolve_division_id(client, term: str) -> int:
+    """Resolve a division name (e.g. 'Northeast') to its id."""
+    if str(term).isdigit():
+        return int(term)
+    divisions = _api(client.get_divisions) or []
+    needle = str(term).lower().strip()
+    for d in divisions:
+        if (d.get("name") or "").lower().strip() == needle:
+            return d["id"]
+    matches = [d for d in divisions if needle in (d.get("name") or "").lower()]
+    if len(matches) == 1:
+        return matches[0]["id"]
+    available = ", ".join(sorted({d.get("name", "?") for d in divisions}))
+    raise ResolutionError(f"Division {term!r} not found. Available: {available}")
+
+
+def _resolve_club(client, term: str) -> dict:
+    """One club, by id or name."""
+    if str(term).isdigit():
+        target = int(term)
+        for c in _api(client.get_clubs) or []:
+            if c.get("id") == target:
+                return c
+        raise ResolutionError(f"No club with id {target}")
+
+    clubs = _api(client.get_clubs) or []
+    needle = term.lower().strip()
+    exact = [c for c in clubs if (c.get("name") or "").lower().strip() == needle]
+    if len(exact) == 1:
+        return exact[0]
+    matches = [c for c in clubs if needle in (c.get("name") or "").lower()]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        names = ", ".join(c.get("name", "?") for c in matches[:6])
+        raise ResolutionError(f"{len(matches)} clubs match {term!r}: {names}")
+    raise ResolutionError(f"No club matches {term!r}")
+
+
+@team_app.command("rename")
+def team_rename(
+    team: str = typer.Argument(..., help="Team name or id"),
+    name: str = typer.Option(..., "--name", "-n", help="New team name"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+):
+    """Rename a team, preserving its club, city and academy flag.
+
+    Renaming is safe for history: matches reference teams by id, not by name,
+    so every past fixture follows the team.
+    """
+    client, _ = get_client()
+    current = _api(resolve_team, client, team)
+    old_name = current.get("name")
+
+    if old_name == name:
+        console.print(f"[yellow]{old_name!r} already has that name.[/yellow]")
+        return
+
+    console.print(f"[bold]{old_name}[/bold] -> [bold]{name}[/bold]  (team #{current['id']})")
+    console.print(f"[dim]club_id {current.get('club_id')} and city {current.get('city')!r} preserved[/dim]")
+    if not yes and not typer.confirm("Apply?"):
+        raise typer.Exit(1)
+
+    updated = _api(
+        client.update_team_profile,
+        current["id"],
+        name=name,
+        city=current.get("city") or "",
+        academy_team=bool(current.get("academy_team")),
+        club_id=current.get("club_id"),
+    )
+    console.print(f"[green]Renamed team #{current['id']}[/green] -> {updated.get('name', name)}")
+    console.print(
+        f"[dim]Record the old name so a stale feed cannot re-split it:[/dim] "
+        f'mt team alias add {current["id"]} --alias "{old_name}" --kind former_name'
+    )
+
+
+@team_app.command("set-club")
+def team_set_club(
+    team: str = typer.Argument(..., help="Team name or id"),
+    club: str = typer.Option(..., "--club", "-c", help="Club name or id"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+):
+    """Point a team at a different club. Crest and colours come from the club."""
+    client, _ = get_client()
+    current = _api(resolve_team, client, team)
+    target = _api(_resolve_club, client, club)
+
+    console.print(
+        f"[bold]{current.get('name')}[/bold] club {current.get('club_id')} -> "
+        f"{target['id']} ([bold]{target.get('name')}[/bold])"
+    )
+    if not yes and not typer.confirm("Apply?"):
+        raise typer.Exit(1)
+
+    _api(
+        client.update_team_profile,
+        current["id"],
+        name=current.get("name"),
+        city=current.get("city") or "",
+        academy_team=bool(current.get("academy_team")),
+        club_id=target["id"],
+    )
+    console.print(f"[green]{current.get('name')} now belongs to {target.get('name')}[/green]")
+
+
+@team_app.command("create")
+def team_create(
+    name: str = typer.Option(..., "--name", "-n", help="Team name (globally unique)"),
+    city: str = typer.Option("", "--city", help="City"),
+    division: str = typer.Option(..., "--division", "-d", help="Division name or id"),
+    age: list[str] = typer.Option(..., "--age", "-a", help="Age group, repeatable (e.g. -a U13 -a U14)"),
+    club: str = typer.Option(None, "--club", "-c", help="Club name or id"),
+    academy: bool = typer.Option(False, "--academy", help="Mark as an academy team"),
+):
+    """Create a team.
+
+    One team row covers every age group it plays — teams.name is globally
+    unique, so a row per age group is impossible. The age groups given here
+    become team_mappings rows, and league_id is derived from the division.
+    """
+    client, _ = get_client()
+    age_group_ids = [_resolve_age_group_id(client, a) for a in age]
+    division_id = _api(_resolve_division_id, client, division)
+    club_row = _api(_resolve_club, client, club) if club else None
+
+    payload = Team(
+        name=name,
+        city=city,
+        age_group_ids=age_group_ids,
+        division_id=division_id,
+        club_id=(club_row or {}).get("id"),
+        academy_team=academy,
+    )
+    created = _api(client.create_team, payload)
+    team_row = created.get("team", created)
+    console.print(f"[green]Created team #{team_row.get('id')}:[/green] {name}")
+    console.print(
+        f"[dim]division {division_id}, age groups {age_group_ids}, " f"club {(club_row or {}).get('id')}[/dim]"
+    )
+
+
+@club_app.command("list")
+def club_list(
+    search: str = typer.Argument(None, help="Filter by name substring"),
+):
+    """List clubs."""
+    client, _ = get_client()
+    clubs = _api(client.get_clubs) or []
+    if search:
+        needle = search.lower()
+        clubs = [c for c in clubs if needle in (c.get("name") or "").lower()]
+    if not clubs:
+        console.print("[yellow]No clubs.[/yellow]")
+        return
+    table = Table(title=f"Clubs ({len(clubs)})")
+    table.add_column("id", justify="right")
+    table.add_column("name")
+    table.add_column("city")
+    for c in sorted(clubs, key=lambda x: (x.get("name") or "").lower()):
+        table.add_row(str(c.get("id")), c.get("name") or "", c.get("city") or "")
+    console.print(table)
+
+
+@club_app.command("create")
+def club_create(
+    name: str = typer.Option(..., "--name", "-n", help="Club name (unique)"),
+    city: str = typer.Option(None, "--city", help="City"),
+):
+    """Create a club. Crest and colours are set afterwards in the Admin UI."""
+    client, _ = get_client()
+    created = _api(client.create_club, name=name, city=city)
+    club_row = created.get("club", created)
+    console.print(f"[green]Created club #{club_row.get('id')}:[/green] {name}")
+    console.print(f'[dim]Attach a team:[/dim] mt team create --name "..." --club {club_row.get("id")}')
+
+
+@club_app.command("rename")
+def club_rename(
+    club: str = typer.Argument(..., help="Club name or id"),
+    name: str = typer.Option(..., "--name", "-n", help="New club name"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+):
+    """Rename a club.
+
+    Teams keep pointing at it by id, so their crest and colours are unaffected.
+    """
+    client, _ = get_client()
+    current = _api(_resolve_club, client, club)
+    if current.get("name") == name:
+        console.print(f"[yellow]{name!r} already has that name.[/yellow]")
+        return
+
+    console.print(f"[bold]{current.get('name')}[/bold] -> [bold]{name}[/bold]  (club #{current['id']})")
+    if not yes and not typer.confirm("Apply?"):
+        raise typer.Exit(1)
+
+    _api(client.update_club, current["id"], name=name)
+    console.print(f"[green]Renamed club #{current['id']}[/green] -> {name}")
+
+
+@alias_app.command("add")
+def team_alias_add(
+    team: str = typer.Argument(..., help="Team name or id"),
+    alias: str = typer.Option(..., "--alias", "-a", help="String that should resolve to this team"),
+    kind: str = typer.Option("feed_variant", "--kind", "-k", help="feed_variant | former_name"),
+    source: str = typer.Option("mlssoccer.com", "--source", "-s", help="Which feed uses this spelling"),
+):
+    """Record a string that should resolve to this team.
+
+    Makes a rename durable: once the old name is recorded, a stale feed
+    carrying it resolves to the renamed team instead of creating a second one.
+    """
+    client, _ = get_client()
+    if kind not in ("feed_variant", "former_name"):
+        console.print("[red]--kind must be feed_variant or former_name[/red]")
+        raise typer.Exit(1)
+
+    current = _api(resolve_team, client, team)
+    _api(client.add_team_alias, current["id"], external_name=alias, source=source, kind=kind)
+    console.print(f'[green]{alias!r} now resolves to[/green] {current.get("name")} (#{current["id"]})')
+
+
+@alias_app.command("list")
+def team_alias_list(team: str = typer.Argument(..., help="Team name or id")):
+    """Every alternate string that resolves to a team."""
+    client, _ = get_client()
+    current = _api(resolve_team, client, team)
+    aliases = (_api(client.get_team_aliases, current["id"]) or {}).get("aliases", [])
+    if not aliases:
+        console.print(f"[yellow]No aliases for {current.get('name')}.[/yellow]")
+        return
+    table = Table(title=f"Aliases for {current.get('name')}")
+    table.add_column("alias")
+    table.add_column("kind")
+    table.add_column("source")
+    for a in aliases:
+        table.add_row(a.get("external_name") or "", a.get("kind") or "", a.get("source") or "")
     console.print(table)
 
 
