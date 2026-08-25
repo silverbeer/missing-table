@@ -41,6 +41,16 @@ spec:
         app: missing-table-worker
         environment: prod
     spec:
+      # Pod-level securityContext as well as the container one below.
+      # Trivy's KSV-0118 checks both, and it has a point: a pod spec with no
+      # securityContext means anything added to it later inherits nothing.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: celery-worker
         # Built locally by rebuild-and-deploy.sh, NOT pulled from GHCR.
