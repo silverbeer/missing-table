@@ -238,7 +238,7 @@ class TeamDAO(BaseDAO):
             return response.data[0]
         return None
 
-    def resolve_team_by_name(self, name: str) -> dict | None:
+    def resolve_team_by_name(self, name: str, league_id: int | None = None) -> dict | None:
         """Resolve any string a source might use for a team to the team row.
 
         Checks teams.name first, then team_aliases.external_name (SB-822).
@@ -255,9 +255,12 @@ class TeamDAO(BaseDAO):
 
         Alias rows are scoped by (external_name, league_id, source), so the same
         string CAN legitimately point at different teams in different leagues.
-        This resolver is league-agnostic, so when a name is ambiguous it returns
-        None rather than guessing — picking the wrong team silently is worse
-        than reporting the name as unresolved.
+        Pass `league_id` when the caller knows it (match ingest does) and the
+        ambiguity resolves; league-agnostic aliases (league_id IS NULL) still
+        match, so scoping never loses a hit. Without it — or when the name is
+        still ambiguous after scoping — this returns None rather than guessing,
+        because picking the wrong team silently is worse than reporting the
+        name as unresolved.
         """
         normalized = " ".join((name or "").strip().split())
         if not normalized:
@@ -274,6 +277,12 @@ class TeamDAO(BaseDAO):
             .execute()
         )
         rows = alias_resp.data or []
+        if league_id is not None:
+            # A row with no league applies everywhere; a row with one applies
+            # only to that league. Narrow before checking for ambiguity.
+            scoped = [r for r in rows if r.get("league_id") in (None, league_id)]
+            if scoped:
+                rows = scoped
         if not rows:
             return None
 
@@ -282,6 +291,7 @@ class TeamDAO(BaseDAO):
             logger.warning(
                 "Alias is ambiguous across leagues — refusing to guess",
                 alias=normalized,
+                league_id=league_id,
                 team_ids=sorted(team_ids),
             )
             return None
@@ -466,7 +476,7 @@ class TeamDAO(BaseDAO):
         team_ids = [team["id"] for team in response.data]
 
         # Get match counts for all teams in one query
-        match_counts = {}
+        match_counts: dict[int, int] = {}
         if team_ids:
             # SB-591: count through the test-partition view so a test fixture
             # never inflates a real team's match count.
@@ -485,7 +495,7 @@ class TeamDAO(BaseDAO):
                 match_counts[tid] = match_counts.get(tid, 0) + 1
 
         # Get player counts for all teams in one query
-        player_counts = {}
+        player_counts: dict[int, int] = {}
         if team_ids:
             players = self.client.table("user_profiles").select("team_id").in_("team_id", team_ids).execute()
             for player in players.data:
@@ -892,7 +902,7 @@ class TeamDAO(BaseDAO):
                 if not include_test:
                     fallback = fallback.eq("is_test", False)
                 matches = fallback.execute()
-                counts = {}
+                counts: dict[int, int] = {}
                 for match in matches.data:
                     home_id = match["home_team_id"]
                     away_id = match["away_team_id"]

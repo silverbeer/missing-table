@@ -109,13 +109,63 @@ class TestResolveTeamByName:
         assert dao.resolve_team_by_name(LONG_NAME)["id"] == 19
 
 
+@pytest.mark.unit
+class TestResolveTeamByNameScopedToLeague:
+    """SB-830: match ingest knows its league, so ambiguity is resolvable.
+
+    The 2026-2027 Kitman feeds publish three competitions whose bracket names
+    overlap. A caller that knows which one it is reading should not be handed
+    None just because some other league uses the same string.
+    """
+
+    OTHER = {"id": 77, "name": "Some Other Team", "city": None, "club_id": 9}
+
+    def test_league_scope_resolves_an_otherwise_ambiguous_alias(self):
+        dao = _team_dao(
+            direct=None,
+            alias_rows=[
+                {"team_id": 19, "league_id": 1, "source": "kitman"},
+                {"team_id": 77, "league_id": 2, "source": "kitman"},
+            ],
+            by_id=IFA,
+        )
+        assert dao.resolve_team_by_name("Shared Name") is None  # unscoped: refuses
+        assert dao.resolve_team_by_name("Shared Name", league_id=1)["id"] == 19
+
+    def test_a_league_agnostic_alias_still_matches_when_scoped(self):
+        # league_id NULL means "this spelling applies everywhere". Scoping must
+        # narrow ambiguity, never drop a hit that was always going to be right.
+        dao = _team_dao(
+            direct=None,
+            alias_rows=[{"team_id": 19, "league_id": None, "source": "kitman"}],
+            by_id=IFA,
+        )
+        assert dao.resolve_team_by_name(LONG_NAME, league_id=1)["id"] == 19
+
+    def test_scoping_to_a_league_with_no_alias_row_falls_back_rather_than_blanks(self):
+        # Only league 2 has this alias. Asking as league 1 leaves nothing
+        # scoped, so the unscoped rows are judged as before — one team_id, so
+        # it resolves. The alternative (return None) would break every feed
+        # whose league name we failed to map.
+        dao = _team_dao(
+            direct=None,
+            alias_rows=[{"team_id": 19, "league_id": 2, "source": "kitman"}],
+            by_id=IFA,
+        )
+        assert dao.resolve_team_by_name(LONG_NAME, league_id=1)["id"] == 19
+
+    def test_unknown_name_is_still_none_when_scoped(self):
+        dao = _team_dao(direct=None, alias_rows=[])
+        assert dao.resolve_team_by_name("Some Brand New Club", league_id=1) is None
+
+
 def _tournament_dao(exact=None, alias_team_id=None):
     from dao.tournament_dao import TournamentDAO
 
     dao = object.__new__(TournamentDAO)
     dao.connection_holder = MagicMock()
     client = MagicMock()
-    created = {"calls": []}
+    created: dict[str, list] = {"calls": []}
     _tables: dict = {}
 
     def table(name):

@@ -179,7 +179,7 @@ class DatabaseTask(Task):
             match_id = existing_match["id"]
 
             # Prepare update data
-            update_data = {}
+            update_data: dict[str, object] = {}
 
             # Correct home/away team swap if team IDs differ
             if home_team_id is not None and home_team_id != existing_match.get("home_team_id"):
@@ -302,17 +302,35 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         home_team_name = match_data["home_team"]
         away_team_name = match_data["away_team"]
 
-        logger.debug(f"Looking up teams: {home_team_name}, {away_team_name}")
+        # The feed's competition name scopes both lookups below. Team aliases
+        # and division names are unique per league, not globally, so resolving
+        # the league first is what keeps two competitions that share a name
+        # ("Florida" is a Homegrown division and a Flex one) apart.
+        league_name = match_data.get("league")
+        league_id = None
+        if league_name:
+            league_record = self.league_dao.get_league_by_name(league_name)
+            if league_record:
+                league_id = league_record["id"]
+            else:
+                logger.warning(f"League '{league_name}' not found - name lookups will not be league-scoped")
 
-        # Get or create teams
-        home_team = self.team_dao.get_team_by_name(home_team_name)
+        logger.debug(f"Looking up teams: {home_team_name}, {away_team_name} (league_id={league_id})")
+
+        # Resolve teams. resolve_team_by_name consults team_aliases as well as
+        # teams.name (SB-822) — the plain name lookup this used to call meant
+        # the aliases seeded for the Kitman feed never applied to the feed.
+        # Nothing is created here: an unknown name fails the task rather than
+        # inventing a lightweight team row that later collides on the unique
+        # constraint.
+        home_team = self.team_dao.resolve_team_by_name(home_team_name, league_id=league_id)
         if not home_team:
-            logger.warning(f"Home team not found: {home_team_name}. Creating placeholder.")
+            logger.warning(f"Home team not resolved: {home_team_name}")
             raise ValueError(f"Team not found: {home_team_name}")
 
-        away_team = self.team_dao.get_team_by_name(away_team_name)
+        away_team = self.team_dao.resolve_team_by_name(away_team_name, league_id=league_id)
         if not away_team:
-            logger.warning(f"Away team not found: {away_team_name}. Creating placeholder.")
+            logger.warning(f"Away team not resolved: {away_team_name}")
             raise ValueError(f"Team not found: {away_team_name}")
 
         # Step 3: Check if match already exists
@@ -414,11 +432,16 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
 
             division_id_for_create = None
             if match_data.get("division"):
-                div_record = self.league_dao.get_division_by_name(match_data["division"])
+                div_record = self.league_dao.get_division_by_name(match_data["division"], league_id=league_id)
                 if div_record:
                     division_id_for_create = div_record["id"]
                 else:
-                    logger.error(f"Division '{match_data['division']}' not found in database")
+                    # Writing NULL here used to look like a warning and behave
+                    # like data loss: get_league_table filters on division, so
+                    # the match existed but appeared in no table at all.
+                    raise ValueError(
+                        f"Division not found: {match_data['division']} (league={league_name or 'unknown'})"
+                    )
 
             scheduled_kickoff = self._build_scheduled_kickoff(match_data)
 
