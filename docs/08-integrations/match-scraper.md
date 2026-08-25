@@ -428,12 +428,67 @@ kubectl port-forward -n messaging svc/messaging-rabbitmq 15672:15672
 # Default credentials: guest/guest
 ```
 
+### When ingest drops matches
+
+**A green scraper report is not proof that matches landed.** The scraper's
+report counts errors from the RabbitMQ *publish*, and publishing succeeds
+whether or not the backend can resolve the names. Team and division
+resolution happens later, in a Celery worker. Before SB-829/SB-831 a run
+where every name was unknown reported `1432 found, 1432 submitted, 0 errors`
+and landed nothing.
+
+Two things now make that visible:
+
+1. **`ingest_failures`** — one row per distinct unresolved name, with the
+   number of matches it cost. Not one row per dropped match: seven bad
+   spellings read as seven problems, not four hundred.
+2. **A Telegram alert** on each newly-seen name, sent to
+   `MT_ADMIN_TELEGRAM_CHAT_ID`, capped at `MT_INGEST_ALERT_MAX_PER_HOUR`
+   (default 10) so a new season does not turn the channel into a log tail.
+   Past the cap names are still recorded; one message points at the API.
+
+The scraper reads the same rows at end of run and folds them into its own
+report, so `submitted` and `rejected by MT` appear side by side.
+
+```bash
+# What ingest could not resolve (admin or service-account token)
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API/api/admin/ingest-failures?since=2026-09-05T00:00:00Z"
+```
+
+An unresolved name is **permanent** — it raises `UnresolvedNameError`, which
+is excluded from the task's autoretry. Waiting will not make an unknown team
+known, and retrying three times with backoff only delays the alert.
+
 ### Common Issues
 
 **Issue: "Team not found: TeamName"**
-- Verify team exists in database
-- Check team name spelling matches exactly
-- Query teams: `GET /api/teams`
+
+The name in the feed does not match `teams.name` **or** any row in
+`team_aliases`. Resolution is scoped to the feed's league, so an alias
+registered for a different league does not apply.
+
+The fix is usually an alias rather than a new team — the team almost always
+already exists under a different spelling:
+
+```bash
+mt team alias add "IFA" "Intercontinental Football Academy of New England"
+```
+
+Adding the alias closes the `ingest_failures` row on the next successful
+match for that name; no manual cleanup needed. Check first with
+`GET /api/teams` or `mt search`.
+
+**Issue: "Division not found: DivisionName"**
+
+Division names are unique **per league**, not globally — the 2026-2027 feeds
+put `Florida`, `Frontier`, `Northwest` and `Southeast` in both Homegrown and
+MLS NEXT Flex. Either the division is genuinely missing, or the feed's league
+name does not map to a league in `leagues` and the lookup could not be
+scoped.
+
+This used to write `division_id = NULL`, which put the match in the database
+and in no standings table. It now fails instead.
 
 **Issue: Task stuck in PENDING**
 - Check Celery workers are running
