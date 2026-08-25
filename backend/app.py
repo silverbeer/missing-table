@@ -6837,6 +6837,92 @@ async def update_user_profile_admin(
         raise HTTPException(status_code=500, detail="Failed to update user") from e
 
 
+class TeamAliasCreate(BaseModel):
+    """A string that should resolve to a team (SB-822/SB-824)."""
+
+    external_name: str
+    # Which external system uses this spelling. MLS Next moved from
+    # mlssoccer.com to kitman for 2026-2027, so one team can carry a different
+    # string per feed.
+    source: str = "mlssoccer.com"
+    # 'feed_variant' = another current spelling; 'former_name' = the club used
+    # to be called this. Does not affect resolution — both resolve identically.
+    kind: str = "feed_variant"
+    # Optional: a former name belongs to the club, not to a league.
+    league_id: int | None = None
+
+
+@app.get("/api/admin/teams/{team_id}/aliases")
+async def list_team_aliases(team_id: int, current_user: dict[str, Any] = Depends(require_admin)):
+    """Every alternate string that resolves to this team."""
+    try:
+        if not team_dao.get_team_by_id(team_id):
+            raise HTTPException(status_code=404, detail="Team not found")
+        return {"team_id": team_id, "aliases": team_dao.get_team_aliases(team_id)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing team aliases: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list aliases") from e
+
+
+@app.post("/api/admin/teams/{team_id}/aliases", status_code=201)
+async def create_team_alias(
+    team_id: int,
+    payload: TeamAliasCreate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Record a string that should resolve to this team.
+
+    Exists so a rename can be made durable: once 'Long Island Soccer Club' is
+    recorded as a former_name, a stale feed carrying the old string resolves to
+    the renamed team instead of creating a second one (SB-825).
+    """
+    try:
+        if not team_dao.get_team_by_id(team_id):
+            raise HTTPException(status_code=404, detail="Team not found")
+        if payload.kind not in ("feed_variant", "former_name"):
+            raise HTTPException(status_code=400, detail="kind must be feed_variant or former_name")
+
+        name = " ".join(payload.external_name.strip().split())
+        if not name:
+            raise HTTPException(status_code=400, detail="external_name is required")
+
+        # A string that already resolves somewhere is the ambiguity this table
+        # exists to prevent, so say where rather than raising a constraint error.
+        existing = team_dao.resolve_team_by_name(name)
+        if existing and existing["id"] != team_id:
+            raise HTTPException(
+                status_code=409,
+                detail=f"'{name}' already resolves to team {existing['id']} ({existing.get('name')})",
+            )
+
+        created = team_dao.add_team_alias(
+            team_id=team_id,
+            external_name=name,
+            source=payload.source,
+            kind=payload.kind,
+            league_id=payload.league_id,
+        )
+        logger.info(
+            "Team alias recorded",
+            team_id=team_id,
+            external_name=name,
+            kind=payload.kind,
+            source=payload.source,
+            actor=current_user.get("username"),
+        )
+        return {"success": True, "alias": created}
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_str = str(e)
+        if "unique" in error_str.lower() or "duplicate" in error_str.lower():
+            raise HTTPException(status_code=409, detail="That alias already exists") from e
+        logger.error(f"Error creating team alias: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create alias") from e
+
+
 @app.get("/api/admin/users/login-events")
 async def get_login_events(
     limit: int = 100,

@@ -360,6 +360,58 @@ class MissingTableClient:
         response = self._request("PUT", f"/api/teams/{team_id}", json_data=team.model_dump(exclude_none=True))
         return response.json()
 
+    def update_team_profile(
+        self,
+        team_id: int,
+        name: str,
+        city: str,
+        academy_team: bool = False,
+        club_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Update a team, mirroring the backend's TeamUpdate exactly.
+
+        update_team() takes the full Team model, which requires age_group_ids
+        and division_id that PUT /api/teams/{id} ignores — and drops club_id
+        when it is None because of exclude_none, which the backend then reads
+        as "set club to null". Renaming a team through that path silently
+        detaches it from its club, taking the crest and colours with it.
+
+        This sends exactly the four fields the endpoint accepts, every time, so
+        club_id is only null when the caller means it (SB-824).
+        """
+        payload = {
+            "name": name,
+            "city": city,
+            "academy_team": academy_team,
+            "club_id": club_id,
+        }
+        response = self._request("PUT", f"/api/teams/{team_id}", json_data=payload)
+        return response.json()
+
+    def get_team_aliases(self, team_id: int) -> dict[str, Any]:
+        """Alternate strings that resolve to this team."""
+        response = self._request("GET", f"/api/admin/teams/{team_id}/aliases")
+        return response.json()
+
+    def add_team_alias(
+        self,
+        team_id: int,
+        external_name: str,
+        source: str = "mlssoccer.com",
+        kind: str = "feed_variant",
+        league_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Record a string that should resolve to this team."""
+        payload: dict[str, Any] = {
+            "external_name": external_name,
+            "source": source,
+            "kind": kind,
+        }
+        if league_id is not None:
+            payload["league_id"] = league_id
+        response = self._request("POST", f"/api/admin/teams/{team_id}/aliases", json_data=payload)
+        return response.json()
+
     def delete_team(self, team_id: int) -> dict[str, Any]:
         """Delete a team."""
         response = self._request("DELETE", f"/api/teams/{team_id}")
