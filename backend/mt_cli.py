@@ -1033,10 +1033,19 @@ def resolve_team(client, term: str) -> dict:
     page is the team named "IFA" — so a plausible-looking query matches nothing.
     A bare "no team" is a dead end, so near-misses are offered instead.
     """
-    if str(term).isdigit():
-        return client.get_team(int(term))
-
     teams = client.get_teams() or []
+
+    # By id, from the list rather than GET /api/teams/{id} — that route does not
+    # exist. /api/teams/{team_id} serves only PUT and DELETE, so the by-id
+    # lookup returned 405 for every numeric argument (SB-824). The list is
+    # already fetched for name resolution, so this costs nothing extra.
+    if str(term).isdigit():
+        target = int(term)
+        for t in teams:
+            if t.get("id") == target:
+                return t
+        raise ResolutionError(f"No team with id {target}")
+
     needle = term.lower().strip()
 
     # An exact name wins outright: "IFA" should resolve, even though a dozen
