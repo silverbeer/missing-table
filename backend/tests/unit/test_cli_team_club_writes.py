@@ -59,6 +59,33 @@ def _run(args, client):
 
 
 @pytest.mark.unit
+class TestResolveTeamById:
+    """Numeric arguments resolve from the teams list, not GET /api/teams/{id}.
+
+    /api/teams/{team_id} serves only PUT and DELETE — there is no GET-by-id —
+    so client.get_team() returned 405 for every numeric argument. That broke
+    `mt team stats 34` too; the new write commands just surfaced it, since they
+    document ids as the primary argument.
+    """
+
+    def test_numeric_argument_does_not_call_the_missing_endpoint(self):
+        client = _client()
+        result = _run(["team", "rename", "34", "--name", "Red Bull New York", "--yes"], client)
+
+        assert result.exit_code == 0, result.output
+        client.get_team.assert_not_called()
+        client.get_teams.assert_called()
+
+    def test_unknown_id_says_so_rather_than_405(self):
+        client = _client()
+        result = _run(["team", "rename", "9999", "--name", "X", "--yes"], client)
+
+        assert result.exit_code == 1
+        assert "9999" in result.output
+        client.update_team_profile.assert_not_called()
+
+
+@pytest.mark.unit
 class TestTeamRename:
     def test_rename_preserves_club_city_and_academy_flag(self):
         # The trap: TeamUpdate.club_id defaults to None, so a rename that omits
