@@ -112,7 +112,7 @@ docker build -f backend/Dockerfile -t missing-table-worker:latest backend/
 docker save missing-table-worker:latest | nerdctl --namespace k8s.io load
 
 # 3. Restart workers
-kubectl rollout restart deployment/missing-table-celery-worker -n match-scraper
+kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
 ```
 
 Or use the helper script (coming soon):
@@ -124,10 +124,10 @@ Or use the helper script (coming soon):
 
 ```bash
 # Scale up to 4 workers
-kubectl scale deployment/missing-table-celery-worker -n match-scraper --replicas=4
+kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=4
 
 # Scale down to 1 worker
-kubectl scale deployment/missing-table-celery-worker -n match-scraper --replicas=1
+kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=1
 ```
 
 ## Monitoring
@@ -160,7 +160,7 @@ kubectl logs -n match-scraper -l app=missing-table-worker --tail=100
 kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_connections
 
 # Restart workers
-kubectl rollout restart deployment/missing-table-celery-worker -n match-scraper
+kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
 ```
 
 ### Database Connection Issues

@@ -1,0 +1,54 @@
+# Trivy misconfiguration suppressions.
+#
+# Every entry is path-scoped and carries the reason. Nothing here is a blanket
+# waiver: the same rule still fails elsewhere in the repo, which is the point —
+# a global .trivyignore would have silently exempted the Helm templates too.
+#
+# IDs are the bare rule ids Trivy reports (KSV-0014), not the AVD-
+# prefixed form used in the docs URL — the prefixed form matches nothing.
+#
+# Added under SB-832, after fixing everything a manifest could fix on the
+# Celery worker deployments (13 findings down to these four).
+
+misconfigurations:
+  - id: KSV-0014
+    paths:
+      - "k3s/worker/deployment.yaml"
+      - "k3s/worker/deployment-prod.yaml"
+    statement: >-
+      Read-only root filesystem crash-loops these workers. The entrypoint runs
+      `uv run`, which reconciles /app/.venv at startup and dies on
+      "failed to remove directory /app/.venv/include: Read-only file system".
+      Verified on the local worker, not assumed. Fixing this properly means
+      making the image stop rebuilding its venv at boot — a Dockerfile and
+      entrypoint change that also affects the backend image, tracked
+      separately. Revisit this entry when that lands.
+
+  - id: KSV-0013
+    paths:
+      - "k3s/worker/deployment.yaml"
+      - "k3s/worker/deployment-prod.yaml"
+    statement: >-
+      The worker image is built locally by k3s/worker/rebuild-and-deploy.sh and
+      consumed with imagePullPolicy: Never. There is no registry holding it, so
+      there is no digest or version tag to pin against. If the worker image
+      ever moves to GHCR alongside the backend and frontend, this entry should
+      go with it.
+
+  - id: KSV-0020
+    paths:
+      - "k3s/worker/deployment.yaml"
+      - "k3s/worker/deployment-prod.yaml"
+    statement: >-
+      The container runs as appuser, uid 1000, which the image creates and
+      chowns /app to. The manifest states that uid rather than leaving it
+      implicit. Trivy wants > 10000; renumbering the user belongs in the
+      Dockerfile, and changing only the manifest produces a pod that cannot
+      read its own application directory.
+
+  - id: KSV-0021
+    paths:
+      - "k3s/worker/deployment.yaml"
+      - "k3s/worker/deployment-prod.yaml"
+    statement: >-
+      Same as AVD-KSV-0020: gid 1000 comes from the image's appuser group.

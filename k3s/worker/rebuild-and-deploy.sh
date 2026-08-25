@@ -84,33 +84,58 @@ restart_deployment() {
         }
     fi
 
-    # Check if deployment exists
-    if ! kubectl get deployment -n "$NAMESPACE" missing-table-celery-worker &>/dev/null; then
-        log_error "Deployment 'missing-table-celery-worker' not found in namespace '$NAMESPACE'"
-        echo ""
-        echo "To create the deployment, run:"
-        echo "  ./switch-worker-env.sh dev"
-        return 1
-    fi
-
-    # Restart deployment
-    if kubectl rollout restart deployment/missing-table-celery-worker -n "$NAMESPACE"; then
-        log_success "Deployment restarted"
-        echo ""
-        log_info "Waiting for rollout to complete..."
-
-        if kubectl rollout status deployment/missing-table-celery-worker -n "$NAMESPACE" --timeout=60s 2>/dev/null; then
-            log_success "Rollout complete"
-        else
-            log_warning "Rollout is taking longer than expected (this is normal)"
-            log_info "Check status with: kubectl get pods -n $NAMESPACE -l app=missing-table-worker"
+    # Both workers run from this one image, so a rebuild that restarts only
+    # one leaves the other running last week's code. This used to name
+    # `missing-table-celery-worker`, which has not existed since the split —
+    # the script built and imported, then failed here, and the worker kept
+    # serving whatever it was last built with.
+    local deployments=()
+    for d in missing-table-celery-worker-local missing-table-celery-worker-prod; do
+        if kubectl get deployment -n "$NAMESPACE" "$d" &>/dev/null; then
+            deployments+=("$d")
         fi
+    done
 
-        return 0
-    else
-        log_error "Failed to restart deployment"
+    if [ ${#deployments[@]} -eq 0 ]; then
+        log_error "No worker deployments found in namespace '$NAMESPACE'"
+        echo ""
+        echo "Expected one or both of:"
+        echo "  missing-table-celery-worker-local   (kubectl apply -f deployment.yaml)"
+        echo "  missing-table-celery-worker-prod    (kubectl apply -f deployment-prod.yaml)"
         return 1
     fi
+
+    # -prod consumes matches.prod and writes to the CLOUD Supabase. Restarting
+    # it is a production action; say so rather than let it look like a local
+    # dev loop.
+    for d in "${deployments[@]}"; do
+        if [ "$d" = "missing-table-celery-worker-prod" ]; then
+            log_warning "$d consumes matches.prod against the CLOUD Supabase — restarting PRODUCTION ingest"
+        else
+            log_info "$d (local queue)"
+        fi
+    done
+    echo ""
+
+    local failed=0
+    for d in "${deployments[@]}"; do
+        if kubectl rollout restart "deployment/$d" -n "$NAMESPACE"; then
+            log_success "$d restarted"
+
+            if kubectl rollout status "deployment/$d" -n "$NAMESPACE" --timeout=60s 2>/dev/null; then
+                log_success "$d rollout complete"
+            else
+                log_warning "$d rollout is taking longer than expected (this is normal)"
+                log_info "Check status with: kubectl get pods -n $NAMESPACE -l app=missing-table-worker"
+            fi
+        else
+            log_error "Failed to restart $d"
+            failed=1
+        fi
+        echo ""
+    done
+
+    return $failed
 }
 
 show_status() {

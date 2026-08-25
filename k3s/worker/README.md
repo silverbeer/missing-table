@@ -1,5 +1,18 @@
 # Celery Worker Deployment for K3s
 
+> **Two workers run in this namespace.** `missing-table-celery-worker-local`
+> consumes `matches.local` against the local Supabase; `deployment-prod.yaml`
+> defines `missing-table-celery-worker-prod`, which consumes `matches.prod`
+> against the **cloud** Supabase. They are told apart by the `environment`
+> label and by their ConfigMap/Secret suffix (`-prod-config`,
+> `-prod-secrets`). Commands below name the local one — swap the suffix when
+> you mean production.
+>
+> Neither is in LKE. No Celery worker or RabbitMQ runs there, so External
+> Secrets Operator and AWS Secrets Manager do not feed these — their config
+> is the ConfigMap and Secret in this namespace.
+
+
 This directory contains Kubernetes manifests for deploying Celery workers to K3s (Rancher Desktop).
 
 ## Architecture
@@ -72,7 +85,7 @@ kubectl delete -f k3s/worker/configmap-dev.yaml
 kubectl delete -f k3s/worker/secret-dev.yaml
 kubectl apply -f k3s/worker/configmap-prod.yaml
 kubectl apply -f k3s/worker/secret-prod.yaml
-kubectl rollout restart deployment/missing-table-celery-worker -n match-scraper
+kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
 ```
 
 ## Setting Up Production
@@ -107,10 +120,10 @@ kubectl rollout restart deployment/missing-table-celery-worker -n match-scraper
 
 ```bash
 # Scale to 4 workers
-kubectl scale deployment/missing-table-celery-worker -n match-scraper --replicas=4
+kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=4
 
 # Scale down to 1 worker
-kubectl scale deployment/missing-table-celery-worker -n match-scraper --replicas=1
+kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=1
 ```
 
 ## Monitoring
@@ -194,10 +207,10 @@ kubectl exec -n match-scraper <pod-name> -- uv run python -c "from dao.enhanced_
 docker build -f backend/Dockerfile -t missing-table-worker:latest backend/
 
 # Restart deployment (picks up new image)
-kubectl rollout restart deployment/missing-table-celery-worker -n match-scraper
+kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
 
 # Watch rollout status
-kubectl rollout status deployment/missing-table-celery-worker -n match-scraper
+kubectl rollout status deployment/missing-table-celery-worker-local -n match-scraper
 ```
 
 ## Configuration Details
