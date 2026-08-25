@@ -1,19 +1,29 @@
+# Celery worker for the LOCAL queue, running on the M4 Mac k3s
+# (`rancher-desktop`) against the local Supabase.
+#
+# Sibling: deployment-prod.yaml is the production-queue worker, which runs in
+# the SAME namespace against cloud Supabase. The two are told apart by the
+# `environment` label and the queue they consume — keep both selectors
+# specific or one deployment adopts the other's pods.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: missing-table-celery-worker
+  name: missing-table-celery-worker-local
   namespace: match-scraper
   labels:
     app: missing-table-worker
+    environment: local
 spec:
   replicas: 2  # Start with 2 workers
   selector:
     matchLabels:
       app: missing-table-worker
+      environment: local
   template:
     metadata:
       labels:
         app: missing-table-worker
+        environment: local
     spec:
       containers:
       - name: celery-worker
@@ -75,6 +85,24 @@ spec:
             secretKeyRef:
               name: missing-table-worker-secrets
               key: SERVICE_ACCOUNT_SECRET
+
+        # --- Ingest failure alerts (SB-829) ---
+        # Normally unset locally, which is fine: the failure is still recorded
+        # in ingest_failures and readable at GET /api/admin/ingest-failures.
+        # Set them to rehearse the alert before trusting it in prod.
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: missing-table-worker-secrets
+              key: TELEGRAM_BOT_TOKEN
+              optional: true
+
+        - name: MT_ADMIN_TELEGRAM_CHAT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-config
+              key: MT_ADMIN_TELEGRAM_CHAT_ID
+              optional: true
 
         # Application Configuration
         - name: ENVIRONMENT

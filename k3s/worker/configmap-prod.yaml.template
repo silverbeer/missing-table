@@ -1,23 +1,47 @@
+# Non-secret config for the PRODUCTION worker.
+#
+# Copy to configmap-prod.yaml (gitignored) and fill in. The names here match
+# what runs in the cluster: `missing-table-worker-prod-config`, NOT
+# `missing-table-worker-config` — that one belongs to the local worker, and
+# the two run side by side in the same namespace.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: missing-table-worker-config
+  name: missing-table-worker-prod-config
   namespace: match-scraper
   labels:
     app: missing-table-worker
     environment: prod
 data:
-  # RabbitMQ (local k3s)
-  RABBITMQ_URL: "amqp://admin:admin123@rabbitmq.match-scraper:5672//"
+  # RabbitMQ, deployed by the messaging-platform chart in this namespace.
+  # Credentials are on secret/rabbitmq-secret in this namespace. They sit in
+  # the URL because Celery takes one connection string; that is also why this
+  # ConfigMap is worth no more trust than a Secret despite its kind.
+  RABBITMQ_URL: "amqp://USER:PASSWORD@messaging-rabbitmq.match-scraper:5672//" # pragma: allowlist secret
+  CELERY_BROKER_URL: "amqp://USER:PASSWORD@messaging-rabbitmq.match-scraper:5672//" # pragma: allowlist secret
 
-  # Supabase (production environment)
-  # REPLACE WITH YOUR PRODUCTION SUPABASE URL
+  # RPC result backend — no Redis needed. Results are not read by anything;
+  # the worker's job is the database write.
+  CELERY_RESULT_BACKEND: "rpc://"
+
+  # The prod queue. The fanout exchange routes to matches.local and
+  # matches.prod, so this is what separates the two workers.
+  QUEUE_NAME: "matches.prod"
+
+  # Supabase (cloud/production project)
   SUPABASE_URL: "https://YOUR_PROD_PROJECT_ID.supabase.co"
+
+  # Where ingest-failure alerts go (SB-829). Use the same chat the scraper
+  # already reports to, so the alert lands in a channel someone watches —
+  # see AGENT_TELEGRAM_CHAT_ID on secret/match-scraper-agent-secret.
+  # The bot TOKEN is a secret and lives in secret-prod.yaml, not here.
+  MT_ADMIN_TELEGRAM_CHAT_ID: "YOUR_TELEGRAM_CHAT_ID"
+
+  # Distinct unresolved names alerted per hour before the worker goes quiet
+  # and points at GET /api/admin/ingest-failures instead. Optional; the code
+  # defaults to 10.
+  MT_INGEST_ALERT_MAX_PER_HOUR: "10"
 
   # Application settings
   ENVIRONMENT: "production"
   LOG_LEVEL: "INFO"
-
-  # Celery settings
-  CELERY_BROKER_URL: "amqp://admin:admin123@rabbitmq.match-scraper:5672//"
-  REDIS_URL: "redis://redis.match-scraper:6379/0"

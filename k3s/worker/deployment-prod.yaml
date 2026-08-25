@@ -1,0 +1,158 @@
+# Celery worker for the PRODUCTION queue.
+#
+# This runs on the M4 Mac k3s (`rancher-desktop`), namespace `match-scraper`,
+# and writes to the CLOUD Supabase. It is not in LKE — no Celery worker or
+# RabbitMQ runs there — so nothing here is fed by External Secrets Operator or
+# AWS Secrets Manager, and the LKE `missing-table-secrets` is irrelevant to it.
+#
+# It is tracked because it is production ingest: before SB-832 the running
+# `-prod` deployment existed only in the cluster, so a change to it could not
+# be reviewed, and a cluster rebuild would have lost it.
+#
+# Sibling: deployment.yaml is the local-queue worker.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: missing-table-celery-worker-prod
+  namespace: match-scraper
+  labels:
+    app: missing-table-worker
+    environment: prod
+spec:
+  # One replica deliberately. Match ingest is not throughput-bound — a season
+  # load is thousands of small messages — and a single consumer keeps the
+  # ingest_failures alert de-duplication tight (SB-829): concurrent workers
+  # meeting the same brand-new bad name can each be told to alert.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: missing-table-worker
+      environment: prod
+  template:
+    metadata:
+      labels:
+        app: missing-table-worker
+        environment: prod
+    spec:
+      containers:
+      - name: celery-worker
+        # Built locally by rebuild-and-deploy.sh, NOT pulled from GHCR.
+        # Consequence worth remembering: merging backend code does not deploy
+        # it here. The image must be rebuilt or the worker keeps running
+        # whatever it was last built with.
+        image: missing-table-worker:latest
+        imagePullPolicy: Never
+
+        command:
+          - /app/docker-entrypoint.sh
+        args:
+          - worker
+          - --loglevel=info
+          - --queues=matches.prod
+          - --concurrency=2
+
+        env:
+        # --- RabbitMQ / Celery ---
+        - name: RABBITMQ_URL
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: RABBITMQ_URL
+
+        - name: CELERY_BROKER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: CELERY_BROKER_URL
+
+        - name: CELERY_RESULT_BACKEND
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: CELERY_RESULT_BACKEND
+
+        # --- Supabase (cloud/production) ---
+        - name: SUPABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: SUPABASE_URL
+
+        - name: SUPABASE_SERVICE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: missing-table-worker-prod-secrets
+              key: SUPABASE_KEY
+
+        - name: SUPABASE_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: missing-table-worker-prod-secrets
+              key: SUPABASE_JWT_SECRET
+
+        - name: SERVICE_ACCOUNT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: missing-table-worker-prod-secrets
+              key: SERVICE_ACCOUNT_SECRET
+
+        # --- Ingest failure alerts (SB-829) ---
+        # Both are needed or nothing is sent. Without the bot token send_to
+        # raises NotificationConfigError, and the alert path swallows its own
+        # errors by design — so a missing token fails SILENTLY, which is the
+        # exact failure mode SB-829 exists to end. Check for the
+        # "recorded but not alerted" log line if alerts stop arriving.
+        #
+        # optional: true so the worker still boots without them: an ingest
+        # failure is durable in the ingest_failures table and readable at
+        # GET /api/admin/ingest-failures either way, and refusing to consume
+        # matches because a notification channel is unset would be a far worse
+        # outcome than a quiet one.
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: missing-table-worker-prod-secrets
+              key: TELEGRAM_BOT_TOKEN
+              optional: true
+
+        - name: MT_ADMIN_TELEGRAM_CHAT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: MT_ADMIN_TELEGRAM_CHAT_ID
+              optional: true
+
+        # Alerts per hour before the worker goes quiet and points at the API
+        # instead. A brand-new season can arrive with dozens of unknown names.
+        - name: MT_INGEST_ALERT_MAX_PER_HOUR
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: MT_INGEST_ALERT_MAX_PER_HOUR
+              optional: true
+
+        # --- Application ---
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: ENVIRONMENT
+
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: LOG_LEVEL
+
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+
+        # Health probes deliberately absent — workers are stateless consumers
+        # that connect to RabbitMQ on startup and begin consuming.
+
+      restartPolicy: Always
