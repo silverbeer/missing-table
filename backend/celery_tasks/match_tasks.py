@@ -15,12 +15,15 @@ from zoneinfo import ZoneInfo
 from celery import Task
 
 from celery_app import app
+from celery_tasks.exceptions import UnresolvedNameError
 from celery_tasks.validation_tasks import validate_match_data
+from dao.ingest_failures_dao import IngestFailuresDAO
 from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
 from logging_config import get_logger
+from notifications.ingest_alerts import alert_unresolved_name
 
 logger = get_logger(__name__)
 
@@ -38,6 +41,13 @@ class DatabaseTask(Task):
     _team_dao = None
     _season_dao = None
     _league_dao = None
+    _ingest_failures_dao = None
+
+    # Names this worker has already confirmed good, so the "did this name used
+    # to fail?" check costs one round trip per distinct name per worker rather
+    # than one per match. A season load sees tens of names across thousands of
+    # matches, so the difference is thousands of calls.
+    _resolved_names: set[tuple[str, str]] = set()
 
     @property
     def dao(self):
@@ -74,6 +84,27 @@ class DatabaseTask(Task):
                 self._connection = SupabaseConnection()
             self._league_dao = LeagueDAO(self._connection)
         return self._league_dao
+
+    @property
+    def ingest_failures_dao(self):
+        """Lazy initialization of IngestFailuresDAO for unresolved-name reporting."""
+        if self._ingest_failures_dao is None:
+            if self._connection is None:
+                self._connection = SupabaseConnection()
+            self._ingest_failures_dao = IngestFailuresDAO(self._connection)
+        return self._ingest_failures_dao
+
+    def _note_name_resolved(self, kind: str, raw_name: str, source: str) -> None:
+        """Close any open ingest_failures row for a name that now resolves.
+
+        Called on the success path so that adding an alias mid-load clears its
+        own alert without anyone touching the table.
+        """
+        key = (kind, raw_name.lower())
+        if key in self._resolved_names:
+            return
+        self._resolved_names.add(key)
+        self.ingest_failures_dao.resolve(kind, raw_name, source=source)
 
     @staticmethod
     def _build_scheduled_kickoff(match_data: dict[str, Any]) -> str | None:
@@ -245,6 +276,10 @@ class DatabaseTask(Task):
     max_retries=3,
     default_retry_delay=60,  # Retry after 1 minute
     autoretry_for=(Exception,),  # Auto-retry on any exception
+    # ...except a name that does not exist. Waiting ten minutes will not make
+    # an unknown team known; retrying three times only delays the moment
+    # anyone finds out (SB-829).
+    dont_autoretry_for=(UnresolvedNameError,),
     retry_backoff=True,  # Exponential backoff
     retry_backoff_max=600,  # Max 10 minutes backoff
     retry_jitter=True,  # Add random jitter to prevent thundering herd
@@ -323,15 +358,23 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         # Nothing is created here: an unknown name fails the task rather than
         # inventing a lightweight team row that later collides on the unique
         # constraint.
+        sample = (
+            f"{home_team_name} vs {away_team_name}, {match_data.get('match_date')} {match_data.get('age_group', '')}"
+        ).strip()
+
         home_team = self.team_dao.resolve_team_by_name(home_team_name, league_id=league_id)
         if not home_team:
-            logger.warning(f"Home team not resolved: {home_team_name}")
-            raise ValueError(f"Team not found: {home_team_name}")
+            raise UnresolvedNameError("team", home_team_name, league=league_name, sample=sample)
 
         away_team = self.team_dao.resolve_team_by_name(away_team_name, league_id=league_id)
         if not away_team:
-            logger.warning(f"Away team not resolved: {away_team_name}")
-            raise ValueError(f"Team not found: {away_team_name}")
+            raise UnresolvedNameError("team", away_team_name, league=league_name, sample=sample)
+
+        # Both names are good. If either was failing before — an alias added
+        # part way through a load, say — close its row now.
+        source = match_data.get("source") or "match-scraper"
+        self._note_name_resolved("team", home_team_name, source)
+        self._note_name_resolved("team", away_team_name, source)
 
         # Step 3: Check if match already exists
         external_match_id = match_data.get("external_match_id")
@@ -439,8 +482,11 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                     # Writing NULL here used to look like a warning and behave
                     # like data loss: get_league_table filters on division, so
                     # the match existed but appeared in no table at all.
-                    raise ValueError(
-                        f"Division not found: {match_data['division']} (league={league_name or 'unknown'})"
+                    raise UnresolvedNameError(
+                        "division",
+                        match_data["division"],
+                        league=league_name,
+                        sample=sample,
                     )
 
             scheduled_kickoff = self._build_scheduled_kickoff(match_data)
@@ -471,6 +517,33 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
 
         logger.info(f"Successfully processed match: {result}")
         return result
+
+    except UnresolvedNameError as e:
+        # Permanent. Record it so the name is reported once with a count
+        # rather than once per dropped match, alert if it is newly seen, and
+        # fail without retrying (dont_autoretry_for above).
+        logger.warning(
+            "Match dropped — unresolved name",
+            kind=e.kind,
+            raw_name=e.raw_name,
+            league=e.league,
+        )
+        record = self.ingest_failures_dao.record(
+            e.kind,
+            e.raw_name,
+            league=e.league,
+            source=match_data.get("source") or "match-scraper",
+            sample=e.sample,
+        )
+        alert_unresolved_name(
+            self.ingest_failures_dao,
+            kind=e.kind,
+            raw_name=e.raw_name,
+            league=e.league,
+            sample=e.sample,
+            record=record,
+        )
+        raise
 
     except Exception as e:
         logger.error(f"Error processing match data: {e}", exc_info=True)
