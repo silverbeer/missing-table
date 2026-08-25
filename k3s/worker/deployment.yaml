@@ -14,7 +14,17 @@ metadata:
     app: missing-table-worker
     environment: local
 spec:
-  replicas: 2  # Start with 2 workers
+  # One replica. The tracked manifest said 2 and the cluster ran 1 — and 2
+  # does not fit: a rolling update needs a third pod briefly, and the
+  # single-node k3s has no CPU for it (FailedScheduling, Insufficient cpu).
+  replicas: 1
+  # Recreate, not RollingUpdate. This is a single-node k3s with no CPU
+  # headroom for a surge pod — a rolling update leaves the new pod Pending
+  # with "Insufficient cpu" until the rollout times out. A queue consumer can
+  # afford the gap: unacked messages stay in RabbitMQ and are redelivered.
+  strategy:
+    type: Recreate
+
   selector:
     matchLabels:
       app: missing-table-worker
@@ -116,6 +126,41 @@ spec:
             configMapKeyRef:
               name: missing-table-worker-config
               key: LOG_LEVEL
+
+
+        # Hardening. Trivy flags a container with no securityContext, and it
+        # was right to: everything below was the default before SB-832, on a
+        # worker holding the Supabase service key.
+        #
+        # Not fixed here, deliberately:
+        #   KSV-0014 read-only root filesystem — see the note below.
+        #   KSV-0013 image tag ":latest" — the image is built locally and
+        #     mounted with imagePullPolicy: Never; there is no registry to
+        #     pin a digest against.
+        #   KSV-0020/0021 UID/GID <= 10000 — the image chowns /app to
+        #     appuser (1000). Renumbering the user belongs in the Dockerfile,
+        #     not in a manifest that would then not start.
+        securityContext:
+          # The image already runs as appuser (uid 1000); this states it so
+          # the cluster enforces it rather than trusting the build.
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          # KSV-0014 (read-only root filesystem) is NOT set, and this is not
+          # an oversight. The entrypoint runs `uv run`, which reconciles
+          # /app/.venv at startup; with a read-only root it dies on
+          #   error: failed to remove directory `/app/.venv/include`:
+          #   Read-only file system (os error 30)
+          # and the pod crash-loops. Making this true means making the image
+          # not rebuild its venv at boot — a Dockerfile/entrypoint change,
+          # not a manifest one.
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
 
         resources:
           requests:
