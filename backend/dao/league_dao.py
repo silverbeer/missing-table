@@ -64,7 +64,7 @@ class LeagueDAO(BaseDAO):
             raise
 
     @invalidates_cache(LEAGUES_CACHE_PATTERN)
-    def update_league(self, league_id: int, league_data: dict) -> dict:
+    def update_league(self, league_id: int, league_data: dict) -> dict | None:
         """Update league."""
         try:
             response = self.client.table("leagues").update(league_data).eq("id", league_id).execute()
@@ -116,28 +116,62 @@ class LeagueDAO(BaseDAO):
             logger.exception("Error querying divisions for league", league_id=league_id)
             return []
 
-    def get_division_by_name(self, name: str) -> dict | None:
-        """Get a division by name (case-insensitive exact match).
+    def get_league_by_name(self, name: str) -> dict | None:
+        """Get a league by name (case-insensitive exact match).
 
-        Returns the division record (id, name).
-        For match-scraper integration, this helps look up divisions by name.
-        No caching - used for scraper lookups.
+        For match-scraper integration: the feed names its competition
+        ("Homegrown", "Academy", "Flex"), and that name has to become the
+        league_id that scopes the division lookup below. No caching - used
+        for scraper lookups.
         """
         try:
-            response = (
-                self.client.table("divisions")
-                .select("id, name")
-                .ilike("name", name)  # Case-insensitive match
-                .limit(1)
-                .execute()
-            )
-
+            response = self.client.table("leagues").select("id, name").ilike("name", name).limit(1).execute()
             if response.data and len(response.data) > 0:
                 return response.data[0]
             return None
+        except Exception:
+            logger.exception("Error getting league by name", league_name=name)
+            return None
+
+    def get_division_by_name(self, name: str, league_id: int | None = None) -> dict | None:
+        """Get a division by name (case-insensitive exact match), scoped to a league.
+
+        Returns the division record (id, name, league_id).
+        For match-scraper integration, this helps look up divisions by name.
+        No caching - used for scraper lookups.
+
+        `league_id` is not optional in spirit, only in signature. Division
+        names are unique per league (divisions_name_league_id_key), NOT
+        globally: the 2026-2027 MLS Next feeds put "Florida", "Frontier",
+        "Northwest" and "Southeast" in both Homegrown and MLS NEXT Flex.
+        Without the scope this returns whichever row the database hands back
+        first, and a Flex match lands in a Homegrown table with nothing to
+        show that it went wrong. Callers that know their league must pass it.
+
+        When no league_id is given and the name is ambiguous, return None
+        rather than guessing - an unresolved division is reported and fixed,
+        a silently wrong one is not.
+        """
+        try:
+            query = self.client.table("divisions").select("id, name, league_id").ilike("name", name)
+            if league_id is not None:
+                query = query.eq("league_id", league_id)
+            response = query.limit(2).execute()
+
+            rows = response.data or []
+            if not rows:
+                return None
+            if len(rows) > 1:
+                logger.warning(
+                    "Division name is ambiguous across leagues - refusing to guess",
+                    division_name=name,
+                    league_ids=sorted({r.get("league_id") for r in rows}),
+                )
+                return None
+            return rows[0]
 
         except Exception:
-            logger.exception("Error getting division by name", division_name=name)
+            logger.exception("Error getting division by name", division_name=name, league_id=league_id)
             return None
 
     # === Division CRUD Methods ===

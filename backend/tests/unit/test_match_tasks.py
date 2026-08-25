@@ -5,11 +5,11 @@ _update_match_scores() on the DatabaseTask class without requiring
 a live database or Celery broker.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from celery_tasks.match_tasks import DatabaseTask
+from celery_tasks.match_tasks import DatabaseTask, process_match_data
 
 
 @pytest.fixture
@@ -221,3 +221,124 @@ class TestUpdateMatchScores:
         assert update_payload["away_score"] == 1
         assert update_payload["match_status"] == "completed"
         assert update_payload["scheduled_kickoff"] == "2026-03-01T19:00:00+00:00"
+
+
+# ── process_match_data: name resolution (SB-830) ─────────────────────
+
+IFA = {"id": 19, "name": "IFA"}
+OPPONENT = {"id": 20, "name": "The Island FC West"}
+HOMEGROWN = {"id": 1, "name": "Homegrown"}
+NORTHEAST = {"id": 1, "name": "Northeast", "league_id": 1}
+
+MATCH = {
+    "home_team": "Intercontinental Football Academy of New England",
+    "away_team": "The Island FC West",
+    "match_date": "2026-09-05",
+    "season": "2026-2027",
+    "age_group": "U15",
+    "match_type": "League",
+    "league": "Homegrown",
+    "division": "Northeast",
+    "external_match_id": "kitman-1",
+    "match_status": "scheduled",
+}
+
+
+@pytest.fixture
+def ingest():
+    """process_match_data with every DAO stubbed, wired for the happy path.
+
+    The task is a bound Celery task; its DAO properties are cached on the
+    singleton, so they are set directly rather than mocked at import time.
+    """
+    task = process_match_data
+    task._dao = MagicMock()
+    task._team_dao = MagicMock()
+    task._season_dao = MagicMock()
+    task._league_dao = MagicMock()
+
+    task._team_dao.resolve_team_by_name.side_effect = lambda name, league_id=None: {
+        MATCH["home_team"]: IFA,
+        MATCH["away_team"]: OPPONENT,
+    }.get(name)
+    task._league_dao.get_league_by_name.return_value = HOMEGROWN
+    task._league_dao.get_division_by_name.return_value = NORTHEAST
+    task._season_dao.get_current_season.return_value = {"id": 5}
+    task._season_dao.get_age_group_by_name.return_value = {"id": 3}
+    task._dao.get_match_by_external_id.return_value = None
+    task._dao.get_match_by_teams_and_date.return_value = None
+    task._dao.create_match.return_value = 4242
+
+    yield task
+
+    task._dao = None
+    task._team_dao = None
+    task._season_dao = None
+    task._league_dao = None
+
+
+def _run(task, **overrides):
+    """Call the task body directly, bypassing Celery's autoretry wrapper.
+
+    `__wrapped__` is the undecorated function already bound to the task
+    singleton, so `task` is passed only to keep call sites readable.
+    """
+    assert task is process_match_data
+    data = {**MATCH, **overrides}
+    with patch("celery_tasks.match_tasks.validate_match_data", return_value={"valid": True, "errors": []}):
+        return process_match_data.__wrapped__(data)
+
+
+class TestIngestResolvesNamesThroughAliases:
+    def test_teams_resolve_via_the_alias_aware_resolver(self, ingest):
+        # The plain get_team_by_name this used to call never consulted
+        # team_aliases, so the alias seeded for exactly this feed spelling
+        # (SB-822) did nothing on the only path that reads the feed.
+        result = _run(ingest)
+        assert result["status"] == "created"
+        assert result["db_id"] == 4242
+        ingest._team_dao.get_team_by_name.assert_not_called()
+
+    def test_resolution_is_scoped_to_the_feed_league(self, ingest):
+        _run(ingest)
+        for call in ingest._team_dao.resolve_team_by_name.call_args_list:
+            assert call.kwargs["league_id"] == 1
+
+    def test_a_match_with_no_league_still_resolves_unscoped(self, ingest):
+        # league is optional in MatchData. Losing the scope is a downgrade,
+        # not a failure — manual and tournament sources send no league.
+        _run(ingest, league=None)
+        ingest._league_dao.get_league_by_name.assert_not_called()
+        for call in ingest._team_dao.resolve_team_by_name.call_args_list:
+            assert call.kwargs["league_id"] is None
+
+    def test_an_unmapped_league_name_degrades_rather_than_fails(self, ingest):
+        ingest._league_dao.get_league_by_name.return_value = None
+        assert _run(ingest, league="MLS NEXT Flex")["status"] == "created"
+
+    @pytest.mark.parametrize("side", ["home_team", "away_team"])
+    def test_an_unknown_team_fails_the_task(self, ingest, side):
+        with pytest.raises(ValueError, match="Team not found: Brand New Club"):
+            _run(ingest, **{side: "Brand New Club"})
+        ingest._dao.create_match.assert_not_called()
+
+
+class TestIngestDivisionResolution:
+    def test_division_lookup_is_scoped_to_the_league(self, ingest):
+        _run(ingest)
+        ingest._league_dao.get_division_by_name.assert_called_once_with("Northeast", league_id=1)
+
+    def test_an_unknown_division_fails_instead_of_writing_null(self, ingest):
+        # Writing NULL looked like a warning and behaved like data loss:
+        # get_league_table filters on division, so the match existed and
+        # appeared in no table at all.
+        ingest._league_dao.get_division_by_name.return_value = None
+        with pytest.raises(ValueError, match="Division not found: Northeast"):
+            _run(ingest)
+        ingest._dao.create_match.assert_not_called()
+
+    def test_a_match_with_no_division_still_creates(self, ingest):
+        # Friendlies and tournament fixtures carry no division. Absent is not
+        # the same as unresolved.
+        assert _run(ingest, division=None)["status"] == "created"
+        assert ingest._dao.create_match.call_args.kwargs["division_id"] is None
