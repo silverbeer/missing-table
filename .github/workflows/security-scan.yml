@@ -113,6 +113,12 @@ jobs:
         scan-ref: '.'
         format: 'sarif'
         output: 'trivy-config-results.sarif'
+        # Trivy auto-detects a plain `.trivyignore` but NOT `.trivyignore.yaml`,
+        # so the path has to be given explicitly. The YAML form is worth the
+        # extra line: it scopes each suppression to specific paths and carries
+        # the reason inline, where a plain .trivyignore is a bare list of ids
+        # that silences a rule everywhere in the repo.
+        trivyignores: '.trivyignore.yaml'
 
     - name: Upload Trivy config results
       uses: github/codeql-action/upload-sarif@v3
