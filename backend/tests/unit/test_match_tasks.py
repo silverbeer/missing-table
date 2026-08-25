@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from celery_tasks.exceptions import UnresolvedNameError
 from celery_tasks.match_tasks import DatabaseTask, process_match_data
 
 
@@ -256,6 +257,9 @@ def ingest():
     task._team_dao = MagicMock()
     task._season_dao = MagicMock()
     task._league_dao = MagicMock()
+    task._ingest_failures_dao = MagicMock()
+    task._ingest_failures_dao.record.return_value = {"id": 1, "match_count": 1, "should_alert": True}
+    task._resolved_names = set()
 
     task._team_dao.resolve_team_by_name.side_effect = lambda name, league_id=None: {
         MATCH["home_team"]: IFA,
@@ -275,6 +279,8 @@ def ingest():
     task._team_dao = None
     task._season_dao = None
     task._league_dao = None
+    task._ingest_failures_dao = None
+    task._resolved_names = set()
 
 
 def _run(task, **overrides):
@@ -285,7 +291,11 @@ def _run(task, **overrides):
     """
     assert task is process_match_data
     data = {**MATCH, **overrides}
-    with patch("celery_tasks.match_tasks.validate_match_data", return_value={"valid": True, "errors": []}):
+    with (
+        patch("celery_tasks.match_tasks.validate_match_data", return_value={"valid": True, "errors": []}),
+        patch("celery_tasks.match_tasks.alert_unresolved_name") as alert,
+    ):
+        _run.alert = alert
         return process_match_data.__wrapped__(data)
 
 
@@ -318,7 +328,7 @@ class TestIngestResolvesNamesThroughAliases:
 
     @pytest.mark.parametrize("side", ["home_team", "away_team"])
     def test_an_unknown_team_fails_the_task(self, ingest, side):
-        with pytest.raises(ValueError, match="Team not found: Brand New Club"):
+        with pytest.raises(UnresolvedNameError, match="Team not found: Brand New Club"):
             _run(ingest, **{side: "Brand New Club"})
         ingest._dao.create_match.assert_not_called()
 
@@ -333,7 +343,7 @@ class TestIngestDivisionResolution:
         # get_league_table filters on division, so the match existed and
         # appeared in no table at all.
         ingest._league_dao.get_division_by_name.return_value = None
-        with pytest.raises(ValueError, match="Division not found: Northeast"):
+        with pytest.raises(UnresolvedNameError, match="Division not found: Northeast"):
             _run(ingest)
         ingest._dao.create_match.assert_not_called()
 
@@ -342,3 +352,70 @@ class TestIngestDivisionResolution:
         # the same as unresolved.
         assert _run(ingest, division=None)["status"] == "created"
         assert ingest._dao.create_match.call_args.kwargs["division_id"] is None
+
+
+# ── process_match_data: failures are recorded, not logged (SB-829) ───
+
+
+class TestUnresolvedNamesAreRecorded:
+    def test_an_unknown_team_is_recorded_verbatim_with_context(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest, home_team="Brand New Club")
+
+        ingest._ingest_failures_dao.record.assert_called_once()
+        args, kwargs = ingest._ingest_failures_dao.record.call_args
+        assert args == ("team", "Brand New Club")
+        assert kwargs["league"] == "Homegrown"
+        # The sample is what makes the alert line actionable rather than a
+        # bare name: it says which fixture was lost.
+        assert "Brand New Club vs The Island FC West" in kwargs["sample"]
+        assert "2026-09-05" in kwargs["sample"]
+
+    def test_an_unknown_division_is_recorded_as_a_division(self, ingest):
+        ingest._league_dao.get_division_by_name.return_value = None
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest)
+        assert ingest._ingest_failures_dao.record.call_args.args == ("division", "Northeast")
+
+    def test_the_alert_fires_for_the_recorded_row(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest, away_team="Brand New Club")
+        _run.alert.assert_called_once()
+        assert _run.alert.call_args.kwargs["record"] == {"id": 1, "match_count": 1, "should_alert": True}
+
+    def test_recording_failure_does_not_mask_the_original_error(self, ingest):
+        # The diagnostic path must never be the reason a task fails in a
+        # different way — that would make the real cause harder to find, not
+        # easier.
+        ingest._ingest_failures_dao.record.side_effect = RuntimeError("table missing")
+        with pytest.raises(RuntimeError):
+            _run(ingest, home_team="Brand New Club")
+
+    def test_the_permanent_error_is_excluded_from_autoretry(self):
+        # Waiting ten minutes will not make an unknown team known. Without
+        # this the failure is retried three times with backoff before anyone
+        # is told, and the message is acked either way.
+        assert UnresolvedNameError in process_match_data.dont_autoretry_for
+
+    def test_nothing_is_recorded_on_the_happy_path(self, ingest):
+        _run(ingest)
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+
+class TestNamesThatStartWorkingAgain:
+    def test_a_successful_match_closes_open_rows_for_both_teams(self, ingest):
+        # An alias added part way through a load should clear its own alert.
+        _run(ingest)
+        resolved = {c.args[1] for c in ingest._ingest_failures_dao.resolve.call_args_list}
+        assert resolved == {MATCH["home_team"], MATCH["away_team"]}
+
+    def test_a_name_is_only_checked_once_per_worker(self, ingest):
+        # A season load is thousands of matches over tens of names. Checking
+        # per match would be thousands of round trips to learn the same thing.
+        for _ in range(5):
+            _run(ingest)
+        assert ingest._ingest_failures_dao.resolve.call_count == 2
+
+    def test_the_source_is_carried_through(self, ingest):
+        _run(ingest, source="manual")
+        assert ingest._ingest_failures_dao.resolve.call_args.kwargs["source"] == "manual"

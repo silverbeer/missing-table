@@ -97,6 +97,7 @@ DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
 from dao.audit_dao import AuditDAO
 from dao.club_dao import ClubDAO
 from dao.exceptions import DuplicateRecordError
+from dao.ingest_failures_dao import IngestFailuresDAO
 from dao.league_dao import LeagueDAO
 from dao.lineup_dao import LineupDAO
 from dao.match_dao import MatchDAO
@@ -234,6 +235,7 @@ match_type_dao = MatchTypeDAO(db_conn_holder_obj)
 playoff_dao = PlayoffDAO(db_conn_holder_obj)
 audit_dao = AuditDAO(db_conn_holder_obj)
 tournament_dao = TournamentDAO(db_conn_holder_obj)
+ingest_failures_dao = IngestFailuresDAO(db_conn_holder_obj)
 
 
 # === Simple Redis Caching ===
@@ -307,8 +309,7 @@ def _check_push_config_on_startup() -> None:
         logger.warning(
             "push_notifications_not_configured",
             message=(
-                "VAPID env vars not set — push notifications will be skipped. "
-                "Populate via SB-50 (platform-bootstrap)."
+                "VAPID env vars not set — push notifications will be skipped. Populate via SB-50 (platform-bootstrap)."
             ),
         )
 
@@ -6600,6 +6601,41 @@ async def get_cache_stats(current_user: dict[str, Any] = Depends(require_admin))
     except Exception as e:
         logger.error(f"Error getting cache stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/admin/ingest-failures")
+async def get_ingest_failures(
+    since: str | None = None,
+    limit: int = 200,
+    current_user: dict[str, Any] = Depends(require_admin_or_service_account),
+):
+    """Names the match ingest could not resolve, newest first (SB-829).
+
+    One row per distinct name, with the number of matches it cost — not one
+    row per dropped match.
+
+    Open to service accounts as well as admins because match-scraper reads it
+    at the end of a run: its own report counts RabbitMQ publish errors, which
+    succeed whether or not missing-table went on to accept the match. Without
+    this endpoint a run that landed nothing still reports as green.
+
+    Args:
+        since: ISO 8601 timestamp; returns only names seen since then. A
+            scraper run passes the time it started, so it reports what this
+            run cost rather than every name that has ever been wrong.
+        limit: Maximum rows (default 200).
+    """
+    try:
+        failures = ingest_failures_dao.open_failures(since=since, limit=limit)
+        return {
+            "failures": failures,
+            "count": len(failures),
+            "matches_dropped": sum(f.get("match_count", 0) for f in failures),
+            "since": since,
+        }
+    except Exception as e:
+        logger.error(f"Error reading ingest failures: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not read ingest failures") from e
 
 
 @app.delete("/api/admin/cache")
