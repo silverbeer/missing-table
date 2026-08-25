@@ -1539,8 +1539,23 @@ def club_rename(
     if not yes and not typer.confirm("Apply?"):
         raise typer.Exit(1)
 
-    _api(client.update_club, current["id"], name=name)
+    # Read-then-resend: PUT /api/clubs/{id} replaces the whole record, so
+    # anything omitted is blanked — including logo_url and the brand colours
+    # the IG cards read.
+    full = _api(client.get_club, current["id"]) or current
+    _api(
+        client.update_club_profile,
+        current["id"],
+        name=name,
+        city=full.get("city") or "",
+        website=full.get("website"),
+        description=full.get("description"),
+        logo_url=full.get("logo_url"),
+        primary_color=full.get("primary_color"),
+        secondary_color=full.get("secondary_color"),
+    )
     console.print(f"[green]Renamed club #{current['id']}[/green] -> {name}")
+    console.print("[dim]crest and colours preserved[/dim]")
 
 
 @alias_app.command("add")

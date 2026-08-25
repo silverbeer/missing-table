@@ -691,6 +691,40 @@ class MissingTableClient:
         response = self._request("PUT", f"/api/clubs/{club_id}", json_data=payload)
         return response.json()
 
+    def update_club_profile(
+        self,
+        club_id: int,
+        name: str,
+        city: str,
+        website: str | None = None,
+        description: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        secondary_color: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a club, mirroring the backend's Club model exactly.
+
+        PUT /api/clubs/{id} takes the full Club model — it is a replace, not a
+        patch. update_club() sends only the fields it was given, which fails
+        validation when city is omitted and, worse, would blank logo_url and
+        the brand colours if it did not: the crest and colours every IG card
+        and team header reads (SB-824).
+
+        Callers must read the club first and resend everything they are not
+        deliberately changing.
+        """
+        payload = {
+            "name": name,
+            "city": city,
+            "website": website,
+            "description": description,
+            "logo_url": logo_url,
+            "primary_color": primary_color,
+            "secondary_color": secondary_color,
+        }
+        response = self._request("PUT", f"/api/clubs/{club_id}", json_data=payload)
+        return response.json()
+
     def delete_club(self, club_id: int) -> dict[str, Any]:
         """Delete a club (admin only)."""
         response = self._request("DELETE", f"/api/clubs/{club_id}")
