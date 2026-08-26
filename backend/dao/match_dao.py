@@ -23,9 +23,12 @@ from dao.base_dao import (
 from dao.exceptions import DuplicateRecordError
 from dao.standings import (
     calculate_standings_with_extras,
-    filter_by_match_type,
+    count_outside_table_opponents,
+    filter_by_match_types,
     filter_completed_matches,
+    filter_matches_involving,
     filter_same_division_matches,
+    teams_in_division,
 )
 from supabase import create_client
 
@@ -35,6 +38,16 @@ logger = structlog.get_logger()
 MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
 PLAYOFF_CACHE_PATTERN = "mt:dao:playoffs:*"
 TOURNAMENTS_CACHE_PATTERN = "mt:dao:tournaments:*"
+
+# Values `match_type` accepts beyond a competition name.
+#
+# QUALIFYING is the union of the types flagged counts_for_qualification, read
+# from the data rather than named here — the whole point of SB-849 is that the
+# Matches chips, `mt team matches -c` and this table cannot disagree about what
+# qualifies. ALL is every competition, friendlies and tournaments included,
+# which is a different and much less useful question.
+STANDINGS_QUALIFYING = "qualifying"
+STANDINGS_ALL = "all"
 
 
 def _birth_year_from_labels(age_group_name: str | None, season_name: str | None) -> int | None:
@@ -1243,7 +1256,205 @@ class MatchDAO(BaseDAO):
             logger.exception("Error deleting match")
             return False
 
-    @dao_cache("matches:table:{season_id}:{age_group_id}:{division_id}:{match_type}:{include_test}")
+    def qualifying_match_type_names(self) -> set[str]:
+        """The competitions flagged as counting towards cup qualification.
+
+        Read from match_types.counts_for_qualification rather than listed in
+        code, so a new qualifying competition is one flag in one row and every
+        surface agrees (SB-849).
+        """
+        try:
+            response = self.client.table("match_types").select("name").eq("counts_for_qualification", True).execute()
+            return {row["name"] for row in (response.data or []) if row.get("name")}
+        except Exception:
+            logger.exception("Error reading qualifying match types")
+            return set()
+
+    def _match_type_names(self, match_type: str | None) -> set[str] | None:
+        """Which competition names a `match_type` argument selects. None = all."""
+        if match_type is None or match_type == STANDINGS_ALL:
+            return None
+        if match_type == STANDINGS_QUALIFYING:
+            return self.qualifying_match_type_names()
+        return {match_type}
+
+    @dao_cache("matches:standings:{season_id}:{age_group_id}:{division_id}:{match_type}:{include_test}")
+    def get_standings(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+        match_type: str = "League",
+        include_test: bool = False,
+    ) -> dict:
+        """
+        Standings plus the coverage needed to read them honestly.
+
+        Args:
+            season_id: Filter by season
+            age_group_id: Filter by age group
+            division_id: Filter by division
+            match_type: A competition name, "qualifying" (every competition
+                flagged counts_for_qualification) or "all" (every competition).
+            include_test: SB-591 test partition. A test match must not move a
+                real team's points, so this is part of the cache key — the two
+                audiences never share a computed table.
+
+        Returns:
+            {"standings": [...], "coverage": {...}}
+
+        A single competition is a standing: every match counted was played
+        between two teams in the table. A combined view is not. Flex brackets
+        cut across Homegrown divisions, so folding Flex into a Homegrown table
+        counts results against opponents the table does not list. That is a
+        record, and `coverage` carries what the UI needs to say so — per
+        CLAUDE.md, a cross-team statistic ships with its coverage or it does
+        not ship.
+        """
+        try:
+            names = self._match_type_names(match_type)
+            combined = names is None or len(names) > 1
+
+            logger.info(
+                "generating league table from database",
+                season_id=season_id,
+                age_group_id=age_group_id,
+                division_id=division_id,
+                match_type=match_type,
+            )
+
+            # A combined view must not filter by division in the query: a
+            # team's Flex matches carry the Flex bracket's division_id, so the
+            # database filter would drop exactly the matches being combined.
+            # The division work happens below, over team ids.
+            fetch_division_id = None if combined else division_id
+            matches = self._fetch_matches_for_standings(
+                season_id, age_group_id, fetch_division_id, include_test=include_test
+            )
+            matches = filter_by_match_types(matches, names)
+            matches = filter_completed_matches(matches)
+
+            if not combined:
+                if division_id:
+                    matches = filter_same_division_matches(matches, division_id)
+                return {
+                    "standings": calculate_standings_with_extras(matches),
+                    "coverage": self._coverage(match_type, names, matches, None),
+                }
+
+            if not division_id:
+                # No division asked for, so there is no outside-the-table.
+                return {
+                    "standings": calculate_standings_with_extras(matches),
+                    "coverage": self._coverage(match_type, names, matches, None),
+                }
+
+            # The table is the division's teams; the matches counted are those
+            # teams' matches in any of the selected competitions.
+            roster = teams_in_division(matches, division_id)
+            counted = filter_matches_involving(matches, roster)
+
+            return {
+                "standings": calculate_standings_with_extras(counted, roster),
+                "coverage": self._coverage(match_type, names, counted, roster),
+            }
+
+        except Exception:
+            logger.exception("Error generating league table")
+            return {"standings": [], "coverage": self._coverage(match_type, None, [], None)}
+
+    @staticmethod
+    def _coverage(
+        match_type: str | None,
+        names: set[str] | None,
+        matches: list[dict],
+        roster: set[int] | None,
+    ) -> dict:
+        """What the caller needs in order to caption the table truthfully."""
+        against_outsiders, outsiders = (0, 0) if roster is None else count_outside_table_opponents(matches, roster)
+        return {
+            "match_type": match_type,
+            "competitions": sorted(names) if names is not None else None,
+            "matches_counted": len(matches),
+            "matches_vs_outside_table": against_outsiders,
+            "teams_outside_table": outsiders,
+        }
+
+    @dao_cache("matches:competitions:{season_id}:{age_group_id}:{division_id}:{include_test}")
+    def get_competitions_present(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+        include_test: bool = False,
+    ) -> list[dict]:
+        """Which competitions this age group (and division) actually plays.
+
+        U13 and U14 play no Flex; U13/U14/U15 have no Pro Player Pathway
+        divisions. A client needs to know that from the data, because the
+        alternative is hardcoded age-group ids in the frontend that will rot
+        the first time MLS Next moves the boundary (SB-834/SB-835).
+
+        With a division, the answer is scoped to that division's teams rather
+        than to matches carrying its division_id — a Homegrown division's teams
+        play Flex under Flex bracket ids, and a Flex tab that never appeared
+        for them would be the bug this exists to prevent.
+
+        Returns one row per competition present, in display_order, with both
+        `matches` (all) and `played` (completed). They differ before a season
+        starts, and "no results yet" is not the same answer as "this
+        competition is not played here".
+        """
+        try:
+            matches = self._fetch_matches_for_standings(season_id, age_group_id, None, include_test=include_test)
+
+            if division_id:
+                roster = teams_in_division(matches, division_id)
+                matches = filter_matches_involving(matches, roster)
+
+            played_ids = {m["id"] for m in filter_completed_matches(matches) if m.get("id") is not None}
+
+            totals: dict[int, dict] = {}
+            for match in matches:
+                match_type = match.get("match_type") or {}
+                type_id = match_type.get("id")
+                if type_id is None:
+                    continue
+                row = totals.setdefault(
+                    type_id, {"id": type_id, "name": match_type.get("name"), "matches": 0, "played": 0}
+                )
+                row["matches"] += 1
+                if match.get("id") in played_ids:
+                    row["played"] += 1
+
+            if not totals:
+                return []
+
+            reference = (
+                self.client.table("match_types").select("id, name, counts_for_qualification, display_order").execute()
+            )
+            by_id = {row["id"]: row for row in (reference.data or [])}
+
+            present = []
+            for type_id, row in totals.items():
+                meta = by_id.get(type_id, {})
+                present.append(
+                    {
+                        **row,
+                        "name": meta.get("name") or row["name"],
+                        "counts_for_qualification": bool(meta.get("counts_for_qualification")),
+                        "display_order": meta.get("display_order"),
+                    }
+                )
+
+            # NULL display_order sorts last, as it does in the reference query.
+            present.sort(key=lambda r: (r["display_order"] is None, r["display_order"] or 0, r["name"] or ""))
+            return present
+
+        except Exception:
+            logger.exception("Error listing competitions present")
+            return []
+
     def get_league_table(
         self,
         season_id: int | None = None,
@@ -1252,47 +1463,14 @@ class MatchDAO(BaseDAO):
         match_type: str = "League",
         include_test: bool = False,
     ) -> list[dict]:
-        """
-        Generate league table with optional filters.
-
-        This method fetches matches from the database and delegates
-        the standings calculation to pure functions in dao/standings.py.
-
-        Args:
-            season_id: Filter by season
-            age_group_id: Filter by age group
-            division_id: Filter by division
-            match_type: Filter by match type name (default: "League")
-            include_test: SB-591 test partition. A test match must not move a
-                real team's points, so this is part of the cache key — the two
-                audiences never share a computed table.
-
-        Returns:
-            List of team standings sorted by points, goal difference, goals scored
-        """
-        try:
-            logger.info(
-                "generating league table from database",
-                season_id=season_id,
-                age_group_id=age_group_id,
-                division_id=division_id,
-                match_type=match_type,
-            )
-            # Fetch matches from database
-            matches = self._fetch_matches_for_standings(season_id, age_group_id, division_id, include_test=include_test)
-
-            # Apply filters using pure functions
-            matches = filter_by_match_type(matches, match_type)
-            if division_id:
-                matches = filter_same_division_matches(matches, division_id)
-            matches = filter_completed_matches(matches)
-
-            # Calculate standings using pure function (with form + movement)
-            return calculate_standings_with_extras(matches)
-
-        except Exception:
-            logger.exception("Error generating league table")
-            return []
+        """Standings only. See get_standings for the coverage that goes with them."""
+        return self.get_standings(
+            season_id=season_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+            match_type=match_type,
+            include_test=include_test,
+        )["standings"]
 
     def _fetch_matches_for_standings(
         self,

@@ -17,6 +17,7 @@ This section documents the system architecture, design decisions, and technical 
 | **[Authentication](authentication.md)** | Auth flow, JWT, role-based access | 🔴 Advanced |
 | **[Database Schema](database-schema.md)** | Tables, relationships, constraints | 🟡 Intermediate |
 | **[Clubs Architecture](../CLUBS_ARCHITECTURE.md)** | Clubs, teams, leagues separation | 🟡 Intermediate |
+| **[Standings](standings.md)** | League / qualifying / all views, and why a combined table states its coverage | 🟡 Intermediate |
 | **[AI Agents](ai-agents.md)** | Autonomous agent architecture | 🔴 Advanced |
 
 ---

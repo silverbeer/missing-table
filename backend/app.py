@@ -2156,6 +2156,40 @@ async def get_match_types(current_user: dict[str, Any] = Depends(get_current_use
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/api/match-types/available")
+async def get_available_match_types(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+    season_id: int | None = Query(None, description="Filter by season ID"),
+    age_group_id: int | None = Query(None, description="Filter by age group ID"),
+    division_id: int | None = Query(None, description="Scope to this division's teams"),
+):
+    """Which competitions are actually played by this age group / division.
+
+    U13 and U14 play no Flex, and U13/U14/U15 have no Pro Player Pathway
+    divisions. A competition tab that always yields an empty table is the
+    loading skeleton CLAUDE.md warns about — it promises data that is not
+    coming — so the client asks rather than hardcoding age-group ids that rot
+    the first time MLS Next moves the boundary.
+
+    With `division_id` the answer is scoped to that division's *teams*, not to
+    matches carrying its division_id: a Homegrown team's Flex matches sit under
+    a Flex bracket id, and they are exactly what the Flex tab would show.
+
+    Each row carries `matches` (all) and `played` (completed), because
+    "no results yet" and "not played here" are different answers.
+    """
+    try:
+        return match_dao.get_competitions_present(
+            season_id=season_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+            include_test=viewer_sees_test_content(current_user),
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving available match types: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not list available competitions") from e
+
+
 @app.get("/api/divisions")
 async def get_divisions(
     current_user: dict[str, Any] = Depends(get_current_user_required), league_id: int | None = None
@@ -4369,9 +4403,22 @@ async def get_table(
     season_id: int | None = Query(None, description="Filter by season ID"),
     age_group_id: int | None = Query(None, description="Filter by age group ID"),
     division_id: int | None = Query(None, description="Filter by division ID"),
-    match_type: str | None = Query("League", description="Match type (League, Tournament, etc.)"),
+    match_type: str | None = Query(
+        "League",
+        description=(
+            "A competition name (League, Flex, Tournament, ...), 'qualifying' for every "
+            "competition flagged counts_for_qualification, or 'all' for every competition."
+        ),
+    ),
 ):
-    """Get league table with enhanced filtering."""
+    """Get league table with enhanced filtering.
+
+    A single competition is a standing. 'qualifying' and 'all' are combined
+    views, and combined views count matches against teams outside the table —
+    Flex brackets cut across Homegrown divisions. The `coverage` block says how
+    many, so the UI can caption the table rather than present a record as a
+    clean standing.
+    """
     try:
         # If no season specified, use current season (or most recent as fallback)
         if not season_id:
@@ -4384,13 +4431,15 @@ async def get_table(
                 if seasons:
                     season_id = seasons[0]["id"]
 
-        table = match_dao.get_league_table(
+        result = match_dao.get_standings(
             season_id=season_id,
             age_group_id=age_group_id,
             division_id=division_id,
             match_type=match_type,
             include_test=viewer_sees_test_content(current_user),
         )
+        table = result["standings"]
+        coverage = result["coverage"]
 
         logger.info(
             "League table query",
@@ -4459,6 +4508,7 @@ async def get_table(
             "has_qop_data": has_qop_data,
             "qop_week_of": qop_week_of,
             "standings": table,
+            "coverage": coverage,
         }
     except Exception as e:
         logger.error(f"Error generating league table: {e!s}", exc_info=True)
