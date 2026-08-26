@@ -43,6 +43,37 @@
         </div>
       </div>
 
+      <!-- Competition Selector -->
+      <!--
+        Built from /api/match-types/available (SB-834), not from a
+        league-name → competition map. It opens on the division's own
+        competition — League for Northeast, Flex for Turnpike — which is the
+        `in_division` count doing the work a hardcoded map used to.
+
+        Qualifying appears only when more than one qualifying competition is
+        actually present, because with one it would restate the chip beside it.
+        A competition with no matches for this selection gets no chip at all.
+      -->
+      <div v-if="competitionChips.length > 1">
+        <h3 class="text-sm font-medium text-fg mb-3">Competition</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="chip in competitionChips"
+            :key="chip.key"
+            @click="selectedMatchType = chip.value"
+            :data-testid="`competition-${chip.key}`"
+            :class="[
+              'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
+              selectedMatchType === chip.value
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'bg-surface-alt text-fg-muted hover:bg-line',
+            ]"
+          >
+            {{ chip.label }}
+          </button>
+        </div>
+      </div>
+
       <!-- Season and Division Row -->
       <div
         class="flex flex-col sm:flex-row sm:space-x-6 space-y-4 sm:space-y-0"
@@ -112,6 +143,21 @@
       :seasonId="selectedSeasonId"
       :ageGroupId="selectedAgeGroupId"
     />
+
+    <!--
+      A combined view is a record, not a standing: Flex brackets cut across
+      Homegrown divisions, so a team's Qualifying points include results
+      against opponents this table does not list. SB-834 returns the count;
+      rendering it is what keeps the table honest, per CLAUDE.md — a cross-team
+      statistic ships with its coverage or it does not ship.
+    -->
+    <div
+      v-if="!showBracket && outsideTableMatches > 0"
+      class="mb-3 px-3 py-2 rounded-md bg-surface-alt text-fg-muted text-sm"
+      data-testid="coverage-note"
+    >
+      {{ coverageLabel }}
+    </div>
 
     <div v-if="!showBracket" class="overflow-x-auto">
       <!-- Loading State -->
@@ -549,6 +595,16 @@ export default {
     const error = ref(null);
     const loading = ref(true);
 
+    // Competition state (SB-835). `selectedMatchType` is a match_type name or
+    // the string 'qualifying' — never a hardcoded id, and never derived from
+    // the league's name.
+    const competitions = ref([]);
+    const selectedMatchType = ref('League');
+
+    // Coverage returned with the table: how much of it was played against
+    // teams outside it.
+    const coverage = ref(null);
+
     // QoP state
     const hasQopData = ref(false);
     const qopWeekOf = ref(null);
@@ -732,6 +788,84 @@ export default {
       });
     };
 
+    // One chip per competition actually played by this selection, in the order
+    // the API gives (display_order), plus a synthetic Qualifying.
+    const competitionChips = computed(() => {
+      const present = (competitions.value || []).map(c => ({
+        key: String(c.id),
+        label: c.name,
+        value: c.name,
+        qualifies: Boolean(c.counts_for_qualification),
+      }));
+
+      const chips = [...present];
+
+      // Qualifying only says something the individual chips do not when it
+      // combines more than one of them.
+      const qualifying = present.filter(c => c.qualifies);
+      if (qualifying.length > 1) {
+        const lastIndex = chips.map(c => c.qualifies).lastIndexOf(true);
+        chips.splice(lastIndex + 1, 0, {
+          key: 'qualifying',
+          label: 'Qualifying',
+          value: 'qualifying',
+          qualifies: true,
+        });
+      }
+
+      return chips;
+    });
+
+    // The competition a division opens on: the one its own matches are filed
+    // under. Northeast opens on League, Turnpike on Flex. `in_division` is how
+    // the API says so, which is why there is no league-name lookup here.
+    const defaultMatchType = () => {
+      const own = (competitions.value || []).find(c => c.in_division > 0);
+      return own?.name || competitions.value?.[0]?.name || 'League';
+    };
+
+    const fetchCompetitions = async () => {
+      try {
+        const params = new URLSearchParams({
+          season_id: selectedSeasonId.value,
+          age_group_id: selectedAgeGroupId.value,
+          division_id: selectedDivisionId.value,
+        });
+        competitions.value = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/match-types/available?${params}`
+        );
+      } catch (err) {
+        console.error('Error fetching competitions:', err);
+        competitions.value = [];
+      }
+
+      // Keep the selection only if this division still plays it. Otherwise
+      // fall back to the division's own competition rather than leaving a
+      // filter set to something with no matches.
+      const values = new Set(competitionChips.value.map(c => c.value));
+      if (!values.has(selectedMatchType.value)) {
+        selectedMatchType.value = defaultMatchType();
+      }
+    };
+
+    const outsideTableMatches = computed(
+      () => coverage.value?.matches_vs_outside_table || 0
+    );
+
+    const coverageLabel = computed(() => {
+      const c = coverage.value;
+      if (!c) return '';
+      const names = (c.competitions || []).join(' + ') || 'all competitions';
+      const matches = c.matches_vs_outside_table;
+      const teams = c.teams_outside_table;
+      return (
+        `${names} combined — includes ${matches} ` +
+        `${matches === 1 ? 'match' : 'matches'} against ` +
+        `${teams} ${teams === 1 ? 'team' : 'teams'} outside this table. ` +
+        'A record, not a standing.'
+      );
+    });
+
     const fetchTableData = async () => {
       loading.value = true;
       console.log('Fetching table data...', {
@@ -740,7 +874,14 @@ export default {
         divisionId: selectedDivisionId.value,
       });
       try {
-        const url = `${getApiBaseUrl()}/api/table?season_id=${selectedSeasonId.value}&age_group_id=${selectedAgeGroupId.value}&division_id=${selectedDivisionId.value}`;
+        // match_type is sent explicitly. Omitting it let the API default to
+        // League, so picking a Flex bracket asked for League matches in a
+        // division that has none and rendered an empty table (SB-835).
+        const url =
+          `${getApiBaseUrl()}/api/table?season_id=${selectedSeasonId.value}` +
+          `&age_group_id=${selectedAgeGroupId.value}` +
+          `&division_id=${selectedDivisionId.value}` +
+          `&match_type=${encodeURIComponent(selectedMatchType.value)}`;
 
         const data = await authStore.apiRequest(url);
         console.log('Table data received:', data);
@@ -750,11 +891,13 @@ export default {
           tableData.value = data.standings;
           hasQopData.value = data.has_qop_data ?? false;
           qopWeekOf.value = data.qop_week_of ?? null;
+          coverage.value = data.coverage ?? null;
         } else {
           // Fallback for bare-array responses (backwards compat)
           tableData.value = data;
           hasQopData.value = false;
           qopWeekOf.value = null;
+          coverage.value = null;
         }
         console.log('Table data set:', tableData.value);
       } catch (err) {
@@ -796,8 +939,18 @@ export default {
       checkBracketExists();
     });
 
-    // Watch for changes in filters and refetch data
-    watch([selectedSeasonId, selectedAgeGroupId, selectedDivisionId], () => {
+    // Which competitions exist depends on the season, age group and division,
+    // so they are re-read before the table is. fetchCompetitions reconciles
+    // selectedMatchType, and the watch below picks up any change it makes.
+    watch(
+      [selectedSeasonId, selectedAgeGroupId, selectedDivisionId],
+      async () => {
+        await fetchCompetitions();
+        fetchTableData();
+      }
+    );
+
+    watch(selectedMatchType, () => {
       fetchTableData();
     });
 
@@ -939,6 +1092,10 @@ export default {
         }
       }
 
+      // Before the first table request, so it asks for a competition this
+      // division actually plays rather than defaulting to League.
+      await fetchCompetitions();
+
       fetchTableData();
       checkBracketExists();
     });
@@ -953,6 +1110,12 @@ export default {
       sortCaret,
       hasQopData,
       qopWeekOf,
+      competitions,
+      competitionChips,
+      selectedMatchType,
+      coverage,
+      outsideTableMatches,
+      coverageLabel,
       ageGroups,
       leagues,
       divisions,

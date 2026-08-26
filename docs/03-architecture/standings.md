@@ -49,22 +49,43 @@ A client rendering `qualifying` or `all` with a non-zero
 `matches_vs_outside_table` and no caption is presenting a record as a standing.
 `competitions` is `null` for `all` — every competition, not a list.
 
+## What "in this division" means
+
+**A match belongs to the division its own `division_id` names.** One rule, used
+everywhere.
+
+That was not always so, and the old rule was wrong twice (SB-835). It asked
+whether *both teams* carried the division as their `teams.division_id`:
+
+- **Flex tables were always empty.** A Flex bracket's participants are Homegrown
+  teams, every one of them carrying a Homegrown `division_id`. The teams test
+  kept 0 of 68 Flex matches, so picking Flex in the league table produced a
+  blank screen in production.
+- **A team row holds one division for every age group.** A club playing U14 in
+  New England and U15 in Northeast has a single `teams.division_id`. That
+  dropped 88 New England U14 League matches from the 2025-2026 table. It is
+  also a *current* value applied to *historical* matches, so a team changing
+  division silently rewrites old seasons.
+
+Fixing it moved 2025-2026 League from 1177 counted matches to 1265, and left
+2026-2027 Northeast League at 190 — unchanged, because there every match's
+teams were already recorded under the division they played in.
+
 ## How the combined table is built
 
-The obvious implementation does not work: `filter_same_division_matches` drops
-a team's Flex matches from its Homegrown table, because those matches carry the
-**Flex bracket's** `division_id`. The same is true one layer down — the database
-query filters on `division_id`, so a combined view must not pass one, or it
-discards exactly the matches it is combining.
+The obvious implementation still does not work: a team's Flex matches carry the
+**Flex bracket's** `division_id`, so filtering a Homegrown table by division
+drops them. That applies one layer down too — the database query filters on
+`division_id`, so a combined view must not pass one, or it discards exactly the
+matches it is combining.
 
 So:
 
 1. Fetch the season + age group **without** a division filter.
 2. Keep the selected competitions (`filter_by_match_types`).
 3. Keep completed matches.
-4. **The table is the division's teams** — those appearing in matches where
-   *both* sides are in division X (`teams_in_division`). In practice, its
-   League matches.
+4. **The table is the division's teams** — those appearing in matches filed to
+   division X (`teams_in_division`). In practice, its League matches.
 5. **The matches counted are those teams' matches in any selected competition**
    (`filter_matches_involving`), including ones where the opponent is outside.
 6. Standings are calculated with `only_team_ids` set to that roster, so an
@@ -82,8 +103,8 @@ GET /api/match-types/available?season_id=&age_group_id=&division_id=
 
 ```json
 [
-  {"id": 1, "name": "League", "counts_for_qualification": true,  "display_order": 1, "matches": 190, "played": 42},
-  {"id": 5, "name": "Flex",   "counts_for_qualification": true,  "display_order": 2, "matches": 68,  "played": 6}
+  {"id": 1, "name": "League", "counts_for_qualification": true, "display_order": 1, "matches": 190, "played": 42, "in_division": 190},
+  {"id": 5, "name": "Flex",   "counts_for_qualification": true, "display_order": 2, "matches": 68,  "played": 6,  "in_division": 0}
 ]
 ```
 
@@ -100,6 +121,28 @@ Two things to note:
 - `matches` and `played` are both returned because *"no results yet"* and
   *"not played here"* are different answers, and only one of them means the tab
   should be hidden.
+- `in_division` counts how many of those matches actually carry this
+  `division_id`, which identifies the division's **own** competition — League
+  for Northeast, Flex for Turnpike. That is what a standings screen should open
+  on, and reading it here is what keeps a league-name → competition map out of
+  the frontend.
+
+## The league table's competition control
+
+`LeagueTable.vue` builds its Competition row from this endpoint. It opens on
+the competition with `in_division > 0`, offers a **Qualifying** chip only when
+more than one flagged competition is present (with one it would restate the
+chip beside it), and hides the control entirely when there is only one.
+
+Changing division re-reads the endpoint and reconciles the selection: a
+division that does not play the current competition falls back to its own,
+rather than leaving the filter pointed at something with no matches. That is
+the shape of the bug this replaced — `/api/table` was called with no
+`match_type` at all, so it defaulted to League, and a Flex bracket has none.
+
+Whenever `coverage.matches_vs_outside_table` is non-zero the table renders a
+caption saying so. A combined view without one is a record presented as a
+standing.
 
 ## Caching
 

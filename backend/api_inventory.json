@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-26T22:14:12.057538+00:00",
+  "generated_at": "2026-08-26T22:26:53.959798+00:00",
   "excluded_endpoints": [
     {
       "method": "POST",
@@ -8957,6 +8957,41 @@
         },
         {
           "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_the_feeds_competition_reaches_create",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_league_is_not_assumed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_a_feed_with_no_competition_leaves_the_default_to_the_dao",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_an_unknown_competition_fails_instead_of_defaulting_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_the_unknown_competition_is_recorded_as_a_match_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_a_re_scrape_now_corrects_the_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_an_identical_payload_is_still_unchanged",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
           "test_name": "test_division_lookup_is_scoped_to_the_league",
           "type": "unit"
         },
@@ -9023,6 +9058,16 @@
         {
           "file": "tests/unit/test_qualifying_standings.py",
           "test_name": "test_a_combined_view_without_a_division_has_no_outside",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_a_flex_bracket_has_a_standings_table",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_a_teams_home_division_does_not_decide_where_a_match_counts",
           "type": "unit"
         },
         {
