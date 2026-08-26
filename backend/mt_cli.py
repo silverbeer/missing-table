@@ -1510,10 +1510,13 @@ def club_list(
 def club_create(
     name: str = typer.Option(..., "--name", "-n", help="Club name (unique)"),
     city: str = typer.Option(None, "--city", help="City"),
+    pro_academy: bool = typer.Option(
+        False, "--pro-academy", help="Mark as a professional club academy (MLS academy)"
+    ),
 ):
     """Create a club. Crest and colours are set afterwards in the Admin UI."""
     client, _ = get_client()
-    created = _api(client.create_club, name=name, city=city)
+    created = _api(client.create_club, name=name, city=city, pro_academy=pro_academy)
     club_row = created.get("club", created)
     console.print(f"[green]Created club #{club_row.get('id')}:[/green] {name}")
     console.print(f'[dim]Attach a team:[/dim] mt team create --name "..." --club {club_row.get("id")}')
@@ -1553,9 +1556,10 @@ def club_rename(
         logo_url=full.get("logo_url"),
         primary_color=full.get("primary_color"),
         secondary_color=full.get("secondary_color"),
+        pro_academy=bool(full.get("pro_academy")),
     )
     console.print(f"[green]Renamed club #{current['id']}[/green] -> {name}")
-    console.print("[dim]crest and colours preserved[/dim]")
+    console.print("[dim]crest, colours and pro-academy flag preserved[/dim]")
 
 
 @alias_app.command("add")

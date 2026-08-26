@@ -663,13 +663,21 @@ class MissingTableClient:
         response = self._request("GET", f"/api/clubs/{club_id}/teams")
         return response.json()
 
-    def create_club(self, name: str, city: str | None = None, description: str | None = None) -> dict[str, Any]:
+    def create_club(
+        self,
+        name: str,
+        city: str | None = None,
+        description: str | None = None,
+        pro_academy: bool = False,
+    ) -> dict[str, Any]:
         """Create a new club (admin only)."""
-        payload = {"name": name}
+        payload: dict[str, Any] = {"name": name}
         if city:
             payload["city"] = city
         if description:
             payload["description"] = description
+        # Sent unconditionally: False is a real answer, not an absent one.
+        payload["pro_academy"] = pro_academy
         response = self._request("POST", "/api/clubs", json_data=payload)
         return response.json()
 
@@ -701,6 +709,7 @@ class MissingTableClient:
         logo_url: str | None = None,
         primary_color: str | None = None,
         secondary_color: str | None = None,
+        pro_academy: bool = False,
     ) -> dict[str, Any]:
         """Update a club, mirroring the backend's Club model exactly.
 
@@ -711,7 +720,8 @@ class MissingTableClient:
         and team header reads (SB-824).
 
         Callers must read the club first and resend everything they are not
-        deliberately changing.
+        deliberately changing. pro_academy is part of that: it defaults to
+        False on the backend model, so omitting it un-flags the club (SB-842).
         """
         payload = {
             "name": name,
@@ -721,6 +731,7 @@ class MissingTableClient:
             "logo_url": logo_url,
             "primary_color": primary_color,
             "secondary_color": secondary_color,
+            "pro_academy": pro_academy,
         }
         response = self._request("PUT", f"/api/clubs/{club_id}", json_data=payload)
         return response.json()

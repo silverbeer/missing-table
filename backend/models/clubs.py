@@ -98,7 +98,7 @@ class ClubData(BaseModel):
 
 
 class Club(BaseModel):
-    """Model for creating a new club via API."""
+    """Model for creating or updating a club via API."""
 
     name: str
     city: str
@@ -107,6 +107,15 @@ class Club(BaseModel):
     logo_url: str | None = None
     primary_color: str | None = None
     secondary_color: str | None = None
+    # The Admin UI has had a "Pro Academy" checkbox since before this field
+    # existed, so the value was posted and silently dropped by Pydantic —
+    # ticking the box, saving and reloading showed it unticked (SB-842).
+    #
+    # Not Optional: PUT /api/clubs/{id} is a replace, and a None here would
+    # read as "leave alone" in the DAO while the UI meant "unticked". Defaulting
+    # to False makes an omitted field mean not-a-pro-academy, which is what
+    # every existing caller intends.
+    pro_academy: bool = False
 
 
 class ClubWithTeams(BaseModel):

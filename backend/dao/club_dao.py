@@ -96,6 +96,7 @@ class ClubDAO(BaseDAO):
         logo_url: str | None = None,
         primary_color: str | None = None,
         secondary_color: str | None = None,
+        pro_academy: bool = False,
     ) -> dict:
         """Create a new club.
 
@@ -107,6 +108,9 @@ class ClubDAO(BaseDAO):
             logo_url: Optional URL to club logo in Supabase Storage
             primary_color: Optional primary brand color (hex code)
             secondary_color: Optional secondary brand color (hex code)
+            pro_academy: True for an MLS/professional club academy. Teams in
+                such a club field no U15 side — that cohort plays up into U16
+                — so a ragged age list is expected rather than a scrape gap.
 
         Returns:
             Created club dict
@@ -125,6 +129,9 @@ class ClubDAO(BaseDAO):
             club_data["primary_color"] = primary_color
         if secondary_color:
             club_data["secondary_color"] = secondary_color
+        # Written unconditionally, unlike the optional strings above: False is
+        # a real answer here, not an absent one.
+        club_data["pro_academy"] = pro_academy
 
         result = self.client.table("clubs").insert(club_data).execute()
 
@@ -144,6 +151,7 @@ class ClubDAO(BaseDAO):
         logo_url: str | None = None,
         primary_color: str | None = None,
         secondary_color: str | None = None,
+        pro_academy: bool | None = None,
     ) -> dict | None:
         """Update an existing club.
 
@@ -175,6 +183,8 @@ class ClubDAO(BaseDAO):
             update_data["primary_color"] = primary_color
         if secondary_color is not None:
             update_data["secondary_color"] = secondary_color
+        if pro_academy is not None:
+            update_data["pro_academy"] = pro_academy
 
         if not update_data:
             return None

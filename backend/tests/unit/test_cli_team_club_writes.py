@@ -41,6 +41,7 @@ CLUB_19_FULL = {
     "logo_url": "https://cdn.test/19.png",
     "primary_color": "#B22222",
     "secondary_color": "#FDE047",
+    "pro_academy": True,
 }
 
 
@@ -228,6 +229,34 @@ class TestClubCommands:
 
         assert result.exit_code == 1
         client.update_club_profile.assert_not_called()
+
+    def test_rename_preserves_the_pro_academy_flag(self):
+        """PUT /api/clubs/{id} is a replace and pro_academy defaults to False.
+
+        Omitting it on a rename would silently un-flag the club — the same
+        shape of bug that blanked logo_url and the brand colours in #550, and
+        it would land on exactly the MLS academy clubs whose ragged age lists
+        depend on the flag to read as expected rather than as a scrape gap.
+        """
+        client = _client()
+        result = _run(["club", "rename", "19", "--name", "Red Bull New York", "--yes"], client)
+
+        assert result.exit_code == 0, result.output
+        assert client.update_club_profile.call_args.kwargs["pro_academy"] is True
+
+    def test_create_can_set_the_pro_academy_flag(self):
+        client = _client()
+        result = _run(["club", "create", "--name", "Toronto FC", "--pro-academy"], client)
+
+        assert result.exit_code == 0, result.output
+        assert client.create_club.call_args.kwargs["pro_academy"] is True
+
+    def test_create_defaults_to_not_a_pro_academy(self):
+        client = _client()
+        result = _run(["club", "create", "--name", "Some Youth Club"], client)
+
+        assert result.exit_code == 0, result.output
+        assert client.create_club.call_args.kwargs["pro_academy"] is False
 
     def test_rename_preserves_crest_and_colours(self):
         """PUT /api/clubs/{id} takes the full Club model — it replaces.
