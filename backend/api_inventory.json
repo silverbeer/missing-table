@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-02-06T19:07:31.201036+00:00",
+  "generated_at": "2026-08-26T22:14:12.057538+00:00",
   "excluded_endpoints": [
     {
       "method": "POST",
@@ -74,6 +74,14 @@
       "coverage_status": "fully_covered"
     },
     {
+      "method": "GET",
+      "path": "/api/admin/attention/counts",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
       "method": "DELETE",
       "path": "/api/admin/cache",
       "client_method": "clear_all_cache",
@@ -128,6 +136,41 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_qop_cache.py",
+          "test_name": "test_cache_hit_returns_cached_without_dao_call",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qop_cache.py",
+          "test_name": "test_cache_miss_calls_dao_and_caches_result",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qop_cache.py",
+          "test_name": "test_cache_miss_with_no_data_does_not_cache",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qop_cache.py",
+          "test_name": "test_explicit_snapshot_id_in_cache_key",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qop_cache.py",
+          "test_name": "test_inserted_triggers_cache_clear",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qop_cache.py",
+          "test_name": "test_unchanged_skips_cache_clear",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qop_cache.py",
+          "test_name": "test_qop_is_valid_cache_type",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_cache_contract.py",
           "test_name": "test_get_cache_stats_requires_auth",
           "type": "contract"
@@ -154,6 +197,78 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/emails/threads",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/emails/threads/{thread_id_or_case_number}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/emails/threads/{thread_id}/read",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/emails/threads/{thread_id}/reply",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/emails/threads/{thread_id}/status",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/emails/unread-count",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/goals",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/goals/{event_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/ingest-failures",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "GET",
@@ -326,6 +441,14 @@
     },
     {
       "method": "POST",
+      "path": "/api/admin/playoffs/forfeit",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
       "path": "/api/admin/playoffs/generate",
       "client_method": "generate_playoff_bracket",
       "client_file": "api_client/client.py",
@@ -347,6 +470,473 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/teams/lookup",
+      "client_method": "lookup_team",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_get_active_tournaments_returns_list",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_lookup_team_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/teams/{team_id}/aliases",
+      "client_method": "get_team_aliases",
+      "client_file": "api_client/client.py",
+      "tests": [],
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/teams/{team_id}/aliases",
+      "client_method": "add_team_alias",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_id_says_so_rather_than_405",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_club_city_and_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_to_the_same_name_is_a_no_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_suggests_recording_the_former_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_declining_the_confirmation_changes_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_repoints_the_club_and_keeps_the_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_creates_one_row_with_every_age_group",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_resolves_division_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_division_lists_the_real_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_club_resolves_by_name_not_just_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_ambiguous_club_name_refuses_rather_than_picking",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_the_pro_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_can_set_the_pro_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_defaults_to_not_a_pro_academy",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_crest_and_colours",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_add_former_name_alias",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rejects_an_invented_kind",
+          "type": "unit"
+        }
+      ],
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/tournaments",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/tournaments",
+      "client_method": "create_tournament",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_picked_team_is_used_directly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_picked_team_wins_over_a_stale_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_away_side_respects_is_home_false",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_name_resolves_through_get_or_create",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_neither_id_nor_name_is_rejected",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_blank_name_is_rejected",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_ids_land_on_the_side_they_were_given",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_neither_side_has_to_be_a_tracked_team",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_a_named_side_creates_through_get_or_create",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_a_picked_id_wins_over_a_stale_name_on_the_same_side",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_whitespace_only_name_is_not_a_side",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_a_team_cannot_play_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_missing_home_side_is_rejected",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_our_team_at_home",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_our_team_away_flips_the_sides",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_our_team_with_a_picked_opponent",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_explicit_home_away_wins_over_the_deprecated_fields",
+          "type": "unit"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_get_active_tournaments_returns_list",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_lookup_team_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_create_tournament_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_create_tournament_match_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/tournaments/{tournament_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/tournaments/{tournament_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/tournaments/{tournament_id}/logo",
+      "client_method": "upload_tournament_logo",
+      "client_file": "api_client/client.py",
+      "tests": [],
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/tournaments/{tournament_id}/matches",
+      "client_method": "create_tournament_match",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_picked_team_is_used_directly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_picked_team_wins_over_a_stale_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_away_side_respects_is_home_false",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_name_resolves_through_get_or_create",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_neither_id_nor_name_is_rejected",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_opponent_selection.py",
+          "test_name": "test_blank_name_is_rejected",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_ids_land_on_the_side_they_were_given",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_neither_side_has_to_be_a_tracked_team",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_a_named_side_creates_through_get_or_create",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_a_picked_id_wins_over_a_stale_name_on_the_same_side",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_whitespace_only_name_is_not_a_side",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_a_team_cannot_play_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_missing_home_side_is_rejected",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_our_team_at_home",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_our_team_away_flips_the_sides",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_our_team_with_a_picked_opponent",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_home_away.py",
+          "test_name": "test_explicit_home_away_wins_over_the_deprecated_fields",
+          "type": "unit"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_get_active_tournaments_returns_list",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_lookup_team_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_create_tournament_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_create_tournament_match_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/tournaments/{tournament_id}/matches/{match_id}",
+      "client_method": "delete_tournament_match",
+      "client_file": "api_client/client.py",
+      "tests": [],
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/tournaments/{tournament_id}/matches/{match_id}",
+      "client_method": "update_tournament_match",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/unit/test_tournament_match_update_team_ids.py",
+          "test_name": "test_home_team_id_sets_field",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_match_update_team_ids.py",
+          "test_name": "test_away_team_id_sets_field",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_match_update_team_ids.py",
+          "test_name": "test_both_team_ids_in_one_update",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_match_update_team_ids.py",
+          "test_name": "test_team_id_change_combines_with_score_update",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_match_update_team_ids.py",
+          "test_name": "test_swap_home_away_conflicts_with_explicit_team_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_tournament_match_update_team_ids.py",
+          "test_name": "test_no_team_id_update_when_none",
+          "type": "unit"
+        }
+      ],
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/login-events",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{user_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "GET",
@@ -675,11 +1265,374 @@
       "coverage_status": "fully_covered"
     },
     {
+      "method": "GET",
+      "path": "/api/agent/audit/events",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/audit/events",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/agent/audit/events/{event_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/audit/next-team",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/audit/summary",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/audit/teams",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/match-summary",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/matches",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/agent/matches/cancel",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/android/apk-url",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/forgot-password",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
       "method": "POST",
       "path": "/api/auth/login",
       "client_method": "login",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_name_substring",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_names_the_candidates",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_team_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_exact_name_beats_a_crowd_of_prefixes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_query_with_no_substring_match_suggests_near_misses",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_defaults_to_current",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_competition_defaults_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_league_falls_back_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_named_competition_that_does_not_exist_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_default_sort_is_goals",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_sort_by_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ties_break_on_goals_then_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_took_part_matches_the_web_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_stat_fields_match_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_current_season_and_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_competitions_sends_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_hides_players_who_never_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_everyone_flag_includes_them",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_fails_clearly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nothing_recorded_explains_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_shows_status_for_each_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_explains_which_statuses_count",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_one_competition_keeps_only_its_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nested_match_type_is_read_too",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_the_filter_is_named_in_the_title",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_the_union_of_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_is_the_same_as_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_competition_lists_the_known_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_competition_with_no_matches_says_so_without_implying_none_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competition_flagged_is_an_error_not_an_empty_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_name_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_name_resolves_to_one_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_spans_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_rejected_where_only_one_type_fits",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_lists_the_competitions_and_which_qualify",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_names_the_extra_selectors",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competitions_configured_is_not_a_crash",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_says_whether_the_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_completed_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_is_honest_about_appearances_not_being_exposed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reads_the_password_from_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_op_failure_falls_through_rather_than_exploding",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_op_binary_falls_through",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_defaults_to_the_env_item",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_is_overridable",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_non_tty_refuses_and_names_the_alternatives",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_mt_password_env_is_used_without_prompting",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_read_commands_advise_login_instead_of_tracebacking",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_auth_contract.py",
           "test_name": "test_login_success",
@@ -757,7 +1710,7 @@
         },
         {
           "file": "tests/integration/auth/test_auth_flows.py",
-          "test_name": "test_login_invalid_email_format",
+          "test_name": "test_login_invalid_username_format",
           "type": "integration"
         },
         {
@@ -1180,6 +2133,26 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_session_config.py",
+          "test_name": "test_config_file_exists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_session_config.py",
+          "test_name": "test_sessions_block_present",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_session_config.py",
+          "test_name": "test_inactivity_timeout_is_at_least_30_days",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_session_config.py",
+          "test_name": "test_no_short_timebox",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_auth_contract.py",
           "test_name": "test_login_success",
           "type": "contract"
@@ -1236,7 +2209,7 @@
         },
         {
           "file": "tests/integration/auth/test_auth_flows.py",
-          "test_name": "test_login_invalid_email_format",
+          "test_name": "test_login_invalid_username_format",
           "type": "integration"
         },
         {
@@ -1404,7 +2377,7 @@
         },
         {
           "file": "tests/integration/auth/test_auth_flows.py",
-          "test_name": "test_login_invalid_email_format",
+          "test_name": "test_login_invalid_username_format",
           "type": "integration"
         },
         {
@@ -1628,7 +2601,7 @@
         },
         {
           "file": "tests/integration/auth/test_auth_flows.py",
-          "test_name": "test_login_invalid_email_format",
+          "test_name": "test_login_invalid_username_format",
           "type": "integration"
         },
         {
@@ -2370,10 +3343,43 @@
     },
     {
       "method": "POST",
+      "path": "/api/auth/reset-password",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
       "path": "/api/auth/signup",
       "client_method": "signup",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_role_for_invite_type.py",
+          "test_name": "test_each_invite_type_maps_to_its_canonical_role",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_role_for_invite_type.py",
+          "test_name": "test_club_fan_is_hyphenated",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_role_for_invite_type.py",
+          "test_name": "test_club_manager_stays_underscored",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_role_for_invite_type.py",
+          "test_name": "test_unknown_invite_type_falls_back_to_the_default",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_role_for_invite_type.py",
+          "test_name": "test_every_produced_role_is_one_the_constraint_allows",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_auth_contract.py",
           "test_name": "test_login_success",
@@ -2466,7 +3472,7 @@
         },
         {
           "file": "tests/integration/auth/test_auth_flows.py",
-          "test_name": "test_login_invalid_email_format",
+          "test_name": "test_login_invalid_username_format",
           "type": "integration"
         },
         {
@@ -2979,7 +3985,7 @@
         },
         {
           "file": "tests/integration/auth/test_auth_flows.py",
-          "test_name": "test_login_invalid_email_format",
+          "test_name": "test_login_invalid_username_format",
           "type": "integration"
         },
         {
@@ -3222,7 +4228,7 @@
         },
         {
           "file": "tests/integration/auth/test_auth_flows.py",
-          "test_name": "test_login_invalid_email_format",
+          "test_name": "test_login_invalid_username_format",
           "type": "integration"
         },
         {
@@ -3360,6 +4366,36 @@
           "type": "contract"
         },
         {
+          "file": "tests/integration/test_push_delivery_on_score.py",
+          "test_name": "test_scoring_match_pushes_to_follower_and_logs",
+          "type": "integration"
+        },
+        {
+          "file": "tests/integration/test_push_delivery_on_score.py",
+          "test_name": "test_resubmitting_same_score_does_not_re_notify",
+          "type": "integration"
+        },
+        {
+          "file": "tests/integration/test_push_delivery_on_score.py",
+          "test_name": "test_metadata_only_update_does_not_notify",
+          "type": "integration"
+        },
+        {
+          "file": "tests/integration/test_push_delivery_on_score.py",
+          "test_name": "test_correcting_a_score_re_notifies",
+          "type": "integration"
+        },
+        {
+          "file": "tests/integration/test_push_delivery_on_score.py",
+          "test_name": "test_patch_score_pushes_to_follower",
+          "type": "integration"
+        },
+        {
+          "file": "tests/integration/test_push_delivery_on_score.py",
+          "test_name": "test_unrelated_follower_not_notified",
+          "type": "integration"
+        },
+        {
           "file": "tests/tsc/test_99_cleanup.py",
           "test_name": "test_01_login_admin",
           "type": "journey"
@@ -3409,10 +4445,376 @@
     },
     {
       "method": "GET",
+      "path": "/api/channel-requests",
+      "client_method": "list_channel_requests",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_my_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_create_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_requests_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_update_status_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_delete_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_as_admin",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_with_status_filter",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_with_platform_filter",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/channel-requests",
+      "client_method": "create_channel_request",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_my_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_create_request_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel-requests/me",
+      "client_method": "get_my_channel_request",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_my_request_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/channel-requests/me/{platform}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel-requests/stats",
+      "client_method": "get_channel_request_stats",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_my_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_create_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_requests_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_update_status_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_delete_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_as_admin",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_with_status_filter",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_with_platform_filter",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_as_admin",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_values_are_non_negative",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/channel-requests/{request_id}",
+      "client_method": "delete_channel_request",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_my_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_create_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_requests_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_update_status_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_delete_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel-requests/{request_id}",
+      "client_method": "get_channel_request",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_my_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_create_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_requests_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_update_status_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_delete_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_as_admin",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_with_status_filter",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_with_platform_filter",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_as_admin",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_values_are_non_negative",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_nonexistent_request",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/channel-requests/{request_id}/status",
+      "client_method": "update_channel_request_status",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_get_my_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_create_request_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_list_requests_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_stats_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_channel_requests_contract.py",
+          "test_name": "test_update_status_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
       "path": "/api/clubs",
       "client_method": "get_clubs",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_id_says_so_rather_than_405",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_club_city_and_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_to_the_same_name_is_a_no_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_suggests_recording_the_former_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_declining_the_confirmation_changes_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_repoints_the_club_and_keeps_the_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_creates_one_row_with_every_age_group",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_resolves_division_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_division_lists_the_real_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_club_resolves_by_name_not_just_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_ambiguous_club_name_refuses_rather_than_picking",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_clubs_contract.py",
           "test_name": "test_get_clubs_returns_list",
@@ -3445,11 +4847,6 @@
         },
         {
           "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_get_club_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_delete_club",
           "type": "integration"
         },
@@ -3471,11 +4868,6 @@
         {
           "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_delete_club_requires_admin",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_create_club_authenticated",
           "type": "integration"
         },
         {
@@ -3545,6 +4937,171 @@
         {
           "file": "tests/test_clubs_teams_integration.py",
           "test_name": "test_create_club_and_link_team",
+          "type": "unit"
+        },
+        {
+          "file": "tests/test_clubs_teams_integration.py",
+          "test_name": "test_create_team_with_parent_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/test_clubs_teams_integration.py",
+          "test_name": "test_create_club_idempotent_on_duplicate_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_id_says_so_rather_than_405",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_club_city_and_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_to_the_same_name_is_a_no_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_suggests_recording_the_former_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_declining_the_confirmation_changes_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_repoints_the_club_and_keeps_the_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_creates_one_row_with_every_age_group",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_resolves_division_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_division_lists_the_real_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_club_resolves_by_name_not_just_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_ambiguous_club_name_refuses_rather_than_picking",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_the_pro_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_can_set_the_pro_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_defaults_to_not_a_pro_academy",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_crest_and_colours",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_pro_academy.py",
+          "test_name": "test_create_writes_the_flag_when_true",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_pro_academy.py",
+          "test_name": "test_create_writes_the_flag_when_false",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_upsert_creates_new_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_upsert_overwrites_existing_same_platform",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_upsert_allows_one_row_per_platform_per_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_get_returns_existing_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_get_returns_none_when_missing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_get_scopes_by_platform",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_list_by_club_returns_empty_when_no_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_list_by_club_does_not_leak_other_clubs",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_delete_removes_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_delete_nonexistent_returns_false",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_delete_only_affects_target_platform",
           "type": "unit"
         },
         {
@@ -3634,11 +5191,6 @@
         },
         {
           "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_get_club_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_delete_club",
           "type": "integration"
         },
@@ -3655,16 +5207,6 @@
         {
           "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_create_club_requires_admin",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_delete_club_requires_admin",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_create_club_authenticated",
           "type": "integration"
         },
         {
@@ -3787,6 +5329,61 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_upsert_creates_new_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_upsert_overwrites_existing_same_platform",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_upsert_allows_one_row_per_platform_per_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_get_returns_existing_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_get_returns_none_when_missing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_get_scopes_by_platform",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_list_by_club_returns_empty_when_no_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_list_by_club_does_not_leak_other_clubs",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_delete_removes_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_delete_nonexistent_returns_false",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_club_notifications_dao.py",
+          "test_name": "test_delete_only_affects_target_platform",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_clubs_contract.py",
           "test_name": "test_get_clubs_returns_list",
           "type": "contract"
@@ -3833,11 +5430,6 @@
         },
         {
           "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_get_club_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_delete_club",
           "type": "integration"
         },
@@ -3859,21 +5451,6 @@
         {
           "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_delete_club_requires_admin",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_create_club_authenticated",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_get_clubs_authenticated",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_delete_club_authenticated",
           "type": "integration"
         },
         {
@@ -4156,6 +5733,71 @@
           "type": "unit"
         },
         {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_id_says_so_rather_than_405",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_club_city_and_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_to_the_same_name_is_a_no_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_suggests_recording_the_former_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_declining_the_confirmation_changes_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_repoints_the_club_and_keeps_the_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_creates_one_row_with_every_age_group",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_resolves_division_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_division_lists_the_real_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_club_resolves_by_name_not_just_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_ambiguous_club_name_refuses_rather_than_picking",
+          "type": "unit"
+        },
+        {
           "file": "tests/unit/test_authorization_matrix.py",
           "test_name": "test_can_manage_team",
           "type": "unit"
@@ -4197,11 +5839,6 @@
         },
         {
           "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_get_club_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_delete_club",
           "type": "integration"
         },
@@ -4223,11 +5860,6 @@
         {
           "file": "tests/integration/database/test_clubs.py",
           "test_name": "test_delete_club_requires_admin",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_create_club_authenticated",
           "type": "integration"
         },
         {
@@ -4442,6 +6074,21 @@
         },
         {
           "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_returns_active_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_excludes_soft_deleted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_add_reactivates_soft_deleted_participation",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
           "test_name": "test_get_club_teams",
           "type": "unit"
         },
@@ -4496,36 +6143,96 @@
     {
       "method": "PUT",
       "path": "/api/clubs/{club_id}",
-      "client_method": "update_club",
+      "client_method": "update_club_profile",
       "client_file": "api_client/client.py",
       "tests": [
         {
-          "file": "tests/contract/test_clubs_contract.py",
-          "test_name": "test_get_clubs_returns_list",
-          "type": "contract"
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
+          "type": "unit"
         },
         {
-          "file": "tests/contract/test_clubs_contract.py",
-          "test_name": "test_get_club_not_found",
-          "type": "contract"
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_id_says_so_rather_than_405",
+          "type": "unit"
         },
         {
-          "file": "tests/contract/test_clubs_contract.py",
-          "test_name": "test_get_club_teams",
-          "type": "contract"
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_club_city_and_academy_flag",
+          "type": "unit"
         },
         {
-          "file": "tests/contract/test_clubs_contract.py",
-          "test_name": "test_create_club_requires_auth",
-          "type": "contract"
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_to_the_same_name_is_a_no_op",
+          "type": "unit"
         },
         {
-          "file": "tests/contract/test_clubs_contract.py",
-          "test_name": "test_update_club_requires_auth",
-          "type": "contract"
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_suggests_recording_the_former_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_declining_the_confirmation_changes_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_repoints_the_club_and_keeps_the_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_creates_one_row_with_every_age_group",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_resolves_division_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_division_lists_the_real_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_club",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_club_resolves_by_name_not_just_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_ambiguous_club_name_refuses_rather_than_picking",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_the_pro_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_can_set_the_pro_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_create_defaults_to_not_a_pro_academy",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_crest_and_colours",
+          "type": "unit"
         }
       ],
-      "coverage_status": "fully_covered"
+      "coverage_status": "client_only"
     },
     {
       "method": "POST",
@@ -4573,6 +6280,38 @@
     },
     {
       "method": "GET",
+      "path": "/api/clubs/{club_id}/notifications",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/clubs/{club_id}/notifications/{platform}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/clubs/{club_id}/notifications/{platform}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/clubs/{club_id}/notifications/{platform}/test",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
       "path": "/api/clubs/{club_id}/teams",
       "client_method": "get_club_teams",
       "client_file": "api_client/client.py",
@@ -4591,26 +6330,6 @@
           "file": "tests/contract/test_clubs_contract.py",
           "test_name": "test_get_club_teams",
           "type": "contract"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_create_club",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_create_club_minimal",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_get_all_clubs",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_clubs.py",
-          "test_name": "test_get_club_teams",
-          "type": "integration"
         },
         {
           "file": "tests/tsc/test_01_club_manager.py",
@@ -4765,6 +6484,21 @@
         {
           "file": "tests/dao/test_team_dao.py",
           "test_name": "test_remove_match_type_participation",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_returns_active_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_excludes_soft_deleted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_add_reactivates_soft_deleted_participation",
           "type": "unit"
         },
         {
@@ -4943,7 +6677,7 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
+          "test_name": "test_get_match_types",
           "type": "integration"
         },
         {
@@ -4973,22 +6707,17 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games",
+          "test_name": "test_get_matches",
           "type": "integration"
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_with_filters",
+          "test_name": "test_get_matches_with_filters",
           "type": "integration"
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_by_team_nonexistent",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_check_game",
+          "test_name": "test_check_match",
           "type": "integration"
         },
         {
@@ -5008,7 +6737,7 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_create_game_unauthorized",
+          "test_name": "test_create_match_unauthorized",
           "type": "integration"
         },
         {
@@ -5030,6 +6759,21 @@
       "client_method": "get_current_season",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/dao/test_season_current_flag.py",
+          "test_name": "test_prefers_is_current_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_season_current_flag.py",
+          "test_name": "test_falls_back_to_date_when_no_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_season_current_flag.py",
+          "test_name": "test_returns_none_when_nothing_current",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_seasons_contract.py",
           "test_name": "test_get_seasons_returns_list",
@@ -5161,7 +6905,7 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
+          "test_name": "test_get_match_types",
           "type": "integration"
         },
         {
@@ -5605,6 +7349,14 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/invite-requests/test-approval-email",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "DELETE",
@@ -7179,6 +8931,141 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_teams_resolve_via_the_alias_aware_resolver",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_resolution_is_scoped_to_the_feed_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_a_match_with_no_league_still_resolves_unscoped",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_an_unmapped_league_name_degrades_rather_than_fails",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_an_unknown_team_fails_the_task",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_division_lookup_is_scoped_to_the_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_tasks.py",
+          "test_name": "test_an_unknown_division_fails_instead_of_writing_null",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_a_single_competition_is_division_filtered_in_the_query",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_a_combined_view_is_not",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_a_single_competition_reports_no_outside_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_qualifying_combines_the_flagged_competitions",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_qualifying_states_its_denominator",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_the_outside_opponent_is_not_in_the_combined_table",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_the_combined_table_counts_the_flex_result",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_league_alone_does_not_count_the_flex_result",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_pair",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_all_includes_the_friendly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_a_division_with_no_flex_reports_a_clean_table",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_a_combined_view_without_a_division_has_no_outside",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_qualifying_standings.py",
+          "test_name": "test_get_league_table_still_returns_just_the_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_division_lookup_scope.py",
+          "test_name": "test_scoped_lookup_filters_on_league_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_division_lookup_scope.py",
+          "test_name": "test_unscoped_lookup_does_not_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_division_lookup_scope.py",
+          "test_name": "test_an_ambiguous_name_refuses_to_guess",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_division_lookup_scope.py",
+          "test_name": "test_unknown_division_is_none",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_division_lookup_scope.py",
+          "test_name": "test_a_query_error_is_none_not_an_exception",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_division_lookup_scope.py",
+          "test_name": "test_resolves_the_feed_competition_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_division_lookup_scope.py",
+          "test_name": "test_unknown_league_is_none",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_leagues_contract.py",
           "test_name": "test_get_leagues_returns_list",
           "type": "contract"
@@ -7187,6 +9074,11 @@
           "file": "tests/contract/test_leagues_contract.py",
           "test_name": "test_get_league_not_found",
           "type": "contract"
+        },
+        {
+          "file": "tests/integration/database/test_dao.py",
+          "test_name": "test_dao_initialization",
+          "type": "integration"
         },
         {
           "file": "tests/integration/database/test_dao.py",
@@ -7278,9 +9170,229 @@
     {
       "method": "GET",
       "path": "/api/match-types",
-      "client_method": "get_game_types",
+      "client_method": "get_match_types",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_name_substring",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_names_the_candidates",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_team_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_exact_name_beats_a_crowd_of_prefixes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_query_with_no_substring_match_suggests_near_misses",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_defaults_to_current",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_competition_defaults_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_league_falls_back_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_named_competition_that_does_not_exist_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_default_sort_is_goals",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_sort_by_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ties_break_on_goals_then_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_took_part_matches_the_web_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_stat_fields_match_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_current_season_and_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_competitions_sends_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_hides_players_who_never_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_everyone_flag_includes_them",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_fails_clearly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nothing_recorded_explains_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_shows_status_for_each_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_explains_which_statuses_count",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_one_competition_keeps_only_its_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nested_match_type_is_read_too",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_the_filter_is_named_in_the_title",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_the_union_of_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_is_the_same_as_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_competition_lists_the_known_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_competition_with_no_matches_says_so_without_implying_none_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competition_flagged_is_an_error_not_an_empty_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_name_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_name_resolves_to_one_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_spans_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_rejected_where_only_one_type_fits",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_lists_the_competitions_and_which_qualify",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_names_the_extra_selectors",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competitions_configured_is_not_a_crash",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_seasons_contract.py",
           "test_name": "test_get_seasons_returns_list",
@@ -7388,11 +9500,19 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
+          "test_name": "test_get_match_types",
           "type": "integration"
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/match-types/available",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "GET",
@@ -7464,91 +9584,6 @@
           "file": "tests/contract/test_games_contract.py",
           "test_name": "test_game_has_different_teams",
           "type": "contract"
-        },
-        {
-          "file": "tests/integration/database/test_dao.py",
-          "test_name": "test_get_games_by_team",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_dao.py",
-          "test_name": "test_dao_error_handling",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_full_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_age_groups",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_current_season",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_active_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_divisions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_positions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_invalid_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_by_team_nonexistent",
-          "type": "integration"
         }
       ],
       "coverage_status": "fully_covered"
@@ -7583,106 +9618,6 @@
           "file": "tests/contract/test_games_contract.py",
           "test_name": "test_create_game",
           "type": "contract"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_full_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_age_groups",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_current_season",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_active_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_divisions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_positions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_invalid_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_by_team_nonexistent",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_check_game",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_table",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_table_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_create_team_unauthorized",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_create_game_unauthorized",
-          "type": "integration"
         }
       ],
       "coverage_status": "fully_covered"
@@ -7700,6 +9635,14 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/matches/preview/{home_team_id}/{away_team_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "POST",
@@ -7754,91 +9697,6 @@
           "file": "tests/contract/test_games_contract.py",
           "test_name": "test_get_games_by_team",
           "type": "contract"
-        },
-        {
-          "file": "tests/integration/database/test_dao.py",
-          "test_name": "test_get_games_by_team",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_dao.py",
-          "test_name": "test_dao_error_handling",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_full_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_age_groups",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_current_season",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_active_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_divisions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_positions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_invalid_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_by_team_nonexistent",
-          "type": "integration"
         }
       ],
       "coverage_status": "fully_covered"
@@ -7908,6 +9766,236 @@
       "client_method": "get_game",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_name_substring",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_names_the_candidates",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_team_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_exact_name_beats_a_crowd_of_prefixes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_query_with_no_substring_match_suggests_near_misses",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_defaults_to_current",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_competition_defaults_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_league_falls_back_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_named_competition_that_does_not_exist_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_default_sort_is_goals",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_sort_by_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ties_break_on_goals_then_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_took_part_matches_the_web_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_stat_fields_match_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_current_season_and_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_competitions_sends_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_hides_players_who_never_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_everyone_flag_includes_them",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_fails_clearly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nothing_recorded_explains_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_shows_status_for_each_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_explains_which_statuses_count",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_one_competition_keeps_only_its_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nested_match_type_is_read_too",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_the_filter_is_named_in_the_title",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_the_union_of_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_is_the_same_as_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_competition_lists_the_known_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_competition_with_no_matches_says_so_without_implying_none_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competition_flagged_is_an_error_not_an_empty_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_name_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_name_resolves_to_one_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_spans_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_rejected_where_only_one_type_fits",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_lists_the_competitions_and_which_qualify",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_names_the_extra_selectors",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competitions_configured_is_not_a_crash",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_says_whether_the_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_completed_match_counts",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_games_contract.py",
           "test_name": "test_get_games_returns_list",
@@ -8047,91 +10135,6 @@
           "file": "tests/contract/test_seasons_contract.py",
           "test_name": "test_get_match_types_returns_list",
           "type": "contract"
-        },
-        {
-          "file": "tests/integration/database/test_dao.py",
-          "test_name": "test_get_games_by_team",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/database/test_dao.py",
-          "test_name": "test_dao_error_handling",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_full_health_check",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_age_groups",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_current_season",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_active_seasons",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_divisions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_positions",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_teams_with_invalid_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_with_filters",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_by_team_nonexistent",
-          "type": "integration"
         },
         {
           "file": "tests/tsc/test_04_fan.py",
@@ -8276,6 +10279,31 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_kickoff_marks_both_lineups_as_started",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_other_clock_actions_record_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_a_replayed_kickoff_does_not_double_write",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_a_stats_failure_does_not_stop_the_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_kickoff_without_a_lineup_is_fine",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_lineup_contract.py",
           "test_name": "test_get_lineup",
           "type": "contract"
@@ -8309,6 +10337,86 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_returns_none_when_match_not_found",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_rejects_match_not_completed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_success_clears_end_time_and_sets_status_live",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_replay_returns_state_without_side_effects",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_fresh_goal_creates_event_then_score_and_stats",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_insert_race_falls_back_to_replay",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_assist_cannot_be_scorer",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_assist_must_be_on_scoring_team",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_client_minute_override_is_stored",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_happy_path_creates_substitution_event",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_rejects_player_on_wrong_team",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_rejects_same_player_in_and_out",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_replay_returns_stored_event_without_insert",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_replayed_start_first_half_is_noop",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_lookup_partition.py",
+          "test_name": "test_the_known_mutating_methods_still_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_lookup_partition.py",
+          "test_name": "test_post_write_readbacks_pass_include_test",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_live_match_contract.py",
           "test_name": "test_get_live_matches",
           "type": "contract"
@@ -8323,10 +10431,113 @@
     },
     {
       "method": "POST",
+      "path": "/api/matches/{match_id}/live/card",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
       "path": "/api/matches/{match_id}/live/clock",
       "client_method": "update_match_clock",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_replay_returns_state_without_side_effects",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_fresh_goal_creates_event_then_score_and_stats",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_insert_race_falls_back_to_replay",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_assist_cannot_be_scorer",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_assist_must_be_on_scoring_team",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_client_minute_override_is_stored",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_happy_path_creates_substitution_event",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_rejects_player_on_wrong_team",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_rejects_same_player_in_and_out",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_replay_returns_stored_event_without_insert",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_replayed_start_first_half_is_noop",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_occurred_at_passed_to_dao",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_live_scoring_idempotency.py",
+          "test_name": "test_occurred_at_in_future_rejected",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_lookup_partition.py",
+          "test_name": "test_call_sites_derive_visibility_from_the_viewer",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_kickoff_marks_both_lineups_as_started",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_other_clock_actions_record_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_a_replayed_kickoff_does_not_double_write",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_a_stats_failure_does_not_stop_the_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_kickoff_records_starters.py",
+          "test_name": "test_kickoff_without_a_lineup_is_fine",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_live_match_contract.py",
           "test_name": "test_get_live_matches",
@@ -8356,6 +10567,41 @@
       "client_method": "get_match_events",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_mt_cli_status.py",
+          "test_name": "test_all_three_goals_shown",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_status.py",
+          "test_name": "test_status_change_events_excluded",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_status.py",
+          "test_name": "test_chronological_order",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_status.py",
+          "test_name": "test_empty_input",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_status.py",
+          "test_name": "test_only_status_changes_returns_empty",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_status.py",
+          "test_name": "test_message_events_included",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_status.py",
+          "test_name": "test_card_events_included",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_live_match_contract.py",
           "test_name": "test_get_live_matches",
@@ -8402,6 +10648,11 @@
         },
         {
           "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_reopen_match_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
           "test_name": "test_post_goal_requires_auth",
           "type": "contract"
         },
@@ -8442,6 +10693,11 @@
         {
           "file": "tests/contract/test_live_match_contract.py",
           "test_name": "test_update_match_clock_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_reopen_match_requires_auth",
           "type": "contract"
         },
         {
@@ -8575,6 +10831,11 @@
         },
         {
           "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_reopen_match_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
           "test_name": "test_post_goal_requires_auth",
           "type": "contract"
         },
@@ -8585,6 +10846,178 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/matches/{match_id}/live/reopen",
+      "client_method": "reopen_match",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_returns_none_when_match_not_found",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_rejects_match_not_completed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_success_clears_end_time_and_sets_status_live",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_handles_db_exception",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_returns_404_when_match_missing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_returns_400_when_match_not_completed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_returns_403_when_user_cannot_edit",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_success_calls_dao_and_writes_audit_event",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_reopen.py",
+          "test_name": "test_returns_500_when_dao_returns_none",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_match_lookup_partition.py",
+          "test_name": "test_call_sites_derive_visibility_from_the_viewer",
+          "type": "unit"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_get_live_matches",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_get_live_match_state",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_get_match_events",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_update_match_clock_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_live_match_contract.py",
+          "test_name": "test_reopen_match_requires_auth",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/matches/{match_id}/live/substitution",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/matches/{match_id}/photo",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/matches/{match_id}/photo",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/matches/{match_id}/post-match/card",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/matches/{match_id}/post-match/card/{event_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/matches/{match_id}/post-match/goal",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/matches/{match_id}/post-match/goal/{event_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/matches/{match_id}/post-match/stats/{team_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/matches/{match_id}/post-match/stats/{team_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/matches/{match_id}/post-match/substitution",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/matches/{match_id}/post-match/substitution/{event_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "GET",
@@ -8671,6 +11104,14 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playoffs/forfeit",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "GET",
@@ -8790,7 +11231,7 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
+          "test_name": "test_get_match_types",
           "type": "integration"
         },
         {
@@ -8808,10 +11249,324 @@
     },
     {
       "method": "GET",
+      "path": "/api/push/vapid-public-key",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/qop-rankings",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/qop-rankings",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
       "path": "/api/roster/{player_id}/stats",
       "client_method": "get_roster_player_stats",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_name_substring",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_names_the_candidates",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_team_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_exact_name_beats_a_crowd_of_prefixes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_query_with_no_substring_match_suggests_near_misses",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_defaults_to_current",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_competition_defaults_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_league_falls_back_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_named_competition_that_does_not_exist_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_default_sort_is_goals",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_sort_by_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ties_break_on_goals_then_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_took_part_matches_the_web_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_stat_fields_match_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_current_season_and_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_competitions_sends_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_hides_players_who_never_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_everyone_flag_includes_them",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_fails_clearly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nothing_recorded_explains_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_shows_status_for_each_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_explains_which_statuses_count",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_one_competition_keeps_only_its_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nested_match_type_is_read_too",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_the_filter_is_named_in_the_title",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_the_union_of_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_is_the_same_as_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_competition_lists_the_known_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_competition_with_no_matches_says_so_without_implying_none_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competition_flagged_is_an_error_not_an_empty_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_name_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_name_resolves_to_one_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_spans_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_rejected_where_only_one_type_fits",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_lists_the_competitions_and_which_qualify",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_names_the_extra_selectors",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competitions_configured_is_not_a_crash",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_says_whether_the_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_completed_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_is_honest_about_appearances_not_being_exposed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reads_the_password_from_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_op_failure_falls_through_rather_than_exploding",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_op_binary_falls_through",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_defaults_to_the_env_item",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_is_overridable",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_non_tty_refuses_and_names_the_alternatives",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_mt_password_env_is_used_without_prompting",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_read_commands_advise_login_instead_of_tracebacking",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_api_error_is_reported_not_raised",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_a_season_line",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_uses_the_named_season",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_player_stats_contract.py",
           "test_name": "test_get_my_player_stats_requires_auth",
@@ -8841,6 +11596,281 @@
       "client_method": "get_seasons",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_name_substring",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_names_the_candidates",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_team_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_exact_name_beats_a_crowd_of_prefixes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_query_with_no_substring_match_suggests_near_misses",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_defaults_to_current",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_competition_defaults_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_league_falls_back_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_named_competition_that_does_not_exist_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_default_sort_is_goals",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_sort_by_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ties_break_on_goals_then_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_took_part_matches_the_web_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_stat_fields_match_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_current_season_and_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_competitions_sends_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_hides_players_who_never_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_everyone_flag_includes_them",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_fails_clearly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nothing_recorded_explains_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_shows_status_for_each_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_explains_which_statuses_count",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_one_competition_keeps_only_its_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nested_match_type_is_read_too",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_the_filter_is_named_in_the_title",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_the_union_of_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_is_the_same_as_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_competition_lists_the_known_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_competition_with_no_matches_says_so_without_implying_none_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competition_flagged_is_an_error_not_an_empty_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_name_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_name_resolves_to_one_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_spans_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_rejected_where_only_one_type_fits",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_lists_the_competitions_and_which_qualify",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_names_the_extra_selectors",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competitions_configured_is_not_a_crash",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_says_whether_the_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_completed_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_is_honest_about_appearances_not_being_exposed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reads_the_password_from_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_op_failure_falls_through_rather_than_exploding",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_op_binary_falls_through",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_defaults_to_the_env_item",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_is_overridable",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_non_tty_refuses_and_names_the_alternatives",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_mt_password_env_is_used_without_prompting",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_read_commands_advise_login_instead_of_tracebacking",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_seasons_contract.py",
           "test_name": "test_get_seasons_returns_list",
@@ -8964,6 +11994,14 @@
       "coverage_status": "fully_covered"
     },
     {
+      "method": "GET",
+      "path": "/api/seasons/match-counts",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
       "method": "DELETE",
       "path": "/api/seasons/{season_id}",
       "client_method": "delete_season",
@@ -9077,6 +12115,14 @@
       "coverage_status": "fully_covered"
     },
     {
+      "method": "PUT",
+      "path": "/api/seasons/{season_id}/current",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
       "method": "GET",
       "path": "/api/table",
       "client_method": "get_table",
@@ -9124,7 +12170,7 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
+          "test_name": "test_get_match_types",
           "type": "integration"
         },
         {
@@ -9154,22 +12200,17 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games",
+          "test_name": "test_get_matches",
           "type": "integration"
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_with_filters",
+          "test_name": "test_get_matches_with_filters",
           "type": "integration"
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_by_team_nonexistent",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_check_game",
+          "test_name": "test_check_match",
           "type": "integration"
         },
         {
@@ -9485,6 +12526,286 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_name_substring",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_names_the_candidates",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_team_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_exact_name_beats_a_crowd_of_prefixes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_query_with_no_substring_match_suggests_near_misses",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_defaults_to_current",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_competition_defaults_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_league_falls_back_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_named_competition_that_does_not_exist_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_default_sort_is_goals",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_sort_by_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ties_break_on_goals_then_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_took_part_matches_the_web_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_stat_fields_match_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_current_season_and_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_competitions_sends_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_hides_players_who_never_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_everyone_flag_includes_them",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_fails_clearly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nothing_recorded_explains_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_shows_status_for_each_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_explains_which_statuses_count",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_one_competition_keeps_only_its_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nested_match_type_is_read_too",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_the_filter_is_named_in_the_title",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_the_union_of_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_is_the_same_as_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_competition_lists_the_known_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_competition_with_no_matches_says_so_without_implying_none_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competition_flagged_is_an_error_not_an_empty_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_name_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_name_resolves_to_one_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_spans_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_rejected_where_only_one_type_fits",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_lists_the_competitions_and_which_qualify",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_names_the_extra_selectors",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competitions_configured_is_not_a_crash",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_says_whether_the_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_completed_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_is_honest_about_appearances_not_being_exposed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reads_the_password_from_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_op_failure_falls_through_rather_than_exploding",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_op_binary_falls_through",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_defaults_to_the_env_item",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_is_overridable",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_non_tty_refuses_and_names_the_alternatives",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_mt_password_env_is_used_without_prompting",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_read_commands_advise_login_instead_of_tracebacking",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_teams_contract.py",
           "test_name": "test_get_teams_returns_list",
           "type": "contract"
@@ -9566,7 +12887,7 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
+          "test_name": "test_get_match_types",
           "type": "integration"
         },
         {
@@ -9744,6 +13065,66 @@
           "type": "unit"
         },
         {
+          "file": "tests/test_clubs_teams_integration.py",
+          "test_name": "test_create_club_idempotent_on_duplicate_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/test_clubs_teams_integration.py",
+          "test_name": "test_create_team_idempotent_in_same_division",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_id_says_so_rather_than_405",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_club_city_and_academy_flag",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_to_the_same_name_is_a_no_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_suggests_recording_the_former_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_declining_the_confirmation_changes_nothing",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_repoints_the_club_and_keeps_the_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_creates_one_row_with_every_age_group",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_resolves_division_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_division_lists_the_real_ones",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_teams_contract.py",
           "test_name": "test_get_teams_returns_list",
           "type": "contract"
@@ -9865,7 +13246,7 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_game_types",
+          "test_name": "test_get_match_types",
           "type": "integration"
         },
         {
@@ -9895,22 +13276,17 @@
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games",
+          "test_name": "test_get_matches",
           "type": "integration"
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_with_filters",
+          "test_name": "test_get_matches_with_filters",
           "type": "integration"
         },
         {
           "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_get_games_by_team_nonexistent",
-          "type": "integration"
-        },
-        {
-          "file": "tests/integration/api/test_endpoints.py",
-          "test_name": "test_check_game",
+          "test_name": "test_check_match",
           "type": "integration"
         },
         {
@@ -10247,6 +13623,14 @@
       "coverage_status": "fully_covered"
     },
     {
+      "method": "POST",
+      "path": "/api/teams/reconcile",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
       "method": "DELETE",
       "path": "/api/teams/{team_id}",
       "client_method": "delete_team",
@@ -10454,6 +13838,21 @@
         },
         {
           "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_returns_active_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_excludes_soft_deleted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_add_reactivates_soft_deleted_participation",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
           "test_name": "test_get_club_teams",
           "type": "unit"
         },
@@ -10503,216 +13902,54 @@
     {
       "method": "PUT",
       "path": "/api/teams/{team_id}",
-      "client_method": "update_team",
+      "client_method": "update_team_profile",
       "client_file": "api_client/client.py",
       "tests": [
         {
-          "file": "tests/contract/test_teams_contract.py",
-          "test_name": "test_get_teams_returns_list",
-          "type": "contract"
-        },
-        {
-          "file": "tests/contract/test_teams_contract.py",
-          "test_name": "test_get_team_not_found",
-          "type": "contract"
-        },
-        {
-          "file": "tests/contract/test_teams_contract.py",
-          "test_name": "test_get_team_players",
-          "type": "contract"
-        },
-        {
-          "file": "tests/contract/test_teams_contract.py",
-          "test_name": "test_get_team_stats",
-          "type": "contract"
-        },
-        {
-          "file": "tests/contract/test_teams_contract.py",
-          "test_name": "test_create_team_requires_auth",
-          "type": "contract"
-        },
-        {
-          "file": "tests/contract/test_teams_contract.py",
-          "test_name": "test_update_team_requires_auth",
-          "type": "contract"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_team_factory",
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_numeric_argument_does_not_call_the_missing_endpoint",
           "type": "unit"
         },
         {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_all_teams_returns_teams",
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_unknown_id_says_so_rather_than_405",
           "type": "unit"
         },
         {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_all_teams_includes_divisions",
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_preserves_club_city_and_academy_flag",
           "type": "unit"
         },
         {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_teams_by_match_type_and_age_group",
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_to_the_same_name_is_a_no_op",
           "type": "unit"
         },
         {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_teams_by_match_type_with_division_filter",
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_rename_suggests_recording_the_former_name",
           "type": "unit"
         },
         {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_team_by_name_case_insensitive",
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_declining_the_confirmation_changes_nothing",
           "type": "unit"
         },
         {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_team_by_name_not_found",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_team_by_id_found",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_team_by_id_not_found",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_team_with_details_includes_relationships",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_add_team_success",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_add_team_with_multiple_age_groups",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_add_guest_team_without_division",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_add_team_missing_required_fields",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_add_team_invalid_division",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_add_duplicate_team_fails",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_update_team_basic_fields",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_update_team_not_found",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_delete_team_success",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_delete_team_cascades_to_mappings",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_create_team_mapping_updates_league",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_create_mapping_auto_enables_league_match_type",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_update_team_division",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_delete_team_mapping",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_add_match_type_participation",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_remove_match_type_participation",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_club_teams",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_club_teams_includes_counts",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_club_for_team",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_club_for_team_without_club",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_update_team_club",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_team_game_counts_returns_dict",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_team_game_counts_includes_existing_teams",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_get_all_teams_with_no_age_groups",
-          "type": "unit"
-        },
-        {
-          "file": "tests/dao/test_team_dao.py",
-          "test_name": "test_operations_with_invalid_team_id",
+          "file": "tests/unit/test_cli_team_club_writes.py",
+          "test_name": "test_repoints_the_club_and_keeps_the_name",
           "type": "unit"
         }
       ],
-      "coverage_status": "fully_covered"
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/teams/{team_id}/match-types",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "POST",
@@ -10889,6 +14126,21 @@
           "file": "tests/dao/test_team_dao.py",
           "test_name": "test_remove_match_type_participation",
           "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_returns_active_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_get_participation_excludes_soft_deleted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/dao/test_team_dao.py",
+          "test_name": "test_add_reactivates_soft_deleted_participation",
+          "type": "unit"
         }
       ],
       "coverage_status": "fully_covered"
@@ -10954,6 +14206,81 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_team_roster_admin_access.py",
+          "test_name": "test_admin_reads_a_roster_outside_any_club_they_belong_to",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_roster_admin_access.py",
+          "test_name": "test_admin_lookup_does_not_query_player_history",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_roster_admin_access.py",
+          "test_name": "test_non_admin_outside_the_club_is_still_refused",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_roster_admin_access.py",
+          "test_name": "test_non_admin_inside_the_club_still_passes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_season_scope.py",
+          "test_name": "test_player_with_rows_in_two_seasons_appears_once",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_season_scope.py",
+          "test_name": "test_keeps_every_player_on_the_current_seasons_roster",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_season_scope.py",
+          "test_name": "test_falls_back_to_last_season_when_roster_not_rebuilt_yet",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_season_scope.py",
+          "test_name": "test_jersey_and_positions_still_come_from_the_history_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_season_scope.py",
+          "test_name": "test_unresolvable_current_season_still_returns_newest",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_no_age_group_filter_when_arg_is_none",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_age_group_filter_when_arg_is_set",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_returns_empty_list_when_query_fails",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_no_age_group_filter_when_arg_is_none",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_age_group_filter_when_arg_is_set",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_returns_empty_list_when_query_fails",
+          "type": "unit"
+        },
+        {
           "file": "tests/unit/dao/test_team_players.py",
           "test_name": "test_returns_players_from_history_table",
           "type": "unit"
@@ -11002,11 +14329,34 @@
       "coverage_status": "fully_covered"
     },
     {
+      "method": "PATCH",
+      "path": "/api/teams/{team_id}/players/age-group",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
       "method": "GET",
       "path": "/api/teams/{team_id}/roster",
       "client_method": "get_team_roster",
       "client_file": "api_client/client.py",
       "tests": [
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_no_age_group_filter_when_arg_is_none",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_age_group_filter_when_arg_is_set",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/dao/test_roster_age_group_filter.py",
+          "test_name": "test_returns_empty_list_when_query_fails",
+          "type": "unit"
+        },
         {
           "file": "tests/contract/test_teams_contract.py",
           "test_name": "test_get_teams_returns_list",
@@ -11586,6 +14936,316 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_team_stats_match_type.py",
+          "test_name": "test_no_filter_counts_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_match_type.py",
+          "test_name": "test_league_only",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_match_type.py",
+          "test_name": "test_friendly_only",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_match_type.py",
+          "test_name": "test_a_competition_with_no_matches_is_zero_not_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_match_type.py",
+          "test_name": "test_the_test_partition_still_applies_within_a_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_match_type.py",
+          "test_name": "test_match_type_is_selected_from_the_joined_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_id",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_team_by_name_substring",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_names_the_candidates",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_team_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_exact_name_beats_a_crowd_of_prefixes",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_query_with_no_substring_match_suggests_near_misses",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_defaults_to_current",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_season_by_name",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_competition_defaults_to_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_league_falls_back_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_named_competition_that_does_not_exist_is_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_default_sort_is_goals",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_sort_by_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ties_break_on_goals_then_assists",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_took_part_matches_the_web_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_stat_fields_match_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_renders_the_board",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_current_season_and_league",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_competitions_sends_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_hides_players_who_never_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_everyone_flag_includes_them",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_ambiguous_team_fails_clearly",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nothing_recorded_explains_itself",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_shows_status_for_each_match",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_explains_which_statuses_count",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_defaults_to_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_one_competition_keeps_only_its_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_nested_match_type_is_read_too",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_the_filter_is_named_in_the_title",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_the_union_of_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_reads_the_flag_rather_than_a_hardcoded_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_is_the_same_as_no_filter",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_unknown_competition_lists_the_known_ones",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_competition_with_no_matches_says_so_without_implying_none_exist",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competition_flagged_is_an_error_not_an_empty_list",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_name_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_all_means_every_competition",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_name_resolves_to_one_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_spans_the_flagged_types",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_qualifying_is_rejected_where_only_one_type_fits",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_lists_the_competitions_and_which_qualify",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_names_the_extra_selectors",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_no_competitions_configured_is_not_a_crash",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_says_whether_the_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_a_completed_match_counts",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_is_honest_about_appearances_not_being_exposed",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reads_the_password_from_op",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_op_failure_falls_through_rather_than_exploding",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_missing_op_binary_falls_through",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_defaults_to_the_env_item",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_reference_is_overridable",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_non_tty_refuses_and_names_the_alternatives",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_mt_password_env_is_used_without_prompting",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_read_commands_advise_login_instead_of_tracebacking",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_mt_cli_read_commands.py",
+          "test_name": "test_an_api_error_is_reported_not_raised",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_teams_contract.py",
           "test_name": "test_get_teams_returns_list",
           "type": "contract"
@@ -11610,6 +15270,124 @@
     },
     {
       "method": "GET",
+      "path": "/api/tournaments",
+      "client_method": "get_active_tournaments",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_tournaments_contract.py",
+          "test_name": "test_get_active_tournaments_returns_list",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tournaments/{tournament_id}",
+      "client_method": "get_tournament",
+      "client_file": "api_client/client.py",
+      "tests": [],
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/me/bracket-follows",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/bracket-follows",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/me/bracket-follows",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/notification-preferences",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/me/notification-preferences",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/me/notifications/test",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/push-subscriptions",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/me/push-subscriptions",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/me/push-subscriptions/{subscription_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/team-follows",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/me/team-follows",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/me/team-follows/{team_id}",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
+    },
+    {
+      "method": "GET",
       "path": "/api/version",
       "client_method": "get_version",
       "client_file": "api_client/client.py",
@@ -11621,16 +15399,26 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "POST",
+      "path": "/api/webhooks/email/inbound",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     }
   ],
   "summary": {
-    "total_endpoints": 125,
+    "total_endpoints": 214,
     "excluded": 3,
-    "with_client_method": 122,
-    "with_tests": 122,
-    "without_tests": 0,
+    "with_client_method": 140,
+    "with_tests": 136,
+    "without_tests": 8,
     "coverage_status": {
-      "fully_covered": 122
+      "fully_covered": 132,
+      "missing_client": 71,
+      "client_only": 8
     }
   }
 }
