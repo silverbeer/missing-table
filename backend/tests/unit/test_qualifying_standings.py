@@ -29,7 +29,10 @@ from dao.standings import (
     teams_in_division,
 )
 
-NORTHEAST, TURNPIKE = 1, 7
+# A Homegrown division, a Pathway division under the same league, and a Flex
+# bracket. teams.division_id is a team's *home* division — no team's home
+# division is ever a Flex bracket, which is the trap SB-835 fell into.
+NORTHEAST, PATHWAY, TURNPIKE = 1, 294, 309
 
 LEAGUE = {"id": 1, "name": "League"}
 FLEX = {"id": 5, "name": "Flex"}
@@ -43,7 +46,7 @@ def team(team_id: int, name: str, division_id: int) -> dict:
 IFA = team(11, "IFA", NORTHEAST)
 BOLTS = team(12, "Boston Bolts", NORTHEAST)
 OAKWOOD = team(13, "Oakwood", NORTHEAST)
-MONTREAL = team(90, "CF Montreal", TURNPIKE)
+MONTREAL = team(90, "CF Montreal", PATHWAY)
 
 
 def match(match_id, home, away, home_score, away_score, match_type, division_id, date="2026-09-05"):
@@ -100,10 +103,15 @@ class TestTeamsInDivision:
     def test_the_table_is_built_from_in_division_matches(self):
         assert teams_in_division(ALL_MATCHES, NORTHEAST) == {IFA["id"], BOLTS["id"], OAKWOOD["id"]}
 
-    def test_a_cross_division_match_does_not_add_a_team(self):
-        # IFA vs CF Montreal is a Northeast team's match, but it does not put
-        # CF Montreal in the Northeast table.
+    def test_a_flex_match_does_not_add_a_team_to_the_homegrown_table(self):
+        # IFA vs CF Montreal is a Northeast team's match, but it is filed to a
+        # Flex bracket, so it does not put CF Montreal in the Northeast table.
         assert MONTREAL["id"] not in teams_in_division(ALL_MATCHES, NORTHEAST)
+
+    def test_a_flex_bracket_has_a_table_of_its_own(self):
+        # No team's teams.division_id is ever a Flex bracket. Reading the
+        # match's division is the only way this bracket has any teams at all.
+        assert teams_in_division(ALL_MATCHES, TURNPIKE) == {IFA["id"], MONTREAL["id"]}
 
     def test_a_division_nobody_plays_in_is_empty(self):
         assert teams_in_division(LEAGUE_MATCHES, TURNPIKE) == set()
@@ -229,6 +237,26 @@ class TestGetStandings:
         coverage = dao.get_standings(match_type=STANDINGS_QUALIFYING)["coverage"]
         assert coverage["matches_vs_outside_table"] == 0
 
+    def test_a_flex_bracket_has_a_standings_table(self, dao):
+        """SB-835: every Flex table came back empty until the division rule was fixed.
+
+        `filter_same_division_matches` required both teams' teams.division_id
+        to equal the bracket. No Homegrown team's home division is ever a Flex
+        bracket, so 0 of 68 Flex matches survived and the Flex selector in the
+        league table produced a blank screen in production.
+        """
+        rows = dao.get_standings(division_id=TURNPIKE, match_type="Flex")["standings"]
+        assert {row["team"] for row in rows} == {IFA["name"], MONTREAL["name"]}
+
+    def test_a_teams_home_division_does_not_decide_where_a_match_counts(self, dao):
+        """The 2025-2026 New England U14 case: one team row, several divisions."""
+        away_from_home = match(7, IFA, MONTREAL, 1, 0, LEAGUE, NORTHEAST, "2026-10-01")
+        away_from_home["away_team"] = {**MONTREAL, "division_id": 999}
+        dao._fetch_matches_for_standings.return_value = [*LEAGUE_MATCHES, away_from_home]
+
+        rows = dao.get_standings(division_id=NORTHEAST, match_type="League")["standings"]
+        assert MONTREAL["name"] in {row["team"] for row in rows}
+
     def test_get_league_table_still_returns_just_the_rows(self, dao):
         rows = dao.get_league_table(division_id=NORTHEAST, match_type="League")
         assert isinstance(rows, list)
@@ -285,6 +313,16 @@ class TestCompetitionsPresent:
         present = dao_with_reference.get_competitions_present(division_id=NORTHEAST)
         flex = next(c for c in present if c["name"] == "Flex")
         assert (flex["matches"], flex["played"]) == (2, 1)
+
+    def test_in_division_identifies_the_divisions_own_competition(self, dao_with_reference):
+        """Northeast's own competition is League; its Flex matches sit under a Flex bracket."""
+        present = {c["name"]: c for c in dao_with_reference.get_competitions_present(division_id=NORTHEAST)}
+        assert present["League"]["in_division"] == 2
+        assert present["Flex"]["in_division"] == 0
+
+    def test_a_flex_bracket_owns_flex(self, dao_with_reference):
+        present = {c["name"]: c for c in dao_with_reference.get_competitions_present(division_id=TURNPIKE)}
+        assert present["Flex"]["in_division"] == 1
 
     def test_no_matches_at_all_is_an_empty_list_not_an_error(self, dao_with_reference):
         dao_with_reference._fetch_matches_for_standings.return_value = []

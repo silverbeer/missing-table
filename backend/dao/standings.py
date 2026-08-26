@@ -43,27 +43,26 @@ def filter_completed_matches(matches: list[dict]) -> list[dict]:
     return played_matches
 
 
-def filter_same_division_matches(matches: list[dict], division_id: int) -> list[dict]:
+def filter_matches_in_division(matches: list[dict], division_id: int) -> list[dict]:
     """
-    Filter matches to only include those where both teams are in the same division.
+    Filter matches to those filed to a division — `matches.division_id`.
 
-    Args:
-        matches: List of match dictionaries
-        division_id: Division ID to filter by
+    This used to ask a different question: whether *both teams* carried that
+    `teams.division_id`. That reading was wrong twice over (SB-835).
 
-    Returns:
-        List of matches where both teams are in the specified division
+    A Flex bracket's participants are Homegrown teams — every one of them has
+    its Homegrown division_id — so the teams test kept 0 of 68 Flex matches and
+    every Flex standings table came back empty.
+
+    And `teams.division_id` is a single value per team row, while a club plays
+    different divisions at different age groups. In 2025-2026 that quietly
+    dropped 88 New England U14 League matches whose teams are recorded under
+    Northeast. It is also a *current* value being applied to *historical*
+    matches, so a team moving divisions rewrites old tables.
+
+    The match knows which division it was played in. Ask the match.
     """
-    same_division_matches = []
-    for match in matches:
-        home_div_id = match.get("home_team", {}).get("division_id")
-        away_div_id = match.get("away_team", {}).get("division_id")
-
-        # Only include if both teams are in the requested division
-        if home_div_id == division_id and away_div_id == division_id:
-            same_division_matches.append(match)
-
-    return same_division_matches
+    return [m for m in matches if m.get("division_id") == division_id]
 
 
 def filter_by_match_type(matches: list[dict], match_type: str) -> list[dict]:
@@ -97,13 +96,13 @@ def teams_in_division(matches: list[dict], division_id: int) -> set[int]:
     """
     The team ids that make up a division's table.
 
-    A team is in the table because it plays matches *in* the division — both
-    sides in division X — which for the 2026-2027 data means its League
-    matches. Its Flex matches carry the Flex bracket's division_id and would
-    never qualify a team for the Homegrown table on their own.
+    A team is in the table because it played matches filed to the division.
+    For a Homegrown division that means its League matches: its Flex matches
+    carry the Flex bracket's division_id and do not, on their own, put a team
+    in the Homegrown table.
     """
     team_ids: set[int] = set()
-    for match in filter_same_division_matches(matches, division_id):
+    for match in filter_matches_in_division(matches, division_id):
         for side in ("home_team", "away_team"):
             team_id = (match.get(side) or {}).get("id")
             if team_id is not None:

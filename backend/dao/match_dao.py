@@ -26,8 +26,8 @@ from dao.standings import (
     count_outside_table_opponents,
     filter_by_match_types,
     filter_completed_matches,
+    filter_matches_in_division,
     filter_matches_involving,
-    filter_same_division_matches,
     teams_in_division,
 )
 from supabase import create_client
@@ -1345,7 +1345,7 @@ class MatchDAO(BaseDAO):
 
             if not combined:
                 if division_id:
-                    matches = filter_same_division_matches(matches, division_id)
+                    matches = filter_matches_in_division(matches, division_id)
                 return {
                     "standings": calculate_standings_with_extras(matches),
                     "coverage": self._coverage(match_type, names, matches, None),
@@ -1409,10 +1409,16 @@ class MatchDAO(BaseDAO):
         play Flex under Flex bracket ids, and a Flex tab that never appeared
         for them would be the bug this exists to prevent.
 
-        Returns one row per competition present, in display_order, with both
-        `matches` (all) and `played` (completed). They differ before a season
-        starts, and "no results yet" is not the same answer as "this
-        competition is not played here".
+        Returns one row per competition present, in display_order, with:
+
+        - `matches` / `played` — all, and completed. They differ before a
+          season starts, and "no results yet" is not the same answer as "this
+          competition is not played here".
+        - `in_division` — how many of those matches actually carry this
+          division_id. Non-zero identifies the division's *own* competition
+          (League for Northeast, Flex for Turnpike), which is what a standings
+          screen should open on. Deriving that from the league's name instead
+          would be the hardcoding this endpoint exists to remove.
         """
         try:
             matches = self._fetch_matches_for_standings(season_id, age_group_id, None, include_test=include_test)
@@ -1430,11 +1436,14 @@ class MatchDAO(BaseDAO):
                 if type_id is None:
                     continue
                 row = totals.setdefault(
-                    type_id, {"id": type_id, "name": match_type.get("name"), "matches": 0, "played": 0}
+                    type_id,
+                    {"id": type_id, "name": match_type.get("name"), "matches": 0, "played": 0, "in_division": 0},
                 )
                 row["matches"] += 1
                 if match.get("id") in played_ids:
                     row["played"] += 1
+                if division_id and match.get("division_id") == division_id:
+                    row["in_division"] += 1
 
             if not totals:
                 return []

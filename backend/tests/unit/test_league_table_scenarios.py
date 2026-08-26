@@ -19,7 +19,7 @@ from dao.standings import (
     calculate_standings,
     filter_by_match_type,
     filter_completed_matches,
-    filter_same_division_matches,
+    filter_matches_in_division,
 )
 
 
@@ -32,12 +32,14 @@ def match(
     match_type: str = "League",
     home_div: int = 1,
     away_div: int = 1,
+    division_id: int = 1,
 ) -> dict:
     """Helper to create match dicts in DAO format."""
     return {
         "home_team": {"name": home, "division_id": home_div},
         "away_team": {"name": away, "division_id": away_div},
         "match_type": {"name": match_type},
+        "division_id": division_id,
         "home_score": home_score,
         "away_score": away_score,
         "match_status": status,
@@ -58,9 +60,39 @@ STANDINGS_SCENARIOS = [
             match("Team B", "Team C", 1, 0),  # B wins
         ],
         "expected": [
-            {"team": "Team A", "played": 2, "wins": 2, "draws": 0, "losses": 0, "goals_for": 5, "goals_against": 1, "goal_difference": 4, "points": 6},
-            {"team": "Team B", "played": 2, "wins": 1, "draws": 0, "losses": 1, "goals_for": 2, "goals_against": 2, "goal_difference": 0, "points": 3},
-            {"team": "Team C", "played": 2, "wins": 0, "draws": 0, "losses": 2, "goals_for": 0, "goals_against": 4, "goal_difference": -4, "points": 0},
+            {
+                "team": "Team A",
+                "played": 2,
+                "wins": 2,
+                "draws": 0,
+                "losses": 0,
+                "goals_for": 5,
+                "goals_against": 1,
+                "goal_difference": 4,
+                "points": 6,
+            },
+            {
+                "team": "Team B",
+                "played": 2,
+                "wins": 1,
+                "draws": 0,
+                "losses": 1,
+                "goals_for": 2,
+                "goals_against": 2,
+                "goal_difference": 0,
+                "points": 3,
+            },
+            {
+                "team": "Team C",
+                "played": 2,
+                "wins": 0,
+                "draws": 0,
+                "losses": 2,
+                "goals_for": 0,
+                "goals_against": 4,
+                "goal_difference": -4,
+                "points": 0,
+            },
         ],
     },
     {
@@ -72,9 +104,39 @@ STANDINGS_SCENARIOS = [
             match("Team B", "Team C", 0, 0),
         ],
         "expected": [
-            {"team": "Team A", "played": 2, "wins": 0, "draws": 2, "losses": 0, "goals_for": 3, "goals_against": 3, "goal_difference": 0, "points": 2},
-            {"team": "Team C", "played": 2, "wins": 0, "draws": 2, "losses": 0, "goals_for": 2, "goals_against": 2, "goal_difference": 0, "points": 2},
-            {"team": "Team B", "played": 2, "wins": 0, "draws": 2, "losses": 0, "goals_for": 1, "goals_against": 1, "goal_difference": 0, "points": 2},
+            {
+                "team": "Team A",
+                "played": 2,
+                "wins": 0,
+                "draws": 2,
+                "losses": 0,
+                "goals_for": 3,
+                "goals_against": 3,
+                "goal_difference": 0,
+                "points": 2,
+            },
+            {
+                "team": "Team C",
+                "played": 2,
+                "wins": 0,
+                "draws": 2,
+                "losses": 0,
+                "goals_for": 2,
+                "goals_against": 2,
+                "goal_difference": 0,
+                "points": 2,
+            },
+            {
+                "team": "Team B",
+                "played": 2,
+                "wins": 0,
+                "draws": 2,
+                "losses": 0,
+                "goals_for": 1,
+                "goals_against": 1,
+                "goal_difference": 0,
+                "points": 2,
+            },
         ],
     },
     {
@@ -87,10 +149,50 @@ STANDINGS_SCENARIOS = [
             match("Team B", "Team D", 1, 1),  # Draw
         ],
         "expected": [
-            {"team": "Team A", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 5, "goals_against": 1, "goal_difference": 4, "points": 4},
-            {"team": "Team C", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 2, "goals_against": 1, "goal_difference": 1, "points": 4},
-            {"team": "Team D", "played": 2, "wins": 0, "draws": 1, "losses": 1, "goals_for": 1, "goals_against": 2, "goal_difference": -1, "points": 1},
-            {"team": "Team B", "played": 2, "wins": 0, "draws": 1, "losses": 1, "goals_for": 1, "goals_against": 5, "goal_difference": -4, "points": 1},
+            {
+                "team": "Team A",
+                "played": 2,
+                "wins": 1,
+                "draws": 1,
+                "losses": 0,
+                "goals_for": 5,
+                "goals_against": 1,
+                "goal_difference": 4,
+                "points": 4,
+            },
+            {
+                "team": "Team C",
+                "played": 2,
+                "wins": 1,
+                "draws": 1,
+                "losses": 0,
+                "goals_for": 2,
+                "goals_against": 1,
+                "goal_difference": 1,
+                "points": 4,
+            },
+            {
+                "team": "Team D",
+                "played": 2,
+                "wins": 0,
+                "draws": 1,
+                "losses": 1,
+                "goals_for": 1,
+                "goals_against": 2,
+                "goal_difference": -1,
+                "points": 1,
+            },
+            {
+                "team": "Team B",
+                "played": 2,
+                "wins": 0,
+                "draws": 1,
+                "losses": 1,
+                "goals_for": 1,
+                "goals_against": 5,
+                "goal_difference": -4,
+                "points": 1,
+            },
         ],
     },
     {
@@ -101,10 +203,50 @@ STANDINGS_SCENARIOS = [
             match("Team C", "Team D", 4, 3),  # C wins, scores 4
         ],
         "expected": [
-            {"team": "Team C", "played": 1, "wins": 1, "draws": 0, "losses": 0, "goals_for": 4, "goals_against": 3, "goal_difference": 1, "points": 3},
-            {"team": "Team A", "played": 1, "wins": 1, "draws": 0, "losses": 0, "goals_for": 3, "goals_against": 2, "goal_difference": 1, "points": 3},
-            {"team": "Team D", "played": 1, "wins": 0, "draws": 0, "losses": 1, "goals_for": 3, "goals_against": 4, "goal_difference": -1, "points": 0},
-            {"team": "Team B", "played": 1, "wins": 0, "draws": 0, "losses": 1, "goals_for": 2, "goals_against": 3, "goal_difference": -1, "points": 0},
+            {
+                "team": "Team C",
+                "played": 1,
+                "wins": 1,
+                "draws": 0,
+                "losses": 0,
+                "goals_for": 4,
+                "goals_against": 3,
+                "goal_difference": 1,
+                "points": 3,
+            },
+            {
+                "team": "Team A",
+                "played": 1,
+                "wins": 1,
+                "draws": 0,
+                "losses": 0,
+                "goals_for": 3,
+                "goals_against": 2,
+                "goal_difference": 1,
+                "points": 3,
+            },
+            {
+                "team": "Team D",
+                "played": 1,
+                "wins": 0,
+                "draws": 0,
+                "losses": 1,
+                "goals_for": 3,
+                "goals_against": 4,
+                "goal_difference": -1,
+                "points": 0,
+            },
+            {
+                "team": "Team B",
+                "played": 1,
+                "wins": 0,
+                "draws": 0,
+                "losses": 1,
+                "goals_for": 2,
+                "goals_against": 3,
+                "goal_difference": -1,
+                "points": 0,
+            },
         ],
     },
     {
@@ -118,8 +260,28 @@ STANDINGS_SCENARIOS = [
         "description": "One match creates two team entries",
         "matches": [match("Team A", "Team B", 0, 0)],
         "expected": [
-            {"team": "Team A", "played": 1, "wins": 0, "draws": 1, "losses": 0, "goals_for": 0, "goals_against": 0, "goal_difference": 0, "points": 1},
-            {"team": "Team B", "played": 1, "wins": 0, "draws": 1, "losses": 0, "goals_for": 0, "goals_against": 0, "goal_difference": 0, "points": 1},
+            {
+                "team": "Team A",
+                "played": 1,
+                "wins": 0,
+                "draws": 1,
+                "losses": 0,
+                "goals_for": 0,
+                "goals_against": 0,
+                "goal_difference": 0,
+                "points": 1,
+            },
+            {
+                "team": "Team B",
+                "played": 1,
+                "wins": 0,
+                "draws": 1,
+                "losses": 0,
+                "goals_for": 0,
+                "goals_against": 0,
+                "goal_difference": 0,
+                "points": 1,
+            },
         ],
     },
     {
@@ -131,9 +293,39 @@ STANDINGS_SCENARIOS = [
             match("Team A", "Team C", 5, 5),
         ],
         "expected": [
-            {"team": "Team A", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 14, "goals_against": 5, "goal_difference": 9, "points": 4},
-            {"team": "Team C", "played": 2, "wins": 1, "draws": 1, "losses": 0, "goals_for": 13, "goals_against": 5, "goal_difference": 8, "points": 4},
-            {"team": "Team B", "played": 2, "wins": 0, "draws": 0, "losses": 2, "goals_for": 0, "goals_against": 17, "goal_difference": -17, "points": 0},
+            {
+                "team": "Team A",
+                "played": 2,
+                "wins": 1,
+                "draws": 1,
+                "losses": 0,
+                "goals_for": 14,
+                "goals_against": 5,
+                "goal_difference": 9,
+                "points": 4,
+            },
+            {
+                "team": "Team C",
+                "played": 2,
+                "wins": 1,
+                "draws": 1,
+                "losses": 0,
+                "goals_for": 13,
+                "goals_against": 5,
+                "goal_difference": 8,
+                "points": 4,
+            },
+            {
+                "team": "Team B",
+                "played": 2,
+                "wins": 0,
+                "draws": 0,
+                "losses": 2,
+                "goals_for": 0,
+                "goals_against": 17,
+                "goal_difference": -17,
+                "points": 0,
+            },
         ],
     },
     {
@@ -145,8 +337,28 @@ STANDINGS_SCENARIOS = [
             match("Team B", "Team C", 1, None),  # Partial score
         ],
         "expected": [
-            {"team": "Team A", "played": 1, "wins": 1, "draws": 0, "losses": 0, "goals_for": 2, "goals_against": 1, "goal_difference": 1, "points": 3},
-            {"team": "Team B", "played": 1, "wins": 0, "draws": 0, "losses": 1, "goals_for": 1, "goals_against": 2, "goal_difference": -1, "points": 0},
+            {
+                "team": "Team A",
+                "played": 1,
+                "wins": 1,
+                "draws": 0,
+                "losses": 0,
+                "goals_for": 2,
+                "goals_against": 1,
+                "goal_difference": 1,
+                "points": 3,
+            },
+            {
+                "team": "Team B",
+                "played": 1,
+                "wins": 0,
+                "draws": 0,
+                "losses": 1,
+                "goals_for": 1,
+                "goals_against": 2,
+                "goal_difference": -1,
+                "points": 0,
+            },
         ],
     },
 ]
@@ -204,20 +416,35 @@ class TestFilterCompletedMatches:
 
 
 @pytest.mark.unit
-class TestFilterSameDivisionMatches:
-    """Test filter_same_division_matches() pure function."""
+class TestFilterMatchesInDivision:
+    """Test filter_matches_in_division() pure function."""
 
-    def test_filters_cross_division(self):
-        """Cross-division matches are excluded."""
+    def test_keeps_only_matches_filed_to_the_division(self):
         matches = [
-            match("A", "B", 1, 0, home_div=1, away_div=1),
-            match("A", "C", 2, 0, home_div=1, away_div=2),  # Cross-division
-            match("C", "D", 1, 1, home_div=2, away_div=2),
+            match("A", "B", 1, 0, division_id=1),
+            match("A", "C", 2, 0, division_id=2),
+            match("C", "D", 1, 1, division_id=2),
         ]
-        result = filter_same_division_matches(matches, division_id=1)
+        result = filter_matches_in_division(matches, division_id=1)
         assert len(result) == 1
         assert result[0]["home_team"]["name"] == "A"
         assert result[0]["away_team"]["name"] == "B"
+
+    def test_the_teams_home_division_is_not_the_test(self):
+        """SB-835: this used to require both teams' teams.division_id to match.
+
+        A Flex bracket is Homegrown teams playing a Flex competition, so that
+        test kept none of them and every Flex table was empty. It also dropped
+        88 New England U14 matches in 2025-2026, whose clubs are recorded under
+        Northeast because a team row holds one division for every age group.
+        """
+        matches = [match("A", "B", 3, 1, home_div=1, away_div=294, division_id=309)]
+        assert filter_matches_in_division(matches, division_id=309) == matches
+
+    def test_a_match_with_no_division_belongs_to_none(self):
+        # Friendlies and tournament fixtures legitimately carry no division.
+        matches = [match("A", "B", 1, 0, division_id=None)]
+        assert filter_matches_in_division(matches, division_id=1) == []
 
 
 @pytest.mark.unit
