@@ -263,6 +263,8 @@ mt match show 1190                     # status, lineups, events
 mt player stats 42
 mt search --age U15 --days 30
 mt match start 1053                    # live scoring: goal, message, halftime, end
+mt team mapping list "NEFC"            # which age groups a team is registered in
+mt team mapping add "NEFC" -a U16 -d Northeast
 mt ingest failures                     # what the scraper could not resolve
 mt ingest resolve 1 --note "fixed at the sender"
 ```
@@ -296,6 +298,12 @@ it; **matches default to every competition**, because a schedule that hides
 fixtures is the surprise. `qualifying` is the union of the match types flagged
 `counts_for_qualification` (SB-849) — read from the API, never a hardcoded list,
 so the Matches chips, `mt` and the standings always agree.
+
+A team's `age_groups` come **entirely** from `team_mappings`, and every
+age-group team picker filters on that. A team with matches at an age group it
+is not registered in is invisible there — which is why ingest now writes the
+registration itself (SB-852). `mt team mapping` is the way to correct one by
+hand.
 
 **Only `live`, `completed` and `forfeit` matches count towards season stats**
 (SB-671). `mt team matches` prints the status precisely so a "why is GP wrong"

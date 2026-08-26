@@ -775,6 +775,48 @@ class TeamDAO(BaseDAO):
         return bool(response.data)
 
     @invalidates_cache(TEAMS_CACHE_PATTERN)
+    def ensure_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> bool:
+        """Register a team in an age group and division if it is not already.
+
+        Idempotent, and deliberately narrower than create_team_mapping: it
+        writes the team_mappings row and nothing else. The ingest path calls
+        this per match, and create_team_mapping also rewrites
+        teams.league_id/division_id — which SB-835 showed cannot represent a
+        club that plays different divisions at different age groups, so having
+        a match ingest churn them would make that worse.
+
+        Returns True when a row was created.
+
+        Never raises: a match landing matters more than its registration row,
+        and this runs inside match ingest.
+        """
+        try:
+            existing = (
+                self.client.table("team_mappings")
+                .select("id")
+                .eq("team_id", team_id)
+                .eq("age_group_id", age_group_id)
+                .eq("division_id", division_id)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                return False
+
+            self.client.table("team_mappings").insert(
+                {"team_id": team_id, "age_group_id": age_group_id, "division_id": division_id}
+            ).execute()
+            return True
+        except Exception:
+            logger.exception(
+                "Could not ensure team mapping",
+                team_id=team_id,
+                age_group_id=age_group_id,
+                division_id=division_id,
+            )
+            return False
+
+    @invalidates_cache(TEAMS_CACHE_PATTERN)
     def create_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> dict:
         """Create a team mapping, update team's league_id, and enable League match participation.
 

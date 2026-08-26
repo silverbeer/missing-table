@@ -50,6 +50,7 @@ team_app = typer.Typer(help="Team stats, matches, and admin edits")
 player_app = typer.Typer(help="Player stats (read-only)")
 club_app = typer.Typer(help="Club admin: create and rename")
 alias_app = typer.Typer(help="Team name aliases (admin)")
+mapping_app = typer.Typer(help="Team age-group / division registrations (admin)")
 ingest_app = typer.Typer(help="Ingest failures: what the scraper could not resolve (admin)")
 app.add_typer(match_app, name="match")
 app.add_typer(tournament_app, name="tournament")
@@ -57,6 +58,7 @@ app.add_typer(team_app, name="team")
 app.add_typer(player_app, name="player")
 app.add_typer(club_app, name="club")
 team_app.add_typer(alias_app, name="alias")
+team_app.add_typer(mapping_app, name="mapping")
 app.add_typer(ingest_app, name="ingest")
 console = Console()
 
@@ -1743,6 +1745,96 @@ def team_create(
     team_row = created.get("team", created)
     console.print(f"[green]Created team #{team_row.get('id')}:[/green] {name}")
     console.print(f"[dim]division {division_id}, age groups {age_group_ids}, club {(club_row or {}).get('id')}[/dim]")
+
+
+def _mapping_rows(team: dict) -> list[dict]:
+    """The team's registrations, flattened for display."""
+    rows = []
+    for mapping in team.get("team_mappings") or []:
+        age_group = mapping.get("age_groups") or {}
+        division = mapping.get("divisions") or {}
+        rows.append(
+            {
+                "age_group": age_group.get("name") or "?",
+                "age_group_id": age_group.get("id"),
+                "division": division.get("name") or "?",
+                "division_id": division.get("id"),
+                "league": (division.get("leagues") or {}).get("name") or "?",
+            }
+        )
+    return sorted(rows, key=lambda r: (r["age_group"], r["league"], r["division"]))
+
+
+def _print_mappings(team: dict) -> None:
+    rows = _mapping_rows(team)
+    if not rows:
+        console.print(f"[yellow]{team.get('name')} is registered in no age group.[/yellow]")
+        console.print("[dim]It will not appear in any age-group team picker until it is.[/dim]")
+        return
+
+    table = Table(title=f"Registrations — {team.get('name')}")
+    table.add_column("Age Group", style="cyan", no_wrap=True)
+    table.add_column("League", style="white")
+    table.add_column("Division", style="white")
+    for row in rows:
+        table.add_row(row["age_group"], row["league"], row["division"])
+    console.print(table)
+
+
+@mapping_app.command("list")
+def team_mapping_list(team: str = typer.Argument(..., help="Team name or id")):
+    """Which age groups and divisions a team is registered in.
+
+    This is what /api/teams turns into a team's age_groups, and what every
+    age-group team picker filters on. A team with matches at an age group it is
+    not registered in is invisible there (SB-852).
+    """
+    client, _ = get_client()
+    _print_mappings(_api(resolve_team, client, team))
+
+
+@mapping_app.command("add")
+def team_mapping_add(
+    team: str = typer.Argument(..., help="Team name or id"),
+    age: str = typer.Option(..., "--age", "-a", help="Age group, e.g. U15"),
+    division: str = typer.Option(..., "--division", "-d", help="Division name or id"),
+):
+    """Register a team in an age group and division."""
+    client, _ = get_client()
+
+    team_row = _api(resolve_team, client, team)
+    age_group_id = _resolve_age_group_id(client, age)
+    division_id = _api(_resolve_division_id, client, division)
+
+    _api(client.create_team_mapping, team_row["id"], age_group_id, division_id)
+    console.print(f"[green]Registered {team_row.get('name')}[/green] · {age} · division {division_id}")
+
+    # Re-read and print rather than claim success and stop. The Admin UI's
+    # equivalent shows a stale list after writing, which reads as a failed save
+    # and invites a duplicate attempt — worth not repeating here.
+    _print_mappings(_api(resolve_team, client, team_row["id"]))
+
+
+@mapping_app.command("remove")
+def team_mapping_remove(
+    team: str = typer.Argument(..., help="Team name or id"),
+    age: str = typer.Option(..., "--age", "-a", help="Age group, e.g. U15"),
+    division: str = typer.Option(..., "--division", "-d", help="Division name or id"),
+):
+    """Remove a team's registration in an age group and division.
+
+    The matches stay. This only says the team no longer plays there, which is
+    what the age-group pickers read.
+    """
+    client, _ = get_client()
+
+    team_row = _api(resolve_team, client, team)
+    age_group_id = _resolve_age_group_id(client, age)
+    division_id = _api(_resolve_division_id, client, division)
+
+    _api(client.delete_team_mapping, team_row["id"], age_group_id, division_id)
+    console.print(f"[green]Removed registration[/green] {team_row.get('name')} · {age} · division {division_id}")
+    _print_mappings(_api(resolve_team, client, team_row["id"]))
 
 
 @club_app.command("list")
