@@ -6739,6 +6739,35 @@ async def reconcile_team_names(
         raise HTTPException(status_code=500, detail="Could not reconcile team names") from e
 
 
+# How long an open ingest failure has to go unseen before the API flags it.
+#
+# A hint, never a decision: "absent" and "fixed" are not the same thing, and a
+# genuine problem that simply was not scraped this week must not auto-close. It
+# exists so the run report can de-emphasise a row rather than keep crying wolf
+# about it (SB-845).
+DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS = 7
+
+
+def ingest_failure_stale_after_days() -> int:
+    try:
+        return int(os.getenv("MT_INGEST_STALE_AFTER_DAYS", DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS))
+    except ValueError:
+        return DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS
+
+
+def _last_seen_before(last_seen: str | None, cutoff: datetime) -> bool:
+    """Whether a row's last_seen predates the cutoff. Unparseable reads as fresh."""
+    if not last_seen:
+        return False
+    try:
+        seen = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=UTC)
+    return seen < cutoff
+
+
 @app.get("/api/admin/ingest-failures")
 async def get_ingest_failures(
     since: str | None = None,
@@ -6760,18 +6789,77 @@ async def get_ingest_failures(
             scraper run passes the time it started, so it reports what this
             run cost rather than every name that has ever been wrong.
         limit: Maximum rows (default 200).
+
+    Each row carries `stale`: true when it has not been seen for
+    `stale_after_days`. That is a hint for de-emphasising a row, not a
+    judgement that it is fixed — a name fixed at the *sender* looks identical
+    to one that simply was not scraped this week. Closing a row is a person's
+    call: PATCH /api/admin/ingest-failures/{id}.
     """
     try:
         failures = ingest_failures_dao.open_failures(since=since, limit=limit)
+        stale_after = ingest_failure_stale_after_days()
+        cutoff = datetime.now(UTC) - timedelta(days=stale_after)
+
+        for failure in failures:
+            failure["stale"] = _last_seen_before(failure.get("last_seen"), cutoff)
+
+        stale = [f for f in failures if f["stale"]]
         return {
             "failures": failures,
             "count": len(failures),
             "matches_dropped": sum(f.get("match_count", 0) for f in failures),
+            "stale_count": len(stale),
+            "stale_after_days": stale_after,
             "since": since,
         }
     except Exception as e:
         logger.error(f"Error reading ingest failures: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not read ingest failures") from e
+
+
+class IngestFailureResolve(BaseModel):
+    """Why a person is closing an ingest failure."""
+
+    note: str | None = Field(
+        None,
+        max_length=500,
+        description='Why it was closed. "Fixed at the sender" and "not a real team" are different outcomes.',
+    )
+
+
+@app.patch("/api/admin/ingest-failures/{failure_id}")
+async def resolve_ingest_failure(
+    failure_id: int,
+    body: IngestFailureResolve | None = None,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Close an ingest failure by hand (SB-845).
+
+    The automatic resolve fires when the same name later resolves, which is the
+    right answer when the fix was to teach MT about the name. It cannot help
+    when the fix was to stop *sending* it: that string is never submitted again,
+    nothing triggers the resolve, and the row is reported on every future run as
+    a problem that no longer exists.
+
+    Admin only, not service accounts — this is a human deciding that a name is
+    no longer a problem, and the decision is recorded rather than the row being
+    deleted.
+    """
+    try:
+        row = ingest_failures_dao.resolve_by_id(
+            failure_id,
+            resolved_by=current_user.get("user_id"),
+            note=(body.note if body else None),
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"No ingest failure with id {failure_id}")
+        return row
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resolving ingest failure: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not resolve ingest failure") from e
 
 
 @app.delete("/api/admin/cache")

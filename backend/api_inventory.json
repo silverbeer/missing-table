@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-26T22:26:53.959798+00:00",
+  "generated_at": "2026-08-26T22:37:45.898393+00:00",
   "excluded_endpoints": [
     {
       "method": "POST",
@@ -265,10 +265,18 @@
     {
       "method": "GET",
       "path": "/api/admin/ingest-failures",
-      "client_method": null,
-      "client_file": null,
+      "client_method": "get_ingest_failures",
+      "client_file": "api_client/client.py",
       "tests": [],
-      "coverage_status": "missing_client"
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/ingest-failures/{failure_id}",
+      "client_method": "resolve_ingest_failure",
+      "client_file": "api_client/client.py",
+      "tests": [],
+      "coverage_status": "client_only"
     },
     {
       "method": "GET",
@@ -15455,15 +15463,15 @@
     }
   ],
   "summary": {
-    "total_endpoints": 214,
+    "total_endpoints": 215,
     "excluded": 3,
-    "with_client_method": 140,
+    "with_client_method": 142,
     "with_tests": 136,
-    "without_tests": 8,
+    "without_tests": 10,
     "coverage_status": {
       "fully_covered": 132,
-      "missing_client": 71,
-      "client_only": 8
+      "missing_client": 70,
+      "client_only": 10
     }
   }
 }

@@ -250,6 +250,8 @@ mt match show 1190                     # status, lineups, events
 mt player stats 42
 mt search --age U15 --days 30
 mt match start 1053                    # live scoring: goal, message, halftime, end
+mt ingest failures                     # what the scraper could not resolve
+mt ingest resolve 1 --note "fixed at the sender"
 ```
 
 ### Login
