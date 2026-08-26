@@ -1,5 +1,13 @@
-# Celery worker for the LOCAL queue, running on the M4 Mac k3s
-# (`rancher-desktop`) against the local Supabase.
+# Celery worker for the `matches` queue, running on the M4 Mac k3s
+# (`rancher-desktop`).
+#
+# NAME WARNING: "-local" is the QUEUE, not the database. This worker writes to
+# the SAME cloud Supabase as the -prod worker — verified 2026-08-26, when a
+# load published here landed nine fixtures in production. There is currently
+# no worker pointing at a local database at all.
+#
+# That is why it carries the ingest-failure alert config: anything it drops is
+# dropped from production.
 #
 # Sibling: deployment-prod.yaml is the production-queue worker, which runs in
 # the SAME namespace against cloud Supabase. The two are told apart by the
@@ -107,9 +115,9 @@ spec:
               key: SERVICE_ACCOUNT_SECRET
 
         # --- Ingest failure alerts (SB-829) ---
-        # Normally unset locally, which is fine: the failure is still recorded
-        # in ingest_failures and readable at GET /api/admin/ingest-failures.
-        # Set them to rehearse the alert before trusting it in prod.
+        # Set, because this worker writes to the cloud database — a name it
+        # cannot resolve is a fixture missing from production. It ran without
+        # these on 2026-08-26 and dropped a match silently.
         - name: TELEGRAM_BOT_TOKEN
           valueFrom:
             secretKeyRef:
@@ -122,6 +130,13 @@ spec:
             configMapKeyRef:
               name: missing-table-worker-config
               key: MT_ADMIN_TELEGRAM_CHAT_ID
+              optional: true
+
+        - name: MT_INGEST_ALERT_MAX_PER_HOUR
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-config
+              key: MT_INGEST_ALERT_MAX_PER_HOUR
               optional: true
 
         # Application Configuration
