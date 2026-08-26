@@ -1,5 +1,6 @@
 import asyncio
 import os
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -9,7 +10,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials
 from gotrue.errors import AuthApiError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import r2_client
 from api.admin_attention import router as admin_attention_router
@@ -6624,6 +6625,68 @@ async def get_cache_stats(current_user: dict[str, Any] = Depends(require_admin))
     except Exception as e:
         logger.error(f"Error getting cache stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+class TeamReconcileRequest(BaseModel):
+    """Names to check against MT, from a feed about to be loaded."""
+
+    names: list[str] = Field(..., min_length=1, max_length=500)
+    league: str | None = Field(
+        None,
+        description="League name as the feed spells it. Scopes alias resolution — "
+        "the same string can point at different teams in different leagues.",
+    )
+
+
+@app.post("/api/teams/reconcile")
+async def reconcile_team_names(
+    request: TeamReconcileRequest,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Report which team names MT already knows. Creates nothing (SB-823).
+
+    Lets a load be dry-run before it writes. The failure this prevents is not a
+    crash: on the tournament path an unknown name silently CREATES a
+    lightweight team, which is how a duplicate IFA appeared and had to be
+    merged back by hand.
+
+    Per name: `known` (matches teams.name), `alias` (resolved via team_aliases
+    to a different canonical name) or `unknown`, with near-matches for the
+    unknowns.
+
+    Deliberately does not guess whether an unknown name is a rename or a new
+    club. That is a human judgement — the evidence that "Red Bull New York"
+    was a rename was its crest still being served from
+    kitman.imgix.net/newyorkredbulls/, which no string comparison would think
+    to check. This surfaces the candidates; a person decides, and the decision
+    becomes an alias so the next run does not re-ask.
+
+    Open to service accounts with manage_matches so match-scraper can call it,
+    matching the auth on the match-submission endpoints.
+    """
+    try:
+        league_id = None
+        if request.league:
+            league_record = league_dao.get_league_by_name(request.league)
+            if league_record:
+                league_id = league_record["id"]
+            else:
+                logger.warning("Reconcile: unknown league, alias resolution unscoped", league=request.league)
+
+        results = team_dao.reconcile_names(request.names, league_id=league_id)
+        counts = Counter(r["status"] for r in results)
+        return {
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "known": counts.get("known", 0),
+                "alias": counts.get("alias", 0),
+                "unknown": counts.get("unknown", 0),
+            },
+        }
+    except Exception as e:
+        logger.error(f"Error reconciling team names: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not reconcile team names") from e
 
 
 @app.get("/api/admin/ingest-failures")

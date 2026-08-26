@@ -308,6 +308,89 @@ class TeamDAO(BaseDAO):
             )
         return resolved
 
+    # Words too generic to be a useful near-match signal — every other club is
+    # a "Soccer Club" and matching on that returns noise, not candidates.
+    _SIMILAR_STOPWORDS = frozenset(
+        {"city", "club", "team", "boys", "girls", "academy", "united", "soccer", "football"}
+    )
+
+    def reconcile_names(self, names: list[str], league_id: int | None = None, similar_limit: int = 5) -> list[dict]:
+        """Report which of these names MT already knows. Creates nothing (SB-823).
+
+        The point is to let a load be dry-run before it writes. The failure this
+        prevents is not a crash — it is `get_or_create_opponent_team` quietly
+        inventing a lightweight team on a miss, which is how a duplicate IFA
+        appeared and had to be merged back by hand.
+
+        Each result carries a status:
+          known    the name matches teams.name outright
+          alias    it resolved through team_aliases to a different canonical name
+          unknown  MT has never seen it
+
+        `alias` is reported separately from `known` on purpose. Both mean "will
+        resolve", but an alias hit tells the reader the feed and the database
+        disagree on spelling, which is worth seeing even when nothing is broken.
+
+        For unknown names, near-matches are returned. A name one word away from
+        an existing team is the signal a human needs — and this endpoint
+        deliberately does NOT guess from it. Whether "Red Bull New York" is a
+        rename of "New York Red Bulls" or a new club is a human judgement; the
+        evidence that settled it was the crest still being served from
+        kitman.imgix.net/newyorkredbulls/, which no string comparison would
+        think to look at.
+        """
+        results: list[dict] = []
+        for raw in names:
+            normalized = " ".join((raw or "").strip().split())
+            if not normalized:
+                results.append({"name": raw, "status": "unknown", "similar": []})
+                continue
+
+            direct = self.get_team_by_name(normalized)
+            if direct:
+                results.append(
+                    {"name": raw, "status": "known", "team_id": direct["id"], "team_name": direct["name"]}
+                )
+                continue
+
+            resolved = self.resolve_team_by_name(normalized, league_id=league_id)
+            if resolved:
+                results.append(
+                    {"name": raw, "status": "alias", "team_id": resolved["id"], "team_name": resolved.get("name")}
+                )
+                continue
+
+            results.append(
+                {"name": raw, "status": "unknown", "similar": self._similar_teams(normalized, similar_limit)}
+            )
+
+        return results
+
+    def _similar_teams(self, normalized: str, limit: int) -> list[dict]:
+        """Teams whose name shares a significant word with this one."""
+        words = [w for w in normalized.split() if len(w) >= 4 and w.lower() not in self._SIMILAR_STOPWORDS]
+        seen: set[int] = set()
+        out: list[dict] = []
+        for word in words:
+            try:
+                rows = (
+                    self.client.table("teams")
+                    .select("id, name, club_id, division_id")
+                    .ilike("name", f"%{word}%")
+                    .limit(limit)
+                    .execute()
+                ).data or []
+            except Exception:
+                logger.exception("Near-match lookup failed", word=word)
+                continue
+            for row in rows:
+                if row["id"] not in seen:
+                    seen.add(row["id"])
+                    out.append(row)
+            if len(out) >= limit:
+                break
+        return out[:limit]
+
     @invalidates_cache(TEAMS_CACHE_PATTERN)
     def add_team_alias(
         self,
