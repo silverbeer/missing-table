@@ -27,13 +27,22 @@ runner = CliRunner()
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
-    """Point the config and state files at a temp dir, and clear the override."""
+    """Point every file mt_cli reads at a temp dir, and clear the override.
+
+    BACKEND_DIR is redirected too, so `.env.local` and `.env.prod` are the ones
+    written here. Reading the developer's real env files would make these tests
+    pass or fail on whether someone happens to have a `.env.prod` — which is
+    exactly how the first version of this file went green locally and red in CI.
+    """
     config = tmp_path / ".mt-config"
     state = tmp_path / ".mt-cli-state.json"
     monkeypatch.setattr(mt_cli, "MT_CONFIG_FILE", config)
     monkeypatch.setattr(mt_cli, "STATE_FILE", state)
+    monkeypatch.setattr(mt_cli, "BACKEND_DIR", tmp_path)
     monkeypatch.setattr(mt_cli, "_ENV_OVERRIDE", None)
     monkeypatch.delenv("APP_ENV", raising=False)
+    (tmp_path / ".env.local").write_text("BACKEND_URL=http://localhost:8000\n")
+    (tmp_path / ".env.prod").write_text("BACKEND_URL=https://api.missingtable.com\n")
     return config, state
 
 
