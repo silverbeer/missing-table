@@ -312,6 +312,7 @@ class MatchDAO(BaseDAO):
         match_id: str | None = None,
         age_group_id: int = 1,
         division_id: int | None = None,
+        match_type_id: int | None = None,
         scheduled_kickoff: str | None = None,
     ) -> int | None:
         """Create a new match with pre-resolved IDs.
@@ -331,6 +332,11 @@ class MatchDAO(BaseDAO):
             match_id: External match ID for deduplication (optional)
             age_group_id: Database ID of age group (default: 1)
             division_id: Database ID of division (optional)
+            match_type_id: Database ID of competition. Defaults to League when
+                the caller does not know — but a caller reading a feed does
+                know, and passing None used to be the only option: this method
+                hardcoded League, which is how 68 Flex fixtures were created as
+                League matches (SB-846/SB-847).
 
         Returns:
             Created match ID, or None on failure
@@ -341,7 +347,10 @@ class MatchDAO(BaseDAO):
                 logger.error("Division is required for match-scraper sourced matches but was not provided")
                 raise ValueError("Division is required for match-scraper sourced matches")
 
-            match_type_id = 1  # Default League
+            # League when unstated. Every caller that reads a competition from
+            # a feed should pass one; the default is for manual creation paths
+            # that have no competition to read.
+            match_type_id = match_type_id or 1
 
             data = {
                 "match_date": match_date,

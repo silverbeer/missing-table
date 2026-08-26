@@ -20,6 +20,7 @@ from celery_tasks.validation_tasks import validate_match_data
 from dao.ingest_failures_dao import IngestFailuresDAO
 from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
+from dao.match_type_dao import MatchTypeDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
 from logging_config import get_logger
@@ -41,6 +42,7 @@ class DatabaseTask(Task):
     _team_dao = None
     _season_dao = None
     _league_dao = None
+    _match_type_dao = None
     _ingest_failures_dao = None
 
     # Names this worker has already confirmed good, so the "did this name used
@@ -86,6 +88,15 @@ class DatabaseTask(Task):
         return self._league_dao
 
     @property
+    def match_type_dao(self):
+        """Lazy initialization of MatchTypeDAO for competition lookups."""
+        if self._match_type_dao is None:
+            if self._connection is None:
+                self._connection = SupabaseConnection()
+            self._match_type_dao = MatchTypeDAO(self._connection)
+        return self._match_type_dao
+
+    @property
     def ingest_failures_dao(self):
         """Lazy initialization of IngestFailuresDAO for unresolved-name reporting."""
         if self._ingest_failures_dao is None:
@@ -126,12 +137,40 @@ class DatabaseTask(Task):
             return utc_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         return None
 
+    def _match_type_label(self, match_type_id: int | None) -> str:
+        """A competition's name for a log line, falling back to its id."""
+        if match_type_id is None:
+            return "none"
+        row = self.match_type_dao.get_match_type_by_id(match_type_id)
+        return (row or {}).get("name") or str(match_type_id)
+
+    @staticmethod
+    def _feed_owns_filing(existing_match: dict[str, Any]) -> bool:
+        """Whether the feed gets to re-file this match's competition and division.
+
+        Scraped data wins on results, and competition and division arrive from
+        the feed the same way scores do — so a correction should land. A match
+        somebody entered by hand is the exception: a friendly recorded against
+        a league fixture's external id is a deliberate choice, and silently
+        re-filing it would be the product overruling its user.
+
+        Adoption flips the answer rather than being a special case — populating
+        an external id on a manual match stamps source='match-scraper' — so
+        this reads the row's current owner, not how it was born.
+
+        A row with no source at all predates the column's use on this path and
+        is treated as the feed's, which is what it is.
+        """
+        return (existing_match.get("source") or "match-scraper") == "match-scraper"
+
     def _check_needs_update(
         self,
         existing_match: dict[str, Any],
         new_data: dict[str, Any],
         home_team_id: int,
         away_team_id: int,
+        match_type_id: int | None = None,
+        division_id: int | None = None,
     ) -> bool:
         """
         Check if the existing match needs to be updated based on new data.
@@ -141,13 +180,28 @@ class DatabaseTask(Task):
         - Status changed (scheduled → tbd, tbd → completed, etc.)
         - Scores changed (were null, now have values)
         - Scores were updated (different values)
+        - Competition or division changed (SB-847)
 
         Status transition examples:
         - scheduled → tbd: Match played, awaiting score
         - tbd → tbd: No change (skip)
         - tbd → completed: Score posted (update with scores)
         - scheduled → completed: Direct completion (skip tbd)
+
+        Competition and division were not compared until SB-847, which made a
+        wrongly-filed match impossible to correct by re-scraping: the row was
+        found, nothing recognised as changed, and the run reported success. 68
+        Flex fixtures sat in prod as League through three clean re-submits.
         """
+        # Check competition / division re-filing (SB-847)
+        if self._feed_owns_filing(existing_match):
+            if match_type_id is not None and existing_match.get("match_type_id") != match_type_id:
+                logger.debug(f"match_type changed: {existing_match.get('match_type_id')} → {match_type_id}")
+                return True
+            if division_id is not None and existing_match.get("division_id") != division_id:
+                logger.debug(f"division changed: {existing_match.get('division_id')} → {division_id}")
+                return True
+
         # Check home/away team swap
         if existing_match.get("home_team_id") != home_team_id or existing_match.get("away_team_id") != away_team_id:
             logger.debug(
@@ -199,18 +253,39 @@ class DatabaseTask(Task):
         new_data: dict[str, Any],
         home_team_id: int | None = None,
         away_team_id: int | None = None,
+        match_type_id: int | None = None,
+        division_id: int | None = None,
     ) -> bool:
         """
-        Update an existing match's scores, status, and team assignments.
+        Update an existing match's scores, status, team assignments and filing.
 
-        Updates scores, status, match_date, scheduled_kickoff, and
-        home_team_id/away_team_id when a home/away swap is detected.
+        Updates scores, status, match_date, scheduled_kickoff,
+        home_team_id/away_team_id when a home/away swap is detected, and
+        match_type_id/division_id when the feed re-files the match (SB-847).
         """
         try:
             match_id = existing_match["id"]
 
             # Prepare update data
             update_data: dict[str, object] = {}
+
+            # Correct competition and division. Logged by name, not id: a line
+            # reading "match_type corrected: 1 → 5" tells nobody that a fixture
+            # moved from League to Flex, and the whole point of this is that a
+            # competition move stops being silent.
+            if self._feed_owns_filing(existing_match):
+                if match_type_id is not None and match_type_id != existing_match.get("match_type_id"):
+                    update_data["match_type_id"] = match_type_id
+                    logger.info(
+                        f"Match {match_id} match_type corrected: "
+                        f"{self._match_type_label(existing_match.get('match_type_id'))} → "
+                        f"{self._match_type_label(match_type_id)}"
+                    )
+                if division_id is not None and division_id != existing_match.get("division_id"):
+                    update_data["division_id"] = division_id
+                    logger.info(
+                        f"Match {match_id} division corrected: {existing_match.get('division_id')} → {division_id}"
+                    )
 
             # Correct home/away team swap if team IDs differ
             if home_team_id is not None and home_team_id != existing_match.get("home_team_id"):
@@ -376,6 +451,47 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         self._note_name_resolved("team", home_team_name, source)
         self._note_name_resolved("team", away_team_name, source)
 
+        # Step 2b: Resolve how the feed files this match — competition and
+        # division — before the create/update fork.
+        #
+        # Both used to be resolved only on the create branch, which is half of
+        # why a wrongly-filed match could not be corrected by re-scraping
+        # (SB-847). The other half was that create ignored the feed's
+        # competition entirely and wrote match_type_id 1: 68 Flex fixtures
+        # went into prod as League (SB-846) and three clean re-submits could
+        # not move them.
+        match_type_id = None
+        match_type_name = match_data.get("match_type")
+        if match_type_name:
+            match_type_record = self.match_type_dao.get_match_type_by_name(match_type_name)
+            if not match_type_record:
+                # Same reasoning as an unknown division below: defaulting to
+                # League is exactly the failure this ticket exists to end.
+                raise UnresolvedNameError(
+                    "match_type",
+                    match_type_name,
+                    league=league_name,
+                    sample=sample,
+                )
+            match_type_id = match_type_record["id"]
+            self._note_name_resolved("match_type", match_type_name, source)
+
+        division_id = None
+        if match_data.get("division"):
+            div_record = self.league_dao.get_division_by_name(match_data["division"], league_id=league_id)
+            if div_record:
+                division_id = div_record["id"]
+            else:
+                # Writing NULL here used to look like a warning and behave
+                # like data loss: get_league_table filters on division, so
+                # the match existed but appeared in no table at all.
+                raise UnresolvedNameError(
+                    "division",
+                    match_data["division"],
+                    league=league_name,
+                    sample=sample,
+                )
+
         # Step 3: Check if match already exists
         external_match_id = match_data.get("external_match_id")
         existing_match = None
@@ -429,14 +545,28 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         # Step 4: Insert or update match
         if existing_match:
             # Check if this is a score update
-            needs_update = self._check_needs_update(existing_match, match_data, home_team["id"], away_team["id"])
+            needs_update = self._check_needs_update(
+                existing_match,
+                match_data,
+                home_team["id"],
+                away_team["id"],
+                match_type_id=match_type_id,
+                division_id=division_id,
+            )
 
             if needs_update:
                 logger.info(
                     f"Updating existing match DB ID {existing_match['id']} (MLS ID: {external_match_id}): "
                     f"{home_team_name} vs {away_team_name}"
                 )
-                success = self._update_match_scores(existing_match, match_data, home_team["id"], away_team["id"])
+                success = self._update_match_scores(
+                    existing_match,
+                    match_data,
+                    home_team["id"],
+                    away_team["id"],
+                    match_type_id=match_type_id,
+                    division_id=division_id,
+                )
 
                 if success:
                     result = {
@@ -473,22 +603,6 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 else:
                     logger.warning(f"Age group '{match_data['age_group']}' not found, using default ID 1")
 
-            division_id_for_create = None
-            if match_data.get("division"):
-                div_record = self.league_dao.get_division_by_name(match_data["division"], league_id=league_id)
-                if div_record:
-                    division_id_for_create = div_record["id"]
-                else:
-                    # Writing NULL here used to look like a warning and behave
-                    # like data loss: get_league_table filters on division, so
-                    # the match existed but appeared in no table at all.
-                    raise UnresolvedNameError(
-                        "division",
-                        match_data["division"],
-                        league=league_name,
-                        sample=sample,
-                    )
-
             scheduled_kickoff = self._build_scheduled_kickoff(match_data)
 
             match_id = self.dao.create_match(
@@ -502,7 +616,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 source="match-scraper",
                 match_id=external_match_id,
                 age_group_id=age_group_id_for_create,
-                division_id=division_id_for_create,
+                division_id=division_id,
+                match_type_id=match_type_id,
                 scheduled_kickoff=scheduled_kickoff,
             )
             if match_id:

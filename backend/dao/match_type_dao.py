@@ -38,6 +38,24 @@ class MatchTypeDAO(BaseDAO):
             logger.exception("Error querying match types")
             return []
 
+    def get_match_type_by_name(self, name: str) -> dict | None:
+        """Get match type by name, case-insensitively, or None.
+
+        The feed names its competition per match ("League", "Flex") and the
+        ingest path has to turn that into an id. The comparison is exact apart
+        from case: a substring match would let "League" find
+        "League (Pro Player Pathway)" if one were ever added and file a whole
+        competition under the wrong id without a word.
+
+        Filtered in Python over the cached full list rather than queried,
+        because the table has five rows and a PostgREST `ilike` would treat a
+        `%` in a feed-supplied name as a wildcard.
+        """
+        if not name:
+            return None
+        needle = name.strip().lower()
+        return next((t for t in self.get_all_match_types() if (t.get("name") or "").lower() == needle), None)
+
     @dao_cache("match_types:by_id:{match_type_id}")
     def get_match_type_by_id(self, match_type_id: int) -> dict | None:
         """Get match type by ID."""

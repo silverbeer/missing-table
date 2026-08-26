@@ -12,12 +12,32 @@ import pytest
 from celery_tasks.exceptions import UnresolvedNameError
 from celery_tasks.match_tasks import DatabaseTask, process_match_data
 
+MATCH_TYPES = [
+    {"id": 1, "name": "League", "counts_for_qualification": True},
+    {"id": 5, "name": "Flex", "counts_for_qualification": True},
+    {"id": 3, "name": "Friendly", "counts_for_qualification": False},
+]
+
+
+def _match_type_dao_stub():
+    """A MatchTypeDAO stub that answers by name and by id, as the real one does."""
+    dao = MagicMock()
+    dao.get_all_match_types.return_value = MATCH_TYPES
+    dao.get_match_type_by_name.side_effect = lambda name: next(
+        (t for t in MATCH_TYPES if t["name"].lower() == (name or "").strip().lower()), None
+    )
+    dao.get_match_type_by_id.side_effect = lambda mtid: next((t for t in MATCH_TYPES if t["id"] == mtid), None)
+    return dao
+
 
 @pytest.fixture
 def task():
     """Create a DatabaseTask instance with a mocked DAO."""
     t = DatabaseTask()
     t._dao = MagicMock()
+    # Stubbed rather than left to the lazy property: _match_type_label reads it
+    # to log a correction by name, and a unit test must not open a connection.
+    t._match_type_dao = _match_type_dao_stub()
     return t
 
 
@@ -224,6 +244,108 @@ class TestUpdateMatchScores:
         assert update_payload["scheduled_kickoff"] == "2026-03-01T19:00:00+00:00"
 
 
+# ── competition and division re-filing (SB-847) ──────────────────────
+
+
+class TestFilingComparison:
+    """A re-scrape must be able to correct a wrongly-filed match.
+
+    68 Flex fixtures sat in prod as League through three clean re-submits:
+    every message was accepted, the worker found each match by external id,
+    recognised nothing as changed, and logged "Match unchanged". The run
+    reported success and nothing was different — the quietest failure there is.
+    """
+
+    HOME_ID, AWAY_ID = 10, 20
+
+    def _existing(self, **kwargs):
+        base = {
+            "id": 4060,
+            "match_status": "scheduled",
+            "home_score": None,
+            "away_score": None,
+            "scheduled_kickoff": None,
+            "home_team_id": self.HOME_ID,
+            "away_team_id": self.AWAY_ID,
+            "match_type_id": 1,
+            "division_id": 7,
+            "source": "match-scraper",
+        }
+        base.update(kwargs)
+        return base
+
+    def _check(self, task, existing, **kw):
+        return task._check_needs_update(existing, {"match_status": "scheduled"}, self.HOME_ID, self.AWAY_ID, **kw)
+
+    def test_a_changed_competition_needs_an_update(self, task):
+        assert self._check(task, self._existing(), match_type_id=5) is True
+
+    def test_a_changed_division_needs_an_update(self, task):
+        assert self._check(task, self._existing(), division_id=9) is True
+
+    def test_the_same_filing_is_still_unchanged(self, task):
+        assert self._check(task, self._existing(), match_type_id=1, division_id=7) is False
+
+    def test_a_feed_that_says_nothing_changes_nothing(self, task):
+        """No match_type/division in the payload must not read as 'clear them'."""
+        assert self._check(task, self._existing()) is False
+
+    def test_a_manual_match_is_not_re_filed(self, task):
+        """A friendly recorded against a league fixture's id is a choice, not a typo."""
+        assert self._check(task, self._existing(source="manual"), match_type_id=5, division_id=9) is False
+
+    def test_a_manual_match_still_gets_its_scores(self, task):
+        """The source gate covers filing only — scraped results still win."""
+        existing = self._existing(source="manual")
+        new_data = {"match_status": "completed", "home_score": 3, "away_score": 1}
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID, match_type_id=5) is True
+
+    def test_a_row_with_no_source_is_treated_as_the_feeds(self, task):
+        existing = self._existing()
+        del existing["source"]
+        assert self._check(task, existing, match_type_id=5) is True
+
+
+class TestFilingCorrection:
+    def _existing(self, **kwargs):
+        base = {
+            "id": 4060,
+            "home_team_id": 10,
+            "away_team_id": 20,
+            "scheduled_kickoff": None,
+            "match_type_id": 1,
+            "division_id": 7,
+            "source": "match-scraper",
+        }
+        base.update(kwargs)
+        return base
+
+    def _payload(self, task):
+        return task._dao.client.table("matches").update.call_args[0][0]
+
+    def test_the_competition_is_written(self, task):
+        task._update_match_scores(self._existing(), {}, match_type_id=5)
+        assert self._payload(task)["match_type_id"] == 5
+
+    def test_the_division_is_written(self, task):
+        task._update_match_scores(self._existing(), {}, division_id=9)
+        assert self._payload(task)["division_id"] == 9
+
+    def test_an_unchanged_filing_writes_nothing(self, task):
+        """No update data at all → the method reports failure rather than a no-op write."""
+        assert task._update_match_scores(self._existing(), {}, match_type_id=1, division_id=7) is False
+
+    def test_a_manual_match_keeps_its_filing(self, task):
+        assert task._update_match_scores(self._existing(source="manual"), {}, match_type_id=5) is False
+
+    def test_the_move_is_logged_by_name_not_by_id(self, task):
+        """ "match_type corrected: 1 → 5" tells nobody a fixture moved to Flex."""
+        with patch("celery_tasks.match_tasks.logger") as log:
+            task._update_match_scores(self._existing(), {}, match_type_id=5)
+        lines = [c.args[0] for c in log.info.call_args_list if c.args]
+        assert any("match_type corrected: League → Flex" in line for line in lines)
+
+
 # ── process_match_data: name resolution (SB-830) ─────────────────────
 
 IFA = {"id": 19, "name": "IFA"}
@@ -257,6 +379,7 @@ def ingest():
     task._team_dao = MagicMock()
     task._season_dao = MagicMock()
     task._league_dao = MagicMock()
+    task._match_type_dao = _match_type_dao_stub()
     task._ingest_failures_dao = MagicMock()
     task._ingest_failures_dao.record.return_value = {"id": 1, "match_count": 1, "should_alert": True}
     task._resolved_names = set()
@@ -279,6 +402,7 @@ def ingest():
     task._team_dao = None
     task._season_dao = None
     task._league_dao = None
+    task._match_type_dao = None
     task._ingest_failures_dao = None
     task._resolved_names = set()
 
@@ -331,6 +455,74 @@ class TestIngestResolvesNamesThroughAliases:
         with pytest.raises(UnresolvedNameError, match="Team not found: Brand New Club"):
             _run(ingest, **{side: "Brand New Club"})
         ingest._dao.create_match.assert_not_called()
+
+
+class TestIngestCompetitionResolution:
+    """SB-847: the feed's competition has to reach the row.
+
+    create_match hardcoded match_type_id 1, so every scraped match was a
+    League match whatever the feed said. That is how 68 Flex fixtures were
+    created as League (SB-846), and _check_needs_update not comparing
+    match_type is why no re-scrape could move them.
+    """
+
+    def test_the_feeds_competition_reaches_create(self, ingest):
+        _run(ingest, match_type="Flex")
+        assert ingest._dao.create_match.call_args.kwargs["match_type_id"] == 5
+
+    def test_league_is_not_assumed(self, ingest):
+        _run(ingest)
+        assert ingest._dao.create_match.call_args.kwargs["match_type_id"] == 1
+
+    def test_a_feed_with_no_competition_leaves_the_default_to_the_dao(self, ingest):
+        # Manual and tournament sources send no match_type. Absent is not Flex
+        # and not an error — the DAO's League default stands.
+        assert _run(ingest, match_type=None)["status"] == "created"
+        assert ingest._dao.create_match.call_args.kwargs["match_type_id"] is None
+
+    def test_an_unknown_competition_fails_instead_of_defaulting_to_league(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest, match_type="MLS NEXT Reserve")
+        ingest._dao.create_match.assert_not_called()
+
+    def test_the_unknown_competition_is_recorded_as_a_match_type(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest, match_type="MLS NEXT Reserve")
+        assert ingest._ingest_failures_dao.record.call_args.args[0] == "match_type"
+        assert ingest._ingest_failures_dao.record.call_args.args[1] == "MLS NEXT Reserve"
+
+
+class TestIngestCorrectsAnExistingMatch:
+    """The observed failure, end to end: re-submit a Flex fixture filed as League."""
+
+    EXISTING = {
+        "id": 4060,
+        "home_team_id": IFA["id"],
+        "away_team_id": OPPONENT["id"],
+        "match_status": "scheduled",
+        "home_score": None,
+        "away_score": None,
+        "scheduled_kickoff": None,
+        "match_date": "2026-09-20",
+        "match_type_id": 1,
+        "division_id": NORTHEAST["id"],
+        "source": "match-scraper",
+    }
+
+    def test_a_re_scrape_now_corrects_the_competition(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = dict(self.EXISTING)
+        result = _run(ingest, match_type="Flex", match_date="2026-09-20")
+
+        assert result["status"] == "updated"
+        payload = ingest._dao.client.table("matches").update.call_args[0][0]
+        assert payload["match_type_id"] == 5
+
+    def test_an_identical_payload_is_still_unchanged(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = dict(self.EXISTING)
+        result = _run(ingest, match_date="2026-09-20")
+
+        assert result["status"] == "skipped"
+        ingest._dao.client.table("matches").update.assert_not_called()
 
 
 class TestIngestDivisionResolution:
@@ -407,14 +599,17 @@ class TestNamesThatStartWorkingAgain:
         # An alias added part way through a load should clear its own alert.
         _run(ingest)
         resolved = {c.args[1] for c in ingest._ingest_failures_dao.resolve.call_args_list}
-        assert resolved == {MATCH["home_team"], MATCH["away_team"]}
+        # The competition is in here too since SB-847: seeding a missing
+        # match_type mid-load should clear its alert the same way an alias does.
+        assert resolved == {MATCH["home_team"], MATCH["away_team"], MATCH["match_type"]}
 
     def test_a_name_is_only_checked_once_per_worker(self, ingest):
         # A season load is thousands of matches over tens of names. Checking
         # per match would be thousands of round trips to learn the same thing.
         for _ in range(5):
             _run(ingest)
-        assert ingest._ingest_failures_dao.resolve.call_count == 2
+        # Two teams and one competition, once each — not once per match.
+        assert ingest._ingest_failures_dao.resolve.call_count == 3
 
     def test_the_source_is_carried_through(self, ingest):
         _run(ingest, source="manual")

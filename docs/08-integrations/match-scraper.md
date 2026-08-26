@@ -456,6 +456,28 @@ curl -H "Authorization: Bearer $TOKEN" \
   "$API/api/admin/ingest-failures?since=2026-09-05T00:00:00Z"
 ```
 
+### Re-scraping corrects a wrongly-filed match
+
+A re-scrape compares competition and division as well as teams, scores, status
+and kickoff. Before SB-847 it did not: three clean re-submits of the 68 Flex
+fixtures were accepted, found each match by `external_match_id`, recognised
+nothing as changed, and logged `Match unchanged`. The rows could only be fixed
+by writing to the database directly.
+
+A correction is logged by name rather than by id, so a competition move is
+visible in the worker log:
+
+```
+Match 4060 match_type corrected: League → Flex
+```
+
+**Matches somebody entered by hand are exempt.** The correction is gated on
+`matches.source`: the feed re-files what it owns, and a friendly deliberately
+recorded against a league fixture's external id keeps its competition. Scores
+and status are *not* gated — scraped data still wins on results. Adopting a
+manual match (populating its `match_id`) sets `source = 'match-scraper'`, after
+which the feed owns its filing too.
+
 An unresolved name is **permanent** — it raises `UnresolvedNameError`, which
 is excluded from the task's autoretry. Waiting will not make an unknown team
 known, and retrying three times with backoff only delays the alert.
@@ -478,6 +500,18 @@ mt team alias add "IFA" "Intercontinental Football Academy of New England"
 Adding the alias closes the `ingest_failures` row on the next successful
 match for that name; no manual cleanup needed. Check first with
 `GET /api/teams` or `mt search`.
+
+**Issue: "Match type not found: CompetitionName"**
+
+The feed's `match_type` must name a row in `match_types`. Until SB-847 it was
+not read at all — every scraped match was created as `match_type_id` 1, which
+is how 68 MLS NEXT Flex fixtures went into production filed as League.
+
+An unknown competition is now recorded in `ingest_failures` with
+`kind = 'match_type'` and fails the match, for the same reason an unknown
+division does: a plausible default looks correct, so nobody goes looking. Seed
+the competition (and its `counts_for_qualification` / `display_order` values)
+before loading it.
 
 **Issue: "Division not found: DivisionName"**
 
@@ -574,7 +608,7 @@ async def update_scores():
 | `age_group` | string | Yes | Age group (U13-U19) |
 | `division` | string | Yes | Division name |
 | `match_status` | string | Yes | "scheduled" or "played" |
-| `match_type` | string | Yes | "League", "Friendly", "Tournament" |
+| `match_type` | string | Yes | A `match_types.name`: "League", "Flex", "Tournament", "Friendly". Unknown names are rejected, not defaulted |
 | `home_score` | integer | No | Home score (null for scheduled) |
 | `away_score` | integer | No | Away score (null for scheduled) |
 | `external_match_id` | string | No | External ID for deduplication |
