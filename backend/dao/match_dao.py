@@ -483,6 +483,11 @@ class MatchDAO(BaseDAO):
             logger.exception("Error querying matches")
             return []
 
+    def _season_id_by_name(self, season_name: str) -> int | None:
+        """Resolve a season name to its id, or None when unknown."""
+        response = self.client.table("seasons").select("id").eq("name", season_name).limit(1).execute()
+        return response.data[0]["id"] if response.data else None
+
     def get_match_summary(
         self,
         season_name: str,
@@ -509,11 +514,9 @@ class MatchDAO(BaseDAO):
         today = date.today().isoformat()
         kickoff_horizon = (date.today() + timedelta(days=14)).isoformat()
 
-        # Look up season by name
-        season_resp = self.client.table("seasons").select("id").eq("name", season_name).limit(1).execute()
-        if not season_resp.data:
+        season_id = self._season_id_by_name(season_name)
+        if season_id is None:
             return []
-        season_id = season_resp.data[0]["id"]
 
         # Fetch all non-cancelled matches for this season with joins.
         # Supabase defaults to 1000 rows — paginate to get the full season.
@@ -594,6 +597,80 @@ class MatchDAO(BaseDAO):
 
         return summaries
 
+    def get_bootstrap_divisions(self, season_name: str, include_test: bool = False) -> list[dict]:
+        """Divisions that exist but hold no matches for this season (SB-839).
+
+        The agent's targets are derived from matches MT already has, which makes
+        a division with none of them invisible:
+
+            no matches -> not advertised -> never scraped -> no matches
+
+        That is not a hypothetical. On 2026-08-26, with the season's reference
+        data fully in place, `get_match_summary("2026-2027")` returned exactly
+        one target — `Unknown | Unknown`, a friendly with no division — so the
+        agent would have scraped nothing at all for the new season.
+
+        These are returned separately from `targets` rather than mixed in with
+        a zero count, because they answer a different question. A target says
+        "here is what MT has and what it is missing"; this says "MT has nothing
+        here, go and look". The consumer needs the distinction: the first is
+        incremental sync, the second is a first load.
+
+        Age groups are deliberately absent. MT cannot know which age groups a
+        brand-new division serves — nothing has ever been scraped for it — and
+        guessing would send the scraper after combinations that do not exist
+        (U13 has no Flex; U15 has no Pathway). The source feed carries that
+        structure, so the scraper resolves it.
+        """
+        season_id = self._season_id_by_name(season_name)
+        if season_id is None:
+            return []
+
+        try:
+            query = self.client.table("divisions").select(
+                "id, name, leagues!divisions_league_id_fkey(id, name, is_active, is_test)"
+            )
+            response = query.execute()
+            divisions = response.data or []
+
+            # Which divisions already have matches this season?
+            seeded: set[int] = set()
+            _page_size = 1000
+            _offset = 0
+            while True:
+                page = (
+                    self.client.table(MATCHES_READ_RELATION)
+                    .select("division_id")
+                    .eq("season_id", season_id)
+                    .neq("match_status", "cancelled")
+                    .range(_offset, _offset + _page_size - 1)
+                    .execute()
+                )
+                rows = page.data or []
+                seeded.update(r["division_id"] for r in rows if r.get("division_id") is not None)
+                if len(rows) < _page_size:
+                    break
+                _offset += _page_size
+
+            out = []
+            for d in divisions:
+                league = d.get("leagues") or {}
+                # An inactive league is retired, not unseeded — Kick Futsal
+                # should never be handed to the scraper as work to do.
+                if not league.get("is_active"):
+                    continue
+                if league.get("is_test") and not include_test:
+                    continue
+                if d["id"] in seeded:
+                    continue
+                out.append({"division_id": d["id"], "division": d["name"], "league": league.get("name")})
+
+            return sorted(out, key=lambda x: (x["league"] or "", x["division"]))
+
+        except Exception:
+            logger.exception("Error computing bootstrap divisions", season_name=season_name)
+            return []
+
     def get_matches_by_team(
         self,
         team_id: int,
@@ -606,9 +683,7 @@ class MatchDAO(BaseDAO):
         include_test gates the SB-591 test partition.
         """
         try:
-            query = (
-                self.client.table(MATCHES_READ_RELATION)
-                .select("""
+            query = self.client.table(MATCHES_READ_RELATION).select("""
                 *,
                 home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
                 away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
@@ -617,7 +692,6 @@ class MatchDAO(BaseDAO):
                 match_type:match_types(id, name),
                 division:divisions(id, name)
             """)
-            )
 
             if not include_test:
                 query = query.eq("is_test", False)
@@ -766,18 +840,8 @@ class MatchDAO(BaseDAO):
 
         try:
             # --- Recent form for each team (all match types) ---
-            home_resp = (
-                build_base_query(home_team_id)
-                .order("match_date", desc=True)
-                .limit(recent_count)
-                .execute()
-            )
-            away_resp = (
-                build_base_query(away_team_id)
-                .order("match_date", desc=True)
-                .limit(recent_count)
-                .execute()
-            )
+            home_resp = build_base_query(home_team_id).order("match_date", desc=True).limit(recent_count).execute()
+            away_resp = build_base_query(away_team_id).order("match_date", desc=True).limit(recent_count).execute()
             home_recent = [flatten(m) for m in (home_resp.data or [])]
             away_recent = [flatten(m) for m in (away_resp.data or [])]
 
@@ -829,12 +893,8 @@ class MatchDAO(BaseDAO):
             # unfiltered list rather than returning nothing.
             target_birth_year = None
             if age_group_id and season_id:
-                ag_lookup = (
-                    self.client.table("age_groups").select("name").eq("id", age_group_id).execute()
-                )
-                season_lookup = (
-                    self.client.table("seasons").select("name").eq("id", season_id).execute()
-                )
+                ag_lookup = self.client.table("age_groups").select("name").eq("id", age_group_id).execute()
+                season_lookup = self.client.table("seasons").select("name").eq("id", season_id).execute()
                 ag_name = ag_lookup.data[0]["name"] if ag_lookup.data else None
                 season_name = season_lookup.data[0]["name"] if season_lookup.data else None
                 target_birth_year = _birth_year_from_labels(ag_name, season_name)
@@ -849,9 +909,7 @@ class MatchDAO(BaseDAO):
                 h2h_query = h2h_query.eq("is_test", False)
             h2h_resp = h2h_query.order("match_date", desc=True).execute()
             head_to_head = [
-                flatten(m)
-                for m in (h2h_resp.data or [])
-                if away_team_id in (m["home_team_id"], m["away_team_id"])
+                flatten(m) for m in (h2h_resp.data or []) if away_team_id in (m["home_team_id"], m["away_team_id"])
             ]
             if target_birth_year is not None:
                 head_to_head = [
@@ -1117,12 +1175,8 @@ class MatchDAO(BaseDAO):
                 # Per-team primary league (needed for tournament matches
                 # where the match itself has no division/league but we
                 # still want to know which league the teams come from).
-                home_team_league = (
-                    (match.get("home_team") or {}).get("league") or {}
-                )
-                away_team_league = (
-                    (match.get("away_team") or {}).get("league") or {}
-                )
+                home_team_league = (match.get("home_team") or {}).get("league") or {}
+                away_team_league = (match.get("away_team") or {}).get("league") or {}
 
                 # Flatten the response to match the format from get_all_matches
                 flat_match = {
@@ -1225,9 +1279,7 @@ class MatchDAO(BaseDAO):
                 match_type=match_type,
             )
             # Fetch matches from database
-            matches = self._fetch_matches_for_standings(
-                season_id, age_group_id, division_id, include_test=include_test
-            )
+            matches = self._fetch_matches_for_standings(season_id, age_group_id, division_id, include_test=include_test)
 
             # Apply filters using pure functions
             matches = filter_by_match_type(matches, match_type)
@@ -1536,9 +1588,13 @@ class MatchDAO(BaseDAO):
         end_match clicks.
         """
         try:
-            current = self.client.table("matches").select(
-                "match_status,match_end_time,second_half_start"
-            ).eq("id", match_id).single().execute()
+            current = (
+                self.client.table("matches")
+                .select("match_status,match_end_time,second_half_start")
+                .eq("id", match_id)
+                .single()
+                .execute()
+            )
 
             if not current.data:
                 logger.warning("Reopen failed - match not found", match_id=match_id)
@@ -1807,11 +1863,7 @@ class MatchDAO(BaseDAO):
             logger.warning("cancel_match.team_not_found", home_team=home_team, away_team=away_team)
             return False
 
-        or_parts = [
-            f"and(home_team_id.eq.{hid},away_team_id.eq.{aid})"
-            for hid in home_ids
-            for aid in away_ids
-        ]
+        or_parts = [f"and(home_team_id.eq.{hid},away_team_id.eq.{aid})" for hid in home_ids for aid in away_ids]
         resp = (
             self.client.table("matches")
             .select("id, home_score")

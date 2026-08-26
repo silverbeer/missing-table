@@ -7181,16 +7181,26 @@ async def get_agent_match_summary(
     to a specific date window (e.g. last weekend only).
     """
     try:
+        include_test = viewer_sees_test_content(current_user)
         targets = match_dao.get_match_summary(
             season,
             score_from=score_from,
             score_to=score_to,
-            include_test=viewer_sees_test_content(current_user),
+            include_test=include_test,
         )
+
+        # Divisions MT knows about that hold no matches this season (SB-839).
+        # Kept separate from `targets` because they answer a different
+        # question: a target is incremental sync, this is a first load. Without
+        # it a new division is invisible to the agent forever — no matches
+        # means no target means no scrape means no matches.
+        bootstrap = match_dao.get_bootstrap_divisions(season, include_test=include_test)
+
         return {
             "season": season,
             "generated_at": datetime.now(UTC).isoformat(),
             "targets": targets,
+            "bootstrap_divisions": bootstrap,
         }
     except Exception as e:
         logger.error("agent_match_summary_failed", error=str(e), season=season)
