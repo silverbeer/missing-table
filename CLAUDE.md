@@ -237,7 +237,20 @@ Answer a data question here before reaching for the database.
 ```bash
 uv tool install --editable ./backend   # once; `mt` then works from anywhere
 mt login                               # session expires; read commands say so
+mt --env prod team matches "IFA U15"   # one command against prod; nothing persists
 ```
+
+### Which environment a command targets
+
+Precedence: **`--env` > `APP_ENV` > `.mt-config` > `local`** (SB-841). `mt config`
+prints the resolved environment and which of those it came from, and any command
+aimed anywhere but local announces itself before it runs.
+
+`--env` changes nothing on disk. Editing `.mt-config` still works and still
+redirects every later command in every shell — which is exactly why the flag
+exists. Sessions are stored **per environment**, so logging in to prod does not
+hand a prod token to a local command, and an active prod match is not confused
+with a local one.
 
 ```bash
 mt competitions                        # what -c accepts, and which qualify
@@ -267,6 +280,9 @@ mt match start 1053                    # live scoring: goal, message, halftime, 
 With no terminal and no password source it refuses rather than prompting:
 `getpass` cannot suppress echo without a TTY, so prompting there prints the
 password and then fails anyway.
+
+`mt login` targets whatever the rules above resolve to, and says so before it
+reads a password.
 
 **Never run `MT_PASSWORD=... mt login` from an agent shell** — the command line
 is echoed into the session transcript, which is exactly how a secret becomes
