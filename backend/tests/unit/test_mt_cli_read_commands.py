@@ -21,6 +21,7 @@ from mt_cli import (
     STAT_FIELDS,
     ResolutionError,
     resolve_match_type,
+    resolve_match_types,
     resolve_season,
     resolve_team,
     sort_stats,
@@ -34,10 +35,13 @@ SEASONS = [
     {"id": 7, "name": "2026", "is_current": True},
 ]
 
+# Shaped like the real /api/match-types since SB-849: ordered by display_order,
+# carrying the counts_for_qualification flag that 'qualifying' is built from.
 MATCH_TYPES = [
-    {"id": 1, "name": "League"},
-    {"id": 2, "name": "Friendly"},
-    {"id": 3, "name": "Tournament"},
+    {"id": 1, "name": "League", "counts_for_qualification": True, "display_order": 1},
+    {"id": 5, "name": "Flex", "counts_for_qualification": True, "display_order": 2},
+    {"id": 3, "name": "Tournament", "counts_for_qualification": False, "display_order": 3},
+    {"id": 2, "name": "Friendly", "counts_for_qualification": False, "display_order": 4},
 ]
 
 TEAMS = [
@@ -84,6 +88,7 @@ def _stub_client():
             "id": 1,
             "match_date": "2026-08-01",
             "match_status": "completed",
+            "match_type_id": 2,
             "match_type_name": "Friendly",
             "home_team_name": "IFA U15 HG",
             "away_team_name": "Boston Bolts",
@@ -94,9 +99,22 @@ def _stub_client():
             "id": 2,
             "match_date": "2026-08-20",
             "match_status": "scheduled",
+            "match_type_id": 1,
             "match_type_name": "League",
             "home_team_name": "IFA U15 HG",
             "away_team_name": "Boston Bolts",
+            "home_score": None,
+            "away_score": None,
+        },
+        # Nested shape, as /api/matches/team/{id} also returns it — the filter
+        # has to read both or Flex silently vanishes.
+        {
+            "id": 3,
+            "match_date": "2026-09-20",
+            "match_status": "scheduled",
+            "match_type": {"id": 5, "name": "Flex"},
+            "home_team_name": "CF Montreal",
+            "away_team_name": "IFA U15 HG",
             "home_score": None,
             "away_score": None,
         },
@@ -274,6 +292,132 @@ class TestTeamMatches:
         result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15"])
 
         assert "count towards season stats" in result.output
+
+
+@pytest.mark.unit
+class TestTeamMatchesCompetitionFilter:
+    """SB-848: -c/--competition on `mt team matches`.
+
+    Every case names what the schedule should show, because the failure this
+    guards against is a filtered list read as a short season.
+    """
+
+    def test_defaults_to_every_competition(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15"])
+
+        assert result.exit_code == 0
+        # All three: hiding a friendly by default would be the surprise.
+        assert "Friendly" in result.output
+        assert "League" in result.output
+        assert "Flex" in result.output
+        assert "All competitions" in result.output
+
+    def test_one_competition_keeps_only_its_matches(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "Flex"])
+
+        assert result.exit_code == 0
+        assert "CF Montreal" in result.output
+        assert "Boston Bolts" not in result.output
+
+    def test_nested_match_type_is_read_too(self, client):
+        """The Flex row carries match_type: {...}, not match_type_id."""
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "Flex"])
+
+        assert "1 of 1" in result.output
+
+    def test_the_filter_is_named_in_the_title(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "League"])
+
+        # A one-match list must say it is one League match, not one match.
+        assert "League" in result.output
+        assert "1 of 1" in result.output
+
+    def test_qualifying_is_the_union_of_the_flagged_types(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "qualifying"])
+
+        assert result.exit_code == 0
+        # League + Flex, not the friendly.
+        assert "2 of 2" in result.output
+        assert "Qualifying" in result.output
+
+    def test_qualifying_reads_the_flag_rather_than_a_hardcoded_list(self, client):
+        """Unflag Flex and 'qualifying' must shrink to League on its own."""
+        client.get_match_types.return_value = [{**t, "counts_for_qualification": t["id"] == 1} for t in MATCH_TYPES]
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "qualifying"])
+
+        assert result.exit_code == 0
+        assert "1 of 1" in result.output
+
+    def test_all_is_the_same_as_no_filter(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "all"])
+
+        assert result.exit_code == 0
+        assert "3 of 3" in result.output
+
+    def test_unknown_competition_lists_the_known_ones(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "cup"])
+
+        assert result.exit_code == 1
+        assert "League" in result.output and "Flex" in result.output
+
+    def test_a_competition_with_no_matches_says_so_without_implying_none_exist(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "Tournament"])
+
+        assert result.exit_code == 0
+        assert "No Tournament matches" in result.output
+        assert "drop -c" in result.output
+
+    def test_no_competition_flagged_is_an_error_not_an_empty_list(self, client):
+        client.get_match_types.return_value = [{**t, "counts_for_qualification": False} for t in MATCH_TYPES]
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-c", "qualifying"])
+
+        assert result.exit_code == 1
+        assert "qualification" in result.output
+
+
+@pytest.mark.unit
+class TestResolveMatchTypes:
+    def test_no_name_means_every_competition(self):
+        assert resolve_match_types(_stub_client()) is None
+
+    def test_all_means_every_competition(self):
+        assert resolve_match_types(_stub_client(), "all") is None
+
+    def test_a_name_resolves_to_one_type(self):
+        assert [t["id"] for t in resolve_match_types(_stub_client(), "Flex")] == [5]
+
+    def test_qualifying_spans_the_flagged_types(self):
+        assert [t["id"] for t in resolve_match_types(_stub_client(), "qualifying")] == [1, 5]
+
+    def test_qualifying_is_rejected_where_only_one_type_fits(self):
+        """team stats takes a single match_type_id — say so rather than 404 on 'qualifying'."""
+        with pytest.raises(ResolutionError) as exc:
+            resolve_match_type(_stub_client(), "qualifying")
+        assert "mt team matches" in str(exc.value)
+
+
+@pytest.mark.unit
+class TestCompetitions:
+    def test_lists_the_competitions_and_which_qualify(self, client):
+        result = runner.invoke(mt_cli.app, ["competitions"])
+
+        assert result.exit_code == 0
+        assert "League" in result.output
+        assert "Flex" in result.output
+        assert "Friendly" in result.output
+
+    def test_names_the_extra_selectors(self, client):
+        result = runner.invoke(mt_cli.app, ["competitions"])
+
+        assert "qualifying" in result.output
+        assert "all" in result.output
+
+    def test_no_competitions_configured_is_not_a_crash(self, client):
+        client.get_match_types.return_value = []
+        result = runner.invoke(mt_cli.app, ["competitions"])
+
+        assert result.exit_code == 0
+        assert "No competitions configured" in result.output
 
 
 @pytest.mark.unit

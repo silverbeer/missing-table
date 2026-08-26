@@ -60,6 +60,10 @@ console = Console()
 
 # Valid tournament_round values accepted by the backend (mirrors
 # tournament_dao.VALID_ROUNDS). group_stage is the default for bracket pools.
+# What -c/--competition accepts beyond a competition name. 'all' is no filter;
+# 'qualifying' is the union of the types flagged counts_for_qualification.
+QUALIFYING = "qualifying"
+
 VALID_ROUNDS = {
     "group_stage",
     "round_of_32",
@@ -170,7 +174,7 @@ def get_client() -> tuple[MissingTableClient, CLIState]:
     """Get an authenticated MissingTableClient and current state."""
     state = load_state()
     if not state.access_token:
-        console.print("[red]Not logged in[/red]\n" "[yellow]Login first:[/yellow] mt login <username>")
+        console.print("[red]Not logged in[/red]\n[yellow]Login first:[/yellow] mt login <username>")
         raise typer.Exit(1)
 
     client = MissingTableClient(
@@ -183,7 +187,7 @@ def get_client() -> tuple[MissingTableClient, CLIState]:
 def require_active_match(state: CLIState) -> int:
     """Return the active match_id from state, or exit with an error."""
     if not state.match_id:
-        console.print("[red]No active match[/red]\n" "[yellow]Start a match first:[/yellow] mt match start <match_id>")
+        console.print("[red]No active match[/red]\n[yellow]Start a match first:[/yellow] mt match start <match_id>")
         raise typer.Exit(1)
     return state.match_id
 
@@ -413,7 +417,7 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
         # piped session should be told what to do, not shown a typed password.
         console.print("[red]No terminal available for a password prompt.[/red]")
         console.print(
-            f"Set [cyan]MT_PASSWORD[/cyan] or [cyan]{env_key}[/cyan], " "or run [cyan]mt login[/cyan] in a terminal."
+            f"Set [cyan]MT_PASSWORD[/cyan] or [cyan]{env_key}[/cyan], or run [cyan]mt login[/cyan] in a terminal."
         )
         raise typer.Exit(1)
     else:
@@ -554,7 +558,7 @@ def start(
     try:
         match = client.get_game(match_id)
     except AuthenticationError:
-        console.print("[red]Session expired[/red]\n" "[yellow]Login again:[/yellow] mt login <username>")
+        console.print("[red]Session expired[/red]\n[yellow]Login again:[/yellow] mt login <username>")
         raise typer.Exit(1) from None
     except APIError as e:
         console.print(f"[red]{e}[/red]")
@@ -772,7 +776,7 @@ def _resolve_season_id(client: MissingTableClient, season: str | None) -> int:
     current = client.get_current_season()
     if not current or "id" not in current:
         console.print(
-            "[red]No current season set[/red]\n" "[yellow]Pass --season explicitly (e.g. --season 2025-2026)[/yellow]"
+            "[red]No current season set[/red]\n[yellow]Pass --season explicitly (e.g. --season 2025-2026)[/yellow]"
         )
         raise typer.Exit(1)
     return current["id"]
@@ -924,9 +928,7 @@ def tournament_add_match(
     its name doesn't match an existing team (backend get_or_create).
     """
     if round_ not in VALID_ROUNDS:
-        console.print(
-            f"[red]Invalid round '{round_}'[/red]\n" f"[yellow]Valid:[/yellow] {', '.join(sorted(VALID_ROUNDS))}"
-        )
+        console.print(f"[red]Invalid round '{round_}'[/red]\n[yellow]Valid:[/yellow] {', '.join(sorted(VALID_ROUNDS))}")
         raise typer.Exit(1)
 
     client, _ = get_client()
@@ -956,7 +958,7 @@ def tournament_add_match(
 
     mid = created.get("id", "?")
     bracket_label = f" [{bracket}]" if bracket else ""
-    console.print(f"[green]Added match #{mid}[/green]{bracket_label} {home_name} vs {away} " f"({age}, {round_})")
+    console.print(f"[green]Added match #{mid}[/green]{bracket_label} {home_name} vs {away} ({age}, {round_})")
 
 
 @tournament_app.command("remove-match")
@@ -1090,9 +1092,18 @@ def resolve_match_type(client, name: str | None = None) -> dict | None:
 
     Defaulting to League matches the web board: a squad total that silently
     folds friendlies in is not comparable with the league table beside it.
+
+    One competition only. `qualifying` spans several, so it belongs to
+    resolve_match_types and to the commands that can filter a list client-side
+    — /api/team-stats takes a single match_type_id and cannot union.
     """
     if name and name.lower() == "all":
         return None
+    if name and name.lower() == QUALIFYING:
+        raise ResolutionError(
+            f"{QUALIFYING!r} spans several competitions and is not available here — "
+            "name one, or use 'all'. `mt team matches -c qualifying` does support it."
+        )
 
     types = client.get_match_types() or []
     needle = (name or "league").lower()
@@ -1103,6 +1114,46 @@ def resolve_match_type(client, name: str | None = None) -> dict | None:
         raise ResolutionError(f"No competition matching {name!r}")
     # No League configured is not an error — show everything rather than nothing.
     return None
+
+
+def resolve_match_types(client, name: str | None = None) -> list[dict] | None:
+    """Every competition a selection covers, or None for all of them.
+
+    Unlike resolve_match_type this defaults to *all*. A schedule should open
+    showing the schedule: hiding four fixtures because they are friendlies is
+    the surprise, not the service. Stats default to League for the opposite
+    reason — see resolve_match_type.
+
+    `qualifying` is the union of the types flagged counts_for_qualification,
+    read from the API rather than listed here, so the next qualifying
+    competition is one flag in one row and not an edit in the CLI, the Matches
+    filter and the standings separately (SB-849).
+    """
+    if name is None or name.lower() == "all":
+        return None
+
+    types = client.get_match_types() or []
+    needle = name.lower()
+
+    if needle == QUALIFYING:
+        flagged = [t for t in types if t.get("counts_for_qualification")]
+        if not flagged:
+            raise ResolutionError(
+                "No competition is flagged as counting for qualification, "
+                "so there is nothing to combine under 'qualifying'."
+            )
+        return flagged
+
+    matches = [t for t in types if needle in (t.get("name") or "").lower()]
+    if not matches:
+        known = ", ".join(t.get("name") or "?" for t in types) or "none configured"
+        raise ResolutionError(f"No competition matching {name!r}. Known: {known}")
+    return [matches[0]]
+
+
+def match_type_id_of(match: dict) -> int | None:
+    """The match's competition id, from either shape the API returns."""
+    return match.get("match_type_id") or (match.get("match_type") or {}).get("id")
 
 
 def took_part(player: dict) -> bool:
@@ -1214,6 +1265,12 @@ def team_stats(
 def team_matches(
     team: str = typer.Argument(..., help="Team name or id"),
     season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+    competition: str = typer.Option(
+        None,
+        "--competition",
+        "-c",
+        help="Competition name, 'qualifying', or 'all' (default). See: mt competitions",
+    ),
     limit: int = typer.Option(20, "--limit", "-l", help="How many to show"),
 ):
     """Matches for a team, with the status that decides whether they count."""
@@ -1221,13 +1278,28 @@ def team_matches(
 
     team_row = _api(resolve_team, client, team)
     season_row = _api(resolve_season, client, season)
+    wanted = _api(resolve_match_types, client, competition)
 
     matches = _api(client.get_games_by_team, team_row["id"], season_id=(season_row or {}).get("id")) or []
     if not matches:
         console.print(f"[yellow]No matches for {team_row.get('name', team)}.[/yellow]")
         return
 
-    table = Table(title=f"Matches — {team_row.get('name', team)}")
+    scope = "All competitions"
+    if wanted is not None:
+        names = [t.get("name") or "?" for t in wanted]
+        scope = "Qualifying (" + " + ".join(names) + ")" if len(names) > 1 else names[0]
+        keep = {t.get("id") for t in wanted}
+        matches = [m for m in matches if match_type_id_of(m) in keep]
+
+    if not matches:
+        console.print(f"[yellow]No {scope} matches for {team_row.get('name', team)}.[/yellow]")
+        console.print("[dim]Other competitions may have matches — drop -c to see the whole schedule.[/dim]")
+        return
+
+    # The scope is in the title on purpose: a filtered list of 6 must not read
+    # as a 6-match season.
+    table = Table(title=f"Matches — {team_row.get('name', team)} · {scope}")
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Date", style="magenta")
     table.add_column("Status", style="yellow")
@@ -1250,7 +1322,40 @@ def team_matches(
         )
 
     console.print(table)
+    shown = min(len(matches), limit)
+    console.print(f"[dim]{shown} of {len(matches)} {scope} match(es).[/dim]")
     console.print("[dim]Only live, completed and forfeit matches count towards season stats (SB-671).[/dim]")
+
+
+@app.command("competitions")
+def competitions():
+    """The competitions the API knows, and which of them qualify for the cup.
+
+    `-c` on team stats and team matches accepts any of these, but nothing else
+    told you what they were — which is how six Flex fixtures stayed invisible
+    for a day.
+    """
+    client, _ = get_client()
+    types = _api(client.get_match_types) or []
+
+    if not types:
+        console.print("[yellow]No competitions configured.[/yellow]")
+        return
+
+    table = Table(title="Competitions")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Name", style="white")
+    table.add_column("Qualifies", justify="center", style="green")
+
+    for t in types:
+        table.add_row(
+            str(t.get("id", "?")),
+            str(t.get("name", "?")),
+            "yes" if t.get("counts_for_qualification") else "",
+        )
+
+    console.print(table)
+    console.print(f"[dim]Also accepted by -c: '{QUALIFYING}' (every qualifying competition) and 'all'.[/dim]")
 
 
 @match_app.command("show")
@@ -1479,9 +1584,7 @@ def team_create(
     created = _api(client.create_team, payload)
     team_row = created.get("team", created)
     console.print(f"[green]Created team #{team_row.get('id')}:[/green] {name}")
-    console.print(
-        f"[dim]division {division_id}, age groups {age_group_ids}, " f"club {(club_row or {}).get('id')}[/dim]"
-    )
+    console.print(f"[dim]division {division_id}, age groups {age_group_ids}, club {(club_row or {}).get('id')}[/dim]")
 
 
 @club_app.command("list")
@@ -1510,9 +1613,7 @@ def club_list(
 def club_create(
     name: str = typer.Option(..., "--name", "-n", help="Club name (unique)"),
     city: str = typer.Option(None, "--city", help="City"),
-    pro_academy: bool = typer.Option(
-        False, "--pro-academy", help="Mark as a professional club academy (MLS academy)"
-    ),
+    pro_academy: bool = typer.Option(False, "--pro-academy", help="Mark as a professional club academy (MLS academy)"),
 ):
     """Create a club. Crest and colours are set afterwards in the Admin UI."""
     client, _ = get_client()
@@ -1581,7 +1682,7 @@ def team_alias_add(
 
     current = _api(resolve_team, client, team)
     _api(client.add_team_alias, current["id"], external_name=alias, source=source, kind=kind)
-    console.print(f'[green]{alias!r} now resolves to[/green] {current.get("name")} (#{current["id"]})')
+    console.print(f"[green]{alias!r} now resolves to[/green] {current.get('name')} (#{current['id']})")
 
 
 @alias_app.command("list")
