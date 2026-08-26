@@ -195,18 +195,73 @@ describe('MatchesView', () => {
       );
     });
 
-    it('renders match type filter buttons', async () => {
-      setupMockApiResponses();
+    it('renders a chip only for competitions that have matches', async () => {
+      // SB-849: chips are built from /api/match-types and the matches on
+      // screen, not from five hardcoded ids. A chip that always yields
+      // nothing is the empty state CLAUDE.md warns about — it promises data
+      // that is not coming. U13 plays no Flex and should see no Flex chip.
+      setupMockApiResponses({
+        matches: [
+          createMockMatch({ id: 1, match_type_id: 1 }),
+          createMockMatch({ id: 2, match_type_id: 3 }),
+        ],
+      });
       const wrapper = mountMatchesView();
       await flushPromises();
 
       expect(wrapper.find('[data-testid="match-type-1"]').exists()).toBe(true); // League
-      expect(wrapper.find('[data-testid="match-type-2"]').exists()).toBe(true); // Tournament
       expect(wrapper.find('[data-testid="match-type-3"]').exists()).toBe(true); // Friendly
-      expect(wrapper.find('[data-testid="match-type-4"]').exists()).toBe(true); // Playoff
       expect(wrapper.find('[data-testid="match-type-all"]').exists()).toBe(
         true
-      ); // All
+      );
+
+      // Present in /api/match-types but with no matches here.
+      expect(wrapper.find('[data-testid="match-type-5"]').exists()).toBe(false); // Flex
+      expect(wrapper.find('[data-testid="match-type-4"]').exists()).toBe(false); // Playoff
+    });
+
+    it('shows a Qualifying chip only when more than one qualifying competition is present', async () => {
+      // League + Flex are what count toward the cup. With only League on
+      // screen the chip would just restate the League chip.
+      setupMockApiResponses({
+        matches: [createMockMatch({ id: 1, match_type_id: 1 })],
+      });
+      const leagueOnly = mountMatchesView();
+      await flushPromises();
+      expect(
+        leagueOnly.find('[data-testid="match-type-qualifying"]').exists()
+      ).toBe(false);
+
+      setupMockApiResponses({
+        matches: [
+          createMockMatch({ id: 1, match_type_id: 1 }),
+          createMockMatch({ id: 2, match_type_id: 5 }),
+        ],
+      });
+      const both = mountMatchesView();
+      await flushPromises();
+      expect(both.find('[data-testid="match-type-qualifying"]').exists()).toBe(
+        true
+      );
+    });
+
+    it('Qualifying counts League and Flex together, not everything', async () => {
+      setupMockApiResponses({
+        matches: [
+          createMockMatch({ id: 1, match_type_id: 1 }),
+          createMockMatch({ id: 2, match_type_id: 1 }),
+          createMockMatch({ id: 3, match_type_id: 5 }),
+          createMockMatch({ id: 4, match_type_id: 3 }), // Friendly — excluded
+        ],
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      const qualifying = wrapper.find('[data-testid="match-type-qualifying"]');
+      expect(qualifying.text()).toContain('3'); // 2 League + 1 Flex, not 4
+      expect(wrapper.find('[data-testid="match-type-all"]').text()).toContain(
+        '4'
+      );
     });
 
     it('renders week navigation on All Matches tab', async () => {
@@ -348,17 +403,34 @@ describe('MatchesView', () => {
   // ===========================================================================
 
   describe('match type filter', () => {
-    it('defaults to League match type', async () => {
-      setupMockApiResponses();
+    it('defaults to every competition, not League', async () => {
+      // It defaulted to League, which is why six Flex fixtures looked missing
+      // when they were merely filtered out (SB-849). A schedule should open
+      // showing the schedule.
+      setupMockApiResponses({
+        matches: [
+          createMockMatch({ id: 1, match_type_id: 1 }),
+          createMockMatch({ id: 2, match_type_id: 5 }),
+        ],
+      });
       const wrapper = mountMatchesView();
       await flushPromises();
 
-      const leagueButton = wrapper.find('[data-testid="match-type-1"]');
-      expect(leagueButton.classes()).toContain('bg-brand-600');
+      expect(
+        wrapper.find('[data-testid="match-type-all"]').classes()
+      ).toContain('bg-brand-600');
+      expect(
+        wrapper.find('[data-testid="match-type-1"]').classes()
+      ).not.toContain('bg-brand-600');
     });
 
     it('switches to Friendly match type', async () => {
-      setupMockApiResponses();
+      setupMockApiResponses({
+        matches: [
+          createMockMatch({ id: 1, match_type_id: 1 }),
+          createMockMatch({ id: 2, match_type_id: 3 }),
+        ],
+      });
       const wrapper = mountMatchesView();
       await flushPromises();
 
@@ -370,8 +442,16 @@ describe('MatchesView', () => {
     });
 
     it('switches to All Matches type', async () => {
-      setupMockApiResponses();
+      setupMockApiResponses({
+        matches: [
+          createMockMatch({ id: 1, match_type_id: 1 }),
+          createMockMatch({ id: 2, match_type_id: 3 }),
+        ],
+      });
       const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await wrapper.find('[data-testid="match-type-1"]').trigger('click');
       await flushPromises();
 
       await wrapper.find('[data-testid="match-type-all"]').trigger('click');

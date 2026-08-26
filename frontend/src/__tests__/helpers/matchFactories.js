@@ -41,11 +41,24 @@ export const createMockSeasons = () => [
   },
 ];
 
+// Mirrors /api/match-types, including the qualification flag and sort order
+// added in SB-849. League and Flex together are what count toward the cup.
 export const createMockMatchTypes = () => [
-  { id: 1, name: 'League' },
-  { id: 2, name: 'Tournament' },
-  { id: 3, name: 'Friendly' },
-  { id: 4, name: 'Playoff' },
+  { id: 1, name: 'League', counts_for_qualification: true, display_order: 1 },
+  { id: 5, name: 'Flex', counts_for_qualification: true, display_order: 2 },
+  {
+    id: 2,
+    name: 'Tournament',
+    counts_for_qualification: false,
+    display_order: 3,
+  },
+  {
+    id: 3,
+    name: 'Friendly',
+    counts_for_qualification: false,
+    display_order: 4,
+  },
+  { id: 4, name: 'Playoff', counts_for_qualification: false, display_order: 5 },
 ];
 
 export const createMockLeagues = () => [

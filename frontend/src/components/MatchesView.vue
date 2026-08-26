@@ -176,70 +176,35 @@
             </div>
 
             <!-- Match Type Filter -->
-            <div>
+            <!--
+              Built from /api/match-types, not hardcoded (SB-849). The five
+              literal ids that lived here never learned about Flex, so six
+              fixtures were unreachable except through "All".
+
+              Only competitions this team and age group actually play get a
+              chip — an always-present chip that yields nothing is the empty
+              state CLAUDE.md warns about. Counts are shown so a short list is
+              never ambiguous between "filtered" and "broken".
+            -->
+            <div v-if="matchTypeChips.length > 1">
               <h3 class="text-sm font-medium text-fg mb-2">Match Type</h3>
               <div
                 class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
               >
                 <button
-                  @click="selectedMatchTypeId = 1"
-                  data-testid="match-type-1"
+                  v-for="chip in matchTypeChips"
+                  :key="chip.key"
+                  @click="selectMatchTypeChip(chip)"
+                  :data-testid="`match-type-${chip.key}`"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedMatchTypeId === 1
+                    isChipSelected(chip)
                       ? 'bg-brand-600 text-white'
                       : 'bg-surface-alt text-fg active:bg-line',
                   ]"
                 >
-                  League
-                </button>
-                <button
-                  @click="selectedMatchTypeId = 3"
-                  data-testid="match-type-3"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedMatchTypeId === 3
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
-                >
-                  Friendly
-                </button>
-                <button
-                  @click="selectedMatchTypeId = 2"
-                  data-testid="match-type-2"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedMatchTypeId === 2
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
-                >
-                  Tournament
-                </button>
-                <button
-                  @click="selectedMatchTypeId = 4"
-                  data-testid="match-type-4"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedMatchTypeId === 4
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
-                >
-                  Playoff
-                </button>
-                <button
-                  @click="selectedMatchTypeId = null"
-                  data-testid="match-type-all"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedMatchTypeId === null
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
-                >
-                  All Matches
+                  {{ chip.label }}
+                  <span class="opacity-70 ml-1">{{ chip.count }}</span>
                 </button>
               </div>
             </div>
@@ -2083,8 +2048,100 @@ export default {
       selectedAgeGroupId.value = id;
     };
     const selectedSeasonId = ref(3); // Default to 2025-2026
-    const selectedMatchTypeId = ref(1); // Default to League matches (id: 1)
+    // Either a match_type id, the string 'qualifying' (the union of every
+    // type flagged counts_for_qualification), or null for every competition.
+    //
+    // Defaults to null. It used to default to League, which is why six Flex
+    // fixtures looked missing when they were merely filtered out (SB-849) —
+    // a schedule should open showing the schedule.
+    const selectedMatchTypeId = ref(null);
     const selectedDivisionId = ref(null); // null = All Divisions
+
+    // Which match_type ids the current selection covers, or null for all.
+    //
+    // 'qualifying' resolves to every type flagged counts_for_qualification —
+    // League and Flex today. It is read from the API rather than hardcoded so
+    // the next qualifying competition needs one flag in one row, not an edit
+    // here, in the CLI and in the standings (SB-849).
+    const selectedMatchTypeIds = computed(() => {
+      const selection = selectedMatchTypeId.value;
+      if (selection === null) return null;
+      if (selection === 'qualifying') {
+        return (matchTypes.value || [])
+          .filter(t => t.counts_for_qualification)
+          .map(t => t.id);
+      }
+      return [selection];
+    });
+
+    // Matches for the current team/age/season, before any competition filter —
+    // the population the chip counts describe.
+    const matchesBeforeTypeFilter = computed(() => {
+      if (!matches.value || !Array.isArray(matches.value)) return [];
+      let rows = matches.value.filter(m => m && m.match_date);
+      if (selectedDivisionId.value !== null) {
+        rows = rows.filter(m => m.division_id === selectedDivisionId.value);
+      }
+      return rows;
+    });
+
+    // One chip per competition actually present, in display_order, plus the
+    // synthetic Qualifying and All.
+    //
+    // Competitions with no matches get no chip. U13 plays no Flex, and a Flex
+    // chip that always returns nothing is the empty state CLAUDE.md warns
+    // about — it promises data that is not coming.
+    const matchTypeChips = computed(() => {
+      const rows = matchesBeforeTypeFilter.value;
+      const counts = new Map();
+      for (const m of rows) {
+        counts.set(m.match_type_id, (counts.get(m.match_type_id) || 0) + 1);
+      }
+
+      const present = (matchTypes.value || [])
+        .filter(t => counts.get(t.id))
+        .map(t => ({
+          key: String(t.id),
+          label: t.name,
+          value: t.id,
+          count: counts.get(t.id),
+          qualifies: Boolean(t.counts_for_qualification),
+        }));
+
+      const chips = [...present];
+
+      // Qualifying sits immediately after the types it combines, and only
+      // when it says something they do not: with a single qualifying
+      // competition present it would just restate that chip.
+      const qualifying = present.filter(c => c.qualifies);
+      if (qualifying.length > 1) {
+        const total = qualifying.reduce((sum, c) => sum + c.count, 0);
+        const lastIndex = chips.map(c => c.qualifies).lastIndexOf(true);
+        chips.splice(lastIndex + 1, 0, {
+          key: 'qualifying',
+          label: 'Qualifying',
+          value: 'qualifying',
+          count: total,
+          qualifies: true,
+        });
+      }
+
+      chips.push({
+        key: 'all',
+        label: 'All',
+        value: null,
+        count: rows.length,
+        qualifies: false,
+      });
+      return chips;
+    });
+
+    const isChipSelected = chip => selectedMatchTypeId.value === chip.value;
+
+    const selectMatchTypeChip = chip => {
+      selectedMatchTypeId.value = chip.value;
+    };
+
     const weekOffset = ref(0); // 0 = current week, -1 = last week, +1 = next week
     const error = ref(null);
     const loading = ref(true);
@@ -2765,10 +2822,13 @@ export default {
         match => match && match.match_date
       );
 
-      // Filter by match type if a specific type is selected
-      if (selectedMatchTypeId.value !== null) {
-        filteredGames = filteredGames.filter(
-          match => match.match_type_id === selectedMatchTypeId.value
+      // Filter by match type if a specific competition is selected.
+      // 'qualifying' matches a SET of types, not one — League and Flex
+      // together are what count toward the cup.
+      const wantedTypeIds = selectedMatchTypeIds.value;
+      if (wantedTypeIds !== null) {
+        filteredGames = filteredGames.filter(match =>
+          wantedTypeIds.includes(match.match_type_id)
         );
       }
 
@@ -2868,10 +2928,13 @@ export default {
           match.match_status === 'completed'
       );
 
-      // Apply match type filter if a specific type is selected
-      if (selectedMatchTypeId.value !== null) {
-        sortedGames = sortedGames.filter(
-          match => match.match_type_id === selectedMatchTypeId.value
+      // Apply match type filter if a specific competition is selected.
+      // Same set-based rule as the match list, so the season summary and the
+      // table below it can never disagree about what is being counted.
+      const summaryTypeIds = selectedMatchTypeIds.value;
+      if (summaryTypeIds !== null) {
+        sortedGames = sortedGames.filter(match =>
+          summaryTypeIds.includes(match.match_type_id)
         );
       }
 
@@ -3307,6 +3370,9 @@ export default {
       selectAgeGroup,
       selectedSeasonId,
       selectedMatchTypeId,
+      matchTypeChips,
+      isChipSelected,
+      selectMatchTypeChip,
       visibleDivisions,
       selectedDivisionId,
       weekOffset,
