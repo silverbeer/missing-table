@@ -240,9 +240,12 @@ mt login                               # session expires; read commands say so
 ```
 
 ```bash
+mt competitions                        # what -c accepts, and which qualify
 mt team stats "IFA U15"                # the Golden Boot board
 mt team stats "IFA U15" -c all         # every competition (default: League)
-mt team matches "IFA U15"              # with the status column
+mt team matches "IFA U15"              # every competition (default), with status
+mt team matches "IFA U15" -c Flex      # one competition
+mt team matches "IFA U15" -c qualifying  # League + Flex — whatever is flagged
 mt match show 1190                     # status, lineups, events
 mt player stats 42
 mt search --age U15 --days 30
@@ -268,6 +271,13 @@ password and then fails anyway.
 **Never run `MT_PASSWORD=... mt login` from an agent shell** — the command line
 is echoed into the session transcript, which is exactly how a secret becomes
 permanent. Use 1Password, or a real terminal.
+
+`-c` defaults differ on purpose: **stats default to League**, because a squad
+total that folds friendlies in is not comparable with the league table beside
+it; **matches default to every competition**, because a schedule that hides
+fixtures is the surprise. `qualifying` is the union of the match types flagged
+`counts_for_qualification` (SB-849) — read from the API, never a hardcoded list,
+so the Matches chips, `mt` and the standings always agree.
 
 **Only `live`, `completed` and `forfeit` matches count towards season stats**
 (SB-671). `mt team matches` prints the status precisely so a "why is GP wrong"
