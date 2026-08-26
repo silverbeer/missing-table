@@ -237,6 +237,31 @@ audit_dao = AuditDAO(db_conn_holder_obj)
 tournament_dao = TournamentDAO(db_conn_holder_obj)
 ingest_failures_dao = IngestFailuresDAO(db_conn_holder_obj)
 
+# Competitions whose standings are grouped by division (SB-833).
+#
+# get_league_table filters on division, so a match in one of these with no
+# division_id lands in NO table at all — present in the database, invisible in
+# the product. That is the same silent-hole failure SB-830 fixed on the ingest
+# path, so the API refuses it up front rather than storing it.
+#
+# Flex is here for the same reason League is: its standings group by Flex
+# bracket. Tournament and Friendly are deliberately absent — they legitimately
+# carry no division.
+DIVISION_SCOPED_MATCH_TYPES = frozenset({"League", "Flex"})
+
+
+def require_division_for_competition(match_type: dict[str, Any] | None, division_id: int | None) -> None:
+    """Reject a division-scoped match that carries no division.
+
+    Raises:
+        HTTPException: 422 when the competition needs a division and none was given.
+    """
+    if not match_type or division_id is not None:
+        return
+    name = match_type.get("name")
+    if name in DIVISION_SCOPED_MATCH_TYPES:
+        raise HTTPException(status_code=422, detail=f"division_id is required for {name} matches")
+
 
 # === Simple Redis Caching ===
 # Initialize Authentication Manager with a dedicated service client
@@ -2539,10 +2564,9 @@ async def add_match(
         logger.info(f"POST /api/matches - User: {user_identifier}, Role: {current_user.get('role', 'unknown')}")
         logger.info(f"POST /api/matches - Match data: {match.model_dump()}")
 
-        # Validate division_id for League matches
+        # Validate division_id for competitions whose standings need one
         match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
-        if match_type and match_type.get("name") == "League" and match.division_id is None:
-            raise HTTPException(status_code=422, detail="division_id is required for League matches")
+        require_division_for_competition(match_type, match.division_id)
 
         success = match_dao.add_match(
             home_team_id=match.home_team_id,
@@ -2593,10 +2617,9 @@ async def update_match(
         if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
             raise HTTPException(status_code=403, detail="You don't have permission to edit this match")
 
-        # Validate division_id for League matches
+        # Validate division_id for competitions whose standings need one
         match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
-        if match_type and match_type.get("name") == "League" and match.division_id is None:
-            raise HTTPException(status_code=422, detail="division_id is required for League matches")
+        require_division_for_competition(match_type, match.division_id)
 
         updated_match = match_dao.update_match(
             match_id=match_id,
@@ -2706,8 +2729,7 @@ async def patch_match(
         final_match_type_id = update_data["match_type_id"]
         final_division_id = update_data["division_id"]
         match_type = match_type_dao.get_match_type_by_id(final_match_type_id)
-        if match_type and match_type.get("name") == "League" and final_division_id is None:
-            raise HTTPException(status_code=422, detail="division_id is required for League matches")
+        require_division_for_competition(match_type, final_division_id)
 
         logger.info(f"PATCH /api/matches/{match_id} - Calling update_match with: {update_data}")
         updated_match = match_dao.update_match(**update_data)
@@ -5263,10 +5285,9 @@ async def add_or_update_scraped_match(
         logger.info(f"POST /api/match-scraper/matches - External Match ID: {external_match_id}")
         logger.info(f"POST /api/match-scraper/matches - Match data: {match.model_dump()}")
 
-        # Validate division_id for League matches
+        # Validate division_id for competitions whose standings need one
         match_type = match_type_dao.get_match_type_by_id(match.match_type_id)
-        if match_type and match_type.get("name") == "League" and match.division_id is None:
-            raise HTTPException(status_code=422, detail="division_id is required for League matches")
+        require_division_for_competition(match_type, match.division_id)
 
         # Check if match already exists by external_match_id
         existing_match_response = await check_match(
