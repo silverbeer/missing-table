@@ -50,12 +50,14 @@ team_app = typer.Typer(help="Team stats, matches, and admin edits")
 player_app = typer.Typer(help="Player stats (read-only)")
 club_app = typer.Typer(help="Club admin: create and rename")
 alias_app = typer.Typer(help="Team name aliases (admin)")
+ingest_app = typer.Typer(help="Ingest failures: what the scraper could not resolve (admin)")
 app.add_typer(match_app, name="match")
 app.add_typer(tournament_app, name="tournament")
 app.add_typer(team_app, name="team")
 app.add_typer(player_app, name="player")
 app.add_typer(club_app, name="club")
 team_app.add_typer(alias_app, name="alias")
+app.add_typer(ingest_app, name="ingest")
 console = Console()
 
 # Valid tournament_round values accepted by the backend (mirrors
@@ -1325,6 +1327,75 @@ def team_matches(
     shown = min(len(matches), limit)
     console.print(f"[dim]{shown} of {len(matches)} {scope} match(es).[/dim]")
     console.print("[dim]Only live, completed and forfeit matches count towards season stats (SB-671).[/dim]")
+
+
+@ingest_app.command("failures")
+def ingest_failures(
+    since: str = typer.Option(None, "--since", help="ISO timestamp; only names seen since then"),
+    limit: int = typer.Option(50, "--limit", "-l", help="How many to show"),
+):
+    """Names the ingest could not resolve, and what each one cost."""
+    client, _ = get_client()
+    payload = _api(client.get_ingest_failures, since=since, limit=limit)
+    rows = payload.get("failures") or []
+
+    if not rows:
+        console.print("[green]Nothing unresolved.[/green]")
+        return
+
+    table = Table(title="Ingest failures")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Kind", style="dim")
+    table.add_column("Name", style="white")
+    table.add_column("League", style="dim")
+    table.add_column("Matches", justify="right", style="yellow")
+    table.add_column("Last seen", style="magenta")
+    table.add_column("", style="dim")
+
+    for row in rows:
+        table.add_row(
+            str(row.get("id", "?")),
+            str(row.get("kind", "?")),
+            str(row.get("raw_name", "?")),
+            str(row.get("league") or "—"),
+            str(row.get("match_count", 0)),
+            str(row.get("last_seen", "?"))[:10],
+            "stale" if row.get("stale") else "",
+        )
+
+    console.print(table)
+    console.print(
+        f"[dim]{payload.get('count', len(rows))} open · {payload.get('matches_dropped', 0)} matches dropped[/dim]"
+    )
+
+    stale_count = payload.get("stale_count") or 0
+    if stale_count:
+        # Stale means unseen, not fixed. Saying which is the point.
+        days = payload.get("stale_after_days")
+        console.print(
+            f"[dim]{stale_count} not seen in {days} days. That is not the same as fixed — "
+            "close one with [/dim][cyan]mt ingest resolve <id>[/cyan]"
+        )
+
+
+@ingest_app.command("resolve")
+def ingest_resolve(
+    failure_id: int = typer.Argument(..., help="Ingest failure id (from mt ingest failures)"),
+    note: str = typer.Option(None, "--note", "-n", help="Why it is no longer a problem"),
+):
+    """Close an ingest failure that was fixed at the sender.
+
+    The automatic resolve only fires when the same name resolves later. A name
+    that will never be submitted again cannot trigger it, so the row would be
+    reported forever as a problem that no longer exists (SB-845).
+    """
+    client, _ = get_client()
+    row = _api(client.resolve_ingest_failure, failure_id, note)
+
+    console.print(f"[green]Resolved #{row.get('id')}[/green] {row.get('raw_name')}")
+    if row.get("resolution_note"):
+        console.print(f"[dim]{row['resolution_note']}[/dim]")
+    console.print("[dim]The row is kept — it is the record of which names were wrong and when.[/dim]")
 
 
 @app.command("competitions")

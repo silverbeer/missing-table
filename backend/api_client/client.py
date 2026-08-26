@@ -1452,6 +1452,25 @@ class MissingTableClient:
             return {"deleted": True, "match_id": match_id}
         return response.json()
 
+    # Ingest failures
+
+    def get_ingest_failures(self, since: str | None = None, limit: int = 200) -> dict[str, Any]:
+        """Names the match ingest could not resolve (admin or service account)."""
+        params: dict[str, Any] = {"limit": limit}
+        if since:
+            params["since"] = since
+        response = self._request("GET", "/api/admin/ingest-failures", params=params)
+        return response.json()
+
+    def resolve_ingest_failure(self, failure_id: int, note: str | None = None) -> dict[str, Any]:
+        """Close one ingest failure by hand, recording why (admin only)."""
+        response = self._request(
+            "PATCH",
+            f"/api/admin/ingest-failures/{failure_id}",
+            json_data={"note": note},
+        )
+        return response.json()
+
     # Cache management
 
     def get_cache_stats(self) -> dict[str, Any]:

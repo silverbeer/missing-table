@@ -84,6 +84,49 @@ class IngestFailuresDAO(BaseDAO):
             logger.exception("Could not resolve ingest failures", kind=kind, raw_name=raw_name)
             return 0
 
+    def resolve_by_id(
+        self,
+        failure_id: int,
+        *,
+        resolved_by: str | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Close one row by hand, recording who and why.
+
+        The automatic resolve only fires when the same name resolves later. A
+        name fixed at the *sender* is never submitted again, so nothing
+        triggers it and the row stays open forever — reported on every
+        subsequent run as a problem that no longer exists (SB-845).
+
+        Returns the row, or None if there is no such id. An already-resolved
+        row is returned unchanged rather than re-stamped: the first decision is
+        the one worth keeping.
+        """
+        try:
+            existing = self.client.table("ingest_failures").select("*").eq("id", failure_id).execute()
+            rows = existing.data or []
+            if not rows:
+                return None
+            if rows[0].get("resolved_at"):
+                return rows[0]
+
+            updated = (
+                self.client.table("ingest_failures")
+                .update(
+                    {
+                        "resolved_at": "now()",
+                        "resolved_by": resolved_by,
+                        "resolution_note": note,
+                    }
+                )
+                .eq("id", failure_id)
+                .execute()
+            )
+            return (updated.data or [None])[0]
+        except Exception:
+            logger.exception("Could not resolve ingest failure by id", failure_id=failure_id)
+            return None
+
     def mark_notified(self, failure_ids: list[int]) -> None:
         """Stamp rows that have been alerted on, so they are not re-announced."""
         if not failure_ids:

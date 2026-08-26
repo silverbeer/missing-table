@@ -478,6 +478,46 @@ and status are *not* gated — scraped data still wins on results. Adopting a
 manual match (populating its `match_id`) sets `source = 'match-scraper'`, after
 which the feed owns its filing too.
 
+### Closing a failure row
+
+A row closes **itself** when the same name later resolves — add the alias and
+the next successful match for that name clears the alert. That covers the case
+where the fix is to teach MT about the name.
+
+It cannot cover the other one. When the fix is to stop *sending* the bad name,
+that string is never submitted again, nothing triggers the resolve, and the row
+would be reported forever as a problem that no longer exists (SB-845). Close
+those by hand:
+
+```bash
+mt ingest failures                       # what is open, and what each cost
+mt ingest resolve 1 --note "fixed at the sender"
+```
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"note": "fixed at the sender"}' \
+  "$API/api/admin/ingest-failures/1"
+```
+
+Admin only, not service accounts: this is a person deciding a name is no longer
+a problem. **Resolving never deletes** — `resolved_at`, `resolved_by` and
+`resolution_note` are stamped on the row, because the history of which names
+were wrong and when is most of what makes the table worth having.
+
+### `stale` is a hint, not a verdict
+
+Every row in the list response carries `stale`: true when it has not been seen
+for `stale_after_days` (`MT_INGEST_STALE_AFTER_DAYS`, default 7). The response
+also carries `stale_count` and `stale_after_days` so a client knows the rule it
+is being told about.
+
+Nothing auto-closes on that basis. A name fixed at the sender and a name that
+simply was not scraped this week look identical from here, and closing the
+second would lose a real problem. The flag exists so a run report can
+de-emphasise a row rather than keep crying wolf about it; deciding stays with a
+person.
+
 An unresolved name is **permanent** — it raises `UnresolvedNameError`, which
 is excluded from the task's autoretry. Waiting will not make an unknown team
 known, and retrying three times with backoff only delays the alert.
