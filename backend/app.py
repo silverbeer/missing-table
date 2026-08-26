@@ -4950,6 +4950,7 @@ async def create_club(club: Club, current_user: dict[str, Any] = Depends(require
             logo_url=club.logo_url,
             primary_color=club.primary_color,
             secondary_color=club.secondary_color,
+            pro_academy=club.pro_academy,
         )
         logger.info(f"Created new club: {new_club['name']}")
         return new_club
@@ -4991,6 +4992,7 @@ async def update_club(club_id: int, club: Club, current_user: dict[str, Any] = D
             logo_url=club.logo_url,
             primary_color=club.primary_color,
             secondary_color=club.secondary_color,
+            pro_academy=club.pro_academy,
         )
         if not updated_club:
             raise HTTPException(status_code=404, detail=f"Club with id {club_id} not found")
