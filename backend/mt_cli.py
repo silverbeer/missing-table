@@ -60,6 +60,26 @@ team_app.add_typer(alias_app, name="alias")
 app.add_typer(ingest_app, name="ingest")
 console = Console()
 
+
+@app.callback()
+def main(
+    env: str = typer.Option(
+        None,
+        "--env",
+        metavar="local|prod",
+        help="Target this environment for one command. Does not change .mt-config.",
+    ),
+) -> None:
+    """MT Match Tracking CLI."""
+    global _ENV_OVERRIDE
+    if env is None:
+        return
+    if env not in KNOWN_ENVS:
+        console.print(f"[red]Unknown environment {env!r}[/red]  Known: {', '.join(KNOWN_ENVS)}")
+        raise typer.Exit(1)
+    _ENV_OVERRIDE = env
+
+
 # Valid tournament_round values accepted by the backend (mirrors
 # tournament_dao.VALID_ROUNDS). group_stage is the default for bracket pools.
 # What -c/--competition accepts beyond a competition name. 'all' is no filter;
@@ -86,6 +106,14 @@ REPO_ROOT = Path(__file__).parent.parent
 BACKEND_DIR = Path(__file__).parent
 MT_CONFIG_FILE = REPO_ROOT / ".mt-config"
 STATE_FILE = BACKEND_DIR / ".mt-cli-state.json"
+
+# Environments `mt` knows how to target. Each needs a backend/.env.<name>.
+KNOWN_ENVS = ("local", "prod")
+
+# Set by the --env option for the lifetime of one invocation. Nothing is
+# written to disk: targeting prod is an act, not a mode you can forget you are
+# in (SB-841).
+_ENV_OVERRIDE: str | None = None
 
 
 # --- Models ---
@@ -116,12 +144,29 @@ def mt_config_get(key: str, default: str = "") -> str:
     return default
 
 
-def get_current_env() -> str:
-    """Get current environment (local or prod)."""
+def resolve_env() -> tuple[str, str]:
+    """The environment this invocation targets, and where that came from.
+
+    Precedence: --env, then APP_ENV, then .mt-config, then local.
+
+    APP_ENV used to lose to .mt-config, which is the surprising half:
+    `APP_ENV=prod mt ...` looks like it should work and silently did nothing.
+    A value someone typed for this command beats a mode left on disk.
+    """
+    if _ENV_OVERRIDE is not None:
+        return _ENV_OVERRIDE, "--env"
+    from_environ = os.getenv("APP_ENV")
+    if from_environ:
+        return from_environ, "APP_ENV"
     config_val = mt_config_get("supabase_env")
     if config_val:
-        return config_val
-    return os.getenv("APP_ENV", "local")
+        return config_val, MT_CONFIG_FILE.name
+    return "local", "default"
+
+
+def get_current_env() -> str:
+    """Get current environment (local or prod)."""
+    return resolve_env()[0]
 
 
 def get_base_url() -> str:
@@ -157,26 +202,63 @@ def get_base_url() -> str:
 # --- State Management ---
 
 
+def _read_state_file() -> dict:
+    """The whole state file, as {env: session}.
+
+    Sessions are per environment. They were not, and with --env making the
+    target easy to change that would be actively dangerous: a token minted
+    against prod would be sent to localhost, and an active prod match id would
+    be the id of some unrelated local fixture.
+
+    A pre-SB-841 file is a bare session at the top level. It is migrated under
+    whichever environment is current when it is first read — the only
+    information available about where that token came from.
+    """
+    if not STATE_FILE.exists():
+        return {}
+    with open(STATE_FILE) as f:
+        data = json.load(f)
+
+    if isinstance(data, dict) and "environments" in data:
+        return data["environments"] or {}
+    if data:
+        return {get_current_env(): data}
+    return {}
+
+
 def load_state() -> CLIState:
-    """Load CLI state from file."""
-    if STATE_FILE.exists():
-        with open(STATE_FILE) as f:
-            data = json.load(f)
-            return CLIState(**data)
-    return CLIState()
+    """The session for the environment this command targets."""
+    return CLIState(**_read_state_file().get(get_current_env(), {}))
 
 
 def save_state(state: CLIState) -> None:
-    """Save CLI state to file."""
+    """Write the session back, leaving other environments' sessions alone."""
+    environments = _read_state_file()
+    environments[get_current_env()] = state.model_dump()
     with open(STATE_FILE, "w") as f:
-        json.dump(state.model_dump(), f, indent=2)
+        json.dump({"environments": environments}, f, indent=2)
+
+
+def announce_target() -> None:
+    """Say so, out loud, whenever a command is aimed somewhere other than local.
+
+    The ticket asked for this on writes. Every command gets it instead: a read
+    that quietly answers about production is its own kind of wrong, and one
+    rule cannot be applied to the wrong half of the command list.
+    """
+    env, source = resolve_env()
+    if env != "local":
+        console.print(f"[yellow]→ {env}[/yellow] [dim](from {source})[/dim]")
 
 
 def get_client() -> tuple[MissingTableClient, CLIState]:
     """Get an authenticated MissingTableClient and current state."""
+    announce_target()
     state = load_state()
     if not state.access_token:
-        console.print("[red]Not logged in[/red]\n[yellow]Login first:[/yellow] mt login <username>")
+        console.print(
+            f"[red]Not logged in to {get_current_env()}[/red]\n[yellow]Login first:[/yellow] mt login <username>"
+        )
         raise typer.Exit(1)
 
     client = MissingTableClient(
@@ -400,6 +482,10 @@ def _match_clock(live: dict) -> tuple[str, str]:
 @app.command()
 def login(username: str = typer.Argument("tom", help="Username to login with (default: tom)")):
     """Login to the MT API."""
+    # Before a password is read, not after: which environment is about to be
+    # handed a credential is the thing worth knowing early.
+    announce_target()
+
     # Try to find password from env file: TEST_USER_PASSWORD_<USERNAME>
     env_vars = _load_env_vars()
     env_key = f"TEST_USER_PASSWORD_{username.upper().replace('-', '_')}"
@@ -451,19 +537,20 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
 
 @app.command()
 def logout():
-    """Logout and clear stored credentials."""
+    """Logout and clear stored credentials for the targeted environment."""
+    env = get_current_env()
     state = load_state()
     state.access_token = None
     state.refresh_token = None
     state.username = None
     save_state(state)
-    console.print("[green]Logged out[/green]")
+    console.print(f"[green]Logged out of {env}[/green]")
 
 
 @app.command()
 def config():
-    """Show current configuration."""
-    env = get_current_env()
+    """Show current configuration, including where the environment came from."""
+    env, source = resolve_env()
     base_url = get_base_url()
     state = load_state()
 
@@ -471,7 +558,7 @@ def config():
     table.add_column("Setting", style="cyan")
     table.add_column("Value", style="white")
 
-    table.add_row("Environment", env)
+    table.add_row("Environment", f"{env}  [dim](from {source})[/dim]")
     table.add_row("API URL", base_url)
     table.add_row("Logged in as", state.username or "Not logged in")
     if state.match_id:

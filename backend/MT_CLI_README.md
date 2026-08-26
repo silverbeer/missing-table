@@ -12,15 +12,26 @@ For prod environment (MacBook Air at matches), add this line to `backend/.env.pr
 BACKEND_URL=https://your-production-api-url.com
 ```
 
-### 2. Switch Environment
+### 2. Choose an Environment
+
+For one command, use the flag. Nothing is written to disk:
 
 ```bash
-# At home (Mac mini) - default
-./switch-env.sh local
-
-# At match (MacBook Air) - switch to prod
-./switch-env.sh prod
+mt --env prod team matches "IFA U15"
 ```
+
+To move for a whole session, set the persistent mode. This redirects **every**
+later `mt` command, in this shell and every other one, until it is changed back
+— and `.mt-config` is read by `cache_cli.py` and `switch-env.sh` too:
+
+```bash
+./switch-env.sh local    # at home (Mac mini) - default
+./switch-env.sh prod     # at a match (MacBook Air)
+```
+
+Precedence is `--env` > `APP_ENV` > `.mt-config` > `local`. `mt config` prints
+the resolved environment and which of those decided it, and any command aimed
+somewhere other than local announces itself before it runs.
 
 ### 3. Install the CLI
 
@@ -37,9 +48,13 @@ This registers the `mt` command from `mt_cli.py`.
 
 ```bash
 mt login [username]    # Login (default: tom)
-mt logout              # Clear credentials
+mt logout              # Clear credentials for the targeted environment
 mt config              # Show current config + active match
 ```
+
+Sessions are stored per environment, so a prod login is never sent to a local
+API and an active prod match is not mistaken for a local one. Logging in to one
+does not log you out of the other.
 
 ### Search for Matches
 
@@ -147,7 +162,7 @@ Supabase Database
 ## Configuration Files
 
 - **`.mt-config`** - Environment setting (local/prod) - shared with `switch-env.sh`
-- **`.mt-cli-state.json`** - Login session + active match state (gitignored)
+- **`.mt-cli-state.json`** - Login session + active match state, keyed by environment (gitignored)
 - **`.env.local`** - Local dev config (BACKEND_URL, Supabase credentials)
 - **`.env.prod`** - Production config (add BACKEND_URL here)
 
