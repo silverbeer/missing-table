@@ -711,7 +711,10 @@ export default {
         clubId: filters.clubId || null,
         teamId: filters.teamId || null,
         seasonId: filters.seasonId || null,
-        matchTypeId: 1, // League
+        // Every competition, not just League (SB-849). Navigating to a team
+        // should show that team's schedule; pinning League here hid their
+        // Flex fixtures behind a filter they had not chosen.
+        matchTypeId: null,
         key: matchesFilters.value.key + 1,
       };
     };

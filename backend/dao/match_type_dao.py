@@ -18,9 +18,21 @@ class MatchTypeDAO(BaseDAO):
 
     @dao_cache("match_types:all")
     def get_all_match_types(self) -> list[dict]:
-        """Get all match types."""
+        """Get all match types, in the order competition filters should show them.
+
+        Ordered by display_order rather than name so the UI does not have to
+        know the sequence (SB-849). Alphabetical would put Flex before League
+        and Friendly between them, which reads as arbitrary next to a League
+        table. NULLs sort last so a type added without an order still appears.
+        """
         try:
-            response = self.client.table("match_types").select("*").order("name").execute()
+            response = (
+                self.client.table("match_types")
+                .select("*")
+                .order("display_order", desc=False, nullsfirst=False)
+                .order("name")
+                .execute()
+            )
             return response.data
         except Exception:
             logger.exception("Error querying match types")
