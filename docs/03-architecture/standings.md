@@ -127,6 +127,42 @@ Two things to note:
   on, and reading it here is what keeps a league-name → competition map out of
   the frontend.
 
+## Which leagues are worth offering
+
+```
+GET /api/leagues/available?season_id=
+```
+
+A league is offered when it is **active**, or when the selected season actually
+has matches in it. Both halves are load-bearing (SB-851):
+
+- **Presence alone empties a filter before a season starts.** Only U15 is
+  loaded for 2026-2027, so presence would drop Academy — and with it three
+  legitimate IFA teams — from a club's team picker.
+- **`is_active` alone hides real history.** Kick Futsal is inactive and its 24
+  matches are all 2025-2026; hiding it outright makes that season unreachable
+  through the filter.
+
+So `is_active` is the pre-season safety net, and presence is what re-admits a
+dormant league to the seasons it actually played. Each row carries
+`matches_this_season`.
+
+Two implementation notes worth keeping:
+
+- **Never key this on `teams.league_id`.** Flex has *zero* teams by that column
+  — its participants are Homegrown teams — so any rule using it hides the
+  newest competition in the product. Matches resolve to a league through
+  `divisions`.
+- `get_leagues_present` returns a **list** of `{league_id, matches}`, not a map
+  keyed by league id. It is cached, JSON has no integer keys, and a
+  `dict[int, int]` comes back from Redis with string keys — every lookup would
+  then miss and every league would read as zero matches.
+
+Both `LeagueTable.vue` (the League row) and `MatchesView.vue` (the My Club team
+picker) read this list; the picker hides a team whose league is not offered.
+A team whose division cannot be identified is kept — missing metadata is not
+evidence that a team is defunct, and hiding a real team is the worse error.
+
 ## The league table's competition control
 
 `LeagueTable.vue` builds its Competition row from this endpoint. It opens on

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-08-26T23:49:43.327314+00:00",
+  "generated_at": "2026-08-27T00:10:12.265806+00:00",
   "excluded_endpoints": [
     {
       "method": "POST",
@@ -8832,6 +8832,81 @@
       "client_file": "api_client/client.py",
       "tests": [
         {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_inactive_league_with_no_matches_is_hidden",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_inactive_league_is_shown_in_a_season_it_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_active_league_with_no_matches_yet_is_still_shown",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_flex_survives_despite_having_no_teams_of_its_own",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_the_count_comes_back_with_each_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_a_season_with_nothing_loaded_still_offers_active_leagues",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_only_the_inactive_league_can_ever_be_dropped",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_it_counts_matches_per_league_through_divisions",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_it_returns_a_list_so_the_cache_cannot_stringify_the_keys",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_a_match_with_no_division_is_not_counted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_unknown_division_is_not_counted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_no_matches_is_an_empty_list_not_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_the_test_partition_is_excluded_for_ordinary_viewers",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_admins_are_not_filtered",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_a_database_error_degrades_to_empty",
+          "type": "unit"
+        },
+        {
           "file": "tests/contract/test_leagues_contract.py",
           "test_name": "test_get_leagues_returns_list",
           "type": "contract"
@@ -8937,6 +9012,14 @@
         }
       ],
       "coverage_status": "fully_covered"
+    },
+    {
+      "method": "GET",
+      "path": "/api/leagues/available",
+      "client_method": null,
+      "client_file": null,
+      "tests": [],
+      "coverage_status": "missing_client"
     },
     {
       "method": "DELETE",
@@ -9191,6 +9274,81 @@
         {
           "file": "tests/unit/test_qualifying_standings.py",
           "test_name": "test_get_league_table_still_returns_just_the_rows",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_inactive_league_with_no_matches_is_hidden",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_inactive_league_is_shown_in_a_season_it_played",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_active_league_with_no_matches_yet_is_still_shown",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_flex_survives_despite_having_no_teams_of_its_own",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_the_count_comes_back_with_each_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_a_season_with_nothing_loaded_still_offers_active_leagues",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_only_the_inactive_league_can_ever_be_dropped",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_it_counts_matches_per_league_through_divisions",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_it_returns_a_list_so_the_cache_cannot_stringify_the_keys",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_a_match_with_no_division_is_not_counted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_an_unknown_division_is_not_counted",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_no_matches_is_an_empty_list_not_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_the_test_partition_is_excluded_for_ordinary_viewers",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_admins_are_not_filtered",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_available_leagues.py",
+          "test_name": "test_a_database_error_degrades_to_empty",
           "type": "unit"
         },
         {
@@ -16853,14 +17011,14 @@
     }
   ],
   "summary": {
-    "total_endpoints": 215,
+    "total_endpoints": 216,
     "excluded": 3,
     "with_client_method": 142,
     "with_tests": 136,
     "without_tests": 10,
     "coverage_status": {
       "fully_covered": 132,
-      "missing_client": 70,
+      "missing_client": 71,
       "client_only": 10
     }
   }

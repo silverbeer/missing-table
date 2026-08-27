@@ -648,23 +648,30 @@ export default {
       }
     };
 
+    // Only leagues worth offering for the season being viewed: active, or with
+    // matches in it (SB-851). Kick Futsal is inactive and its 24 matches are
+    // all 2025-2026, so it used to appear on every season and yield an empty
+    // table on all but one of them.
     const fetchLeagues = async () => {
       try {
+        const params = new URLSearchParams({
+          season_id: selectedSeasonId.value,
+        });
         const data = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/leagues`
+          `${getApiBaseUrl()}/api/leagues/available?${params}`
         );
         leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
-
-        // Set Homegrown as default if available
-        const homegrown = data.find(l => l.name === 'Homegrown');
-        if (homegrown) {
-          selectedLeagueId.value = homegrown.id;
-        } else if (data.length > 0) {
-          selectedLeagueId.value = data[0].id;
-        }
       } catch (err) {
         console.error('Error fetching leagues:', err);
+        return;
       }
+
+      // Keep the current league when the new season still offers it; a season
+      // change should not silently move the viewer somewhere else.
+      if (leagues.value.some(l => l.id === selectedLeagueId.value)) return;
+
+      const homegrown = leagues.value.find(l => l.name === 'Homegrown');
+      selectedLeagueId.value = homegrown?.id ?? leagues.value[0]?.id ?? null;
     };
 
     // Filter leagues to only those where the user's club has teams
@@ -933,6 +940,13 @@ export default {
       }
     };
 
+    // Declared before the table watchers so a season change re-reads the
+    // leagues, and any resulting league change cascades before the table is
+    // asked for.
+    watch(selectedSeasonId, async () => {
+      await fetchLeagues();
+    });
+
     // Watch for league changes to filter divisions and check bracket
     watch(selectedLeagueId, () => {
       filterDivisionsByLeague();
@@ -1022,12 +1036,10 @@ export default {
         filterKey: props.filterKey,
       });
 
-      await Promise.all([
-        fetchAgeGroups(),
-        fetchLeagues(),
-        fetchSeasons(),
-        fetchTeams(),
-      ]);
+      // Seasons first: which leagues are worth offering depends on the season,
+      // so fetching them together would race.
+      await Promise.all([fetchAgeGroups(), fetchSeasons(), fetchTeams()]);
+      await fetchLeagues();
 
       // Filter leagues to user's club before selecting defaults
       filterLeaguesByClub();

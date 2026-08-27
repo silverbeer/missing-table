@@ -4685,6 +4685,57 @@ async def get_leagues(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+def leagues_worth_offering(leagues: list[dict], counts: dict[int, int]) -> list[dict]:
+    """Filter leagues to those worth putting in front of a viewer (SB-851).
+
+    A league is offered when it is **active**, or when the season being viewed
+    actually has matches in it. Pure, so the rule is tested directly rather
+    than reproduced in a test — a copy passes while the original is broken.
+    """
+    return [
+        {**league, "matches_this_season": counts.get(league["id"], 0)}
+        for league in leagues
+        if league.get("is_active") or counts.get(league["id"], 0) > 0
+    ]
+
+
+@app.get("/api/leagues/available")
+async def get_available_leagues(
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+    season_id: int | None = Query(None, description="Season the viewer is looking at"),
+):
+    """Leagues worth offering in a filter for this season (SB-851).
+
+    A league is offered when it is **active**, or when the selected season
+    actually has matches in it.
+
+    Neither half alone works. Presence alone would empty a filter before a
+    season starts — only U15 is loaded for 2026-2027, so the three legitimate
+    Academy teams would vanish from a club's team picker along with the futsal
+    ones. And `is_active` alone would hide Kick Futsal's 24 matches of
+    2025-2026 history in the season that actually played them.
+
+    So `is_active` is the pre-season safety net, and presence is what re-admits
+    a dormant league to the seasons it played.
+
+    Each row carries `matches_this_season`, so a client can order or annotate
+    without asking again.
+
+    NOTE: declared before /api/leagues/{league_id}. FastAPI matches in
+    declaration order, and "available" is not an int.
+    """
+    try:
+        include_test = viewer_sees_test_content(current_user)
+        leagues = league_dao.get_all_leagues(include_test=include_test)
+        present = match_dao.get_leagues_present(season_id=season_id, include_test=include_test)
+        counts = {row["league_id"]: row["matches"] for row in present}
+
+        return leagues_worth_offering(leagues, counts)
+    except Exception as e:
+        logger.error(f"Error fetching available leagues: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not list available leagues") from e
+
+
 @app.get("/api/leagues/{league_id}")
 async def get_league(league_id: int):
     """Get league by ID (public access)."""

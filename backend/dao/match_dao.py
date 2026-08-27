@@ -1389,6 +1389,47 @@ class MatchDAO(BaseDAO):
             "teams_outside_table": outsiders,
         }
 
+    @dao_cache("matches:leagues_present:{season_id}:{include_test}")
+    def get_leagues_present(self, season_id: int | None = None, include_test: bool = False) -> list[dict]:
+        """How many matches each league has in a season.
+
+        Returns `[{"league_id": int, "matches": int}, ...]` — a list, not a map
+        keyed by league id, because this is cached: JSON has no integer keys, so
+        a dict[int, int] comes back from Redis with string keys and every
+        `counts[league_id]` lookup silently misses. The symptom would be every
+        league reading as zero matches after the first cache fill, which is
+        exactly the wrong answer for a filter that hides leagues with none.
+
+        A league with no matches in the season being viewed has nothing to show,
+        and offering it in a filter is the loading-skeleton failure CLAUDE.md
+        warns about — a control promising data that is not coming.
+
+        Matches carry a division, not a league, so this resolves through
+        divisions. Deliberately NOT through `teams.league_id`: Flex has zero
+        teams by that column, because its participants are Homegrown teams, and
+        keying on it would hide the newest competition in the product.
+        """
+        try:
+            query = self.client.table(MATCHES_READ_RELATION).select("division_id")
+            if not include_test:
+                query = query.eq("is_test", False)
+            if season_id:
+                query = query.eq("season_id", season_id)
+            matches = query.execute().data or []
+
+            divisions = self.client.table("divisions").select("id, league_id").execute().data or []
+            league_of = {d["id"]: d.get("league_id") for d in divisions}
+
+            counts: dict[int, int] = {}
+            for match in matches:
+                league_id = league_of.get(match.get("division_id"))
+                if league_id is not None:
+                    counts[league_id] = counts.get(league_id, 0) + 1
+            return [{"league_id": league_id, "matches": n} for league_id, n in sorted(counts.items())]
+        except Exception:
+            logger.exception("Error counting matches per league")
+            return []
+
     @dao_cache("matches:competitions:{season_id}:{age_group_id}:{division_id}:{include_test}")
     def get_competitions_present(
         self,
