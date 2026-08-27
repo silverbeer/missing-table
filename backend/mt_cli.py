@@ -1873,6 +1873,78 @@ def club_create(
     console.print(f'[dim]Attach a team:[/dim] mt team create --name "..." --club {club_row.get("id")}')
 
 
+def _print_club(club: dict) -> None:
+    """A club's fields, including the ones a careless write would blank."""
+    table = Table(title=f"Club #{club.get('id')} — {club.get('name')}", show_header=False)
+    table.add_column("Field", style="cyan")
+    table.add_column("Value", style="white")
+    for label, key in (
+        ("City", "city"),
+        ("Website", "website"),
+        ("Description", "description"),
+        ("Crest", "logo_url"),
+        ("Primary", "primary_color"),
+        ("Secondary", "secondary_color"),
+    ):
+        table.add_row(label, str(club.get(key) or "—"))
+    table.add_row("Pro academy", "yes" if club.get("pro_academy") else "no")
+    console.print(table)
+
+
+@club_app.command("show")
+def club_show(club: str = typer.Argument(..., help="Club name or id")):
+    """One club, with every field a write has to preserve.
+
+    There was no way to read a club from the CLI, which is why correcting one
+    meant querying the database first (SB-872).
+    """
+    client, _ = get_client()
+    _print_club(_api(_resolve_club, client, club))
+
+
+@club_app.command("set-pro-academy")
+def club_set_pro_academy(
+    club: str = typer.Argument(..., help="Club name or id"),
+    on: bool = typer.Option(True, "--on/--off", help="Flag or unflag the club"),
+):
+    """Mark a club as an MLS pro academy, or unmark it.
+
+    `mt club create` takes --pro-academy; nothing could set it afterwards, so a
+    club that already existed had to be corrected by hand through
+    update_club_profile (SB-872).
+
+    PUT /api/clubs/{id} is a **replace, not a patch**: every field it is not
+    given is blanked. So this reads the club first and resends all of it,
+    changing only the flag. Omitting logo_url and the brand colours is how a
+    crest gets destroyed — SB-824 and SB-842 are both that bug.
+    """
+    client, _ = get_client()
+    current = _api(_resolve_club, client, club)
+
+    if bool(current.get("pro_academy")) == on:
+        console.print(f"[yellow]{current.get('name')} is already {'flagged' if on else 'unflagged'}.[/yellow]")
+        return
+
+    updated = _api(
+        client.update_club_profile,
+        current["id"],
+        current.get("name"),
+        current.get("city") or "",
+        current.get("website"),
+        current.get("description"),
+        current.get("logo_url"),
+        current.get("primary_color"),
+        current.get("secondary_color"),
+        on,
+    )
+
+    was = "yes" if current.get("pro_academy") else "no"
+    now = "yes" if updated.get("pro_academy") else "no"
+    console.print(f"[green]{current.get('name')}[/green] pro academy: {was} → {now}")
+    console.print("[dim]Every other field was read and resent unchanged.[/dim]")
+    _print_club(updated)
+
+
 @club_app.command("rename")
 def club_rename(
     club: str = typer.Argument(..., help="Club name or id"),

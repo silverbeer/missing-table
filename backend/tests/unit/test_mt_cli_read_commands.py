@@ -150,6 +150,43 @@ def _stub_client():
         {"id": 1, "name": "Northeast", "league_id": 1},
         {"id": 7, "name": "New England", "league_id": 2},
     ]
+    # A club with a crest and brand colours — the fields a replace-not-patch
+    # write blanks if the caller does not resend them (SB-824, SB-842).
+    client.get_clubs.return_value = [
+        {
+            "id": 186,
+            "name": "Houston Dynamo FC",
+            "city": "Houston, TX",
+            "website": "https://example.test",
+            "description": "MLS Pro Academy",
+            "logo_url": "https://cdn.test/186.png",
+            "primary_color": "#F4911E",
+            "secondary_color": "#101820",
+            "pro_academy": False,
+        },
+        {
+            "id": 13,
+            "name": "NEFC",
+            "city": "Boston, MA",
+            "website": None,
+            "description": None,
+            "logo_url": None,
+            "primary_color": None,
+            "secondary_color": None,
+            "pro_academy": True,
+        },
+    ]
+    client.update_club_profile.side_effect = lambda cid, *a, **kw: {
+        "id": cid,
+        "name": a[0] if a else kw.get("name"),
+        "city": a[1] if len(a) > 1 else kw.get("city"),
+        "website": a[2] if len(a) > 2 else kw.get("website"),
+        "description": a[3] if len(a) > 3 else kw.get("description"),
+        "logo_url": a[4] if len(a) > 4 else kw.get("logo_url"),
+        "primary_color": a[5] if len(a) > 5 else kw.get("primary_color"),
+        "secondary_color": a[6] if len(a) > 6 else kw.get("secondary_color"),
+        "pro_academy": a[7] if len(a) > 7 else kw.get("pro_academy"),
+    }
     client.get_lineup.return_value = {"positions": [{"position": "GK", "player_id": 1, "jersey_number": 1}]}
     client.get_match_events.return_value = []
     client.get_roster_player_stats.return_value = SQUAD[0]
@@ -693,3 +730,61 @@ class TestTeamMappingCommands:
         assert result.exit_code == 1
         assert "Northeast" in result.output
         client.create_team_mapping.assert_not_called()
+
+
+@pytest.mark.unit
+class TestClubProAcademy:
+    """SB-872: `mt club create` takes --pro-academy; nothing could set it after.
+
+    PUT /api/clubs/{id} is a replace, not a patch, so the command exists mostly
+    to get the read-modify-write right. A caller who resends a subset blanks the
+    crest and brand colours every IG card reads.
+    """
+
+    def test_it_flags_a_club(self, client):
+        result = runner.invoke(mt_cli.app, ["club", "set-pro-academy", "Houston Dynamo FC"])
+
+        assert result.exit_code == 0
+        assert client.update_club_profile.call_args.args[8] is True
+
+    def test_the_crest_and_colours_survive(self, client):
+        """The regression SB-824 and SB-842 are both about."""
+        runner.invoke(mt_cli.app, ["club", "set-pro-academy", "Houston Dynamo FC"])
+
+        sent = client.update_club_profile.call_args.args
+        assert sent[5] == "https://cdn.test/186.png"  # logo_url
+        assert sent[6] == "#F4911E"  # primary
+        assert sent[7] == "#101820"  # secondary
+
+    def test_description_and_website_survive(self, client):
+        runner.invoke(mt_cli.app, ["club", "set-pro-academy", "Houston Dynamo FC"])
+
+        sent = client.update_club_profile.call_args.args
+        assert sent[3] == "https://example.test"
+        assert sent[4] == "MLS Pro Academy"
+
+    def test_off_unflags(self, client):
+        result = runner.invoke(mt_cli.app, ["club", "set-pro-academy", "NEFC", "--off"])
+
+        assert result.exit_code == 0
+        assert client.update_club_profile.call_args.args[8] is False
+
+    def test_already_flagged_is_a_no_op_not_an_error(self, client):
+        result = runner.invoke(mt_cli.app, ["club", "set-pro-academy", "NEFC"])
+
+        assert result.exit_code == 0
+        assert "already" in result.output
+        client.update_club_profile.assert_not_called()
+
+    def test_an_unknown_club_writes_nothing(self, client):
+        result = runner.invoke(mt_cli.app, ["club", "set-pro-academy", "Nowhere United"])
+
+        assert result.exit_code == 1
+        client.update_club_profile.assert_not_called()
+
+    def test_show_reports_the_fields_a_write_must_preserve(self, client):
+        result = runner.invoke(mt_cli.app, ["club", "show", "Houston Dynamo FC"])
+
+        assert result.exit_code == 0
+        assert "#F4911E" in result.output
+        assert "MLS Pro Academy" in result.output
