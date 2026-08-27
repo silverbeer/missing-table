@@ -276,7 +276,7 @@ mt ingest resolve 1 --note "fixed at the sender"
 1. `TEST_USER_PASSWORD_<USER>` in `backend/.env.<env>` — local test users only;
    **`.env.prod` deliberately holds none**
 2. `MT_PASSWORD` — for CI, where the value comes from a secret store
-3. **1Password**, `op read op://Personal/mt-<env>/credential`, overridable with
+3. **1Password**, `op read op://agents/mt-<env>/credential`, overridable with
    `MT_OP_ITEM` or an `op_item` line in `.mt-config` (`{env}` and `{user}` are
    substituted)
 4. an interactive prompt
