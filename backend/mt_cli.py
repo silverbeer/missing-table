@@ -291,7 +291,7 @@ def op_reference(username: str) -> str:
     explicit = os.environ.get("MT_OP_ITEM") or mt_config_get("op_item")
     if explicit:
         return explicit.replace("{env}", get_current_env()).replace("{user}", username)
-    return f"op://Personal/mt-{get_current_env()}/credential"
+    return f"op://agents/mt-{get_current_env()}/credential"
 
 
 def password_from_op(username: str) -> str | None:
