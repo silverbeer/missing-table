@@ -573,7 +573,7 @@ class TestLoginViaOnePassword:
         monkeypatch.setattr(mt_cli, "mt_config_get", lambda key, default="": "")
         monkeypatch.setattr(mt_cli, "get_current_env", lambda: "prod")
 
-        assert mt_cli.op_reference("tom") == "op://Personal/mt-prod/credential"
+        assert mt_cli.op_reference("tom") == "op://agents/mt-prod/credential"
 
     def test_reference_is_overridable(self, monkeypatch):
         monkeypatch.setenv("MT_OP_ITEM", "op://Work/mt-{env}/{user}-password")
