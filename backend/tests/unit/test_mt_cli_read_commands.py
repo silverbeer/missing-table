@@ -44,9 +44,22 @@ MATCH_TYPES = [
     {"id": 2, "name": "Friendly", "counts_for_qualification": False, "display_order": 4},
 ]
 
+
+def _mapping(age_group_id, age_group, division_id, division, league):
+    return {
+        "age_groups": {"id": age_group_id, "name": age_group},
+        "divisions": {"id": division_id, "name": division, "leagues": {"name": league}},
+    }
+
+
 TEAMS = [
-    {"id": 11, "name": "IFA U15 HG"},
-    {"id": 12, "name": "IFA U16 HG"},
+    {
+        "id": 11,
+        "name": "IFA U15 HG",
+        # Registered at U14 only, while playing U15 — the SB-852 shape.
+        "team_mappings": [_mapping(2, "U14", 1, "Northeast", "Homegrown")],
+    },
+    {"id": 12, "name": "IFA U16 HG", "team_mappings": []},
     {"id": 13, "name": "Boston Bolts"},
 ]
 
@@ -128,6 +141,15 @@ def _stub_client():
         "home_team_name": "IFA U15 HG",
         "away_team_name": "Boston Bolts",
     }
+    client.get_age_groups.return_value = [
+        {"id": 2, "name": "U14"},
+        {"id": 3, "name": "U15"},
+        {"id": 4, "name": "U16"},
+    ]
+    client.get_divisions.return_value = [
+        {"id": 1, "name": "Northeast", "league_id": 1},
+        {"id": 7, "name": "New England", "league_id": 2},
+    ]
     client.get_lineup.return_value = {"positions": [{"position": "GK", "player_id": 1, "jersey_number": 1}]}
     client.get_match_events.return_value = []
     client.get_roster_player_stats.return_value = SQUAD[0]
@@ -603,3 +625,71 @@ class TestPlayerStats:
         runner.invoke(mt_cli.app, ["player", "stats", "9", "--season", "2025"])
 
         client.get_roster_player_stats.assert_called_once_with(9, season_id=6)
+
+
+@pytest.mark.unit
+class TestTeamMappingCommands:
+    """SB-852: registrations were only editable through the Admin UI.
+
+    The endpoints and client methods existed; nothing in the CLI reached them.
+    `mt team create` writes mappings, but only for a brand-new team — there was
+    no way to add an age group to an existing one.
+    """
+
+    def test_list_shows_the_registrations(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "mapping", "list", "IFA U15"])
+
+        assert result.exit_code == 0
+        assert "U14" in result.output
+        assert "Northeast" in result.output
+        assert "Homegrown" in result.output
+
+    def test_no_registrations_says_what_that_costs(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "mapping", "list", "IFA U16"])
+
+        assert result.exit_code == 0
+        # Not just "none" — the consequence is the part nobody knows.
+        assert "team picker" in result.output
+
+    def test_add_resolves_names_to_ids(self, client):
+        result = runner.invoke(
+            mt_cli.app, ["team", "mapping", "add", "IFA U15", "--age", "U15", "--division", "Northeast"]
+        )
+
+        assert result.exit_code == 0
+        client.create_team_mapping.assert_called_once_with(11, 3, 1)
+
+    def test_add_reprints_the_registrations(self, client):
+        """The Admin UI shows a stale list after writing, which reads as a
+        failed save and invites a duplicate attempt. Prove it landed instead."""
+        result = runner.invoke(
+            mt_cli.app, ["team", "mapping", "add", "IFA U15", "--age", "U15", "--division", "Northeast"]
+        )
+
+        assert "Registrations" in result.output
+
+    def test_remove_resolves_names_to_ids(self, client):
+        result = runner.invoke(
+            mt_cli.app, ["team", "mapping", "remove", "IFA U15", "--age", "U14", "--division", "Northeast"]
+        )
+
+        assert result.exit_code == 0
+        client.delete_team_mapping.assert_called_once_with(11, 2, 1)
+
+    def test_an_unknown_age_group_lists_the_known_ones(self, client):
+        result = runner.invoke(
+            mt_cli.app, ["team", "mapping", "add", "IFA U15", "--age", "U99", "--division", "Northeast"]
+        )
+
+        assert result.exit_code == 1
+        assert "U15" in result.output
+        client.create_team_mapping.assert_not_called()
+
+    def test_an_unknown_division_lists_the_known_ones(self, client):
+        result = runner.invoke(
+            mt_cli.app, ["team", "mapping", "add", "IFA U15", "--age", "U15", "--division", "Atlantis"]
+        )
+
+        assert result.exit_code == 1
+        assert "Northeast" in result.output
+        client.create_team_mapping.assert_not_called()

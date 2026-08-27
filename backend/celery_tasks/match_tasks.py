@@ -51,6 +51,12 @@ class DatabaseTask(Task):
     # matches, so the difference is thousands of calls.
     _resolved_names: set[tuple[str, str]] = set()
 
+    # (team_id, age_group_id, division_id) triples this worker has already
+    # registered. Same reasoning as _resolved_names: a season load is thousands
+    # of matches over a couple of dozen triples, and checking per match would be
+    # thousands of round trips to learn the same thing.
+    _ensured_mappings: set[tuple[int, int, int]] = set()
+
     @property
     def dao(self):
         """Lazy initialization of MatchDAO to avoid creating connections at import time."""
@@ -116,6 +122,50 @@ class DatabaseTask(Task):
             return
         self._resolved_names.add(key)
         self.ingest_failures_dao.resolve(kind, raw_name, source=source)
+
+    def _register_team_age_group(self, team: dict[str, Any], age_group_id: int | None, division: dict | None) -> None:
+        """Record that this team plays this age group, in this division.
+
+        Nothing on the ingest path used to do this, so a team the scraper had
+        been filing matches for all season did not exist at that age group as
+        far as the product was concerned: /api/teams builds a team's age_groups
+        purely from team_mappings, and the My Club team picker filters on it.
+        NEFC had 44 U15 matches and an empty U15 team picker (SB-852).
+
+        Only the team's **own** league registers a mapping. A Homegrown team's
+        Flex matches carry the Flex bracket's division_id, and writing that
+        would give the team two divisions at one age group — while
+        divisions_by_age_group is keyed by age group alone and takes last-wins,
+        so the team's division would start displaying as a Flex bracket. Flex
+        participation is already expressed by the matches, and Flex standings
+        read matches directly (SB-835).
+
+        A team with no league_id yet is registered anyway: that is a team whose
+        first mapping this is, and refusing would leave it stuck with none.
+        """
+        if not division or age_group_id is None:
+            return
+
+        division_id = division.get("id")
+        if division_id is None:
+            return
+
+        team_league_id = team.get("league_id")
+        if team_league_id is not None and division.get("league_id") != team_league_id:
+            return
+
+        key = (team["id"], age_group_id, division_id)
+        if key in self._ensured_mappings:
+            return
+        self._ensured_mappings.add(key)
+
+        if self.team_dao.ensure_team_mapping(team["id"], age_group_id, division_id):
+            logger.info(
+                "Registered team age group",
+                team_id=team["id"],
+                age_group_id=age_group_id,
+                division_id=division_id,
+            )
 
     @staticmethod
     def _build_scheduled_kickoff(match_data: dict[str, Any]) -> str | None:
@@ -476,10 +526,12 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             match_type_id = match_type_record["id"]
             self._note_name_resolved("match_type", match_type_name, source)
 
+        division_record = None
         division_id = None
         if match_data.get("division"):
             div_record = self.league_dao.get_division_by_name(match_data["division"], league_id=league_id)
             if div_record:
+                division_record = div_record
                 division_id = div_record["id"]
             else:
                 # Writing NULL here used to look like a warning and behave
@@ -491,6 +543,21 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                     league=league_name,
                     sample=sample,
                 )
+
+        age_group_id = None
+        if match_data.get("age_group"):
+            age_group_record = self.season_dao.get_age_group_by_name(match_data["age_group"])
+            if age_group_record:
+                age_group_id = age_group_record["id"]
+            else:
+                logger.warning(f"Age group not found: {match_data['age_group']}")
+
+        # Record that both teams play this age group in this division. Nothing
+        # did, so a team the scraper had filed matches for all season did not
+        # exist at that age group as far as the team pickers were concerned
+        # (SB-852).
+        self._register_team_age_group(home_team, age_group_id, division_record)
+        self._register_team_age_group(away_team, age_group_id, division_record)
 
         # Step 3: Check if match already exists
         external_match_id = match_data.get("external_match_id")
@@ -505,15 +572,6 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
 
         # Second try: Fallback to lookup by teams + date + age_group (for manually-entered matches)
         if not existing_match:
-            # Look up age_group_id if age_group is provided
-            age_group_id = None
-            if match_data.get("age_group"):
-                age_group = self.season_dao.get_age_group_by_name(match_data["age_group"])
-                if age_group:
-                    age_group_id = age_group["id"]
-                else:
-                    logger.warning(f"Age group not found: {match_data['age_group']}")
-
             existing_match = self.dao.get_match_by_teams_and_date(
                 home_team_id=home_team["id"],
                 away_team_id=away_team["id"],
@@ -595,13 +653,9 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             current_season = self.season_dao.get_current_season()
             season_id = current_season["id"] if current_season else 1
 
-            age_group_id_for_create = 1  # Default fallback
-            if match_data.get("age_group"):
-                ag_record = self.season_dao.get_age_group_by_name(match_data["age_group"])
-                if ag_record:
-                    age_group_id_for_create = ag_record["id"]
-                else:
-                    logger.warning(f"Age group '{match_data['age_group']}' not found, using default ID 1")
+            # Resolved once above, for both branches. 1 remains the fallback
+            # for a feed that names an age group we do not have.
+            age_group_id_for_create = age_group_id or 1
 
             scheduled_kickoff = self._build_scheduled_kickoff(match_data)
 

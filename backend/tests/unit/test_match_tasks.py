@@ -383,6 +383,7 @@ def ingest():
     task._ingest_failures_dao = MagicMock()
     task._ingest_failures_dao.record.return_value = {"id": 1, "match_count": 1, "should_alert": True}
     task._resolved_names = set()
+    task._ensured_mappings = set()
 
     task._team_dao.resolve_team_by_name.side_effect = lambda name, league_id=None: {
         MATCH["home_team"]: IFA,
@@ -405,6 +406,7 @@ def ingest():
     task._match_type_dao = None
     task._ingest_failures_dao = None
     task._resolved_names = set()
+    task._ensured_mappings = set()
 
 
 def _run(task, **overrides):
@@ -523,6 +525,74 @@ class TestIngestCorrectsAnExistingMatch:
 
         assert result["status"] == "skipped"
         ingest._dao.client.table("matches").update.assert_not_called()
+
+
+class TestIngestRegistersAgeGroups:
+    """SB-852: a team must exist at the age groups it actually plays.
+
+    /api/teams builds a team's age_groups purely from team_mappings, and the
+    My Club team picker filters on that. Nothing on the ingest path wrote the
+    table, so NEFC had 44 U15 matches and an empty U15 team picker. The gap
+    regrew on every load that reached a team at a new age group.
+    """
+
+    def test_both_teams_are_registered(self, ingest):
+        _run(ingest)
+        registered = {c.args[:3] for c in ingest._team_dao.ensure_team_mapping.call_args_list}
+        assert registered == {(IFA["id"], 3, NORTHEAST["id"]), (OPPONENT["id"], 3, NORTHEAST["id"])}
+
+    def test_a_triple_is_only_written_once_per_worker(self, ingest):
+        for _ in range(5):
+            _run(ingest)
+        # Two teams, once each — not once per match.
+        assert ingest._team_dao.ensure_team_mapping.call_count == 2
+
+    def test_a_match_with_no_division_registers_nothing(self, ingest):
+        # Friendlies and tournament fixtures carry no division, so there is no
+        # registration to express.
+        _run(ingest, division=None)
+        ingest._team_dao.ensure_team_mapping.assert_not_called()
+
+    def test_a_match_with_no_age_group_registers_nothing(self, ingest):
+        ingest._season_dao.get_age_group_by_name.return_value = None
+        _run(ingest, age_group="U99")
+        ingest._team_dao.ensure_team_mapping.assert_not_called()
+
+    def test_a_flex_bracket_does_not_register_a_homegrown_team(self, ingest):
+        """The team would gain a second division at one age group.
+
+        divisions_by_age_group is keyed by age group alone and takes last-wins,
+        so the team's division would start displaying as a Flex bracket. Flex
+        participation is already expressed by the matches (SB-835).
+        """
+        ingest._team_dao.resolve_team_by_name.side_effect = lambda name, league_id=None: {
+            MATCH["home_team"]: {**IFA, "league_id": 1},
+            MATCH["away_team"]: {**OPPONENT, "league_id": 1},
+        }.get(name)
+        ingest._league_dao.get_division_by_name.return_value = {"id": 309, "name": "Turnpike", "league_id": 290}
+
+        _run(ingest, match_type="Flex", league="Flex")
+
+        ingest._team_dao.ensure_team_mapping.assert_not_called()
+
+    def test_a_teams_own_league_does_register(self, ingest):
+        ingest._team_dao.resolve_team_by_name.side_effect = lambda name, league_id=None: {
+            MATCH["home_team"]: {**IFA, "league_id": 1},
+            MATCH["away_team"]: {**OPPONENT, "league_id": 1},
+        }.get(name)
+
+        _run(ingest)
+
+        assert ingest._team_dao.ensure_team_mapping.call_count == 2
+
+    def test_a_team_with_no_league_yet_is_still_registered(self, ingest):
+        """Refusing would leave a brand-new team stuck with no mapping at all."""
+        _run(ingest)
+        assert ingest._team_dao.ensure_team_mapping.call_count == 2
+
+    def test_registration_failure_does_not_lose_the_match(self, ingest):
+        ingest._team_dao.ensure_team_mapping.return_value = False
+        assert _run(ingest)["status"] == "created"
 
 
 class TestIngestDivisionResolution:

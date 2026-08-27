@@ -478,6 +478,35 @@ and status are *not* gated — scraped data still wins on results. Adopting a
 manual match (populating its `match_id`) sets `source = 'match-scraper'`, after
 which the feed owns its filing too.
 
+### Ingest registers the age group
+
+A team's `age_groups` come entirely from `team_mappings`, and every age-group
+team picker filters on it. Until SB-852 nothing on the ingest path wrote that
+table, so a team the scraper had been filing matches for all season did not
+exist at that age group as far as the product was concerned — NEFC had 44 U15
+matches and an empty U15 team picker.
+
+Creating a match now registers both teams for `(age_group, division)`.
+Deliberately narrow:
+
+* **The team's own league only.** A Homegrown team's Flex matches carry the
+  Flex bracket's `division_id`. Writing that would give the team two divisions
+  at one age group, and `divisions_by_age_group` is keyed by age group alone
+  and takes last-wins — so the team's division would start displaying as a Flex
+  bracket. Flex participation is already expressed by the matches, and Flex
+  standings read matches directly (SB-835).
+* **Nothing without a division.** Friendlies and tournament fixtures carry
+  none, so there is no registration to express.
+* **A registration failure never fails the match.** The match landing matters
+  more than its registration row; the failure is logged.
+
+To correct one by hand:
+
+```bash
+mt team mapping list "NEFC"
+mt team mapping add "NEFC" --age U16 --division Northeast
+```
+
 ### Closing a failure row
 
 A row closes **itself** when the same name later resolves — add the alias and
