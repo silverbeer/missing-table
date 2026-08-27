@@ -2191,15 +2191,41 @@ export default {
       }
     };
 
+    // Only leagues worth offering for the season being viewed: active, or with
+    // matches in it (SB-851). This list was fetched and never used; it now
+    // decides which of a club's teams are worth showing, which is what kept
+    // four Kick Futsal teams in IFA's picker two seasons after that league
+    // stopped running.
     const fetchLeagues = async () => {
       try {
+        const params = new URLSearchParams({
+          season_id: selectedSeasonId.value,
+        });
         const data = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/leagues`
+          `${getApiBaseUrl()}/api/leagues/available?${params}`
         );
         leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch (err) {
         console.error('Error fetching leagues:', err);
+        leagues.value = [];
       }
+    };
+
+    const availableLeagueIds = computed(
+      () => new Set((leagues.value || []).map(l => l.id))
+    );
+
+    // A team belongs in a picker when the league it plays this age group in is
+    // one we are offering. A team whose division we cannot identify is kept:
+    // missing metadata is not evidence that a team is defunct, and hiding a
+    // real team is the worse error.
+    const playsAnOfferedLeague = team => {
+      if (!availableLeagueIds.value.size) return true;
+      const division =
+        team.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
+      const leagueId = division?.league_id;
+      if (leagueId === undefined || leagueId === null) return true;
+      return availableLeagueIds.value.has(Number(leagueId));
     };
 
     // Compute visible divisions from loaded matches (only shows divisions with matches in current view)
@@ -2644,7 +2670,10 @@ export default {
     // Filter teams based on selected age group
     const filteredTeams = computed(() => {
       return teams.value.filter(team => {
-        return team.age_groups.some(ag => ag.id === selectedAgeGroupId.value);
+        if (!team.age_groups.some(ag => ag.id === selectedAgeGroupId.value)) {
+          return false;
+        }
+        return playsAnOfferedLeague(team);
       });
     });
 
@@ -3050,6 +3079,9 @@ export default {
 
     // Watch for season changes to refetch matches
     watch(selectedSeasonId, () => {
+      // Which leagues are worth offering depends on the season, and so does
+      // which of a club's teams are worth showing.
+      fetchLeagues();
       fetchMatches();
     });
 
@@ -3228,14 +3260,16 @@ export default {
         selectedClubId.value = authStore.userClubId.value;
       }
 
+      // Seasons first: fetchLeagues asks about the selected season, so
+      // fetching them together would race.
       await Promise.all([
         fetchAgeGroups(),
         fetchSeasons(),
         fetchGameTypes(),
-        fetchLeagues(),
         fetchClubs(),
         fetchTeams(),
       ]);
+      await fetchLeagues();
 
       // Apply initial filters from props if provided (navigation from FanProfile
       // or from clicking a team on the League Table)
