@@ -26,32 +26,33 @@
 <script setup>
 import { computed } from 'vue';
 
-/**
- * Match score, or "vs" when the match has not been played.
- *
- * Numerals are the UI font with tabular figures rather than a monospace face:
- * mono read as terminal output, and tabular-nums already keeps columns of
- * scores aligned. Thin spaces around the en dash stop "0–0" from closing up.
- *
- * The chip uses theme tokens (surface-alt / fg / line), not a fixed near-black:
- * a hard-coded dark pill sat heavily on the light table and disappeared into
- * the background in dark mode.
- *
- * Absent is not zero (see CLAUDE.md): a match with no score shows "vs", never
- * "0 – 0". Both sides must be present for a score to render.
- */
 const props = defineProps({
   homeScore: { type: Number, default: null },
   awayScore: { type: Number, default: null },
   homePenaltyScore: { type: Number, default: null },
   awayPenaltyScore: { type: Number, default: null },
+  // Optional: when given, a result is only rendered for a status that can have
+  // one. Guards against stored placeholder zeros on unplayed matches (SB-886) —
+  // prod carried `DEFAULT 0` on the score columns, so a fixture kicking off
+  // tomorrow arrived here as a 0-0 draw. Omitted (null) keeps the old
+  // score-presence-only behaviour for callers that have no status to hand.
+  status: { type: String, default: null },
 });
 
-const played = computed(
-  () => props.homeScore != null && props.awayScore != null
-);
+// Statuses under which a scoreline is real. A live match at 0-0 is a genuine
+// scoreline, so in_progress belongs here alongside completed and forfeit.
+const SCORABLE = ['completed', 'in_progress', 'forfeit'];
+
+const played = computed(() => {
+  if (props.homeScore == null || props.awayScore == null) return false;
+  if (props.status == null) return true;
+  return SCORABLE.includes(props.status);
+});
 
 const hasPenalties = computed(
-  () => props.homePenaltyScore != null && props.awayPenaltyScore != null
+  () =>
+    played.value &&
+    props.homePenaltyScore != null &&
+    props.awayPenaltyScore != null
 );
 </script>
