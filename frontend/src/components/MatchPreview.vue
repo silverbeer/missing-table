@@ -126,9 +126,15 @@
             </div>
             <div
               v-if="preview.home_team_recent.length === 0"
-              class="text-xs text-slate-500 italic"
+              class="rounded border border-dashed border-slate-600 bg-slate-800/40 px-3 py-4 text-center"
+              data-testid="home-form-empty"
             >
-              No recent matches
+              <span class="block text-xs font-semibold text-slate-300"
+                >No matches on record</span
+              >
+              <span class="text-xs text-slate-500"
+                >We haven't tracked this club's results yet.</span
+              >
             </div>
             <div
               v-for="m in preview.home_team_recent"
@@ -143,8 +149,14 @@
                 ]"
                 >{{ matchOutcome(m, homeTeamId) }}</span
               >
-              <span class="font-mono font-semibold text-slate-200 shrink-0"
-                >{{ m.home_score }}–{{ m.away_score }}</span
+              <span class="font-mono font-semibold text-slate-200 shrink-0">{{
+                teamScoreline(m, homeTeamId) ?? '—'
+              }}</span>
+              <span
+                class="font-mono text-[10px] text-slate-500 shrink-0"
+                data-testid="form-venue"
+                :title="venueFor(m, homeTeamId) === 'H' ? 'Home' : 'Away'"
+                >{{ venueFor(m, homeTeamId) }}</span
               >
               <span class="text-slate-300 truncate flex-1">{{
                 m.home_team_id === homeTeamId
@@ -190,9 +202,15 @@
             </div>
             <div
               v-if="preview.away_team_recent.length === 0"
-              class="text-xs text-slate-500 italic"
+              class="rounded border border-dashed border-slate-600 bg-slate-800/40 px-3 py-4 text-center"
+              data-testid="away-form-empty"
             >
-              No recent matches
+              <span class="block text-xs font-semibold text-slate-300"
+                >No matches on record</span
+              >
+              <span class="text-xs text-slate-500"
+                >We haven't tracked this club's results yet.</span
+              >
             </div>
             <div
               v-for="m in preview.away_team_recent"
@@ -207,8 +225,14 @@
                 ]"
                 >{{ matchOutcome(m, awayTeamId) }}</span
               >
-              <span class="font-mono font-semibold text-slate-200 shrink-0"
-                >{{ m.home_score }}–{{ m.away_score }}</span
+              <span class="font-mono font-semibold text-slate-200 shrink-0">{{
+                teamScoreline(m, awayTeamId) ?? '—'
+              }}</span>
+              <span
+                class="font-mono text-[10px] text-slate-500 shrink-0"
+                data-testid="form-venue"
+                :title="venueFor(m, awayTeamId) === 'H' ? 'Home' : 'Away'"
+                >{{ venueFor(m, awayTeamId) }}</span
               >
               <span class="text-slate-300 truncate flex-1">{{
                 m.home_team_id === awayTeamId
@@ -273,8 +297,14 @@
                 ]"
                 >{{ matchOutcome(m, homeTeamId) }}</span
               >
-              <span class="font-mono font-semibold text-slate-200 shrink-0"
-                >{{ m.home_score }}–{{ m.away_score }}</span
+              <span class="font-mono font-semibold text-slate-200 shrink-0">{{
+                teamScoreline(m, homeTeamId) ?? '—'
+              }}</span>
+              <span
+                class="font-mono text-[10px] text-slate-500 shrink-0"
+                data-testid="form-venue"
+                :title="venueFor(m, homeTeamId) === 'H' ? 'Home' : 'Away'"
+                >{{ venueFor(m, homeTeamId) }}</span
               >
               <span class="text-slate-300 truncate flex-1">{{
                 homeTeamName
@@ -301,8 +331,14 @@
                 ]"
                 >{{ matchOutcome(m, awayTeamId) }}</span
               >
-              <span class="font-mono font-semibold text-slate-200 shrink-0"
-                >{{ m.home_score }}–{{ m.away_score }}</span
+              <span class="font-mono font-semibold text-slate-200 shrink-0">{{
+                teamScoreline(m, awayTeamId) ?? '—'
+              }}</span>
+              <span
+                class="font-mono text-[10px] text-slate-500 shrink-0"
+                data-testid="form-venue"
+                :title="venueFor(m, awayTeamId) === 'H' ? 'Home' : 'Away'"
+                >{{ venueFor(m, awayTeamId) }}</span
               >
               <span class="text-slate-400 truncate flex-1">{{
                 awayTeamName
@@ -444,6 +480,32 @@ function matchOutcome(m, teamId) {
   return 'D';
 }
 
+/**
+ * The scoreline as *this team* played it (SB-892).
+ *
+ * `matchOutcome` above already swaps on `isHome` to decide W/L/D, but the
+ * template used to print raw `home_score–away_score` beside it — and the
+ * opponent-name span hides who was home. So a win could render "1–3", with
+ * nothing on the row to say which number was the subject team's.
+ *
+ * Returns null when either score is absent, so the caller renders an em dash
+ * rather than a bare separator. A `Not reported` match (SB-889) reaches here
+ * with null scores.
+ */
+function teamScoreline(m, teamId) {
+  if (m.home_score === null || m.away_score === null) return null;
+  if (m.home_score === undefined || m.away_score === undefined) return null;
+  const isHome = m.home_team_id === teamId;
+  const own = isHome ? m.home_score : m.away_score;
+  const opp = isHome ? m.away_score : m.home_score;
+  return `${own}\u2013${opp}`;
+}
+
+/** H or A, so "3–1" can only be read one way. */
+function venueFor(m, teamId) {
+  return m.home_team_id === teamId ? 'H' : 'A';
+}
+
 function matchOutcomeClass(m, teamId) {
   const o = matchOutcome(m, teamId);
   if (o === 'W') return 'bg-green-900/60 text-green-400';
@@ -504,19 +566,34 @@ const activeTab = ref('form');
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-const tabs = computed(() => [
-  { id: 'form', label: 'Recent Form', count: null },
-  {
-    id: 'common',
-    label: 'Common Opponents',
-    count: preview.value ? (preview.value.common_opponents?.length ?? 0) : null,
-  },
-  {
-    id: 'h2h',
-    label: 'Head-to-Head',
-    count: preview.value ? (preview.value.head_to_head?.length ?? 0) : null,
-  },
-]);
+/**
+ * Only tabs that actually hold something (SB-892).
+ *
+ * These used to render with a literal `0` badge, so two of the three tabs
+ * advertised their own emptiness and invited a click that led nowhere. A tab
+ * with no rows is not a tab.
+ *
+ * Recent Form always shows: it is the default view, and it has its own
+ * per-team empty states rather than a single empty tab.
+ */
+const tabs = computed(() => {
+  const commonCount = preview.value?.common_opponents?.length ?? 0;
+  const h2hCount = preview.value?.head_to_head?.length ?? 0;
+  const out = [{ id: 'form', label: 'Recent Form', count: null }];
+  if (commonCount > 0) {
+    out.push({ id: 'common', label: 'Common Opponents', count: commonCount });
+  }
+  if (h2hCount > 0) {
+    out.push({ id: 'h2h', label: 'Head-to-Head', count: h2hCount });
+  }
+  return out;
+});
+
+// If the active tab disappears (a reload returns no common opponents, say),
+// fall back to Recent Form rather than rendering an empty panel.
+watch(tabs, list => {
+  if (!list.some(t => t.id === activeTab.value)) activeTab.value = 'form';
+});
 
 // ─── Head-to-head summary stats ───────────────────────────────────────────────
 

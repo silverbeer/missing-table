@@ -222,14 +222,38 @@ describe('MatchDetailView', () => {
       expect(wrapper.text()).toContain('Red Hawks U14');
     });
 
-    it('shows dash for scheduled match scores', async () => {
+    it('shows kickoff, not an empty scoreboard, for a scheduled match', async () => {
+      // A match nobody has played has no score. Rendering "- - -" at 48px put
+      // a broken-looking scoreboard where the answer belongs, and buried the
+      // kickoff time in a six-cell grid below it (SB-892).
       const match = createMockMatch({ home_score: null, away_score: null });
       mockAuthStore.apiRequest = vi.fn(() => Promise.resolve(match));
       const wrapper = mountMatchDetailView();
       await flushPromises();
 
-      expect(wrapper.find('[data-testid="home-score"]').text()).toBe('-');
-      expect(wrapper.find('[data-testid="away-score"]').text()).toBe('-');
+      expect(wrapper.find('[data-testid="score-display"]').exists()).toBe(
+        false
+      );
+      expect(wrapper.find('[data-testid="home-score"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="kickoff-display"]').exists()).toBe(
+        true
+      );
+    });
+
+    it('does not treat stored zeros on a scheduled match as a result', async () => {
+      // The SB-886 shape: prod carried `DEFAULT 0` on the score columns, so an
+      // unplayed fixture arrived here as a 0-0 draw.
+      const match = createMockMatch({ home_score: 0, away_score: 0 });
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve(match));
+      const wrapper = mountMatchDetailView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="score-display"]').exists()).toBe(
+        false
+      );
+      expect(wrapper.find('[data-testid="kickoff-display"]').exists()).toBe(
+        true
+      );
     });
 
     it('shows scores for completed matches', async () => {
