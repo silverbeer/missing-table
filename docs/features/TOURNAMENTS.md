@@ -1,6 +1,6 @@
 # Tournaments Tab
 
-**Status:** companion refactor shipped (SB-886), stale-status fix (SB-889) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
+**Status:** companion refactor shipped (SB-886), stale-status fix (SB-889), modal fix (SB-890) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
 
 The Tournaments tab is a **companion**, not a schedule dump. It answers "what is
 happening with my team this weekend" before it answers "what is in this
@@ -151,6 +151,35 @@ and a dark treatment. They replaced three unrelated hardcoded palettes
 and rendered as pale blocks on a navy card.
 
 Adding a chip? Add a variant there. Do not inline a colour.
+
+## The match preview modal
+
+A row click opens `MatchDetailView` inside `ui/ModalOverlay.vue`. (The Matches
+tab renders the same view *inline* instead — hence `MatchDetailView`'s
+`backLabel` prop, since "Back to Matches" is wrong when you arrived from
+Tournaments.)
+
+`ModalOverlay` exists because the previous inline wrapper could trap the user
+(SB-890). Its close button was `absolute` on the card, so on a short window,
+scrolling to read the content carried the only visible exit off the screen —
+measured at `top: -70px`. Escape was unhandled and the page scrolled freely
+behind it, so every way out failed at once.
+
+The rule now: **three independent ways out**, so no single failure traps
+anyone.
+
+| Exit | How |
+|------|-----|
+| Close button | `fixed` to the **overlay**, not the card — reachable at any scroll offset |
+| `Escape` | handled on the overlay |
+| Backdrop | `@click.self` |
+
+It also teleports to `<body>`, so no ancestor `transform` / `filter` / `contain`
+can ever turn `position: fixed` into a clipped box; locks body scroll with
+`overflow: hidden` (which preserves scroll position, so closing does not jump
+the reader to the top) plus scrollbar-width padding to stop the layout shifting
+sideways; and carries `role="dialog"`, `aria-modal`, an accessible name,
+focus-on-open, focus-restore-to-opener, and a Tab trap.
 
 ## Tests
 

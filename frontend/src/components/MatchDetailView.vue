@@ -20,7 +20,7 @@
           d="M15 19l-7-7 7-7"
         />
       </svg>
-      <span>Back to Matches</span>
+      <span>{{ backLabel }}</span>
     </button>
 
     <!-- Loading state -->
@@ -755,6 +755,13 @@ export default {
     matchId: {
       type: [Number, String],
       required: true,
+    },
+    // Where "back" actually goes. This view is reached inline from the Matches
+    // tab and as a modal from Tournaments, so a hardcoded "Back to Matches"
+    // was wrong in the second case (SB-890).
+    backLabel: {
+      type: String,
+      default: 'Back to Matches',
     },
   },
   emits: ['back'],
