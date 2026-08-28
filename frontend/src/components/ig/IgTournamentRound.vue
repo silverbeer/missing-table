@@ -31,9 +31,6 @@
       <div class="panel-top">
         <div class="panel-top-row">
           <div class="panel-top-text">
-            <span class="brand-mark" data-testid="ig-brand-top"
-              >missingtable.com</span
-            >
             <span
               v-if="tournamentName"
               class="tournament"
@@ -290,15 +287,8 @@ export default {
   background-repeat: no-repeat;
 }
 
-.brand-mark {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.7);
-}
-
 .tournament {
-  font-size: 22px;
+  font-size: 27px;
   font-weight: 700;
   letter-spacing: 0.18em;
   color: #ffffff;
