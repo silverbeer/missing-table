@@ -174,6 +174,21 @@ anyone.
 | `Escape` | handled on the overlay |
 | Backdrop | `@click.self` |
 
+It sits at **z-index 1200**. `nav.auth-nav` is `position: relative; z-index:
+1000` — page chrome in the same band the app uses for modals (`App.vue`,
+`ConfirmModal`, every admin modal are all 1000, and only win by appearing later
+in the DOM). At the original z-50 the nav painted over the top strip of the
+viewport and swallowed clicks on the close button, so a user at the top of the
+page could not close the modal at all (SB-896).
+
+That bug hid from local verification because `auth-nav` scrolls with the page:
+scrolled down, the nav is not in the top strip and the button works. It only
+appears at `scrollTop = 0` — where a user opening the first match of a
+tournament always is. **Verify modal changes at the top of the page.**
+
+`App.vue`'s deep-link modal (the `?matchId=` push-notification path) uses the
+same component, so both paths get the same behaviour.
+
 It also teleports to `<body>`, so no ancestor `transform` / `filter` / `contain`
 can ever turn `position: fixed` into a clipped box; locks body scroll with
 `overflow: hidden` (which preserves scroll position, so closing does not jump
