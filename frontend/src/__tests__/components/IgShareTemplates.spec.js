@@ -241,11 +241,24 @@ describe('MLS Next badge gating', () => {
 });
 
 describe('IgStadium template', () => {
-  it('renders top and bottom brand bands with the handle', () => {
-    const wrapper = mountCard('stadium');
-    expect(wrapper.find('[data-testid="ig-brand-top"]').text()).toBe(
-      'missingtable.com'
+  it('leads the top band with the tournament, not the wordmark', () => {
+    // The missingtable.com wordmark used to sit here, duplicating what the
+    // bottom band already says twice (@missingtable + "Check out
+    // missingtable.com...") while squeezing the tournament name -- the
+    // actual subject of the card -- onto two cramped lines (SB-899).
+    const wrapper = mountCard('stadium', {
+      match: createMockMatch({ tournament_name: 'Copa Rayados East Coast' }),
+    });
+
+    expect(wrapper.find('[data-testid="ig-brand-top"]').exists()).toBe(false);
+    // The band now opens on the subject of the card.
+    expect(wrapper.find('[data-testid="ig-meta"]').text()).toContain(
+      'COPA RAYADOS EAST COAST'
     );
+  });
+
+  it('still carries the brand once, in the bottom band', () => {
+    const wrapper = mountCard('stadium');
     expect(wrapper.find('[data-testid="ig-handle"]').text()).toBe(
       '@missingtable'
     );

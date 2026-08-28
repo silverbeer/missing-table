@@ -12,11 +12,11 @@
     data-template="stadium"
     :data-mode="mode"
   >
-    <!-- Top brand band -->
+    <!-- Top band. The tournament leads: it is the subject of the card, and
+         the missingtable.com wordmark that used to sit here was a second
+         copy of what the bottom band already says twice (SB-899). -->
     <div class="brand-band-top">
-      <span class="brand-mark" data-testid="ig-brand-top"
-        >missingtable.com</span
-      >
+      <span class="meta" data-testid="ig-meta">{{ metaLabel }}</span>
       <MlsNextBadge v-if="isHomegrownLeague" class="brand-band-badge" />
       <!-- White chip + background-image (not <img>) so dark logos stay
            legible and html2canvas renders contain correctly — see
@@ -28,7 +28,6 @@
           :style="{ backgroundImage: `url(${tournamentLogoUrl})` }"
         ></div>
       </div>
-      <span class="meta" data-testid="ig-meta">{{ metaLabel }}</span>
     </div>
 
     <div class="stage">
@@ -216,10 +215,6 @@ export default {
   flex-shrink: 0;
 }
 
-.brand-mark {
-  font-size: 26px;
-}
-
 .brand-band-badge {
   height: 84px;
   margin-left: auto;
@@ -246,10 +241,14 @@ export default {
 }
 
 .meta {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  /* Two clamped lines: a long tournament name should shrink the band's
+     breathing room, not wrap into the crest row below it. */
+  line-height: 1.15;
+  max-width: 620px;
 }
 
 .handle {

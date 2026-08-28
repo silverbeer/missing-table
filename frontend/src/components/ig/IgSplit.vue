@@ -39,9 +39,6 @@
       <div class="panel-top">
         <div class="panel-top-row">
           <div class="panel-top-text">
-            <span class="brand-mark" data-testid="ig-brand-top"
-              >missingtable.com</span
-            >
             <span class="meta" data-testid="ig-meta">{{ metaLabel }}</span>
           </div>
           <MlsNextBadge v-if="isHomegrownLeague" class="mls-badge" />
@@ -357,21 +354,15 @@ export default {
   background-repeat: no-repeat;
 }
 
-.brand-mark {
+.meta {
+  /* Leads the panel now that the missingtable.com wordmark above it is gone
+     (SB-899) -- the tournament is the subject of the card. Tracking stays
+     tight so the longest real label, "PRESEASON FRIENDLY · 2026-2027",
+     still fits the narrowed panel. */
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #ffffff;
-}
-
-.meta {
-  /* Tracked in a touch from the old 18px/0.18em so the longest real
-     label — "PRESEASON FRIENDLY · 2026-2027" — stays on one line in the
-     narrowed panel. */
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.75);
 }
 
 .hero {
