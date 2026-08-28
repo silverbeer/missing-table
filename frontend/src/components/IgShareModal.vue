@@ -607,7 +607,7 @@ export default {
 }
 
 .ig-modal-panel {
-  background: #ffffff;
+  background: rgb(var(--color-card));
   border-radius: 12px;
   width: 100%;
   max-width: 560px;
@@ -621,13 +621,13 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .ig-modal-title {
   font-size: 18px;
   font-weight: 600;
-  color: #0f172a;
+  color: rgb(var(--color-fg));
   margin: 0;
 }
 
@@ -635,14 +635,14 @@ export default {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
   padding: 6px;
   border-radius: 6px;
 }
 
 .ig-modal-close:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
 }
 
 .ig-modal-body {
@@ -655,7 +655,7 @@ export default {
 .ig-mode-toggle {
   display: inline-flex;
   border-radius: 8px;
-  background: #f1f5f9;
+  background: rgb(var(--color-surface-alt));
   padding: 4px;
   align-self: flex-start;
   gap: 2px;
@@ -667,14 +667,14 @@ export default {
   padding: 6px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: #475569;
+  color: rgb(var(--color-fg-muted));
   border-radius: 6px;
   cursor: pointer;
 }
 
 .ig-mode-active {
-  background: #ffffff;
-  color: #0f172a;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -696,21 +696,21 @@ export default {
   gap: 2px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
+  background: rgb(var(--color-surface-alt));
+  border: 2px solid rgb(var(--color-line));
   cursor: pointer;
   text-align: left;
   transition: all 0.15s ease;
 }
 
 .ig-template-option:hover {
-  background: #f1f5f9;
+  background: rgb(var(--color-surface-alt));
 }
 
 .ig-template-active {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: white;
+  background: rgb(var(--color-fg));
+  border-color: rgb(var(--color-fg));
+  color: rgb(var(--color-card));
 }
 
 .ig-template-label {
@@ -720,7 +720,12 @@ export default {
 
 .ig-template-sub {
   font-size: 11px;
-  opacity: 0.75;
+  color: rgb(var(--color-fg-muted));
+}
+
+.ig-template-active .ig-template-sub {
+  color: rgb(var(--color-card));
+  opacity: 0.8;
 }
 
 /* SB-659: accent picker */
@@ -735,7 +740,7 @@ export default {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
 }
 
 .ig-accent-row {
@@ -750,26 +755,31 @@ export default {
   gap: 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
+  background: rgb(var(--color-surface-alt));
+  border: 2px solid rgb(var(--color-line));
   cursor: pointer;
   transition: all 0.15s ease;
   min-width: 0;
 }
 
 .ig-accent-option:hover:not(.ig-accent-disabled) {
-  background: #f1f5f9;
+  background: rgb(var(--color-surface-alt));
 }
 
 .ig-accent-active {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: white;
+  background: rgb(var(--color-fg));
+  border-color: rgb(var(--color-fg));
+  color: rgb(var(--color-card));
 }
 
+/* Disabled must stay readable. Fading toward the panel colour is what put
+   several of these at 1.11:1 contrast in dark mode (SB-897); state the
+   unavailability with a muted token instead. */
 .ig-accent-disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  color: rgb(var(--color-fg-muted));
+  background: rgb(var(--color-surface-alt));
+  border-style: dashed;
 }
 
 .ig-accent-swatch {
@@ -793,7 +803,7 @@ export default {
 
 .ig-accent-note {
   font-size: 11px;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
   margin: 0;
 }
 
@@ -811,15 +821,15 @@ export default {
   gap: 8px;
   padding: 8px 14px;
   border-radius: 8px;
-  background: #0f172a;
-  color: white;
+  background: rgb(var(--color-fg));
+  color: rgb(var(--color-card));
   font-size: 13px;
   font-weight: 600;
 }
 
 .ig-file-meta {
   font-size: 12px;
-  color: #475569;
+  color: rgb(var(--color-fg-muted));
 }
 
 .sr-only {
@@ -835,7 +845,7 @@ export default {
 }
 
 .ig-error {
-  color: #b91c1c;
+  color: rgb(239 68 68);
   font-size: 13px;
   margin: 0;
 }
@@ -848,6 +858,10 @@ export default {
   aspect-ratio: 1 / 1;
   overflow: hidden;
   border-radius: 8px;
+  /* Deliberately NOT a theme token. This is the letterbox behind the
+     1080x1080 card, and the card is dark-designed whatever theme the author
+     is using -- it is an exported image, not UI. Tokenising this would make
+     the preview surface disagree with the PNG people actually post. */
   background: #0f172a;
   position: relative;
 }
@@ -890,28 +904,34 @@ export default {
   cursor: not-allowed;
 }
 
+.ig-template-option:disabled {
+  cursor: not-allowed;
+  color: rgb(var(--color-fg-muted));
+  border-style: dashed;
+}
+
 .ig-action-primary {
-  background: #0f172a;
-  color: white;
+  background: rgb(var(--color-fg));
+  color: rgb(var(--color-card));
 }
 
 .ig-action-primary:hover:not(:disabled) {
-  background: #1e293b;
+  background: rgb(var(--color-fg-muted));
 }
 
 .ig-action-secondary {
-  background: white;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
+  border-color: rgb(var(--color-line));
 }
 
 .ig-action-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: rgb(var(--color-surface-alt));
 }
 
 .ig-hint {
   font-size: 12px;
-  color: #64748b;
+  color: rgb(var(--color-fg-muted));
   margin: 0;
 }
 
