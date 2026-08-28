@@ -1,43 +1,19 @@
 <template>
-  <!-- Match detail modal: overlays the tournament page when a row or bracket cell is clicked. -->
-  <div
+  <!-- Match detail modal: overlays the tournament page when a row or bracket
+       cell is clicked. ModalOverlay owns the close affordances -- pinned
+       button, Escape, backdrop -- plus scroll lock and focus handling. -->
+  <ModalOverlay
     v-if="selectedMatchId"
-    class="fixed inset-0 z-50 bg-black/60 overflow-y-auto"
-    @click.self="handleBackFromMatchDetail"
+    label="Match details"
+    close-label="Close match details"
+    @close="handleBackFromMatchDetail"
   >
-    <div class="min-h-full flex items-start justify-center p-3 sm:p-6">
-      <div
-        class="relative w-full max-w-4xl bg-card rounded-lg shadow-2xl"
-        @click.stop
-      >
-        <button
-          type="button"
-          aria-label="Close match details"
-          class="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full text-fg-muted hover:text-fg hover:bg-surface-alt transition-colors"
-          @click="handleBackFromMatchDetail"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-        <MatchDetailView
-          :matchId="selectedMatchId"
-          @back="handleBackFromMatchDetail"
-        />
-      </div>
-    </div>
-  </div>
+    <MatchDetailView
+      :matchId="selectedMatchId"
+      back-label="Back to tournament"
+      @back="handleBackFromMatchDetail"
+    />
+  </ModalOverlay>
 
   <div
     :class="
@@ -502,6 +478,7 @@ import { getApiBaseUrl } from '../config/api';
 import TournamentBracket from './TournamentBracket.vue';
 import TournamentStandings from './TournamentStandings.vue';
 import MatchDetailView from './MatchDetailView.vue';
+import ModalOverlay from './ui/ModalOverlay.vue';
 import TournamentHeroCard from './TournamentHeroCard.vue';
 import TournamentMatchRow from './TournamentMatchRow.vue';
 import { useBracketFollows } from '../composables/useBracketFollows';
@@ -539,6 +516,7 @@ export default {
     TournamentBracket,
     TournamentStandings,
     MatchDetailView,
+    ModalOverlay,
     TournamentHeroCard,
     TournamentMatchRow,
   },
