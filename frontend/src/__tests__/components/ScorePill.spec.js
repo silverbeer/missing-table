@@ -116,3 +116,84 @@ describe('ScorePill penalties', () => {
     expect(text(wrapper)).toBe('1 – 1');
   });
 });
+
+describe('ScorePill status guard (SB-886)', () => {
+  // Production stored `home_score = 0, away_score = 0` on scheduled matches --
+  // the columns carried `DEFAULT 0` -- so the Tournaments tab announced a
+  // nil-nil draw for fixtures kicking off the next morning. The migration nulls
+  // those rows; `status` makes sure the component cannot render a result from
+  // bad data even if any comes back.
+
+  it('shows vs for a scheduled match carrying placeholder zeros', () => {
+    // The exact shape of prod rows 3853-3855 before the backfill.
+    const wrapper = mountPill({
+      homeScore: 0,
+      awayScore: 0,
+      status: 'scheduled',
+    });
+
+    expect(text(wrapper)).toBe('vs');
+    expect(wrapper.classes()).not.toContain('bg-surface-alt');
+  });
+
+  it('shows vs for cancelled and tbd matches carrying placeholder zeros', () => {
+    for (const status of ['cancelled', 'tbd']) {
+      expect(text(mountPill({ homeScore: 0, awayScore: 0, status }))).toBe(
+        'vs'
+      );
+    }
+  });
+
+  it('still renders a genuine goalless draw once the match is complete', () => {
+    // Why the backfill is scoped to unplayed statuses: prod holds 42 real
+    // nil-nil results, and they must survive.
+    const wrapper = mountPill({
+      homeScore: 0,
+      awayScore: 0,
+      status: 'completed',
+    });
+
+    expect(text(wrapper)).toBe('0 – 0');
+  });
+
+  it('renders a live match at 0-0 -- that is a real scoreline', () => {
+    const wrapper = mountPill({
+      homeScore: 0,
+      awayScore: 0,
+      status: 'in_progress',
+    });
+
+    expect(text(wrapper)).toBe('0 – 0');
+  });
+
+  it('renders a forfeit result', () => {
+    const wrapper = mountPill({
+      homeScore: 3,
+      awayScore: 0,
+      status: 'forfeit',
+    });
+
+    expect(text(wrapper)).toBe('3 – 0');
+  });
+
+  it('suppresses penalties on an unplayed match', () => {
+    const wrapper = mountPill({
+      homeScore: 0,
+      awayScore: 0,
+      homePenaltyScore: 5,
+      awayPenaltyScore: 4,
+      status: 'scheduled',
+    });
+
+    expect(text(wrapper)).toBe('vs');
+    expect(wrapper.find('[data-testid="score-pill-penalties"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('keeps the old behaviour when no status is passed', () => {
+    // Back-compat: the prop is optional, so existing callers are unaffected.
+    expect(text(mountPill({ homeScore: 2, awayScore: 1 }))).toBe('2 – 1');
+    expect(text(mountPill({ homeScore: 0, awayScore: 0 }))).toBe('0 – 0');
+  });
+});

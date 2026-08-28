@@ -186,9 +186,11 @@ describe('TournamentMatchCenter — list polish (SB-73)', () => {
     const wrapper = await mountWith(tournament);
 
     // The U14 chip would appear twice per row (mobile + desktop) if rendered.
-    // The tournament header still renders the U14 badge, so we look for the
-    // chip styled with bg-indigo-100 (the per-row variant).
-    const chips = wrapper.findAll('.bg-indigo-100');
+    // The tournament header still renders its own U14 badge, so we look only
+    // at the age chips inside match rows.
+    const chips = wrapper
+      .findAll('[data-testid="tournament-match-row"]')
+      .flatMap(row => row.findAll('[data-variant="age"]'));
     expect(chips.length).toBe(0);
   });
 
@@ -208,7 +210,10 @@ describe('TournamentMatchCenter — list polish (SB-73)', () => {
     };
     const wrapper = await mountWith(tournament);
 
-    // At least one bg-indigo-100 chip should render now that there are 2 ages.
-    expect(wrapper.findAll('.bg-indigo-100').length).toBeGreaterThan(0);
+    // At least one per-row age chip should render now that there are 2 ages.
+    const chips = wrapper
+      .findAll('[data-testid="tournament-match-row"]')
+      .flatMap(row => row.findAll('[data-variant="age"]'));
+    expect(chips.length).toBeGreaterThan(0);
   });
 });

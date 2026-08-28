@@ -114,112 +114,64 @@
 
         <!-- Tournament detail -->
         <div v-if="selected">
-          <!-- Header card -->
-          <div
-            class="bg-card rounded-xl shadow-sm border border-line p-4 sm:p-6 mb-6"
+          <!-- Hero card: says where the tournament is in its own life before
+               it says what is in it. -->
+          <TournamentHeroCard
+            :tournament="selected"
+            :matches="selected.matches || []"
+            :my-club-id="myClubId"
+            :my-team-id="myTeamId"
+            :stage-label="stageLabel"
+            @select-match="viewMatch"
           >
-            <div
-              class="flex flex-wrap items-start justify-between gap-3 sm:gap-4"
-            >
-              <div class="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                <img
-                  v-if="selected.logo_url"
-                  :src="selected.logo_url"
-                  :alt="`${selected.name} logo`"
-                  class="w-14 h-14 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-md object-contain bg-card border border-line shrink-0"
-                  data-testid="tournament-logo"
-                />
-                <div class="min-w-0 flex-1">
-                  <h2 class="text-xl sm:text-2xl font-bold text-fg">
-                    {{ selected.name }}
-                  </h2>
-                  <div
-                    class="flex flex-wrap items-center gap-3 mt-2 text-sm text-fg-muted"
-                  >
-                    <span v-if="selected.start_date">
-                      📅 {{ formatDate(selected.start_date) }}
-                      <span v-if="selected.end_date">
-                        – {{ formatDate(selected.end_date) }}</span
-                      >
-                    </span>
-                    <span v-if="selected.location"
-                      >📍 {{ selected.location }}</span
-                    >
-                    <span
-                      v-for="ag in selected.age_groups || []"
-                      :key="ag.id"
-                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-700"
-                    >
-                      {{ ag.name }}
-                    </span>
-                  </div>
-                  <p
-                    v-if="selected.description"
-                    class="mt-3 text-sm text-fg-muted"
-                  >
-                    {{ selected.description }}
-                  </p>
-                </div>
-              </div>
+            <template #actions>
+              <!-- View toggle: List always shown; Bracket / Standings shown
+                   based on match round shape -->
               <div
-                class="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-3 w-full sm:w-auto"
+                v-if="hasBracketRounds || hasStandingsRounds"
+                class="inline-flex rounded-md border border-line bg-card p-0.5 shrink-0"
               >
-                <div
-                  class="flex items-baseline gap-1.5 sm:block sm:text-right text-sm text-fg-muted"
+                <button
+                  type="button"
+                  @click="viewMode = 'list'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    viewMode === 'list'
+                      ? 'bg-brand-600 text-white'
+                      : 'text-fg-muted hover:text-fg',
+                  ]"
                 >
-                  <div class="text-xl sm:text-2xl font-bold text-fg">
-                    {{ selected.matches?.length ?? 0 }}
-                  </div>
-                  <div>matches tracked</div>
-                </div>
-                <!-- View toggle: List always shown; Bracket / Standings shown based on match round shape -->
-                <div
-                  v-if="hasBracketRounds || hasStandingsRounds"
-                  class="inline-flex rounded-md border border-line bg-card p-0.5"
+                  List
+                </button>
+                <button
+                  v-if="hasBracketRounds"
+                  type="button"
+                  @click="viewMode = 'bracket'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    viewMode === 'bracket'
+                      ? 'bg-brand-600 text-white'
+                      : 'text-fg-muted hover:text-fg',
+                  ]"
                 >
-                  <button
-                    type="button"
-                    @click="viewMode = 'list'"
-                    :class="[
-                      'px-3 py-1 text-xs font-medium rounded transition-colors',
-                      viewMode === 'list'
-                        ? 'bg-brand-600 text-white'
-                        : 'text-fg-muted hover:text-fg',
-                    ]"
-                  >
-                    List
-                  </button>
-                  <button
-                    v-if="hasBracketRounds"
-                    type="button"
-                    @click="viewMode = 'bracket'"
-                    :class="[
-                      'px-3 py-1 text-xs font-medium rounded transition-colors',
-                      viewMode === 'bracket'
-                        ? 'bg-brand-600 text-white'
-                        : 'text-fg-muted hover:text-fg',
-                    ]"
-                  >
-                    Bracket
-                  </button>
-                  <button
-                    v-if="hasStandingsRounds"
-                    type="button"
-                    @click="viewMode = 'standings'"
-                    :class="[
-                      'px-3 py-1 text-xs font-medium rounded transition-colors',
-                      viewMode === 'standings'
-                        ? 'bg-brand-600 text-white'
-                        : 'text-fg-muted hover:text-fg',
-                    ]"
-                  >
-                    Standings
-                  </button>
-                </div>
+                  Bracket
+                </button>
+                <button
+                  v-if="hasStandingsRounds"
+                  type="button"
+                  @click="viewMode = 'standings'"
+                  :class="[
+                    'px-3 py-1 text-xs font-medium rounded transition-colors',
+                    viewMode === 'standings'
+                      ? 'bg-brand-600 text-white'
+                      : 'text-fg-muted hover:text-fg',
+                  ]"
+                >
+                  Standings
+                </button>
               </div>
-            </div>
-          </div>
-
+            </template>
+          </TournamentHeroCard>
           <!-- Match loading -->
           <div v-if="matchesLoading" class="flex justify-center py-8">
             <div
@@ -238,8 +190,8 @@
                 :class="[
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   ageGroupFilter === null
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-card border border-line text-fg hover:border-indigo-400',
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-card border border-line text-fg hover:border-brand-400',
                 ]"
               >
                 All Ages
@@ -251,16 +203,20 @@
                 :class="[
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                   ageGroupFilter === ag.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-card border border-line text-fg hover:border-indigo-400',
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-card border border-line text-fg hover:border-brand-400',
                 ]"
               >
                 {{ ag.name }}
               </button>
             </div>
 
-            <!-- Team filter -->
-            <div class="mb-4 flex flex-wrap items-center gap-3">
+            <!-- Team filter: only earns its row once the list is long enough
+                 to need filtering. The match count lives in the hero card. -->
+            <div
+              v-if="showTeamFilter"
+              class="mb-4 flex flex-wrap items-center gap-3"
+            >
               <input
                 v-model="teamFilter"
                 type="text"
@@ -283,6 +239,16 @@
                 clear all
               </button>
             </div>
+            <!-- Age filter is on but the team input is hidden: still offer a
+                 way back to the unfiltered list. -->
+            <div v-else-if="ageGroupFilter" class="mb-4">
+              <button
+                @click="ageGroupFilter = null"
+                class="text-sm text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200"
+              >
+                clear filter
+              </button>
+            </div>
 
             <!-- No matches -->
             <div
@@ -291,432 +257,73 @@
             >
               No matches entered yet.
             </div>
-
-            <!-- Group stage section -->
-            <div v-if="groupStageMatches.length > 0" class="mb-6">
-              <h3
-                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3"
-              >
-                Group Stage
-              </h3>
-              <div class="space-y-2">
-                <div
-                  v-for="match in groupStageMatches"
-                  :key="match.id"
-                  @click="viewMatch(match)"
-                  class="bg-card rounded-lg border border-line px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <!-- Mobile meta row -->
-                  <div
-                    class="flex items-center justify-between mb-1.5 sm:hidden"
-                  >
-                    <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                      <span class="text-xs text-fg-muted">{{
-                        formatMatchDate(match.match_date)
-                      }}</span>
-                      <span
-                        v-if="match.scheduled_kickoff"
-                        class="text-xs text-fg-muted"
-                        >·
-                        {{ formatKickoffTime(match.scheduled_kickoff) }}</span
-                      >
-                      <span
-                        v-if="match.age_group && showAgeChip"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                        >{{ match.age_group.name }}</span
-                      >
-                      <span
-                        v-if="match.tournament_group"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg-muted"
-                        >{{ match.tournament_group }}</span
-                      >
-                    </div>
-                    <div class="shrink-0 ml-2">
-                      <span
-                        v-if="match.match_status === 'completed'"
-                        class="text-xs text-green-600 font-medium"
-                        >Final</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'in_progress'"
-                        class="text-xs text-brand-600 font-medium animate-pulse"
-                        >Live</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'cancelled'"
-                        class="text-xs text-red-500"
-                        >Cancelled</span
-                      >
-                      <span
-                        v-else
-                        class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
-                        >Preview</span
-                      >
-                    </div>
-                  </div>
-                  <!-- Main row -->
-                  <div class="flex items-center gap-2 sm:gap-3">
-                    <div
-                      class="hidden sm:block w-24 shrink-0 text-xs text-fg-muted"
-                    >
-                      <div>{{ formatMatchDate(match.match_date) }}</div>
-                      <div v-if="match.scheduled_kickoff" class="text-fg-muted">
-                        {{ formatKickoffTime(match.scheduled_kickoff) }}
-                      </div>
-                    </div>
-                    <div class="hidden sm:flex gap-1 shrink-0">
-                      <span
-                        v-if="match.age_group && showAgeChip"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                        >{{ match.age_group.name }}</span
-                      >
-                      <span
-                        v-if="match.tournament_group"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg-muted"
-                        >{{ match.tournament_group }}</span
-                      >
-                    </div>
-                    <div class="flex-1 flex items-center gap-2 min-w-0">
-                      <div class="flex-1 flex items-center gap-1.5 min-w-0">
-                        <img
-                          v-if="match.home_team_club?.logo_url"
-                          :src="match.home_team_club.logo_url"
-                          alt=""
-                          class="w-5 h-5 object-contain shrink-0"
-                        />
-                        <span
-                          class="text-sm font-medium text-fg text-right truncate flex-1 min-w-0"
-                          >{{ match.home_team?.name }}</span
-                        >
-                      </div>
-                      <ScorePill
-                        :home-score="match.home_score"
-                        :away-score="match.away_score"
-                        :home-penalty-score="match.home_penalty_score"
-                        :away-penalty-score="match.away_penalty_score"
-                      />
-                      <div class="flex-1 flex items-center gap-1.5 min-w-0">
-                        <span
-                          class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
-                          >{{ match.away_team?.name }}</span
-                        >
-                        <img
-                          v-if="match.away_team_club?.logo_url"
-                          :src="match.away_team_club.logo_url"
-                          alt=""
-                          class="w-5 h-5 object-contain shrink-0"
-                        />
-                      </div>
-                    </div>
-                    <div class="hidden sm:block w-20 shrink-0 text-right">
-                      <span
-                        v-if="match.match_status === 'completed'"
-                        class="text-xs text-green-600 font-medium"
-                        >Final</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'in_progress'"
-                        class="text-xs text-brand-600 font-medium animate-pulse"
-                        >Live</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'cancelled'"
-                        class="text-xs text-red-500"
-                        >Cancelled</span
-                      >
-                      <span
-                        v-else
-                        class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
-                        >Preview</span
-                      >
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <!-- Matches exist, but the current filter hides all of them. This
+                 is a filter result, not an empty tournament — say so. -->
+            <div
+              v-else-if="filteredMatches.length === 0"
+              class="text-center py-10 text-fg-muted"
+            >
+              No matches match this filter.
             </div>
 
-            <!-- Knockout section -->
-            <div v-if="knockoutMatches.length > 0" class="mb-6">
+            <!-- Group stage / Knockout / Matches, each grouped by day. -->
+            <div
+              v-for="section in listSections"
+              :key="section.key"
+              class="mb-6"
+              data-testid="tournament-section"
+            >
               <h3
-                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3"
+                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-2"
               >
-                Knockout Rounds
+                {{ section.title }}
               </h3>
-              <div class="space-y-2">
-                <div
-                  v-for="match in knockoutMatches"
-                  :key="match.id"
-                  @click="viewMatch(match)"
-                  class="bg-card rounded-lg border border-line px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <!-- Mobile meta row -->
-                  <div
-                    class="flex items-center justify-between mb-1.5 sm:hidden"
-                  >
-                    <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                      <span class="text-xs text-fg-muted">{{
-                        formatMatchDate(match.match_date)
-                      }}</span>
-                      <span
-                        v-if="match.scheduled_kickoff"
-                        class="text-xs text-fg-muted"
-                        >·
-                        {{ formatKickoffTime(match.scheduled_kickoff) }}</span
-                      >
-                      <span
-                        v-if="match.age_group && showAgeChip"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                        >{{ match.age_group.name }}</span
-                      >
-                      <span
-                        v-if="roundLabel(match)"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
-                        >{{ roundLabel(match) }}</span
-                      >
-                    </div>
-                    <div class="shrink-0 ml-2">
-                      <span
-                        v-if="match.match_status === 'completed'"
-                        class="text-xs text-green-600 font-medium"
-                        >Final</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'in_progress'"
-                        class="text-xs text-brand-600 font-medium animate-pulse"
-                        >Live</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'cancelled'"
-                        class="text-xs text-red-500"
-                        >Cancelled</span
-                      >
-                      <span
-                        v-else
-                        class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
-                        >Preview</span
-                      >
-                    </div>
-                  </div>
-                  <!-- Main row -->
-                  <div class="flex items-center gap-2 sm:gap-3">
-                    <div
-                      class="hidden sm:block w-24 shrink-0 text-xs text-fg-muted"
-                    >
-                      <div>{{ formatMatchDate(match.match_date) }}</div>
-                      <div v-if="match.scheduled_kickoff" class="text-fg-muted">
-                        {{ formatKickoffTime(match.scheduled_kickoff) }}
-                      </div>
-                    </div>
-                    <div class="hidden sm:flex gap-1 shrink-0">
-                      <span
-                        v-if="match.age_group && showAgeChip"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                        >{{ match.age_group.name }}</span
-                      >
-                      <span
-                        v-if="roundLabel(match)"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
-                        >{{ roundLabel(match) }}</span
-                      >
-                      <span
-                        v-if="match.tournament_group"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-surface-alt text-fg-muted"
-                        >{{ match.tournament_group }}</span
-                      >
-                    </div>
-                    <div class="flex-1 flex items-center gap-2 min-w-0">
-                      <div class="flex-1 flex items-center gap-1.5 min-w-0">
-                        <img
-                          v-if="match.home_team_club?.logo_url"
-                          :src="match.home_team_club.logo_url"
-                          alt=""
-                          class="w-5 h-5 object-contain shrink-0"
-                        />
-                        <span
-                          class="text-sm font-medium text-fg text-right truncate flex-1 min-w-0"
-                          >{{ match.home_team?.name }}</span
-                        >
-                      </div>
-                      <ScorePill
-                        :home-score="match.home_score"
-                        :away-score="match.away_score"
-                        :home-penalty-score="match.home_penalty_score"
-                        :away-penalty-score="match.away_penalty_score"
-                      />
-                      <div class="flex-1 flex items-center gap-1.5 min-w-0">
-                        <span
-                          class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
-                          >{{ match.away_team?.name }}</span
-                        >
-                        <img
-                          v-if="match.away_team_club?.logo_url"
-                          :src="match.away_team_club.logo_url"
-                          alt=""
-                          class="w-5 h-5 object-contain shrink-0"
-                        />
-                      </div>
-                    </div>
-                    <div class="hidden sm:block w-20 shrink-0 text-right">
-                      <span
-                        v-if="match.match_status === 'completed'"
-                        class="text-xs text-green-600 font-medium"
-                        >Final</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'in_progress'"
-                        class="text-xs text-brand-600 font-medium animate-pulse"
-                        >Live</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'cancelled'"
-                        class="text-xs text-red-500"
-                        >Cancelled</span
-                      >
-                      <span
-                        v-else
-                        class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
-                        >Preview</span
-                      >
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <!-- Untagged matches (no round set) -->
-            <div v-if="untaggedMatches.length > 0" class="mb-6">
-              <h3
-                class="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3"
+              <div
+                v-for="day in section.days"
+                :key="`${section.key}-${day.date ?? 'undated'}`"
+                class="mb-3 last:mb-0"
               >
-                Matches
-              </h3>
-              <div class="space-y-2">
+                <!-- Day band: carries the date once for the whole day, and
+                     says "Today" / "Tomorrow" when that is more useful than
+                     a weekday. -->
                 <div
-                  v-for="match in untaggedMatches"
-                  :key="match.id"
-                  @click="viewMatch(match)"
-                  class="bg-card rounded-lg border border-line px-3 sm:px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all cursor-pointer"
+                  class="flex items-center gap-3 px-0.5 pb-1.5"
+                  data-testid="tournament-day-band"
                 >
-                  <!-- Mobile meta row -->
-                  <div
-                    class="flex items-center justify-between mb-1.5 sm:hidden"
+                  <span
+                    class="text-sm font-bold text-fg uppercase tracking-wide"
                   >
-                    <div class="flex items-center gap-1.5 min-w-0">
-                      <span class="text-xs text-fg-muted">{{
-                        formatMatchDate(match.match_date)
-                      }}</span>
-                      <span
-                        v-if="match.scheduled_kickoff"
-                        class="text-xs text-fg-muted"
-                        >·
-                        {{ formatKickoffTime(match.scheduled_kickoff) }}</span
-                      >
-                      <span
-                        v-if="match.age_group && showAgeChip"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                        >{{ match.age_group.name }}</span
-                      >
-                    </div>
-                    <div class="shrink-0 ml-2">
-                      <span
-                        v-if="match.match_status === 'completed'"
-                        class="text-xs text-green-600 font-medium"
-                        >Final</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'in_progress'"
-                        class="text-xs text-brand-600 font-medium animate-pulse"
-                        >Live</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'cancelled'"
-                        class="text-xs text-red-500"
-                        >Cancelled</span
-                      >
-                      <span
-                        v-else
-                        class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
-                        >Preview</span
-                      >
-                    </div>
-                  </div>
-                  <!-- Main row -->
-                  <div class="flex items-center gap-2 sm:gap-3">
-                    <div
-                      class="hidden sm:block w-24 shrink-0 text-xs text-fg-muted"
+                    {{ formatDayBand(day.date) }}
+                    <span
+                      v-if="relativeDay(day.date)"
+                      class="text-accent-600 dark:text-accent-400"
+                      >· {{ relativeDay(day.date) }}</span
                     >
-                      <div>{{ formatMatchDate(match.match_date) }}</div>
-                      <div v-if="match.scheduled_kickoff" class="text-fg-muted">
-                        {{ formatKickoffTime(match.scheduled_kickoff) }}
-                      </div>
-                    </div>
-                    <div class="hidden sm:flex gap-1 shrink-0">
-                      <span
-                        v-if="match.age_group && showAgeChip"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700"
-                        >{{ match.age_group.name }}</span
-                      >
-                    </div>
-                    <div class="flex-1 flex items-center gap-2 min-w-0">
-                      <div class="flex-1 flex items-center gap-1.5 min-w-0">
-                        <img
-                          v-if="match.home_team_club?.logo_url"
-                          :src="match.home_team_club.logo_url"
-                          alt=""
-                          class="w-5 h-5 object-contain shrink-0"
-                        />
-                        <span
-                          class="text-sm font-medium text-fg text-right truncate flex-1 min-w-0"
-                          >{{ match.home_team?.name }}</span
-                        >
-                      </div>
-                      <ScorePill
-                        :home-score="match.home_score"
-                        :away-score="match.away_score"
-                        :home-penalty-score="match.home_penalty_score"
-                        :away-penalty-score="match.away_penalty_score"
-                      />
-                      <div class="flex-1 flex items-center gap-1.5 min-w-0">
-                        <span
-                          class="text-sm font-medium text-fg text-left truncate flex-1 min-w-0"
-                          >{{ match.away_team?.name }}</span
-                        >
-                        <img
-                          v-if="match.away_team_club?.logo_url"
-                          :src="match.away_team_club.logo_url"
-                          alt=""
-                          class="w-5 h-5 object-contain shrink-0"
-                        />
-                      </div>
-                    </div>
-                    <div class="hidden sm:block w-20 shrink-0 text-right">
-                      <span
-                        v-if="match.match_status === 'completed'"
-                        class="text-xs text-green-600 font-medium"
-                        >Final</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'in_progress'"
-                        class="text-xs text-brand-600 font-medium animate-pulse"
-                        >Live</span
-                      >
-                      <span
-                        v-else-if="match.match_status === 'cancelled'"
-                        class="text-xs text-red-500"
-                        >Cancelled</span
-                      >
-                      <span
-                        v-else
-                        class="text-xs font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 hover:underline"
-                        >Preview</span
-                      >
-                    </div>
-                  </div>
+                  </span>
+                  <span class="flex-1 h-px bg-line"></span>
+                  <span class="text-xs text-fg-muted tabular-nums shrink-0">
+                    {{ day.matches.length }}
+                    {{ day.matches.length === 1 ? 'match' : 'matches' }}
+                  </span>
+                </div>
+
+                <div class="space-y-1.5">
+                  <TournamentMatchRow
+                    v-for="match in day.matches"
+                    :key="match.id"
+                    :match="match"
+                    :show-age-chip="showAgeChip"
+                    :show-round-chip="section.showRoundChip"
+                    :show-group-chip="section.showGroupChip"
+                    :my-club-id="myClubId"
+                    :my-team-id="myTeamId"
+                    @select="viewMatch"
+                  />
                 </div>
               </div>
             </div>
           </template>
-
           <!-- ── Bracket view ── -->
           <template v-else-if="selected.matches && viewMode === 'bracket'">
             <!-- Selectors: age group + bracket group -->
@@ -889,16 +496,25 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, unref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import TournamentBracket from './TournamentBracket.vue';
 import TournamentStandings from './TournamentStandings.vue';
 import MatchDetailView from './MatchDetailView.vue';
-import ScorePill from './ui/ScorePill.vue';
+import TournamentHeroCard from './TournamentHeroCard.vue';
+import TournamentMatchRow from './TournamentMatchRow.vue';
 import { useBracketFollows } from '../composables/useBracketFollows';
 import { usePushNotifications } from '../composables/usePushNotifications';
-import { ROUND_LABELS_SHORT as ROUND_LABELS } from '../utils/tournamentRounds';
+import {
+  compareByStatus,
+  groupMatchesByDay,
+  relativeDayLabel,
+} from '../utils/tournamentStatus';
+
+// Past this many matches the list is long enough that a team filter earns its
+// row. Below it the input is larger than the thing it filters.
+const TEAM_FILTER_THRESHOLD = 8;
 
 const KNOCKOUT_ROUNDS = new Set([
   'round_of_32',
@@ -923,7 +539,8 @@ export default {
     TournamentBracket,
     TournamentStandings,
     MatchDetailView,
-    ScorePill,
+    TournamentHeroCard,
+    TournamentMatchRow,
   },
   setup() {
     const authStore = useAuthStore();
@@ -968,34 +585,18 @@ export default {
 
     // ── helpers ──
 
-    const formatDate = d =>
-      d
-        ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })
-        : '';
+    // Day-band heading: "Sat 29 Aug". The relative label ("Today" /
+    // "Tomorrow") is rendered beside it, not instead of it — a parent still
+    // wants the date they can put in a calendar.
+    const formatDayBand = d => {
+      if (!d) return 'Date TBD';
+      return new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString(
+        'en-US',
+        { weekday: 'short', day: 'numeric', month: 'short' }
+      );
+    };
 
-    const formatMatchDate = d =>
-      d
-        ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-          })
-        : '';
-
-    const formatKickoffTime = iso =>
-      iso
-        ? new Date(iso).toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-          })
-        : '';
-
-    const roundLabel = match => ROUND_LABELS[match.tournament_round] || null;
+    const relativeDay = d => relativeDayLabel(d);
 
     // ── data ──
 
@@ -1041,7 +642,13 @@ export default {
         const data = await authStore.apiRequest(url.toString(), {
           method: 'GET',
         });
-        tournaments.value = data || [];
+        // Live first, then what is about to start, then the rest of the
+        // calendar, then what is finished — so the selector opens on the
+        // tournament a visitor is most likely here for, and so does the
+        // default selection below.
+        tournaments.value = (data || [])
+          .slice()
+          .sort((a, b) => compareByStatus(a, b));
         if (tournaments.value.length > 0) {
           await selectTournament(tournaments.value[0].id);
         } else {
@@ -1156,6 +763,75 @@ export default {
         .slice()
         .sort(byKickoffAsc)
     );
+
+    // ── who is viewing ──
+    // A parent follows a club across age groups, so club is the primary
+    // identity and team is the fallback for accounts that only carry team_id.
+    // Signed out, both are null and every highlight silently switches off.
+    // `unref` rather than `.value`: the store exposes these as computed refs,
+    // but a caller (or a test double) may hand over plain ids, and an account
+    // with neither simply has none.
+    const myClubId = computed(() => unref(authStore.userClubId) ?? null);
+    const myTeamId = computed(() => unref(authStore.userTeamId) ?? null);
+
+    // The filter input is only worth its row once the list is long enough to
+    // need it. Kept visible while a filter is active so it can be cleared.
+    const showTeamFilter = computed(
+      () =>
+        (selected.value?.matches?.length ?? 0) > TEAM_FILTER_THRESHOLD ||
+        !!teamFilter.value
+    );
+
+    // The three sections, each already sorted, then grouped into days. Empty
+    // sections drop out so a tournament with no knockout stage shows no
+    // "Knockout Rounds" heading over nothing.
+    const listSections = computed(() =>
+      [
+        {
+          key: 'group',
+          title: 'Group Stage',
+          matches: groupStageMatches.value,
+          showRoundChip: false,
+          showGroupChip: true,
+        },
+        {
+          key: 'knockout',
+          title: 'Knockout Rounds',
+          matches: knockoutMatches.value,
+          showRoundChip: true,
+          showGroupChip: true,
+        },
+        {
+          key: 'untagged',
+          title: 'Matches',
+          matches: untaggedMatches.value,
+          showRoundChip: false,
+          showGroupChip: false,
+        },
+      ]
+        .filter(section => section.matches.length > 0)
+        .map(section => ({
+          ...section,
+          days: groupMatchesByDay(section.matches),
+        }))
+    );
+
+    // Which part of the tournament is actually happening, for the status
+    // ribbon. Null when nothing is in flight — the ribbon then shows only the
+    // tournament's own state rather than inventing a stage.
+    const stageLabel = computed(() => {
+      const matches = selected.value?.matches ?? [];
+      if (matches.length === 0) return null;
+      const live = matches.filter(m => m.match_status === 'in_progress');
+      const pool = live.length > 0 ? live : matches;
+      const hasKnockout = pool.some(m =>
+        KNOCKOUT_ROUNDS.has(m.tournament_round)
+      );
+      const hasGroup = pool.some(m => m.tournament_round === 'group_stage');
+      if (hasKnockout && !hasGroup) return 'Knockout rounds';
+      if (hasGroup && !hasKnockout) return 'Group stage';
+      return null;
+    });
 
     // True when the tournament has more than one age group represented in
     // its matches — drives whether each row should show the age-group chip.
@@ -1427,10 +1103,13 @@ export default {
       groupStageMatches,
       knockoutMatches,
       untaggedMatches,
-      formatDate,
-      formatMatchDate,
-      formatKickoffTime,
-      roundLabel,
+      formatDayBand,
+      relativeDay,
+      myClubId,
+      myTeamId,
+      showTeamFilter,
+      listSections,
+      stageLabel,
       selectTournament,
       viewMode,
       hasBracketRounds,
