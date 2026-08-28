@@ -116,7 +116,7 @@
                     }}</span>
                     <span
                       class="text-[10px] text-slate-400 uppercase tracking-wider"
-                      >days</span
+                      >{{ countdown.days === 1 ? 'day' : 'days' }}</span
                     >
                   </div>
                   <div class="text-center">
@@ -176,13 +176,20 @@
                     >
                   </div>
 
-                  <!-- Score Display -->
-                  <div class="flex items-center gap-2 lg:gap-3 pt-4 lg:pt-5">
+                  <!-- Centre slot: the score once there is one, otherwise
+                       when the match kicks off. A match nobody has played has
+                       no score, and rendering "- - -" at 48px put a broken
+                       scoreboard where the answer belongs (SB-892). -->
+                  <div
+                    v-if="hasResult"
+                    class="flex items-center gap-2 lg:gap-3 pt-4 lg:pt-5"
+                    data-testid="score-display"
+                  >
                     <span
                       class="score-number text-3xl lg:text-5xl font-bold text-white"
                       data-testid="home-score"
                     >
-                      {{ match.home_score ?? '-' }}
+                      {{ match.home_score }}
                     </span>
                     <span class="text-xl lg:text-2xl font-light text-slate-500"
                       >-</span
@@ -191,8 +198,32 @@
                       class="score-number text-3xl lg:text-5xl font-bold text-white"
                       data-testid="away-score"
                     >
-                      {{ match.away_score ?? '-' }}
+                      {{ match.away_score }}
                     </span>
+                  </div>
+                  <div
+                    v-else
+                    class="text-center pt-4 lg:pt-5 px-2"
+                    data-testid="kickoff-display"
+                  >
+                    <div
+                      v-if="kickoffClock"
+                      class="text-2xl lg:text-4xl font-bold text-white tabular-nums leading-none"
+                    >
+                      {{ kickoffClock }}
+                    </div>
+                    <div
+                      v-else
+                      class="text-xl lg:text-2xl font-light text-slate-500 leading-none"
+                    >
+                      vs
+                    </div>
+                    <div
+                      v-if="kickoffDayLabel"
+                      class="text-[10px] mt-1.5 uppercase tracking-wider text-amber-400"
+                    >
+                      {{ kickoffDayLabel }}
+                    </div>
                   </div>
 
                   <!-- Away Team -->
@@ -326,7 +357,9 @@
                   Match Details
                 </h3>
                 <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                  <div class="detail-item">
+                  <!-- Date and Kickoff only repeat here when the hero is
+                       showing a score instead of the kickoff (SB-892). -->
+                  <div v-if="hasResult" class="detail-item">
                     <span
                       class="text-[10px] text-slate-500 uppercase tracking-wider"
                       >Date</span
@@ -336,7 +369,7 @@
                     }}</span>
                   </div>
                   <div
-                    v-if="formatLocalTime(match.scheduled_kickoff)"
+                    v-if="hasResult && formatLocalTime(match.scheduled_kickoff)"
                     class="detail-item"
                   >
                     <span
@@ -776,6 +809,60 @@ export default {
     const igShareOpen = ref(false);
 
     // Countdown timer for upcoming matches
+    // Only these statuses can carry a real scoreline. A `scheduled` match with
+    // stored zeros is not a 0-0 draw (SB-886), so the centre slot must not
+    // treat it as a result.
+    const SCORED_STATUSES = ['completed', 'in_progress', 'forfeit'];
+
+    const hasResult = computed(
+      () =>
+        !!match.value &&
+        SCORED_STATUSES.includes(match.value.match_status) &&
+        match.value.home_score !== null &&
+        match.value.home_score !== undefined &&
+        match.value.away_score !== null &&
+        match.value.away_score !== undefined
+    );
+
+    // Kickoff takes the centre slot when there is no result. It is the thing
+    // the preview is opened for, and it used to sit in a six-cell grid with
+    // the same weight as "Season".
+    const kickoffClock = computed(() => {
+      const iso = match.value?.scheduled_kickoff;
+      if (!iso) return null;
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime())
+        ? null
+        : d.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+          });
+    });
+
+    const kickoffDayLabel = computed(() => {
+      const raw = match.value?.match_date;
+      if (!raw) return null;
+      const date = new Date(`${String(raw).slice(0, 10)}T00:00:00`);
+      if (Number.isNaN(date.getTime())) return null;
+      const startOfDay = d => {
+        const x = new Date(d);
+        x.setHours(0, 0, 0, 0);
+        return x;
+      };
+      const delta = Math.round(
+        (startOfDay(date) - startOfDay(new Date())) / 86400000
+      );
+      const weekday = date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      });
+      if (delta === 0) return `Today · ${weekday}`;
+      if (delta === 1) return `Tomorrow · ${weekday}`;
+      return weekday;
+    });
+
     const countdown = ref({ days: 0, hours: 0, minutes: 0, expired: false });
     let countdownTimer = null;
 
@@ -1243,6 +1330,9 @@ export default {
     };
 
     return {
+      hasResult,
+      kickoffClock,
+      kickoffDayLabel,
       loading,
       error,
       match,

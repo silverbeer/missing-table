@@ -1,6 +1,6 @@
 # Tournaments Tab
 
-**Status:** companion refactor shipped (SB-886), stale-status fix (SB-889), modal fix (SB-890) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
+**Status:** companion refactor shipped (SB-886), stale-status fix (SB-889), modal fix (SB-890), preview fixes (SB-892) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
 
 The Tournaments tab is a **companion**, not a schedule dump. It answers "what is
 happening with my team this weekend" before it answers "what is in this
@@ -180,6 +180,38 @@ can ever turn `position: fixed` into a clipped box; locks body scroll with
 the reader to the top) plus scrollbar-width padding to stop the layout shifting
 sideways; and carries `role="dialog"`, `aria-modal`, an accessible name,
 focus-on-open, focus-restore-to-opener, and a Tab trap.
+
+## The preview itself
+
+`MatchPreview.vue` renders the scouting panel for an unplayed match: recent
+form per team, common opponents, head-to-head.
+
+**Form scorelines lead with the subject team's goals** and carry an `H`/`A`
+marker (`teamScoreline` / `venueFor`). They used to print raw
+`home_score–away_score` while the W/L letter beside them swapped on `isHome` —
+so IFA's form read `W 1–3 FC Delco`, a win whose first number is lower, with
+nothing on the row to say which number was IFA's. The opponent-name span
+deliberately hides who was home, so there was no way to read it correctly.
+Four call sites, all fixed; `teamScoreline` returns `null` for a missing score
+so a `Not reported` match renders an em dash rather than a bare separator.
+
+**A tab with no rows does not render.** `Common Opponents` and `Head-to-Head`
+used to show a literal `0` badge, so two of three tabs advertised their
+emptiness and invited a click that led nowhere. If the active tab disappears on
+a reload, the panel falls back to Recent Form.
+
+**Each team gets its own empty state** — "No matches on record", with the
+reason — sized to its column. Most clubs have no tracked results; that is the
+default state, not an error.
+
+In `MatchDetailView`, the **centre slot holds the score when there is one and
+the kickoff when there is not**. It used to render `-` `-` `-` at 48px
+unconditionally, which read as a broken component and occupied the position
+where the answer belongs, while the kickoff sat in a six-cell grid with the
+same weight as `Season`. `hasResult` requires a scorable status *and* non-null
+scores, so stored zeros on a scheduled match (SB-886) cannot resurrect the
+scoreboard. Date and Kickoff drop out of the grid whenever the hero is already
+showing them.
 
 ## Tests
 
