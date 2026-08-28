@@ -137,6 +137,20 @@ class SeasonDAO(BaseDAO):
             logger.info("No current season found", error=str(e))
             return None
 
+    def get_season_by_name(self, name: str) -> dict | None:
+        """The season with this exact name (e.g. "2025-2026"), or None.
+
+        Reads the cached full list rather than querying: a season load asks
+        this once per match, and the set of seasons changes once a year.
+        """
+        if not name:
+            return None
+        wanted = name.strip().casefold()
+        for season in self.get_all_seasons():
+            if (season.get("name") or "").strip().casefold() == wanted:
+                return season
+        return None
+
     def get_current_season_id(self) -> int | None:
         """Convenience: id of the current season, or None."""
         season = self.get_current_season()

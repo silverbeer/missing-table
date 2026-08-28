@@ -167,6 +167,31 @@ class DatabaseTask(Task):
                 division_id=division_id,
             )
 
+    def _resolve_season_id(self, match_data: dict[str, Any]) -> int:
+        """The season the message names, not the one the calendar is on.
+
+        A match belongs to the season it was played in. Filing by the current
+        season instead makes every historical load land in the wrong year, and
+        puts a May fixture re-scraped in August into the new season (SB-882).
+
+        Falls back to the current season when the message names none or names
+        one MT does not have, and says so — a silent fallback is how 151
+        matches with 2025-2026 dates ended up in 2026-2027.
+        """
+        named = (match_data.get("season") or "").strip()
+        if named:
+            season = self.season_dao.get_season_by_name(named)
+            if season:
+                return season["id"]
+            logger.warning(
+                "Unknown season in message, falling back to current",
+                season=named,
+                external_match_id=match_data.get("external_match_id"),
+            )
+
+        current_season = self.season_dao.get_current_season()
+        return current_season["id"] if current_season else 1
+
     @staticmethod
     def _build_scheduled_kickoff(match_data: dict[str, Any]) -> str | None:
         """Combine match_date + match_time into a UTC ISO 8601 timestamp for scheduled_kickoff.
@@ -650,8 +675,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             logger.info(f"Creating new match (MLS ID: {external_match_id}): {home_team_name} vs {away_team_name}")
 
             # Resolve names to IDs before calling create_match
-            current_season = self.season_dao.get_current_season()
-            season_id = current_season["id"] if current_season else 1
+            season_id = self._resolve_season_id(match_data)
 
             # Resolved once above, for both branches. 1 remains the fallback
             # for a feed that names an age group we do not have.
@@ -667,7 +691,9 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 home_score=match_data.get("home_score"),
                 away_score=match_data.get("away_score"),
                 match_status=match_data.get("match_status", "scheduled"),
-                source="match-scraper",
+                # The message says where it came from — a backfill or a manual
+                # entry is not a scraper run, and rule 6 wants that queryable.
+                source=match_data.get("source") or "match-scraper",
                 match_id=external_match_id,
                 age_group_id=age_group_id_for_create,
                 division_id=division_id,

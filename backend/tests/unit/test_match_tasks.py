@@ -684,3 +684,52 @@ class TestNamesThatStartWorkingAgain:
     def test_the_source_is_carried_through(self, ingest):
         _run(ingest, source="manual")
         assert ingest._ingest_failures_dao.resolve.call_args.kwargs["source"] == "manual"
+
+
+class TestIngestFilesTheSeasonTheMessageNames:
+    """A match belongs to the season it was played in, not today's season.
+
+    Filing by current season put 151 matches with 2025-2026 dates into the
+    2026-2027 standings, and made historical backfills impossible for any
+    season (SB-882).
+    """
+
+    def test_named_season_wins_over_the_current_one(self, ingest):
+        ingest._season_dao.get_all_seasons.return_value = [
+            {"id": 184, "name": "2026-2027"},
+            {"id": 3, "name": "2025-2026"},
+        ]
+        ingest._season_dao.get_season_by_name.side_effect = lambda n: next(
+            (s for s in ingest._season_dao.get_all_seasons.return_value if s["name"] == n), None
+        )
+
+        _run(ingest, season="2025-2026", match_date="2025-09-06")
+
+        assert ingest._dao.create_match.call_args.kwargs["season_id"] == 3
+
+    def test_unknown_season_falls_back_to_current_and_says_so(self, ingest):
+        ingest._season_dao.get_season_by_name.return_value = None
+
+        with patch("celery_tasks.match_tasks.logger") as log:
+            _run(ingest, season="1998-1999")
+
+        assert ingest._dao.create_match.call_args.kwargs["season_id"] == 5
+        assert any("Unknown season" in str(c) for c in log.warning.call_args_list)
+
+    def test_missing_season_falls_back_without_warning(self, ingest):
+        _run(ingest, season="")
+
+        assert ingest._dao.create_match.call_args.kwargs["season_id"] == 5
+        ingest._season_dao.get_season_by_name.assert_not_called()
+
+    def test_source_from_the_message_is_kept(self, ingest):
+        ingest._season_dao.get_season_by_name.return_value = {"id": 3, "name": "2025-2026"}
+
+        _run(ingest, season="2025-2026", source="modular11-backfill")
+
+        assert ingest._dao.create_match.call_args.kwargs["source"] == "modular11-backfill"
+
+    def test_source_defaults_to_the_scraper_when_absent(self, ingest):
+        _run(ingest, source=None)
+
+        assert ingest._dao.create_match.call_args.kwargs["source"] == "match-scraper"
