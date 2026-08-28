@@ -9,7 +9,8 @@
  * the single source of truth for the values themselves.
  */
 
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { logoNeedsPlate } from '@/utils/logoPlate';
 
 // Promotional CTA shown at the bottom of every IG share-card template.
 // The preview (pre-match) variant nudges followers to come watch live;
@@ -235,6 +236,28 @@ export function useIgShareData(
   );
   const tournamentLogoUrl = computed(
     () => matchRef.value?.tournament_logo_url || null
+  );
+
+  /**
+   * Whether the tournament crest needs a white plate behind it (SB-901).
+   *
+   * Starts `true` so the first paint is the safe one: a logo is plated until
+   * sampling proves it does not need to be, never the other way round. The
+   * sampler resolves `true` on every failure path too.
+   */
+  const tournamentLogoNeedsPlate = ref(true);
+  watch(
+    tournamentLogoUrl,
+    async url => {
+      tournamentLogoNeedsPlate.value = true;
+      if (!url) return;
+      const needs = await logoNeedsPlate(url);
+      // Guard against a slow sample landing after the card moved on.
+      if (tournamentLogoUrl.value === url) {
+        tournamentLogoNeedsPlate.value = needs;
+      }
+    },
+    { immediate: true }
   );
 
   // Normalize round tokens like "round_of_16" / "quarterfinal" / "final"
@@ -467,6 +490,7 @@ export function useIgShareData(
     tournamentName,
     tournamentGroup,
     tournamentLogoUrl,
+    tournamentLogoNeedsPlate,
     tournamentRoundLabel,
     hasTournamentRound,
     dateLabel,

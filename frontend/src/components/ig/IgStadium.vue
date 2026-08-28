@@ -21,7 +21,13 @@
       <!-- White chip + background-image (not <img>) so dark logos stay
            legible and html2canvas renders contain correctly — see
            [[feedback-html2canvas-object-fit]]. -->
-      <div v-if="tournamentLogoUrl" class="tournament-logo">
+      <div
+        v-if="tournamentLogoUrl"
+        :class="[
+          'tournament-logo',
+          { 'tournament-logo--plated': tournamentLogoNeedsPlate },
+        ]"
+      >
         <div
           class="tournament-logo-img"
           data-testid="ig-tournament-logo"
@@ -227,9 +233,15 @@ export default {
   margin-right: 16px;
   padding: 4px;
   box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* Only the logos that would otherwise disappear against the dark
+   card ground get a plate (SB-901). Plating is the default until
+   sampling proves it unnecessary. */
+.tournament-logo--plated {
   background: #ffffff;
   border-radius: 14px;
-  flex-shrink: 0;
 }
 
 .tournament-logo-img {
