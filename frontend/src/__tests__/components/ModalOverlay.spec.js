@@ -157,3 +157,21 @@ describe('ModalOverlay — dialog semantics', () => {
     expect(overlayEl().textContent).toContain('Match details');
   });
 });
+
+describe('ModalOverlay — stacking (SB-896)', () => {
+  it('sits above the nav, which occupies the modal band at z-index 1000', () => {
+    // The regression: at z-50 the overlay lost to `nav.auth-nav`
+    // (position: relative, z-index: 1000). The nav painted over the top strip
+    // of the viewport and swallowed clicks on the close button, so a user at
+    // the top of the page could not close the modal at all. Measured on prod:
+    // elementFromPoint(centre of close button) returned "main-nav".
+    //
+    // jsdom does not resolve Tailwind classes to computed styles, so this
+    // asserts the class itself — enough to catch a silent revert to z-50.
+    mountOverlay();
+    const classes = [...overlayEl().classList];
+
+    expect(classes).toContain('z-[1200]');
+    expect(classes).not.toContain('z-50');
+  });
+});

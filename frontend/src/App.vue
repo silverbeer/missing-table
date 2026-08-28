@@ -1,32 +1,18 @@
 <template>
   <div class="min-h-screen bg-surface">
     <!-- Deep-link match detail (from a push notification: ?matchId=). Overlays
-         everything; works for any match status. -->
-    <div
+         everything; works for any match status. Shares ModalOverlay with the
+         tournament preview so both get the same close affordances, scroll lock
+         and dialog semantics (SB-896) -- this copy previously had none of
+         them, and a hardcoded bg-white that ignored dark mode. -->
+    <ModalOverlay
       v-if="deepLinkMatchId"
-      class="fixed inset-0 z-50 bg-black/60 overflow-y-auto"
-      @click.self="closeDeepLinkMatch"
+      label="Match details"
+      close-label="Close match details"
+      @close="closeDeepLinkMatch"
     >
-      <div class="min-h-full flex items-start justify-center p-3 sm:p-6">
-        <div
-          class="relative w-full max-w-4xl bg-white rounded-lg shadow-2xl"
-          @click.stop
-        >
-          <button
-            type="button"
-            aria-label="Close match details"
-            class="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-            @click="closeDeepLinkMatch"
-          >
-            ✕
-          </button>
-          <MatchDetailView
-            :matchId="deepLinkMatchId"
-            @back="closeDeepLinkMatch"
-          />
-        </div>
-      </div>
-    </div>
+      <MatchDetailView :matchId="deepLinkMatchId" @back="closeDeepLinkMatch" />
+    </ModalOverlay>
 
     <!-- PWA chrome: install prompt, offline indicator, update banner -->
     <InstallBanner />
@@ -441,6 +427,9 @@ const MatchDetailView = lazyView(
   () => import('./components/MatchDetailView.vue'),
   'MatchDetailView'
 );
+
+// Small and needed the moment any modal opens; not worth a lazy chunk.
+import ModalOverlay from './components/ui/ModalOverlay.vue';
 const ForgotPasswordForm = lazyView(
   () => import('./components/ForgotPasswordForm.vue'),
   'ForgotPasswordForm'
@@ -486,6 +475,7 @@ export default {
     LandingPreview,
     MatchesView,
     MatchDetailView,
+    ModalOverlay,
     AuthNav,
     LoginForm,
     ForgotPasswordForm,

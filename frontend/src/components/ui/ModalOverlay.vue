@@ -6,7 +6,10 @@
   <Teleport to="body">
     <div
       ref="overlay"
-      class="fixed inset-0 z-50 bg-black/60 overflow-y-auto overscroll-contain"
+      :class="[
+        'fixed inset-0 bg-black/60 overflow-y-auto overscroll-contain',
+        Z_INDEX_CLASS,
+      ]"
       role="dialog"
       aria-modal="true"
       :aria-label="label"
@@ -70,6 +73,22 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
  * Three independent ways out, so no single failure traps anyone: the pinned
  * button, Escape, and a backdrop click.
  */
+/**
+ * Above the nav (SB-896).
+ *
+ * `nav.auth-nav` is `position: relative; z-index: 1000` — page chrome sitting
+ * in the same band the app uses for modals (App.vue, ConfirmModal, every admin
+ * modal are all 1000, and only win by appearing later in the DOM). At z-50
+ * this overlay lost outright: the nav painted over the top strip of the
+ * viewport and swallowed clicks on the close button, so a user at the top of
+ * the page could not shut the modal at all.
+ *
+ * 1200 clears both the nav and the "above a modal" layer already in use
+ * (RosterManager 1100). The real fix is to take the nav out of the modal band
+ * entirely, which is riskier and tracked separately.
+ */
+const Z_INDEX_CLASS = 'z-[1200]';
+
 const props = defineProps({
   // Accessible name for the dialog.
   label: { type: String, default: 'Dialog' },
