@@ -25,7 +25,11 @@
           {{ chip.text }}
         </TournamentChip>
       </div>
-      <MatchStatusLabel :status="match.match_status" class="shrink-0 ml-2" />
+      <MatchStatusLabel
+        :status="match.match_status"
+        :match-date="match.match_date"
+        class="shrink-0 ml-2"
+      />
     </div>
 
     <div class="flex items-center gap-2 sm:gap-3">
@@ -101,7 +105,10 @@
       <div
         class="hidden sm:flex items-center gap-1.5 w-[86px] shrink-0 justify-end"
       >
-        <MatchStatusLabel :status="match.match_status" />
+        <MatchStatusLabel
+          :status="match.match_status"
+          :match-date="match.match_date"
+        />
         <span aria-hidden="true" class="text-fg-muted text-sm leading-none"
           >›</span
         >

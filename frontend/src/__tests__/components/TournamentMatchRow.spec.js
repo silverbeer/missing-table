@@ -198,3 +198,60 @@ describe('TournamentMatchRow — chips', () => {
     expect(classes).not.toMatch(/bg-indigo-100|bg-purple-100/);
   });
 });
+
+describe('TournamentMatchRow — a past match that never got a result (SB-889)', () => {
+  // "Scheduled" is a claim about the future. On a fixture that kicked off in
+  // June it is false in the same way "0 - 0" was: a confident statement the
+  // data does not support.
+
+  it('reads "Not reported" once the date has passed', () => {
+    const wrapper = mountRow({
+      match: mkMatch({ match_date: '2020-06-05', match_status: 'scheduled' }),
+    });
+
+    const label = wrapper.find('[data-testid="match-status-label"]');
+    expect(label.text()).toBe('Not reported');
+    expect(label.attributes('data-missing-result')).toBe('true');
+  });
+
+  it('still shows vs, not a score, for that match', () => {
+    // The two must agree: no result in the status column, no result in the
+    // score slot.
+    const wrapper = mountRow({
+      match: mkMatch({
+        match_date: '2020-06-05',
+        match_status: 'scheduled',
+        home_score: 0,
+        away_score: 0,
+      }),
+    });
+
+    expect(text(wrapper)).toContain('vs');
+    expect(text(wrapper)).not.toContain('0 – 0');
+  });
+
+  it('keeps saying Cancelled for a cancelled match, however old', () => {
+    const wrapper = mountRow({
+      match: mkMatch({ match_date: '2020-06-05', match_status: 'cancelled' }),
+    });
+
+    expect(wrapper.find('[data-testid="match-status-label"]').text()).toBe(
+      'Cancelled'
+    );
+  });
+
+  it('keeps saying Final for a completed match', () => {
+    const wrapper = mountRow({
+      match: mkMatch({
+        match_date: '2020-06-05',
+        match_status: 'completed',
+        home_score: 2,
+        away_score: 1,
+      }),
+    });
+
+    expect(wrapper.find('[data-testid="match-status-label"]').text()).toBe(
+      'Final'
+    );
+  });
+});

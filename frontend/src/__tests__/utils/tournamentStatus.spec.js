@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import {
   compareByStatus,
   daysBetween,
+  isMissingResult,
   formatCountdown,
   groupMatchesByDay,
   isMyMatch,
@@ -281,5 +282,80 @@ describe('isMyMatch', () => {
     expect(isMyMatch(match(), {})).toBe(false);
     expect(isMyMatch(match(), { clubId: null, teamId: null })).toBe(false);
     expect(isMyMatch(null, { clubId: 1 })).toBe(false);
+  });
+});
+
+describe('isMissingResult', () => {
+  const now = at(2026, 8, 28);
+
+  it('flags a fixture whose date has passed and never got a result', () => {
+    // Match 3327: FC Westchester vs FC Greater Boston Bolts U13, played on
+    // 5 June, still `scheduled` in late August.
+    expect(
+      isMissingResult(
+        { match_status: 'scheduled', match_date: '2026-06-05' },
+        now
+      )
+    ).toBe(true);
+  });
+
+  it('leaves a future fixture alone', () => {
+    expect(
+      isMissingResult(
+        { match_status: 'scheduled', match_date: '2026-08-29' },
+        now
+      )
+    ).toBe(false);
+  });
+
+  it('leaves a match played TODAY alone, whatever the hour', () => {
+    // The boundary is the calendar day, not kickoff. A match that started two
+    // hours ago and has not been updated is normal mid-tournament; flipping it
+    // during the day would flicker while someone is live-scoring.
+    const evening = at(2026, 8, 28, 23, 30);
+    expect(
+      isMissingResult(
+        { match_status: 'scheduled', match_date: '2026-08-28' },
+        evening
+      )
+    ).toBe(false);
+  });
+
+  it('flips the very next day', () => {
+    expect(
+      isMissingResult(
+        { match_status: 'scheduled', match_date: '2026-08-27' },
+        now
+      )
+    ).toBe(true);
+  });
+
+  it('covers tbd as well as scheduled', () => {
+    expect(
+      isMissingResult({ match_status: 'tbd', match_date: '2026-06-05' }, now)
+    ).toBe(true);
+  });
+
+  it('never flags a resolved outcome', () => {
+    // cancelled is a real, known outcome -- not a missing one -- and should
+    // keep saying so however old it gets.
+    for (const status of [
+      'completed',
+      'cancelled',
+      'in_progress',
+      'forfeit',
+      'postponed',
+    ]) {
+      expect(
+        isMissingResult({ match_status: status, match_date: '2026-06-05' }, now)
+      ).toBe(false);
+    }
+  });
+
+  it('does not flag a match with no date', () => {
+    expect(
+      isMissingResult({ match_status: 'scheduled', match_date: null }, now)
+    ).toBe(false);
+    expect(isMissingResult(null, now)).toBe(false);
   });
 });

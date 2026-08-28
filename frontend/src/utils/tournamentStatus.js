@@ -210,6 +210,36 @@ export function groupMatchesByDay(matches = []) {
 }
 
 /**
+ * Statuses that mean "no result has been recorded yet".
+ *
+ * `cancelled` is deliberately absent: that is a real, known outcome, not a
+ * missing one, and it should keep saying so however old it gets.
+ */
+const UNRESOLVED_STATUSES = ['scheduled', 'tbd'];
+
+/**
+ * A match whose date has passed but which never received a result (SB-889).
+ *
+ * "Scheduled" is a claim about the future. On a fixture that kicked off in
+ * June it is simply false — the match was played, and the score never reached
+ * us. Callers render these as "Not reported": that states what we hold without
+ * claiming the match was unplayed (we have no evidence of that) or promising a
+ * result is still coming (the oldest of these dates from 2024).
+ *
+ * The boundary is the calendar day, not kickoff time. A match that started two
+ * hours ago and has not been updated is normal mid-tournament; flipping it
+ * during the day would be wrong, and would flicker while someone is
+ * live-scoring. Only a date strictly before today counts.
+ */
+export function isMissingResult(match, now = new Date()) {
+  if (!match) return false;
+  if (!UNRESOLVED_STATUSES.includes(match.match_status)) return false;
+  const date = parseDateOnly(match.match_date);
+  if (!date) return false;
+  return startOfDay(date) < startOfDay(now);
+}
+
+/**
  * Does this match involve the signed-in user's club or team?
  *
  * Club is checked first because a parent follows a club across age groups;

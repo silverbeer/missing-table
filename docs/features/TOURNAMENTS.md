@@ -1,6 +1,6 @@
 # Tournaments Tab
 
-**Status:** companion refactor shipped (SB-886) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
+**Status:** companion refactor shipped (SB-886), stale-status fix (SB-889) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
 
 The Tournaments tab is a **companion**, not a schedule dump. It answers "what is
 happening with my team this weekend" before it answers "what is in this
@@ -77,6 +77,32 @@ draws**, and a broader predicate would erase them.
 
 A live match at 0-0 is a real scoreline. That is why `in_progress` is in the
 scorable set.
+
+## A past match that never got a result
+
+`Scheduled` is a claim about the future, so it is false on a fixture that
+kicked off in June. `isMissingResult(match, now)` catches that case — status
+`scheduled` or `tbd`, with a match date strictly before today — and the status
+column reads **`Not reported`** instead.
+
+The wording is deliberate. It states only that no score reached us. It does
+**not** claim the match was unplayed (there is no evidence of that), and it does
+**not** promise a result is coming (the oldest of these dates from December
+2024). `cancelled` never flips: that is a real, known outcome.
+
+**The boundary is the calendar day, not kickoff time.** A match that started two
+hours ago and has not been updated is normal mid-tournament; flipping it during
+the day would be wrong and would flicker while someone is live-scoring.
+
+The tone stays the same muted grey as `Scheduled`, in italic. For most of the
+archive this is an expected state, not a fault — painting 81 rows amber would
+read as an outage.
+
+At the time of writing prod holds 81 such matches: 45 league (oldest
+2024-12-30) and 36 tournament, of which 29 are the 2026 National Academy
+Championships. **This makes the gap legible; it does not fill it.** Those
+matches are still absent from games-played and standings, since only
+`live` / `completed` / `forfeit` count towards season stats.
 
 ## Highlighting the viewer's club
 
