@@ -7,7 +7,32 @@
   >
     <div class="modal-content" @click.stop>
       <div class="p-6">
-        <h3 class="text-lg font-medium text-fg mb-4">Edit Match</h3>
+        <h3 class="text-lg font-medium text-fg mb-1">Edit Match</h3>
+
+        <!-- Which match this is. Teams are multi-age (one canonical "IFA"
+             row across U13-U19), so the fixture alone does not identify a
+             match: the same clubs can meet twice on one day at different
+             age groups. A score was once typed into the wrong one of those
+             (SB-911). -->
+        <p
+          v-if="match"
+          class="text-sm text-fg-muted mb-4"
+          data-testid="edit-modal-subtitle"
+        >
+          <span class="font-medium text-fg"
+            >{{ homeTeamName }} vs {{ awayTeamName }}</span
+          >
+          <span v-if="match.age_group_name">
+            ·
+            <span class="font-semibold text-fg">{{
+              match.age_group_name
+            }}</span></span
+          >
+          <span v-if="match.match_date"> · {{ match.match_date }}</span>
+          <span v-if="match.match_type_name">
+            · {{ match.match_type_name }}</span
+          >
+        </p>
 
         <!-- Audit Trail Info -->
         <div
@@ -138,10 +163,15 @@
 
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label class="block text-sm font-medium text-fg mb-2"
-                >Home Score</label
+              <label
+                class="block text-sm font-medium text-fg mb-2"
+                for="edit-home-score"
+                data-testid="home-score-label"
+                >{{ homeTeamName }}
+                <span class="text-fg-muted font-normal">(home)</span></label
               >
               <input
+                id="edit-home-score"
                 v-model.number="formData.home_score"
                 type="number"
                 min="0"
@@ -150,10 +180,15 @@
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-fg mb-2"
-                >Away Score</label
+              <label
+                class="block text-sm font-medium text-fg mb-2"
+                for="edit-away-score"
+                data-testid="away-score-label"
+                >{{ awayTeamName }}
+                <span class="text-fg-muted font-normal">(away)</span></label
               >
               <input
+                id="edit-away-score"
                 v-model.number="formData.away_score"
                 type="number"
                 min="0"
@@ -257,7 +292,7 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 
@@ -363,6 +398,22 @@ export default {
         }
       },
       { immediate: true }
+    );
+
+    // The team currently selected in each dropdown, not the one the match
+    // was opened with — the labels have to follow an edit that swaps sides.
+    // Falls back to the names the match arrived with while the team list is
+    // still loading.
+    const teamNameFor = (teamId, fallback) => {
+      const team = availableTeams.value.find(t => t.id === teamId);
+      return team?.name || fallback || '';
+    };
+
+    const homeTeamName = computed(() =>
+      teamNameFor(formData.value.home_team_id, props.match?.home_team_name)
+    );
+    const awayTeamName = computed(() =>
+      teamNameFor(formData.value.away_team_id, props.match?.away_team_name)
     );
 
     const formatDate = dateString => {
@@ -481,6 +532,8 @@ export default {
       loading,
       error,
       availableTeams,
+      homeTeamName,
+      awayTeamName,
       isAdmin: authStore.isAdmin,
       updateMatch,
       formatDate,
