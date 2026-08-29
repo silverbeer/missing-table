@@ -43,6 +43,12 @@ ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('public.seasons_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.seasons));
 
+-- Exactly one season must be current. Plenty of code resolves "now" through
+-- seasons.is_current rather than through dates -- the TSC world seed refuses to
+-- run without it -- and a freshly reset database had none, so every such path
+-- failed on a database that looked fully seeded (SB-918).
+UPDATE public.seasons SET is_current = (name = '2026-2027');
+
 -- Match Types
 INSERT INTO public.match_types (id, name) VALUES
   (1, 'League'),

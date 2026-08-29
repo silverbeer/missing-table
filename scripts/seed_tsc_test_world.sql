@@ -14,7 +14,8 @@
 --   clubs      — ensures one is_test club ("Toms Soccer Club")
 --   leagues    — ensures one is_test league ("TSC League 1") + a division
 --   teams      — ensures TSC A/B/C/D-Team, all attached to the test club
---   players    — 16 per team (11 starters + 5 bench), jersey 1..16
+--   players    — TSC A-Team only (11 starters + bench). B/C/D stay empty on
+--                purpose: absent user data is the normal state (SB-918).
 --   matches    — the dry-run fixtures, tagged match_id = 'TSC-DRYRUN-<n>'
 --
 -- It never writes a row that is not reachable from the is_test club/league, and
@@ -191,7 +192,10 @@ WHERE t.name = 'TSC A-Team'
 -- so DO NOTHING silently kept whatever names were there and a change to the
 -- roster above would never take effect. Reseeding must be able to correct
 -- names and positions, not just fill gaps.
-ON CONFLICT (team_id, season_id, age_group_id, jersey_number) DO UPDATE
+-- The unique index is PARTIAL (`WHERE is_active`), so the conflict target has
+-- to carry the same predicate or Postgres cannot infer it: "there is no unique
+-- or exclusion constraint matching the ON CONFLICT specification" (SB-918).
+ON CONFLICT (team_id, season_id, age_group_id, jersey_number) WHERE is_active DO UPDATE
     SET first_name = EXCLUDED.first_name,
         last_name  = EXCLUDED.last_name,
         positions  = EXCLUDED.positions,
