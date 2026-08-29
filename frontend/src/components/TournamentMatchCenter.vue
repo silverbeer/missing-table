@@ -294,7 +294,11 @@
                     :show-group-chip="section.showGroupChip"
                     :my-club-id="myClubId"
                     :my-team-id="myTeamId"
+                    :can-edit="canEditMatchRow(match)"
+                    :saving="savingMatchId === match.id"
+                    :save-error="saveErrorMatchId === match.id ? saveError : ''"
                     @select="viewMatch"
+                    @save="saveScore"
                   />
                 </div>
               </div>
@@ -488,6 +492,7 @@ import {
   groupMatchesByDay,
   relativeDayLabel,
 } from '../utils/tournamentStatus';
+import { canEditMatch } from '../utils/matchPermissions';
 
 // Past this many matches the list is long enough that a team filter earns its
 // row. Below it the input is larger than the thing it filters.
@@ -751,6 +756,79 @@ export default {
     // with neither simply has none.
     const myClubId = computed(() => unref(authStore.userClubId) ?? null);
     const myTeamId = computed(() => unref(authStore.userTeamId) ?? null);
+
+    // ── inline scoring ──
+    // Scores arrive round by round during a tournament weekend, so the edit
+    // affordance lives on the row itself rather than behind the Admin panel.
+    // One row at a time is in flight; the id is what the row watches to know
+    // its own write finished.
+    const savingMatchId = ref(null);
+    const saveErrorMatchId = ref(null);
+    const saveError = ref('');
+
+    const canEditMatchRow = match =>
+      canEditMatch(match, {
+        isAdmin: unref(authStore.isAdmin),
+        isClubManager: unref(authStore.isClubManager),
+        isTeamManager: unref(authStore.isTeamManager),
+        clubId: myClubId.value,
+        teamId: myTeamId.value,
+      });
+
+    const applyMatchUpdate = updated => {
+      if (!selected.value?.matches || !updated?.id) return;
+      const index = selected.value.matches.findIndex(m => m.id === updated.id);
+      if (index === -1) return;
+      // Keep the row's display fields (nested team + club objects) — the PATCH
+      // response carries the match, not the tournament view's joins.
+      selected.value.matches[index] = {
+        ...selected.value.matches[index],
+        home_score: updated.home_score,
+        away_score: updated.away_score,
+        home_penalty_score: updated.home_penalty_score,
+        away_penalty_score: updated.away_penalty_score,
+        match_status: updated.match_status ?? updated.status,
+      };
+      selected.value = {
+        ...selected.value,
+        matches: [...selected.value.matches],
+      };
+    };
+
+    const saveScore = async payload => {
+      const match = payload?.match;
+      if (!match) return;
+      savingMatchId.value = match.id;
+      saveErrorMatchId.value = null;
+      saveError.value = '';
+
+      const body = {
+        home_score: payload.home_score,
+        away_score: payload.away_score,
+        // A score entered here is a result, not a plan. Anything already
+        // beyond "scheduled" (live, forfeit) keeps the status it has.
+        ...(match.match_status === 'scheduled' || match.match_status == null
+          ? { match_status: 'completed' }
+          : {}),
+      };
+      if (payload.home_penalty_score != null) {
+        body.home_penalty_score = payload.home_penalty_score;
+        body.away_penalty_score = payload.away_penalty_score;
+      }
+
+      try {
+        const updated = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/matches/${match.id}`,
+          { method: 'PATCH', body: JSON.stringify(body) }
+        );
+        applyMatchUpdate(updated ?? { id: match.id, ...body });
+      } catch (err) {
+        saveErrorMatchId.value = match.id;
+        saveError.value = err?.message || 'Could not save the score.';
+      } finally {
+        savingMatchId.value = null;
+      }
+    };
 
     // The filter input is only worth its row once the list is long enough to
     // need it. Kept visible while a filter is active so it can be cleared.
@@ -1085,6 +1163,11 @@ export default {
       relativeDay,
       myClubId,
       myTeamId,
+      canEditMatchRow,
+      saveScore,
+      savingMatchId,
+      saveErrorMatchId,
+      saveError,
       showTeamFilter,
       listSections,
       stageLabel,

@@ -1083,6 +1083,8 @@ class MatchDAO(BaseDAO):
         external_match_id: str | None = None,
         scheduled_kickoff: str | None = None,
         half_duration: int | None = None,
+        home_penalty_score: int | None = None,
+        away_penalty_score: int | None = None,
     ) -> dict | None:
         """Update an existing match with audit trail and optional external match_id.
 
@@ -1114,6 +1116,13 @@ class MatchDAO(BaseDAO):
             # is the only way to correct a duration chosen wrongly at kickoff.
             if half_duration is not None:
                 data["half_duration"] = half_duration
+            # Shootout result, guarded like every other optional field above:
+            # a caller that says nothing about penalties must not wipe one that
+            # is already recorded.
+            if home_penalty_score is not None:
+                data["home_penalty_score"] = home_penalty_score
+            if away_penalty_score is not None:
+                data["away_penalty_score"] = away_penalty_score
 
             # Execute update
             response = self.client.table("matches").update(data).eq("id", match_id).execute()

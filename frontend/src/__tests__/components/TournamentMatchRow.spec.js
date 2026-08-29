@@ -255,3 +255,163 @@ describe('TournamentMatchRow — a past match that never got a result (SB-889)',
     );
   });
 });
+
+describe('TournamentMatchRow — inline scoring (SB-906)', () => {
+  it('shows no edit control to a viewer who may not edit', () => {
+    const wrapper = mountRow();
+    expect(wrapper.find('[data-testid="edit-score-button"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('offers an edit control when the viewer may edit this match', () => {
+    const wrapper = mountRow({ canEdit: true });
+    expect(wrapper.find('[data-testid="edit-score-button"]').exists()).toBe(
+      true
+    );
+  });
+
+  it('opens empty boxes for an unscored match — absent is not 0-0', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    expect(wrapper.find('[data-testid="edit-home-score"]').element.value).toBe(
+      ''
+    );
+    expect(wrapper.find('[data-testid="edit-away-score"]').element.value).toBe(
+      ''
+    );
+  });
+
+  it('seeds the boxes from an existing score', async () => {
+    const wrapper = mountRow({
+      canEdit: true,
+      match: mkMatch({
+        home_score: 2,
+        away_score: 1,
+        match_status: 'completed',
+      }),
+    });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    expect(wrapper.find('[data-testid="edit-home-score"]').element.value).toBe(
+      '2'
+    );
+    expect(wrapper.find('[data-testid="edit-away-score"]').element.value).toBe(
+      '1'
+    );
+  });
+
+  it('does not open the match detail when the editor is clicked', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').trigger('click');
+    expect(wrapper.emitted('select')).toBeUndefined();
+  });
+
+  it('refuses to save a half-entered score', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').setValue('2');
+    const save = wrapper.find('[data-testid="save-score-button"]');
+    expect(save.attributes('disabled')).toBeDefined();
+    await save.trigger('click');
+    expect(wrapper.emitted('save')).toBeUndefined();
+  });
+
+  it('emits the entered score', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').setValue('3');
+    await wrapper.find('[data-testid="edit-away-score"]').setValue('1');
+    await wrapper.find('[data-testid="save-score-button"]').trigger('click');
+
+    const [payload] = wrapper.emitted('save')[0];
+    expect(payload.match.id).toBe(3853);
+    expect(payload.home_score).toBe(3);
+    expect(payload.away_score).toBe(1);
+    expect(payload.home_penalty_score).toBeUndefined();
+  });
+
+  it('keeps a 0-0 result distinct from no result', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').setValue('0');
+    await wrapper.find('[data-testid="edit-away-score"]').setValue('0');
+    await wrapper.find('[data-testid="save-score-button"]').trigger('click');
+
+    const [payload] = wrapper.emitted('save')[0];
+    expect(payload.home_score).toBe(0);
+    expect(payload.away_score).toBe(0);
+  });
+
+  it('hides penalty inputs on a level group-stage score', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').setValue('1');
+    await wrapper.find('[data-testid="edit-away-score"]').setValue('1');
+    expect(wrapper.find('[data-testid="penalty-editor"]').exists()).toBe(false);
+  });
+
+  it('shows penalty inputs only on a level bracket-round score', async () => {
+    const wrapper = mountRow({
+      canEdit: true,
+      match: mkMatch({ tournament_round: 'semifinal' }),
+    });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').setValue('2');
+    await wrapper.find('[data-testid="edit-away-score"]').setValue('1');
+    expect(wrapper.find('[data-testid="penalty-editor"]').exists()).toBe(false);
+
+    await wrapper.find('[data-testid="edit-away-score"]').setValue('2');
+    expect(wrapper.find('[data-testid="penalty-editor"]').exists()).toBe(true);
+  });
+
+  it('emits the shootout alongside a level bracket score', async () => {
+    const wrapper = mountRow({
+      canEdit: true,
+      match: mkMatch({ tournament_round: 'final' }),
+    });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').setValue('1');
+    await wrapper.find('[data-testid="edit-away-score"]').setValue('1');
+    await wrapper.find('[data-testid="edit-home-penalty"]').setValue('5');
+    await wrapper.find('[data-testid="edit-away-penalty"]').setValue('4');
+    await wrapper.find('[data-testid="save-score-button"]').trigger('click');
+
+    const [payload] = wrapper.emitted('save')[0];
+    expect(payload.home_penalty_score).toBe(5);
+    expect(payload.away_penalty_score).toBe(4);
+  });
+
+  it('closes the editor once the parent reports the save finished', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.setProps({ saving: true });
+    await wrapper.setProps({ saving: false });
+    expect(
+      wrapper.find('[data-testid="tournament-score-editor"]').exists()
+    ).toBe(false);
+  });
+
+  it('keeps the typed score on the row when the save fails', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="edit-home-score"]').setValue('4');
+    await wrapper.setProps({ saving: true });
+    await wrapper.setProps({ saving: false, saveError: 'Network error' });
+
+    expect(wrapper.find('[data-testid="edit-home-score"]').element.value).toBe(
+      '4'
+    );
+    expect(text(wrapper)).toContain('Network error');
+  });
+
+  it('cancels back to the score pill without emitting', async () => {
+    const wrapper = mountRow({ canEdit: true });
+    await wrapper.find('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.find('[data-testid="cancel-score-button"]').trigger('click');
+    expect(
+      wrapper.find('[data-testid="tournament-score-editor"]').exists()
+    ).toBe(false);
+    expect(wrapper.emitted('save')).toBeUndefined();
+  });
+});
