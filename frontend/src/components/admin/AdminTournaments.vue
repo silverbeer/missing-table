@@ -709,6 +709,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { bustApiCache } from '../../utils/swCache';
 import { ROUND_LABELS_LONG as ROUND_LABELS } from '../../utils/tournamentRounds';
 import TeamCombobox from '../ui/TeamCombobox.vue';
 
@@ -987,6 +988,10 @@ export default {
           const errorData = await fetchResponse.json();
           throw new Error(errorData.detail || 'Failed to upload logo');
         }
+
+        // Raw fetch, so the auth store's post-write cache bust doesn't run
+        // for us — do it here or the tournament keeps the old logo (SB-902).
+        await bustApiCache();
 
         tLogoPreview.value = null;
         tSelectedLogoFile.value = null;

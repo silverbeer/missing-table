@@ -542,6 +542,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { bustApiCache } from '../../utils/swCache';
 import ClubLogo from '../shared/ClubLogo.vue';
 
 export default {
@@ -745,6 +746,10 @@ export default {
           const errorData = await fetchResponse.json();
           throw new Error(errorData.detail || 'Failed to upload logo');
         }
+
+        // Raw fetch, so the auth store's post-write cache bust doesn't run
+        // for us — do it here or the club list keeps the old logo (SB-902).
+        await bustApiCache();
 
         const response = await fetchResponse.json();
 
