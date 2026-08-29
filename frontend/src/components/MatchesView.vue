@@ -2007,6 +2007,7 @@ import MatchDetailView from '@/components/MatchDetailView.vue';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
 import { subscribeToMatch } from '@/composables/useMatchRealtime';
+import { canEditMatch } from '@/utils/matchPermissions';
 
 export default {
   name: 'MatchesView',
@@ -3135,36 +3136,24 @@ export default {
       return baseColumns + adminColumns + actionColumn;
     });
 
-    const canEditGame = match => {
-      // Admins can edit all matches
-      if (authStore.isAdmin.value) {
-        return true;
-      }
-
-      // Club managers can edit matches involving any team in their club
-      if (authStore.isClubManager.value && authStore.userClubId.value) {
-        const clubId = authStore.userClubId.value;
-        const homeTeam = teams.value.find(t => t.id === match.home_team_id);
-        const awayTeam = teams.value.find(t => t.id === match.away_team_id);
-        if (
-          (homeTeam && homeTeam.club_id === clubId) ||
-          (awayTeam && awayTeam.club_id === clubId)
-        ) {
-          return true;
+    // Rule lives in utils/matchPermissions so the tournament rows enforce the
+    // same one (SB-906). League matches carry no club on the match, so the
+    // club comes from the teams list this view already loaded.
+    const canEditGame = match =>
+      canEditMatch(
+        match,
+        {
+          isAdmin: authStore.isAdmin.value,
+          isClubManager: authStore.isClubManager.value,
+          isTeamManager: authStore.isTeamManager.value,
+          clubId: authStore.userClubId.value,
+          teamId: authStore.userTeamId.value,
+        },
+        {
+          resolveClubId: teamId =>
+            teams.value.find(t => t.id === teamId)?.club_id ?? null,
         }
-      }
-
-      // Team managers can only edit matches involving their team
-      // IMPORTANT: userTeamId is a computed property, so we need .value
-      if (authStore.isTeamManager.value && authStore.userTeamId.value) {
-        return (
-          match.home_team_id === authStore.userTeamId.value ||
-          match.away_team_id === authStore.userTeamId.value
-        );
-      }
-
-      return false;
-    };
+      );
 
     const editMatch = match => {
       editingMatch.value = match;

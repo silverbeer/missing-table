@@ -2713,6 +2713,11 @@ async def patch_match(
         if match_patch.away_score is not None and match_patch.away_score < 0:
             raise HTTPException(status_code=400, detail="away_score must be non-negative")
 
+        for field in ("home_penalty_score", "away_penalty_score"):
+            value = getattr(match_patch, field)
+            if value is not None and value < 0:
+                raise HTTPException(status_code=400, detail=f"{field} must be non-negative")
+
         # Same bounds the clients enforce on the half-length picker (SB-678).
         if match_patch.half_duration is not None and not (20 <= match_patch.half_duration <= 60):
             raise HTTPException(status_code=400, detail="half_duration must be between 20 and 60")
@@ -2757,8 +2762,24 @@ async def patch_match(
             if match_patch.scheduled_kickoff is not None
             else current_match.get("scheduled_kickoff"),
             "half_duration": match_patch.half_duration,
+            # Shootout result. Declared on MatchPatch since penalties were
+            # introduced, but never forwarded — so a manager scoring a level
+            # knockout tie on this path lost the shootout silently (SB-906).
+            "home_penalty_score": match_patch.home_penalty_score,
+            "away_penalty_score": match_patch.away_penalty_score,
             "updated_by": current_user.get("user_id"),
         }
+
+        # A shootout only exists because regulation ended level. Rejecting the
+        # mismatch here keeps "2-1 (5-4 pens)" out of the database entirely.
+        has_penalties = (
+            update_data["home_penalty_score"] is not None or update_data["away_penalty_score"] is not None
+        )
+        if has_penalties and update_data["home_score"] != update_data["away_score"]:
+            raise HTTPException(
+                status_code=400,
+                detail="penalty scores are only valid when the regulation score is level",
+            )
 
         # Validate division_id for League matches (after building final update data)
         final_match_type_id = update_data["match_type_id"]

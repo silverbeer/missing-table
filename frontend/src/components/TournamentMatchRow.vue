@@ -75,7 +75,38 @@
           />
         </div>
 
+        <div
+          v-if="editing"
+          class="flex items-center gap-1 shrink-0"
+          @click.stop
+          data-testid="tournament-score-editor"
+        >
+          <input
+            v-model="homeScore"
+            type="number"
+            min="0"
+            inputmode="numeric"
+            aria-label="Home score"
+            data-testid="edit-home-score"
+            class="w-10 h-8 text-center text-sm font-semibold rounded border border-line bg-surface text-fg tabular-nums"
+            @keyup.enter="submit"
+            @keyup.esc="cancel"
+          />
+          <span class="text-fg-muted text-xs">-</span>
+          <input
+            v-model="awayScore"
+            type="number"
+            min="0"
+            inputmode="numeric"
+            aria-label="Away score"
+            data-testid="edit-away-score"
+            class="w-10 h-8 text-center text-sm font-semibold rounded border border-line bg-surface text-fg tabular-nums"
+            @keyup.enter="submit"
+            @keyup.esc="cancel"
+          />
+        </div>
         <ScorePill
+          v-else
           :home-score="match.home_score"
           :away-score="match.away_score"
           :home-penalty-score="match.home_penalty_score"
@@ -103,22 +134,103 @@
       <!-- Status only. The whole row is already clickable, so the old
            "Preview" pseudo-link here read as a fourth match state. -->
       <div
+        v-if="!editing"
         class="hidden sm:flex items-center gap-1.5 w-[86px] shrink-0 justify-end"
       >
         <MatchStatusLabel
           :status="match.match_status"
           :match-date="match.match_date"
         />
-        <span aria-hidden="true" class="text-fg-muted text-sm leading-none"
+        <button
+          v-if="canEdit"
+          type="button"
+          class="text-fg-muted hover:text-brand-500 text-sm leading-none px-1"
+          :aria-label="`Edit score: ${match.home_team?.name} vs ${match.away_team?.name}`"
+          data-testid="edit-score-button"
+          @click.stop="startEditing"
+        >
+          ✎
+        </button>
+        <span
+          v-else
+          aria-hidden="true"
+          class="text-fg-muted text-sm leading-none"
           >›</span
         >
       </div>
+
+      <div
+        v-else
+        class="flex items-center gap-1 shrink-0 justify-end"
+        @click.stop
+      >
+        <button
+          type="button"
+          class="px-2 h-8 rounded text-xs font-semibold bg-brand-500 text-white disabled:opacity-50"
+          data-testid="save-score-button"
+          :disabled="saving || !canSubmit"
+          @click.stop="submit"
+        >
+          {{ saving ? '…' : 'Save' }}
+        </button>
+        <button
+          type="button"
+          class="px-2 h-8 rounded text-xs font-medium text-fg-muted hover:text-fg"
+          data-testid="cancel-score-button"
+          :disabled="saving"
+          @click.stop="cancel"
+        >
+          ✕
+        </button>
+      </div>
     </div>
+
+    <!-- Shootouts exist only because regulation ended level, so the inputs
+         only exist then — and only in a bracket round, where a draw has to be
+         broken. -->
+    <div
+      v-if="editing && showPenalties"
+      class="flex items-center justify-center gap-1.5 mt-2"
+      data-testid="penalty-editor"
+      @click.stop
+    >
+      <span class="text-[11px] uppercase tracking-wide text-fg-muted"
+        >Penalties</span
+      >
+      <input
+        v-model="homePenaltyScore"
+        type="number"
+        min="0"
+        inputmode="numeric"
+        aria-label="Home penalty score"
+        data-testid="edit-home-penalty"
+        class="w-10 h-7 text-center text-xs rounded border border-line bg-surface text-fg tabular-nums"
+      />
+      <span class="text-fg-muted text-xs">-</span>
+      <input
+        v-model="awayPenaltyScore"
+        type="number"
+        min="0"
+        inputmode="numeric"
+        aria-label="Away penalty score"
+        data-testid="edit-away-penalty"
+        class="w-10 h-7 text-center text-xs rounded border border-line bg-surface text-fg tabular-nums"
+      />
+    </div>
+
+    <p
+      v-if="editing && saveError"
+      class="mt-1.5 text-xs text-danger-500 text-center"
+      role="alert"
+      data-testid="save-score-error"
+    >
+      {{ saveError }}
+    </p>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import ScorePill from './ui/ScorePill.vue';
 import TournamentChip from './ui/TournamentChip.vue';
 import MatchStatusLabel from './ui/MatchStatusLabel.vue';
@@ -137,9 +249,100 @@ const props = defineProps({
   // Both null (signed out) makes the highlight a silent no-op.
   myClubId: { type: Number, default: null },
   myTeamId: { type: Number, default: null },
+  // Whether this viewer may score THIS match. Resolved by the parent, which
+  // already holds the auth store, so the row stays a presentation component.
+  canEdit: { type: Boolean, default: false },
+  // Set by the parent while its PATCH is in flight, and to the API's message
+  // if that write fails. A failure keeps the editor open with the typed
+  // scores intact — retyping a score you already entered is the worst thing
+  // this row could ask of someone standing on a touchline.
+  saving: { type: Boolean, default: false },
+  saveError: { type: String, default: '' },
 });
 
-defineEmits(['select']);
+const emit = defineEmits(['select', 'save']);
+
+// Bracket rounds are the only ones where a level score has to be broken, so
+// they are the only ones that show shootout inputs. Mirrors the rule in
+// AdminTournaments.vue.
+const BRACKET_ROUNDS = new Set([
+  'round_of_32',
+  'round_of_16',
+  'quarterfinal',
+  'semifinal',
+  'third_place',
+  'final',
+]);
+
+const editing = ref(false);
+const homeScore = ref('');
+const awayScore = ref('');
+const homePenaltyScore = ref('');
+const awayPenaltyScore = ref('');
+
+// Absent is not zero: a match nobody has scored opens with empty boxes, not
+// with 0-0, which would be a claim that it finished goalless.
+const asField = value => (value == null ? '' : String(value));
+
+const startEditing = () => {
+  homeScore.value = asField(props.match.home_score);
+  awayScore.value = asField(props.match.away_score);
+  homePenaltyScore.value = asField(props.match.home_penalty_score);
+  awayPenaltyScore.value = asField(props.match.away_penalty_score);
+  editing.value = true;
+};
+
+const cancel = () => {
+  editing.value = false;
+};
+
+const toScore = value => {
+  if (value === '' || value == null) return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+};
+
+const parsedHome = computed(() => toScore(homeScore.value));
+const parsedAway = computed(() => toScore(awayScore.value));
+
+// Both sides or neither — a half-entered score is not a result.
+const canSubmit = computed(
+  () => parsedHome.value !== null && parsedAway.value !== null
+);
+
+const showPenalties = computed(
+  () =>
+    BRACKET_ROUNDS.has(props.match.tournament_round) &&
+    canSubmit.value &&
+    parsedHome.value === parsedAway.value
+);
+
+const submit = () => {
+  if (!canSubmit.value || props.saving) return;
+  const payload = {
+    match: props.match,
+    home_score: parsedHome.value,
+    away_score: parsedAway.value,
+  };
+  if (showPenalties.value) {
+    const homePens = toScore(homePenaltyScore.value);
+    const awayPens = toScore(awayPenaltyScore.value);
+    if (homePens !== null && awayPens !== null) {
+      payload.home_penalty_score = homePens;
+      payload.away_penalty_score = awayPens;
+    }
+  }
+  emit('save', payload);
+};
+
+// The parent owns the write, so the editor closes on the transition out of
+// `saving` — but only when the write actually succeeded.
+watch(
+  () => props.saving,
+  (isSaving, wasSaving) => {
+    if (wasSaving && !isSaving && !props.saveError) editing.value = false;
+  }
+);
 
 const identity = computed(() => ({
   clubId: props.myClubId,
