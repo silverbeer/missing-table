@@ -88,6 +88,28 @@ uv run python tests/test_e2e_supabase.py
 uv run python cli.py list-teams
 ```
 
+## Writing a match: PUT vs PATCH
+
+`PUT /api/matches/{id}` replaces the match — the body must carry every field,
+and a missing score becomes `0`. That is a measurement claim about a match
+nobody measured, so **use PATCH for anything partial**.
+
+`PATCH /api/matches/{id}` distinguishes three cases, and the difference is
+`model_fields_set`, not `None` (SB-913):
+
+| Body | Meaning |
+|------|---------|
+| key omitted | keep what is stored |
+| `{"home_score": null}` | clear it — the score was never real |
+| `{"home_score": 2}` | set it (`0` is a real score, not an absence) |
+
+The shootout fields work the same way, with the "keep" case reaching
+`MatchDAO.update_match` as the `UNSET` sentinel rather than `None` — `None`
+there means clear. Any new clearable field on `MatchPatch` needs the same
+treatment; defaulting it to `None` silently gives you a field that can be set
+and never unset, which is what forced a production score to be cleared with SQL
+on 2026-08-29.
+
 ## 🔄 Async Task Processing Architecture
 
 ### Overview

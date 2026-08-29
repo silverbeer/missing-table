@@ -12,6 +12,7 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
+from supabase import create_client
 
 from dao.base_dao import (
     MATCHES_READ_RELATION,
@@ -30,12 +31,28 @@ from dao.standings import (
     filter_matches_involving,
     teams_in_division,
 )
-from supabase import create_client
 
 logger = structlog.get_logger()
 
 # Cache patterns for invalidation
 MATCHES_CACHE_PATTERN = "mt:dao:matches:*"
+
+
+class _Unset:
+    """A field the caller never mentioned, as distinct from one set to null.
+
+    PATCH has to tell "leave the shootout alone" apart from "there was no
+    shootout after all", and None cannot carry both meanings (SB-913).
+    """
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return "UNSET"
+
+    def __bool__(self) -> bool:
+        return False
+
+
+UNSET = _Unset()
 PLAYOFF_CACHE_PATTERN = "mt:dao:playoffs:*"
 TOURNAMENTS_CACHE_PATTERN = "mt:dao:tournaments:*"
 
@@ -1083,8 +1100,8 @@ class MatchDAO(BaseDAO):
         external_match_id: str | None = None,
         scheduled_kickoff: str | None = None,
         half_duration: int | None = None,
-        home_penalty_score: int | None = None,
-        away_penalty_score: int | None = None,
+        home_penalty_score: int | None | _Unset = UNSET,
+        away_penalty_score: int | None | _Unset = UNSET,
     ) -> dict | None:
         """Update an existing match with audit trail and optional external match_id.
 
@@ -1119,9 +1136,12 @@ class MatchDAO(BaseDAO):
             # Shootout result, guarded like every other optional field above:
             # a caller that says nothing about penalties must not wipe one that
             # is already recorded.
-            if home_penalty_score is not None:
+            # UNSET means the caller said nothing, so an existing shootout
+            # survives an unrelated write; an explicit None clears one that
+            # should never have been recorded (SB-913).
+            if home_penalty_score is not UNSET:
                 data["home_penalty_score"] = home_penalty_score
-            if away_penalty_score is not None:
+            if away_penalty_score is not UNSET:
                 data["away_penalty_score"] = away_penalty_score
 
             # Execute update
