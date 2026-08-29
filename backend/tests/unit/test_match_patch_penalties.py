@@ -15,6 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from dao.match_dao import UNSET
+
 
 def _make_match_dao():
     """A MatchDAO with a mocked Supabase client, as elsewhere in tests/unit."""
@@ -233,7 +235,10 @@ class TestPatchMatchPenalties:
 
             assert resp.status_code == 200
             kwargs = mock_match_dao.update_match.call_args.kwargs
-            assert kwargs["home_penalty_score"] is None
-            assert kwargs["away_penalty_score"] is None
+            # UNSET, not None, since SB-913: None now means "clear the
+            # shootout", so a score-only PATCH has to say nothing at all
+            # rather than say null.
+            assert kwargs["home_penalty_score"] is UNSET
+            assert kwargs["away_penalty_score"] is UNSET
         finally:
             app.dependency_overrides.clear()

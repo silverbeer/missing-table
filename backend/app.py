@@ -101,7 +101,7 @@ from dao.exceptions import DuplicateRecordError
 from dao.ingest_failures_dao import IngestFailuresDAO
 from dao.league_dao import LeagueDAO
 from dao.lineup_dao import LineupDAO
-from dao.match_dao import MatchDAO
+from dao.match_dao import UNSET, MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
@@ -2728,6 +2728,22 @@ async def patch_match(
         if status_to_check is not None and status_to_check not in valid_statuses:
             raise HTTPException(status_code=400, detail=f"status must be one of: {', '.join(valid_statuses)}")
 
+        # PATCH semantics: a field the caller never mentioned keeps whatever is
+        # already stored; a field sent explicitly as null clears it. Pydantic
+        # collapses both to None, so the difference has to come from
+        # model_fields_set — without it a score could be set but never unset,
+        # and a score typed onto the wrong match had to be cleared with SQL
+        # against prod (SB-913).
+        provided = match_patch.model_fields_set
+
+        def patched(field: str, current):
+            return getattr(match_patch, field) if field in provided else current
+
+        # Same question for the shootout, but the DAO distinguishes the two
+        # cases itself: UNSET leaves the stored value alone.
+        def patched_or_unset(field: str):
+            return getattr(match_patch, field) if field in provided else UNSET
+
         # Build update data, using existing values for fields not provided
         update_data = {
             "match_id": match_id,
@@ -2738,8 +2754,8 @@ async def patch_match(
             if match_patch.away_team_id is not None
             else current_match["away_team_id"],
             "match_date": match_patch.match_date if match_patch.match_date is not None else current_match["match_date"],
-            "home_score": match_patch.home_score if match_patch.home_score is not None else current_match["home_score"],
-            "away_score": match_patch.away_score if match_patch.away_score is not None else current_match["away_score"],
+            "home_score": patched("home_score", current_match["home_score"]),
+            "away_score": patched("away_score", current_match["away_score"]),
             "season_id": match_patch.season_id if match_patch.season_id is not None else current_match["season_id"],
             "age_group_id": match_patch.age_group_id
             if match_patch.age_group_id is not None
@@ -2765,15 +2781,16 @@ async def patch_match(
             # Shootout result. Declared on MatchPatch since penalties were
             # introduced, but never forwarded — so a manager scoring a level
             # knockout tie on this path lost the shootout silently (SB-906).
-            "home_penalty_score": match_patch.home_penalty_score,
-            "away_penalty_score": match_patch.away_penalty_score,
+            "home_penalty_score": patched_or_unset("home_penalty_score"),
+            "away_penalty_score": patched_or_unset("away_penalty_score"),
             "updated_by": current_user.get("user_id"),
         }
 
         # A shootout only exists because regulation ended level. Rejecting the
         # mismatch here keeps "2-1 (5-4 pens)" out of the database entirely.
-        has_penalties = (
-            update_data["home_penalty_score"] is not None or update_data["away_penalty_score"] is not None
+        has_penalties = any(
+            update_data[field] is not UNSET and update_data[field] is not None
+            for field in ("home_penalty_score", "away_penalty_score")
         )
         if has_penalties and update_data["home_score"] != update_data["away_score"]:
             raise HTTPException(
