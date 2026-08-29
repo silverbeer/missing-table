@@ -2,6 +2,7 @@ import { reactive, computed } from 'vue';
 import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
 import { getTraceHeaders } from '../utils/traceContext';
 import { hasAnyRole } from '../utils/roles';
+import { bustApiCache } from '../utils/swCache';
 import { getApiBaseUrl } from '../config/api';
 import { supabase, getOAuthRedirectUrl } from '../config/supabase';
 import {
@@ -800,6 +801,8 @@ export const useAuthStore = () => {
               retryResponse.status,
               retryDuration
             );
+            // A write invalidates the service worker's read cache (SB-902).
+            if (method !== 'GET') await bustApiCache();
             if (
               retryResponse.status === 204 ||
               retryResponse.headers.get('content-length') === '0'
@@ -850,6 +853,11 @@ export const useAuthStore = () => {
       }
       throw new Error(errorMessage);
     }
+
+    // The service worker serves the read APIs with StaleWhileRevalidate, so a
+    // re-fetch that follows a write would be answered from the pre-write cache
+    // — the admin's own change would not show up until a reload (SB-902).
+    if (method !== 'GET') await bustApiCache();
 
     if (
       response.status === 204 ||

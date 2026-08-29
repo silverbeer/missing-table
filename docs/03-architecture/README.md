@@ -18,6 +18,7 @@ This section documents the system architecture, design decisions, and technical 
 | **[Database Schema](database-schema.md)** | Tables, relationships, constraints | 🟡 Intermediate |
 | **[Clubs Architecture](../CLUBS_ARCHITECTURE.md)** | Clubs, teams, leagues separation | 🟡 Intermediate |
 | **[Standings](standings.md)** | League / qualifying / all views, and why a combined table states its coverage | 🟡 Intermediate |
+| **[Caching](caching.md)** | Redis DAO cache + service worker cache, and how writes invalidate both | 🟡 Intermediate |
 | **[AI Agents](ai-agents.md)** | Autonomous agent architecture | 🔴 Advanced |
 
 ---

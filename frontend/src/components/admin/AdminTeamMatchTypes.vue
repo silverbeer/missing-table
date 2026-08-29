@@ -259,6 +259,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue';
 import { getApiBaseUrl } from '../../config/api';
+import { bustApiCache } from '../../utils/swCache';
 
 export default {
   name: 'AdminTeamMatchTypes',
@@ -379,6 +380,10 @@ export default {
         });
 
         if (!teamResponse.ok) throw new Error('Failed to create team');
+
+        // Raw fetch, so the auth store's post-write cache bust doesn't run for
+        // us — do it here or the reloaded team list omits the new team (SB-902).
+        await bustApiCache();
 
         // Then add match type participation for each selected match type
         await teamResponse.json();
