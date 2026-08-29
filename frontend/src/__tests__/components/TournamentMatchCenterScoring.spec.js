@@ -33,6 +33,16 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ apiRequest, ...authState }),
 }));
 
+// The component subscribes to realtime for any live row (SB-909). These cases
+// are about the write path, so stub the socket rather than letting a real
+// Supabase channel open during a unit test.
+vi.mock('@/composables/useMatchRealtime', () => ({
+  subscribeToMatch: vi.fn(() => ({
+    unsubscribe: vi.fn(),
+    isConnected: () => false,
+  })),
+}));
+
 import TournamentMatchCenter from '@/components/TournamentMatchCenter.vue';
 
 const IFA = { id: 19, name: 'IFA' };

@@ -485,6 +485,7 @@ import MatchDetailView from './MatchDetailView.vue';
 import ModalOverlay from './ui/ModalOverlay.vue';
 import TournamentHeroCard from './TournamentHeroCard.vue';
 import TournamentMatchRow from './TournamentMatchRow.vue';
+import { useLiveRowSync } from '@/composables/useLiveRowSync';
 import { useBracketFollows } from '../composables/useBracketFollows';
 import { usePushNotifications } from '../composables/usePushNotifications';
 import {
@@ -663,6 +664,27 @@ export default {
       }
     };
 
+    // A tournament page is often left open through a match — on a phone, on a
+    // sideline. Realtime keeps live rows current, and a refetch when the tab
+    // comes back covers whatever the socket missed (SB-909). Without this the
+    // page shows the score it loaded with until someone reloads it.
+    const selectedMatches = computed(() => selected.value?.matches ?? []);
+
+    const refreshSelected = async () => {
+      if (selectedId.value == null) return;
+      try {
+        const data = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/tournaments/${selectedId.value}`,
+          { method: 'GET' }
+        );
+        selected.value = data;
+      } catch (err) {
+        // A background refresh that fails leaves what is on screen alone —
+        // it is stale, not wrong, and blanking the page would be worse.
+        console.error('Error refreshing tournament:', err);
+      }
+    };
+
     // ── filtered + sectioned matches ──
 
     const availableAgeGroups = computed(() => {
@@ -794,6 +816,13 @@ export default {
         matches: [...selected.value.matches],
       };
     };
+
+    // Realtime UPDATEs land in the same merge the inline editor uses: the
+    // payload carries raw `matches` columns, so the row's joined team and
+    // age-group objects have to survive it (SB-909).
+    useLiveRowSync(selectedMatches, applyMatchUpdate, {
+      onReturn: refreshSelected,
+    });
 
     const saveScore = async payload => {
       const match = payload?.match;

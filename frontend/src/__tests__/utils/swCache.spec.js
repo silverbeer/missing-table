@@ -9,7 +9,12 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { bustApiCache, API_CACHE_NAME } from '@/utils/swCache';
+import {
+  bustApiCache,
+  API_CACHE_NAME,
+  API_CACHE_NAMES,
+  RESULTS_CACHE_NAME,
+} from '@/utils/swCache';
 
 const originalCaches = globalThis.caches;
 
@@ -33,6 +38,24 @@ describe('bustApiCache', () => {
 
     await expect(bustApiCache()).resolves.toBe(true);
     expect(del).toHaveBeenCalledWith(API_CACHE_NAME);
+  });
+
+  it('drops the score-bearing cache too', async () => {
+    // Standings and tournaments moved to their own NetworkFirst cache in
+    // SB-908; a write that only cleared the reference cache would leave the
+    // writer reading their own pre-write scores.
+    const del = vi.fn().mockResolvedValue(true);
+    stubCaches({ delete: del });
+
+    await bustApiCache();
+
+    expect(del).toHaveBeenCalledWith(RESULTS_CACHE_NAME);
+    expect(del).toHaveBeenCalledTimes(API_CACHE_NAMES.length);
+  });
+
+  it('names the caches the service worker writes', () => {
+    expect(RESULTS_CACHE_NAME).toBe('mt-results-v1');
+    expect(API_CACHE_NAMES).toEqual([API_CACHE_NAME, RESULTS_CACHE_NAME]);
   });
 
   it('targets the same cache name the service worker writes', () => {
