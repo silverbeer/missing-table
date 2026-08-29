@@ -40,10 +40,17 @@ UPDATE public.matches
    AND scoring_mode <> 'live';
 
 -- The LIVE tab's query: live AND live-scored.
+--
+-- The predicate deliberately does NOT cast to public.match_status. The tracked
+-- baseline declares match_status as that enum, but production drifted and holds
+-- a plain character varying -- the cast fails there with "operator does not
+-- exist: character varying = match_status". An uncast literal is `unknown` and
+-- coerces to whichever type the column actually has, so this one index
+-- definition builds on both. (Same class of drift as SB-886's DEFAULT 0.)
 DROP INDEX IF EXISTS public.idx_matches_live_scored;
 CREATE INDEX idx_matches_live_scored
     ON public.matches (match_status)
-    WHERE match_status = 'live'::public.match_status AND scoring_mode = 'live';
+    WHERE match_status = 'live' AND scoring_mode = 'live';
 
 -- matches_with_test froze its column list at creation (SELECT m.* is expanded
 -- once), so a new column on matches is invisible to the read path until the
