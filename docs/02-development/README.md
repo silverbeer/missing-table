@@ -49,7 +49,8 @@ cd frontend && npm run serve           # Frontend with HMR
 ./missing-table.sh stop     # Stop all services
 
 # Database Operations
-./scripts/setup-local-db.sh --from-prod  # Refresh local from prod (RECOMMENDED)
+./scripts/setup-local-db.sh --tsc        # Rebuild local from the TSC test world (RECOMMENDED)
+./scripts/setup-local-db.sh --from-prod  # Refresh local from prod (when you need prod shapes)
 ./scripts/db_tools.sh backup             # Create backup
 ./scripts/db_tools.sh restore            # Restore from latest
 ./scripts/db_tools.sh list               # List backups

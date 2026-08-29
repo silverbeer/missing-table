@@ -41,6 +41,7 @@ NC='\033[0m'
 
 RESTORE_DATA=false
 FROM_PROD=false
+SEED_TSC=false
 
 # Parse arguments
 for arg in "$@"; do
@@ -52,13 +53,21 @@ for arg in "$@"; do
         --restore)
             RESTORE_DATA=true
             ;;
+        --tsc)
+            SEED_TSC=true
+            ;;
         --help|-h)
-            echo "Usage: $0 [--restore] [--from-prod]"
+            echo "Usage: $0 [--restore] [--from-prod] [--tsc]"
             echo ""
             echo "Options:"
+            echo "  --tsc        Seed the self-contained TSC test world (no prod data, no network)"
             echo "  --restore    Restore match/team data from backup after schema reset"
             echo "  --from-prod  Full refresh from prod: backup, restore data, AND sync users"
             echo "  --help       Show this help message"
+            echo ""
+            echo "Use --tsc for day-to-day work and for tests: it is fast, deterministic,"
+            echo "keeps production data off the laptop, and needs nothing but the local stack."
+            echo "Reach for --restore / --from-prod when you specifically need prod shapes."
             echo ""
             echo "User passwords (when synced from prod):"
             echo "  admin        -> admin123"
@@ -69,7 +78,7 @@ for arg in "$@"; do
             ;;
         *)
             echo -e "${RED}Unknown argument: $arg${NC}"
-            echo "Usage: $0 [--restore] [--from-prod]"
+            echo "Usage: $0 [--restore] [--from-prod] [--tsc]"
             exit 1
             ;;
     esac
@@ -132,7 +141,10 @@ echo ""
 # Step 2: Check for recent backup (less than 4 hours old)
 ##############################################################################
 # Skip this check if --from-prod was used (we just created a fresh backup)
-if [ "$FROM_PROD" = true ]; then
+if [ "$SEED_TSC" = true ] && [ "$RESTORE_DATA" = false ]; then
+    echo -e "${GREEN}Seeding the TSC test world - no backup needed${NC}"
+    echo ""
+elif [ "$FROM_PROD" = true ]; then
     echo -e "${GREEN}Fresh backup created from prod - skipping age check${NC}"
     echo ""
 else
@@ -236,6 +248,38 @@ else
 fi
 
 ##############################################################################
+# Step 2b: Seed the TSC test world (--tsc)
+##############################################################################
+# The self-contained alternative to a prod restore (SB-918): an is_test club,
+# league, four teams with rosters and dry-run fixtures, all defined in
+# scripts/seed_tsc_test_world.sql. Deterministic, offline, and no production
+# data on the laptop.
+if [ "$SEED_TSC" = true ]; then
+    echo -e "${BLUE}Step 2b: Seeding TSC test world...${NC}"
+    cd "$PROJECT_ROOT"
+
+    # Point the seed at the local stack explicitly. tsc_test_world.sh refuses a
+    # non-local target without --yes, and this must never be able to reach prod.
+    # The stock local Supabase credentials — identical on every local stack and
+    # printed by `npx supabase status`.
+    tsc_db_url="postgresql://postgres:postgres@127.0.0.1:55322/postgres"  # pragma: allowlist secret
+    if [ -f "$PROJECT_ROOT/backend/.env.local" ]; then
+        env_db_url=$(grep -E "^DATABASE_URL=" "$PROJECT_ROOT/backend/.env.local" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"')
+        case "$env_db_url" in
+            *127.0.0.1*|*localhost*) tsc_db_url="$env_db_url" ;;
+        esac
+    fi
+
+    if DATABASE_URL="$tsc_db_url" bash "$SCRIPT_DIR/tsc_test_world.sh" seed; then
+        echo -e "${GREEN}TSC test world seeded${NC}"
+    else
+        echo -e "${RED}TSC seed failed. The database is reset but has no test data.${NC}"
+        exit 1
+    fi
+    echo ""
+fi
+
+##############################################################################
 # Step 3: Flush Redis cache (stale cache can serve old/empty data)
 ##############################################################################
 echo -e "${BLUE}Step 3: Flushing Redis cache...${NC}"
@@ -290,6 +334,31 @@ fi
 echo ""
 
 ##############################################################################
+# Step 6: Put the TSC teams into the three states the UI must handle (--tsc)
+##############################################################################
+# CLAUDE.md: absent user data is the normal state, and every component has to
+# handle unclaimed / claimed-but-empty / populated. The seed already produces
+# the first and the third (A-Team has a roster, C and D have neither manager
+# nor players). This adds the middle one, which is the state that catches
+# "manager exists, roster never built" bugs — and the state a prod restore
+# cannot express on purpose (SB-918).
+if [ "$SEED_TSC" = true ]; then
+    echo -e "${BLUE}Step 6: Claiming TSC B-Team (manager, no roster)...${NC}"
+    cd "$PROJECT_ROOT/backend"
+    tsc_b_team_id=$(uv run python scripts/manage_users.py teams 2>/dev/null | grep "TSC B-Team" | head -1 | awk '{print $2}' || echo "")
+
+    if [ -n "$tsc_b_team_id" ]; then
+        uv run python scripts/manage_users.py team --user tom_ifa --team-id "$tsc_b_team_id" --confirm >/dev/null 2>&1 \
+            && echo -e "${GREEN}tom_ifa manages TSC B-Team — claimed, no roster${NC}" \
+            || echo -e "${YELLOW}Could not assign tom_ifa to TSC B-Team${NC}"
+    else
+        echo -e "${YELLOW}TSC B-Team not found — skipping claim${NC}"
+    fi
+    cd "$PROJECT_ROOT"
+    echo ""
+fi
+
+##############################################################################
 # Summary
 ##############################################################################
 echo -e "${GREEN}========================================${NC}"
@@ -299,6 +368,12 @@ echo ""
 echo -e "${BLUE}What was set up:${NC}"
 echo "  - Schema applied (all tables, functions, RLS policies)"
 echo "  - Reference data seeded (age_groups, seasons, match_types, leagues, divisions)"
+if [ "$SEED_TSC" = true ]; then
+    echo "  - TSC test world seeded (is_test club + league, 4 teams, dry-run fixtures)"
+    echo "      A-Team  populated        roster of 17"
+    echo "      B-Team  claimed, empty   tom_ifa manages it, no roster yet"
+    echo "      C/D     unclaimed        fixtures only, the default state in production"
+fi
 if [ "$RESTORE_DATA" = true ]; then
     echo "  - Match/team data restored from backup"
 fi

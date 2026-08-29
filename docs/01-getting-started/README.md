@@ -110,18 +110,29 @@ supabase start
 ### Step 4: Set Up Database
 
 ```bash
-# One-command setup: schema + reference data + test users
+# Recommended: schema + reference data + the TSC test world + test users
+./scripts/setup-local-db.sh --tsc
+
+# Bare: schema + reference data + test users, no teams or matches
 ./scripts/setup-local-db.sh
 
-# Or with match/team data from backup:
+# With production shapes (needs a backup and prod access):
 ./scripts/setup-local-db.sh --restore
 
 # This will:
 # ✓ Reset database and apply consolidated schema
 # ✓ Seed reference data (seasons, age groups, match types, etc.)
 # ✓ Create test users (tom, tom_ifa, tom_ifa_fan, tom_club)
-# ✓ Optionally restore teams and matches from backup
+# ✓ With --tsc: seed the TSC test world — an is_test club and league, four
+#   teams with rosters, and dry-run fixtures, all from a file in the repo
 ```
+
+**Prefer `--tsc`.** It needs nothing but the local stack — no backup, no prod
+credentials, no network — so it is fast, works offline, and gives every
+developer the same fixtures. It also keeps production data (real user profiles
+included) off the laptop. Reach for `--restore` / `--from-prod` when you
+specifically need production shapes: reproducing a data bug, or debugging one
+particular match.
 
 ### Step 5: Start the Application
 
