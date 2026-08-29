@@ -816,6 +816,7 @@ export default {
         scheduled: 'text-fg-muted',
         completed: 'text-green-700 font-medium',
         cancelled: 'text-red-500',
+        live: 'text-brand-600 font-medium',
         in_progress: 'text-brand-600 font-medium',
       };
       return map[status] || 'text-fg-muted';

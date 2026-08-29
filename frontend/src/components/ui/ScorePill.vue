@@ -40,8 +40,9 @@ const props = defineProps({
 });
 
 // Statuses under which a scoreline is real. A live match at 0-0 is a genuine
-// scoreline, so in_progress belongs here alongside completed and forfeit.
-const SCORABLE = ['completed', 'in_progress', 'forfeit'];
+// scoreline, so it belongs here alongside completed and forfeit. `live` is the
+// stored value; `in_progress` is kept as an alias (SB-910).
+const SCORABLE = ['completed', 'live', 'in_progress', 'forfeit'];
 
 const played = computed(() => {
   if (props.homeScore == null || props.awayScore == null) return false;

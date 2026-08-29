@@ -31,6 +31,11 @@ import { isMissingResult } from '../../utils/tournamentStatus';
  */
 const props = defineProps({
   status: { type: String, default: null },
+  // How the score is being recorded: 'live' once live scoring started, else
+  // 'manual'. A match can be under way in both senses, and only the first
+  // deserves a pulsing "Live" — the pulse promises a clock and an event feed
+  // that a manually-updated match does not have (SB-910).
+  scoringMode: { type: String, default: 'manual' },
   // Optional. Without it the component cannot tell a future fixture from a
   // stale one, so it keeps the plain status — back-compat for any caller with
   // no date to hand.
@@ -40,6 +45,10 @@ const props = defineProps({
 const STATUSES = {
   completed: { label: 'Final', tone: 'text-green-600 dark:text-green-400' },
   forfeit: { label: 'Forfeit', tone: 'text-fg-muted' },
+  // `live` is the value the database stores; `in_progress` is an alias kept
+  // for any payload still using it. Before SB-910 only the alias was listed,
+  // so a match that was actually under way rendered no status label at all.
+  live: { label: 'Live', tone: 'text-red-600 dark:text-red-400' },
   in_progress: { label: 'Live', tone: 'text-red-600 dark:text-red-400' },
   cancelled: { label: 'Cancelled', tone: 'text-red-500 dark:text-red-400' },
   postponed: { label: 'Postponed', tone: 'text-fg-muted' },
@@ -51,7 +60,22 @@ const missingResult = computed(() =>
   isMissingResult({ match_status: props.status, match_date: props.matchDate })
 );
 
-const entry = computed(() => STATUSES[props.status] ?? null);
+const isUnderWay = computed(
+  () => props.status === 'live' || props.status === 'in_progress'
+);
+
+// Under way but nobody live-scoring: it is in progress, and saying "Live" would
+// promise a feed that does not exist.
+const isLiveScored = computed(
+  () => isUnderWay.value && props.scoringMode === 'live'
+);
+
+const entry = computed(() => {
+  if (isUnderWay.value && !isLiveScored.value) {
+    return { label: 'In Progress', tone: 'text-amber-600 dark:text-amber-400' };
+  }
+  return STATUSES[props.status] ?? null;
+});
 
 // An unrecognised status renders nothing rather than guessing. Absent state is
 // absent — it is not "Scheduled".
@@ -68,5 +92,5 @@ const tone = computed(() => {
   return missingResult.value ? 'text-fg-muted italic' : entry.value.tone;
 });
 
-const isLive = computed(() => props.status === 'in_progress');
+const isLive = isLiveScored;
 </script>

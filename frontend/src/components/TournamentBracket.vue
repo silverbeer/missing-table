@@ -314,7 +314,7 @@ const BracketCell = {
     const statusLabel = computed(() => {
       if (!p.match) return null;
       if (p.match.match_status === 'completed') return 'Final';
-      if (p.match.match_status === 'in_progress') return 'Live';
+      if (['live', 'in_progress'].includes(p.match.match_status)) return 'Live';
       if (p.match.match_status === 'cancelled') return 'Cancelled';
       return null;
     });

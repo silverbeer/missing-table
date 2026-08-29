@@ -610,7 +610,7 @@ describe('MatchesView', () => {
   // ===========================================================================
 
   describe('status badges', () => {
-    it('shows LIVE badge with animation for live matches', async () => {
+    it('shows LIVE badge with animation for live-scored matches', async () => {
       const matches = [createLiveMatch({ id: 1 })];
       setupMockApiResponses({ matches });
       const wrapper = mountMatchesView();
@@ -618,6 +618,36 @@ describe('MatchesView', () => {
 
       // Look for LIVE text in the rendered output
       expect(wrapper.text()).toContain('LIVE');
+    });
+
+    it('shows In Progress for a match nobody is live-scoring', async () => {
+      // The common case: a manager marks the match under way and types the
+      // score. There is no clock and no event feed, so a pulsing LIVE badge
+      // would promise something that does not exist (SB-910).
+      const matches = [createLiveMatch({ id: 1, scoring_mode: 'manual' })];
+      setupMockApiResponses({ matches });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('In Progress');
+      expect(wrapper.text()).not.toContain('LIVE');
+    });
+
+    it('still shows the score of a match under way', async () => {
+      const matches = [
+        createLiveMatch({
+          id: 1,
+          scoring_mode: 'manual',
+          home_score: 2,
+          away_score: 3,
+        }),
+      ];
+      setupMockApiResponses({ matches });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('2');
+      expect(wrapper.text()).toContain('3');
     });
 
     it('shows completed status for completed matches', async () => {

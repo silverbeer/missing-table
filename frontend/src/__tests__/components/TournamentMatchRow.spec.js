@@ -103,18 +103,65 @@ describe('TournamentMatchRow — results', () => {
     );
   });
 
-  it('marks a live match', () => {
+  it('marks a live-scored match', () => {
     const wrapper = mountRow({
       match: mkMatch({
         home_score: 1,
         away_score: 1,
         match_status: 'in_progress',
+        scoring_mode: 'live',
       }),
     });
 
     const label = wrapper.find('[data-testid="match-status-label"]');
     expect(label.text()).toBe('Live');
     expect(label.classes()).toContain('animate-pulse');
+  });
+
+  it('marks a match under the status the database actually stores', () => {
+    // The enum member is `live`; the vocabulary here only knew `in_progress`,
+    // so a match genuinely under way rendered no status at all (SB-910).
+    const wrapper = mountRow({
+      match: mkMatch({
+        home_score: 1,
+        away_score: 1,
+        match_status: 'live',
+        scoring_mode: 'live',
+      }),
+    });
+
+    expect(wrapper.find('[data-testid="match-status-label"]').text()).toBe(
+      'Live'
+    );
+  });
+
+  it('says In Progress, without a pulse, when nobody is live-scoring', () => {
+    const wrapper = mountRow({
+      match: mkMatch({
+        home_score: 1,
+        away_score: 1,
+        match_status: 'live',
+        scoring_mode: 'manual',
+      }),
+    });
+
+    const label = wrapper.find('[data-testid="match-status-label"]');
+    expect(label.text()).toBe('In Progress');
+    expect(label.classes()).not.toContain('animate-pulse');
+  });
+
+  it('shows the scoreline of a match under way', () => {
+    const wrapper = mountRow({
+      match: mkMatch({
+        home_score: 2,
+        away_score: 3,
+        match_status: 'live',
+        scoring_mode: 'manual',
+      }),
+    });
+
+    expect(wrapper.text()).toContain('2');
+    expect(wrapper.text()).toContain('3');
   });
 
   it('renders nothing rather than guessing for an unknown status', () => {
