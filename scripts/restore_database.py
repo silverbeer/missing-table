@@ -9,8 +9,9 @@ import json
 import os
 import sys
 from pathlib import Path
-from supabase import create_client, Client
+
 from dotenv import load_dotenv
+from supabase import Client, create_client
 
 # Add backend to path for shared modules
 backend_path = Path(__file__).parent.parent / 'backend'
@@ -143,7 +144,10 @@ def validate_records(table_name: str, data: list) -> list:
     required_fields = {
         'team_match_types': ['team_id', 'match_type_id', 'age_group_id'],
         'teams': ['name'],
-        'matches': ['home_team_id', 'away_team_id', 'season_id'],
+        # age_group_id and match_type_id are NOT NULL locally but nullable in
+        # prod (SB-916), so a prod row missing one would be rejected by the
+        # database rather than caught here.
+        'matches': ['home_team_id', 'away_team_id', 'season_id', 'age_group_id', 'match_type_id'],
         'clubs': ['name'],
         'divisions': ['name'],
         'leagues': ['name'],
@@ -170,46 +174,98 @@ def validate_records(table_name: str, data: list) -> list:
     return valid
 
 
-def restore_table(table_name: str, data: list, local_profile_ids: set | None = None):
+class TableResult:
+    """What actually happened to one table (SB-917).
+
+    The old code returned a bare bool and counted the backup file's records as
+    though they were rows that landed. Both halves of that lied: a rejected
+    batch abandoned every later batch in the table, and the summary still
+    reported the file's totals.
+    """
+
+    def __init__(self, table_name: str, attempted: int):
+        self.table_name = table_name
+        self.attempted = attempted
+        self.inserted = 0
+        self.failures: list[tuple] = []   # (record_id, error)
+        self.skipped_invalid = 0
+
+    @property
+    def ok(self) -> bool:
+        return not self.failures
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+
+def _insert_rows_individually(table_name: str, batch: list, result: TableResult):
+    """Retry a failed batch one row at a time.
+
+    PostgREST rejects a whole batch when any row in it is bad, so a single
+    unusable record used to cost the other 99 — and every batch after it. One
+    bad row should cost one row, and should be named.
+    """
+    for record in batch:
+        try:
+            inserted = supabase.table(table_name).insert(record).execute()
+            result.inserted += len(inserted.data or [])
+        except Exception as row_error:
+            record_id = record.get('id', '?')
+            result.failures.append((record_id, str(row_error)))
+            print(f"  ❌ {table_name} id={record_id}: {row_error}")
+
+
+def restore_table(table_name: str, data: list, local_profile_ids: set | None = None) -> TableResult:
     """Restore data to a single table."""
+    result = TableResult(table_name, len(data))
+
     if not data:
         print(f"Skipping {table_name} (no data)")
-        return True
+        return result
 
-    try:
-        print(f"Restoring {table_name} ({len(data)} records)...")
+    print(f"Restoring {table_name} ({len(data)} records)...")
 
-        # Filter out records that would violate NOT NULL constraints
-        data = validate_records(table_name, data)
+    # Filter out records that would violate NOT NULL constraints
+    validated = validate_records(table_name, data)
+    result.skipped_invalid = len(data) - len(validated)
+    data = validated
 
-        # Null out user_profile FK references that don't exist locally
-        if local_profile_ids is not None:
-            data = sanitize_user_profile_refs(table_name, data, local_profile_ids)
-        if not data:
-            print(f"  ⚠ No valid records to restore for {table_name}")
-            return True
+    # Null out user_profile FK references that don't exist locally
+    if local_profile_ids is not None:
+        data = sanitize_user_profile_refs(table_name, data, local_profile_ids)
+    if not data:
+        print(f"  ⚠ No valid records to restore for {table_name}")
+        return result
 
-        # Insert in batches to avoid timeout
-        batch_size = 100
-        total_inserted = 0
+    # Insert in batches to avoid timeout
+    batch_size = 100
 
-        for i in range(0, len(data), batch_size):
-            batch = data[i:i + batch_size]
+    for i in range(0, len(data), batch_size):
+        batch = data[i:i + batch_size]
+        batch_number = i // batch_size + 1
 
-            result = supabase.table(table_name).insert(batch).execute()
-
-            if result.data:
-                total_inserted += len(result.data)
-                print(f"  ✓ Inserted batch {i//batch_size + 1}: {len(result.data)} records")
+        try:
+            inserted = supabase.table(table_name).insert(batch).execute()
+            count = len(inserted.data or [])
+            result.inserted += count
+            if count:
+                print(f"  ✓ Inserted batch {batch_number}: {count} records")
             else:
-                print(f"  ⚠ Batch {i//batch_size + 1} returned no data")
+                print(f"  ⚠ Batch {batch_number} returned no data")
+        except Exception as batch_error:
+            # Do NOT abandon the table. Find the row (or rows) at fault, keep
+            # the rest, and carry on into the following batches.
+            print(f"  ⚠ Batch {batch_number} failed ({batch_error}); retrying row by row")
+            _insert_rows_individually(table_name, batch, result)
 
-        print(f"  ✅ Successfully restored {total_inserted} records to {table_name}")
-        return True
-
-    except Exception as e:
-        print(f"  ❌ Error restoring {table_name}: {e}")
-        return False
+    if result.ok:
+        print(f"  ✅ Successfully restored {result.inserted}/{result.attempted} records to {table_name}")
+    else:
+        print(
+            f"  ❌ Restored {result.inserted}/{result.attempted} records to {table_name}"
+            f" — {len(result.failures)} rejected"
+        )
+    return result
 
 def reset_sequences():
     """Reset all PostgreSQL sequences to match max IDs in tables.
@@ -238,36 +294,36 @@ def reset_sequences():
 
 def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     """Restore database from a backup file."""
-    
+
     if not backup_file.exists():
         print(f"❌ Backup file not found: {backup_file}")
         return False
-    
+
     try:
         if backup_file.suffix == '.gz':
             with gzip.open(backup_file, 'rt', encoding='utf-8') as f:
                 backup_data = json.load(f)
         else:
-            with open(backup_file, 'r') as f:
+            with open(backup_file) as f:
                 backup_data = json.load(f)
     except Exception as e:
         print(f"❌ Error reading backup file: {e}")
         return False
-    
+
     # Validate backup file
     if 'backup_info' not in backup_data or 'tables' not in backup_data:
         print("❌ Invalid backup file format")
         return False
-    
+
     backup_info = backup_data['backup_info']
     tables_data = backup_data['tables']
-    
-    print(f"Restoring database from backup:")
+
+    print("Restoring database from backup:")
     print(f"📁 File: {backup_file.name}")
     print(f"📅 Created: {backup_info.get('created_at', 'Unknown')}")
     print(f"📋 Tables: {len(tables_data)}")
     print("=" * 50)
-    
+
     # Define restoration order (respecting foreign key dependencies)
     # NOTE: user_profiles is EXCLUDED from restoration
     # Reason: Users and profiles are managed per-environment, not synced between dev/prod
@@ -323,10 +379,10 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         # - user_profiles (different auth.users UUIDs per env)
         # - service_accounts (contains API keys)
     ]
-    
+
     success_count = 0
     total_tables = len([table for table in restoration_order if table in tables_data])
-    
+
     # Clear existing data if requested
     if clear_existing:
         print("🧹 Clearing existing data...")
@@ -336,7 +392,7 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         for table in reversed(restoration_order):
             clear_table(table)
         print()
-    
+
     # Fetch local user_profile IDs so we can sanitize FK references
     print("🔍 Fetching local user_profile IDs for FK sanitization...")
     local_profile_ids = get_local_user_profile_ids()
@@ -345,13 +401,16 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
 
     # Restore tables in order
     print("📥 Restoring data...")
+    results = []
     for table in restoration_order:
         if table in tables_data:
-            if restore_table(table, tables_data[table], local_profile_ids):
+            result = restore_table(table, tables_data[table], local_profile_ids)
+            results.append(result)
+            if result.ok:
                 success_count += 1
         else:
             print(f"Skipping {table} (not in backup)")
-    
+
     print("=" * 50)
 
     # Reset all sequences after data restoration
@@ -360,63 +419,93 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     reset_sequences()
     print()
 
+    # Counts come from rows that actually landed, not from the backup file —
+    # the old summary agreed with itself no matter what happened (SB-917).
+    inserted = sum(r.inserted for r in results)
+    attempted = sum(r.attempted for r in results)
+    rejected = [(r.table_name, rid, err) for r in results for rid, err in r.failures]
+    skipped_invalid = sum(r.skipped_invalid for r in results)
+
     if success_count == total_tables:
-        print(f"✅ Restoration completed successfully!")
+        print("✅ Restoration completed successfully!")
         print(f"📊 Restored {success_count}/{total_tables} tables")
-
-        # Summary of restored data
-        total_records = 0
-        for table, data in tables_data.items():
-            if isinstance(data, list) and table != 'auth_users_metadata':
-                total_records += len(data)
-
-        print(f"📈 Total records restored: {total_records}")
+        print(f"📈 Records inserted: {inserted}/{attempted}")
+        if skipped_invalid:
+            print(f"⚠️  Skipped {skipped_invalid} record(s) failing a NOT NULL guard")
         return True
-    else:
-        print(f"⚠️ Restoration completed with errors")
-        print(f"📊 Restored {success_count}/{total_tables} tables")
-        return False
 
-def list_available_backups():
+    print("⚠️ Restoration completed with errors")
+    print(f"📊 Restored {success_count}/{total_tables} tables")
+    print(f"📈 Records inserted: {inserted}/{attempted}")
+    print(f"❌ Rejected {len(rejected)} record(s):")
+    for table_name, record_id, err in rejected[:20]:
+        print(f"   {table_name} id={record_id}: {err}")
+    if len(rejected) > 20:
+        print(f"   … and {len(rejected) - 20} more")
+    return False
+
+# Matches backup_database.py's default.
+DEFAULT_BACKUP_DIR = Path.home() / 'backups' / 'missing-table'
+
+
+def find_latest_backup(directory: Path) -> Path | None:
+    """Find the most recent timestamped backup (.json.gz or .json)."""
+    candidates = sorted(
+        list(directory.glob("database_backup_[0-9]*.json.gz")) +
+        list(directory.glob("database_backup_[0-9]*.json")),
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
+def list_available_backups(backup_dir: Path | None = None):
     """List available backup files."""
-    backup_dir = Path(__file__).parent.parent / 'backups'
+    backup_dir = backup_dir or DEFAULT_BACKUP_DIR
 
     if not backup_dir.exists():
         print("No backups directory found.")
         return []
 
     # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
-    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json"))
+    backup_files = (
+        list(backup_dir.glob("database_backup_[0-9]*.json.gz"))
+        + list(backup_dir.glob("database_backup_[0-9]*.json"))
+    )
     backup_files.sort(reverse=True)  # Most recent first
-    
+
     if not backup_files:
         print("No backup files found.")
         return []
-    
+
     print("Available backup files:")
     print("-" * 40)
-    
+
     for i, backup_file in enumerate(backup_files):
         try:
-            with open(backup_file, 'r') as f:
+            opener = gzip.open if backup_file.suffix == '.gz' else open
+            with opener(backup_file, 'rt', encoding='utf-8') as f:
                 data = json.load(f)
                 info = data.get('backup_info', {})
                 created = info.get('created_at', 'Unknown')
-                
+
                 print(f"{i+1}. {backup_file.name}")
                 print(f"   📅 {created}")
                 print(f"   💾 {backup_file.stat().st_size / 1024:.1f} KB")
-                
-        except Exception as e:
+
+        except Exception:
             print(f"{i+1}. {backup_file.name} (corrupted)")
-    
+
     return backup_files
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> int:
+    """Entry point. Returns the process exit code.
+
+    Split out of the __main__ block so the exit code is testable (SB-917): a
+    partial restore has to report failure, and that is exactly the behaviour
+    that was silently wrong — `setup-local-db.sh` checks this code before it
+    carries on over the restored data.
+    """
     import argparse
-    
-    # Default backup dir matches backup_database.py default: ~/backups/missing-table
-    DEFAULT_BACKUP_DIR = Path.home() / 'backups' / 'missing-table'
 
     parser = argparse.ArgumentParser(description="Database restore utility")
     parser.add_argument('backup_file', nargs='?', help='Backup file to restore from')
@@ -430,52 +519,45 @@ if __name__ == "__main__":
         help=f'Directory containing backup files (default: {DEFAULT_BACKUP_DIR})',
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     backup_dir: Path = args.backup_dir
-
-    def find_latest_backup(directory: Path) -> Path | None:
-        """Find the most recent timestamped backup (.json.gz or .json)."""
-        candidates = sorted(
-            list(directory.glob("database_backup_[0-9]*.json.gz")) +
-            list(directory.glob("database_backup_[0-9]*.json")),
-            reverse=True,
-        )
-        return candidates[0] if candidates else None
 
     try:
         if args.list:
-            list_available_backups()
+            list_available_backups(backup_dir)
+            return 0
 
-        elif args.latest:
+        if args.latest:
             latest_backup = find_latest_backup(backup_dir)
             if not latest_backup:
                 print(f"❌ No backup files found in {backup_dir}")
-                sys.exit(1)
+                return 1
             print(f"Using latest backup: {latest_backup.name}")
-            clear_existing = not args.no_clear
-            restore_from_backup(latest_backup, clear_existing)
+            return 0 if restore_from_backup(latest_backup, not args.no_clear) else 1
 
-        elif args.backup_file:
+        if args.backup_file:
             # Handle both full path and just filename
             if '/' in args.backup_file:
                 backup_file = Path(args.backup_file)
             else:
                 backup_file = backup_dir / args.backup_file
+            return 0 if restore_from_backup(backup_file, not args.no_clear) else 1
 
-            clear_existing = not args.no_clear
-            restore_from_backup(backup_file, clear_existing)
+        print("❌ Please specify a backup file or use --list to see available backups")
+        print("Usage examples:")
+        print("  python scripts/restore_database.py --list")
+        print("  python scripts/restore_database.py --latest")
+        print(f"  python scripts/restore_database.py --backup-dir {DEFAULT_BACKUP_DIR} --latest")
+        print("  python scripts/restore_database.py database_backup_20231220_143022.json.gz")
+        return 1
 
-        else:
-            print("❌ Please specify a backup file or use --list to see available backups")
-            print("Usage examples:")
-            print("  python scripts/restore_database.py --list")
-            print("  python scripts/restore_database.py --latest")
-            print(f"  python scripts/restore_database.py --backup-dir {DEFAULT_BACKUP_DIR} --latest")
-            print("  python scripts/restore_database.py database_backup_20231220_143022.json.gz")
-            sys.exit(1)
-            
     except KeyboardInterrupt:
         print("\n❌ Restore cancelled by user")
+        return 130
     except Exception as e:
         print(f"❌ Restore failed: {e}")
-        sys.exit(1)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
