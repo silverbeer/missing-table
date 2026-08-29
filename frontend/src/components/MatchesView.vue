@@ -587,6 +587,15 @@
                       />
                       <span>{{ getMatchTeams(match).opponent.name }}</span>
                     </div>
+                    <!-- Teams are multi-age (one canonical "IFA" row across
+                         U13-U19), so two fixtures for the same clubs on the
+                         same day are otherwise indistinguishable (SB-911). -->
+                    <span
+                      v-if="match.age_group_name"
+                      class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
+                      data-testid="row-age-group"
+                      >{{ match.age_group_name }}</span
+                    >
                   </td>
                   <td class="border-b text-center">
                     {{ getScoreDisplay(match) }}
@@ -775,6 +784,15 @@
                       />
                       <span>{{ getMatchTeams(match).opponent.name }}</span>
                     </div>
+                    <!-- Teams are multi-age (one canonical "IFA" row across
+                         U13-U19), so two fixtures for the same clubs on the
+                         same day are otherwise indistinguishable (SB-911). -->
+                    <span
+                      v-if="match.age_group_name"
+                      class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
+                      data-testid="row-age-group"
+                      >{{ match.age_group_name }}</span
+                    >
                   </td>
                   <td class="border-b text-center">
                     {{ getScoreDisplay(match) }}
@@ -963,6 +981,15 @@
                       />
                       <span>{{ getMatchTeams(match).opponent.name }}</span>
                     </div>
+                    <!-- Teams are multi-age (one canonical "IFA" row across
+                         U13-U19), so two fixtures for the same clubs on the
+                         same day are otherwise indistinguishable (SB-911). -->
+                    <span
+                      v-if="match.age_group_name"
+                      class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
+                      data-testid="row-age-group"
+                      >{{ match.age_group_name }}</span
+                    >
                   </td>
                   <td class="border-b text-center">
                     {{ getScoreDisplay(match) }}
@@ -1111,6 +1138,15 @@
                     />
                     <span>{{ getMatchTeams(match).opponent.name }}</span>
                   </div>
+                  <!-- Teams are multi-age (one canonical "IFA" row across
+                       U13-U19), so two fixtures for the same clubs on the
+                       same day are otherwise indistinguishable (SB-911). -->
+                  <span
+                    v-if="match.age_group_name"
+                    class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
+                    data-testid="row-age-group"
+                    >{{ match.age_group_name }}</span
+                  >
                 </td>
                 <td class="border-b text-center">
                   {{ getScoreDisplay(match) }}
@@ -1235,9 +1271,15 @@
                 <div
                   class="flex items-center justify-between mb-3 pb-3 border-b border-line"
                 >
-                  <span class="text-xs font-medium text-fg-muted"
-                    >Game #{{ index + 1 }}</span
-                  >
+                  <span class="text-xs font-medium text-fg-muted">
+                    Game #{{ index + 1 }}
+                    <span
+                      v-if="match.age_group_name"
+                      class="ml-1.5 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted"
+                      data-testid="row-age-group"
+                      >{{ match.age_group_name }}</span
+                    >
+                  </span>
                   <span class="text-sm font-medium text-fg">{{
                     match.match_date
                   }}</span>
@@ -1434,9 +1476,15 @@
                 <div
                   class="flex items-center justify-between mb-3 pb-3 border-b border-line"
                 >
-                  <span class="text-xs font-medium text-fg-muted"
-                    >Game #{{ index + 1 }}</span
-                  >
+                  <span class="text-xs font-medium text-fg-muted">
+                    Game #{{ index + 1 }}
+                    <span
+                      v-if="match.age_group_name"
+                      class="ml-1.5 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted"
+                      data-testid="row-age-group"
+                      >{{ match.age_group_name }}</span
+                    >
+                  </span>
                   <span class="text-sm font-medium text-fg">{{
                     match.match_date
                   }}</span>
@@ -1633,9 +1681,15 @@
                 <div
                   class="flex items-center justify-between mb-3 pb-3 border-b border-line"
                 >
-                  <span class="text-xs font-medium text-fg-muted"
-                    >Game #{{ index + 1 }}</span
-                  >
+                  <span class="text-xs font-medium text-fg-muted">
+                    Game #{{ index + 1 }}
+                    <span
+                      v-if="match.age_group_name"
+                      class="ml-1.5 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted"
+                      data-testid="row-age-group"
+                      >{{ match.age_group_name }}</span
+                    >
+                  </span>
                   <span class="text-sm font-medium text-fg">{{
                     match.match_date
                   }}</span>
@@ -1828,9 +1882,15 @@
               <div
                 class="flex items-center justify-between mb-3 pb-3 border-b border-line"
               >
-                <span class="text-xs font-medium text-fg-muted"
-                  >Game #{{ index + 1 }}</span
-                >
+                <span class="text-xs font-medium text-fg-muted">
+                  Game #{{ index + 1 }}
+                  <span
+                    v-if="match.age_group_name"
+                    class="ml-1.5 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted"
+                    data-testid="row-age-group"
+                    >{{ match.age_group_name }}</span
+                  >
+                </span>
                 <span class="text-sm font-medium text-fg">{{
                   match.match_date
                 }}</span>
