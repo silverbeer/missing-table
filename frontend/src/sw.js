@@ -25,9 +25,14 @@
 
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import {
+  CacheFirst,
+  NetworkFirst,
+  StaleWhileRevalidate,
+} from 'workbox-strategies';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { ExpirationPlugin } from 'workbox-expiration';
+import { isReferenceApi, isResultsApi } from './utils/swRoutes';
 
 // ---------------------------------------------------------------------------
 // Precache (app shell)
@@ -48,19 +53,34 @@ registerRoute(
 // Runtime caching
 // ---------------------------------------------------------------------------
 
-// Read-only reference + standings APIs. Stale-while-revalidate: serve cache
-// instantly, refresh in background, next render is fresh. NOT cached: auth,
-// writes, live-match state — those need to be live.
+// Reference APIs. Stale-while-revalidate: serve cache instantly, refresh in
+// background, next render is fresh. Safe here because this data only changes
+// when an admin edits it. NOT cached: auth, writes, live-match state.
 registerRoute(
   ({ url, request }) =>
-    request.method === 'GET' &&
-    /\/api\/(standings|teams|match-types|seasons|age-groups|divisions|leagues|tournaments|clubs)(\/|\?|$)/.test(
-      url.pathname + url.search
-    ),
+    request.method === 'GET' && isReferenceApi(url.pathname + url.search),
   new StaleWhileRevalidate({
     cacheName: 'mt-reference-and-standings-v1',
     plugins: [
       new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  }),
+  'GET'
+);
+
+// Score-bearing APIs — standings and tournaments both change the moment a
+// match ends, so a cached copy is wrong exactly when someone cares most
+// (SB-908). Network first, with a short timeout so a touchline phone on a bad
+// connection still renders from cache instead of hanging.
+registerRoute(
+  ({ url, request }) =>
+    request.method === 'GET' && isResultsApi(url.pathname + url.search),
+  new NetworkFirst({
+    cacheName: 'mt-results-v1',
+    networkTimeoutSeconds: 4,
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 }),
       new CacheableResponsePlugin({ statuses: [0, 200] }),
     ],
   }),

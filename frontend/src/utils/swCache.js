@@ -16,8 +16,12 @@
  * every entry refills in a single request — there is nothing to be clever with.
  */
 
-// Must match the `cacheName` of the runtime route in src/sw.js.
+// Must match the `cacheName` of the runtime routes in src/sw.js.
 export const API_CACHE_NAME = 'mt-reference-and-standings-v1';
+// Score-bearing reads (standings, tournaments) live in their own NetworkFirst
+// cache since SB-908; a write has to drop that one too.
+export const RESULTS_CACHE_NAME = 'mt-results-v1';
+export const API_CACHE_NAMES = [API_CACHE_NAME, RESULTS_CACHE_NAME];
 
 /**
  * Delete the service worker's cached API responses.
@@ -25,12 +29,15 @@ export const API_CACHE_NAME = 'mt-reference-and-standings-v1';
  * Safe to call anywhere: no service worker, no Cache API (older browsers,
  * some private-mode contexts), or an already-empty cache are all no-ops.
  *
- * @returns {Promise<boolean>} true if a cache was actually deleted.
+ * @returns {Promise<boolean>} true if any cache was actually deleted.
  */
 export async function bustApiCache() {
   if (typeof caches === 'undefined' || !caches?.delete) return false;
   try {
-    return await caches.delete(API_CACHE_NAME);
+    const deleted = await Promise.all(
+      API_CACHE_NAMES.map(name => caches.delete(name))
+    );
+    return deleted.some(Boolean);
   } catch {
     // A failed bust must never fail the write that triggered it.
     return false;
