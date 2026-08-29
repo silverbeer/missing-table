@@ -27,6 +27,7 @@
       </div>
       <MatchStatusLabel
         :status="match.match_status"
+        :scoring-mode="match.scoring_mode"
         :match-date="match.match_date"
         class="shrink-0 ml-2"
       />
@@ -139,6 +140,7 @@
       >
         <MatchStatusLabel
           :status="match.match_status"
+          :scoring-mode="match.scoring_mode"
           :match-date="match.match_date"
         />
         <button

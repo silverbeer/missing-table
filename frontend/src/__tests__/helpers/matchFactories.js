@@ -183,9 +183,13 @@ export const createCompletedMatch = (overrides = {}) =>
     ...overrides,
   });
 
+// A match someone is live-scoring: the clock ran, so scoring_mode is 'live'
+// (SB-910). For a match merely marked in progress, pass
+// `{ scoring_mode: 'manual' }` — that is the more common case in production.
 export const createLiveMatch = (overrides = {}) =>
   createMockMatch({
     match_status: 'live',
+    scoring_mode: 'live',
     home_score: 2,
     away_score: 2,
     ...overrides,

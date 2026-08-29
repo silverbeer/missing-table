@@ -3,6 +3,38 @@
 Backend contract added for the native Android live-scoring app (offline-first).
 All fields below are **optional**, so the Vue PWA keeps working unchanged.
 
+## Under way vs live-scored (`scoring_mode`)
+
+A match being under way and a match being *live-scored* are different facts, and
+`match_status` only carries the first.
+
+| Column | Values | Means |
+|--------|--------|-------|
+| `match_status` | `scheduled` → `live` → `completed` (+ `postponed`, `cancelled`, `forfeit`, `tbd`) | what state the match is in |
+| `scoring_mode` | `manual` (default) / `live` | how its score is being recorded |
+
+`scoring_mode` flips to `live` when the clock starts (`start_first_half`), and
+never on its own. It is **declared, not inferred from `kickoff_time`** — a
+manager can start a clock and then abandon live scoring, and the LIVE tab has to
+know the difference.
+
+Consequences:
+
+- `GET /api/matches/live` returns only `match_status='live' AND
+  scoring_mode='live'`. Pass `?include_manual=true` for every match under way.
+  A match nobody is scoring has no clock and no event feed; putting it on the
+  LIVE tab promises both.
+- The UI shows a pulsing **LIVE** badge only for a live-scored match, and a
+  steady **In Progress** otherwise. The score shows either way.
+- Nothing else changes. Stats (`PLAYED_STATUSES`), standings, the playoff
+  advance guard and `idx_matches_live_status` all still key on `match_status`,
+  which is why this is one status axis plus a mode rather than a second status
+  value — a `live` / `in_progress` split would have to be remembered in every
+  one of those places, and forgetting one silently drops a match from the
+  table (SB-910).
+- `scoring_mode` stays `live` after the whistle. It is provenance, not state:
+  it records how that result was captured.
+
 ## Idempotency (`client_event_id`)
 
 Every mutating live/post-match event call accepts a client-generated UUIDv4

@@ -2435,14 +2435,25 @@ async def get_matches(
 @app.get("/api/matches/live")
 async def get_live_matches(
     current_user: dict[str, Any] = Depends(get_current_user_required),
+    include_manual: bool = Query(
+        False,
+        description="Also return matches that are under way but not being live-scored",
+    ),
 ):
-    """Get all currently live matches.
+    """Get the matches someone is live-scoring right now.
 
     Used for the LIVE tab to check if there are active live matches.
     Returns minimal data for efficient polling.
+
+    A match marked in progress without live scoring is under way, but it has no
+    clock and no event feed — the LIVE tab would promise something nobody is
+    driving. Pass include_manual=true for every match under way (SB-910).
     """
     try:
-        live_matches = match_dao.get_live_matches(include_test=viewer_sees_test_content(current_user))
+        live_matches = match_dao.get_live_matches(
+            include_test=viewer_sees_test_content(current_user),
+            live_scored_only=not include_manual,
+        )
         return live_matches
     except Exception as e:
         logger.error(f"Error getting live matches: {e!s}", exc_info=True)

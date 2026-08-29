@@ -878,7 +878,12 @@ export default {
     const stageLabel = computed(() => {
       const matches = selected.value?.matches ?? [];
       if (matches.length === 0) return null;
-      const live = matches.filter(m => m.match_status === 'in_progress');
+      // 'live' is the stored status; 'in_progress' is an alias kept for older
+      // payloads. Matching only the alias meant a tournament with a match
+      // actually under way never counted as live (SB-910).
+      const live = matches.filter(m =>
+        ['live', 'in_progress'].includes(m.match_status)
+      );
       const pool = live.length > 0 ? live : matches;
       const hasKnockout = pool.some(m =>
         KNOCKOUT_ROUNDS.has(m.tournament_round)

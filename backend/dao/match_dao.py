@@ -12,6 +12,7 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
+from supabase import create_client
 
 from dao.base_dao import (
     MATCHES_READ_RELATION,
@@ -30,7 +31,6 @@ from dao.standings import (
     filter_matches_involving,
     teams_in_division,
 )
-from supabase import create_client
 
 logger = structlog.get_logger()
 
@@ -180,6 +180,7 @@ class MatchDAO(BaseDAO):
                     "division_id": match.get("division_id"),
                     "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "match_status": match.get("match_status"),
+                    "scoring_mode": match.get("scoring_mode", "manual"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
@@ -257,6 +258,7 @@ class MatchDAO(BaseDAO):
                     "division_id": match.get("division_id"),
                     "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "match_status": match.get("match_status"),
+                    "scoring_mode": match.get("scoring_mode", "manual"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
@@ -490,6 +492,7 @@ class MatchDAO(BaseDAO):
                     else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
+                    "scoring_mode": match.get("scoring_mode", "manual"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
@@ -754,6 +757,7 @@ class MatchDAO(BaseDAO):
                     "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                     "division": match.get("division"),  # Include full division object with leagues
                     "match_status": match.get("match_status"),
+                    "scoring_mode": match.get("scoring_mode", "manual"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
@@ -822,6 +826,7 @@ class MatchDAO(BaseDAO):
                 "division_id": match.get("division_id"),
                 "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                 "match_status": match.get("match_status"),
+                    "scoring_mode": match.get("scoring_mode", "manual"),
                 "source": match.get("source", "manual"),
                 "match_id": match.get("match_id"),
                 "created_at": match.get("created_at"),
@@ -1241,6 +1246,7 @@ class MatchDAO(BaseDAO):
                     "tournament_round": match.get("tournament_round"),
                     "sport_type": sport_type,
                     "match_status": match.get("match_status"),
+                    "scoring_mode": match.get("scoring_mode", "manual"),
                     "created_by": match.get("created_by"),
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
@@ -1590,10 +1596,15 @@ class MatchDAO(BaseDAO):
 
     # === Live Match Methods ===
 
-    def get_live_matches(self, include_test: bool = False) -> list[dict]:
-        """Get all matches with status 'live'.
+    def get_live_matches(self, include_test: bool = False, live_scored_only: bool = True) -> list[dict]:
+        """Get matches that are under way.
 
         Returns minimal data for the LIVE tab polling.
+
+        `live_scored_only` (the default) narrows that to matches someone is
+        actually live-scoring. A match marked in progress so its score can be
+        typed in is under way too, but putting it on the LIVE tab promises a
+        clock and an event feed nobody is driving (SB-910).
 
         include_test gates the SB-591 test partition. This is the endpoint an
         Android dry run drives, so a rehearsal must not appear on the public
@@ -1605,6 +1616,7 @@ class MatchDAO(BaseDAO):
                 .select("""
                     id,
                     match_status,
+                    scoring_mode,
                     match_date,
                     home_score,
                     away_score,
@@ -1614,6 +1626,8 @@ class MatchDAO(BaseDAO):
                 """)
                 .eq("match_status", "live")
             )
+            if live_scored_only:
+                query = query.eq("scoring_mode", "live")
             if not include_test:
                 query = query.eq("is_test", False)
             response = query.execute()
@@ -1625,6 +1639,7 @@ class MatchDAO(BaseDAO):
                     {
                         "match_id": match["id"],
                         "match_status": match["match_status"],
+                        "scoring_mode": match.get("scoring_mode", "manual"),
                         "match_date": match["match_date"],
                         "home_score": match["home_score"],
                         "away_score": match["away_score"],
@@ -1691,6 +1706,7 @@ class MatchDAO(BaseDAO):
             return {
                 "match_id": match["id"],
                 "match_status": match.get("match_status"),
+                    "scoring_mode": match.get("scoring_mode", "manual"),
                 "match_date": match["match_date"],
                 "scheduled_kickoff": match.get("scheduled_kickoff"),
                 "home_score": match["home_score"],
@@ -1750,6 +1766,12 @@ class MatchDAO(BaseDAO):
                 # Start the match - set kickoff time and status to live
                 data["kickoff_time"] = now
                 data["match_status"] = "live"
+                # Starting the clock is what makes this a live-scored match, as
+                # opposed to one someone merely marked in progress (SB-910).
+                # Declared, not inferred from kickoff_time: a manager can start
+                # a clock and then abandon live scoring, and the LIVE tab needs
+                # to know the difference.
+                data["scoring_mode"] = "live"
                 # Set half duration if provided (default is 45)
                 if half_duration:
                     data["half_duration"] = half_duration

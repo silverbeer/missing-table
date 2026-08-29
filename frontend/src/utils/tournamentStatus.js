@@ -10,11 +10,20 @@
  * unit-tested without a database or a clock.
  */
 
-/** Statuses under which a match has a real scoreline. */
-export const SCORED_STATUSES = ['completed', 'in_progress', 'forfeit'];
+/**
+ * Statuses under which a match has a real scoreline.
+ *
+ * `live` is the value the database actually stores (the `match_status` enum has
+ * no `in_progress` member). This vocabulary was written against `in_progress`,
+ * so until SB-910 a match under way scored 0-0 in the tournament view: it hit
+ * neither list, so its scoreline was treated as absent and its status label
+ * rendered as nothing at all. `in_progress` stays as an alias rather than a
+ * rename, so any payload still using it keeps working.
+ */
+export const SCORED_STATUSES = ['completed', 'live', 'in_progress', 'forfeit'];
 
 /** Statuses that count as "this tournament is happening right now". */
-const LIVE_STATUSES = ['in_progress'];
+const LIVE_STATUSES = ['live', 'in_progress'];
 
 const MS_PER_DAY = 86400000;
 

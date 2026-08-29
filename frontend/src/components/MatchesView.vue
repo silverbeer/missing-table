@@ -609,15 +609,13 @@
                         'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                          match.match_status === 'live',
+                          isLiveScored(match),
+                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
+                          isInProgress(match) && !isLiveScored(match),
                         'bg-surface-alt text-fg': !match.match_status,
                       }"
                     >
-                      {{
-                        match.match_status === 'live'
-                          ? '🔴 LIVE'
-                          : match.match_status || 'scheduled'
-                      }}
+                      {{ getStatusLabel(match) }}
                     </span>
                   </td>
                   <td
@@ -797,15 +795,13 @@
                         'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                          match.match_status === 'live',
+                          isLiveScored(match),
+                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
+                          isInProgress(match) && !isLiveScored(match),
                         'bg-surface-alt text-fg': !match.match_status,
                       }"
                     >
-                      {{
-                        match.match_status === 'live'
-                          ? '🔴 LIVE'
-                          : match.match_status || 'scheduled'
-                      }}
+                      {{ getStatusLabel(match) }}
                     </span>
                   </td>
                   <td
@@ -985,15 +981,13 @@
                         'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                          match.match_status === 'live',
+                          isLiveScored(match),
+                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
+                          isInProgress(match) && !isLiveScored(match),
                         'bg-surface-alt text-fg': !match.match_status,
                       }"
                     >
-                      {{
-                        match.match_status === 'live'
-                          ? '🔴 LIVE'
-                          : match.match_status || 'scheduled'
-                      }}
+                      {{ getStatusLabel(match) }}
                     </span>
                   </td>
                   <td
@@ -1156,15 +1150,13 @@
                       'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                         match.match_status === 'forfeit',
                       'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                        match.match_status === 'live',
+                        isLiveScored(match),
+                      'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
+                        isInProgress(match) && !isLiveScored(match),
                       'bg-surface-alt text-fg': !match.match_status,
                     }"
                   >
-                    {{
-                      match.match_status === 'live'
-                        ? '🔴 LIVE'
-                        : match.match_status || 'scheduled'
-                    }}
+                    {{ getStatusLabel(match) }}
                   </span>
                 </td>
                 <td v-if="authStore.isAdmin.value" class="border-b text-center">
@@ -1362,14 +1354,12 @@
                         'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
-                          match.match_status === 'live',
+                          isLiveScored(match),
+                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold':
+                          isInProgress(match) && !isLiveScored(match),
                       }"
                     >
-                      {{
-                        match.match_status === 'live'
-                          ? '🔴 LIVE'
-                          : match.match_status || 'scheduled'
-                      }}
+                      {{ getStatusLabel(match) }}
                     </span>
                   </div>
                   <div v-if="authStore.isAdmin.value && match.match_id">
@@ -1561,14 +1551,12 @@
                         'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
-                          match.match_status === 'live',
+                          isLiveScored(match),
+                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold':
+                          isInProgress(match) && !isLiveScored(match),
                       }"
                     >
-                      {{
-                        match.match_status === 'live'
-                          ? '🔴 LIVE'
-                          : match.match_status || 'scheduled'
-                      }}
+                      {{ getStatusLabel(match) }}
                     </span>
                   </div>
                   <div v-if="authStore.isAdmin.value && match.match_id">
@@ -1760,14 +1748,12 @@
                         'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                           match.match_status === 'forfeit',
                         'bg-red-600 text-white font-extrabold':
-                          match.match_status === 'live',
+                          isLiveScored(match),
+                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold':
+                          isInProgress(match) && !isLiveScored(match),
                       }"
                     >
-                      {{
-                        match.match_status === 'live'
-                          ? '🔴 LIVE'
-                          : match.match_status || 'scheduled'
-                      }}
+                      {{ getStatusLabel(match) }}
                     </span>
                   </div>
                   <div v-if="authStore.isAdmin.value && match.match_id">
@@ -1931,15 +1917,13 @@
                       'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
                         match.match_status === 'forfeit',
                       'bg-red-600 text-white font-extrabold px-3 py-1 animate-pulse shadow-lg whitespace-nowrap':
-                        match.match_status === 'live',
+                        isLiveScored(match),
+                      'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
+                        isInProgress(match) && !isLiveScored(match),
                       'bg-surface-alt text-fg': !match.match_status,
                     }"
                   >
-                    {{
-                      match.match_status === 'live'
-                        ? '🔴 LIVE'
-                        : match.match_status || 'scheduled'
-                    }}
+                    {{ getStatusLabel(match) }}
                   </span>
                 </div>
                 <div v-if="authStore.isAdmin.value && match.match_id">
@@ -2530,6 +2514,22 @@ export default {
     // Teams are scoped by league in the new clubs architecture
     const getTeamDisplayName = team => {
       return team.name;
+    };
+
+    // A match can be under way in two different ways (SB-910): someone is
+    // live-scoring it with a running clock and an event feed, or someone has
+    // simply marked it in progress so the score can be typed in. Both are
+    // match_status 'live'; scoring_mode is what tells them apart. Only the
+    // first earns the pulsing red badge — the pulse promises a feed.
+    const isInProgress = match => match.match_status === 'live';
+    const isLiveScored = match =>
+      isInProgress(match) && match.scoring_mode === 'live';
+
+    const getStatusLabel = match => {
+      if (isInProgress(match)) {
+        return isLiveScored(match) ? '🔴 LIVE' : 'In Progress';
+      }
+      return match.match_status || 'scheduled';
     };
 
     const getScoreDisplay = match => {
@@ -3411,6 +3411,9 @@ export default {
       showFilters,
       onTeamChange,
       getScoreDisplay,
+      getStatusLabel,
+      isInProgress,
+      isLiveScored,
       getSourceDisplay,
       getSourceTooltip,
       getResult,
