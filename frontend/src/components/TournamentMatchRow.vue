@@ -83,25 +83,27 @@
           data-testid="tournament-score-editor"
         >
           <input
+            ref="homeInput"
             v-model="homeScore"
             type="number"
             min="0"
             inputmode="numeric"
-            aria-label="Home score"
+            :aria-label="`${match.home_team?.name} score`"
             data-testid="edit-home-score"
-            class="w-10 h-8 text-center text-sm font-semibold rounded border border-line bg-surface text-fg tabular-nums"
-            @keyup.enter="submit"
+            class="score-input w-14 h-9 sm:h-8 text-center text-sm font-semibold rounded border border-line bg-surface text-fg tabular-nums"
+            @keyup.enter="advanceOrSubmit"
             @keyup.esc="cancel"
           />
           <span class="text-fg-muted text-xs">-</span>
           <input
+            ref="awayInput"
             v-model="awayScore"
             type="number"
             min="0"
             inputmode="numeric"
-            aria-label="Away score"
+            :aria-label="`${match.away_team?.name} score`"
             data-testid="edit-away-score"
-            class="w-10 h-8 text-center text-sm font-semibold rounded border border-line bg-surface text-fg tabular-nums"
+            class="score-input w-14 h-9 sm:h-8 text-center text-sm font-semibold rounded border border-line bg-surface text-fg tabular-nums"
             @keyup.enter="submit"
             @keyup.esc="cancel"
           />
@@ -206,7 +208,7 @@
         inputmode="numeric"
         aria-label="Home penalty score"
         data-testid="edit-home-penalty"
-        class="w-10 h-7 text-center text-xs rounded border border-line bg-surface text-fg tabular-nums"
+        class="score-input w-12 h-8 sm:h-7 text-center text-xs rounded border border-line bg-surface text-fg tabular-nums"
       />
       <span class="text-fg-muted text-xs">-</span>
       <input
@@ -216,7 +218,7 @@
         inputmode="numeric"
         aria-label="Away penalty score"
         data-testid="edit-away-penalty"
-        class="w-10 h-7 text-center text-xs rounded border border-line bg-surface text-fg tabular-nums"
+        class="score-input w-12 h-8 sm:h-7 text-center text-xs rounded border border-line bg-surface text-fg tabular-nums"
       />
     </div>
 
@@ -232,7 +234,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import ScorePill from './ui/ScorePill.vue';
 import TournamentChip from './ui/TournamentChip.vue';
 import MatchStatusLabel from './ui/MatchStatusLabel.vue';
@@ -277,6 +279,8 @@ const BRACKET_ROUNDS = new Set([
 ]);
 
 const editing = ref(false);
+const homeInput = ref(null);
+const awayInput = ref(null);
 const homeScore = ref('');
 const awayScore = ref('');
 const homePenaltyScore = ref('');
@@ -286,12 +290,29 @@ const awayPenaltyScore = ref('');
 // with 0-0, which would be a claim that it finished goalless.
 const asField = value => (value == null ? '' : String(value));
 
-const startEditing = () => {
+const startEditing = async () => {
   homeScore.value = asField(props.match.home_score);
   awayScore.value = asField(props.match.away_score);
   homePenaltyScore.value = asField(props.match.home_penalty_score);
   awayPenaltyScore.value = asField(props.match.away_penalty_score);
   editing.value = true;
+  // Whoever opened this is holding a phone at the side of a pitch and already
+  // knows the score. Land them in the first box with any existing value
+  // selected, so typing replaces it (SB-914).
+  await nextTick();
+  homeInput.value?.focus();
+  homeInput.value?.select?.();
+};
+
+// Enter is the advance key, not a digit count: a scoreline can be two digits
+// (10-2), so nothing may jump boxes on the first keystroke.
+const advanceOrSubmit = () => {
+  if (awayScore.value === '' || awayScore.value == null) {
+    awayInput.value?.focus();
+    awayInput.value?.select?.();
+    return;
+  }
+  submit();
 };
 
 const cancel = () => {
@@ -412,3 +433,22 @@ const chips = computed(() => {
   return out;
 });
 </script>
+
+<style scoped>
+/*
+ * Chrome renders a number input's stepper arrows *inside* the box. At the width
+ * this editor used, the arrows covered the digit entirely — you could type a
+ * score and not see it (SB-914). Nobody steps a scoreline one goal at a time
+ * with a mouse anyway; the arrows are pure loss here.
+ */
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.score-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+</style>

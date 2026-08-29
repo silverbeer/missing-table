@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 
 import TournamentMatchRow from '@/components/TournamentMatchRow.vue';
@@ -35,8 +36,12 @@ const mkMatch = (over = {}) => ({
   ...over,
 });
 
-const mountRow = (props = {}) =>
-  mount(TournamentMatchRow, { props: { match: mkMatch(), ...props } });
+const mountRow = ({ attachTo, ...props } = {}) =>
+  mount(TournamentMatchRow, {
+    props: { match: mkMatch(), ...props },
+    // Focus assertions need the component in the real document.
+    ...(attachTo ? { attachTo } : {}),
+  });
 
 // Thin space (U+2009) and nbsp are invisible in assertions; strip them.
 const text = wrapper => wrapper.text().replace(/[\u2009\u00a0]/g, ' ');
@@ -101,6 +106,76 @@ describe('TournamentMatchRow — results', () => {
     expect(wrapper.find('[data-testid="match-status-label"]').text()).toBe(
       'Final'
     );
+  });
+
+  it('gives a two-digit score room to show', async () => {
+    // 10-2 happens at youth level, and the old 40px box with Chrome's stepper
+    // arrows inside it hid the digits entirely (SB-914).
+    const wrapper = mountRow({ match: mkMatch(), canEdit: true });
+    await wrapper.get('[data-testid="edit-score-button"]').trigger('click');
+
+    const home = wrapper.get('[data-testid="edit-home-score"]');
+    await home.setValue('10');
+    await wrapper.get('[data-testid="edit-away-score"]').setValue('2');
+
+    expect(home.element.value).toBe('10');
+    // The stepper arrows are gone, so the width is the digits' to use.
+    expect(home.classes()).toContain('score-input');
+  });
+
+  it('lands the cursor in the home box when the editor opens', async () => {
+    const wrapper = mountRow({
+      match: mkMatch(),
+      canEdit: true,
+      attachTo: document.body,
+    });
+    await wrapper.get('[data-testid="edit-score-button"]').trigger('click');
+    await nextTick();
+
+    expect(document.activeElement).toBe(
+      wrapper.get('[data-testid="edit-home-score"]').element
+    );
+    wrapper.unmount();
+  });
+
+  it('moves to the away box on Enter, and does not save a half score', async () => {
+    const wrapper = mountRow({
+      match: mkMatch(),
+      canEdit: true,
+      attachTo: document.body,
+    });
+    await wrapper.get('[data-testid="edit-score-button"]').trigger('click');
+
+    const home = wrapper.get('[data-testid="edit-home-score"]');
+    await home.setValue('10');
+    await home.trigger('keyup.enter');
+
+    expect(document.activeElement).toBe(
+      wrapper.get('[data-testid="edit-away-score"]').element
+    );
+    expect(wrapper.emitted('save')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('saves on Enter once both sides are filled', async () => {
+    const wrapper = mountRow({ match: mkMatch(), canEdit: true });
+    await wrapper.get('[data-testid="edit-score-button"]').trigger('click');
+    await wrapper.get('[data-testid="edit-home-score"]').setValue('10');
+    await wrapper.get('[data-testid="edit-away-score"]').setValue('2');
+    await wrapper.get('[data-testid="edit-home-score"]').trigger('keyup.enter');
+
+    const saved = wrapper.emitted('save');
+    expect(saved).toBeTruthy();
+    expect(saved[0][0]).toMatchObject({ home_score: 10, away_score: 2 });
+  });
+
+  it('names each score input after its team', async () => {
+    const wrapper = mountRow({ match: mkMatch(), canEdit: true });
+    await wrapper.get('[data-testid="edit-score-button"]').trigger('click');
+
+    expect(
+      wrapper.get('[data-testid="edit-home-score"]').attributes('aria-label')
+    ).toBe('IFA score');
   });
 
   it('marks a live-scored match', () => {
