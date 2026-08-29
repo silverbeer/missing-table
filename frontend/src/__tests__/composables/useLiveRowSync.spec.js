@@ -113,6 +113,17 @@ describe('useLiveRowSync — subscriptions', () => {
     expect(sync.subscribedIds()).toEqual([]);
   });
 
+  it('survives a subscription that throws', () => {
+    // Realtime is an enhancement. A misconfigured or unreachable socket must
+    // not take the view down — CI caught exactly this as an unhandled error.
+    subscribeToMatch.mockImplementationOnce(() => {
+      throw new Error('socket unavailable');
+    });
+    const matches = ref([match(1, 'live')]);
+
+    expect(() => useLiveRowSync(matches, () => {})).not.toThrow();
+  });
+
   it('tolerates an empty or absent list', () => {
     const matches = ref(null);
     const sync = useLiveRowSync(matches, () => {});

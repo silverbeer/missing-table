@@ -53,7 +53,15 @@ export function useLiveRowSync(matches, applyUpdate, { onReturn } = {}) {
       }
     }
     for (const id of live) {
-      if (!subs.has(id)) subs.set(id, subscribeToMatch(id, applyUpdate));
+      if (subs.has(id)) continue;
+      try {
+        subs.set(id, subscribeToMatch(id, applyUpdate));
+      } catch (err) {
+        // Realtime is an enhancement, not the data path. A misconfigured or
+        // unreachable socket must not take the view down with it — the
+        // refresh-on-return half still keeps the page honest.
+        console.error('Live row subscription failed:', err);
+      }
     }
   }
 
