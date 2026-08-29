@@ -58,14 +58,29 @@ app.add_typer(clubmap_app, name="clubmap")
 _MT_CLI_STATE_FILE = _REPO_ROOT / "backend" / ".mt-cli-state.json"
 
 
+def _resolved_env() -> str:
+    """Which environment this invocation targets, mirroring mt_cli precedence."""
+    base_url = os.environ.get("MT_API_BASE_URL", "")
+    if base_url:
+        return "local" if "localhost" in base_url or "127.0.0.1" in base_url else "prod"
+    return os.environ.get("APP_ENV", "local")
+
+
 def _load_cached_token() -> tuple[str | None, str | None]:
-    """Return (access_token, username) from the shared mt_cli state file."""
+    """Return (access_token, username) from the shared mt_cli state file.
+
+    mt_cli stores sessions per environment (SB-841): {"environments": {"prod": {...}}}.
+    Older state files were flat; both are read here.
+    """
     if not _MT_CLI_STATE_FILE.exists():
         return None, None
     try:
         data = json.loads(_MT_CLI_STATE_FILE.read_text())
     except (OSError, json.JSONDecodeError):
         return None, None
+    envs = data.get("environments")
+    if isinstance(envs, dict):
+        data = envs.get(_resolved_env()) or {}
     return data.get("access_token"), data.get("username")
 
 
