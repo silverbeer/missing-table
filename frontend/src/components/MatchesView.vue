@@ -408,9 +408,13 @@
               <!-- Last 5 Matches - Only show if matches exist -->
               <div
                 v-if="seasonStats.matchesPlayed > 0"
-                class="p-4 bg-purple-50 rounded-lg border border-purple-100"
+                class="p-4 bg-purple-50 dark:bg-purple-500/10 rounded-lg border border-purple-100 dark:border-purple-900"
               >
-                <h4 class="font-medium text-purple-700 mb-2">Last 5 Matches</h4>
+                <h4
+                  class="font-medium text-purple-700 dark:text-purple-300 mb-2"
+                >
+                  Last 5 Matches
+                </h4>
                 <div class="flex space-x-2 justify-center sm:justify-start">
                   <template v-if="seasonStats.lastFive.length > 0">
                     <span
@@ -1075,7 +1079,7 @@
                 v-for="(match, index) in sortedGames"
                 :key="match.id"
                 :class="{ 'bg-surface-alt': index % 2 === 0 }"
-                class="cursor-pointer hover:bg-brand-50"
+                class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                 @click="viewMatch(match)"
               >
                 <td
