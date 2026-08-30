@@ -19,10 +19,19 @@ import TournamentMatchRow from '@/components/TournamentMatchRow.vue';
 const IFA = { id: 19, name: 'IFA' };
 const NVA = { id: 40, name: 'Northern Virginia Alliance' };
 
+// Derived from the real clock so the suite stays green on any machine's date,
+// not just whatever day this file was written on. Built from local date parts
+// (not toISOString(), which is UTC and would reintroduce the off-by-one
+// parseDateOnly's own comments warn about — see tournamentStatus.js).
+const pad = n => String(n).padStart(2, '0');
+const inFuture = hours => new Date(Date.now() + hours * 60 * 60 * 1000);
+const localDateOnly = d =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
 const mkMatch = (over = {}) => ({
   id: 3853,
-  match_date: '2026-08-29',
-  scheduled_kickoff: '2026-08-29T14:10:00Z',
+  match_date: localDateOnly(inFuture(24)),
+  scheduled_kickoff: inFuture(24).toISOString(),
   match_status: 'scheduled',
   home_team: IFA,
   away_team: NVA,
