@@ -178,6 +178,86 @@ describe('TeamCombobox create path', () => {
   });
 });
 
+describe('TeamCombobox pre-selection beyond the cap', () => {
+  // Regression for the same SB-964 edge case covered in ClubCombobox: a
+  // pre-selected team (SB-599 auto-select) can sort outside the first
+  // `maxOptions` rows once a club fields more teams than the cap.
+  const manyTeams = Array.from({ length: 12 }, (_, i) => ({
+    id: i + 1,
+    name: `Team ${String(i + 1).padStart(2, '0')}`,
+    league_id: 2,
+    league_name: 'MLS Next',
+  }));
+
+  it('shows the pre-selected team name even when it sorts past maxOptions', () => {
+    const wrapper = mountBox({
+      teams: manyTeams,
+      maxOptions: 8,
+      modelValue: 12,
+    });
+
+    expect(
+      wrapper.find('[data-testid="team-combobox-input"]').element.value
+    ).toBe('Team 12');
+    // Regression: the checkmark line used to look the id up only in the
+    // capped `options` array, so it vanished even though the input above
+    // (resolved separately via resolveLabel) still showed the right name.
+    expect(
+      wrapper.find('[data-testid="team-combobox-selected"]').text()
+    ).toContain('Team 12');
+  });
+
+  it('honors labelFormatter for a pre-selected team beyond the cap', () => {
+    const wrapper = mountBox({
+      teams: manyTeams,
+      maxOptions: 8,
+      modelValue: 12,
+      labelFormatter: team => `${team.name} (context)`,
+    });
+
+    expect(
+      wrapper.find('[data-testid="team-combobox-input"]').element.value
+    ).toBe('Team 12 (context)');
+    expect(
+      wrapper.find('[data-testid="team-combobox-selected"]').text()
+    ).toContain('Team 12 (context)');
+  });
+});
+
+describe('TeamCombobox stale label after context change', () => {
+  // Regression: MatchesView's My Club tab selects a team via labelFormatter
+  // (getTeamDisplayWithContext), which renders differently depending on the
+  // currently-selected age group. Clicking a different age-group filter
+  // button leaves the team selected (still present in the recomputed team
+  // list) but recomputes that list to a new array reference; the displayed
+  // label used to only get rewritten to query.value on the "resolveLabel
+  // found nothing" fallback path, so a still-resolvable label whose *content*
+  // had changed (a different age group's league/division) was never
+  // re-written and stayed stale.
+  it('re-resolves the selected team label when the label-formatter context changes', async () => {
+    let context = 'Homegrown - Northeast';
+    const wrapper = mountBox({
+      modelValue: 1,
+      labelFormatter: team => `${team.name} (${context})`,
+    });
+
+    expect(
+      wrapper.find('[data-testid="team-combobox-input"]').element.value
+    ).toBe('Cedar Stars Academy (Homegrown - Northeast)');
+
+    // Simulate an age-group filter change: the label-formatter's own context
+    // shifts (mirrors selectedAgeGroupId in MatchesView) and the parent hands
+    // down a new `teams` array reference (mirrors filteredTeamsByLeague
+    // recomputing) even though the same teams are still in it.
+    context = 'Homegrown - Southeast';
+    await wrapper.setProps({ teams: [...TEAMS] });
+
+    expect(
+      wrapper.find('[data-testid="team-combobox-input"]').element.value
+    ).toBe('Cedar Stars Academy (Homegrown - Southeast)');
+  });
+});
+
 describe('TeamCombobox keyboard', () => {
   it('moves through options with the arrow keys and selects with Enter', async () => {
     const wrapper = mountBox();

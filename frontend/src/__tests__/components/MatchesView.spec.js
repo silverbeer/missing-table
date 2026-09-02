@@ -126,6 +126,32 @@ const setupMockApiResponses = (customResponses = {}) => {
   return responses;
 };
 
+/**
+ * ClubCombobox/TeamCombobox (SB-964) are type-and-search controls, not
+ * native <select>s — picking an option means typing its name into the
+ * control's input and clicking the matching row, rather than
+ * `setSelected()` on an <option>.
+ */
+const selectClub = async (wrapper, name) => {
+  const clubSelector = wrapper.find('[data-testid="club-selector"]');
+  await clubSelector.find('input').setValue(name);
+  await flushPromises();
+  await clubSelector
+    .find('[data-testid="club-combobox-option"]')
+    .trigger('mousedown');
+  await flushPromises();
+};
+
+const selectTeam = async (wrapper, name) => {
+  const teamSelector = wrapper.find('[data-testid="team-selector"]');
+  await teamSelector.find('input').setValue(name);
+  await flushPromises();
+  await teamSelector
+    .find('[data-testid="team-combobox-option"]')
+    .trigger('mousedown');
+  await flushPromises();
+};
+
 // =============================================================================
 // TESTS: INITIAL RENDERING
 // =============================================================================
@@ -564,17 +590,71 @@ describe('MatchesView', () => {
       await wrapper.find('[data-testid="my-club-tab"]').trigger('click');
       await flushPromises();
 
-      // Select a club using the select element
-      const clubSelector = wrapper.find('[data-testid="club-selector"]');
-      expect(clubSelector.exists()).toBe(true);
+      // Select a club using the type-and-search combobox
+      expect(wrapper.find('[data-testid="club-selector"]').exists()).toBe(true);
 
-      // Set the value and trigger change
-      await clubSelector.find('option[value="1"]').setSelected();
-      await flushPromises();
+      await selectClub(wrapper, 'Blue Stars FC');
 
       // Team selector should now exist
       const teamSelector = wrapper.find('[data-testid="team-selector"]');
       expect(teamSelector.exists()).toBe(true);
+    });
+
+    it('re-shows the prompt and hides the team selector once the club is cleared', async () => {
+      setupMockApiResponses();
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await wrapper.find('[data-testid="my-club-tab"]').trigger('click');
+      await flushPromises();
+      await selectClub(wrapper, 'Blue Stars FC');
+
+      expect(wrapper.find('[data-testid="team-selector"]').exists()).toBe(true);
+      expect(wrapper.text()).not.toContain('Please select a club');
+
+      // Clearing the club input clears the ClubCombobox's v-model, which
+      // should tear the team selector back down and bring the prompt back.
+      await wrapper.find('[data-testid="club-selector"] input').setValue('');
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="team-selector"]').exists()).toBe(
+        false
+      );
+      expect(wrapper.text()).toContain(
+        'Please select a club to view teams and matches.'
+      );
+    });
+
+    it("pre-selects a club fan's own club and team on the My Club tab", async () => {
+      // Isolates the SB-964 pre-selection path from the unrelated
+      // auto-select-by-age-group behavior by giving the fan their team's
+      // actual age group (U14, id 3) up front.
+      mockAuthStore = createMockAuthStore({
+        isAdmin: { value: false },
+        isTeamManager: { value: false },
+        canBrowseAll: { value: false },
+        userTeamId: { value: 1 },
+        userClubId: { value: 1 },
+        userCurrentTeamId: { value: 1 },
+        userAgeGroupId: { value: 3 },
+      });
+      setupMockApiResponses();
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await wrapper.find('[data-testid="my-club-tab"]').trigger('click');
+      await flushPromises();
+
+      const clubInput = wrapper.find('[data-testid="club-selector"] input');
+      expect(clubInput.element.value).toBe('Blue Stars FC');
+
+      // TeamCombobox is given labelFormatter=getTeamDisplayWithContext here,
+      // so the displayed label carries the league/division context, not
+      // just the bare team name.
+      const teamInput = wrapper.find('[data-testid="team-selector"] input');
+      expect(teamInput.element.value).toBe(
+        'Blue Stars U14 (Homegrown - Northeast)'
+      );
     });
   });
 
@@ -810,16 +890,8 @@ describe('MatchesView', () => {
       // (Blue Stars U14) appears in the team dropdown.
       await wrapper.find('[data-testid="age-group-3"]').trigger('click');
       await flushPromises();
-      await wrapper
-        .find('[data-testid="club-selector"]')
-        .find('option[value="1"]')
-        .setSelected();
-      await flushPromises();
-      await wrapper
-        .find('[data-testid="team-selector"]')
-        .find('option[value="1"]')
-        .setSelected();
-      await flushPromises();
+      await selectClub(wrapper, 'Blue Stars FC');
+      await selectTeam(wrapper, 'Blue Stars U14');
     };
 
     it('does not render on All Matches tab', async () => {

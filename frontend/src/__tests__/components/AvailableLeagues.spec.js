@@ -244,11 +244,16 @@ describe('MatchesView — My Club team picker', () => {
     });
   };
 
+  // TeamCombobox (SB-964) only renders its option rows once open, so read
+  // them after focusing its input rather than a native <select>'s <option>s.
   const teamOptions = async wrapper => {
     const selector = wrapper.find('[data-testid="team-selector"]');
-    return selector.exists()
-      ? selector.findAll('option').map(o => o.text().trim())
-      : [];
+    if (!selector.exists()) return [];
+    await selector.find('input').trigger('focus');
+    await flushPromises();
+    return selector
+      .findAll('[data-testid="team-combobox-option"]')
+      .map(o => o.text().trim());
   };
 
   it('hides teams whose league is not offered this season', async () => {

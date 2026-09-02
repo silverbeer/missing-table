@@ -87,20 +87,13 @@
                 <label class="block text-sm font-medium text-fg mb-2"
                   >Select Club</label
                 >
-                <select
-                  v-model="selectedClubId"
-                  data-testid="club-selector"
-                  class="block w-full px-4 py-3 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                >
-                  <option :value="null">-- Select a club --</option>
-                  <option
-                    v-for="club in filteredClubs"
-                    :key="club.id"
-                    :value="club.id"
-                  >
-                    {{ club.name }}
-                  </option>
-                </select>
+                <div data-testid="club-selector">
+                  <ClubCombobox
+                    v-model="selectedClubId"
+                    :clubs="filteredClubs"
+                    placeholder="Search clubs…"
+                  />
+                </div>
               </div>
 
               <!-- Team Selector - Rich format with League/Division -->
@@ -108,21 +101,15 @@
                 <label class="block text-sm font-medium text-fg mb-2"
                   >Select Team</label
                 >
-                <select
-                  v-model="selectedTeam"
-                  @change="onTeamChange"
-                  data-testid="team-selector"
-                  class="block w-full px-4 py-3 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                >
-                  <option value="">-- Select a team --</option>
-                  <option
-                    v-for="team in filteredTeamsByLeague"
-                    :key="team.id"
-                    :value="team.id"
-                  >
-                    {{ getTeamDisplayWithContext(team) }}
-                  </option>
-                </select>
+                <div data-testid="team-selector">
+                  <TeamCombobox
+                    v-model="selectedTeamId"
+                    :teams="filteredTeamsByLeague"
+                    :allow-create="false"
+                    :label-formatter="getTeamDisplayWithContext"
+                    placeholder="Search teams…"
+                  />
+                </div>
               </div>
 
               <!-- Prompt to select club if none selected -->
@@ -2053,6 +2040,8 @@ import { getApiBaseUrl } from '../config/api';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 import MatchDetailView from '@/components/MatchDetailView.vue';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
+import ClubCombobox from '@/components/ui/ClubCombobox.vue';
+import TeamCombobox from '@/components/ui/TeamCombobox.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
 import { subscribeToMatch } from '@/composables/useMatchRealtime';
 import { canEditMatch } from '@/utils/matchPermissions';
@@ -2064,6 +2053,8 @@ export default {
     MatchDetailView,
     ClubLogo,
     FollowButton,
+    ClubCombobox,
+    TeamCombobox,
   },
   props: {
     initialAgeGroupId: { type: Number, default: null },
@@ -2464,6 +2455,17 @@ export default {
       console.log('Selected team:', selectedTeam.value);
       await fetchMatches();
     };
+
+    // TeamCombobox (SB-964) works with a numeric id; `selectedTeam` stays a
+    // string ref because it's read via parseInt() all over this file. This
+    // computed is the conversion boundary so neither side has to change.
+    const selectedTeamId = computed({
+      get: () => (selectedTeam.value ? parseInt(selectedTeam.value, 10) : null),
+      set: value => {
+        selectedTeam.value = value == null ? '' : String(value);
+        onTeamChange();
+      },
+    });
 
     const getTeamDisplay = match => {
       // All Matches view - show "Away Team @ Home Team" with win/loss/draw icons
@@ -3451,6 +3453,7 @@ export default {
       filteredClubs,
       selectedViewTab,
       selectedTeam,
+      selectedTeamId,
       selectedClubId,
       selectedLeagueId,
       selectedAgeGroupId,
