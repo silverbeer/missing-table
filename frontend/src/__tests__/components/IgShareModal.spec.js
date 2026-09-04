@@ -429,4 +429,38 @@ describe('IgShareModal — accent picker (SB-659)', () => {
     });
     expect(wrapper.vm.accentPreference).toBe('home');
   });
+
+  describe('match of the week (SB-1010)', () => {
+    it('does not offer the MOTW card for an ordinary fixture', () => {
+      // A "Match of the Week" frame around a match that is not the pick is a
+      // graphic claiming something untrue.
+      const wrapper = mountModal();
+
+      expect(wrapper.find('[data-testid="ig-template-motw"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('offers it, and opens on it, for the actual pick', () => {
+      const wrapper = mountModal({ isMotw: true });
+
+      const option = wrapper.find('[data-testid="ig-template-motw"]');
+      expect(option.exists()).toBe(true);
+      expect(option.attributes('aria-checked')).toBe('true');
+    });
+
+    it('lets the admin switch to another template anyway', async () => {
+      const wrapper = mountModal({ isMotw: true });
+
+      await wrapper
+        .find('[data-testid="ig-template-stadium"]')
+        .trigger('click');
+
+      expect(
+        wrapper
+          .find('[data-testid="ig-template-stadium"]')
+          .attributes('aria-checked')
+      ).toBe('true');
+    });
+  });
 });

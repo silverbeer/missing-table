@@ -35,24 +35,80 @@ const mountHero = (props = {}) =>
     global: { stubs: { ClubLogo: true } },
   });
 
+// The strip opens on click, so anything asserting on the fixture has to
+// reveal it first — which is itself the behaviour worth guarding.
+const mountOpen = async (props = {}) => {
+  const wrapper = mountHero(props);
+  await wrapper.find('[data-testid="motw-disclosure"]').trigger('click');
+  return wrapper;
+};
+
 describe('MotwHero', () => {
-  describe('the fixture', () => {
-    it('names both teams', () => {
+  describe('the closed strip', () => {
+    it('starts closed, withholding the fixture', () => {
+      // The reveal is the point: one pick a week is small enough to be worth
+      // discovering rather than announcing.
       const wrapper = mountHero();
+
+      expect(wrapper.find('[data-testid="motw-panel"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="motw-home"]').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain('NEFC');
+    });
+
+    it('still says a pick exists, so it is worth clicking', () => {
+      const wrapper = mountHero();
+
+      expect(wrapper.text()).toContain('Match of the Week');
+      expect(wrapper.find('[data-testid="motw-disclosure"]').text()).toContain(
+        'Reveal'
+      );
+    });
+
+    it('teases a played match as a result, not as an upcoming fixture', () => {
+      const wrapper = mountHero({
+        match: makeMatch({
+          match_status: 'completed',
+          home_score: 2,
+          away_score: 0,
+        }),
+      });
+
+      expect(wrapper.find('[data-testid="motw-disclosure"]').text()).toContain(
+        'Played'
+      );
+    });
+
+    it('opens and closes again on click', async () => {
+      const wrapper = mountHero();
+      const toggle = wrapper.find('[data-testid="motw-disclosure"]');
+
+      await toggle.trigger('click');
+      expect(wrapper.find('[data-testid="motw-panel"]').exists()).toBe(true);
+      expect(toggle.attributes('aria-expanded')).toBe('true');
+
+      await toggle.trigger('click');
+      expect(wrapper.find('[data-testid="motw-panel"]').exists()).toBe(false);
+      expect(toggle.attributes('aria-expanded')).toBe('false');
+    });
+  });
+
+  describe('the fixture', () => {
+    it('names both teams', async () => {
+      const wrapper = await mountOpen();
 
       expect(wrapper.find('[data-testid="motw-home"]').text()).toBe('NEFC');
       expect(wrapper.find('[data-testid="motw-away"]').text()).toBe('IFA');
     });
 
-    it('shows "vs" and no score before the match is played', () => {
-      const wrapper = mountHero();
+    it('shows "vs" and no score before the match is played', async () => {
+      const wrapper = await mountOpen();
 
       expect(wrapper.find('[data-testid="motw-vs"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="motw-score"]').exists()).toBe(false);
     });
 
-    it('shows the score once the match is complete', () => {
-      const wrapper = mountHero({
+    it('shows the score once the match is complete', async () => {
+      const wrapper = await mountOpen({
         match: makeMatch({
           match_status: 'completed',
           home_score: 3,
@@ -65,10 +121,10 @@ describe('MotwHero', () => {
       expect(wrapper.find('[data-testid="motw-vs"]').exists()).toBe(false);
     });
 
-    it('never renders 0–0 for a scheduled match carrying stored zeros', () => {
+    it('never renders 0–0 for a scheduled match carrying stored zeros', async () => {
       // A scheduled match with zeros on it is not a goalless draw — it is a
       // result nobody recorded (CLAUDE.md rule 2, SB-886).
-      const wrapper = mountHero({
+      const wrapper = await mountOpen({
         match: makeMatch({ home_score: 0, away_score: 0 }),
       });
 
@@ -76,8 +132,8 @@ describe('MotwHero', () => {
       expect(wrapper.find('[data-testid="motw-vs"]').exists()).toBe(true);
     });
 
-    it('treats a half-entered result as no result', () => {
-      const wrapper = mountHero({
+    it('treats a half-entered result as no result', async () => {
+      const wrapper = await mountOpen({
         match: makeMatch({
           match_status: 'completed',
           home_score: 2,
@@ -90,16 +146,16 @@ describe('MotwHero', () => {
   });
 
   describe('the status line', () => {
-    it('counts down in days for a match days away', () => {
-      const wrapper = mountHero();
+    it('counts down in days for a match days away', async () => {
+      const wrapper = await mountOpen();
 
       expect(wrapper.find('[data-testid="motw-status"]').text()).toBe(
         'Kicks off in 2 days'
       );
     });
 
-    it('counts down in hours inside a day', () => {
-      const wrapper = mountHero({
+    it('counts down in hours inside a day', async () => {
+      const wrapper = await mountOpen({
         match: makeMatch({
           scheduled_kickoff: new Date(Date.now() + 3 * HOUR).toISOString(),
         }),
@@ -110,10 +166,10 @@ describe('MotwHero', () => {
       );
     });
 
-    it('says full time instead of counting down to a played match', () => {
+    it('says full time instead of counting down to a played match', async () => {
       // The countdown running on a finished match is what makes a featured
       // card look abandoned by Monday.
-      const wrapper = mountHero({
+      const wrapper = await mountOpen({
         match: makeMatch({
           match_status: 'completed',
           home_score: 1,
@@ -127,8 +183,8 @@ describe('MotwHero', () => {
       );
     });
 
-    it('says live while the match is under way', () => {
-      const wrapper = mountHero({
+    it('says live while the match is under way', async () => {
+      const wrapper = await mountOpen({
         match: makeMatch({
           match_status: 'live',
           home_score: 1,
@@ -141,8 +197,8 @@ describe('MotwHero', () => {
       );
     });
 
-    it('admits an unknown kick-off rather than inventing one', () => {
-      const wrapper = mountHero({
+    it('admits an unknown kick-off rather than inventing one', async () => {
+      const wrapper = await mountOpen({
         match: makeMatch({ scheduled_kickoff: null }),
       });
 
@@ -153,17 +209,17 @@ describe('MotwHero', () => {
   });
 
   describe('the meta line', () => {
-    it('lists age group and division', () => {
-      const text = mountHero().find('[data-testid="motw-meta"]').text();
+    it('lists age group and division', async () => {
+      const text = (await mountOpen()).find('[data-testid="motw-meta"]').text();
 
       expect(text).toContain('U15');
       expect(text).toContain('Northeast');
     });
 
-    it('omits a division the API could not name, rather than printing Unknown', () => {
+    it('omits a division the API could not name, rather than printing Unknown', async () => {
       // "Unknown" on the one card the site is showing off is worse than a
       // shorter line.
-      const wrapper = mountHero({
+      const wrapper = await mountOpen({
         match: makeMatch({ division_name: 'Unknown' }),
       });
 
@@ -172,8 +228,8 @@ describe('MotwHero', () => {
       );
     });
 
-    it('falls back to the match date when there is no kick-off time', () => {
-      const wrapper = mountHero({
+    it('falls back to the match date when there is no kick-off time', async () => {
+      const wrapper = await mountOpen({
         match: makeMatch({ scheduled_kickoff: null }),
       });
 
@@ -184,35 +240,33 @@ describe('MotwHero', () => {
   });
 
   describe('blurb and actions', () => {
-    it('renders the blurb when there is one', () => {
-      const wrapper = mountHero({ blurb: 'Two unbeaten records.' });
+    it('renders the blurb when there is one', async () => {
+      const wrapper = await mountOpen({ blurb: 'Two unbeaten records.' });
 
       expect(wrapper.find('[data-testid="motw-blurb"]').text()).toBe(
         'Two unbeaten records.'
       );
     });
 
-    it('renders no blurb element at all when none was written', () => {
+    it('renders no blurb element at all when none was written', async () => {
       // Absent renders as absent, not as an empty line holding space.
-      expect(mountHero().find('[data-testid="motw-blurb"]').exists()).toBe(
-        false
-      );
+      const wrapper = await mountOpen();
+      expect(wrapper.find('[data-testid="motw-blurb"]').exists()).toBe(false);
     });
 
-    it('hides the share button from logged-out viewers', () => {
-      expect(mountHero().find('[data-testid="motw-share"]').exists()).toBe(
-        false
-      );
+    it('hides the share button from logged-out viewers', async () => {
+      const wrapper = await mountOpen();
+      expect(wrapper.find('[data-testid="motw-share"]').exists()).toBe(false);
     });
 
-    it('offers sharing to a signed-in viewer', () => {
-      const wrapper = mountHero({ canShare: true });
+    it('offers sharing to a signed-in viewer', async () => {
+      const wrapper = await mountOpen({ canShare: true });
 
       expect(wrapper.find('[data-testid="motw-share"]').exists()).toBe(true);
     });
 
     it('emits the match on preview and share', async () => {
-      const wrapper = mountHero({ canShare: true });
+      const wrapper = await mountOpen({ canShare: true });
 
       await wrapper.find('[data-testid="motw-preview"]').trigger('click');
       await wrapper.find('[data-testid="motw-share"]').trigger('click');
@@ -221,8 +275,8 @@ describe('MotwHero', () => {
       expect(wrapper.emitted('share')[0][0].id).toBe(1);
     });
 
-    it('calls the primary action "View match" once there is a result', () => {
-      const wrapper = mountHero({
+    it('calls the primary action "View match" once there is a result', async () => {
+      const wrapper = await mountOpen({
         match: makeMatch({
           match_status: 'completed',
           home_score: 2,

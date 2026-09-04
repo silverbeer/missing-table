@@ -610,6 +610,11 @@ describe('MatchesView', () => {
       await flushPromises();
 
       expect(wrapper.find('[data-testid="motw-hero"]').exists()).toBe(true);
+      // Closed by default — the strip is a teaser, so the fixture only
+      // appears once someone asks for it.
+      expect(wrapper.find('[data-testid="motw-home"]').exists()).toBe(false);
+
+      await wrapper.find('[data-testid="motw-disclosure"]').trigger('click');
       expect(wrapper.find('[data-testid="motw-home"]').text()).toBe('NEFC');
     });
 

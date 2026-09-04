@@ -1,26 +1,55 @@
 <template>
   <!--
-    Match of the Week hero (SB-1010).
+    Match of the Week (SB-1010).
 
-    One pick a week, so this card is allowed to be loud — amber is the only
-    place in the app that uses accent-400 at full strength, and it earns it by
-    appearing once. The diagonal tear echoes the IgSplit share template so the
-    card on the site and the card on Instagram read as the same object.
+    Deliberately a strip and not a billboard. The pick crosses every age group,
+    so it is never the thing the person came to this tab for — it sits above
+    Week Navigation as one line and only opens when asked.
+
+    Closed, it withholds the fixture on purpose: one pick a week is small
+    enough to be worth revealing rather than announcing, and the reveal is the
+    only bit of theatre the schedule gets. The cost is real — a visitor who
+    never clicks never learns who was picked — which is why the teaser still
+    says there IS a pick, and why the picked row downstairs carries its own
+    amber bar.
   -->
   <section
     class="motw"
+    :class="{ 'motw--open': expanded }"
     data-testid="motw-hero"
     :data-state="state"
-    aria-labelledby="motw-heading"
   >
     <div class="motw-rail" aria-hidden="true"></div>
 
-    <div class="motw-body">
+    <button
+      type="button"
+      class="motw-toggle"
+      data-testid="motw-disclosure"
+      :aria-expanded="expanded"
+      aria-controls="motw-panel"
+      @click="expanded = !expanded"
+    >
+      <span class="motw-eyebrow">
+        <span class="motw-diamond" aria-hidden="true">◆</span>
+        Match of the Week
+      </span>
+      <span class="motw-teaser">{{ teaser }}</span>
+      <span
+        class="motw-chevron"
+        :class="{ 'motw-chevron--open': expanded }"
+        aria-hidden="true"
+      >
+        ▾
+      </span>
+    </button>
+
+    <div
+      v-if="expanded"
+      id="motw-panel"
+      class="motw-body"
+      data-testid="motw-panel"
+    >
       <div class="motw-top">
-        <h2 id="motw-heading" class="motw-eyebrow">
-          <span class="motw-diamond" aria-hidden="true">◆</span>
-          Match of the Week
-        </h2>
         <!--
           One status line with three voices. It is never a countdown for a
           match that has already been played, which is the mistake that makes
@@ -99,7 +128,7 @@
 </template>
 
 <script>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -117,6 +146,7 @@ export default {
   },
   emits: ['preview', 'share'],
   setup(props) {
+    const expanded = ref(false);
     const homeClub = computed(() => props.match.home_team_club || {});
     const awayClub = computed(() => props.match.away_team_club || {});
 
@@ -185,7 +215,17 @@ export default {
       return parts.join(' · ');
     });
 
+    // Closed-state copy. Says enough to be worth a click — that there is a
+    // pick, and roughly when it is — without giving the fixture away.
+    const teaser = computed(() => {
+      if (state.value === 'live') return 'Being played right now — reveal';
+      if (state.value === 'final') return 'Played — reveal the result';
+      return 'Reveal this week’s pick';
+    });
+
     return {
+      expanded,
+      teaser,
       homeClub,
       awayClub,
       state,
@@ -201,10 +241,52 @@ export default {
 .motw {
   position: relative;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 10px;
   border: 1px solid rgb(var(--color-line));
   background: rgb(var(--color-card));
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+
+/* Closed, the strip is one row tall and reads as a control. Open, it earns a
+   little more presence — but never the third of a screen the first version
+   took. */
+.motw--open {
+  border-color: #f59e0b;
+}
+
+.motw-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px 10px 20px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.motw-toggle:hover .motw-teaser {
+  color: rgb(var(--color-fg));
+}
+
+.motw-teaser {
+  flex: 1;
+  font-size: 13px;
+  color: rgb(var(--color-fg-muted));
+  min-width: 0;
+}
+
+.motw-chevron {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: rgb(var(--color-fg-muted));
+  transition: transform 0.15s ease;
+}
+
+.motw-chevron--open {
+  transform: rotate(180deg);
 }
 
 .motw-rail {
@@ -216,30 +298,30 @@ export default {
 
 .motw-body {
   position: relative;
-  padding: 20px 24px 22px 30px;
+  padding: 4px 20px 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .motw-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
 }
 
 .motw-eyebrow {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #b45309;
   margin: 0;
+  white-space: nowrap;
 }
 
 :global(.dark) .motw-eyebrow {
@@ -283,7 +365,7 @@ export default {
 }
 
 .motw-team {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: rgb(var(--color-fg));
@@ -304,7 +386,7 @@ export default {
 }
 
 .motw-score {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: rgb(var(--color-fg));

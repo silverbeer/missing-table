@@ -323,3 +323,44 @@ describe('tournament logo (all templates)', () => {
     });
   }
 });
+
+describe('IgMotw template (SB-1010)', () => {
+  it('brands the card as the MT weekly pick', () => {
+    // The whole point of a separate template: recognisable as the series
+    // from a thumbnail, before a word is read.
+    const wrapper = mountCard('motw');
+
+    expect(
+      wrapper.find('[data-testid="ig-share-card"]').attributes('data-template')
+    ).toBe('motw');
+    expect(wrapper.text()).toContain('MT');
+    expect(wrapper.text()).toContain('Match of the Week');
+  });
+
+  it('carries the editorial blurb through the dispatcher', () => {
+    const wrapper = mountCard('motw', { blurb: 'Two unbeaten records.' });
+
+    expect(wrapper.find('[data-testid="ig-motw-blurb"]').text()).toBe(
+      'Two unbeaten records.'
+    );
+  });
+
+  it('leaves the blurb out entirely when none was written', () => {
+    const wrapper = mountCard('motw');
+
+    expect(wrapper.find('[data-testid="ig-motw-blurb"]').exists()).toBe(false);
+  });
+
+  it('shows VS before the match and the scores after', () => {
+    const before = mountCard('motw');
+    expect(before.find('[data-testid="ig-vs"]').exists()).toBe(true);
+    expect(before.find('[data-testid="ig-home-score"]').exists()).toBe(false);
+
+    const after = mountCard('motw', {
+      match: createCompletedMatch({ home_score: 3, away_score: 1 }),
+      mode: 'result',
+    });
+    expect(after.find('[data-testid="ig-status"]').text()).toBe('FULL TIME');
+    expect(after.find('[data-testid="ig-home-score"]').text()).toBe('3');
+  });
+});

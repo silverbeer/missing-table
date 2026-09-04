@@ -13,6 +13,7 @@
     :events="events"
     :mode="mode"
     :accent-preference="accentPreference"
+    :blurb="blurb"
   />
 </template>
 
@@ -22,19 +23,23 @@ import IgOverlay from './ig/IgOverlay.vue';
 import IgSplit from './ig/IgSplit.vue';
 import IgTournamentRound from './ig/IgTournamentRound.vue';
 import IgStadium from './ig/IgStadium.vue';
+import IgMotw from './ig/IgMotw.vue';
 
 const TEMPLATE_COMPONENTS = {
   overlay: IgOverlay,
   split: IgSplit,
   'tournament-round': IgTournamentRound,
   stadium: IgStadium,
+  // SB-1010. Listed last so it is the rightmost option in the picker, and
+  // only auto-selected when the share was launched from the MOTW strip.
+  motw: IgMotw,
 };
 
 export const SHARE_CARD_TEMPLATES = Object.keys(TEMPLATE_COMPONENTS);
 
 export default {
   name: 'IgShareCard',
-  components: { IgOverlay, IgSplit, IgTournamentRound, IgStadium },
+  components: { IgOverlay, IgSplit, IgTournamentRound, IgStadium, IgMotw },
   props: {
     match: { type: Object, required: true },
     photoSrc: { type: String, default: null },
@@ -57,6 +62,10 @@ export default {
       default: 'auto',
       validator: v => ['auto', 'home', 'away', 'mt'].includes(v),
     },
+    // The MOTW editorial line. Only the motw template renders it; the others
+    // ignore it, which is why it rides as a prop rather than forcing every
+    // template to know about the feature.
+    blurb: { type: String, default: null },
   },
   setup(props) {
     const inner = ref(null);

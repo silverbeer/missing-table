@@ -5,6 +5,8 @@
       v-if="selectedMatchId"
       :matchId="selectedMatchId"
       :auto-open-share="detailAutoShare"
+      :is-motw="isMotw({ id: selectedMatchId })"
+      :motw-blurb="motw && motw.blurb"
       @back="handleBackFromDetail"
     />
 
@@ -242,6 +244,46 @@
               </div>
             </div>
 
+            <!--
+              Match of the Week (SB-1010).
+
+              Deliberately outside the age-group and division filters: one pick a
+              week, global, so it shows on whatever week you are looking at even
+              when the table beneath is filtered to a different age group. Sits
+              above Week Navigation as a one-line strip rather than a hero: the
+              pick crosses every age group, so it is never what the person came
+              to this tab for.
+            -->
+            <template v-if="selectedViewTab === 'all'">
+              <MotwHero
+                v-if="motw"
+                :match="motw.match"
+                :blurb="motw.blurb"
+                :can-share="authStore.isAuthenticated.value"
+                @preview="viewMatch"
+                @share="shareMotw"
+              />
+              <!--
+                No pick this week. Admins get the nudge; everyone else gets
+                nothing at all, because an empty frame promising a featured match
+                is worse than no frame (CLAUDE.md: three states, never default
+                into one).
+              -->
+              <div
+                v-else-if="authStore.isAdmin.value && !motwLoading"
+                class="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-line px-4 py-2.5"
+                data-testid="motw-empty-admin"
+              >
+                <span class="text-accent-600 dark:text-accent-400 text-sm"
+                  >◆</span
+                >
+                <span class="text-sm text-fg-muted">
+                  No Match of the Week for {{ weekRangeDisplay }} — pick one
+                  from the ◆ button on any row.
+                </span>
+              </div>
+            </template>
+
             <!-- Time Range Filter - Only show on "All Matches" tab -->
             <div v-if="selectedViewTab === 'all'">
               <h3 class="text-sm font-medium text-fg mb-2">Week Navigation</h3>
@@ -313,43 +355,6 @@
             >
           </div>
         </div>
-
-        <!--
-          Match of the Week (SB-1010).
-
-          Deliberately outside the age-group and division filters: one pick a
-          week, global, so it shows on whatever week you are looking at even
-          when the table beneath is filtered to a different age group. It also
-          sits outside the `sortedGames.length` guard below — a week can have
-          a pick and no fixtures matching your filters.
-        -->
-        <template v-if="selectedViewTab === 'all'">
-          <MotwHero
-            v-if="motw"
-            :match="motw.match"
-            :blurb="motw.blurb"
-            :can-share="authStore.isAuthenticated.value"
-            @preview="viewMatch"
-            @share="shareMotw"
-          />
-          <!--
-            No pick this week. Admins get the nudge; everyone else gets
-            nothing at all, because an empty frame promising a featured match
-            is worse than no frame (CLAUDE.md: three states, never default
-            into one).
-          -->
-          <div
-            v-else-if="authStore.isAdmin.value && !motwLoading"
-            class="mb-6 flex items-center gap-3 rounded-lg border border-dashed border-line px-4 py-3"
-            data-testid="motw-empty-admin"
-          >
-            <span class="text-accent-600 dark:text-accent-400 text-sm">◆</span>
-            <span class="text-sm text-fg-muted">
-              No Match of the Week for {{ weekRangeDisplay }} — pick one from
-              the ◆ button on any row.
-            </span>
-          </div>
-        </template>
 
         <!-- Display Filtered Matches -->
         <div v-if="sortedGames.length > 0">

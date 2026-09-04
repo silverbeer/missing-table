@@ -168,6 +168,7 @@
               :events="events"
               :mode="mode"
               :template="template"
+              :blurb="blurb"
               :accent-preference="accentPreference"
               data-testid="ig-preview-card"
             />
@@ -260,6 +261,12 @@ const TEMPLATES = [
     label: 'Stadium',
     sub: 'No photo needed',
   },
+  {
+    value: 'motw',
+    label: 'Match of the Week',
+    sub: 'MT weekly pick',
+    motwOnly: true,
+  },
 ];
 
 const formatBytes = bytes => {
@@ -288,6 +295,11 @@ export default {
     // The viewer's club, when it is one of the two playing. Covers club
     // fans and club managers, who have no team_id of their own.
     viewerClubId: { type: Number, default: null },
+    // SB-1010: this match is the current Match of the Week. Unlocks the MOTW
+    // template and makes it the opening choice, since someone who pressed
+    // share on the MOTW strip wants the MOTW card.
+    isMotw: { type: Boolean, default: false },
+    blurb: { type: String, default: null },
   },
   emits: ['close', 'photo-uploaded'],
   setup(props, { emit }) {
@@ -379,8 +391,16 @@ export default {
       return null;
     });
 
+    // The MOTW card is only offered for the match that actually is the pick.
+    // A "Match of the Week" frame around an ordinary fixture would be a
+    // graphic claiming something untrue, which is worse than one fewer
+    // template.
     const availableTemplates = computed(() =>
-      TEMPLATES.filter(t => !t.tournamentOnly || hasTournamentRound.value)
+      TEMPLATES.filter(
+        t =>
+          (!t.tournamentOnly || hasTournamentRound.value) &&
+          (!t.motwOnly || props.isMotw)
+      )
     );
 
     watch(
@@ -392,10 +412,17 @@ export default {
         uploadError.value = null;
         status.value = null;
         mode.value = isCompleted.value ? 'result' : 'preview';
-        // Tournament Round is the highest-impact default when available.
-        template.value = hasTournamentRound.value
-          ? 'tournament-round'
-          : 'overlay';
+        // The Match of the Week card wins when this match is the pick:
+        // whoever pressed share on the MOTW strip wants the MOTW frame, and
+        // it is the one template no other match can use. Tournament Round is
+        // the next highest-impact default.
+        if (props.isMotw) {
+          template.value = 'motw';
+        } else if (hasTournamentRound.value) {
+          template.value = 'tournament-round';
+        } else {
+          template.value = 'overlay';
+        }
         // Default the accent to the viewer's own club when they are on one
         // of these two teams and that club's color is actually usable —
         // otherwise leave it automatic rather than preselecting an option

@@ -756,6 +756,8 @@
         :can-persist-photo="canPersistMatchPhoto"
         :viewer-team-id="viewerTeamId"
         :viewer-club-id="viewerClubId"
+        :is-motw="isMotw"
+        :blurb="motwBlurb"
         @close="closeIgShare"
         @photo-uploaded="onPhotoUploaded"
       />
@@ -803,6 +805,17 @@ export default {
     autoOpenShare: {
       type: Boolean,
       default: false,
+    },
+    // SB-1010: passed down so the share modal can offer — and open on — the
+    // Match of the Week card. Only the caller knows this, since the match
+    // itself carries no MOTW flag.
+    isMotw: {
+      type: Boolean,
+      default: false,
+    },
+    motwBlurb: {
+      type: String,
+      default: null,
     },
   },
   emits: ['back'],
