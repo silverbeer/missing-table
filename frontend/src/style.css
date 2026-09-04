@@ -16,11 +16,18 @@
   }
   .dark {
     --color-surface: 10 14 26;
-    --color-surface-alt: 14 20 36;
     --color-card: 19 26 46;
     --color-fg: 232 238 247;
     --color-fg-muted: 148 163 184;
-    --color-line: 35 48 71;
+    /* #1A2338. Was #0E1424, which sat 1.01:1 against the page and 1.06:1
+       against the card — zebra striping and unselected filter chips were
+       mathematically present and optically absent, so the (buggy, bright)
+       table grid was the only thing separating rows (SB-1008). */
+    --color-surface-alt: 26 35 56;
+    /* #2A3A57. Lifted from #233047 now that bare `border-*` utilities
+       actually resolve to this token — 1.5:1 on the card reads as a
+       separator without the glare. */
+    --color-line: 42 58 87;
     /* Render native widgets (select popups, date/time pickers, scrollbars)
        in dark — fixes white form controls that CSS can't reach (SB-160). */
     color-scheme: dark;

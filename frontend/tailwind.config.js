@@ -51,6 +51,14 @@ export default {
         },
         line: 'rgb(var(--color-line) / <alpha-value>)',
       },
+      // Tailwind's preflight paints every borderless `border-*` utility with
+      // borderColor.DEFAULT, which ships as gray-200. That never flips, so
+      // ~400 bare `border-b`s across the app glared #E5E7EB in dark mode —
+      // 13.9:1 on the dark card, brighter than the body text (SB-1008).
+      // Pointing the default at the token fixes all of them at once.
+      borderColor: {
+        DEFAULT: 'rgb(var(--color-line) / <alpha-value>)',
+      },
     },
   },
   plugins: [require('@tailwindcss/forms')],
