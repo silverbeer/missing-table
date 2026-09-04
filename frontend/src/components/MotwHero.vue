@@ -99,10 +99,84 @@
 
       <p class="motw-meta" data-testid="motw-meta">{{ metaLine }}</p>
 
-      <!-- Absent blurb renders as absent, not as an empty line holding space. -->
-      <p v-if="blurb" class="motw-blurb" data-testid="motw-blurb">
-        {{ blurb }}
-      </p>
+      <!--
+        The line that makes the case. It is the only editorial writing in the
+        product, and it is what fills the "Why it's the match of the week"
+        panel on the share card — no line, no panel.
+
+        Absent renders as absent for everyone; admins additionally get the
+        way to write one, right here rather than in a settings screen, because
+        the moment you want to write it is the moment you are looking at the
+        pick.
+      -->
+      <div v-if="editing" class="motw-editor" data-testid="motw-blurb-editor">
+        <label class="motw-editor-label" :for="editorId">
+          Why is this the match of the week?
+        </label>
+        <textarea
+          :id="editorId"
+          ref="editorRef"
+          v-model="draft"
+          class="motw-editor-input"
+          data-testid="motw-blurb-input"
+          rows="2"
+          :maxlength="BLURB_MAX"
+          placeholder="Two unbeaten records, and only one of them leaves with it."
+          @keydown.esc.stop="cancelEdit"
+          @keydown.enter.meta.prevent="commit"
+          @keydown.enter.ctrl.prevent="commit"
+        ></textarea>
+        <div class="motw-editor-foot">
+          <span
+            class="motw-editor-count"
+            :class="{ 'motw-editor-count--near': remaining <= 40 }"
+            data-testid="motw-blurb-count"
+          >
+            {{ remaining }} left
+          </span>
+          <button
+            type="button"
+            class="motw-button motw-button--quiet"
+            data-testid="motw-blurb-cancel"
+            @click="cancelEdit"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="motw-button motw-button--primary"
+            data-testid="motw-blurb-save"
+            :disabled="saving"
+            @click="commit"
+          >
+            {{ saving ? 'Saving…' : 'Save line' }}
+          </button>
+        </div>
+      </div>
+
+      <template v-else>
+        <p v-if="blurb" class="motw-blurb" data-testid="motw-blurb">
+          {{ blurb }}
+          <button
+            v-if="canEdit"
+            type="button"
+            class="motw-blurb-edit"
+            data-testid="motw-blurb-edit"
+            @click="startEdit"
+          >
+            Edit
+          </button>
+        </p>
+        <button
+          v-else-if="canEdit"
+          type="button"
+          class="motw-blurb-add"
+          data-testid="motw-blurb-add"
+          @click="startEdit"
+        >
+          + Add a line about this match
+        </button>
+      </template>
 
       <div class="motw-actions">
         <button
@@ -128,8 +202,12 @@
 </template>
 
 <script>
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
+
+// Matches the API's own cap (MotwPick.blurb), so the textarea stops where
+// the server would have rejected rather than after it.
+const BLURB_MAX = 280;
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
@@ -143,10 +221,49 @@ export default {
     // Generating a share card is open to anyone signed in (SB-659), so the
     // button is hidden rather than shown-and-failing for logged-out viewers.
     canShare: { type: Boolean, default: false },
+    // Admins can write the editorial line. Everyone else sees it read-only.
+    canEdit: { type: Boolean, default: false },
+    saving: { type: Boolean, default: false },
   },
-  emits: ['preview', 'share'],
-  setup(props) {
+  emits: ['preview', 'share', 'save-blurb'],
+  setup(props, { emit }) {
     const expanded = ref(false);
+
+    const editing = ref(false);
+    const draft = ref('');
+    const editorRef = ref(null);
+    const editorId = `motw-blurb-${Math.random().toString(36).slice(2, 8)}`;
+
+    const remaining = computed(() => BLURB_MAX - draft.value.length);
+
+    const startEdit = async () => {
+      draft.value = props.blurb || '';
+      editing.value = true;
+      await nextTick();
+      editorRef.value?.focus();
+    };
+
+    const cancelEdit = () => {
+      editing.value = false;
+      draft.value = '';
+    };
+
+    const commit = () => {
+      // Empty means "no line", not "a line that is empty" — the card renders
+      // the panel on presence, so a blank string would frame nothing.
+      const trimmed = draft.value.trim();
+      emit('save-blurb', trimmed === '' ? null : trimmed);
+    };
+
+    // The parent owns the save. When it lands, the new blurb arrives as a
+    // prop and the editor steps out of the way; a failed save leaves the
+    // editor open with the text still in it.
+    watch(
+      () => props.blurb,
+      () => {
+        if (editing.value && !props.saving) cancelEdit();
+      }
+    );
     const homeClub = computed(() => props.match.home_team_club || {});
     const awayClub = computed(() => props.match.away_team_club || {});
 
@@ -226,6 +343,15 @@ export default {
     return {
       expanded,
       teaser,
+      BLURB_MAX,
+      editing,
+      draft,
+      editorRef,
+      editorId,
+      remaining,
+      startEdit,
+      cancelEdit,
+      commit,
       homeClub,
       awayClub,
       state,
@@ -446,6 +572,103 @@ export default {
 .motw-button--primary:hover {
   background: #d97f06;
   border-color: #d97f06;
+}
+
+/* --- editorial line -------------------------------------------------- */
+
+.motw-blurb-edit,
+.motw-blurb-add {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+:global(.dark) .motw-blurb-edit,
+:global(.dark) .motw-blurb-add {
+  color: #f59e0b;
+}
+
+.motw-blurb-edit {
+  margin-left: 8px;
+}
+
+.motw-blurb-add {
+  align-self: flex-start;
+  font-size: 14px;
+}
+
+.motw-blurb-edit:hover,
+.motw-blurb-add:hover {
+  text-decoration: underline;
+}
+
+.motw-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.motw-editor-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(var(--color-fg-muted));
+}
+
+.motw-editor-input {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
+  font: inherit;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.motw-editor-input:focus {
+  outline: 2px solid #f59e0b;
+  outline-offset: 1px;
+}
+
+.motw-editor-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.motw-editor-count {
+  flex: 1;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--color-fg-muted));
+}
+
+/* Only speaks up near the limit — a counter shouting from character one is
+   noise on a field most people fill in twenty words. */
+.motw-editor-count--near {
+  color: #b45309;
+  font-weight: 600;
+}
+
+:global(.dark) .motw-editor-count--near {
+  color: #f59e0b;
+}
+
+.motw-button--quiet {
+  background: transparent;
+}
+
+.motw-button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* Stack the fixture on narrow screens: three columns of team names at 375px

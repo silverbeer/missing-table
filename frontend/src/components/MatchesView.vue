@@ -260,8 +260,11 @@
                 :match="motw.match"
                 :blurb="motw.blurb"
                 :can-share="authStore.isAuthenticated.value"
+                :can-edit="authStore.isAdmin.value"
+                :saving="motwSaving"
                 @preview="viewMatch"
                 @share="shareMotw"
+                @save-blurb="saveMotwBlurb"
               />
               <!--
                 No pick this week. Admins get the nudge; everyone else gets
@@ -2347,6 +2350,7 @@ export default {
     // during the fetch and then vanish.
     const motw = ref(null);
     const motwLoading = ref(false);
+    const motwSaving = ref(false);
     // Set when the hero's share button opened the detail view, so the detail
     // view can open the Instagram modal straight away instead of making the
     // admin find the button again.
@@ -3469,6 +3473,35 @@ export default {
       }
     };
 
+    // The editorial line. Written from the strip rather than a settings
+    // screen, because the moment you want to write it is the moment you are
+    // looking at the pick. Saving re-upserts the same match with the new
+    // line, which is what the POST does anyway.
+    const saveMotwBlurb = async text => {
+      if (!motw.value) return;
+      motwSaving.value = true;
+      try {
+        const result = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/admin/motw`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              match_id: motw.value.match.id,
+              blurb: text,
+            }),
+          }
+        );
+        motw.value = result || motw.value;
+      } catch (err) {
+        // Leave the editor open with the text still in it rather than
+        // silently dropping what someone just wrote.
+        console.error('Error saving match of the week blurb:', err);
+      } finally {
+        motwSaving.value = false;
+      }
+    };
+
     const shareMotw = match => {
       detailAutoShare.value = true;
       selectedMatchId.value = match.id;
@@ -3708,6 +3741,8 @@ export default {
       selectMatchTypeChip,
       motw,
       motwLoading,
+      motwSaving,
+      saveMotwBlurb,
       isMotw,
       toggleMotw,
       shareMotw,

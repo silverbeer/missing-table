@@ -239,6 +239,118 @@ describe('MotwHero', () => {
     });
   });
 
+  describe('the editorial line (SB-1010)', () => {
+    it('offers nothing to write with when the viewer is not an admin', () => {
+      const wrapper = mountHero();
+
+      expect(wrapper.find('[data-testid="motw-blurb-add"]').exists()).toBe(
+        false
+      );
+      expect(wrapper.find('[data-testid="motw-blurb-edit"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('invites an admin to write one when the pick has no line yet', async () => {
+      const wrapper = await mountOpen({ canEdit: true });
+
+      expect(wrapper.find('[data-testid="motw-blurb-add"]').exists()).toBe(
+        true
+      );
+    });
+
+    it('opens the editor primed with the existing line', async () => {
+      const wrapper = await mountOpen({
+        canEdit: true,
+        blurb: 'Two unbeaten records.',
+      });
+
+      await wrapper.find('[data-testid="motw-blurb-edit"]').trigger('click');
+
+      expect(
+        wrapper.find('[data-testid="motw-blurb-input"]').element.value
+      ).toBe('Two unbeaten records.');
+    });
+
+    it('emits the trimmed line on save', async () => {
+      const wrapper = await mountOpen({ canEdit: true });
+
+      await wrapper.find('[data-testid="motw-blurb-add"]').trigger('click');
+      await wrapper
+        .find('[data-testid="motw-blurb-input"]')
+        .setValue('  Two unbeaten records.  ');
+      await wrapper.find('[data-testid="motw-blurb-save"]').trigger('click');
+
+      expect(wrapper.emitted('save-blurb')[0][0]).toBe('Two unbeaten records.');
+    });
+
+    it('saves an emptied line as absent, not as an empty one', async () => {
+      // The share card renders its "why" panel on presence. A blank string
+      // would frame nothing.
+      const wrapper = await mountOpen({ canEdit: true, blurb: 'Old line.' });
+
+      await wrapper.find('[data-testid="motw-blurb-edit"]').trigger('click');
+      await wrapper.find('[data-testid="motw-blurb-input"]').setValue('   ');
+      await wrapper.find('[data-testid="motw-blurb-save"]').trigger('click');
+
+      expect(wrapper.emitted('save-blurb')[0][0]).toBe(null);
+    });
+
+    it('caps the line where the API does', async () => {
+      const wrapper = await mountOpen({ canEdit: true });
+
+      await wrapper.find('[data-testid="motw-blurb-add"]').trigger('click');
+
+      expect(
+        wrapper.find('[data-testid="motw-blurb-input"]').attributes('maxlength')
+      ).toBe('280');
+    });
+
+    it('keeps quiet about the count until it is nearly spent', async () => {
+      const wrapper = await mountOpen({ canEdit: true });
+      await wrapper.find('[data-testid="motw-blurb-add"]').trigger('click');
+
+      const count = () => wrapper.find('[data-testid="motw-blurb-count"]');
+      expect(count().classes()).not.toContain('motw-editor-count--near');
+
+      await wrapper
+        .find('[data-testid="motw-blurb-input"]')
+        .setValue('x'.repeat(250));
+
+      expect(count().classes()).toContain('motw-editor-count--near');
+    });
+
+    it('cancel abandons the draft and leaves the line alone', async () => {
+      const wrapper = await mountOpen({
+        canEdit: true,
+        blurb: 'Two unbeaten records.',
+      });
+
+      await wrapper.find('[data-testid="motw-blurb-edit"]').trigger('click');
+      await wrapper.find('[data-testid="motw-blurb-input"]').setValue('junk');
+      await wrapper.find('[data-testid="motw-blurb-cancel"]').trigger('click');
+
+      expect(wrapper.emitted('save-blurb')).toBeUndefined();
+      expect(wrapper.find('[data-testid="motw-blurb"]').text()).toContain(
+        'Two unbeaten records.'
+      );
+    });
+
+    it('holds the editor open while the save is in flight', async () => {
+      // A failed save must not throw away what someone just wrote.
+      const wrapper = await mountOpen({ canEdit: true, saving: true });
+
+      await wrapper.find('[data-testid="motw-blurb-add"]').trigger('click');
+
+      expect(
+        wrapper.find('[data-testid="motw-blurb-save"]').attributes('disabled')
+      ).toBeDefined();
+      expect(wrapper.find('[data-testid="motw-blurb-editor"]').exists()).toBe(
+        true
+      );
+    });
+  });
+
   describe('blurb and actions', () => {
     it('renders the blurb when there is one', async () => {
       const wrapper = await mountOpen({ blurb: 'Two unbeaten records.' });
