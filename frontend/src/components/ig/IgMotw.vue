@@ -39,7 +39,10 @@
       <div class="wordmark">
         <span class="wordmark-missing">MISSING</span
         ><span class="wordmark-table">TABLE</span>
-        <span class="wordmark-sub">Youth soccer. More perspective.</span>
+        <!-- The landing page's own headline, so the wordmark and the line
+             read as one thought: MLS Next publishes no standings, and that
+             absence is what the name is about. -->
+        <span class="wordmark-sub">The table you've been missing</span>
       </div>
       <MlsNextBadge v-if="isHomegrownLeague" class="mls-badge" />
     </header>
