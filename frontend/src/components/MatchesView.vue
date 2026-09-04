@@ -196,18 +196,27 @@
               </div>
             </div>
 
-            <!-- Division Filter -->
+            <!--
+              Division Filter — multi-select (SB-1007).
+
+              Divisions are neighbours, not alternatives: a club near a border
+              plays Turnpike, New England and Northeast in the same season, and
+              a one-at-a-time filter made that schedule three separate lookups.
+              Chips toggle; "All Divisions" is the empty selection, not a
+              fourth choice, so it clears rather than adds.
+            -->
             <div v-if="visibleDivisions.length > 1">
               <h3 class="text-sm font-medium text-fg mb-2">Division</h3>
               <div
                 class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
               >
                 <button
-                  @click="selectedDivisionId = null"
+                  @click="clearDivisionFilter"
                   data-testid="division-all"
+                  :aria-pressed="selectedDivisionIds.length === 0"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedDivisionId === null
+                    selectedDivisionIds.length === 0
                       ? 'bg-brand-600 text-white'
                       : 'bg-surface-alt text-fg active:bg-line',
                   ]"
@@ -217,11 +226,12 @@
                 <button
                   v-for="division in visibleDivisions"
                   :key="division.id"
-                  @click="selectedDivisionId = division.id"
+                  @click="toggleDivision(division.id)"
                   :data-testid="'division-' + division.id"
+                  :aria-pressed="isDivisionSelected(division.id)"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedDivisionId === division.id
+                    isDivisionSelected(division.id)
                       ? 'bg-brand-600 text-white'
                       : 'bg-surface-alt text-fg active:bg-line',
                   ]"
@@ -2095,7 +2105,27 @@ export default {
     // fixtures looked missing when they were merely filtered out (SB-849) —
     // a schedule should open showing the schedule.
     const selectedMatchTypeId = ref(null);
-    const selectedDivisionId = ref(null); // null = All Divisions
+    // Division filter. An empty array means every division — the "All
+    // Divisions" chip is that empty state, not a value of its own (SB-1007).
+    const selectedDivisionIds = ref([]);
+
+    const isDivisionSelected = id => selectedDivisionIds.value.includes(id);
+
+    const toggleDivision = id => {
+      selectedDivisionIds.value = isDivisionSelected(id)
+        ? selectedDivisionIds.value.filter(d => d !== id)
+        : [...selectedDivisionIds.value, id];
+    };
+
+    const clearDivisionFilter = () => {
+      selectedDivisionIds.value = [];
+    };
+
+    // One predicate, so the match list, the chip counts and the season summary
+    // can never disagree about what is filtered out.
+    const matchInSelectedDivisions = match =>
+      selectedDivisionIds.value.length === 0 ||
+      selectedDivisionIds.value.includes(match.division_id);
 
     // Which match_type ids the current selection covers, or null for all.
     //
@@ -2118,11 +2148,9 @@ export default {
     // the population the chip counts describe.
     const matchesBeforeTypeFilter = computed(() => {
       if (!matches.value || !Array.isArray(matches.value)) return [];
-      let rows = matches.value.filter(m => m && m.match_date);
-      if (selectedDivisionId.value !== null) {
-        rows = rows.filter(m => m.division_id === selectedDivisionId.value);
-      }
-      return rows;
+      return matches.value.filter(
+        m => m && m.match_date && matchInSelectedDivisions(m)
+      );
     });
 
     // One chip per competition actually present, in display_order, plus the
@@ -2287,6 +2315,22 @@ export default {
       return Array.from(seen.values()).sort((a, b) =>
         a.name.localeCompare(b.name)
       );
+    });
+
+    // Drop divisions that the new age group / season does not play. Without
+    // this a selection carried over from U15 leaves U13 showing an empty list
+    // with no visibly-selected chip to explain why.
+    //
+    // Only prunes once divisions are known — matches load async, and an empty
+    // visibleDivisions during that window would wipe an initialDivisionId prop.
+    watch(visibleDivisions, divisions => {
+      if (divisions.length === 0 || selectedDivisionIds.value.length === 0)
+        return;
+      const visibleIds = new Set(divisions.map(d => d.id));
+      const kept = selectedDivisionIds.value.filter(id => visibleIds.has(id));
+      if (kept.length !== selectedDivisionIds.value.length) {
+        selectedDivisionIds.value = kept;
+      }
     });
 
     const fetchClubs = async () => {
@@ -2928,12 +2972,8 @@ export default {
         );
       }
 
-      // Filter by division if a specific division is selected
-      if (selectedDivisionId.value !== null) {
-        filteredGames = filteredGames.filter(
-          match => match.division_id === selectedDivisionId.value
-        );
-      }
+      // Filter by division if any divisions are selected
+      filteredGames = filteredGames.filter(matchInSelectedDivisions);
 
       return filteredGames;
     };
@@ -3035,11 +3075,7 @@ export default {
       }
 
       // Apply division filter so season summary is consistent with the displayed match list
-      if (selectedDivisionId.value !== null) {
-        sortedGames = sortedGames.filter(
-          match => match.division_id === selectedDivisionId.value
-        );
-      }
+      sortedGames = sortedGames.filter(matchInSelectedDivisions);
 
       sortedGames = sortedGames.sort((a, b) => {
         const dateDiff = new Date(a.match_date) - new Date(b.match_date);
@@ -3345,7 +3381,7 @@ export default {
           selectedLeagueId.value = props.initialLeagueId;
         }
         if (props.initialDivisionId) {
-          selectedDivisionId.value = props.initialDivisionId;
+          selectedDivisionIds.value = [Number(props.initialDivisionId)];
         }
         if (props.initialClubId) {
           selectedClubId.value = props.initialClubId;
@@ -3464,7 +3500,10 @@ export default {
       isChipSelected,
       selectMatchTypeChip,
       visibleDivisions,
-      selectedDivisionId,
+      selectedDivisionIds,
+      isDivisionSelected,
+      toggleDivision,
+      clearDivisionFilter,
       weekOffset,
       weekRangeDisplay,
       filteredTeams,
