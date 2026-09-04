@@ -878,7 +878,7 @@
                 <tr v-if="otherMatches.length > 0">
                   <td
                     :colspan="tableColumnCount"
-                    class="bg-gray-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-gray-700"
+                    class="bg-gray-600 dark:bg-slate-700 text-white font-bold text-sm py-2 px-4 border-b-2 border-gray-700 dark:border-slate-800"
                   >
                     OTHER MATCHES
                   </td>
@@ -1656,7 +1656,7 @@
               <!-- Other Matches Section -->
               <div
                 v-if="otherMatches.length > 0"
-                class="bg-gray-600 text-white font-bold text-sm py-2 px-4 rounded-lg"
+                class="bg-gray-600 dark:bg-slate-700 text-white font-bold text-sm py-2 px-4 rounded-lg"
               >
                 OTHER MATCHES
               </div>
