@@ -796,6 +796,14 @@ export default {
       type: String,
       default: 'Back to Matches',
     },
+    // Opened from the Match of the Week hero's share button (SB-1010): the
+    // person already said what they wanted, so don't make them find the
+    // button again. Only honoured once the match has actually loaded — the
+    // modal takes the match as a required prop.
+    autoOpenShare: {
+      type: Boolean,
+      default: false,
+    },
   },
   emits: ['back'],
   setup(props) {
@@ -1099,8 +1107,11 @@ export default {
       { immediate: false }
     );
 
-    onMounted(() => {
-      fetchMatch();
+    onMounted(async () => {
+      await fetchMatch();
+      if (props.autoOpenShare && match.value) {
+        igShareOpen.value = true;
+      }
       ensureMatchRealtime(props.matchId);
     });
 

@@ -180,6 +180,7 @@ def create_backup(backup_dir: Path | None = None):
         'playoff_bracket_slots',
 
         # Match-related data
+        'match_of_the_week',
         'match_events',
         'match_lineups',
         'player_match_stats',

@@ -119,6 +119,8 @@ const setupMockApiResponses = (customResponses = {}) => {
     if (url.includes('/api/leagues')) return Promise.resolve(responses.leagues);
     if (url.includes('/api/clubs')) return Promise.resolve(responses.clubs);
     if (url.includes('/api/teams')) return Promise.resolve(responses.teams);
+    if (url.includes('/api/motw'))
+      return Promise.resolve(responses.motw ?? { motw: null });
     if (url.includes('/api/matches')) return Promise.resolve(responses.matches);
     return Promise.resolve([]);
   });
@@ -583,6 +585,120 @@ describe('MatchesView', () => {
   // ===========================================================================
   // TESTS: WEEK NAVIGATION
   // ===========================================================================
+
+  // ===========================================================================
+  // TESTS: MATCH OF THE WEEK (SB-1010)
+  // ===========================================================================
+
+  describe('match of the week', () => {
+    const motwPayload = (overrides = {}) => ({
+      motw: {
+        week_start: '2026-08-31',
+        blurb: 'Two unbeaten records.',
+        match: createMockMatch({
+          id: 77,
+          home_team_name: 'NEFC',
+          away_team_name: 'IFA',
+          ...overrides,
+        }),
+      },
+    });
+
+    it('shows the hero when the week has a pick', async () => {
+      setupMockApiResponses({ matches: [], motw: motwPayload() });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="motw-hero"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="motw-home"]').text()).toBe('NEFC');
+    });
+
+    it('shows the hero even when no fixture matches the current filters', async () => {
+      // One pick a week, global: the pick can be U13 while the table is
+      // filtered to U15, and it still gets its card.
+      setupMockApiResponses({ matches: [], motw: motwPayload() });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="motw-hero"]').exists()).toBe(true);
+      expect(wrapper.vm.sortedGames.length).toBe(0);
+    });
+
+    it('shows nothing at all to a visitor when nobody has picked', async () => {
+      // Not a skeleton, not an empty frame — an unpicked week is the ordinary
+      // state and must not promise data that is not coming.
+      mockAuthStore = createUnauthenticatedStore();
+      setupMockApiResponses({ matches: [], motw: { motw: null } });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="motw-hero"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="motw-empty-admin"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('nudges an admin when nobody has picked', async () => {
+      setupMockApiResponses({ matches: [], motw: { motw: null } });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="motw-empty-admin"]').exists()).toBe(
+        true
+      );
+    });
+
+    it('flags the picked match in the table', async () => {
+      const match = createHomegrownMatch({ id: 77 });
+      setupMockApiResponses({
+        matches: [match],
+        motw: { motw: { week_start: '2026-08-31', blurb: null, match } },
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.vm.isMotw({ id: 77 })).toBe(true);
+      expect(wrapper.vm.isMotw({ id: 78 })).toBe(false);
+      expect(wrapper.findAll('tr.motw-row').length).toBeGreaterThan(0);
+    });
+
+    it('keeps the tab usable when the pick cannot be fetched', async () => {
+      // The hero is decoration on top of the schedule. A failure there must
+      // never take the schedule with it.
+      setupMockApiResponses({ matches: [createHomegrownMatch({ id: 5 })] });
+      const original = mockAuthStore.apiRequest;
+      mockAuthStore.apiRequest = vi.fn(url =>
+        url.includes('/api/motw')
+          ? Promise.reject(new Error('boom'))
+          : original(url)
+      );
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="motw-hero"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(false);
+      expect(wrapper.vm.sortedGames.length).toBe(1);
+    });
+
+    it('unpicks when the admin clicks the picked match again', async () => {
+      const match = createHomegrownMatch({ id: 77 });
+      setupMockApiResponses({
+        matches: [match],
+        motw: { motw: { week_start: '2026-08-31', blurb: null, match } },
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await wrapper.vm.toggleMotw({ id: 77 });
+      await flushPromises();
+
+      const call = mockAuthStore.apiRequest.mock.calls.find(
+        ([, opts]) => opts && opts.method === 'DELETE'
+      );
+      expect(call[0]).toContain('/api/admin/motw/');
+      expect(wrapper.vm.motw).toBe(null);
+    });
+  });
 
   describe('week navigation', () => {
     it('displays week range on All Matches tab when matches exist', async () => {

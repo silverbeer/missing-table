@@ -105,6 +105,7 @@ from dao.match_dao import UNSET, MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
+from dao.motw_dao import MotwDAO, week_start_for
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
 from dao.playoff_dao import PlayoffDAO
@@ -237,6 +238,7 @@ playoff_dao = PlayoffDAO(db_conn_holder_obj)
 audit_dao = AuditDAO(db_conn_holder_obj)
 tournament_dao = TournamentDAO(db_conn_holder_obj)
 ingest_failures_dao = IngestFailuresDAO(db_conn_holder_obj)
+motw_dao = MotwDAO(db_conn_holder_obj)
 
 # Competitions whose standings are grouped by division (SB-833).
 #
@@ -8163,6 +8165,105 @@ async def get_qop_rankings(
     except Exception as e:
         logger.error(f"Error retrieving QoP rankings: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# =============================================================================
+# Match of the Week (SB-1010)
+# =============================================================================
+
+
+class MotwPick(BaseModel):
+    """An admin's pick for the week."""
+
+    match_id: int = Field(..., description="The match being featured.")
+    blurb: str | None = Field(
+        None,
+        max_length=280,
+        description=(
+            "Optional editorial line for the hero card. Omitted and empty are "
+            "different things: omitted leaves the blurb unset, empty clears it."
+        ),
+    )
+
+
+@app.get("/api/motw")
+async def get_match_of_the_week(
+    week_start: str | None = None,
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+):
+    """The featured match for a week (SB-1010).
+
+    `week_start` is any date in the week of interest; it is snapped to that
+    week's Monday, so the Matches tab can pass the Monday it is already
+    showing and a caller poking at the API can pass a Saturday and still get
+    the right answer. Defaults to the current week.
+
+    Returns `{"week_start": ..., "motw": null}` with **200** when nobody has
+    picked. A week with no pick is the ordinary state of this feature — most
+    weeks will start that way — and a 404 would put it on the error path where
+    it triggers retries and alerts (CLAUDE.md rule 1).
+    """
+    try:
+        target = week_start_for(week_start) if week_start else week_start_for(datetime.now(UTC).date())
+        include_test = viewer_sees_test_content(current_user)
+        motw = motw_dao.get_for_week(target, include_test=include_test)
+        return {"week_start": target, "motw": motw}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid week_start: {week_start}") from e
+    except Exception as e:
+        logger.error(f"Error reading match of the week: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not read match of the week") from e
+
+
+@app.post("/api/admin/motw")
+async def set_match_of_the_week(
+    body: MotwPick,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Feature a match, replacing whatever held its week (SB-1010).
+
+    The week comes from the match's own date, not from today, so picking next
+    week's fixture in advance fills next week's slot instead of overwriting
+    this week's. One pick per week is enforced by a UNIQUE constraint rather
+    than by this handler checking first — two admin tabs would beat the check.
+    """
+    try:
+        result = motw_dao.set_for_match(
+            body.match_id,
+            blurb=body.blurb,
+            selected_by=current_user.get("user_id"),
+        )
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"No match with id {body.match_id}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting match of the week: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not set match of the week") from e
+
+
+@app.delete("/api/admin/motw/{week_start}")
+async def clear_match_of_the_week(
+    week_start: str,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Unpick a week (SB-1010).
+
+    Idempotent: clearing a week nobody picked reports the same shape as
+    clearing one that was, because the caller wanted the week empty and it is.
+    """
+    try:
+        target = week_start_for(week_start)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid week_start: {week_start}") from e
+
+    try:
+        cleared = motw_dao.clear_week(target)
+        return {"week_start": target, "cleared": cleared}
+    except Exception as e:
+        logger.error(f"Error clearing match of the week: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not clear match of the week") from e
 
 
 if __name__ == "__main__":

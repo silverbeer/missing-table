@@ -369,6 +369,7 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
 
         # 9. Tables that depend on matches/teams/clubs/players
         # These are cleared FIRST (reverse order) before their parents
+        'match_of_the_week',
         'match_events',
         'match_lineups',
         'player_match_stats',
