@@ -333,16 +333,18 @@ describe('IgMotw template (SB-1010)', () => {
     expect(
       wrapper.find('[data-testid="ig-share-card"]').attributes('data-template')
     ).toBe('motw');
-    expect(wrapper.text()).toContain('MT');
+    expect(wrapper.text()).toContain('MISSING');
     expect(wrapper.text()).toContain('Match of the Week');
   });
 
   it('carries the editorial blurb through the dispatcher', () => {
     const wrapper = mountCard('motw', { blurb: 'Two unbeaten records.' });
 
-    expect(wrapper.find('[data-testid="ig-motw-blurb"]').text()).toBe(
-      'Two unbeaten records.'
-    );
+    const why = wrapper.find('[data-testid="ig-motw-blurb"]');
+    // The blurb now sits under a label rather than floating loose, so the
+    // panel carries both.
+    expect(why.text()).toContain("Why it's the match of the week");
+    expect(why.text()).toContain('Two unbeaten records.');
   });
 
   it('leaves the blurb out entirely when none was written', () => {
@@ -351,16 +353,40 @@ describe('IgMotw template (SB-1010)', () => {
     expect(wrapper.find('[data-testid="ig-motw-blurb"]').exists()).toBe(false);
   });
 
-  it('shows VS before the match and the scores after', () => {
+  it('leads on kickoff before the match and on the score after', () => {
+    // The middle of the card is the call to action: be there, then here is
+    // what happened.
     const before = mountCard('motw');
-    expect(before.find('[data-testid="ig-vs"]').exists()).toBe(true);
-    expect(before.find('[data-testid="ig-home-score"]').exists()).toBe(false);
+    expect(before.find('[data-testid="ig-kickoff"]').exists()).toBe(true);
+    expect(before.find('[data-testid="ig-score"]').exists()).toBe(false);
 
     const after = mountCard('motw', {
       match: createCompletedMatch({ home_score: 3, away_score: 1 }),
       mode: 'result',
     });
-    expect(after.find('[data-testid="ig-status"]').text()).toBe('FULL TIME');
-    expect(after.find('[data-testid="ig-home-score"]').text()).toBe('3');
+    expect(after.find('[data-testid="ig-status"]').text()).toBe('Full time');
+    expect(after.find('[data-testid="ig-score"]').text()).toContain('3');
+  });
+
+  it('says the kickoff time is unknown rather than inventing one', () => {
+    const wrapper = mountCard('motw', {
+      match: createMockMatch({ scheduled_kickoff: null }),
+    });
+
+    expect(wrapper.find('[data-testid="ig-kickoff"]').text()).toBe('Time TBC');
+  });
+
+  it('falls back to initials when a club has no crest on file', () => {
+    // Half of MT's clubs have no logo, so the crest-less path is the common
+    // one, not the exception.
+    const wrapper = mountCard('motw', {
+      match: createMockMatch({
+        home_team_club: { logo_url: null, primary_color: '#6B7280' },
+      }),
+    });
+
+    const crest = wrapper.find('[data-testid="ig-home-crest"]');
+    expect(crest.text().length).toBeGreaterThan(0);
+    expect(crest.find('.crest-img').exists()).toBe(false);
   });
 });
