@@ -489,6 +489,98 @@ describe('MatchesView', () => {
   });
 
   // ===========================================================================
+  // TESTS: DIVISION FILTER (SB-1007 — multi-select)
+  // ===========================================================================
+
+  describe('division filter', () => {
+    // Three neighbouring divisions, the case that motivated multi-select:
+    // a club near a border plays all three in one season.
+    const threeDivisionMatches = () => [
+      createMockMatch({ id: 1, division_id: 1, division_name: 'Northeast' }),
+      createMockMatch({ id: 2, division_id: 2, division_name: 'Turnpike' }),
+      createMockMatch({ id: 3, division_id: 3, division_name: 'New England' }),
+    ];
+
+    const mountWithDivisions = async () => {
+      setupMockApiResponses({ matches: threeDivisionMatches() });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      return wrapper;
+    };
+
+    const shownMatchIds = wrapper =>
+      wrapper.vm.homegrownMatches.map(m => m.id).sort();
+
+    it('opens with every division shown and no chip selected', async () => {
+      const wrapper = await mountWithDivisions();
+
+      expect(wrapper.vm.selectedDivisionIds).toEqual([]);
+      expect(wrapper.find('[data-testid="division-all"]').classes()).toContain(
+        'bg-brand-600'
+      );
+      expect(shownMatchIds(wrapper)).toEqual([1, 2, 3]);
+    });
+
+    it('shows matches from every selected division, not just the last click', async () => {
+      const wrapper = await mountWithDivisions();
+
+      await wrapper.find('[data-testid="division-2"]').trigger('click');
+      await wrapper.find('[data-testid="division-3"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.vm.selectedDivisionIds).toEqual([2, 3]);
+      expect(shownMatchIds(wrapper)).toEqual([2, 3]);
+      expect(wrapper.find('[data-testid="division-2"]').classes()).toContain(
+        'bg-brand-600'
+      );
+      expect(wrapper.find('[data-testid="division-3"]').classes()).toContain(
+        'bg-brand-600'
+      );
+      // "All Divisions" is the empty selection, so it deselects once any
+      // division is picked.
+      expect(
+        wrapper.find('[data-testid="division-all"]').classes()
+      ).not.toContain('bg-brand-600');
+    });
+
+    it('clicking a selected division removes it', async () => {
+      const wrapper = await mountWithDivisions();
+
+      await wrapper.find('[data-testid="division-1"]').trigger('click');
+      await wrapper.find('[data-testid="division-2"]').trigger('click');
+      await wrapper.find('[data-testid="division-1"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.vm.selectedDivisionIds).toEqual([2]);
+      expect(shownMatchIds(wrapper)).toEqual([2]);
+    });
+
+    it('All Divisions clears the selection rather than adding to it', async () => {
+      const wrapper = await mountWithDivisions();
+
+      await wrapper.find('[data-testid="division-1"]').trigger('click');
+      await wrapper.find('[data-testid="division-2"]').trigger('click');
+      await wrapper.find('[data-testid="division-all"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.vm.selectedDivisionIds).toEqual([]);
+      expect(shownMatchIds(wrapper)).toEqual([1, 2, 3]);
+    });
+
+    it('keeps the season summary consistent with the filtered list', async () => {
+      const wrapper = await mountWithDivisions();
+
+      await wrapper.find('[data-testid="division-1"]').trigger('click');
+      await wrapper.find('[data-testid="division-3"]').trigger('click');
+      await flushPromises();
+
+      // Chip counts describe the same population the table renders.
+      const allChip = wrapper.find('[data-testid="match-type-all"]');
+      expect(allChip.text()).toContain('2');
+    });
+  });
+
+  // ===========================================================================
   // TESTS: WEEK NAVIGATION
   // ===========================================================================
 
