@@ -287,6 +287,87 @@ describe('MatchEditModal', () => {
   // TESTS: CANCEL BUTTON
   // ===========================================================================
 
+  describe('team dropdowns (SB-1011)', () => {
+    const flexMatch = () =>
+      createMockMatch({
+        id: 5733,
+        match_type_id: 5,
+        home_team_id: 901,
+        away_team_id: 902,
+        home_team_name: 'New England Revolution',
+        away_team_name: 'IFA',
+      });
+
+    const mountFlex = () =>
+      mount(MatchEditModal, {
+        props: {
+          show: true,
+          match: flexMatch(),
+          teams: createMockTeams(),
+          seasons: createMockSeasons(),
+          matchTypes: createMockMatchTypes(),
+          ageGroups: createMockAgeGroups(),
+        },
+      });
+
+    it('keeps the match its own teams when the filter returns nothing', async () => {
+      // No team in the database carries a Flex registration, so the filtered
+      // endpoint answers []. A <select required> whose value has no matching
+      // <option> reports itself empty, the browser blocks the submit, and
+      // Update Match silently does nothing.
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve([]));
+      const wrapper = mountFlex();
+      await flushPromises();
+
+      const ids = wrapper
+        .find('[data-testid="home-team-select"]')
+        .findAll('option')
+        .map(o => Number(o.attributes('value')));
+
+      expect(ids).toContain(901);
+      expect(ids).toContain(902);
+    });
+
+    it('names those teams from the match rather than showing a bare id', async () => {
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve([]));
+      const wrapper = mountFlex();
+      await flushPromises();
+
+      const text = wrapper.find('[data-testid="home-team-select"]').text();
+      expect(text).toContain('New England Revolution');
+      expect(text).toContain('IFA');
+    });
+
+    it('does not duplicate a team the endpoint already returned', async () => {
+      mockAuthStore.apiRequest = vi.fn(() =>
+        Promise.resolve([{ id: 901, name: 'New England Revolution' }])
+      );
+      const wrapper = mountFlex();
+      await flushPromises();
+
+      const ids = wrapper
+        .find('[data-testid="home-team-select"]')
+        .findAll('option')
+        .map(o => Number(o.attributes('value')));
+
+      expect(ids.filter(id => id === 901)).toHaveLength(1);
+    });
+
+    it('still holds the match teams when the request fails outright', async () => {
+      mockAuthStore.apiRequest = vi.fn(() => Promise.reject(new Error('boom')));
+      const wrapper = mountFlex();
+      await flushPromises();
+
+      const ids = wrapper
+        .find('[data-testid="home-team-select"]')
+        .findAll('option')
+        .map(o => Number(o.attributes('value')));
+
+      expect(ids).toContain(901);
+      expect(ids).toContain(902);
+    });
+  });
+
   describe('cancel button', () => {
     it('emits close when clicking cancel', async () => {
       const wrapper = mountMatchEditModal();
