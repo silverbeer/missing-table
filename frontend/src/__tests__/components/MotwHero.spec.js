@@ -164,6 +164,74 @@ describe('MotwHero', () => {
     });
   });
 
+  describe('once it has been played', () => {
+    const played = (home, away) =>
+      makeMatch({
+        match_status: 'completed',
+        home_score: home,
+        away_score: away,
+      });
+
+    it('says who won, not just the numbers', async () => {
+      const wrapper = await mountOpen({ match: played(3, 1) });
+
+      expect(wrapper.find('[data-testid="motw-result"]').text()).toBe(
+        'NEFC won 3–1'
+      );
+    });
+
+    it('names the away side when they win', async () => {
+      const wrapper = await mountOpen({ match: played(0, 2) });
+
+      expect(wrapper.find('[data-testid="motw-result"]').text()).toBe(
+        'IFA won 2–0'
+      );
+    });
+
+    it('calls a draw a draw rather than picking a winner', async () => {
+      const wrapper = await mountOpen({ match: played(2, 2) });
+
+      expect(wrapper.find('[data-testid="motw-result"]').text()).toBe(
+        'Drew 2–2'
+      );
+      expect(wrapper.vm.winner).toBe('draw');
+    });
+
+    it('dims the beaten side and leaves the winner alone', async () => {
+      const wrapper = await mountOpen({ match: played(3, 1) });
+
+      expect(wrapper.find('[data-testid="motw-home"]').classes()).not.toContain(
+        'motw-team--beaten'
+      );
+      expect(wrapper.find('[data-testid="motw-away"]').classes()).toContain(
+        'motw-team--beaten'
+      );
+    });
+
+    it('claims no winner before the match is played', async () => {
+      // Including a scheduled match carrying stored zeros, which is not a
+      // goalless draw.
+      const wrapper = await mountOpen({
+        match: makeMatch({ home_score: 0, away_score: 0 }),
+      });
+
+      expect(wrapper.find('[data-testid="motw-result"]').exists()).toBe(false);
+      expect(wrapper.vm.winner).toBe(null);
+    });
+
+    it('claims no winner on a half-entered result', async () => {
+      const wrapper = await mountOpen({
+        match: makeMatch({
+          match_status: 'completed',
+          home_score: 2,
+          away_score: null,
+        }),
+      });
+
+      expect(wrapper.find('[data-testid="motw-result"]').exists()).toBe(false);
+    });
+  });
+
   describe('the status line', () => {
     it('counts down in days for a match days away', async () => {
       const wrapper = await mountOpen();

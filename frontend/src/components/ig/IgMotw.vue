@@ -72,6 +72,7 @@
         </div>
         <div
           class="team-name"
+          :class="{ 'team-name--beaten': winner === 'away' }"
           :style="{ borderBottomColor: homeRuleColor }"
           data-testid="ig-home-name"
         >
@@ -88,6 +89,15 @@
             <span>{{ awayScore }}</span>
           </div>
           <div class="status" data-testid="ig-status">Full time</div>
+          <!--
+            The winner on its own line, in sentence case. Folded into the
+            status it became "FULL TIME · NEW ENGLAND REVOLUTION WIN" —
+            uppercase with letter-spacing, wrapping to three lines in a
+            300px column.
+          -->
+          <div v-if="winnerLine" class="winner" data-testid="ig-winner">
+            {{ winnerLine }}
+          </div>
         </template>
         <template v-else>
           <div class="date" data-testid="ig-date">{{ shortDateLabel }}</div>
@@ -116,6 +126,7 @@
         </div>
         <div
           class="team-name"
+          :class="{ 'team-name--beaten': winner === 'home' }"
           :style="{ borderBottomColor: awayRuleColor }"
           data-testid="ig-away-name"
         >
@@ -199,6 +210,26 @@ export default {
 
     const groundImage = computed(() => props.photoSrc || pitchImage);
 
+    // Who won, for a card posted after the match. "Full time" says the match
+    // is over; it does not say what happened, which on a result post is the
+    // only thing anyone came for.
+    const winner = computed(() => {
+      if (!data.isResult.value) return null;
+      const home = props.match?.home_score;
+      const away = props.match?.away_score;
+      if (home === null || home === undefined) return null;
+      if (away === null || away === undefined) return null;
+      if (home === away) return 'draw';
+      return home > away ? 'home' : 'away';
+    });
+
+    const winnerLine = computed(() => {
+      if (winner.value === 'draw') return 'Honours even';
+      if (winner.value === 'home') return `${data.homeTeamName.value} win`;
+      if (winner.value === 'away') return `${data.awayTeamName.value} win`;
+      return null;
+    });
+
     // isUsableAccent is the modal's own test — it rejects the seeded grey and
     // anything too dark to read against the card ground. My first pass here
     // only caught the grey, which let New England Revolution's #0A2240 paint
@@ -239,6 +270,8 @@ export default {
       root,
       ...data,
       groundImage,
+      winner,
+      winnerLine,
       homeCrestStyle,
       awayCrestStyle,
       homeRuleColor,
@@ -468,6 +501,23 @@ export default {
   border-bottom: 7px solid transparent;
 }
 
+.winner {
+  margin-top: 10px;
+  max-width: 380px;
+  text-align: center;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 36px;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+/* The beaten side steps back rather than the winner lighting up: one change
+   reads as a result, two competing highlights read as decoration. */
+.team-name--beaten {
+  opacity: 0.62;
+}
+
 .side-tag {
   font-size: 19px;
   font-weight: 700;
@@ -522,7 +572,8 @@ export default {
 }
 
 .status {
-  font-size: 26px;
+  font-size: 24px;
+  text-align: center;
   font-weight: 800;
   letter-spacing: 0.24em;
   text-transform: uppercase;

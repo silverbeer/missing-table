@@ -364,7 +364,9 @@ describe('IgMotw template (SB-1010)', () => {
       match: createCompletedMatch({ home_score: 3, away_score: 1 }),
       mode: 'result',
     });
-    expect(after.find('[data-testid="ig-status"]').text()).toBe('Full time');
+    expect(after.find('[data-testid="ig-status"]').text()).toContain(
+      'Full time'
+    );
     expect(after.find('[data-testid="ig-score"]').text()).toContain('3');
   });
 
@@ -388,5 +390,33 @@ describe('IgMotw template (SB-1010)', () => {
     const crest = wrapper.find('[data-testid="ig-home-crest"]');
     expect(crest.text().length).toBeGreaterThan(0);
     expect(crest.find('.crest-img').exists()).toBe(false);
+  });
+
+  it('names the winner in the status line after the match', () => {
+    const wrapper = mountCard('motw', {
+      match: createCompletedMatch({ home_score: 3, away_score: 1 }),
+      mode: 'result',
+    });
+
+    // "Full time" says the match is over; on a result post the thing people
+    // came for is who won.
+    expect(wrapper.find('[data-testid="ig-winner"]').text()).toContain('win');
+    expect(wrapper.find('[data-testid="ig-away-name"]').classes()).toContain(
+      'team-name--beaten'
+    );
+  });
+
+  it('calls a draw a draw', () => {
+    const wrapper = mountCard('motw', {
+      match: createCompletedMatch({ home_score: 2, away_score: 2 }),
+      mode: 'result',
+    });
+
+    expect(wrapper.find('[data-testid="ig-winner"]').text()).toBe(
+      'Honours even'
+    );
+    expect(
+      wrapper.find('[data-testid="ig-home-name"]').classes()
+    ).not.toContain('team-name--beaten');
   });
 });

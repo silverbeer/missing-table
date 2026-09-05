@@ -76,9 +76,12 @@
             :name="match.home_team_name"
             size="lg"
           />
-          <span class="motw-team" data-testid="motw-home">{{
-            match.home_team_name
-          }}</span>
+          <span
+            class="motw-team"
+            :class="{ 'motw-team--beaten': winner === 'away' }"
+            data-testid="motw-home"
+            >{{ match.home_team_name }}</span
+          >
         </div>
 
         <div class="motw-middle">
@@ -95,9 +98,12 @@
         </div>
 
         <div class="motw-side motw-side--away">
-          <span class="motw-team" data-testid="motw-away">{{
-            match.away_team_name
-          }}</span>
+          <span
+            class="motw-team"
+            :class="{ 'motw-team--beaten': winner === 'home' }"
+            data-testid="motw-away"
+            >{{ match.away_team_name }}</span
+          >
           <ClubLogo
             :logo-url="awayClub.logo_url"
             :name="match.away_team_name"
@@ -105,6 +111,10 @@
           />
         </div>
       </div>
+
+      <p v-if="resultLine" class="motw-result" data-testid="motw-result">
+        {{ resultLine }}
+      </p>
 
       <p class="motw-meta" data-testid="motw-meta">{{ metaLine }}</p>
 
@@ -300,6 +310,32 @@ export default {
         props.match.away_score !== undefined
     );
 
+    // 'home' | 'away' | 'draw' | null. Null until there is a real result —
+    // an unplayed match has no winner, and neither does a half-entered one.
+    const winner = computed(() => {
+      if (!hasScore.value) return null;
+      const home = props.match.home_score;
+      const away = props.match.away_score;
+      if (home === away) return 'draw';
+      return home > away ? 'home' : 'away';
+    });
+
+    const resultLine = computed(() => {
+      if (!winner.value) return null;
+      const home = props.match.home_score;
+      const away = props.match.away_score;
+      if (winner.value === 'draw') {
+        return `Drew ${home}–${away}`;
+      }
+      const name =
+        winner.value === 'home'
+          ? props.match.home_team_name
+          : props.match.away_team_name;
+      const high = Math.max(home, away);
+      const low = Math.min(home, away);
+      return `${name} won ${high}–${low}`;
+    });
+
     const kickoff = computed(() => {
       const raw = props.match.scheduled_kickoff;
       if (!raw) return null;
@@ -371,6 +407,8 @@ export default {
       awayClub,
       state,
       hasScore,
+      winner,
+      resultLine,
       statusLabel,
       metaLine,
     };
@@ -569,6 +607,21 @@ export default {
 .motw-dash {
   color: rgb(var(--color-fg-muted));
   padding: 0 6px;
+}
+
+.motw-result {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgb(var(--color-fg));
+}
+
+/* The beaten side is dimmed rather than the winner being coloured: one
+   change of weight reads as a result, two competing highlights read as
+   decoration. */
+.motw-team--beaten {
+  color: rgb(var(--color-fg-muted));
+  font-weight: 600;
 }
 
 .motw-meta {
