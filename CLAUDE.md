@@ -440,10 +440,10 @@ Secrets are managed via Kubernetes Secrets - NEVER committed to git.
 - Styling: Tailwind CSS
 
 ### Database Tables
-`teams`, `matches`, `seasons`, `age_groups`, `divisions`, `match_types`, `team_match_types`, `user_profiles`
+`teams`, `matches`, `seasons`, `age_groups`, `divisions`, `match_types`, `team_match_types`, `user_profiles`, `match_of_the_week`
 
 ### API Routes
-`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/admin/*`
+`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/admin/*`
 
 ### Authentication Flow
 ```

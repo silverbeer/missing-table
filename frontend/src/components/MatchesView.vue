@@ -4,6 +4,9 @@
     <MatchDetailView
       v-if="selectedMatchId"
       :matchId="selectedMatchId"
+      :auto-open-share="detailAutoShare"
+      :is-motw="isMotw({ id: selectedMatchId })"
+      :motw-blurb="motw && motw.blurb"
       @back="handleBackFromDetail"
     />
 
@@ -240,6 +243,49 @@
                 </button>
               </div>
             </div>
+
+            <!--
+              Match of the Week (SB-1010).
+
+              Deliberately outside the age-group and division filters: one pick a
+              week, global, so it shows on whatever week you are looking at even
+              when the table beneath is filtered to a different age group. Sits
+              above Week Navigation as a one-line strip rather than a hero: the
+              pick crosses every age group, so it is never what the person came
+              to this tab for.
+            -->
+            <template v-if="selectedViewTab === 'all'">
+              <MotwHero
+                v-if="motw"
+                :match="motw.match"
+                :blurb="motw.blurb"
+                :can-share="authStore.isAuthenticated.value"
+                :can-edit="authStore.isAdmin.value"
+                :saving="motwSaving"
+                @preview="viewMatch"
+                @share="shareMotw"
+                @save-blurb="saveMotwBlurb"
+              />
+              <!--
+                No pick this week. Admins get the nudge; everyone else gets
+                nothing at all, because an empty frame promising a featured match
+                is worse than no frame (CLAUDE.md: three states, never default
+                into one).
+              -->
+              <div
+                v-else-if="authStore.isAdmin.value && !motwLoading"
+                class="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-line px-4 py-2.5"
+                data-testid="motw-empty-admin"
+              >
+                <span class="text-accent-600 dark:text-accent-400 text-sm"
+                  >◆</span
+                >
+                <span class="text-sm text-fg-muted">
+                  No Match of the Week for {{ weekRangeDisplay }} — pick one
+                  from the ◆ button on any row.
+                </span>
+              </div>
+            </template>
 
             <!-- Time Range Filter - Only show on "All Matches" tab -->
             <div v-if="selectedViewTab === 'all'">
@@ -496,7 +542,10 @@
                 <tr
                   v-for="(match, index) in homegrownMatches"
                   :key="`homegrown-${match.id}`"
-                  :class="{ 'bg-surface-alt': index % 2 === 0 }"
+                  :class="[
+                    { 'bg-surface-alt': index % 2 === 0 },
+                    isMotw(match) ? 'motw-row' : '',
+                  ]"
                   class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   @click="viewMatch(match)"
                 >
@@ -668,6 +717,30 @@
                       class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
                     >
                       View
+                    </button>
+                    <!--
+                      Pick / unpick the Match of the Week (SB-1010). One
+                      toggle, because the click a person wants right after
+                      picking the wrong match is undo.
+                    -->
+                    <button
+                      v-if="authStore.isAdmin.value"
+                      @click.stop="toggleMotw(match)"
+                      :data-testid="`motw-toggle-${match.id}`"
+                      :title="
+                        isMotw(match)
+                          ? 'Remove as Match of the Week'
+                          : 'Make Match of the Week'
+                      "
+                      :aria-pressed="isMotw(match)"
+                      :class="[
+                        'text-sm font-medium',
+                        isMotw(match)
+                          ? 'text-accent-600 dark:text-accent-400'
+                          : 'text-fg-muted hover:text-accent-600 dark:hover:text-accent-400',
+                      ]"
+                    >
+                      ◆
                     </button>
                     <button
                       v-if="canEditGame(match)"
@@ -691,7 +764,10 @@
                 <tr
                   v-for="(match, index) in academyMatches"
                   :key="`academy-${match.id}`"
-                  :class="{ 'bg-surface-alt': index % 2 === 0 }"
+                  :class="[
+                    { 'bg-surface-alt': index % 2 === 0 },
+                    isMotw(match) ? 'motw-row' : '',
+                  ]"
                   class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   @click="viewMatch(match)"
                 >
@@ -863,6 +939,30 @@
                       class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
                     >
                       View
+                    </button>
+                    <!--
+                      Pick / unpick the Match of the Week (SB-1010). One
+                      toggle, because the click a person wants right after
+                      picking the wrong match is undo.
+                    -->
+                    <button
+                      v-if="authStore.isAdmin.value"
+                      @click.stop="toggleMotw(match)"
+                      :data-testid="`motw-toggle-${match.id}`"
+                      :title="
+                        isMotw(match)
+                          ? 'Remove as Match of the Week'
+                          : 'Make Match of the Week'
+                      "
+                      :aria-pressed="isMotw(match)"
+                      :class="[
+                        'text-sm font-medium',
+                        isMotw(match)
+                          ? 'text-accent-600 dark:text-accent-400'
+                          : 'text-fg-muted hover:text-accent-600 dark:hover:text-accent-400',
+                      ]"
+                    >
+                      ◆
                     </button>
                     <button
                       v-if="canEditGame(match)"
@@ -886,7 +986,10 @@
                 <tr
                   v-for="(match, index) in otherMatches"
                   :key="`other-${match.id}`"
-                  :class="{ 'bg-surface-alt': index % 2 === 0 }"
+                  :class="[
+                    { 'bg-surface-alt': index % 2 === 0 },
+                    isMotw(match) ? 'motw-row' : '',
+                  ]"
                   class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   @click="viewMatch(match)"
                 >
@@ -1059,6 +1162,30 @@
                     >
                       View
                     </button>
+                    <!--
+                      Pick / unpick the Match of the Week (SB-1010). One
+                      toggle, because the click a person wants right after
+                      picking the wrong match is undo.
+                    -->
+                    <button
+                      v-if="authStore.isAdmin.value"
+                      @click.stop="toggleMotw(match)"
+                      :data-testid="`motw-toggle-${match.id}`"
+                      :title="
+                        isMotw(match)
+                          ? 'Remove as Match of the Week'
+                          : 'Make Match of the Week'
+                      "
+                      :aria-pressed="isMotw(match)"
+                      :class="[
+                        'text-sm font-medium',
+                        isMotw(match)
+                          ? 'text-accent-600 dark:text-accent-400'
+                          : 'text-fg-muted hover:text-accent-600 dark:hover:text-accent-400',
+                      ]"
+                    >
+                      ◆
+                    </button>
                     <button
                       v-if="canEditGame(match)"
                       @click.stop="editMatch(match)"
@@ -1075,7 +1202,10 @@
                 v-else
                 v-for="(match, index) in sortedGames"
                 :key="match.id"
-                :class="{ 'bg-surface-alt': index % 2 === 0 }"
+                :class="[
+                  { 'bg-surface-alt': index % 2 === 0 },
+                  isMotw(match) ? 'motw-row' : '',
+                ]"
                 class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
                 @click="viewMatch(match)"
               >
@@ -2053,6 +2183,7 @@ import ClubLogo from '@/components/shared/ClubLogo.vue';
 import ClubCombobox from '@/components/ui/ClubCombobox.vue';
 import TeamCombobox from '@/components/ui/TeamCombobox.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
+import MotwHero from '@/components/MotwHero.vue';
 import { subscribeToMatch } from '@/composables/useMatchRealtime';
 import { canEditMatch } from '@/utils/matchPermissions';
 
@@ -2065,6 +2196,7 @@ export default {
     FollowButton,
     ClubCombobox,
     TeamCombobox,
+    MotwHero,
   },
   props: {
     initialAgeGroupId: { type: Number, default: null },
@@ -2211,6 +2343,18 @@ export default {
     };
 
     const weekOffset = ref(0); // 0 = current week, -1 = last week, +1 = next week
+
+    // Match of the Week for the week on screen (SB-1010). Null means nobody
+    // picked one, which is the ordinary state and renders as nothing for
+    // visitors — `motwLoading` exists so the admin nudge does not flash up
+    // during the fetch and then vanish.
+    const motw = ref(null);
+    const motwLoading = ref(false);
+    const motwSaving = ref(false);
+    // Set when the hero's share button opened the detail view, so the detail
+    // view can open the Instagram modal straight away instead of making the
+    // admin find the button again.
+    const detailAutoShare = ref(false);
     const error = ref(null);
     const loading = ref(true);
     const showEditModal = ref(false);
@@ -3197,6 +3341,7 @@ export default {
     watch(weekOffset, () => {
       if (selectedViewTab.value === 'all') {
         fetchMatches();
+        fetchMotw();
       }
     });
 
@@ -3263,11 +3408,103 @@ export default {
     };
 
     const viewMatch = match => {
+      detailAutoShare.value = false;
       selectedMatchId.value = match.id;
     };
 
     const handleBackFromDetail = () => {
       selectedMatchId.value = null;
+      detailAutoShare.value = false;
+    };
+
+    // ---- Match of the Week (SB-1010) ------------------------------------
+
+    // The Monday the API keys the pick on. getWeekBoundaries already computes
+    // it for the match fetch, so the hero and the table can never disagree
+    // about which week is on screen.
+    const displayedWeekStart = () =>
+      getWeekBoundaries(weekOffset.value).start_date;
+
+    const fetchMotw = async () => {
+      motwLoading.value = true;
+      try {
+        const data = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/motw?week_start=${displayedWeekStart()}`
+        );
+        motw.value = data?.motw || null;
+      } catch (err) {
+        // A missing hero is a far smaller failure than a broken Matches tab,
+        // so this never surfaces an error state — it just stays unpicked.
+        console.error('Error fetching match of the week:', err);
+        motw.value = null;
+      } finally {
+        motwLoading.value = false;
+      }
+    };
+
+    const isMotw = match => !!motw.value && motw.value.match.id === match.id;
+
+    // Pick, or unpick if it is already the pick. One button, because the
+    // second click a person wants after picking the wrong match is undo.
+    const toggleMotw = async match => {
+      try {
+        if (isMotw(match)) {
+          await authStore.apiRequest(
+            `${getApiBaseUrl()}/api/admin/motw/${displayedWeekStart()}`,
+            { method: 'DELETE' }
+          );
+          motw.value = null;
+          return;
+        }
+        const result = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/admin/motw`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ match_id: match.id }),
+          }
+        );
+        motw.value = result || null;
+      } catch (err) {
+        console.error('Error setting match of the week:', err);
+        // Re-read rather than trusting the optimistic value: the pick may have
+        // landed in a different week than the one on screen.
+        fetchMotw();
+      }
+    };
+
+    // The editorial line. Written from the strip rather than a settings
+    // screen, because the moment you want to write it is the moment you are
+    // looking at the pick. Saving re-upserts the same match with the new
+    // line, which is what the POST does anyway.
+    const saveMotwBlurb = async text => {
+      if (!motw.value) return;
+      motwSaving.value = true;
+      try {
+        const result = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/admin/motw`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              match_id: motw.value.match.id,
+              blurb: text,
+            }),
+          }
+        );
+        motw.value = result || motw.value;
+      } catch (err) {
+        // Leave the editor open with the text still in it rather than
+        // silently dropping what someone just wrote.
+        console.error('Error saving match of the week blurb:', err);
+      } finally {
+        motwSaving.value = false;
+      }
+    };
+
+    const shareMotw = match => {
+      detailAutoShare.value = true;
+      selectedMatchId.value = match.id;
     };
 
     const closeEditModal = () => {
@@ -3420,6 +3657,9 @@ export default {
 
       // Fetch matches for the default "All Matches" tab with current week
       await fetchMatches();
+      // Not awaited: the hero is decoration on top of the schedule, and the
+      // table should never wait on it to paint.
+      fetchMotw();
     });
 
     // ── SB-66: Realtime updates for in-progress match rows ──
@@ -3499,6 +3739,14 @@ export default {
       matchTypeChips,
       isChipSelected,
       selectMatchTypeChip,
+      motw,
+      motwLoading,
+      motwSaving,
+      saveMotwBlurb,
+      isMotw,
+      toggleMotw,
+      shareMotw,
+      detailAutoShare,
       visibleDivisions,
       selectedDivisionIds,
       isDivisionSelected,
@@ -3549,3 +3797,35 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+/*
+  Match of the Week row treatment (SB-1010).
+
+  The hero above carries the words, so the row only has to say "this is the
+  one" while you scroll — an amber left bar and a faint wash. Done in CSS
+  rather than extra markup because the same row is written out three times
+  (Homegrown / Academy / Other) and a fourth for mobile.
+*/
+.motw-row td:first-child {
+  box-shadow: inset 4px 0 0 0 #f59e0b;
+}
+
+.motw-row {
+  background-color: rgb(245 158 11 / 0.07);
+}
+
+/* The zebra class sets its own background on even rows, so the wash needs to
+   win over it rather than sit behind it. */
+.motw-row.bg-surface-alt {
+  background-color: rgb(245 158 11 / 0.1);
+}
+
+:global(.dark) .motw-row {
+  background-color: rgb(245 158 11 / 0.09);
+}
+
+:global(.dark) .motw-row.bg-surface-alt {
+  background-color: rgb(245 158 11 / 0.13);
+}
+</style>

@@ -756,6 +756,8 @@
         :can-persist-photo="canPersistMatchPhoto"
         :viewer-team-id="viewerTeamId"
         :viewer-club-id="viewerClubId"
+        :is-motw="isMotw"
+        :blurb="motwBlurb"
         @close="closeIgShare"
         @photo-uploaded="onPhotoUploaded"
       />
@@ -795,6 +797,25 @@ export default {
     backLabel: {
       type: String,
       default: 'Back to Matches',
+    },
+    // Opened from the Match of the Week hero's share button (SB-1010): the
+    // person already said what they wanted, so don't make them find the
+    // button again. Only honoured once the match has actually loaded — the
+    // modal takes the match as a required prop.
+    autoOpenShare: {
+      type: Boolean,
+      default: false,
+    },
+    // SB-1010: passed down so the share modal can offer — and open on — the
+    // Match of the Week card. Only the caller knows this, since the match
+    // itself carries no MOTW flag.
+    isMotw: {
+      type: Boolean,
+      default: false,
+    },
+    motwBlurb: {
+      type: String,
+      default: null,
     },
   },
   emits: ['back'],
@@ -1099,8 +1120,11 @@ export default {
       { immediate: false }
     );
 
-    onMounted(() => {
-      fetchMatch();
+    onMounted(async () => {
+      await fetchMatch();
+      if (props.autoOpenShare && match.value) {
+        igShareOpen.value = true;
+      }
       ensureMatchRealtime(props.matchId);
     });
 
