@@ -220,6 +220,7 @@
         :events="events"
         :mode="mode"
         :template="template"
+        :blurb="blurb"
         :accent-preference="accentPreference"
         data-testid="ig-capture-card"
       />
