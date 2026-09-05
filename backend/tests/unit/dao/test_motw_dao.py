@@ -30,14 +30,16 @@ ROW = {
 }
 
 
-def _dao(table_data=None, table_error=None, match=MATCH):
+def _dao(table_data=None, table_error=None, match=MATCH, pick_count=1):
     dao = object.__new__(MotwDAO)
     dao.connection_holder = MagicMock()
 
     table = MagicMock()
-    for method in ("select", "eq", "in_", "limit", "upsert", "delete"):
+    for method in ("select", "eq", "in_", "lte", "limit", "upsert", "delete"):
         getattr(table, method).return_value = table
-    table.execute.return_value = MagicMock(data=table_data)
+    # `count` backs the pick ordinal; without it the mock hands back another
+    # MagicMock and the assertion passes on something that is not a number.
+    table.execute.return_value = MagicMock(data=table_data, count=pick_count)
     if table_error:
         table.execute.side_effect = table_error
 
@@ -79,6 +81,23 @@ class TestGetForWeek:
         assert result["week_start"] == "2026-08-31"
         assert result["blurb"] == "Two unbeaten records."
         assert result["match"]["home_team_name"] == "NEFC"
+
+    def test_numbers_the_pick_by_series_position(self):
+        # Not a calendar week. This season's row begins six weeks before its
+        # first real matchday, so a date-derived number would open the series
+        # at "week 6".
+        dao = _dao(table_data=[ROW], pick_count=1)
+        assert dao.get_for_week("2026-08-31")["pick_number"] == 1
+
+    def test_the_fourth_pick_is_week_four(self):
+        dao = _dao(table_data=[ROW], pick_count=4)
+        assert dao.get_for_week("2026-08-31")["pick_number"] == 4
+
+    def test_counts_only_picks_up_to_this_week(self):
+        # A pick made ahead for next week must not renumber this week's.
+        dao = _dao(table_data=[ROW], pick_count=2)
+        dao.get_for_week("2026-08-31")
+        dao._table.lte.assert_called_once_with("week_start", "2026-08-31")
 
     def test_no_pick_is_none_not_an_error(self):
         # Most weeks start unpicked. That is the ordinary state, and every

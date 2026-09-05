@@ -14,6 +14,7 @@
     :mode="mode"
     :accent-preference="accentPreference"
     :blurb="blurb"
+    :week-number="weekNumber"
   />
 </template>
 
@@ -66,6 +67,7 @@ export default {
     // ignore it, which is why it rides as a prop rather than forcing every
     // template to know about the feature.
     blurb: { type: String, default: null },
+    weekNumber: { type: Number, default: null },
   },
   setup(props) {
     const inner = ref(null);

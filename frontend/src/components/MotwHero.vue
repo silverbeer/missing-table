@@ -33,6 +33,15 @@
         <span class="motw-diamond" aria-hidden="true">◆</span>
         Match of the Week
       </span>
+      <!--
+        The age group rides in the closed strip, not just in the expanded
+        meta line. This banner renders on every age group — the pick is
+        global — so a U16 fixture teased under a U15 filter has to say which
+        age group it is before anyone opens it.
+      -->
+      <span v-if="ageGroupLabel" class="motw-age" data-testid="motw-age">
+        {{ ageGroupLabel }}
+      </span>
       <span class="motw-teaser">{{ teaser }}</span>
       <span
         class="motw-chevron"
@@ -264,6 +273,11 @@ export default {
         if (editing.value && !props.saving) cancelEdit();
       }
     );
+    const ageGroupLabel = computed(() => {
+      const name = props.match.age_group_name;
+      return name && name !== 'Unknown' ? name : null;
+    });
+
     const homeClub = computed(() => props.match.home_team_club || {});
     const awayClub = computed(() => props.match.away_team_club || {});
 
@@ -352,6 +366,7 @@ export default {
       startEdit,
       cancelEdit,
       commit,
+      ageGroupLabel,
       homeClub,
       awayClub,
       state,
@@ -393,8 +408,40 @@ export default {
   text-align: left;
 }
 
-.motw-toggle:hover .motw-teaser {
+.motw-toggle:hover .motw-age {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: #b45309;
+  color: #ffffff;
+}
+
+:global(.dark) .motw-age {
+  background: #f59e0b;
+  color: #1f1300;
+}
+
+.motw-teaser {
   color: rgb(var(--color-fg));
+}
+
+.motw-age {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: #b45309;
+  color: #ffffff;
+}
+
+:global(.dark) .motw-age {
+  background: #f59e0b;
+  color: #1f1300;
 }
 
 .motw-teaser {

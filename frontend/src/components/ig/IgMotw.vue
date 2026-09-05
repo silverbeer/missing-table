@@ -52,6 +52,8 @@
       <div class="context">
         <span v-if="weekLabel" data-testid="ig-motw-week">{{ weekLabel }}</span>
         <span v-if="weekLabel" class="context-dot" aria-hidden="true">·</span>
+        <span data-testid="ig-age-chip">{{ ageGroupLabel }}</span>
+        <span class="context-dot" aria-hidden="true">·</span>
         <span data-testid="ig-meta">{{ metaLabel }}</span>
       </div>
     </div>
@@ -99,9 +101,6 @@
             Time TBC
           </div>
         </template>
-        <div class="age-chip" data-testid="ig-age-chip">
-          {{ ageGroupLabel }}
-        </div>
       </div>
 
       <div class="side">
@@ -167,22 +166,12 @@
 
 <script>
 import { computed, ref, toRefs } from 'vue';
-import { useIgShareData } from '@/composables/useIgShareData';
+import { isUsableAccent, useIgShareData } from '@/composables/useIgShareData';
 import IgScorers from './IgScorers.vue';
 import MlsNextBadge from './MlsNextBadge.vue';
 import pitchImage from '@/assets/hero-goal.png';
 
-// The seeded club colour. A club carrying this has no colour on file rather
-// than a grey identity, so it must not be painted onto the card as if it did.
-const SEEDED_GREY = '#6b7280';
 const MT_AMBER = '#f5a524';
-
-const usableColor = value => {
-  if (!value || typeof value !== 'string') return null;
-  const hex = value.trim().toLowerCase();
-  if (!/^#[0-9a-f]{6}$/.test(hex)) return null;
-  return hex === SEEDED_GREY ? null : hex;
-};
 
 export default {
   name: 'IgMotw',
@@ -199,6 +188,9 @@ export default {
     },
     // The admin's editorial line, carried through from the pick.
     blurb: { type: String, default: null },
+    // Which pick in the series this is. Comes from the API rather than being
+    // derived from a date here — see the note in MotwDAO.
+    weekNumber: { type: Number, default: null },
   },
   setup(props) {
     const root = ref(null);
@@ -207,12 +199,18 @@ export default {
 
     const groundImage = computed(() => props.photoSrc || pitchImage);
 
-    const homeColorUsable = computed(() =>
-      usableColor(props.match?.home_team_club?.primary_color)
-    );
-    const awayColorUsable = computed(() =>
-      usableColor(props.match?.away_team_club?.primary_color)
-    );
+    // isUsableAccent is the modal's own test — it rejects the seeded grey and
+    // anything too dark to read against the card ground. My first pass here
+    // only caught the grey, which let New England Revolution's #0A2240 paint
+    // a navy rule onto a navy card: present in the DOM, invisible in the post.
+    const homeColorUsable = computed(() => {
+      const c = props.match?.home_team_club?.primary_color;
+      return isUsableAccent(c) ? c : null;
+    });
+    const awayColorUsable = computed(() => {
+      const c = props.match?.away_team_club?.primary_color;
+      return isUsableAccent(c) ? c : null;
+    });
 
     // Amber is the fallback rather than grey: a club with no colour on file
     // borrows the series colour instead of advertising the gap.
@@ -229,23 +227,13 @@ export default {
     const homeCrestStyle = computed(() => crestStyle(homeRuleColor.value));
     const awayCrestStyle = computed(() => crestStyle(awayRuleColor.value));
 
-    // Which week of the season this is. Real, derived from the season's own
-    // start date — not a number typed into a graphic. Hidden when the season
-    // has no start date rather than guessed at.
-    const weekLabel = computed(() => {
-      const seasonStart = props.match?.season_start_date;
-      const matchDate = props.match?.match_date;
-      if (!seasonStart || !matchDate) return null;
-
-      const start = new Date(`${String(seasonStart).slice(0, 10)}T00:00:00`);
-      const played = new Date(`${String(matchDate).slice(0, 10)}T00:00:00`);
-      if (Number.isNaN(start.valueOf()) || Number.isNaN(played.valueOf())) {
-        return null;
-      }
-
-      const week = Math.floor((played - start) / 604800000) + 1;
-      return week >= 1 && week <= 60 ? `Week ${week}` : null;
-    });
+    // Counts picks, not calendar weeks. A season-week number is arithmetic
+    // nobody recognises — this season's row begins six weeks before its first
+    // real matchday — whereas "Week 1" on the first Match of the Week is
+    // exactly what it says.
+    const weekLabel = computed(() =>
+      props.weekNumber ? `Week ${props.weekNumber}` : null
+    );
 
     return {
       root,
@@ -400,7 +388,6 @@ export default {
   text-transform: uppercase;
   padding: 14px 40px;
   border-radius: 8px;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
 }
 
 .context {
@@ -542,17 +529,6 @@ export default {
   color: #f5a524;
 }
 
-.age-chip {
-  margin-top: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 999px;
-  padding: 8px 24px;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .scorers {
   width: 100%;
   padding-bottom: 12px;
@@ -658,10 +634,6 @@ export default {
 .centre .status,
 .centre .score {
   margin-top: 10px;
-}
-
-.centre .age-chip {
-  margin-top: 16px;
 }
 
 .why-text {

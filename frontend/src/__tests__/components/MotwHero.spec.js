@@ -78,6 +78,25 @@ describe('MotwHero', () => {
       );
     });
 
+    it('names the age group before the strip is even opened', async () => {
+      // The strip renders on every age group, so a U16 pick teased under a
+      // U15 filter has to say which age group it is.
+      const wrapper = mountHero({
+        match: makeMatch({ age_group_name: 'U16' }),
+      });
+
+      expect(wrapper.find('[data-testid="motw-age"]').text()).toBe('U16');
+      expect(wrapper.find('[data-testid="motw-panel"]').exists()).toBe(false);
+    });
+
+    it('leaves the chip out when the age group is unknown', async () => {
+      const wrapper = mountHero({
+        match: makeMatch({ age_group_name: 'Unknown' }),
+      });
+
+      expect(wrapper.find('[data-testid="motw-age"]').exists()).toBe(false);
+    });
+
     it('opens and closes again on click', async () => {
       const wrapper = mountHero();
       const toggle = wrapper.find('[data-testid="motw-disclosure"]');

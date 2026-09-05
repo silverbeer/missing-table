@@ -73,6 +73,18 @@ class MotwDAO(BaseDAO):
                 return None
 
             row = rows[0]
+            # Which pick in the series this is. Counting picks rather than
+            # calendar weeks is the only number that means anything here: the
+            # season row starts 2026-08-01, the first stray fixture is two
+            # weeks later, and the first real matchday is a month after that
+            # — so any date-derived "week 6" is arithmetic nobody recognises.
+            # The first Match of the Week is Week 1.
+            ordinal = (
+                self.client.table(TABLE)
+                .select("id", count="exact")
+                .lte("week_start", week_start)
+                .execute()
+            )
             match = self.match_dao.get_match_by_id(row["match_id"], include_test=include_test)
             if match is None:
                 # The pick outlived its match's visibility — a test match seen
@@ -83,6 +95,7 @@ class MotwDAO(BaseDAO):
 
             return {
                 "week_start": row["week_start"],
+                "pick_number": ordinal.count or 1,
                 "blurb": row.get("blurb"),
                 "selected_by": row.get("selected_by"),
                 "created_at": row.get("created_at"),

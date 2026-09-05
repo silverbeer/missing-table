@@ -758,6 +758,7 @@
         :viewer-club-id="viewerClubId"
         :is-motw="isMotw"
         :blurb="motwBlurb"
+        :week-number="motwWeekNumber"
         @close="closeIgShare"
         @photo-uploaded="onPhotoUploaded"
       />
@@ -815,6 +816,10 @@ export default {
     },
     motwBlurb: {
       type: String,
+      default: null,
+    },
+    motwWeekNumber: {
+      type: Number,
       default: null,
     },
   },

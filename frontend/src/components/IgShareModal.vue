@@ -169,6 +169,7 @@
               :mode="mode"
               :template="template"
               :blurb="blurb"
+              :week-number="weekNumber"
               :accent-preference="accentPreference"
               data-testid="ig-preview-card"
             />
@@ -221,6 +222,7 @@
         :mode="mode"
         :template="template"
         :blurb="blurb"
+        :week-number="weekNumber"
         :accent-preference="accentPreference"
         data-testid="ig-capture-card"
       />
@@ -301,6 +303,7 @@ export default {
     // share on the MOTW strip wants the MOTW card.
     isMotw: { type: Boolean, default: false },
     blurb: { type: String, default: null },
+    weekNumber: { type: Number, default: null },
   },
   emits: ['close', 'photo-uploaded'],
   setup(props, { emit }) {
