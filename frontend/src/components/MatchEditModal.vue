@@ -331,6 +331,35 @@ export default {
     const error = ref(null);
     const availableTeams = ref([]);
 
+    // The two teams already on the match, as option-shaped rows.
+    //
+    // A <select required> whose current value has no matching <option> reports
+    // itself empty, so the browser blocks the submit and the whole form dies
+    // quietly — no error, nothing happens on Update Match. That is what every
+    // Flex match did (SB-1011). Whatever the filter returns, the match's own
+    // teams have to be in the list, because the control has to be able to
+    // represent the value it already holds.
+    const teamsOnMatch = match =>
+      [
+        match?.home_team_id && {
+          id: match.home_team_id,
+          name: match.home_team_name || `Team ${match.home_team_id}`,
+        },
+        match?.away_team_id && {
+          id: match.away_team_id,
+          name: match.away_team_name || `Team ${match.away_team_id}`,
+        },
+      ].filter(Boolean);
+
+    const withMatchTeams = (list, match) => {
+      const rows = Array.isArray(list) ? [...list] : [];
+      const seen = new Set(rows.map(t => t.id));
+      for (const team of teamsOnMatch(match)) {
+        if (!seen.has(team.id)) rows.push(team);
+      }
+      return rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    };
+
     const fetchTeamsForMatch = async match => {
       if (!match) return;
       const params = new URLSearchParams({ for_match_edit: 'true' });
@@ -342,10 +371,13 @@ export default {
         const result = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/teams?${params.toString()}`
         );
-        availableTeams.value = Array.isArray(result) ? result : props.teams;
+        availableTeams.value = withMatchTeams(
+          Array.isArray(result) ? result : props.teams,
+          match
+        );
       } catch {
         // Fall back to the teams passed by the parent
-        availableTeams.value = props.teams;
+        availableTeams.value = withMatchTeams(props.teams, match);
       }
     };
 

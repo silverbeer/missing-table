@@ -2249,10 +2249,28 @@ async def get_teams(
             # have only a team_mappings row for the age group and no
             # team_match_types row, so the strict filter above skips them.
             # For Tournament match edits, union them in.
+            # Widen the candidate set when the strict filter cannot answer.
+            #
+            # This started as a Tournament-only union, because tournament
+            # opponents get a team_mappings row and no team_match_types row.
+            # Flex turned out to have the same shape and worse: no team in the
+            # database has a Flex registration at all, against 1344 Flex
+            # fixtures, so the strict filter returned nothing and every Flex
+            # match's edit form had two empty, `required` dropdowns that
+            # silently blocked the save (SB-1011).
+            #
+            # So the rule is no longer per-competition. Whenever a match edit
+            # would otherwise be handed an unusable list, fall back to the
+            # teams mapped to that age group. Being over-inclusive costs an
+            # admin some scrolling; being empty costs them the form.
             if for_match_edit:
                 match_type = match_type_dao.get_match_type_by_id(match_type_id)
-                if match_type and (match_type.get("name") or "").lower() == "tournament":
+                is_tournament = match_type and (match_type.get("name") or "").lower() == "tournament"
+                if is_tournament or not teams:
                     extra = team_dao.get_teams_by_age_group_mapping(age_group_id)
+                    if division_id and teams:
+                        # A division was asked for and honoured; keep it.
+                        extra = [t for t in extra if t.get("division_id") == division_id] or extra
                     seen = {t["id"] for t in teams}
                     teams = teams + [t for t in extra if t["id"] not in seen]
                     teams.sort(key=lambda t: (t.get("name") or "").lower())
