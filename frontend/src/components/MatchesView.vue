@@ -7,6 +7,7 @@
       :auto-open-share="detailAutoShare"
       :is-motw="isMotw({ id: selectedMatchId })"
       :motw-blurb="motw && motw.blurb"
+      :motw-week-number="motw && motw.pick_number"
       @back="handleBackFromDetail"
     />
 
