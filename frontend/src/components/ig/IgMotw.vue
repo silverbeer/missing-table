@@ -58,18 +58,23 @@
 
     <div class="fixture">
       <div class="side">
-        <div class="crest" :style="homeCrestStyle" data-testid="ig-home-crest">
-          <div
-            v-if="homeLogoUrl"
-            class="crest-img"
-            :style="{ backgroundImage: `url(${homeLogoUrl})` }"
-          ></div>
-          <span v-else class="crest-initials">{{ homeInitials }}</span>
+        <div class="crest-ring" :style="homeCrestStyle">
+          <div class="crest" data-testid="ig-home-crest">
+            <div
+              v-if="homeLogoUrl"
+              class="crest-img"
+              :style="{ backgroundImage: `url(${homeLogoUrl})` }"
+            ></div>
+            <span v-else class="crest-initials">{{ homeInitials }}</span>
+          </div>
         </div>
-        <div class="team-name" data-testid="ig-home-name">
+        <div
+          class="team-name"
+          :style="{ borderBottomColor: homeRuleColor }"
+          data-testid="ig-home-name"
+        >
           {{ homeTeamName }}
         </div>
-        <div class="team-rule" :style="{ background: homeRuleColor }"></div>
         <div class="side-tag">Home</div>
       </div>
 
@@ -100,18 +105,23 @@
       </div>
 
       <div class="side">
-        <div class="crest" :style="awayCrestStyle" data-testid="ig-away-crest">
-          <div
-            v-if="awayLogoUrl"
-            class="crest-img"
-            :style="{ backgroundImage: `url(${awayLogoUrl})` }"
-          ></div>
-          <span v-else class="crest-initials">{{ awayInitials }}</span>
+        <div class="crest-ring" :style="awayCrestStyle">
+          <div class="crest" data-testid="ig-away-crest">
+            <div
+              v-if="awayLogoUrl"
+              class="crest-img"
+              :style="{ backgroundImage: `url(${awayLogoUrl})` }"
+            ></div>
+            <span v-else class="crest-initials">{{ awayInitials }}</span>
+          </div>
         </div>
-        <div class="team-name" data-testid="ig-away-name">
+        <div
+          class="team-name"
+          :style="{ borderBottomColor: awayRuleColor }"
+          data-testid="ig-away-name"
+        >
           {{ awayTeamName }}
         </div>
-        <div class="team-rule" :style="{ background: awayRuleColor }"></div>
         <div class="side-tag">Away</div>
       </div>
     </div>
@@ -212,9 +222,10 @@ export default {
     // The crest disc stays white — club logos are drawn to sit on white, and
     // a coloured disc turns half of them into mud. The club colour appears as
     // the ring around it.
-    const crestStyle = color => ({
-      boxShadow: `0 0 0 10px ${color}, 0 26px 70px rgba(0, 0, 0, 0.55)`,
-    });
+    // A real ring element, not a box-shadow spread: html2canvas renders a
+    // 10px spread as a filled disc behind the crest, which ate the white
+    // plate the club logos are drawn to sit on.
+    const crestStyle = color => ({ background: color });
     const homeCrestStyle = computed(() => crestStyle(homeRuleColor.value));
     const awayCrestStyle = computed(() => crestStyle(awayRuleColor.value));
 
@@ -346,7 +357,6 @@ export default {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 2px;
   font-size: 40px;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -378,7 +388,6 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
   padding: 18px 0 2px;
 }
 
@@ -397,7 +406,6 @@ export default {
 .context {
   display: flex;
   align-items: center;
-  gap: 12px;
   font-size: 24px;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -415,7 +423,6 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
   padding: 2px 0 0;
 }
 
@@ -425,10 +432,17 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
 }
 
 /* The crests lead. Everything else on this card is arranged around them. */
+.crest-ring {
+  width: 264px;
+  height: 264px;
+  border-radius: 999px;
+  padding: 10px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.55);
+}
+
 .crest {
   width: 244px;
   height: 244px;
@@ -456,18 +470,15 @@ export default {
 }
 
 .team-name {
+  display: inline-block;
   font-size: 35px;
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.06;
   text-align: center;
   overflow-wrap: anywhere;
-}
-
-.team-rule {
-  width: 132px;
-  height: 7px;
-  border-radius: 999px;
+  padding-bottom: 14px;
+  border-bottom: 7px solid transparent;
 }
 
 .side-tag {
@@ -483,7 +494,6 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
   padding-bottom: 40px;
 }
 
@@ -552,7 +562,6 @@ export default {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
   background: rgba(8, 14, 28, 0.72);
   border: 2px solid rgba(245, 165, 36, 0.4);
   border-radius: 14px;
@@ -562,7 +571,6 @@ export default {
 .why-label {
   display: flex;
   align-items: center;
-  gap: 12px;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -587,7 +595,6 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
   padding: 20px 56px 24px;
   background: rgba(4, 8, 18, 0.82);
   border-top: 3px solid #f5a524;
@@ -596,7 +603,6 @@ export default {
 .foot-main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   min-width: 0;
 }
 
@@ -619,5 +625,58 @@ export default {
   font-weight: 700;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.6);
+}
+
+/*
+  Spacing below is margin, not flex `gap`. html2canvas 1.4.1 does not
+  implement gap: the browser preview honoured it and the exported PNG
+  collapsed every one to zero, which put the club-colour rules through the
+  middle of the team names. Margins render identically in both.
+*/
+.wordmark-table {
+  margin-left: 2px;
+}
+
+.week,
+.context {
+  margin-top: 10px;
+}
+
+.context-dot {
+  margin: 0 12px;
+}
+
+.side .team-name {
+  margin-top: 14px;
+}
+
+.side .side-tag {
+  margin-top: 12px;
+}
+
+.centre .kickoff,
+.centre .status,
+.centre .score {
+  margin-top: 10px;
+}
+
+.centre .age-chip {
+  margin-top: 16px;
+}
+
+.why-text {
+  margin-top: 10px;
+}
+
+.why-star {
+  margin-right: 12px;
+}
+
+.foot .handle {
+  margin-left: 24px;
+}
+
+.foot-main .cta {
+  margin-top: 4px;
 }
 </style>
