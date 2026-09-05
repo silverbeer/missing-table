@@ -3516,6 +3516,13 @@ export default {
     const onGameUpdated = updatedMatch => {
       console.log('MatchesView - Received updated match:', updatedMatch);
 
+      // Scoring the featured match is exactly when the strip's answer
+      // changes — from a countdown to a result — so re-read it rather than
+      // leaving a stale "kicks off in 2 hours" above a match that finished.
+      if (updatedMatch && isMotw(updatedMatch)) {
+        fetchMotw();
+      }
+
       if (updatedMatch && updatedMatch.id) {
         // Update the match in the local array immediately
         const index = matches.value.findIndex(m => m.id === updatedMatch.id);
