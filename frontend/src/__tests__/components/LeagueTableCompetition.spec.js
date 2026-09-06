@@ -327,6 +327,59 @@ describe('LeagueTable coverage caption', () => {
     expect(wrapper.find('[data-testid="coverage-note"]').exists()).toBe(false);
   });
 
+  it('explains shootout points when a counted competition scores them', async () => {
+    // Flex has no draws: level after regulation goes to penalties, and the
+    // shootout is worth points. Without this a reader sees 1W 2D = 7 and
+    // concludes the table is wrong (SB-1027).
+    const { wrapper } = mountTable({
+      coverage: {
+        match_type: 'Flex',
+        competitions: ['Flex'],
+        matches_counted: 31,
+        matches_vs_outside_table: 0,
+        teams_outside_table: 0,
+        shootout_points: ['Flex'],
+      },
+    });
+    await flushPromises();
+    const note = wrapper.find('[data-testid="shootout-note"]');
+    expect(note.exists()).toBe(true);
+    expect(note.text()).toContain('Flex');
+    expect(note.text()).toContain('winner 2');
+    expect(note.text()).toContain('loser 1');
+  });
+
+  it('says nothing about shootouts in a League table', async () => {
+    // A League draw is a draw. A permanent caption about penalties on a
+    // table that never awards them would be noise.
+    const { wrapper } = mountTable({
+      coverage: {
+        match_type: 'League',
+        competitions: ['League'],
+        matches_counted: 190,
+        matches_vs_outside_table: 0,
+        teams_outside_table: 0,
+        shootout_points: [],
+      },
+    });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="shootout-note"]').exists()).toBe(false);
+  });
+
+  it('survives an API that predates the shootout field', async () => {
+    const { wrapper } = mountTable({
+      coverage: {
+        match_type: 'League',
+        competitions: ['League'],
+        matches_counted: 190,
+        matches_vs_outside_table: 0,
+        teams_outside_table: 0,
+      },
+    });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="shootout-note"]').exists()).toBe(false);
+  });
+
   it('uses singular wording for a single match and team', async () => {
     const { wrapper } = mountTable({
       coverage: {

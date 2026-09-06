@@ -49,6 +49,48 @@ A client rendering `qualifying` or `all` with a non-zero
 `matches_vs_outside_table` and no caption is presenting a record as a standing.
 `competitions` is `null` for `all` — every competition, not a list.
 
+## Points are a property of the competition
+
+Not every competition scores a level match the same way, and the combined
+views put two models in one table (SB-1027).
+
+| competition | level after regulation | points |
+|---|---|---|
+| Homegrown League | it is a draw | 1 each |
+| MLS NEXT Flex | penalty shootout | **winner 2, loser 1** |
+| Tournament | penalty shootout | 1 each — the shootout is knockout progression, not points |
+
+A regulation win is 3 everywhere. Sources: the 2026-27 Allstate Homegrown
+Division Rules and Regulations (section k, Standings: Win 3 / Tie 1 / Loss 0)
+for League, and the official 2026 MLS NEXT Flex group tables on mlssoccer.com
+(the modular11 embed) for Flex — every group reconciles with its match list
+only under the 3 / 2 / 1 model, e.g. U17 Group C: Orlando City 2W + 1 shootout
+win = 8, NEFC 2W + 1 shootout loss = 7, and U17 Group H: LA Galaxy 0W 3T with
+three shootout wins = 6. Production agrees on the League side: 216 level League
+matches in 2025-26, none with a shootout recorded.
+
+The rule lives on `match_types.shootout_points`, the same shape as
+`counts_for_qualification`: one flag on one row, joined onto every match the
+standings code reads. `calculate_standings` never looks at a competition's
+name, and never infers the rule from a shootout being present — a Tournament
+match records its shootout too. It reads the flag, and only then the
+`home_penalty_score` / `away_penalty_score` columns.
+
+Three consequences worth knowing:
+
+- **A shootout is still a draw in W / D / L.** The official Flex table files
+  it under T, and so does MT. The points column is where it shows, and the row
+  carries `shootout_wins` and `shootout_losses` so 1W 2D = 7 is explicable.
+  Shootout kicks are not goals; GF / GA are regulation only.
+- **Absent is not a loss.** A Flex match level after regulation with no
+  shootout recorded scores 1 each and charges nobody a shootout loss. Nobody
+  measured who won; the table does not guess.
+- **The combined `qualifying` view scores each match under its own rule** in
+  a single pass — a League 1-1 at 1 each beside a Flex 1-1 (4-2) at 2 and 1.
+  `coverage.shootout_points` lists which counted competitions score a
+  shootout, and `LeagueTable.vue` captions the table with it whenever the list
+  is non-empty. `mt competitions` shows the same flag.
+
 ## What "in this division" means
 
 **A match belongs to the division its own `division_id` names.** One rule, used
