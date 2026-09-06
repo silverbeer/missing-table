@@ -1645,8 +1645,12 @@ class MatchDAO(BaseDAO):
             *,
             home_team:teams!matches_home_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
             away_team:teams!matches_away_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
-            match_type:match_types(id, name, shootout_points)
+            match_type:match_types(*)
         """)
+        # match_types(*) rather than a column list on purpose: the standings
+        # code reads shootout_points (SB-1027) and treats a missing key as
+        # off, so a backend deployed before the migration lands still serves
+        # tables instead of a 400 on the column name.
 
         # Apply database-level filters
         if not include_test:
