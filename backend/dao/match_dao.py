@@ -346,6 +346,8 @@ class MatchDAO(BaseDAO):
         division_id: int | None = None,
         match_type_id: int | None = None,
         scheduled_kickoff: str | None = None,
+        home_penalty_score: int | None = None,
+        away_penalty_score: int | None = None,
     ) -> int | None:
         """Create a new match with pre-resolved IDs.
 
@@ -369,6 +371,9 @@ class MatchDAO(BaseDAO):
                 know, and passing None used to be the only option: this method
                 hardcoded League, which is how 68 Flex fixtures were created as
                 League matches (SB-846/SB-847).
+            home_penalty_score: Home shootout score, when a level match went to
+                penalties. MLS NEXT Flex fixtures cannot end level (SB-1020).
+            away_penalty_score: Away shootout score, same conditions.
 
         Returns:
             Created match ID, or None on failure
@@ -402,6 +407,13 @@ class MatchDAO(BaseDAO):
                 data["match_id"] = match_id
             if scheduled_kickoff:
                 data["scheduled_kickoff"] = scheduled_kickoff
+            # Both or neither, and only on a level score — the two CHECK
+            # constraints from 20260329000000_add_penalty_shootout_scores.sql.
+            # Sending one alone, or either on a decided match, fails the insert
+            # and loses the whole fixture rather than just the shootout.
+            if home_penalty_score is not None and away_penalty_score is not None:
+                data["home_penalty_score"] = home_penalty_score
+                data["away_penalty_score"] = away_penalty_score
 
             response = self.client.table("matches").insert(data).execute()
 

@@ -706,3 +706,66 @@ describe('MatchDetailView — Instagram share scoping', () => {
     expect(igButton(wrapper).exists()).toBe(false);
   });
 });
+
+describe('MatchDetailView — penalty shootout', () => {
+  // MLS NEXT Flex fixtures cannot end level: a regulation draw is decided on
+  // penalties, and showing 1-1 alone claims a draw the competition does not
+  // allow (SB-1020).
+  const shootout = (overrides = {}) =>
+    createCompletedMatch({
+      home_score: 1,
+      away_score: 1,
+      home_penalty_score: 4,
+      away_penalty_score: 2,
+      ...overrides,
+    });
+
+  beforeEach(() => {
+    mockAuthStore = createMockAuthStore();
+    vi.clearAllMocks();
+  });
+
+  const mountWith = async match => {
+    mockAuthStore.apiRequest = createMockApiRequestForMatch(match);
+    const wrapper = mountMatchDetailView();
+    await flushPromises();
+    return wrapper;
+  };
+
+  it('shows the shootout alongside the regulation score', async () => {
+    const wrapper = await mountWith(shootout());
+
+    const pens = wrapper.find('[data-testid="penalty-display"]');
+    expect(pens.exists()).toBe(true);
+    expect(pens.text()).toContain('4');
+    expect(pens.text()).toContain('2');
+    expect(pens.text()).toContain('pk');
+    expect(wrapper.find('[data-testid="home-score"]').text()).toBe('1');
+  });
+
+  it('shows nothing extra on a match that never went to penalties', async () => {
+    const wrapper = await mountWith(createCompletedMatch());
+
+    expect(wrapper.find('[data-testid="penalty-display"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('ignores half a shootout', async () => {
+    const wrapper = await mountWith(shootout({ away_penalty_score: null }));
+
+    expect(wrapper.find('[data-testid="penalty-display"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('shows no shootout on a match with no result yet', async () => {
+    const wrapper = await mountWith(
+      createMockMatch({ home_penalty_score: 4, away_penalty_score: 2 })
+    );
+
+    expect(wrapper.find('[data-testid="penalty-display"]').exists()).toBe(
+      false
+    );
+  });
+});

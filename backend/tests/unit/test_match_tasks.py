@@ -733,3 +733,88 @@ class TestIngestFilesTheSeasonTheMessageNames:
         _run(ingest, source=None)
 
         assert ingest._dao.create_match.call_args.kwargs["source"] == "match-scraper"
+
+
+class TestPenaltyShootout:
+    """MLS NEXT Flex fixtures cannot end level — a draw goes to penalties (SB-1020)."""
+
+    HOME_ID = 10
+    AWAY_ID = 20
+
+    def _existing(self, **kwargs):
+        base = {
+            "id": 42,
+            "match_status": "completed",
+            "home_score": 1,
+            "away_score": 1,
+            "scheduled_kickoff": None,
+            "home_team_id": self.HOME_ID,
+            "away_team_id": self.AWAY_ID,
+            "home_penalty_score": None,
+            "away_penalty_score": None,
+        }
+        base.update(kwargs)
+        return base
+
+    def _drawn(self, **kwargs):
+        base = {
+            "match_status": "completed",
+            "home_score": 1,
+            "away_score": 1,
+            "home_penalty_score": 4,
+            "away_penalty_score": 2,
+            "home_team": "Beachside of Connecticut",
+            "away_team": "Cedar Stars Academy Bergen",
+            "external_match_id": "26306",
+        }
+        base.update(kwargs)
+        return base
+
+    def test_a_shootout_is_read_from_the_message(self, task):
+        assert task._read_shootout(self._drawn()) == (4, 2)
+
+    def test_half_a_shootout_is_dropped(self, task):
+        """Both columns or neither — the DB's CHECK constraint says so."""
+        assert task._read_shootout(self._drawn(away_penalty_score=None)) == (None, None)
+
+    def test_a_shootout_on_a_decided_match_is_dropped(self, task):
+        """Penalties are only valid when regulation ended level."""
+        assert task._read_shootout(self._drawn(home_score=3, away_score=1)) == (None, None)
+
+    def test_an_unplayed_match_carries_no_shootout(self, task):
+        assert task._read_shootout(self._drawn(home_score=None, away_score=None)) == (None, None)
+
+    def test_a_message_with_no_penalties_is_quiet(self, task):
+        new_data = {"home_score": 2, "away_score": 1, "match_status": "completed"}
+        assert task._read_shootout(new_data) == (None, None)
+
+    def test_an_arriving_shootout_needs_an_update(self, task):
+        """Every Flex draw stored before this shipped has the right score and no
+        shootout. Without this the row reads as unchanged and is never fixed."""
+        existing = self._existing()
+        assert task._check_needs_update(existing, self._drawn(), self.HOME_ID, self.AWAY_ID) is True
+
+    def test_an_unchanged_shootout_needs_no_update(self, task):
+        existing = self._existing(home_penalty_score=4, away_penalty_score=2)
+        assert task._check_needs_update(existing, self._drawn(), self.HOME_ID, self.AWAY_ID) is False
+
+    def test_the_update_writes_both_columns(self, task):
+        task._update_match_scores(
+            self._existing(), self._drawn(), home_team_id=self.HOME_ID, away_team_id=self.AWAY_ID
+        )
+
+        payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert payload["home_penalty_score"] == 4
+        assert payload["away_penalty_score"] == 2
+
+    def test_the_update_omits_an_invalid_shootout(self, task):
+        task._update_match_scores(
+            self._existing(home_score=3, away_score=1),
+            self._drawn(home_score=3, away_score=1),
+            home_team_id=self.HOME_ID,
+            away_team_id=self.AWAY_ID,
+        )
+
+        payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert "home_penalty_score" not in payload
+        assert "away_penalty_score" not in payload

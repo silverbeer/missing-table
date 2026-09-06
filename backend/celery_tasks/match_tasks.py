@@ -193,6 +193,51 @@ class DatabaseTask(Task):
         return current_season["id"] if current_season else 1
 
     @staticmethod
+    def _read_shootout(match_data: dict[str, Any]) -> tuple[int | None, int | None]:
+        """The penalty shootout on the message, if it is one the DB will accept.
+
+        MLS NEXT Flex fixtures cannot end level — a regulation draw is decided
+        on penalties (SB-1019/SB-1020). The matches table has carried the pair
+        since the tournament work, under two CHECK constraints: both columns or
+        neither, and only when regulation ended level.
+
+        A message that breaks either is reported and its shootout dropped,
+        rather than raised: the alternative loses a real fixture over a field
+        that is decoration on the scoreline. The scraper filters both shapes
+        before sending, so anything arriving here came from somewhere else.
+        """
+        home_pens = match_data.get("home_penalty_score")
+        away_pens = match_data.get("away_penalty_score")
+        if home_pens is None and away_pens is None:
+            return None, None
+
+        label = (
+            f"{match_data.get('home_team')} vs {match_data.get('away_team')} "
+            f"({match_data.get('external_match_id')})"
+        )
+        if home_pens is None or away_pens is None:
+            logger.warning(
+                "Ignoring half a penalty shootout",
+                match=label,
+                home_penalty_score=home_pens,
+                away_penalty_score=away_pens,
+            )
+            return None, None
+
+        home_score = match_data.get("home_score")
+        away_score = match_data.get("away_score")
+        if home_score is None or away_score is None or home_score != away_score:
+            logger.warning(
+                "Ignoring a penalty shootout on a match that was not level",
+                match=label,
+                score=f"{home_score}-{away_score}",
+                shootout=f"{home_pens}-{away_pens}",
+            )
+            return None, None
+
+        return home_pens, away_pens
+
+    @staticmethod
     def _build_scheduled_kickoff(match_data: dict[str, Any]) -> str | None:
         """Combine match_date + match_time into a UTC ISO 8601 timestamp for scheduled_kickoff.
 
@@ -306,6 +351,20 @@ class DatabaseTask(Task):
                 )
                 return True
 
+        # Check the penalty shootout (SB-1020). Without this a fixture whose
+        # score was already right but whose shootout was missing — every Flex
+        # draw ingested before this shipped — reads as unchanged and is never
+        # corrected, the same trap SB-847 documented above.
+        new_pens = self._read_shootout(new_data)
+        if new_pens != (None, None):
+            existing_pens = (
+                existing_match.get("home_penalty_score"),
+                existing_match.get("away_penalty_score"),
+            )
+            if existing_pens != new_pens:
+                logger.debug(f"Penalty shootout changed: {existing_pens} → {new_pens}")
+                return True
+
         # Check if match_date changed (rescheduled match)
         existing_date = existing_match.get("match_date")
         new_date = new_data.get("match_date")
@@ -379,6 +438,12 @@ class DatabaseTask(Task):
                 update_data["home_score"] = new_data["home_score"]
             if new_data.get("away_score") is not None:
                 update_data["away_score"] = new_data["away_score"]
+
+            # Update the penalty shootout, both columns together (SB-1020).
+            home_pens, away_pens = self._read_shootout(new_data)
+            if home_pens is not None and away_pens is not None:
+                update_data["home_penalty_score"] = home_pens
+                update_data["away_penalty_score"] = away_pens
 
             # Update status if provided
             if new_data.get("match_status"):
@@ -682,6 +747,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             age_group_id_for_create = age_group_id or 1
 
             scheduled_kickoff = self._build_scheduled_kickoff(match_data)
+            home_pens, away_pens = self._read_shootout(match_data)
 
             match_id = self.dao.create_match(
                 home_team_id=home_team["id"],
@@ -699,6 +765,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 division_id=division_id,
                 match_type_id=match_type_id,
                 scheduled_kickoff=scheduled_kickoff,
+                home_penalty_score=home_pens,
+                away_penalty_score=away_pens,
             )
             if match_id:
                 result = {
