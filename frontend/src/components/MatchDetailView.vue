@@ -201,6 +201,19 @@
                       {{ match.away_score }}
                     </span>
                   </div>
+                  <!-- An MLS NEXT Flex fixture cannot end level: a draw is
+                       decided on penalties, and without this the page shows a
+                       drawn match that the competition says has a winner
+                       (SB-1020). -->
+                  <div
+                    v-if="hasShootout"
+                    class="text-center pt-1 text-sm lg:text-base font-semibold text-slate-300 tabular-nums"
+                    data-testid="penalty-display"
+                  >
+                    {{ match.home_penalty_score }}&thinsp;–&thinsp;{{
+                      match.away_penalty_score
+                    }}&nbsp;pk
+                  </div>
                   <div
                     v-else
                     class="text-center pt-4 lg:pt-5 px-2"
@@ -850,6 +863,17 @@ export default {
         match.value.away_score !== undefined
     );
 
+    // Shown only alongside a real result, and only as a pair: half a shootout
+    // is not a shootout, and the DB stores both columns or neither.
+    const hasShootout = computed(
+      () =>
+        hasResult.value &&
+        match.value.home_penalty_score !== null &&
+        match.value.home_penalty_score !== undefined &&
+        match.value.away_penalty_score !== null &&
+        match.value.away_penalty_score !== undefined
+    );
+
     // Kickoff takes the centre slot when there is no result. It is the thing
     // the preview is opened for, and it used to sit in a six-cell grid with
     // the same weight as "Season".
@@ -1360,6 +1384,7 @@ export default {
 
     return {
       hasResult,
+      hasShootout,
       kickoffClock,
       kickoffDayLabel,
       loading,
