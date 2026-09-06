@@ -159,6 +159,20 @@
       {{ coverageLabel }}
     </div>
 
+    <!--
+      Flex has no draws: a match level after regulation goes to penalties, and
+      the shootout is worth points (winner 2, loser 1). Which competitions do
+      that comes from the API, so a table showing 1W 2D = 7 can say why
+      (SB-1027).
+    -->
+    <div
+      v-if="!showBracket && shootoutCompetitions.length > 0"
+      class="mb-3 px-3 py-2 rounded-md bg-surface-alt text-fg-muted text-sm"
+      data-testid="shootout-note"
+    >
+      {{ shootoutLabel }}
+    </div>
+
     <div v-if="!showBracket" class="overflow-x-auto">
       <!-- Loading State -->
       <div
@@ -859,6 +873,19 @@ export default {
       () => coverage.value?.matches_vs_outside_table || 0
     );
 
+    const shootoutCompetitions = computed(
+      () => coverage.value?.shootout_points || []
+    );
+
+    const shootoutLabel = computed(() => {
+      const names = shootoutCompetitions.value.join(' + ');
+      if (!names) return '';
+      return (
+        `${names}: a match level after regulation goes to penalties. ` +
+        'Shootout winner 2 pts, loser 1. Counted as a draw in D.'
+      );
+    });
+
     const coverageLabel = computed(() => {
       const c = coverage.value;
       if (!c) return '';
@@ -1128,6 +1155,8 @@ export default {
       coverage,
       outsideTableMatches,
       coverageLabel,
+      shootoutCompetitions,
+      shootoutLabel,
       ageGroups,
       leagues,
       divisions,

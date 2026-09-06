@@ -29,6 +29,7 @@ from dao.standings import (
     filter_completed_matches,
     filter_matches_in_division,
     filter_matches_involving,
+    shootout_competitions,
     teams_in_division,
 )
 
@@ -1464,6 +1465,10 @@ class MatchDAO(BaseDAO):
             "matches_counted": len(matches),
             "matches_vs_outside_table": against_outsiders,
             "teams_outside_table": outsiders,
+            # Which of the counted competitions score a shootout (winner 2,
+            # loser 1). The reader needs this to see why 1W 2D is worth 7,
+            # and a combined table can hold both models at once (SB-1027).
+            "shootout_points": shootout_competitions(matches),
         }
 
     @dao_cache("matches:leagues_present:{season_id}:{include_test}")
@@ -1640,8 +1645,12 @@ class MatchDAO(BaseDAO):
             *,
             home_team:teams!matches_home_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
             away_team:teams!matches_away_team_id_fkey(id, name, division_id, club:clubs(id, name, logo_url)),
-            match_type:match_types(id, name)
+            match_type:match_types(*)
         """)
+        # match_types(*) rather than a column list on purpose: the standings
+        # code reads shootout_points (SB-1027) and treats a missing key as
+        # off, so a backend deployed before the migration lands still serves
+        # tables instead of a 400 on the column name.
 
         # Apply database-level filters
         if not include_test:

@@ -1579,15 +1579,19 @@ def competitions():
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Name", style="white")
     table.add_column("Qualifies", justify="center", style="green")
+    table.add_column("Shootout pts", justify="center", style="magenta")
 
     for t in types:
         table.add_row(
             str(t.get("id", "?")),
             str(t.get("name", "?")),
             "yes" if t.get("counts_for_qualification") else "",
+            "2 / 1" if t.get("shootout_points") else "",
         )
 
     console.print(table)
+    if any(t.get("shootout_points") for t in types):
+        console.print("[dim]Shootout pts: a match level after regulation goes to penalties; winner 2, loser 1.[/dim]")
     console.print(f"[dim]Also accepted by -c: '{QUALIFYING}' (every qualifying competition) and 'all'.[/dim]")
 
 

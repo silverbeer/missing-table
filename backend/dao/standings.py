@@ -11,6 +11,7 @@ unit tested independently.
 from collections import defaultdict
 from datetime import date
 from operator import itemgetter
+from typing import Any
 
 
 def filter_completed_matches(matches: list[dict]) -> list[dict]:
@@ -146,6 +147,49 @@ def count_outside_table_opponents(matches: list[dict], team_ids: set[int]) -> tu
     return count, len(outsiders)
 
 
+def awards_shootout_points(match: dict) -> bool:
+    """
+    Does this match's competition score a penalty shootout?
+
+    Read from `match_types.shootout_points`, joined onto the match — never
+    from the competition's name, and never from whether a shootout happens to
+    be recorded. Tournament matches record shootouts too, and there they are
+    knockout progression, not table points (SB-1027).
+    """
+    return bool((match.get("match_type") or {}).get("shootout_points"))
+
+
+def shootout_result(match: dict) -> str | None:
+    """
+    Which side won the shootout: "home", "away", or None.
+
+    None covers every case in which no shootout decided anything: the match
+    was not level after regulation, its competition does not score
+    shootouts, or the shootout scores are absent or themselves level. A Flex
+    match level after regulation with no shootout recorded is scored as a
+    plain draw — absent data is not a shootout loss for either side.
+    """
+    if not awards_shootout_points(match):
+        return None
+    if match.get("home_score") != match.get("away_score"):
+        return None
+    home_pens = match.get("home_penalty_score")
+    away_pens = match.get("away_penalty_score")
+    if home_pens is None or away_pens is None or home_pens == away_pens:
+        return None
+    return "home" if home_pens > away_pens else "away"
+
+
+def shootout_competitions(matches: list[dict]) -> list[str]:
+    """The competitions among these matches whose shootouts are worth points."""
+    names: set[str] = set()
+    for m in matches:
+        name = (m.get("match_type") or {}).get("name")
+        if name and awards_shootout_points(m):
+            names.add(name)
+    return sorted(names)
+
+
 def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = None) -> list[dict]:
     """
     Calculate league standings from a list of completed matches.
@@ -160,6 +204,8 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
             - away_team: dict with "name" key
             - home_score: int or None
             - away_score: int or None
+            - match_type: dict with "name" and "shootout_points" keys
+            - home_penalty_score / away_penalty_score: int or None
 
     Returns:
         List of team standings sorted by:
@@ -170,18 +216,25 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
         Each standing contains:
         - team: Team name
         - played: Matches played
-        - wins: Number of wins
-        - draws: Number of draws
-        - losses: Number of losses
-        - goals_for: Goals scored
+        - wins: Regulation wins
+        - draws: Matches level after regulation, shootout or not
+        - losses: Regulation losses
+        - shootout_wins / shootout_losses: how many of the draws were
+          settled on penalties, and which way — the reader's way of seeing
+          why 1W 2D can be worth 7
+        - goals_for: Goals scored (regulation only; shootout kicks are not goals)
         - goals_against: Goals conceded
         - goal_difference: goals_for - goals_against
-        - points: Total points (3 for win, 1 for draw)
+        - points: Total points
 
     Business Rules:
         - Win = 3 points
-        - Draw = 1 point for each team
         - Loss = 0 points
+        - Draw = 1 point each — unless the competition scores shootouts
+          (`match_types.shootout_points`, MLS NEXT Flex), in which case the
+          shootout winner takes 2 and the loser 1. The rule belongs to the
+          competition, not the match, so a combined table can hold a League
+          draw at 1-1 and a Flex shootout at 2-1 side by side (SB-1027).
         - Matches without scores are skipped
 
     only_team_ids restricts which teams get a *row*, without discarding the
@@ -190,12 +243,14 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
     division, and that opponent must not appear as a row — it has not played
     the rest of the table (SB-834). None means every team gets a row.
     """
-    standings = defaultdict(
+    standings: dict[str, dict[str, Any]] = defaultdict(
         lambda: {
             "played": 0,
             "wins": 0,
             "draws": 0,
             "losses": 0,
+            "shootout_wins": 0,
+            "shootout_losses": 0,
             "goals_for": 0,
             "goals_against": 0,
             "goal_difference": 0,
@@ -206,8 +261,11 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
         }
     )
 
-    def record(team: dict, goals_for: int, goals_against: int) -> None:
-        """Fold one team's side of one result into its row."""
+    def record(team: dict, goals_for: int, goals_against: int, shootout: str | None) -> None:
+        """Fold one team's side of one result into its row.
+
+        `shootout` is "won", "lost" or None for this side.
+        """
         row = standings[team["name"]]
 
         if row["team_id"] is None:
@@ -228,6 +286,14 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
             row["points"] += 3
         elif goals_for < goals_against:
             row["losses"] += 1
+        elif shootout == "won":
+            row["draws"] += 1
+            row["shootout_wins"] += 1
+            row["points"] += 2
+        elif shootout == "lost":
+            row["draws"] += 1
+            row["shootout_losses"] += 1
+            row["points"] += 1
         else:
             row["draws"] += 1
             row["points"] += 1
@@ -245,10 +311,17 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
         if home_score is None or away_score is None:
             continue
 
+        winner = shootout_result(match)
+        home_shootout = away_shootout = None
+        if winner == "home":
+            home_shootout, away_shootout = "won", "lost"
+        elif winner == "away":
+            home_shootout, away_shootout = "lost", "won"
+
         if in_table(home):
-            record(home, home_score, away_score)
+            record(home, home_score, away_score, home_shootout)
         if in_table(away):
-            record(away, away_score, home_score)
+            record(away, away_score, home_score, away_shootout)
 
     # Convert to list and calculate goal difference
     table = []
