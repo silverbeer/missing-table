@@ -187,6 +187,11 @@ class MatchDAO(BaseDAO):
                     "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
+                    # A Flex draw is decided on penalties, and the pair is stored;
+                    # leaving it out of the flatten is why the page showed a draw
+                    # and why the ingest re-wrote it every run (SB-1026).
+                    "home_penalty_score": match.get("home_penalty_score"),
+                    "away_penalty_score": match.get("away_penalty_score"),
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
@@ -265,6 +270,11 @@ class MatchDAO(BaseDAO):
                     "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
+                    # A Flex draw is decided on penalties, and the pair is stored;
+                    # leaving it out of the flatten is why the page showed a draw
+                    # and why the ingest re-wrote it every run (SB-1026).
+                    "home_penalty_score": match.get("home_penalty_score"),
+                    "away_penalty_score": match.get("away_penalty_score"),
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
@@ -506,6 +516,11 @@ class MatchDAO(BaseDAO):
                     "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
+                    # A Flex draw is decided on penalties, and the pair is stored;
+                    # leaving it out of the flatten is why the page showed a draw
+                    # and why the ingest re-wrote it every run (SB-1026).
+                    "home_penalty_score": match.get("home_penalty_score"),
+                    "away_penalty_score": match.get("away_penalty_score"),
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
@@ -775,6 +790,11 @@ class MatchDAO(BaseDAO):
                     "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
+                    # A Flex draw is decided on penalties, and the pair is stored;
+                    # leaving it out of the flatten is why the page showed a draw
+                    # and why the ingest re-wrote it every run (SB-1026).
+                    "home_penalty_score": match.get("home_penalty_score"),
+                    "away_penalty_score": match.get("away_penalty_score"),
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
@@ -845,6 +865,11 @@ class MatchDAO(BaseDAO):
                 "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
                 "home_score": match["home_score"],
                 "away_score": match["away_score"],
+                # A Flex draw is decided on penalties, and the pair is stored;
+                # leaving it out of the flatten is why the page showed a draw
+                # and why the ingest re-wrote it every run (SB-1026).
+                "home_penalty_score": match.get("home_penalty_score"),
+                "away_penalty_score": match.get("away_penalty_score"),
                 "season_id": match["season_id"],
                 "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                 "season_start_date": match["season"].get("start_date") if match.get("season") else None,
@@ -1261,6 +1286,11 @@ class MatchDAO(BaseDAO):
                     "away_team_league_name": away_team_league.get("name"),
                     "home_score": match["home_score"],
                     "away_score": match["away_score"],
+                    # A Flex draw is decided on penalties, and the pair is stored;
+                    # leaving it out of the flatten is why the page showed a draw
+                    # and why the ingest re-wrote it every run (SB-1026).
+                    "home_penalty_score": match.get("home_penalty_score"),
+                    "away_penalty_score": match.get("away_penalty_score"),
                     "season_id": match["season_id"],
                     "season_name": match["season"]["name"] if match.get("season") else "Unknown",
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
@@ -1675,6 +1705,11 @@ class MatchDAO(BaseDAO):
                         "match_date": match["match_date"],
                         "home_score": match["home_score"],
                         "away_score": match["away_score"],
+                        # A Flex draw is decided on penalties, and the pair is stored;
+                        # leaving it out of the flatten is why the page showed a draw
+                        # and why the ingest re-wrote it every run (SB-1026).
+                        "home_penalty_score": match.get("home_penalty_score"),
+                        "away_penalty_score": match.get("away_penalty_score"),
                         "kickoff_time": match.get("kickoff_time"),
                         "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
                         "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
@@ -1743,6 +1778,11 @@ class MatchDAO(BaseDAO):
                 "scheduled_kickoff": match.get("scheduled_kickoff"),
                 "home_score": match["home_score"],
                 "away_score": match["away_score"],
+                # A Flex draw is decided on penalties, and the pair is stored;
+                # leaving it out of the flatten is why the page showed a draw
+                # and why the ingest re-wrote it every run (SB-1026).
+                "home_penalty_score": match.get("home_penalty_score"),
+                "away_penalty_score": match.get("away_penalty_score"),
                 "kickoff_time": match.get("kickoff_time"),
                 "halftime_start": match.get("halftime_start"),
                 "second_half_start": match.get("second_half_start"),
