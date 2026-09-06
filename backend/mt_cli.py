@@ -1418,6 +1418,79 @@ def team_matches(
     console.print("[dim]Only live, completed and forfeit matches count towards season stats (SB-671).[/dim]")
 
 
+@app.command("coverage")
+def coverage(
+    season_id: int = typer.Option(None, "--season", help="Season id (default: current)"),
+    all_rows: bool = typer.Option(False, "--all", help="Every row, not just the gaps"),
+):
+    """Are we tracking everything? Expected conferences vs fixtures that arrived.
+
+    Every other view of competitions is built from fixtures that showed up, so
+    none of them can report a conference that sent nothing. This one can.
+    """
+    client, _ = get_client()
+    payload = _api(client.get_competition_coverage, season_id=season_id)
+
+    if not payload.get("available", True):
+        console.print("[red]Coverage could not be read.[/red]")
+        raise typer.Exit(1)
+
+    summary = payload.get("summary") or {}
+    rows = payload.get("rows") or []
+
+    table = Table(title="Competition coverage")
+    table.add_column("League", style="cyan")
+    table.add_column("Conference", style="white")
+    table.add_column("Age", style="dim", no_wrap=True)
+    table.add_column("Fixtures", justify="right")
+    table.add_column("Teams", justify="right", style="dim")
+    table.add_column("Status")
+
+    # Undeclared rows are real fixtures in a league nobody wrote expectations
+    # for. They are context, not a finding, so they stay out of the default
+    # view — the gaps are what this command is for.
+    interesting = {"empty", "unexpected"}
+    shown = rows if all_rows else [r for r in rows if r.get("status") in interesting]
+    for row in shown:
+        status = row.get("status")
+        colour = {
+            "empty": "red",
+            "unexpected": "yellow",
+            "undeclared": "dim",
+        }.get(status, "green")
+        table.add_row(
+            str(row.get("league_name") or "?"),
+            str(row.get("division_name") or "?"),
+            str(row.get("age_group_name") or "?"),
+            str(row.get("fixtures", 0)),
+            str(row.get("teams_registered", 0)),
+            f"[{colour}]{status}[/{colour}]",
+        )
+
+    if shown:
+        console.print(table)
+    else:
+        console.print("[green]Every expected conference has fixtures.[/green]")
+
+    # The denominator ships with the figure — a coverage percentage without
+    # one is the aggregate CLAUDE.md rule 3 forbids.
+    console.print(
+        f"[dim]{summary.get('covered', 0)} of {summary.get('expected', 0)} expected "
+        f"brackets covered · {summary.get('empty', 0)} empty · "
+        f"{summary.get('unexpected', 0)} unexpected[/dim]"
+    )
+
+    # A league nobody wrote expectations for is not the same as a league with
+    # full coverage, and the report must not let the two look alike.
+    undeclared = [lg for lg in (payload.get("leagues") or []) if not lg.get("declared")]
+    for lg in undeclared:
+        console.print(
+            f"[yellow]{lg['league']}[/yellow][dim]: no expected coverage on file — "
+            f"{lg.get('divisions', 0)} division(s) present, so this report cannot say "
+            "whether anything is missing.[/dim]"
+        )
+
+
 @ingest_app.command("failures")
 def ingest_failures(
     since: str = typer.Option(None, "--since", help="ISO timestamp; only names seen since then"),

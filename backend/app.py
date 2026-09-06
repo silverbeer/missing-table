@@ -97,6 +97,7 @@ DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
 
 from dao.audit_dao import AuditDAO
 from dao.club_dao import ClubDAO
+from dao.coverage_dao import CoverageDAO
 from dao.exceptions import DuplicateRecordError
 from dao.ingest_failures_dao import IngestFailuresDAO
 from dao.league_dao import LeagueDAO
@@ -239,6 +240,7 @@ audit_dao = AuditDAO(db_conn_holder_obj)
 tournament_dao = TournamentDAO(db_conn_holder_obj)
 ingest_failures_dao = IngestFailuresDAO(db_conn_holder_obj)
 motw_dao = MotwDAO(db_conn_holder_obj)
+coverage_dao = CoverageDAO(db_conn_holder_obj)
 
 # Competitions whose standings are grouped by division (SB-833).
 #
@@ -8231,6 +8233,37 @@ async def get_match_of_the_week(
     except Exception as e:
         logger.error(f"Error reading match of the week: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not read match of the week") from e
+
+
+@app.get("/api/admin/coverage")
+async def get_competition_coverage(
+    season_id: int | None = None,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Which conferences MT is actually receiving fixtures for (SB-1021).
+
+    Every other "what competitions exist" endpoint derives from fixtures that
+    arrived, so none of them can report a conference that sent nothing. This
+    one diffs `division_age_groups` — what the league is expected to run —
+    against what landed.
+
+    `empty` rows are the finding: a conference the league runs that MT has no
+    fixtures for. `unexpected` rows are the other direction, fixtures arriving
+    for a combination nobody declared.
+
+    A league with `declared: false` has no expectations on file at all, which
+    is reported as such rather than as full coverage.
+    """
+    try:
+        target = season_id or season_dao.get_current_season_id()
+        if target is None:
+            raise HTTPException(status_code=400, detail="No current season is set")
+        return coverage_dao.report(target)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reading competition coverage: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not read competition coverage") from e
 
 
 @app.post("/api/admin/motw")
