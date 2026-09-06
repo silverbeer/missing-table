@@ -189,3 +189,46 @@ invalidation is needed.
 
 `include_test` is part of the key on purpose: a test match must not move a real
 team's points, so the two audiences never share a computed table (SB-591).
+
+## What MT is supposed to be tracking
+
+Everything above answers *what is here*. `get_competitions_present`,
+`get_leagues_present` and `/api/match-types/available` are all derived from
+fixtures that arrived, which makes them structurally incapable of reporting a
+conference that arrived nothing — absence produces no row to count.
+
+That blind spot cost a season. On 2026-09-06 MT held fixtures for 13 of 13 Flex
+conferences and 4 of 4 Pro Player Pathway divisions, and **8 of the 48
+Homegrown League brackets** the competition actually runs. Six conferences and
+four Homegrown Florida age groups had sent nothing at all, and no view in the
+product could say so.
+
+`division_age_groups` is the other half: one row per (conference, age group,
+season) the league is expected to run, seeded from the published competition
+structure rather than inferred from what MT holds. `competition_coverage()`
+FULL OUTER JOINs it against arriving fixtures, and `CoverageDAO` labels each
+bracket:
+
+| status | meaning |
+|---|---|
+| `covered` | expected, and fixtures arrived |
+| `empty` | expected, and nothing arrived — the finding |
+| `unexpected` | fixtures for a bracket nobody declared, in a league that *has* expectations — the feed changed shape |
+| `undeclared` | fixtures in a league with no expectations on file at all |
+
+The last two are kept apart deliberately. MT holds real Academy Division
+fixtures and no statement of what that division runs, so calling them
+`unexpected` would raise an alarm about correct data. A league reports
+`declared: false` rather than being counted as fully covered — that distinction
+is the report refusing to lie by omission.
+
+The unit is a **bracket**, not a conference. Homegrown Florida has fixtures at
+U13/U14 and none at U15-U19; counting by conference would call it covered and
+hide four missing brackets.
+
+Read it with `mt coverage`, or `GET /api/admin/coverage`.
+
+Note the word "coverage" now means two different things, and they do not
+overlap: the `coverage` block on `/api/table` is about *one table* mixing
+matches against teams outside it, while this is about *whole competitions*
+sending nothing.

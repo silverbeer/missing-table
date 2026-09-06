@@ -75,3 +75,53 @@ INSERT INTO public.divisions (id, name, description, league_id) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('public.divisions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM public.divisions));
+
+-- Competition coverage reference data (SB-1021)
+-- ---------------------------------------------------------------------------
+-- The six Homegrown conferences beyond Northeast and Florida, plus the
+-- statement of which age groups each conference runs. Production gets these
+-- from the 20260906 migrations; seed carries them too because seed runs AFTER
+-- migrations on a fresh reset, and `DELETE FROM public.seasons` above cascades
+-- away any division_age_groups rows the migration created.
+--
+-- Everything below resolves by name and is idempotent, so it is a no-op in any
+-- environment that already has the rows.
+--
+-- KNOWN LIMITATION: on a completely fresh `db reset` these inserts can seed
+-- nothing, because reference data created by migrations into empty tables
+-- claims the explicit ids this file expects (a Flex match type inserted at id
+-- 1 makes the `(1, 'League')` insert above a no-op). That collision predates
+-- this work and is tracked separately — every real environment is restored
+-- from production, where the reference rows are correct.
+INSERT INTO public.divisions (name, description, league_id)
+SELECT v.name, v.description, l.id
+FROM (VALUES
+    ('Mid-Atlantic', 'MLS NEXT Homegrown Division - Mid-Atlantic Conference'),
+    ('Southeast',    'MLS NEXT Homegrown Division - Southeast Conference'),
+    ('Mid-America',  'MLS NEXT Homegrown Division - Mid-America Conference'),
+    ('Frontier',     'MLS NEXT Homegrown Division - Frontier Conference'),
+    ('Southwest',    'MLS NEXT Homegrown Division - Southwest Conference'),
+    ('Northwest',    'MLS NEXT Homegrown Division - Northwest Conference')
+) AS v(name, description)
+CROSS JOIN public.leagues l
+WHERE l.name = 'Homegrown'
+ON CONFLICT (name, league_id) DO NOTHING;
+
+-- Homegrown League conferences run U13-U19; Pro Player Pathway U16/U17/U19;
+-- Flex U15-U19. Read off the 2026-27 competition structure, not inferred from
+-- what MT happens to hold.
+INSERT INTO public.division_age_groups (division_id, age_group_id, season_id)
+SELECT d.id, ag.id, s.id
+FROM public.divisions d
+JOIN public.leagues l ON l.id = d.league_id
+CROSS JOIN public.age_groups ag
+CROSS JOIN public.seasons s
+WHERE s.name = '2026-2027'
+  AND (
+        (l.name = 'Homegrown' AND d.name NOT LIKE '%(Pro Player Pathway)%'
+            AND ag.name IN ('U13', 'U14', 'U15', 'U16', 'U17', 'U19'))
+     OR (l.name = 'Homegrown' AND d.name LIKE '%(Pro Player Pathway)%'
+            AND ag.name IN ('U16', 'U17', 'U19'))
+     OR (l.name = 'Flex' AND ag.name IN ('U15', 'U16', 'U17', 'U19'))
+  )
+ON CONFLICT ON CONSTRAINT division_age_groups_unique DO NOTHING;

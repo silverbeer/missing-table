@@ -494,6 +494,44 @@ class TestIngestCompetitionResolution:
         assert ingest._ingest_failures_dao.record.call_args.args[1] == "MLS NEXT Reserve"
 
 
+class TestIngestDivisionScoping:
+    """SB-1021: the one way a suddenly-broader feed could still land nothing.
+
+    Six of the eight Homegrown League conferences sent no fixtures for a whole
+    season. If that is fixed upstream, four of the names arriving — Florida,
+    Frontier, Northwest, Southeast — exist in BOTH Homegrown and Flex. They
+    only resolve because the feed's league name resolves first and scopes the
+    lookup. Lose the league and the division is ambiguous, and an ambiguous
+    division is a hard failure, not a guess.
+    """
+
+    def test_the_division_lookup_is_scoped_to_the_feed_league(self, ingest):
+        _run(ingest)
+        assert ingest._league_dao.get_division_by_name.call_args.kwargs["league_id"] == 1
+
+    def test_an_ambiguous_division_fails_rather_than_landing_in_the_wrong_table(
+        self, ingest
+    ):
+        # get_division_by_name returns None when it cannot tell two leagues'
+        # divisions apart. A Flex fixture filed into a Homegrown table would
+        # be invisible as a defect; an ingest failure is not.
+        ingest._league_dao.get_league_by_name.return_value = None
+        ingest._league_dao.get_division_by_name.return_value = None
+
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest, league="MLS NEXT Flex", division="Southeast")
+        ingest._dao.create_match.assert_not_called()
+
+    def test_that_failure_is_recorded_as_a_division(self, ingest):
+        ingest._league_dao.get_division_by_name.return_value = None
+
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest, division="Southeast")
+        assert ingest._ingest_failures_dao.record.call_args.args[0] == "division"
+        assert ingest._ingest_failures_dao.record.call_args.args[1] == "Southeast"
+
+
+
 class TestIngestCorrectsAnExistingMatch:
     """The observed failure, end to end: re-submit a Flex fixture filed as League."""
 

@@ -1471,6 +1471,16 @@ class MissingTableClient:
         )
         return response.json()
 
+    # Competition coverage
+
+    def get_competition_coverage(self, season_id: int | None = None) -> dict[str, Any]:
+        """Which conferences MT is actually receiving fixtures for (admin only)."""
+        params: dict[str, Any] = {}
+        if season_id:
+            params["season_id"] = season_id
+        response = self._request("GET", "/api/admin/coverage", params=params)
+        return response.json()
+
     # Cache management
 
     def get_cache_stats(self) -> dict[str, Any]:
