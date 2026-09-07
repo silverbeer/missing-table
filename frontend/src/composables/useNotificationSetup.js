@@ -24,6 +24,7 @@ import { ref, computed } from 'vue';
 import { usePushNotifications } from './usePushNotifications';
 import { useTeamFollows } from './useTeamFollows';
 import { isIosNonStandalone, isIos, isStandalone } from '../utils/pwa';
+import { useInstallPrompt } from './useInstallPrompt';
 
 // Bumped whenever the guide's content changes enough that a previously
 // dismissed user deserves to see it again.
@@ -83,6 +84,7 @@ export function closeSetupGuide() {
 
 export function useNotificationSetup() {
   const { isEnabled, isBlocked, isSupported } = usePushNotifications();
+  const { canInstall } = useInstallPrompt();
   // followedTeamIds rather than follows: it updates optimistically on follow,
   // while `follows` waits for the background refetch. Using the slower one
   // makes the guide claim "follow a team" to someone who just did.
@@ -136,6 +138,17 @@ export function useNotificationSetup() {
         // Only iOS forces this, and only because Apple gives web pages no
         // install API — so the guide has to teach it by hand.
         required: true,
+      });
+    } else if (canInstall.value) {
+      // Android and desktop can install too, but push works fine in a tab
+      // there — so this is an offer, not a prerequisite. Listing it as
+      // required would invent a barrier Google doesn't impose and make setup
+      // look longer than it is (SB-813).
+      list.push({
+        key: 'install',
+        label: 'Add Missing Table to your home screen (optional)',
+        done: isStandalone(),
+        required: false,
       });
     }
     list.push({
@@ -197,6 +210,9 @@ export function useNotificationSetup() {
     needsEnable,
     needsFollow,
     isUnsupported,
+    // Never folded into currentStep or isComplete: outside iOS, installing is
+    // optional and must not gate "you're all set".
+    canInstall,
     shouldPromptUnprompted,
     promptDismissed: computed(() => wasPromptDismissed()),
     ensureFollowsLoaded: ensureLoaded,

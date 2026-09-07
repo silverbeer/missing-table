@@ -37,6 +37,7 @@
             :class="{
               'is-done': step.done,
               'is-current': !step.done && step.key === currentStep,
+              'is-optional-step': !step.required && !step.done,
             }"
             :data-testid="`setup-step-${step.key}`"
           >
@@ -45,6 +46,11 @@
             </span>
             <span class="setup-step-label">{{ step.label }}</span>
             <span v-if="step.done" class="setup-step-state">Done</span>
+            <span
+              v-else-if="!step.required"
+              class="setup-step-state is-optional"
+              >Optional</span
+            >
           </li>
         </ol>
 
@@ -173,6 +179,32 @@
           </p>
         </section>
 
+        <!-- Native install offer. Chromium hands us a real one-tap prompt, so
+             outside iOS there is nothing to teach — just a button. Shown
+             alongside whatever step the user is on, never as a gate: push
+             already works in a tab here (SB-813). -->
+        <section
+          v-if="canInstall"
+          class="setup-install-offer"
+          data-testid="setup-native-install"
+        >
+          <div class="setup-install-copy">
+            <strong>Put it on your home screen</strong>
+            <span>
+              Optional — notifications work either way. It just saves hunting
+              for a tab on match day.
+            </span>
+          </div>
+          <button
+            class="setup-install-button"
+            :disabled="prompting"
+            data-testid="setup-native-install-button"
+            @click="onInstall"
+          >
+            {{ prompting ? 'Installing…' : 'Install' }}
+          </button>
+        </section>
+
         <footer class="setup-footer">
           <button
             class="setup-secondary"
@@ -192,6 +224,7 @@ import { computed, watch } from 'vue';
 import { useNotificationSetup } from '../../composables/useNotificationSetup';
 import { usePushNotifications } from '../../composables/usePushNotifications';
 import { getInstallSteps } from '../../utils/pwa';
+import { useInstallPrompt } from '../../composables/useInstallPrompt';
 
 const {
   guideOpen,
@@ -199,10 +232,13 @@ const {
   steps,
   currentStep,
   isComplete,
+  canInstall,
   close,
   dismissPrompt,
   ensureFollowsLoaded,
 } = useNotificationSetup();
+
+const { prompting, promptInstall } = useInstallPrompt();
 
 const { enable, loading, lastError, listSubscriptions } =
   usePushNotifications();
@@ -234,6 +270,10 @@ async function onEnable() {
     // flag, so the checklist can't tick a step the server didn't record (SB-52).
     await listSubscriptions();
   }
+}
+
+async function onInstall() {
+  await promptInstall();
 }
 
 function onClose() {
@@ -466,6 +506,63 @@ watch(guideOpen, open => {
   margin: 10px 0 0;
   font-size: 13px;
   color: rgb(220, 38, 38);
+}
+
+.setup-step-state.is-optional {
+  color: rgb(var(--color-fg-muted));
+}
+
+.setup-step.is-optional-step .setup-step-marker {
+  background: transparent;
+  border: 1px dashed rgb(var(--color-line));
+  color: rgb(var(--color-fg-muted));
+}
+
+.setup-install-offer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 13px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 12px;
+}
+
+.setup-install-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.setup-install-copy strong {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.setup-install-copy span {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgb(var(--color-fg-muted));
+}
+
+.setup-install-button {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: #1e40af;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.setup-install-button:disabled {
+  opacity: 0.65;
+  cursor: progress;
 }
 
 .setup-footer {

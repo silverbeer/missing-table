@@ -1,6 +1,6 @@
 # Notification Setup Guide
 
-**Status:** Shipped (SB-810) | **Entry points:** install banner, Follow button, Profile → Notifications, first login
+**Status:** Shipped (SB-810, SB-813) | **Entry points:** install banner, Follow button, Profile → Notifications, first login
 
 Guides a user — especially on iPhone — from "logged in" to "a push actually arrives on my phone".
 
@@ -84,7 +84,37 @@ Being wrong here means pestering someone on every visit, which is worse than the
 | `__tests__/components/InstallBanner.spec.js` | shows on all iOS browsers, real action button, shared dismissal |
 | `__tests__/components/NotificationSetupGuide.spec.js` | correct step detail, per-browser copy, backend re-read after enable |
 | `__tests__/components/FollowButton.alerts.spec.js` | the honesty chip, first-follow-only prompt, no prompt on unfollow or failure |
+| `__tests__/composables/useInstallPrompt.spec.js` | event capture, infobar suppression, single-use enforcement, `appinstalled` |
+| `__tests__/components/InstallBanner.android.spec.js` | native vs instructional mode, no false "install required" claim, desktop exclusion |
 
-## Not covered
+## Android and desktop (SB-813)
 
-**Android / desktop Chrome `beforeinstallprompt`.** There a genuine one-tap install button is possible and MT implements none — Android users currently get no install prompt at all. Separate ticket.
+The mirror image of the iOS problem. There, no install API exists and we hand-write instructions. Here, Chromium fires `beforeinstallprompt` and hands us a working one — MT just never used it, so Android users got no install offer at all.
+
+`frontend/src/composables/useInstallPrompt.js` captures the event, suppresses Chrome's own mini-infobar, and stashes it for replay on a user gesture. Two constraints from the API shape the code:
+
+- **`prompt()` requires a user gesture**, so the event is stored rather than fired on arrival.
+- **Each event is single-use.** It's discarded *before* awaiting `userChoice`, so a double-tap can't replay a spent event.
+
+Listeners attach at module load and `main.js` imports the module directly, because the event fires early in page life and is offered once — a listener registered after mount can miss it.
+
+### Install is optional here, and the UI has to say so
+
+Push works in a normal Chrome tab on Android. Presenting install as a prerequisite would invent a barrier Google doesn't impose and make setup look longer than it is.
+
+So outside iOS the install step is marked `required: false`, labelled "(optional)", and **never folded into `currentStep` or `isComplete`** — a user with notifications on and a team followed is "all set" whether or not they installed. The guide's install offer says outright that notifications work either way.
+
+The pitch differs accordingly:
+
+| | iPhone | Android |
+|---|---|---|
+| Banner headline | "Want live match alerts?" | "Add Missing Table to your phone" |
+| Why install | It's the only way to get notifications | The home-screen icon itself |
+| Button | "Show me how" → instructions | "Install" → native prompt |
+| Checklist | 3 steps, install required | 2 steps + optional install |
+
+The banner's native path is gated to touch devices. Chromium offers the event on desktop too, but a fixed bottom banner on a laptop is noise — the guide still carries the offer there.
+
+### Push payloads are identical
+
+`backend/notifications/web_push_sender.py` has no platform branching. Same VAPID Web Push, same payload, every device. Only the *setup instructions* differ.
