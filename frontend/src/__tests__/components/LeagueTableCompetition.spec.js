@@ -44,6 +44,7 @@ const NORTHEAST_COMPETITIONS = [
     id: 1,
     name: 'League',
     counts_for_qualification: true,
+    has_standings: true,
     display_order: 1,
     matches: 190,
     played: 42,
@@ -53,6 +54,7 @@ const NORTHEAST_COMPETITIONS = [
     id: 5,
     name: 'Flex',
     counts_for_qualification: true,
+    has_standings: true,
     display_order: 2,
     matches: 6,
     played: 1,
@@ -67,6 +69,7 @@ const TURNPIKE_COMPETITIONS = [
     id: 5,
     name: 'Flex',
     counts_for_qualification: true,
+    has_standings: true,
     display_order: 2,
     matches: 31,
     played: 4,
@@ -539,6 +542,79 @@ describe('LeagueTable league order', () => {
       'Flex',
       'Academy',
       'TSC League 1',
+    ]);
+  });
+});
+
+describe('LeagueTable competition row offers only competitions with a table', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const WITH_EXTRAS = [
+    ...NORTHEAST_COMPETITIONS,
+    {
+      id: 2,
+      name: 'Tournament',
+      counts_for_qualification: false,
+      has_standings: false,
+      display_order: 3,
+      matches: 12,
+      played: 8,
+      in_division: 0,
+    },
+    {
+      id: 3,
+      name: 'Friendly',
+      counts_for_qualification: false,
+      has_standings: false,
+      display_order: 4,
+      matches: 4,
+      played: 4,
+      in_division: 0,
+    },
+  ];
+
+  const chipLabels = wrapper =>
+    wrapper
+      .findAll('button[data-testid^="competition-"]')
+      .map(b => b.text().trim());
+
+  it('hides Tournament and Friendly even though they are played here', async () => {
+    // A friendly table is nonsense and a tournament table across every
+    // tournament in a division is meaningless — the Tournaments tab has the
+    // real ones (SB-1037).
+    const { wrapper } = mountTable({ competitions: WITH_EXTRAS });
+    await flushPromises();
+    expect(chipLabels(wrapper)).toEqual(['League', 'Flex', 'League + Flex']);
+  });
+
+  it('labels the combined chip with what it combines', async () => {
+    const { wrapper } = mountTable();
+    await flushPromises();
+    const chip = wrapper.find('[data-testid="competition-qualifying"]');
+    expect(chip.text()).toBe('League + Flex');
+    expect(chip.attributes('title')).toContain('League + Flex');
+    expect(chip.attributes('title')).toContain('not a standing');
+    // The value the API understands is unchanged.
+    await chip.trigger('click');
+    await flushPromises();
+  });
+
+  it('still offers everything when the API predates the flag', async () => {
+    // has_standings absent, not false. Hiding every competition on a missing
+    // field would be the worse failure.
+    const legacy = WITH_EXTRAS.map(c => {
+      const copy = { ...c };
+      delete copy.has_standings;
+      return copy;
+    });
+    const { wrapper } = mountTable({ competitions: legacy });
+    await flushPromises();
+    expect(chipLabels(wrapper)).toEqual([
+      'League',
+      'Flex',
+      'League + Flex',
+      'Tournament',
+      'Friendly',
     ]);
   });
 });

@@ -145,8 +145,8 @@ GET /api/match-types/available?season_id=&age_group_id=&division_id=
 
 ```json
 [
-  {"id": 1, "name": "League", "counts_for_qualification": true, "display_order": 1, "matches": 190, "played": 42, "in_division": 190},
-  {"id": 5, "name": "Flex",   "counts_for_qualification": true, "display_order": 2, "matches": 68,  "played": 6,  "in_division": 0}
+  {"id": 1, "name": "League", "counts_for_qualification": true, "has_standings": true, "display_order": 1, "matches": 190, "played": 42, "in_division": 190},
+  {"id": 5, "name": "Flex",   "counts_for_qualification": true, "has_standings": true, "display_order": 2, "matches": 68,  "played": 6,  "in_division": 0}
 ]
 ```
 
@@ -242,10 +242,25 @@ through the same way; there is nothing to show there.
 
 ## The league table's competition control
 
-`LeagueTable.vue` builds its Competition row from this endpoint. It opens on
-the competition with `in_division > 0`, offers a **Qualifying** chip only when
-more than one flagged competition is present (with one it would restate the
-chip beside it), and hides the control entirely when there is only one.
+`LeagueTable.vue` builds its Competition row from this endpoint. It offers
+only the competitions flagged `match_types.has_standings` (League and Flex;
+SB-1037) — Tournament and Friendly are played here too and the Matches tab
+shows them, but a *table* of them is not a standing, and tournaments have
+their own group tables and brackets under the Tournaments tab. It opens on the
+competition with `in_division > 0`, offers a combined chip only when more than
+one qualifying competition is present (with one it would restate the chip
+beside it), and hides the control entirely when there is only one.
+
+The combined chip is labelled with what it combines — **League + Flex** — read
+from the flagged competitions the API returned, never from a name list in the
+frontend. It used to say "Qualifying", which read as a round. Its `match_type`
+value is still `qualifying`; only the label changed. Its title says what it
+is: a combined record across the competitions that qualify for MLS NEXT Cup,
+not a standing.
+
+`has_standings` is hidden only when the API says `false`. An API that predates
+the column sends `null`, and hiding every competition on that would be the
+worse failure.
 
 Changing division re-reads the endpoint and reconciles the selection: a
 division that does not play the current competition falls back to its own,

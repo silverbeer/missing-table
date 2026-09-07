@@ -1617,9 +1617,10 @@ class MatchDAO(BaseDAO):
             if not totals:
                 return []
 
-            reference = (
-                self.client.table("match_types").select("id, name, counts_for_qualification, display_order").execute()
-            )
+            # The whole row rather than a column list: has_standings (SB-1037)
+            # is read from it, and a backend deployed ahead of that migration
+            # must still answer rather than 400 on the column name.
+            reference = self.client.table("match_types").select("*").execute()
             by_id = {row["id"]: row for row in (reference.data or [])}
 
             present = []
@@ -1631,6 +1632,10 @@ class MatchDAO(BaseDAO):
                         "name": meta.get("name") or row["name"],
                         "counts_for_qualification": bool(meta.get("counts_for_qualification")),
                         "display_order": meta.get("display_order"),
+                        # Passed through, not coerced: None means the column
+                        # does not exist yet, and a client treats that as
+                        # "offer it" rather than hiding every competition.
+                        "has_standings": meta.get("has_standings"),
                     }
                 )
 

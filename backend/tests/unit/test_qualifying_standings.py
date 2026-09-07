@@ -288,6 +288,26 @@ class TestCompetitionsPresent:
         present = dao_with_reference.get_competitions_present(division_id=NORTHEAST)
         assert [c["name"] for c in present] == ["League", "Flex", "Friendly"]
 
+    def test_has_standings_is_passed_through_not_coerced(self, dao_with_reference):
+        # SB-1037: the Table offers only flagged competitions. The reference
+        # rows above predate the column, so the flag comes back as None — and
+        # a client treats None as "offer it". Coercing to False here would
+        # hide every competition on a backend deployed ahead of the migration.
+        present = {c["name"]: c for c in dao_with_reference.get_competitions_present(division_id=NORTHEAST)}
+        assert present["League"]["has_standings"] is None
+
+    def test_has_standings_reads_the_flag_when_present(self, dao):
+        dao.client.table.return_value.select.return_value.execute.return_value = MagicMock(
+            data=[
+                {"id": 1, "name": "League", "counts_for_qualification": True, "has_standings": True},
+                {"id": 5, "name": "Flex", "counts_for_qualification": True, "has_standings": True},
+                {"id": 3, "name": "Friendly", "counts_for_qualification": False, "has_standings": False},
+            ]
+        )
+        present = {c["name"]: c for c in dao.get_competitions_present(division_id=NORTHEAST)}
+        assert present["League"]["has_standings"] is True
+        assert present["Friendly"]["has_standings"] is False
+
     def test_a_division_sees_its_teams_flex_matches(self, dao_with_reference):
         """Flex matches carry a Flex bracket id, so a division_id query would miss them."""
         present = dao_with_reference.get_competitions_present(division_id=NORTHEAST)
