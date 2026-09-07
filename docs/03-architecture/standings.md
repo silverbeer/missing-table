@@ -57,6 +57,18 @@ Not changed here, tracked separately: ranking by points-per-match with the
 official tiebreakers (SB-1028), and Flex conference rosters built from
 registration rather than from where fixtures were filed (SB-1038).
 
+The Matches tab speaks the same language (SB-1040): its chips are
+**Conference** chips, grouped by competition when more than one is present
+(the League conferences, then the Flex conferences — Florida, Frontier,
+Northwest and Southeast exist in both, and two chips both saying "Florida"
+under one heading told nobody which was which); its All Matches sections are
+HOMEGROWN DIVISION / ACADEMY DIVISION / OTHER, bucketed by the *top-level*
+division so a Flex fixture files under Homegrown; and its combined match-type
+chip is labelled "League + Flex" by the same `combinedLabel` the Table uses
+(`frontend/src/utils/competitions.js`). Unlike the Table it keeps every match
+type and its multi-select conference chips: a schedule that hides friendlies
+is the surprise.
+
 ## Why `qualifying` is not just "League + Flex"
 
 It is the union of every match type flagged `match_types.counts_for_qualification`

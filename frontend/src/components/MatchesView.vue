@@ -187,6 +187,7 @@
                   :key="chip.key"
                   @click="selectMatchTypeChip(chip)"
                   :data-testid="`match-type-${chip.key}`"
+                  :title="chip.title || null"
                   :class="[
                     'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
                     isChipSelected(chip)
@@ -201,47 +202,71 @@
             </div>
 
             <!--
-              Division Filter — multi-select (SB-1007).
+              Conference Filter — multi-select (SB-1007).
 
-              Divisions are neighbours, not alternatives: a club near a border
-              plays Turnpike, New England and Northeast in the same season, and
-              a one-at-a-time filter made that schedule three separate lookups.
-              Chips toggle; "All Divisions" is the empty selection, not a
-              fourth choice, so it clears rather than adds.
+              Conferences are neighbours, not alternatives: a club near a
+              border plays Turnpike, New England and Northeast in the same
+              season, and a one-at-a-time filter made that schedule three
+              separate lookups. Chips toggle; "All Conferences" is the empty
+              selection, not a fourth choice, so it clears rather than adds.
+
+              Grouped by competition when more than one is present (SB-1040):
+              the League conferences, then the Flex conferences, in
+              display_order. Florida, Frontier, Northwest and Southeast exist
+              in both, and two chips both saying "Florida" under one heading
+              told nobody which was which.
             -->
             <div v-if="visibleDivisions.length > 1">
-              <h3 class="text-sm font-medium text-fg mb-2">Division</h3>
-              <div
-                class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
-              >
-                <button
-                  @click="clearDivisionFilter"
-                  data-testid="division-all"
-                  :aria-pressed="selectedDivisionIds.length === 0"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedDivisionIds.length === 0
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
+              <h3 class="text-sm font-medium text-fg mb-2">Conference</h3>
+              <div class="space-y-2">
+                <div
+                  class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
                 >
-                  All Divisions
-                </button>
-                <button
-                  v-for="division in visibleDivisions"
-                  :key="division.id"
-                  @click="toggleDivision(division.id)"
-                  :data-testid="'division-' + division.id"
-                  :aria-pressed="isDivisionSelected(division.id)"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    isDivisionSelected(division.id)
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
+                  <button
+                    @click="clearDivisionFilter"
+                    data-testid="division-all"
+                    :aria-pressed="selectedDivisionIds.length === 0"
+                    :class="[
+                      'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                      selectedDivisionIds.length === 0
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-surface-alt text-fg active:bg-line',
+                    ]"
+                  >
+                    All Conferences
+                  </button>
+                </div>
+                <div
+                  v-for="group in conferenceGroups"
+                  :key="group.key"
+                  :data-testid="`conference-group-${group.key}`"
                 >
-                  {{ division.name }}
-                </button>
+                  <div
+                    v-if="conferenceGroups.length > 1"
+                    class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1"
+                  >
+                    {{ group.label }}
+                  </div>
+                  <div
+                    class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+                  >
+                    <button
+                      v-for="division in group.conferences"
+                      :key="division.id"
+                      @click="toggleDivision(division.id)"
+                      :data-testid="'division-' + division.id"
+                      :aria-pressed="isDivisionSelected(division.id)"
+                      :class="[
+                        'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                        isDivisionSelected(division.id)
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-surface-alt text-fg active:bg-line',
+                      ]"
+                    >
+                      {{ division.name }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -346,7 +371,7 @@
             class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-700 rounded-md text-sm"
           >
             <span class="font-medium text-brand-800 dark:text-brand-200"
-              >League:</span
+              >Division:</span
             >
             <span class="text-brand-700 dark:text-brand-300"
               >{{ selectedTeamLeagueInfo.league }} -
@@ -537,7 +562,7 @@
                     :colspan="tableColumnCount"
                     class="bg-brand-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-brand-700"
                   >
-                    HOMEGROWN LEAGUE
+                    HOMEGROWN DIVISION
                   </td>
                 </tr>
                 <tr
@@ -759,7 +784,7 @@
                     :colspan="tableColumnCount"
                     class="bg-green-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-green-700"
                   >
-                    ACADEMY LEAGUE
+                    ACADEMY DIVISION
                   </td>
                 </tr>
                 <tr
@@ -2176,6 +2201,12 @@
 
 <script>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
+import {
+  combinedLabel,
+  combinedTitle,
+  competitionOfLeague,
+  topLevelLeagueName,
+} from '@/utils/competitions';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import MatchEditModal from '@/components/MatchEditModal.vue';
@@ -2318,9 +2349,11 @@ export default {
       if (qualifying.length > 1) {
         const total = qualifying.reduce((sum, c) => sum + c.count, 0);
         const lastIndex = chips.map(c => c.qualifies).lastIndexOf(true);
+        const names = qualifying.map(c => c.label);
         chips.splice(lastIndex + 1, 0, {
           key: 'qualifying',
-          label: 'Qualifying',
+          label: combinedLabel(names),
+          title: combinedTitle(names),
           value: 'qualifying',
           count: total,
           qualifies: true,
@@ -2454,12 +2487,43 @@ export default {
           seen.set(match.division_id, {
             id: match.division_id,
             name: match.division.name || match.division_name,
+            league_id:
+              match.division.league_id ?? match.division.leagues?.id ?? null,
           });
         }
       }
       return Array.from(seen.values()).sort((a, b) =>
         a.name.localeCompare(b.name)
       );
+    });
+
+    // Conferences grouped by the competition their tables belong to — League
+    // conferences, then Flex conferences — in match_types.display_order. A
+    // league that does not say (an API predating leagues.match_type_id)
+    // groups as "Other", and with a single group no label is shown.
+    const conferenceGroups = computed(() => {
+      const order = new Map(
+        (matchTypes.value || []).map((t, i) => [t.name, t.display_order ?? i])
+      );
+      const groups = new Map();
+      for (const conference of visibleDivisions.value) {
+        const competition = competitionOfLeague(
+          leagues.value,
+          matchTypes.value,
+          conference.league_id
+        );
+        const key = competition ?? 'other';
+        if (!groups.has(key)) {
+          groups.set(key, {
+            key: key.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            label: competition ?? 'Other',
+            order: competition ? (order.get(competition) ?? 99) : 999,
+            conferences: [],
+          });
+        }
+        groups.get(key).conferences.push(conference);
+      }
+      return Array.from(groups.values()).sort((a, b) => a.order - b.order);
     });
 
     // Drop divisions that the new age group / season does not play. Without
@@ -2941,7 +3005,7 @@ export default {
       );
     });
 
-    // Get rich team display with context (League - Division)
+    // Get rich team display with context (Division - Conference)
     const getTeamDisplayWithContext = team => {
       const ageGroupId = selectedAgeGroupId.value;
       const division = team.divisions_by_age_group?.[String(ageGroupId)];
@@ -3126,33 +3190,27 @@ export default {
     // League-grouped matches for "All Matches" view
     const homegrownMatches = computed(() => {
       if (selectedViewTab.value !== 'all') return [];
-      const filtered = getFilteredGames().filter(match => {
-        const leagueName = match.division?.leagues?.name;
-
-        // Only include if match division is Homegrown
-        // This filters out cross-division matches (Homegrown team vs Academy team)
-        return leagueName === 'Homegrown';
-      });
+      // The top-level division: a Flex fixture's conference belongs to the
+      // Flex league, whose parent is Homegrown, so it files here (SB-1040).
+      const filtered = getFilteredGames().filter(
+        match => topLevelLeagueName(leagues.value, match) === 'Homegrown'
+      );
       return filtered.sort(sortByDateAndStatus);
     });
 
     const academyMatches = computed(() => {
       if (selectedViewTab.value !== 'all') return [];
-      const filtered = getFilteredGames().filter(match => {
-        const leagueName = match.division?.leagues?.name;
-
-        // Only include if match division is Academy
-        // This filters out cross-division matches (Academy team vs Homegrown team)
-        return leagueName === 'Academy';
-      });
+      const filtered = getFilteredGames().filter(
+        match => topLevelLeagueName(leagues.value, match) === 'Academy'
+      );
       return filtered.sort(sortByDateAndStatus);
     });
 
     const otherMatches = computed(() => {
       if (selectedViewTab.value !== 'all') return [];
       const filtered = getFilteredGames().filter(match => {
-        const leagueName = match.division?.leagues?.name;
-        return leagueName !== 'Homegrown' && leagueName !== 'Academy';
+        const name = topLevelLeagueName(leagues.value, match);
+        return name !== 'Homegrown' && name !== 'Academy';
       });
       return filtered.sort(sortByDateAndStatus);
     });
@@ -3757,6 +3815,7 @@ export default {
       detailAutoShare,
       visibleDivisions,
       selectedDivisionIds,
+      conferenceGroups,
       isDivisionSelected,
       toggleDivision,
       clearDivisionFilter,
