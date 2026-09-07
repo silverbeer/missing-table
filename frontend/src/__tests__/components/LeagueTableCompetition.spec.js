@@ -79,9 +79,16 @@ const DIVISIONS = [
   { id: 309, name: 'Turnpike', league_id: 290 },
 ];
 
+const LEAGUES = [
+  { id: 1, name: 'Homegrown', display_order: 1 },
+  { id: 290, name: 'Flex', display_order: 2 },
+];
+
 const mountTable = ({
   competitions = NORTHEAST_COMPETITIONS,
   coverage = null,
+  divisions = DIVISIONS,
+  leagues = LEAGUES,
 } = {}) => {
   const calls = [];
   mockAuthStore = {
@@ -118,13 +125,17 @@ const mountTable = ({
         ]);
       if (url.includes('/api/age-groups'))
         return Promise.resolve([{ id: 1, name: 'U15' }]);
-      if (url.includes('/api/divisions'))
-        return Promise.resolve(DIVISIONS.map(d => ({ ...d })));
+      if (url.includes('/api/divisions/available')) {
+        // Only the selected league's divisions that have fixtures (SB-1035).
+        const leagueId = Number(new URL(url).searchParams.get('league_id'));
+        return Promise.resolve(
+          (typeof divisions === 'function' ? divisions(url) : divisions)
+            .filter(d => d.league_id === leagueId)
+            .map(d => ({ ...d }))
+        );
+      }
       if (url.includes('/api/leagues'))
-        return Promise.resolve([
-          { id: 1, name: 'Homegrown' },
-          { id: 290, name: 'Flex' },
-        ]);
+        return Promise.resolve(leagues.map(l => ({ ...l })));
       return Promise.resolve([]);
     }),
   };
@@ -393,5 +404,141 @@ describe('LeagueTable coverage caption', () => {
     await flushPromises();
     const text = wrapper.find('[data-testid="coverage-note"]').text();
     expect(text).toContain('1 match against 1 team');
+  });
+});
+
+describe('LeagueTable division dropdown', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const optionNames = wrapper =>
+    wrapper
+      .find('[data-testid="division-filter"]')
+      .findAll('option')
+      .map(o => o.text());
+
+  it('asks for the divisions with fixtures in this league, season and age group', async () => {
+    const { calls } = mountTable();
+    await flushPromises();
+    const url = calls.find(u => u.includes('/api/divisions/available'));
+    expect(url).toBeDefined();
+    const params = new URL(url).searchParams;
+    expect(params.get('league_id')).toBe('1');
+    expect(params.get('season_id')).toBe('1');
+    // The mock offers only U15 and the anonymous default is U14, so the
+    // component keeps its initial age group; what matters is that it is sent.
+    expect(params.get('age_group_id')).toBeTruthy();
+    // The unfiltered list is never asked for.
+    expect(calls.some(u => /\/api\/divisions(\?|$)/.test(u))).toBe(false);
+  });
+
+  it('offers only what the API offers', async () => {
+    // 2026-2027 U15 Homegrown: the API returns Northeast alone — Florida and
+    // the Pathway divisions have no fixtures and are not in the list.
+    const { wrapper } = mountTable({
+      divisions: [
+        { id: 1, name: 'Northeast', league_id: 1, matches: 190, played: 42 },
+        { id: 309, name: 'Turnpike', league_id: 290, matches: 31, played: 4 },
+      ],
+    });
+    await flushPromises();
+    expect(optionNames(wrapper)).toEqual(['Northeast']);
+  });
+
+  it('narrows to the new league and re-selects when the league changes', async () => {
+    const { wrapper, calls } = mountTable();
+    await flushPromises();
+    expect(optionNames(wrapper)).toEqual(['Northeast']);
+
+    const flex = wrapper
+      .findAll('button')
+      .find(b => b.text().trim() === 'Flex' && !b.attributes('data-testid'));
+    await flex.trigger('click');
+    await flushPromises();
+
+    expect(optionNames(wrapper)).toEqual(['Turnpike']);
+    expect(tableCalls(calls).at(-1)).toContain('division_id=309');
+  });
+
+  it('keeps the current division when it is still offered', async () => {
+    const { wrapper, calls } = mountTable({
+      divisions: [
+        { id: 1, name: 'Northeast', league_id: 1, matches: 190, played: 42 },
+        { id: 8, name: 'Florida', league_id: 1, matches: 12, played: 0 },
+        { id: 309, name: 'Turnpike', league_id: 290, matches: 31, played: 4 },
+      ],
+    });
+    await flushPromises();
+    wrapper.vm.selectedDivisionId = 8;
+    await flushPromises();
+    expect(tableCalls(calls).at(-1)).toContain('division_id=8');
+
+    // An age-group change re-reads the list; Florida is still in it, so the
+    // viewer stays where they were.
+    const before = calls.filter(u =>
+      u.includes('/api/divisions/available')
+    ).length;
+    wrapper.vm.selectedAgeGroupId = 1;
+    await flushPromises();
+    expect(
+      calls.filter(u => u.includes('/api/divisions/available')).length
+    ).toBeGreaterThan(before);
+    expect(wrapper.vm.selectedDivisionId).toBe(8);
+    expect(tableCalls(calls).at(-1)).toContain('division_id=8');
+  });
+
+  it('moves off a division that is no longer offered', async () => {
+    // Florida has U15 fixtures and none at U16: on the age-group change the
+    // API stops offering it, and the selection falls back to Northeast rather
+    // than pointing at a blank table.
+    const byAge = url =>
+      url.includes('age_group_id=1')
+        ? [
+            { id: 1, name: 'Northeast', league_id: 1, matches: 190, played: 0 },
+            { id: 8, name: 'Florida', league_id: 1, matches: 12, played: 0 },
+          ]
+        : [{ id: 1, name: 'Northeast', league_id: 1, matches: 200, played: 0 }];
+    const { wrapper, calls } = mountTable({ divisions: byAge });
+    await flushPromises();
+    wrapper.vm.selectedAgeGroupId = 1;
+    await flushPromises();
+    wrapper.vm.selectedDivisionId = 8;
+    await flushPromises();
+    expect(tableCalls(calls).at(-1)).toContain('division_id=8');
+
+    wrapper.vm.selectedAgeGroupId = 2;
+    await flushPromises();
+    expect(wrapper.vm.selectedDivisionId).toBe(1);
+    expect(tableCalls(calls).at(-1)).toContain('division_id=1');
+  });
+});
+
+describe('LeagueTable league order', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('renders the leagues in the order the API sends them', async () => {
+    // display_order lives on the row (SB-1035). Alphabetical would put
+    // Academy first and Homegrown third.
+    const { wrapper } = mountTable({
+      leagues: [
+        { id: 1, name: 'Homegrown', display_order: 1 },
+        { id: 290, name: 'Flex', display_order: 2 },
+        { id: 2, name: 'Academy', display_order: 3 },
+        { id: 90, name: 'TSC League 1', display_order: null },
+      ],
+    });
+    await flushPromises();
+    const chips = wrapper
+      .findAll('button')
+      .map(b => b.text().trim())
+      .filter(t =>
+        ['Homegrown', 'Flex', 'Academy', 'TSC League 1'].includes(t)
+      );
+    // The competition row also has a Flex chip; the league row comes first.
+    expect(chips.slice(0, 4)).toEqual([
+      'Homegrown',
+      'Flex',
+      'Academy',
+      'TSC League 1',
+    ]);
   });
 });

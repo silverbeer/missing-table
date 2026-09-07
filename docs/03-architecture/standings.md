@@ -205,6 +205,41 @@ picker) read this list; the picker hides a team whose league is not offered.
 A team whose division cannot be identified is kept — missing metadata is not
 evidence that a team is defunct, and hiding a real team is the worse error.
 
+The list comes back in `leagues.display_order` — Homegrown, Flex, Academy,
+then anything unordered by name (SB-1035). Same shape as
+`match_types.display_order`: the order is one column on one row, and no
+frontend carries a list of league names to sort by.
+
+## Which divisions are worth offering
+
+```
+GET /api/divisions/available?league_id=&season_id=&age_group_id=
+```
+
+```json
+[
+  {"id": 1, "name": "Northeast", "league_id": 1, "matches": 190, "played": 42}
+]
+```
+
+The league's divisions that have fixtures for that season and age group,
+with their counts. `/api/divisions?league_id=` lists every division a league
+has ever had, and at U15 / Homegrown / 2026-2027 that offered twelve of which
+one has a fixture: Pathway does not exist at U15, and Florida U15-U19 has
+sent nothing (SB-1021). Eleven entries that each yield a blank table is a
+control promising data that is not coming (SB-1035).
+
+There is no `is_active` safety net here, unlike leagues. A division's whole
+reason to be in a filter is the table behind it, so presence is the rule.
+`matches` and `played` are both returned for the same reason as above — a
+scheduled-but-unplayed division is offered, its table is just empty for now.
+
+`LeagueTable.vue` re-reads this whenever the league, season or age group
+changes and reconciles the selection: keep the current division if it is still
+offered, else Northeast, else the first. A division requested explicitly — a
+team card, a viewer's own team — that has no fixtures at this age group falls
+through the same way; there is nothing to show there.
+
 ## The league table's competition control
 
 `LeagueTable.vue` builds its Competition row from this endpoint. It opens on

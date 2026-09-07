@@ -593,7 +593,6 @@ export default {
     const ageGroups = ref([]);
     const leagues = ref([]);
     const divisions = ref([]);
-    const allDivisions = ref([]); // Store all divisions for filtering
     const seasons = ref([]);
     const selectedAgeGroupId = ref(2); // Default to U14 (anonymous fallback)
     // True once the viewer picks an age group themselves, so a late-arriving
@@ -674,7 +673,9 @@ export default {
         const data = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/leagues/available?${params}`
         );
-        leagues.value = data.sort((a, b) => a.name.localeCompare(b.name));
+        // Already in display_order (Homegrown, Flex, Academy, then the rest):
+        // the order lives on the row, not in a name list here (SB-1035).
+        leagues.value = data;
       } catch (err) {
         console.error('Error fetching leagues:', err);
         return;
@@ -711,58 +712,42 @@ export default {
       }
     };
 
-    const filterDivisionsByLeague = () => {
-      console.log('Filtering divisions by league:', {
-        selectedLeagueId: selectedLeagueId.value,
-        allDivisionsCount: allDivisions.value.length,
-      });
-
-      if (selectedLeagueId.value) {
-        divisions.value = allDivisions.value.filter(
-          d => Number(d.league_id) === Number(selectedLeagueId.value)
-        );
-
-        console.log('Filtered divisions:', {
-          filteredCount: divisions.value.length,
-          divisions: divisions.value.map(d => ({
-            id: d.id,
-            name: d.name,
-            league_id: d.league_id,
-          })),
-        });
-
-        // Reset division selection if current division is not in filtered list
-        if (!divisions.value.find(d => d.id === selectedDivisionId.value)) {
-          if (divisions.value.length > 0) {
-            selectedDivisionId.value = divisions.value[0].id;
-            console.log('Auto-selected division:', selectedDivisionId.value);
-          }
-        }
-      } else {
-        divisions.value = allDivisions.value;
-      }
-    };
-
+    // Only the divisions of the selected league that have fixtures for the
+    // season and age group being viewed (SB-1035). The full list offered
+    // Florida and four Pro Player Pathway divisions at U15, where none of them
+    // has a fixture — eleven blank tables behind one dropdown.
+    //
+    // Reconciles the selection: keep the current division when it is still
+    // offered; otherwise Northeast if present, else the first. A division
+    // asked for explicitly (a team card, a viewer's own team) that has no
+    // fixtures at this age group falls through the same way — there is
+    // nothing to show there, so nothing is lost by moving.
     const fetchDivisions = async () => {
+      if (!selectedLeagueId.value) {
+        divisions.value = [];
+        return;
+      }
       try {
+        const params = new URLSearchParams({
+          league_id: selectedLeagueId.value,
+        });
+        if (selectedSeasonId.value)
+          params.set('season_id', selectedSeasonId.value);
+        if (selectedAgeGroupId.value)
+          params.set('age_group_id', selectedAgeGroupId.value);
         const data = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/divisions`
+          `${getApiBaseUrl()}/api/divisions/available?${params}`
         );
-        allDivisions.value = data.sort((a, b) => a.name.localeCompare(b.name));
-
-        // Filter divisions by selected league
-        filterDivisionsByLeague();
-
-        // Set Northeast as default if available in filtered divisions
-        const northeast = divisions.value.find(d => d.name === 'Northeast');
-        if (northeast) {
-          selectedDivisionId.value = northeast.id;
-        } else if (divisions.value.length > 0) {
-          selectedDivisionId.value = divisions.value[0].id;
-        }
+        divisions.value = data;
       } catch (err) {
         console.error('Error fetching divisions:', err);
+        return;
       }
+
+      if (divisions.value.some(d => d.id === selectedDivisionId.value)) return;
+      const northeast = divisions.value.find(d => d.name === 'Northeast');
+      selectedDivisionId.value =
+        northeast?.id ?? divisions.value[0]?.id ?? null;
     };
 
     const fetchSeasons = async () => {
@@ -974,11 +959,16 @@ export default {
       await fetchLeagues();
     });
 
-    // Watch for league changes to filter divisions and check bracket
-    watch(selectedLeagueId, () => {
-      filterDivisionsByLeague();
-      checkBracketExists();
-    });
+    // Which divisions are worth offering depends on the league, season and
+    // age group, so they are re-read before the table is. fetchDivisions
+    // reconciles selectedDivisionId, and the table watcher picks that up.
+    watch(
+      [selectedLeagueId, selectedSeasonId, selectedAgeGroupId],
+      async () => {
+        await fetchDivisions();
+        checkBracketExists();
+      }
+    );
 
     // Which competitions exist depends on the season, age group and division,
     // so they are re-read before the table is. fetchCompetitions reconciles
@@ -1016,16 +1006,15 @@ export default {
             selectedAgeGroupId.value = props.initialAgeGroupId;
           }
 
-          // Apply league filter and re-filter divisions
+          // Apply league and division, then re-read which divisions are
+          // offered; the requested one is kept when it has fixtures.
           if (props.initialLeagueId) {
             selectedLeagueId.value = props.initialLeagueId;
-            filterDivisionsByLeague();
           }
-
-          // Apply division filter
           if (props.initialDivisionId) {
             selectedDivisionId.value = props.initialDivisionId;
           }
+          await fetchDivisions();
 
           // Fetch updated table data
           await fetchTableData();
@@ -1048,8 +1037,8 @@ export default {
         const personalDivisionId = authStore.userDivisionId?.value;
         if (personalLeagueId && personalDivisionId) {
           selectedLeagueId.value = personalLeagueId;
-          filterDivisionsByLeague();
           selectedDivisionId.value = personalDivisionId;
+          fetchDivisions();
         }
       }
     );
@@ -1082,11 +1071,11 @@ export default {
         }
         if (props.initialLeagueId) {
           selectedLeagueId.value = props.initialLeagueId;
-          filterDivisionsByLeague();
         }
         if (props.initialDivisionId) {
           selectedDivisionId.value = props.initialDivisionId;
         }
+        await fetchDivisions();
       } else if (
         !authStore.isAdmin.value &&
         authStore.userCurrentTeamId?.value
@@ -1099,7 +1088,7 @@ export default {
         if (personalLeagueId && personalDivisionId) {
           selectedLeagueId.value = personalLeagueId;
           selectedDivisionId.value = personalDivisionId;
-          filterDivisionsByLeague();
+          await fetchDivisions();
         } else {
           try {
             // Fetch the user's team to get its league and division
@@ -1120,9 +1109,7 @@ export default {
               if (division) {
                 selectedLeagueId.value = division.league_id;
                 selectedDivisionId.value = division.id;
-
-                // Re-filter divisions by league
-                filterDivisionsByLeague();
+                await fetchDivisions();
               }
             }
           } catch (err) {
