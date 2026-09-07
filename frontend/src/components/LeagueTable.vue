@@ -62,6 +62,7 @@
             :key="chip.key"
             @click="selectedMatchType = chip.value"
             :data-testid="`competition-${chip.key}`"
+            :title="chip.title || null"
             :class="[
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedMatchType === chip.value
@@ -794,27 +795,42 @@ export default {
       });
     };
 
-    // One chip per competition actually played by this selection, in the order
-    // the API gives (display_order), plus a synthetic Qualifying.
+    // One chip per competition actually played by this selection that
+    // produces a table (match_types.has_standings, SB-1037), in the order the
+    // API gives (display_order), plus a synthetic combined chip.
+    //
+    // Tournament and Friendly are played here too, and the Matches tab shows
+    // them; a *table* of them is not a standing. `has_standings` is hidden
+    // only when the API says false — an API that predates the column sends
+    // nothing, and hiding every competition on that is the worse failure.
     const competitionChips = computed(() => {
-      const present = (competitions.value || []).map(c => ({
-        key: String(c.id),
-        label: c.name,
-        value: c.name,
-        qualifies: Boolean(c.counts_for_qualification),
-      }));
+      const present = (competitions.value || [])
+        .filter(c => c.has_standings !== false)
+        .map(c => ({
+          key: String(c.id),
+          label: c.name,
+          value: c.name,
+          title: '',
+          qualifies: Boolean(c.counts_for_qualification),
+        }));
 
       const chips = [...present];
 
-      // Qualifying only says something the individual chips do not when it
-      // combines more than one of them.
+      // The combined chip only says something the individual chips do not
+      // when it combines more than one of them. It is labelled with what it
+      // combines — "League + Flex" — read from the API, never from a name
+      // list here (SB-849). "Qualifying" read as a round.
       const qualifying = present.filter(c => c.qualifies);
       if (qualifying.length > 1) {
+        const names = qualifying.map(c => c.label).join(' + ');
         const lastIndex = chips.map(c => c.qualifies).lastIndexOf(true);
         chips.splice(lastIndex + 1, 0, {
           key: 'qualifying',
-          label: 'Qualifying',
+          label: names,
           value: 'qualifying',
+          title:
+            `Combined record across ${names} — the competitions that ` +
+            'qualify for MLS NEXT Cup. A record, not a standing.',
           qualifies: true,
         });
       }
