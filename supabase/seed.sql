@@ -107,9 +107,41 @@ CROSS JOIN public.leagues l
 WHERE l.name = 'Homegrown'
 ON CONFLICT (name, league_id) DO NOTHING;
 
+-- The twenty Academy conferences (SB-1044). Production held one of them, so a
+-- local database could not represent the league at all. Mid-Atlantic and
+-- Northeast are also Homegrown conference names; they are different
+-- competitions, kept apart by the (name, league_id) key.
+INSERT INTO public.divisions (name, description, league_id)
+SELECT v.name, v.description, l.id
+FROM (VALUES
+    ('Carolinas',                   'MLS NEXT Academy Division - Carolinas Conference'),
+    ('Desert',                      'MLS NEXT Academy Division - Desert Conference'),
+    ('Garden State',                'MLS NEXT Academy Division - Garden State Conference'),
+    ('Great Lakes North',           'MLS NEXT Academy Division - Great Lakes North Conference'),
+    ('Great Lakes South',           'MLS NEXT Academy Division - Great Lakes South Conference'),
+    ('Heartland',                   'MLS NEXT Academy Division - Heartland Conference'),
+    ('Mid-Atlantic',                'MLS NEXT Academy Division - Mid-Atlantic Conference'),
+    ('Mountain',                    'MLS NEXT Academy Division - Mountain Conference'),
+    ('New England',                 'MLS NEXT Academy Division - New England Conference'),
+    ('North',                       'MLS NEXT Academy Division - North Conference'),
+    ('Northeast',                   'MLS NEXT Academy Division - Northeast Conference'),
+    ('Northern California Coast',   'MLS NEXT Academy Division - Northern California Coast Conference'),
+    ('Northern California Redwood', 'MLS NEXT Academy Division - Northern California Redwood Conference'),
+    ('Pacific Northwest',           'MLS NEXT Academy Division - Pacific Northwest Conference'),
+    ('Pioneer',                     'MLS NEXT Academy Division - Pioneer Conference'),
+    ('South',                       'MLS NEXT Academy Division - South Conference'),
+    ('Southern California',         'MLS NEXT Academy Division - Southern California Conference'),
+    ('Sunshine North',              'MLS NEXT Academy Division - Sunshine North Conference'),
+    ('Sunshine South',              'MLS NEXT Academy Division - Sunshine South Conference'),
+    ('Virginia',                    'MLS NEXT Academy Division - Virginia Conference')
+) AS v(name, description)
+CROSS JOIN public.leagues l
+WHERE l.name = 'Academy'
+ON CONFLICT (name, league_id) DO NOTHING;
+
 -- Homegrown League conferences run U13-U19; Pro Player Pathway U16/U17/U19;
--- Flex U15-U19. Read off the 2026-27 competition structure, not inferred from
--- what MT happens to hold.
+-- Flex U15-U19; Academy U13-U19 across all twenty conferences. Read off the
+-- 2026-27 competition structure, not inferred from what MT happens to hold.
 INSERT INTO public.division_age_groups (division_id, age_group_id, season_id)
 SELECT d.id, ag.id, s.id
 FROM public.divisions d
@@ -123,5 +155,7 @@ WHERE s.name = '2026-2027'
      OR (l.name = 'Homegrown' AND d.name LIKE '%(Pro Player Pathway)%'
             AND ag.name IN ('U16', 'U17', 'U19'))
      OR (l.name = 'Flex' AND ag.name IN ('U15', 'U16', 'U17', 'U19'))
+     OR (l.name = 'Academy'
+            AND ag.name IN ('U13', 'U14', 'U15', 'U16', 'U17', 'U19'))
   )
 ON CONFLICT ON CONSTRAINT division_age_groups_unique DO NOTHING;
