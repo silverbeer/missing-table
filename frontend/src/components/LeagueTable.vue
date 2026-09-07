@@ -23,14 +23,19 @@
         </div>
       </div>
 
-      <!-- League Selector -->
-      <div>
-        <h3 class="text-sm font-medium text-fg mb-3">League</h3>
+      <!--
+        Division Selector — Homegrown, Academy. What MLS NEXT calls a division:
+        the official standings are Division → tab (League, MLS NEXT Flex) →
+        Conference. Flex is a league whose parent is Homegrown, so it is a
+        competition chip below, not a peer here (SB-1039).
+      -->
+      <div data-testid="league-filter">
+        <h3 class="text-sm font-medium text-fg mb-3">Division</h3>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="league in leagues"
             :key="league.id"
-            @click="selectedLeagueId = league.id"
+            @click="selectLeague(league.id)"
             :class="[
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               selectedLeagueId === league.id
@@ -97,9 +102,10 @@
           </select>
         </div>
 
-        <!-- Division Dropdown -->
+        <!-- Conference Dropdown: follows the competition (League → conferences
+             incl. Pro Player Pathway; Flex → the Flex conferences) -->
         <div class="flex-1">
-          <h3 class="text-sm font-medium text-fg mb-3">Division</h3>
+          <h3 class="text-sm font-medium text-fg mb-3">Conference</h3>
           <select
             v-model="selectedDivisionId"
             class="block w-full px-3 py-2 border border-line bg-card text-fg rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
@@ -592,7 +598,8 @@ export default {
     };
     const teams = ref([]); // Store all teams for name→id mapping
     const ageGroups = ref([]);
-    const leagues = ref([]);
+    const leagues = ref([]); // top-level divisions offered as chips
+    const allLeagues = ref([]); // including child leagues, for child → parent mapping
     const divisions = ref([]);
     const seasons = ref([]);
     const selectedAgeGroupId = ref(2); // Default to U14 (anonymous fallback)
@@ -674,9 +681,13 @@ export default {
         const data = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/leagues/available?${params}`
         );
-        // Already in display_order (Homegrown, Flex, Academy, then the rest):
-        // the order lives on the row, not in a name list here (SB-1035).
-        leagues.value = data;
+        // Already in display_order (Homegrown, Academy, then the rest): the
+        // order lives on the row, not in a name list here (SB-1035). A league
+        // with a parent is one of its parent's competitions, not a division
+        // of its own (Flex → Homegrown, SB-1039), so it is not a chip. An API
+        // that predates the column sends nothing, and everything is offered.
+        allLeagues.value = data;
+        leagues.value = data.filter(l => !l.parent_league_id);
       } catch (err) {
         console.error('Error fetching leagues:', err);
         return;
@@ -688,6 +699,29 @@ export default {
 
       const homegrown = leagues.value.find(l => l.name === 'Homegrown');
       selectedLeagueId.value = homegrown?.id ?? leagues.value[0]?.id ?? null;
+    };
+
+    // A competition the next fetchCompetitions() should select, by match type
+    // id — set when a child league (Flex) was asked for by id, from a team
+    // card or a viewer's profile, and resolved to its parent + competition.
+    let requestedMatchTypeId = null;
+
+    // Select a league by id. A child league resolves to its parent division
+    // with its competition queued: asking for "Flex" means Homegrown with the
+    // Flex chip, since that is where its conferences now live (SB-1039).
+    const selectLeague = leagueId => {
+      const league = allLeagues.value.find(l => l.id === leagueId);
+      const target = league?.parent_league_id ?? leagueId;
+      if (league?.parent_league_id) {
+        requestedMatchTypeId = league.match_type_id ?? null;
+      }
+      if (selectedLeagueId.value === target) {
+        // Already on that division, so no watcher will fire; a queued
+        // competition still has to be applied.
+        if (requestedMatchTypeId !== null) refresh();
+        return;
+      }
+      selectedLeagueId.value = target;
     };
 
     // Filter leagues to only those where the user's club has teams
@@ -713,19 +747,24 @@ export default {
       }
     };
 
-    // Only the divisions of the selected league that have fixtures for the
-    // season and age group being viewed (SB-1035). The full list offered
-    // Florida and four Pro Player Pathway divisions at U15, where none of them
-    // has a fixture — eleven blank tables behind one dropdown.
+    // Only the conferences of the selected division that have fixtures for
+    // the season and age group being viewed (SB-1035), and of the selected
+    // competition (SB-1039): Homegrown + Flex is the 13 Flex conferences,
+    // Homegrown + League the regional and Pro Player Pathway conferences.
+    // The combined view keeps the division's own conferences — its table is
+    // a conference's teams across the competitions they play.
     //
-    // Reconciles the selection: keep the current division when it is still
-    // offered; otherwise Northeast if present, else the first. A division
+    // Reconciles the selection: keep the current conference when it is still
+    // offered; otherwise Northeast if present, else the first. A conference
     // asked for explicitly (a team card, a viewer's own team) that has no
     // fixtures at this age group falls through the same way — there is
     // nothing to show there, so nothing is lost by moving.
+    const COMBINED_VIEWS = new Set(['qualifying', 'all']);
+
     const fetchDivisions = async () => {
       if (!selectedLeagueId.value) {
         divisions.value = [];
+        selectedDivisionId.value = null;
         return;
       }
       try {
@@ -736,6 +775,11 @@ export default {
           params.set('season_id', selectedSeasonId.value);
         if (selectedAgeGroupId.value)
           params.set('age_group_id', selectedAgeGroupId.value);
+        if (
+          selectedMatchType.value &&
+          !COMBINED_VIEWS.has(selectedMatchType.value)
+        )
+          params.set('match_type', selectedMatchType.value);
         const data = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/divisions/available?${params}`
         );
@@ -838,20 +882,28 @@ export default {
       return chips;
     });
 
-    // The competition a division opens on: the one its own matches are filed
-    // under. Northeast opens on League, Turnpike on Flex. `in_division` is how
-    // the API says so, which is why there is no league-name lookup here.
+    // The competition a division opens on: the one its own conferences are
+    // the tables of — League for Homegrown and Academy. `in_division` counts
+    // matches filed to the division's own conferences rather than a child
+    // league's, which is how the API says so without a league-name lookup.
     const defaultMatchType = () => {
       const own = (competitions.value || []).find(c => c.in_division > 0);
       return own?.name || competitions.value?.[0]?.name || 'League';
     };
 
+    // Which competitions this division plays at this age group, across the
+    // division and its child leagues (SB-1039): Homegrown at U15 is League and
+    // Flex; at U13 it is League alone, so there is no control to show.
     const fetchCompetitions = async () => {
+      if (!selectedLeagueId.value) {
+        competitions.value = [];
+        return;
+      }
       try {
         const params = new URLSearchParams({
           season_id: selectedSeasonId.value,
           age_group_id: selectedAgeGroupId.value,
-          division_id: selectedDivisionId.value,
+          league_id: selectedLeagueId.value,
         });
         competitions.value = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/match-types/available?${params}`
@@ -861,9 +913,21 @@ export default {
         competitions.value = [];
       }
 
-      // Keep the selection only if this division still plays it. Otherwise
-      // fall back to the division's own competition rather than leaving a
-      // filter set to something with no matches.
+      // A competition asked for by id (a child league resolved in
+      // selectLeague) wins when it is present. Otherwise keep the selection
+      // only if this division still plays it, and fall back to the
+      // division's own competition rather than leaving a filter set to
+      // something with no matches.
+      if (requestedMatchTypeId !== null) {
+        const wanted = (competitions.value || []).find(
+          c => c.id === requestedMatchTypeId
+        );
+        requestedMatchTypeId = null;
+        if (wanted) {
+          selectedMatchType.value = wanted.name;
+          return;
+        }
+      }
       const values = new Set(competitionChips.value.map(c => c.value));
       if (!values.has(selectedMatchType.value)) {
         selectedMatchType.value = defaultMatchType();
@@ -901,7 +965,35 @@ export default {
       );
     });
 
+    // Filters change in cascades — a division change re-reads competitions,
+    // which can move the competition, which re-reads conferences, which can
+    // move the conference — and each step is watched. Two guards keep that
+    // honest: an identical request already in flight is not repeated, and
+    // only the newest request's answer is shown.
+    let tableRequestSeq = 0;
+    let tableUrlInFlight = null;
+
     const fetchTableData = async () => {
+      if (!selectedDivisionId.value) {
+        // No conference offered for this selection: nothing to ask for, and
+        // a table left over from another selection would be a lie.
+        tableData.value = [];
+        coverage.value = null;
+        loading.value = false;
+        return;
+      }
+      // match_type is sent explicitly. Omitting it let the API default to
+      // League, so picking a Flex bracket asked for League matches in a
+      // division that has none and rendered an empty table (SB-835).
+      const url =
+        `${getApiBaseUrl()}/api/table?season_id=${selectedSeasonId.value}` +
+        `&age_group_id=${selectedAgeGroupId.value}` +
+        `&division_id=${selectedDivisionId.value}` +
+        `&match_type=${encodeURIComponent(selectedMatchType.value)}`;
+      if (url === tableUrlInFlight) return;
+      tableUrlInFlight = url;
+      const seq = ++tableRequestSeq;
+
       loading.value = true;
       console.log('Fetching table data...', {
         seasonId: selectedSeasonId.value,
@@ -909,16 +1001,8 @@ export default {
         divisionId: selectedDivisionId.value,
       });
       try {
-        // match_type is sent explicitly. Omitting it let the API default to
-        // League, so picking a Flex bracket asked for League matches in a
-        // division that has none and rendered an empty table (SB-835).
-        const url =
-          `${getApiBaseUrl()}/api/table?season_id=${selectedSeasonId.value}` +
-          `&age_group_id=${selectedAgeGroupId.value}` +
-          `&division_id=${selectedDivisionId.value}` +
-          `&match_type=${encodeURIComponent(selectedMatchType.value)}`;
-
         const data = await authStore.apiRequest(url);
+        if (seq !== tableRequestSeq) return; // superseded by a newer request
         console.log('Table data received:', data);
 
         // Unwrap new response shape: { has_qop_data, qop_week_of, standings: [...] }
@@ -936,11 +1020,21 @@ export default {
         }
         console.log('Table data set:', tableData.value);
       } catch (err) {
+        if (seq !== tableRequestSeq) return;
         console.error('Error fetching table data:', err);
         error.value = err.message;
       } finally {
-        loading.value = false;
+        if (tableUrlInFlight === url) tableUrlInFlight = null;
+        if (seq === tableRequestSeq) loading.value = false;
       }
+    };
+
+    // The cascade in one place: competitions for the division, then the
+    // conferences of the chosen competition, then the table.
+    const refresh = async () => {
+      await fetchCompetitions();
+      await fetchDivisions();
+      await fetchTableData();
     };
 
     const checkBracketExists = async () => {
@@ -968,42 +1062,31 @@ export default {
       }
     };
 
-    // Declared before the table watchers so a season change re-reads the
-    // leagues, and any resulting league change cascades before the table is
-    // asked for.
+    // Declared before the cascade watcher so a season change re-reads the
+    // divisions offered, and any resulting change cascades before the table
+    // is asked for.
     watch(selectedSeasonId, async () => {
       await fetchLeagues();
     });
 
-    // Which divisions are worth offering depends on the league, season and
-    // age group, so they are re-read before the table is. fetchDivisions
-    // reconciles selectedDivisionId, and the table watcher picks that up.
+    // Division, season or age group: everything below them is re-read.
     watch(
       [selectedLeagueId, selectedSeasonId, selectedAgeGroupId],
       async () => {
-        await fetchDivisions();
+        await refresh();
         checkBracketExists();
       }
     );
 
-    // Which competitions exist depends on the season, age group and division,
-    // so they are re-read before the table is. fetchCompetitions reconciles
-    // selectedMatchType, and the watch below picks up any change it makes.
-    watch(
-      [selectedSeasonId, selectedAgeGroupId, selectedDivisionId],
-      async () => {
-        await fetchCompetitions();
-        fetchTableData();
-      }
-    );
-
-    watch(selectedMatchType, () => {
+    // Competition: the conferences offered depend on it (Flex has its own),
+    // so they are re-read before the table is.
+    watch(selectedMatchType, async () => {
+      await fetchDivisions();
       fetchTableData();
     });
 
-    // Re-check bracket when season or age group changes
-    watch([selectedSeasonId, selectedAgeGroupId], () => {
-      checkBracketExists();
+    watch(selectedDivisionId, () => {
+      fetchTableData();
     });
 
     // Watch for filterKey changes to apply external filters (from team card clicks)
@@ -1017,23 +1100,16 @@ export default {
             divisionId: props.initialDivisionId,
           });
 
-          // Apply age group filter
           if (props.initialAgeGroupId) {
             selectedAgeGroupId.value = props.initialAgeGroupId;
           }
-
-          // Apply league and division, then re-read which divisions are
-          // offered; the requested one is kept when it has fixtures.
-          if (props.initialLeagueId) {
-            selectedLeagueId.value = props.initialLeagueId;
-          }
+          // League and conference, then re-read what is offered; the
+          // requested conference is kept when it has fixtures.
+          selectLeague(props.initialLeagueId);
           if (props.initialDivisionId) {
             selectedDivisionId.value = props.initialDivisionId;
           }
-          await fetchDivisions();
-
-          // Fetch updated table data
-          await fetchTableData();
+          await refresh();
         }
       }
     );
@@ -1052,9 +1128,9 @@ export default {
         const personalLeagueId = authStore.userLeagueId?.value;
         const personalDivisionId = authStore.userDivisionId?.value;
         if (personalLeagueId && personalDivisionId) {
-          selectedLeagueId.value = personalLeagueId;
+          selectLeague(personalLeagueId);
           selectedDivisionId.value = personalDivisionId;
-          fetchDivisions();
+          refresh();
         }
       }
     );
@@ -1076,22 +1152,16 @@ export default {
       // Filter leagues to user's club before selecting defaults
       filterLeaguesByClub();
 
-      // Fetch divisions after leagues are loaded so we can filter by default league
-      await fetchDivisions();
-
       // Apply initial filters from props if provided (e.g., from team card click)
       if (props.filterKey > 0 && props.initialLeagueId) {
         console.log('Applying initial filters from props');
         if (props.initialAgeGroupId) {
           selectedAgeGroupId.value = props.initialAgeGroupId;
         }
-        if (props.initialLeagueId) {
-          selectedLeagueId.value = props.initialLeagueId;
-        }
+        selectLeague(props.initialLeagueId);
         if (props.initialDivisionId) {
           selectedDivisionId.value = props.initialDivisionId;
         }
-        await fetchDivisions();
       } else if (
         !authStore.isAdmin.value &&
         authStore.userCurrentTeamId?.value
@@ -1102,9 +1172,8 @@ export default {
         const personalLeagueId = authStore.userLeagueId?.value;
         const personalDivisionId = authStore.userDivisionId?.value;
         if (personalLeagueId && personalDivisionId) {
-          selectedLeagueId.value = personalLeagueId;
+          selectLeague(personalLeagueId);
           selectedDivisionId.value = personalDivisionId;
-          await fetchDivisions();
         } else {
           try {
             // Fetch the user's team to get its league and division
@@ -1123,9 +1192,8 @@ export default {
                   String(selectedAgeGroupId.value)
                 ];
               if (division) {
-                selectedLeagueId.value = division.league_id;
+                selectLeague(division.league_id);
                 selectedDivisionId.value = division.id;
-                await fetchDivisions();
               }
             }
           } catch (err) {
@@ -1134,11 +1202,10 @@ export default {
         }
       }
 
-      // Before the first table request, so it asks for a competition this
-      // division actually plays rather than defaulting to League.
-      await fetchCompetitions();
-
-      fetchTableData();
+      // Competitions for the division, conferences for the competition, then
+      // the table — so the first request asks for something this selection
+      // actually plays rather than defaulting to League.
+      await refresh();
       checkBracketExists();
     });
 
@@ -1168,6 +1235,8 @@ export default {
       selectAgeGroup,
       selectedLeagueId,
       selectedLeagueName,
+      selectLeague,
+      refresh,
       selectedDivisionId,
       selectedSeasonId,
       formatSeasonDates,

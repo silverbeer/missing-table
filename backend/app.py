@@ -2166,8 +2166,14 @@ async def get_available_match_types(
     season_id: int | None = Query(None, description="Filter by season ID"),
     age_group_id: int | None = Query(None, description="Filter by age group ID"),
     division_id: int | None = Query(None, description="Scope to this division's teams"),
+    league_id: int | None = Query(None, description="Scope to this league and its child leagues"),
 ):
-    """Which competitions are actually played by this age group / division.
+    """Which competitions are actually played by this age group / division / league.
+
+    With `league_id` (and no division) the answer spans the league and its
+    child leagues: Homegrown's competitions are League and Flex, because Flex
+    is a league whose parent is Homegrown (SB-1039). That is what the Table's
+    Competition row is built from, before a conference is chosen.
 
     U13 and U14 play no Flex, and U13/U14/U15 have no Pro Player Pathway
     divisions. A competition tab that always yields an empty table is the
@@ -2188,6 +2194,7 @@ async def get_available_match_types(
             age_group_id=age_group_id,
             division_id=division_id,
             include_test=viewer_sees_test_content(current_user),
+            league_id=None if division_id else league_id,
         )
     except Exception as e:
         logger.error(f"Error retrieving available match types: {e!s}", exc_info=True)
@@ -2205,6 +2212,22 @@ async def get_divisions(
     except Exception as e:
         logger.error(f"Error retrieving divisions: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+def league_for_competition(leagues: list[dict], league_id: int, match_type_id: int | None) -> int:
+    """Whose conferences to offer: the league's own, or a child league's (SB-1039).
+
+    Flex is a league whose parent is Homegrown and whose match_type is Flex,
+    so "Homegrown + Flex" resolves to the Flex conferences. Any other
+    competition — League, the combined view, a type no child claims — stays
+    with the league itself. Pure, tested directly.
+    """
+    if match_type_id is None:
+        return league_id
+    for league in leagues:
+        if league.get("parent_league_id") == league_id and league.get("match_type_id") == match_type_id:
+            return league["id"]
+    return league_id
 
 
 def divisions_worth_offering(divisions: list[dict], counts: dict[int, dict]) -> list[dict]:
@@ -2230,8 +2253,14 @@ async def get_available_divisions(
     season_id: int | None = Query(None, description="Season the viewer is looking at"),
     age_group_id: int | None = Query(None, description="Age group the viewer is looking at"),
     league_id: int = Query(..., description="League whose divisions to offer"),
+    match_type: str | None = Query(None, description="Competition the conferences are tables of"),
 ):
     """A league's divisions that actually have fixtures this season and age group.
+
+    With `match_type`, the conferences of whichever league in the family is
+    that competition's: Homegrown + Flex → the Flex conferences, because Flex
+    is a child league of Homegrown with match_type Flex (SB-1039). League,
+    the combined view, or an unknown name → the league's own conferences.
 
     `/api/divisions?league_id=` lists every division a league has ever had.
     With U15 / Homegrown / 2026-2027 that offered twelve, of which one has a
@@ -2245,7 +2274,13 @@ async def get_available_divisions(
     """
     try:
         include_test = viewer_sees_test_content(current_user)
-        divisions = league_dao.get_divisions_by_league(league_id)
+        match_type_id = None
+        if match_type:
+            by_name = {t.get("name"): t.get("id") for t in match_type_dao.get_all_match_types()}
+            match_type_id = by_name.get(match_type)
+        leagues = league_dao.get_all_leagues(include_test=include_test)
+        offering_league_id = league_for_competition(leagues, league_id, match_type_id)
+        divisions = league_dao.get_divisions_by_league(offering_league_id)
         present = match_dao.get_divisions_present(
             season_id=season_id, age_group_id=age_group_id, include_test=include_test
         )
