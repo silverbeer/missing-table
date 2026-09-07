@@ -9,6 +9,54 @@ produces a league table.
 | `qualifying` | what is this team's record across the competitions that qualify it for the cup | no — a record |
 | `all` | what is this team's record across everything, friendlies included | no — rarely what anyone wants |
 
+## How the Table is organised
+
+The official MLS NEXT standings (mls-assist.theintelligenceplatform.com,
+embedded on mlssoccer.com/mlsnext/standings) are organised
+
+    Division (Homegrown, Academy) → tab (League, MLS NEXT Flex) → Conference
+
+per age group, and MT's Table follows it (SB-1039): **Division** chips,
+**Competition** chips, then a **Conference** dropdown that follows the
+competition. Pro Player Pathway tables are conferences inside the League tab
+there ("Northeast (Pro Player Pathway) Conference"), which is how MT already
+held them; Flex groups are conferences too.
+
+MT's tables are still `leagues` and `divisions`. What changed is two columns
+on `leagues`:
+
+| column | meaning | values |
+|---|---|---|
+| `parent_league_id` | this league is one of its parent's competitions, not a division of its own | Flex → Homegrown |
+| `match_type_id` | the competition whose tables this league's conferences are | Homegrown, Academy → League; Flex → Flex |
+
+Flex stays a league row because the scraper names it as a competition and
+ingest resolves competition names to leagues (SB-852). Nothing in ingest
+changes. Three readers use the columns:
+
+- `/api/leagues/available` returns every league; the Table offers only those
+  without a parent. A row without the column reads as top-level.
+- `/api/match-types/available?league_id=` answers across the league and its
+  children — Homegrown plays League and Flex; U13 Homegrown plays League
+  alone, so no control shows. `in_division` counts matches filed to the
+  league's own conferences, which is what identifies the competition it opens
+  on (`league_family_divisions`).
+- `/api/divisions/available?league_id=&match_type=` offers the conferences of
+  whichever league in the family is that competition's
+  (`league_for_competition`): Homegrown + Flex → the 13 Flex conferences;
+  League, the combined view, or an unknown name → the league's own.
+
+`LeagueTable.vue` runs the cascade in one place (`refresh`): competitions for
+the division, conferences for the competition, then the table. A league asked
+for by id that turns out to be a child (a team card pointing at Flex) resolves
+to its parent with the child's competition queued (`selectLeague`). Two guards
+keep the watched cascade honest: an identical table request already in flight
+is not repeated, and only the newest request's answer is shown.
+
+Not changed here, tracked separately: ranking by points-per-match with the
+official tiebreakers (SB-1028), and Flex conference rosters built from
+registration rather than from where fixtures were filed (SB-1038).
+
 ## Why `qualifying` is not just "League + Flex"
 
 It is the union of every match type flagged `match_types.counts_for_qualification`

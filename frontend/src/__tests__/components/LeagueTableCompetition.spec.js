@@ -80,11 +80,36 @@ const TURNPIKE_COMPETITIONS = [
 const DIVISIONS = [
   { id: 1, name: 'Northeast', league_id: 1 },
   { id: 309, name: 'Turnpike', league_id: 290 },
+  { id: 7, name: 'New England', league_id: 2 },
 ];
 
+// Flex is a league whose parent is Homegrown and whose conferences are the
+// Flex competition's tables (SB-1039). It is a competition chip, not a
+// division chip.
 const LEAGUES = [
-  { id: 1, name: 'Homegrown', display_order: 1 },
-  { id: 290, name: 'Flex', display_order: 2 },
+  { id: 1, name: 'Homegrown', display_order: 1, match_type_id: 1 },
+  {
+    id: 290,
+    name: 'Flex',
+    display_order: 2,
+    parent_league_id: 1,
+    match_type_id: 5,
+  },
+  { id: 2, name: 'Academy', display_order: 3, match_type_id: 1 },
+];
+
+// Academy plays League only, so it gets no competition control.
+const ACADEMY_COMPETITIONS = [
+  {
+    id: 1,
+    name: 'League',
+    counts_for_qualification: true,
+    has_standings: true,
+    display_order: 1,
+    matches: 176,
+    played: 40,
+    in_division: 176,
+  },
 ];
 
 const mountTable = ({
@@ -103,10 +128,14 @@ const mountTable = ({
     apiRequest: vi.fn(url => {
       calls.push(url);
       if (url.includes('/api/match-types/available')) {
+        if (typeof competitions === 'function')
+          return Promise.resolve(competitions(url));
+        // Keyed by division (league_id): Academy plays League alone.
+        const leagueId = new URL(url).searchParams.get('league_id');
         return Promise.resolve(
-          typeof competitions === 'function'
-            ? competitions(url)
-            : competitions.map(c => ({ ...c }))
+          (leagueId === '2' ? ACADEMY_COMPETITIONS : competitions).map(c => ({
+            ...c,
+          }))
         );
       }
       if (url.includes('/api/table')) {
@@ -129,8 +158,14 @@ const mountTable = ({
       if (url.includes('/api/age-groups'))
         return Promise.resolve([{ id: 1, name: 'U15' }]);
       if (url.includes('/api/divisions/available')) {
-        // Only the selected league's divisions that have fixtures (SB-1035).
-        const leagueId = Number(new URL(url).searchParams.get('league_id'));
+        // Only the selected league's divisions that have fixtures (SB-1035),
+        // and for the Flex competition the Flex league's conferences —
+        // what league_for_competition does on the server (SB-1039).
+        const params = new URL(url).searchParams;
+        const leagueId =
+          params.get('match_type') === 'Flex' && params.get('league_id') === '1'
+            ? 290
+            : Number(params.get('league_id'));
         return Promise.resolve(
           (typeof divisions === 'function' ? divisions(url) : divisions)
             .filter(d => d.league_id === leagueId)
@@ -236,63 +271,110 @@ describe('LeagueTable competition selection', () => {
 describe('LeagueTable competition cascade', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // Which competitions exist depends on the division, so changing division has
-  // to re-ask and then reconcile the selection.
-  const byDivision = url =>
-    url.includes('division_id=309')
-      ? TURNPIKE_COMPETITIONS.map(c => ({ ...c }))
-      : NORTHEAST_COMPETITIONS.map(c => ({ ...c }));
-
-  // The League selector is the way in: picking Flex narrows the Division
-  // dropdown to the Flex brackets and auto-selects the first one. That cascade
-  // already worked — what follows it is what did not.
-  const switchToTurnpike = async wrapper => {
-    const flex = wrapper
-      .findAll('button')
-      .find(b => b.text().trim() === 'Flex' && !b.attributes('data-testid'));
-    await flex.trigger('click');
+  // Flex is a competition inside Homegrown (SB-1039). Picking it swaps the
+  // Conference dropdown to the Flex conferences and asks for the Flex table;
+  // picking League swaps back. The division chips never include Flex.
+  const clickChip = async (wrapper, key) => {
+    await wrapper.find(`[data-testid="competition-${key}"]`).trigger('click');
     await flushPromises();
   };
 
-  it('re-reads the competitions when the division changes', async () => {
-    const { wrapper, calls } = mountTable({ competitions: byDivision });
+  const optionNames = wrapper =>
+    wrapper
+      .find('[data-testid="division-filter"]')
+      .findAll('option')
+      .map(o => o.text());
+
+  it('does not offer a child league as a division', async () => {
+    const { wrapper } = mountTable();
     await flushPromises();
-    const before = calls.filter(u =>
-      u.includes('/api/match-types/available')
-    ).length;
-
-    await switchToTurnpike(wrapper);
-
-    expect(
-      calls.filter(u => u.includes('/api/match-types/available')).length
-    ).toBeGreaterThan(before);
+    const chips = wrapper
+      .find('[data-testid="league-filter"]')
+      .findAll('button')
+      .map(b => b.text().trim());
+    expect(chips).toEqual(['Homegrown', 'Academy']);
   });
 
-  it('falls back to the new division own competition when the old one is not played there', async () => {
-    const { wrapper, calls } = mountTable({ competitions: byDivision });
+  it('asks for the competitions of the division, not of a conference', async () => {
+    const { calls } = mountTable();
+    await flushPromises();
+    const url = calls.find(u => u.includes('/api/match-types/available'));
+    const params = new URL(url).searchParams;
+    expect(params.get('league_id')).toBe('1');
+    expect(params.get('division_id')).toBeNull();
+  });
+
+  it('re-reads the conferences for the picked competition', async () => {
+    const { wrapper, calls } = mountTable();
+    await flushPromises();
+    expect(optionNames(wrapper)).toEqual(['Northeast']);
+
+    await clickChip(wrapper, 5);
+
+    const last = calls
+      .filter(u => u.includes('/api/divisions/available'))
+      .at(-1);
+    expect(new URL(last).searchParams.get('match_type')).toBe('Flex');
+    expect(optionNames(wrapper)).toEqual(['Turnpike']);
+  });
+
+  it('asks for the Flex table of a Flex conference', async () => {
+    const { wrapper, calls } = mountTable();
     await flushPromises();
     expect(tableCalls(calls).at(-1)).toContain('match_type=League');
+    expect(tableCalls(calls).at(-1)).toContain('division_id=1');
 
-    // Turnpike plays no League. Leaving the filter on League is what rendered
-    // an empty table.
-    await switchToTurnpike(wrapper);
+    await clickChip(wrapper, 5);
 
-    expect(tableCalls(calls).at(-1)).toContain('match_type=Flex');
-    expect(tableCalls(calls).at(-1)).not.toContain('match_type=League');
+    const last = tableCalls(calls).at(-1);
+    expect(last).toContain('match_type=Flex');
+    expect(last).toContain('division_id=309');
   });
 
-  it('drops the Qualifying chip when the new division has only one competition', async () => {
-    const { wrapper } = mountTable({ competitions: byDivision });
+  it('returns to the League conferences when League is picked again', async () => {
+    const { wrapper, calls } = mountTable();
     await flushPromises();
-    expect(
-      wrapper.find('[data-testid="competition-qualifying"]').exists()
-    ).toBe(true);
+    await clickChip(wrapper, 5);
+    await clickChip(wrapper, 1);
 
-    await switchToTurnpike(wrapper);
+    expect(optionNames(wrapper)).toEqual(['Northeast']);
+    const last = tableCalls(calls).at(-1);
+    expect(last).toContain('match_type=League');
+    expect(last).toContain('division_id=1');
+  });
 
+  it('shows no competition control for a division that plays one', async () => {
+    const { wrapper, calls } = mountTable();
+    await flushPromises();
+    const academy = wrapper
+      .find('[data-testid="league-filter"]')
+      .findAll('button')
+      .find(b => b.text().trim() === 'Academy');
+    await academy.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="competition-1"]').exists()).toBe(false);
     expect(
       wrapper.find('[data-testid="competition-qualifying"]').exists()
     ).toBe(false);
+    expect(optionNames(wrapper)).toEqual(['New England']);
+    const last = tableCalls(calls).at(-1);
+    expect(last).toContain('match_type=League');
+    expect(last).toContain('division_id=7');
+  });
+
+  it('resolves a child league asked for by id to its parent and competition', async () => {
+    // A team card can point at league 290 (Flex). That is Homegrown with the
+    // Flex chip, since that is where its conferences live.
+    const { wrapper, calls } = mountTable();
+    await flushPromises();
+    wrapper.vm.selectLeague(290);
+    await flushPromises();
+
+    expect(wrapper.vm.selectedLeagueId).toBe(1);
+    const last = tableCalls(calls).at(-1);
+    expect(last).toContain('match_type=Flex');
+    expect(last).toContain('division_id=309');
   });
 });
 
@@ -447,19 +529,20 @@ describe('LeagueTable division dropdown', () => {
     expect(optionNames(wrapper)).toEqual(['Northeast']);
   });
 
-  it('narrows to the new league and re-selects when the league changes', async () => {
+  it('narrows to the new division and re-selects when the division changes', async () => {
     const { wrapper, calls } = mountTable();
     await flushPromises();
     expect(optionNames(wrapper)).toEqual(['Northeast']);
 
-    const flex = wrapper
+    const academy = wrapper
+      .find('[data-testid="league-filter"]')
       .findAll('button')
-      .find(b => b.text().trim() === 'Flex' && !b.attributes('data-testid'));
-    await flex.trigger('click');
+      .find(b => b.text().trim() === 'Academy');
+    await academy.trigger('click');
     await flushPromises();
 
-    expect(optionNames(wrapper)).toEqual(['Turnpike']);
-    expect(tableCalls(calls).at(-1)).toContain('division_id=309');
+    expect(optionNames(wrapper)).toEqual(['New England']);
+    expect(tableCalls(calls).at(-1)).toContain('division_id=7');
   });
 
   it('keeps the current division when it is still offered', async () => {
@@ -520,29 +603,22 @@ describe('LeagueTable league order', () => {
 
   it('renders the leagues in the order the API sends them', async () => {
     // display_order lives on the row (SB-1035). Alphabetical would put
-    // Academy first and Homegrown third.
+    // Academy first and Homegrown third. Flex has a parent, so it is a
+    // competition chip, not a division chip (SB-1039).
     const { wrapper } = mountTable({
       leagues: [
         { id: 1, name: 'Homegrown', display_order: 1 },
-        { id: 290, name: 'Flex', display_order: 2 },
+        { id: 290, name: 'Flex', display_order: 2, parent_league_id: 1 },
         { id: 2, name: 'Academy', display_order: 3 },
         { id: 90, name: 'TSC League 1', display_order: null },
       ],
     });
     await flushPromises();
     const chips = wrapper
+      .find('[data-testid="league-filter"]')
       .findAll('button')
-      .map(b => b.text().trim())
-      .filter(t =>
-        ['Homegrown', 'Flex', 'Academy', 'TSC League 1'].includes(t)
-      );
-    // The competition row also has a Flex chip; the league row comes first.
-    expect(chips.slice(0, 4)).toEqual([
-      'Homegrown',
-      'Flex',
-      'Academy',
-      'TSC League 1',
-    ]);
+      .map(b => b.text().trim());
+    expect(chips).toEqual(['Homegrown', 'Academy', 'TSC League 1']);
   });
 });
 

@@ -1558,15 +1558,36 @@ class MatchDAO(BaseDAO):
             logger.exception("Error counting matches per division")
             return []
 
-    @dao_cache("matches:competitions:{season_id}:{age_group_id}:{division_id}:{include_test}")
+    def league_family_divisions(self, league_id: int) -> tuple[set[int], set[int]]:
+        """(division ids of this league and its child leagues, division ids of this league alone).
+
+        A child league is one of its parent's competitions (Flex under
+        Homegrown, SB-1039), so "what does Homegrown play" spans both. The
+        second set is what identifies the league's *own* competition.
+        """
+        leagues = self.client.table("leagues").select("id, parent_league_id").execute().data or []
+        family = {league_id} | {lg["id"] for lg in leagues if lg.get("parent_league_id") == league_id}
+        divisions = self.client.table("divisions").select("id, league_id").execute().data or []
+        in_family = {d["id"] for d in divisions if d.get("league_id") in family}
+        own = {d["id"] for d in divisions if d.get("league_id") == league_id}
+        return in_family, own
+
+    @dao_cache("matches:competitions:{season_id}:{age_group_id}:{division_id}:{league_id}:{include_test}")
     def get_competitions_present(
         self,
         season_id: int | None = None,
         age_group_id: int | None = None,
         division_id: int | None = None,
         include_test: bool = False,
+        league_id: int | None = None,
     ) -> list[dict]:
-        """Which competitions this age group (and division) actually plays.
+        """Which competitions this age group (and division, or league) actually plays.
+
+        With `league_id` and no division, the answer spans the league and its
+        child leagues — Homegrown's competitions are League and Flex, because
+        Flex is a league whose parent is Homegrown (SB-1039). `in_division`
+        then counts matches filed to the league's own conferences, so it still
+        identifies the competition the league opens on.
 
         U13 and U14 play no Flex; U13/U14/U15 have no Pro Player Pathway
         divisions. A client needs to know that from the data, because the
@@ -1592,9 +1613,13 @@ class MatchDAO(BaseDAO):
         try:
             matches = self._fetch_matches_for_standings(season_id, age_group_id, None, include_test=include_test)
 
+            own_division_ids: set[int] | None = None
             if division_id:
                 roster = teams_in_division(matches, division_id)
                 matches = filter_matches_involving(matches, roster)
+            elif league_id:
+                in_family, own_division_ids = self.league_family_divisions(league_id)
+                matches = [m for m in matches if m.get("division_id") in in_family]
 
             played_ids = {m["id"] for m in filter_completed_matches(matches) if m.get("id") is not None}
 
@@ -1611,7 +1636,15 @@ class MatchDAO(BaseDAO):
                 row["matches"] += 1
                 if match.get("id") in played_ids:
                     row["played"] += 1
-                if division_id and match.get("division_id") == division_id:
+                # "Own" is the division asked for, or — for a league query —
+                # any conference the league holds directly rather than
+                # through a child league.
+                filed_to = match.get("division_id")
+                if division_id:
+                    own = filed_to == division_id
+                else:
+                    own = own_division_ids is not None and filed_to in own_division_ids
+                if own:
                     row["in_division"] += 1
 
             if not totals:
