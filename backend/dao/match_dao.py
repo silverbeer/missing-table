@@ -1512,6 +1512,52 @@ class MatchDAO(BaseDAO):
             logger.exception("Error counting matches per league")
             return []
 
+    @dao_cache("matches:divisions_present:{season_id}:{age_group_id}:{include_test}")
+    def get_divisions_present(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        include_test: bool = False,
+    ) -> list[dict]:
+        """How many fixtures each division holds for a season and age group.
+
+        Returns `[{"division_id": int, "matches": int, "played": int}, ...]` —
+        a list, not a map, for the same reason as get_leagues_present: this is
+        cached, and a dict[int, int] comes back from Redis with string keys.
+
+        A division with no fixtures at this age group has nothing to show. In
+        2026-2027 U15 that is 11 of 12 Homegrown divisions — Pathway does not
+        exist at U15, and Florida U15-U19 has sent nothing (SB-1021) — so a
+        dropdown offering all 12 is eleven blank tables (SB-1035).
+
+        `matches` and `played` are both returned because "no results yet" and
+        "not played here" are different answers, and only the second means
+        the division should be hidden.
+        """
+        try:
+            query = self.client.table(MATCHES_READ_RELATION).select("division_id, match_status")
+            if not include_test:
+                query = query.eq("is_test", False)
+            if season_id:
+                query = query.eq("season_id", season_id)
+            if age_group_id:
+                query = query.eq("age_group_id", age_group_id)
+            matches = query.execute().data or []
+
+            counts: dict[int, dict[str, int]] = {}
+            for match in matches:
+                division_id = match.get("division_id")
+                if division_id is None:
+                    continue
+                row = counts.setdefault(division_id, {"matches": 0, "played": 0})
+                row["matches"] += 1
+                if match.get("match_status") in ("completed", "forfeit"):
+                    row["played"] += 1
+            return [{"division_id": division_id, **row} for division_id, row in sorted(counts.items())]
+        except Exception:
+            logger.exception("Error counting matches per division")
+            return []
+
     @dao_cache("matches:competitions:{season_id}:{age_group_id}:{division_id}:{include_test}")
     def get_competitions_present(
         self,

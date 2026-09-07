@@ -2207,6 +2207,55 @@ async def get_divisions(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+def divisions_worth_offering(divisions: list[dict], counts: dict[int, dict]) -> list[dict]:
+    """The divisions that have fixtures, each with how many (SB-1035).
+
+    Unlike leagues (SB-851) there is no `is_active` safety net here: a
+    division's whole reason to appear in a filter is the table behind it, and
+    a division with no fixtures at this age group has none. Pure, so the rule
+    is tested directly rather than reproduced in a test.
+    """
+    offered = []
+    for division in divisions:
+        row = counts.get(division["id"])
+        if not row or not row.get("matches"):
+            continue
+        offered.append({**division, "matches": row["matches"], "played": row.get("played", 0)})
+    return offered
+
+
+@app.get("/api/divisions/available")
+async def get_available_divisions(
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+    season_id: int | None = Query(None, description="Season the viewer is looking at"),
+    age_group_id: int | None = Query(None, description="Age group the viewer is looking at"),
+    league_id: int = Query(..., description="League whose divisions to offer"),
+):
+    """A league's divisions that actually have fixtures this season and age group.
+
+    `/api/divisions?league_id=` lists every division a league has ever had.
+    With U15 / Homegrown / 2026-2027 that offered twelve, of which one has a
+    fixture — Pathway does not exist at U15, and Florida U15-U19 has sent
+    nothing (SB-1021). Eleven entries that each yield a blank table is the
+    loading-skeleton failure CLAUDE.md warns about: a control promising data
+    that is not coming (SB-1035).
+
+    Each row carries `matches` and `played`, ordered by name. Same shape as
+    `/api/leagues/available` and `/api/match-types/available`.
+    """
+    try:
+        include_test = viewer_sees_test_content(current_user)
+        divisions = league_dao.get_divisions_by_league(league_id)
+        present = match_dao.get_divisions_present(
+            season_id=season_id, age_group_id=age_group_id, include_test=include_test
+        )
+        counts = {row["division_id"]: row for row in present}
+        return divisions_worth_offering(divisions, counts)
+    except Exception as e:
+        logger.error(f"Error fetching available divisions: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not list available divisions") from e
+
+
 # === Enhanced Team Endpoints ===
 
 
@@ -4770,6 +4819,23 @@ def leagues_worth_offering(leagues: list[dict], counts: dict[int, int]) -> list[
     ]
 
 
+def in_display_order(leagues: list[dict]) -> list[dict]:
+    """Leagues in `display_order`, NULLs last, then by name (SB-1035).
+
+    Alphabetical put Academy first and Homegrown third. The order lives on the
+    row, as match_types.display_order does, so it is one UPDATE to change and
+    the frontend never carries a list of league names.
+    """
+    return sorted(
+        leagues,
+        key=lambda league: (
+            league.get("display_order") is None,
+            league.get("display_order") or 0,
+            (league.get("name") or "").lower(),
+        ),
+    )
+
+
 @app.get("/api/leagues/available")
 async def get_available_leagues(
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
@@ -4801,7 +4867,7 @@ async def get_available_leagues(
         present = match_dao.get_leagues_present(season_id=season_id, include_test=include_test)
         counts = {row["league_id"]: row["matches"] for row in present}
 
-        return leagues_worth_offering(leagues, counts)
+        return in_display_order(leagues_worth_offering(leagues, counts))
     except Exception as e:
         logger.error(f"Error fetching available leagues: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not list available leagues") from e
