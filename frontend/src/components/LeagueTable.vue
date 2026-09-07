@@ -159,7 +159,7 @@
       statistic ships with its coverage or it does not ship.
     -->
     <div
-      v-if="!showBracket && outsideTableMatches > 0"
+      v-if="!showBracket && coverageLabel"
       class="mb-3 px-3 py-2 rounded-md bg-surface-alt text-fg-muted text-sm"
       data-testid="coverage-note"
     >
@@ -197,6 +197,19 @@
         data-testid="error-message"
       >
         Error: {{ error }}
+      </div>
+
+      <!--
+        Empty table (SB-1043). A bare header is the loading-skeleton failure:
+        it promises rows that are not coming. Say which of the two empties
+        this is — fixtures exist and none are played, or there are none.
+      -->
+      <div
+        v-else-if="sortedTableData.length === 0"
+        class="text-center py-6 text-fg-muted text-sm"
+        data-testid="empty-table"
+      >
+        {{ emptyTableLabel }}
       </div>
 
       <!-- Table -->
@@ -950,18 +963,45 @@ export default {
       );
     });
 
+    // Caption for a combined view. Always says how much each competition
+    // contributed, zero included — "League 3 played · Flex 0 played" is the
+    // difference between "the Flex matches are missing" and "none have been
+    // played yet" (SB-1043). Adds the outside-the-table note when it applies.
     const coverageLabel = computed(() => {
       const c = coverage.value;
       if (!c) return '';
-      const names = (c.competitions || []).join(' + ') || 'all competitions';
-      const matches = c.matches_vs_outside_table;
-      const teams = c.teams_outside_table;
-      return (
-        `${names} combined — includes ${matches} ` +
-        `${matches === 1 ? 'match' : 'matches'} against ` +
-        `${teams} ${teams === 1 ? 'team' : 'teams'} outside this table. ` +
-        'A record, not a standing.'
-      );
+      const competitions = c.competitions || [];
+      const combined = competitions.length !== 1;
+      const outside = c.matches_vs_outside_table || 0;
+      if (!combined && outside === 0) return '';
+
+      const names = competitions.join(' + ') || 'all competitions';
+      const parts = [];
+      const byCompetition = c.counted_by_competition || {};
+      const contributions = competitions
+        .filter(name => name in byCompetition)
+        .map(name => `${name} ${byCompetition[name]} played`);
+      if (combined && contributions.length)
+        parts.push(contributions.join(' · '));
+      if (outside > 0) {
+        const teams = c.teams_outside_table;
+        parts.push(
+          `includes ${outside} ${outside === 1 ? 'match' : 'matches'} against ` +
+            `${teams} ${teams === 1 ? 'team' : 'teams'} outside this table`
+        );
+      }
+      const suffix = combined ? ' A record, not a standing.' : '';
+      return `${names} combined — ${parts.join('; ')}.${suffix}`;
+    });
+
+    // What to say instead of an empty table: fixtures exist and none are
+    // played, or there are none for this selection.
+    const emptyTableLabel = computed(() => {
+      const fixtures = coverage.value?.fixtures ?? 0;
+      if (fixtures > 0) {
+        return `${fixtures} ${fixtures === 1 ? 'fixture' : 'fixtures'} scheduled, none played yet.`;
+      }
+      return 'No fixtures for this selection.';
     });
 
     // Filters change in cascades — a division change re-reads competitions,
@@ -1224,6 +1264,7 @@ export default {
       coverage,
       outsideTableMatches,
       coverageLabel,
+      emptyTableLabel,
       shootoutCompetitions,
       shootoutLabel,
       ageGroups,
