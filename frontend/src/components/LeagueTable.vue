@@ -515,6 +515,7 @@
 
 <script>
 import { ref, onMounted, watch, computed } from 'vue';
+import { combinedLabel, combinedTitle } from '@/utils/competitions';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import PlayoffBracket from './PlayoffBracket.vue';
@@ -866,15 +867,13 @@ export default {
       // list here (SB-849). "Qualifying" read as a round.
       const qualifying = present.filter(c => c.qualifies);
       if (qualifying.length > 1) {
-        const names = qualifying.map(c => c.label).join(' + ');
+        const names = qualifying.map(c => c.label);
         const lastIndex = chips.map(c => c.qualifies).lastIndexOf(true);
         chips.splice(lastIndex + 1, 0, {
           key: 'qualifying',
-          label: names,
+          label: combinedLabel(names),
           value: 'qualifying',
-          title:
-            `Combined record across ${names} — the competitions that ` +
-            'qualify for MLS NEXT Cup. A record, not a standing.',
+          title: combinedTitle(names),
           qualifies: true,
         });
       }

@@ -1092,6 +1092,176 @@ describe('MatchesView', () => {
   });
 
   // ===========================================================================
+  // TESTS: CONFERENCE TERMINOLOGY AND GROUPING (SB-1040)
+  // ===========================================================================
+
+  describe('conference terminology and grouping (SB-1040)', () => {
+    // Flex is a league whose parent is Homegrown; its conferences are the
+    // Flex competition's tables (SB-1039).
+    const hierarchyLeagues = () => [
+      { id: 1, name: 'Homegrown', match_type_id: 1 },
+      { id: 290, name: 'Flex', parent_league_id: 1, match_type_id: 5 },
+      { id: 2, name: 'Academy', match_type_id: 1 },
+    ];
+    const northeastLeague = overrides =>
+      createMockMatch({
+        match_type_id: 1,
+        division_id: 1,
+        division_name: 'Northeast',
+        division: {
+          id: 1,
+          name: 'Northeast',
+          league_id: 1,
+          leagues: { id: 1, name: 'Homegrown' },
+        },
+        ...overrides,
+      });
+    const turnpikeFlex = overrides =>
+      createMockMatch({
+        match_type_id: 5,
+        division_id: 309,
+        division_name: 'Turnpike',
+        division: {
+          id: 309,
+          name: 'Turnpike',
+          league_id: 290,
+          leagues: { id: 290, name: 'Flex' },
+        },
+        ...overrides,
+      });
+
+    it('files a Flex fixture under Homegrown, not Other', async () => {
+      setupMockApiResponses({
+        leagues: hierarchyLeagues(),
+        matches: [northeastLeague({ id: 1 }), turnpikeFlex({ id: 2 })],
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.vm.homegrownMatches.map(m => m.id).sort()).toEqual([1, 2]);
+      expect(wrapper.vm.otherMatches).toEqual([]);
+      expect(wrapper.text()).toContain('HOMEGROWN DIVISION');
+      expect(wrapper.text()).not.toContain('OTHER MATCHES');
+    });
+
+    it('still files by the name a match carries when the league list is silent', async () => {
+      // An API that predates parent_league_id: Flex has no parent there,
+      // so a Flex fixture stays wherever its own league name puts it. The
+      // point is that nothing breaks, not that it is filed under Homegrown.
+      setupMockApiResponses({
+        leagues: [
+          { id: 1, name: 'Homegrown' },
+          { id: 290, name: 'Flex' },
+        ],
+        matches: [northeastLeague({ id: 1 }), turnpikeFlex({ id: 2 })],
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      expect(wrapper.vm.homegrownMatches.map(m => m.id)).toEqual([1]);
+      expect(wrapper.vm.otherMatches.map(m => m.id)).toEqual([2]);
+    });
+
+    it('calls the chips Conferences', async () => {
+      setupMockApiResponses({
+        leagues: hierarchyLeagues(),
+        matches: [northeastLeague({ id: 1 }), turnpikeFlex({ id: 2 })],
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      expect(wrapper.text()).toContain('Conference');
+      expect(wrapper.find('[data-testid="division-all"]').text()).toBe(
+        'All Conferences'
+      );
+      expect(wrapper.text()).not.toContain('All Divisions');
+    });
+
+    it('groups the conference chips by competition, League first', async () => {
+      setupMockApiResponses({
+        leagues: hierarchyLeagues(),
+        matches: [
+          northeastLeague({ id: 1 }),
+          turnpikeFlex({ id: 2 }),
+          turnpikeFlex({
+            id: 3,
+            division_id: 298,
+            division_name: 'Florida',
+            division: {
+              id: 298,
+              name: 'Florida',
+              league_id: 290,
+              leagues: { id: 290, name: 'Flex' },
+            },
+          }),
+        ],
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      const groups = wrapper.vm.conferenceGroups;
+      expect(groups.map(g => g.label)).toEqual(['League', 'Flex']);
+      expect(groups[0].conferences.map(c => c.name)).toEqual(['Northeast']);
+      expect(groups[1].conferences.map(c => c.name)).toEqual([
+        'Florida',
+        'Turnpike',
+      ]);
+      const league = wrapper.find('[data-testid="conference-group-league"]');
+      const flex = wrapper.find('[data-testid="conference-group-flex"]');
+      expect(league.text()).toContain('League');
+      expect(flex.text()).toContain('Flex');
+      expect(flex.find('[data-testid="division-298"]').exists()).toBe(true);
+    });
+
+    it('shows no group label when only one competition is present', async () => {
+      setupMockApiResponses({
+        leagues: hierarchyLeagues(),
+        matches: [
+          northeastLeague({ id: 1 }),
+          northeastLeague({
+            id: 2,
+            division_id: 8,
+            division_name: 'Florida',
+            division: {
+              id: 8,
+              name: 'Florida',
+              league_id: 1,
+              leagues: { id: 1, name: 'Homegrown' },
+            },
+          }),
+        ],
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      expect(wrapper.vm.conferenceGroups).toHaveLength(1);
+      const group = wrapper.find('[data-testid="conference-group-league"]');
+      expect(group.text()).not.toMatch(/^League/);
+      expect(group.findAll('button')).toHaveLength(2);
+    });
+
+    it('labels the combined chip by what it combines', async () => {
+      setupMockApiResponses({
+        leagues: hierarchyLeagues(),
+        matches: [northeastLeague({ id: 1 }), turnpikeFlex({ id: 2 })],
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      const chip = wrapper.find('[data-testid="match-type-qualifying"]');
+      expect(chip.text()).toContain('League + Flex');
+      expect(chip.text()).not.toContain('Qualifying');
+      expect(chip.attributes('title')).toContain('not a standing');
+    });
+
+    it('labels the My Club badge Division', async () => {
+      mockAuthStore = createTeamManagerAuthStore();
+      setupMockApiResponses({ leagues: hierarchyLeagues() });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      await wrapper.find('[data-testid="my-club-tab"]').trigger('click');
+      await flushPromises();
+      expect(wrapper.text()).not.toContain('League:');
+    });
+  });
+
+  // ===========================================================================
   // TESTS: FOLLOW BUTTON (SB-56)
   // ===========================================================================
 
