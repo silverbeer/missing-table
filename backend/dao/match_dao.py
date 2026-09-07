@@ -1418,32 +1418,40 @@ class MatchDAO(BaseDAO):
             matches = self._fetch_matches_for_standings(
                 season_id, age_group_id, fetch_division_id, include_test=include_test
             )
-            matches = filter_by_match_types(matches, names)
-            matches = filter_completed_matches(matches)
+            fixtures = filter_by_match_types(matches, names)
+            matches = filter_completed_matches(fixtures)
 
+            # `fixtures` is everything scheduled for the selection, played or
+            # not, so an empty table can say "16 fixtures, none played yet"
+            # rather than show a bare header (SB-1043).
             if not combined:
                 if division_id:
+                    fixtures = filter_matches_in_division(fixtures, division_id)
                     matches = filter_matches_in_division(matches, division_id)
                 return {
                     "standings": calculate_standings_with_extras(matches),
-                    "coverage": self._coverage(match_type, names, matches, None),
+                    "coverage": self._coverage(match_type, names, matches, None, len(fixtures)),
                 }
 
             if not division_id:
                 # No division asked for, so there is no outside-the-table.
                 return {
                     "standings": calculate_standings_with_extras(matches),
-                    "coverage": self._coverage(match_type, names, matches, None),
+                    "coverage": self._coverage(match_type, names, matches, None, len(fixtures)),
                 }
 
             # The table is the division's teams; the matches counted are those
-            # teams' matches in any of the selected competitions.
-            roster = teams_in_division(matches, division_id)
+            # teams' matches in any of the selected competitions. The roster
+            # comes from every fixture filed to the division, so a team with
+            # only scheduled matches is still in the table it is registered
+            # to — it has no row yet, but its fixtures count.
+            roster = teams_in_division(fixtures, division_id)
             counted = filter_matches_involving(matches, roster)
+            scheduled = filter_matches_involving(fixtures, roster)
 
             return {
                 "standings": calculate_standings_with_extras(counted, roster),
-                "coverage": self._coverage(match_type, names, counted, roster),
+                "coverage": self._coverage(match_type, names, counted, roster, len(scheduled)),
             }
 
         except Exception:
@@ -1456,13 +1464,24 @@ class MatchDAO(BaseDAO):
         names: set[str] | None,
         matches: list[dict],
         roster: set[int] | None,
+        fixtures: int = 0,
     ) -> dict:
         """What the caller needs in order to caption the table truthfully."""
         against_outsiders, outsiders = (0, 0) if roster is None else count_outside_table_opponents(matches, roster)
+        # How many played matches each selected competition contributes, zero
+        # included: a combined view that is silently all League because no
+        # Flex has been played yet looks like a bug until it says so.
+        by_competition: dict[str, int] = dict.fromkeys(names or [], 0)
+        for match in matches:
+            name = (match.get("match_type") or {}).get("name")
+            if name:
+                by_competition[name] = by_competition.get(name, 0) + 1
         return {
             "match_type": match_type,
             "competitions": sorted(names) if names is not None else None,
             "matches_counted": len(matches),
+            "fixtures": fixtures,
+            "counted_by_competition": dict(sorted(by_competition.items())),
             "matches_vs_outside_table": against_outsiders,
             "teams_outside_table": outsiders,
             # Which of the counted competitions score a shootout (winner 2,

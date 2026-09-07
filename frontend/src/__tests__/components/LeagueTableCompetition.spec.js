@@ -401,6 +401,27 @@ describe('LeagueTable coverage caption', () => {
     expect(note.text()).toContain('record, not a standing');
   });
 
+  it('says how much each competition contributed, zero included', async () => {
+    // League + Flex that equals League because no Flex has been played yet
+    // looked like missing data. The caption now says "Flex 0 played".
+    const { wrapper } = mountTable({
+      coverage: {
+        match_type: 'qualifying',
+        competitions: ['Flex', 'League'],
+        matches_counted: 3,
+        matches_vs_outside_table: 0,
+        teams_outside_table: 0,
+        counted_by_competition: { Flex: 0, League: 3 },
+      },
+    });
+    await flushPromises();
+    const note = wrapper.find('[data-testid="coverage-note"]');
+    expect(note.exists()).toBe(true);
+    expect(note.text()).toContain('League 3 played');
+    expect(note.text()).toContain('Flex 0 played');
+    expect(note.text()).toContain('record, not a standing');
+  });
+
   it('stays silent for a real standing', async () => {
     // Every match in a single-competition table was played inside it, so
     // there is nothing to disclose and a permanent caption would be noise.
@@ -692,5 +713,95 @@ describe('LeagueTable competition row offers only competitions with a table', ()
       'Tournament',
       'Friendly',
     ]);
+  });
+});
+
+describe('LeagueTable empty table', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const mountEmpty = coverage => {
+    const calls = [];
+    mockAuthStore = {
+      isAuthenticated: { value: false },
+      userRole: { value: null },
+      isAdmin: { value: false },
+      userClubId: { value: null },
+      userTeamId: { value: null },
+      apiRequest: vi.fn(url => {
+        calls.push(url);
+        if (url.includes('/api/match-types/available'))
+          return Promise.resolve(NORTHEAST_COMPETITIONS.map(c => ({ ...c })));
+        if (url.includes('/api/table'))
+          return Promise.resolve({ standings: [], coverage });
+        if (url.includes('/api/seasons'))
+          return Promise.resolve([
+            {
+              id: 1,
+              name: '2026-2027',
+              start_date: '2026-08-01',
+              end_date: '2027-06-01',
+            },
+          ]);
+        if (url.includes('/api/age-groups'))
+          return Promise.resolve([{ id: 1, name: 'U15' }]);
+        if (url.includes('/api/divisions/available'))
+          return Promise.resolve([
+            { id: 297, name: 'Empire', league_id: 290, matches: 16, played: 0 },
+          ]);
+        if (url.includes('/api/leagues'))
+          return Promise.resolve(LEAGUES.map(l => ({ ...l })));
+        return Promise.resolve([]);
+      }),
+    };
+    return mount(LeagueTable, {
+      global: { stubs: { PlayoffBracket: true, ClubLogo: true } },
+    });
+  };
+
+  it('says fixtures exist and none are played, instead of a bare header', async () => {
+    // Empire U15: 16 fixtures, 0 played. Correctly empty — and it has to
+    // say so, or it reads as broken (SB-1043).
+    const wrapper = mountEmpty({
+      match_type: 'Flex',
+      competitions: ['Flex'],
+      matches_counted: 0,
+      fixtures: 16,
+      matches_vs_outside_table: 0,
+      teams_outside_table: 0,
+    });
+    await flushPromises();
+    const empty = wrapper.find('[data-testid="empty-table"]');
+    expect(empty.exists()).toBe(true);
+    expect(empty.text()).toBe('16 fixtures scheduled, none played yet.');
+    expect(wrapper.find('[data-testid="standings-table"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('says there is nothing at all when there are no fixtures', async () => {
+    const wrapper = mountEmpty({
+      match_type: 'Flex',
+      competitions: ['Flex'],
+      matches_counted: 0,
+      fixtures: 0,
+      matches_vs_outside_table: 0,
+      teams_outside_table: 0,
+    });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="empty-table"]').text()).toBe(
+      'No fixtures for this selection.'
+    );
+  });
+
+  it('copes with an API that predates the fixtures field', async () => {
+    const wrapper = mountEmpty({
+      match_type: 'Flex',
+      competitions: ['Flex'],
+      matches_counted: 0,
+    });
+    await flushPromises();
+    expect(wrapper.find('[data-testid="empty-table"]').text()).toBe(
+      'No fixtures for this selection.'
+    );
   });
 });

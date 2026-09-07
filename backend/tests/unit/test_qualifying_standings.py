@@ -189,6 +189,28 @@ class TestGetStandings:
         assert coverage["matches_vs_outside_table"] == 0
         assert coverage["competitions"] == ["League"]
 
+    def test_coverage_counts_fixtures_including_unplayed_ones(self, dao):
+        # SB-1043: an empty table has to be able to say "16 fixtures, none
+        # played yet". Two League fixtures are filed to Northeast; make one of
+        # them unplayed and it still counts as a fixture, not as a match.
+        scheduled = {**LEAGUE_MATCHES[1], "id": 99, "match_status": "scheduled", "home_score": None, "away_score": None}
+        dao._fetch_matches_for_standings.return_value = [LEAGUE_MATCHES[0], scheduled]
+        coverage = dao.get_standings(division_id=NORTHEAST, match_type="League")["coverage"]
+        assert coverage["fixtures"] == 2
+        assert coverage["matches_counted"] == 1
+
+    def test_combined_coverage_says_how_much_each_competition_contributed(self, dao):
+        # Northeast's teams have 2 League matches and 1 Flex match played.
+        coverage = dao.get_standings(division_id=NORTHEAST, match_type=STANDINGS_QUALIFYING)["coverage"]
+        assert coverage["counted_by_competition"] == {"Flex": 1, "League": 2}
+
+    def test_a_competition_with_nothing_played_is_reported_as_zero_not_omitted(self, dao):
+        # The case that looked like a bug: League + Flex equal to League
+        # because no Flex has been played. Zero, visibly.
+        dao._fetch_matches_for_standings.return_value = LEAGUE_MATCHES
+        coverage = dao.get_standings(division_id=NORTHEAST, match_type=STANDINGS_QUALIFYING)["coverage"]
+        assert coverage["counted_by_competition"] == {"Flex": 0, "League": 2}
+
     def test_qualifying_combines_the_flagged_competitions(self, dao):
         result = dao.get_standings(division_id=NORTHEAST, match_type=STANDINGS_QUALIFYING)
         assert result["coverage"]["competitions"] == ["Flex", "League"]

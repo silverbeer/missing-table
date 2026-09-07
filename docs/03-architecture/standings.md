@@ -99,11 +99,21 @@ coverage or it does not ship* — so the response carries one:
     "match_type": "qualifying",
     "competitions": ["Flex", "League"],
     "matches_counted": 250,
+    "fixtures": 1440,
+    "counted_by_competition": {"Flex": 60, "League": 190},
     "matches_vs_outside_table": 31,
-    "teams_outside_table": 12
+    "teams_outside_table": 12,
+    "shootout_points": ["Flex"]
   }
 }
 ```
+
+`fixtures` is everything scheduled for the selection, played or not, so an
+empty table can say "16 fixtures scheduled, none played yet" instead of
+showing a bare header. `counted_by_competition` is how many *played* matches
+each selected competition contributed, zero included — a combined view that
+is silently all League because no Flex has been played yet looks like missing
+data until the caption says "Flex 0 played" (SB-1043).
 
 A client rendering `qualifying` or `all` with a non-zero
 `matches_vs_outside_table` and no caption is presenting a record as a standing.
