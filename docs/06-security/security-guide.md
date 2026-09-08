@@ -28,9 +28,10 @@ SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 CSRF_SECRET_KEY=generate_a_random_32_char_string
 ENVIRONMENT=development  # or 'production'
 
-# Optional: Redis for distributed rate limiting
+# Optional: Redis, so one rate limit holds across all backend pods.
+# Set it or do not — there is no separate on/off flag; an unset or
+# unreachable Redis falls back to per-pod in-memory counting.
 REDIS_URL=redis://localhost:6379
-USE_REDIS_RATE_LIMIT=false
 ```
 
 ### Generating Secure Secrets
@@ -47,34 +48,79 @@ npx supabase status
 
 ## 2. Rate Limiting
 
-### Configuration
+**Credential endpoints only.** Everything else is unlimited, on purpose.
 
-Rate limits are applied based on endpoint type and user role:
+| Endpoint | Limit |
+|---|---|
+| `POST /api/auth/login` | 5 per minute |
+| `POST /api/auth/signup` | 3 per hour |
+| `POST /api/auth/forgot-password` | 3 per hour |
+| `POST /api/auth/reset-password` | 3 per hour |
 
-- **Authentication endpoints**: 5 login attempts per minute, 3 signups per hour
-- **Public endpoints**: 100 requests per minute
-- **Authenticated endpoints**: 30 requests per minute
-- **Admin endpoints**: 100 requests per minute
+This section used to describe public (100/min), authenticated (30/min) and
+admin (100/min) tiers as well. None of them were ever in effect — the
+middleware and every decorator were commented out — so the document
+described a stricter world than the one that existed, which is worse than
+saying nothing (SB-640). It now lists what the code enforces and nothing
+else.
 
-### Redis Support
+### Why there are no global limits
 
-For distributed deployments, enable Redis-based rate limiting:
+`SlowAPIMiddleware` exists to apply blanket `default_limits` to every
+request. The old configuration set 200/hour and 50/minute, which the product
+itself breaches: the LIVE tab polls while a match is being scored, and
+ingest posts fixtures in bulk. Enabling it would have read as an outage.
+Limits are applied per route with `@rate_limit(...)`, which needs no
+middleware.
 
-```bash
-USE_REDIS_RATE_LIMIT=true
-REDIS_URL=redis://your-redis-host:6379
-```
+### Why the key is the forwarded IP
 
-### Custom Rate Limits
+Behind the ingress every request arrives from one address. Keying on the
+socket peer (slowapi's default `get_remote_address`) would put every user
+into a single bucket, so five failed logins anywhere would lock out
+everyone. `rate_limiter.client_key` reads `X-Forwarded-For` first, matching
+`get_client_ip` in `app.py`. Both must stay in step.
 
-Apply custom rate limits to specific endpoints:
+### Redis
+
+Set `REDIS_URL` and one limit holds across every backend pod. Without it
+each pod counts on its own, so the effective limit is (pods x limit) — still
+a limit, just a looser one. Reachability is checked once at import; an
+unreachable Redis falls back to in-memory with a warning rather than failing
+every login.
+
+### Adding a limit
 
 ```python
 @app.post("/api/endpoint")
 @rate_limit("10 per minute")
-async def endpoint(request: Request):
+async def endpoint(request: Request):  # the Request parameter is required
     pass
 ```
+
+Anything added to `RATE_LIMITS` must also be applied to a route, or it is
+decoration again. `tests/unit/test_rate_limiting.py` asserts the auth routes
+carry one.
+
+## 2a. Password Policy
+
+Set wherever a password is chosen — signup and reset — and never at login,
+so an existing weak password can still authenticate long enough to be
+rotated.
+
+- Minimum 12 characters, maximum 72 bytes (bcrypt truncates past that, so
+  longer is not stronger, and hashing an unbounded string on a public
+  endpoint is a free CPU sink).
+- Rejects common bases after stripping decorative digits, so `soccer123!`
+  fails on `soccer`.
+- Rejects a password containing the account's own username.
+
+No composition rules and no expiry, following NIST SP 800-63B: forcing a
+symbol turns `password` into `Password1!` and buys nothing. The list lives
+in `backend/constants/passwords.py`.
+
+Reset previously accepted six characters, which made it the way around
+whatever signup asked for.
 
 ## 3. CSRF Protection
 

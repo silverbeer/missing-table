@@ -152,9 +152,15 @@ from metrics_config import setup_metrics
 setup_metrics(app)
 logger.info("prometheus_metrics_enabled", endpoint="/metrics")
 
-# Configure Rate Limiting
-# TODO: Fix middleware order issue
-# limiter = create_rate_limit_middleware(app)
+# Configure Rate Limiting (SB-640)
+#
+# Auth endpoints only, applied per route with @rate_limit(...). No global
+# default limits and no SlowAPIMiddleware: the product polls (the LIVE tab)
+# and posts in bulk (ingest), so a blanket 50/minute would read as an
+# outage. See rate_limiter.py for why the key is the forwarded client IP.
+from rate_limiter import RATE_LIMITS, install_rate_limiting, rate_limit
+
+install_rate_limiting(app)
 
 # Add CSRF Protection Middleware
 # TODO: Fix middleware order issue
@@ -412,7 +418,7 @@ async def _update_existing_user_role(user_data, invite_info, audit_logger):
 
 
 @app.post("/api/auth/signup")
-# @rate_limit("3 per hour")
+@rate_limit(RATE_LIMITS["signup"])
 async def signup(request: Request, user_data: UserSignup):
     """User signup endpoint with username authentication."""
     from auth import check_username_available, username_to_internal_email
@@ -578,7 +584,7 @@ async def signup(request: Request, user_data: UserSignup):
 
 
 @app.post("/api/auth/login")
-# @rate_limit("5 per minute")
+@rate_limit(RATE_LIMITS["login"])
 async def login(request: Request, user_data: UserLogin):
     """User login endpoint with username authentication."""
     from auth import username_to_internal_email
@@ -674,6 +680,7 @@ async def login(request: Request, user_data: UserLogin):
 
 
 @app.post("/api/auth/forgot-password")
+@rate_limit(RATE_LIMITS["password_reset"])
 async def forgot_password(request: Request, body: ForgotPasswordRequest):
     """
     Initiate password reset flow.
@@ -738,6 +745,7 @@ async def forgot_password(request: Request, body: ForgotPasswordRequest):
 
 
 @app.post("/api/auth/reset-password")
+@rate_limit(RATE_LIMITS["password_reset"])
 async def reset_password(request: Request, body: ResetPasswordRequest):
     """
     Complete password reset: validate token and update the user's password.

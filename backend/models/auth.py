@@ -4,8 +4,9 @@ Authentication and user-related Pydantic models.
 
 import re
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
+from constants.passwords import validate_password
 from constants.positions import Positions
 
 
@@ -34,6 +35,16 @@ class UserSignup(BaseModel):
         if not v or "@" not in v:
             raise ValueError("A valid email address is required")
         return v
+
+    @model_validator(mode="after")
+    def enforce_password_policy(self):
+        """Reject a password too weak to accept (SB-640).
+
+        A model validator rather than a field one so the username is
+        available: the commonest weak password is the account's own name.
+        """
+        validate_password(self.password, username=self.username)
+        return self
 
 
 class UserLogin(BaseModel):
@@ -122,10 +133,15 @@ class ResetPasswordRequest(BaseModel):
 
     @field_validator("new_password")
     @classmethod
-    def validate_password_length(cls, v: str) -> str:
-        if len(v) < 6:
-            raise ValueError("Password must be at least 6 characters")
-        return v
+    def enforce_password_policy(cls, v: str) -> str:
+        """The same policy as signup (SB-640).
+
+        Reset used to accept six characters, which made it the way around
+        whatever signup asked for. The username is not in this payload — the
+        token identifies the account — so that half of the rule cannot be
+        applied here.
+        """
+        return validate_password(v)
 
 
 class RefreshTokenRequest(BaseModel):
