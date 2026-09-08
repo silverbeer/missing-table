@@ -22,53 +22,69 @@ from models.auth import (
 class TestUsernameValidation:
     """Test UserSignup.username validation (3-50 chars, alphanumeric + underscore)."""
 
-    @pytest.mark.parametrize("username,expected", [
-        ("abc", "abc"),  # Minimum length
-        ("ABC", "abc"),  # Uppercase converted to lowercase
-        ("player_23", "player_23"),  # Typical format
-        ("MixedCase_99", "mixedcase_99"),  # Mixed case lowercased
-        ("a" * 50, "a" * 50),  # Maximum length
-    ])
+    @pytest.mark.parametrize(
+        "username,expected",
+        [
+            ("abc", "abc"),  # Minimum length
+            ("ABC", "abc"),  # Uppercase converted to lowercase
+            ("player_23", "player_23"),  # Typical format
+            ("MixedCase_99", "mixedcase_99"),  # Mixed case lowercased
+            ("a" * 50, "a" * 50),  # Maximum length
+        ],
+    )
     def test_valid_usernames(self, username, expected):
-        result = UserSignup(username=username, password="Test123!", email="test@example.com")
+        result = UserSignup(username=username, password="correct horse battery", email="test@example.com")
         assert result.username == expected
 
-    @pytest.mark.parametrize("username", [
-        "ab",  # Too short
-        "",  # Empty
-        "a" * 51,  # Too long
-        "user@name",  # Invalid char @
-        "user name",  # Space
-        "user-name",  # Hyphen
-    ])
+    @pytest.mark.parametrize(
+        "username",
+        [
+            "ab",  # Too short
+            "",  # Empty
+            "a" * 51,  # Too long
+            "user@name",  # Invalid char @
+            "user name",  # Space
+            "user-name",  # Hyphen
+        ],
+    )
     def test_invalid_usernames(self, username):
         with pytest.raises(ValidationError):
-            UserSignup(username=username, password="Test123!", email="test@example.com")
+            UserSignup(
+                username=username,
+                password="correct horse battery",  # pragma: allowlist secret
+                email="test@example.com",
+            )
 
 
 @pytest.mark.unit
 class TestHexColorValidation:
     """Test PlayerCustomization color validation (#RRGGBB format)."""
 
-    @pytest.mark.parametrize("color", [
-        "#3B82F6",  # Standard hex
-        "#FFFFFF",  # White
-        "#000000",  # Black
-        "#abcdef",  # Lowercase
-        None,  # Optional field
-    ])
+    @pytest.mark.parametrize(
+        "color",
+        [
+            "#3B82F6",  # Standard hex
+            "#FFFFFF",  # White
+            "#000000",  # Black
+            "#abcdef",  # Lowercase
+            None,  # Optional field
+        ],
+    )
     def test_valid_colors(self, color):
         result = PlayerCustomization(primary_color=color)
         assert result.primary_color == color
 
-    @pytest.mark.parametrize("color", [
-        "3B82F6",  # Missing #
-        "#3B82F",  # Too short
-        "#3B82F6A",  # Too long
-        "#GGG000",  # Invalid hex char
-        "#FFF",  # 3-digit shorthand
-        "blue",  # Color name
-    ])
+    @pytest.mark.parametrize(
+        "color",
+        [
+            "3B82F6",  # Missing #
+            "#3B82F",  # Too short
+            "#3B82F6A",  # Too long
+            "#GGG000",  # Invalid hex char
+            "#FFF",  # 3-digit shorthand
+            "blue",  # Color name
+        ],
+    )
     def test_invalid_colors(self, color):
         with pytest.raises(ValidationError):
             PlayerCustomization(primary_color=color)
@@ -123,23 +139,29 @@ class TestOverlayStyleValidation:
 class TestSocialHandleValidation:
     """Test PlayerCustomization social handle validation (max 30 chars, @ stripped)."""
 
-    @pytest.mark.parametrize("handle,expected", [
-        ("player_23", "player_23"),
-        ("@player_23", "player_23"),  # @ stripped
-        ("john.doe", "john.doe"),  # Period allowed
-        ("a" * 30, "a" * 30),  # Max length
-        (None, None),  # Optional
-    ])
+    @pytest.mark.parametrize(
+        "handle,expected",
+        [
+            ("player_23", "player_23"),
+            ("@player_23", "player_23"),  # @ stripped
+            ("john.doe", "john.doe"),  # Period allowed
+            ("a" * 30, "a" * 30),  # Max length
+            (None, None),  # Optional
+        ],
+    )
     def test_valid_handles(self, handle, expected):
         result = PlayerCustomization(instagram_handle=handle)
         assert result.instagram_handle == expected
 
-    @pytest.mark.parametrize("handle", [
-        "a" * 31,  # Too long
-        "player@name",  # @ in middle
-        "player name",  # Space
-        "player-name",  # Hyphen
-    ])
+    @pytest.mark.parametrize(
+        "handle",
+        [
+            "a" * 31,  # Too long
+            "player@name",  # @ in middle
+            "player name",  # Space
+            "player-name",  # Hyphen
+        ],
+    )
     def test_invalid_handles(self, handle):
         with pytest.raises(ValidationError):
             PlayerCustomization(instagram_handle=handle)

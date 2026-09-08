@@ -20,9 +20,9 @@
               v-model="newPassword"
               type="password"
               required
-              minlength="6"
+              minlength="12"
               :disabled="authStore.state.loading"
-              placeholder="At least 6 characters"
+              placeholder="At least 12 characters"
               data-testid="rp-password-input"
             />
           </div>
@@ -34,7 +34,7 @@
               v-model="confirmPassword"
               type="password"
               required
-              minlength="6"
+              minlength="12"
               :disabled="authStore.state.loading"
               placeholder="Re-enter your password"
               data-testid="rp-confirm-input"

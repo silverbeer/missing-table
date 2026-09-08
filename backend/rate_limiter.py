@@ -1,5 +1,31 @@
 """
-Rate limiting middleware for the sports league backend.
+Rate limiting for the authentication endpoints (SB-640).
+
+This module holds **only limits that are actually enforced**. It used to
+carry a four-category policy — public, authenticated, admin, auth — none of
+which was in effect: the middleware and every decorator were commented out,
+so `RATE_LIMITS` read as a live policy while login and signup were
+unthrottled. Dead security config that reads as active is worse than none,
+because it invites the assumption that login is throttled when it is not.
+
+Two decisions worth keeping:
+
+**No global default limits, and no SlowAPIMiddleware.** `SlowAPIMiddleware`
+exists to apply `default_limits` to every request. The old defaults were 200
+per hour and 50 per minute, which the product itself would breach: the LIVE
+tab polls while a match is being scored, and ingest posts fixtures in bulk.
+Turning that on would have looked like an outage. Limits are applied per
+endpoint with `@rate_limit(...)` instead, which needs no middleware — so the
+"middleware order issue" the old code hedged about does not arise.
+
+**The key is the forwarded client IP, not the socket peer.** Behind the
+ingress every request arrives from one address, so keying on
+`slowapi.util.get_remote_address` would put every user in the world into a
+single bucket and five failed logins anywhere would lock out everyone. The
+app already resolves the real client for audit logging; this uses the same
+rule. `X-Forwarded-For` is spoofable by a direct caller, but the ingress
+rewrites it, and the alternative is a shared bucket that is trivially
+exhausted by accident.
 """
 
 import logging
@@ -9,113 +35,76 @@ import redis
 from fastapi import Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 
 logger = logging.getLogger(__name__)
 
-# Redis configuration for distributed rate limiting
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-USE_REDIS = os.getenv("USE_REDIS_RATE_LIMIT", "false").lower() == "true"
+# Redis makes one limit hold across every backend pod. Without it each pod
+# counts on its own, so the effective limit is (pods x limit) — still a
+# limit, just a looser one. Prod sets REDIS_URL; local usually does not.
+REDIS_URL = os.getenv("REDIS_URL", "")
 
-# Create Redis client if enabled
-redis_client = None
-if USE_REDIS:
-    try:
-        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-        redis_client.ping()
-        logger.info("Redis connected for rate limiting")
-    except Exception as e:
-        logger.warning(f"Redis connection failed, falling back to in-memory: {e}")
-        redis_client = None
-
-
-# Custom key function that includes user ID for authenticated requests
-def get_rate_limit_key(request: Request) -> str:
-    """Get rate limit key based on IP and user ID if authenticated."""
-    # Get IP address
-    ip = get_remote_address(request)
-
-    # Try to get user ID from request state (set by auth middleware)
-    user_id = getattr(request.state, "user_id", None)
-
-    if user_id:
-        return f"{ip}:{user_id}"
-    return ip
-
-
-# Create limiter instance
-limiter = Limiter(
-    key_func=get_rate_limit_key,
-    default_limits=["200 per hour", "50 per minute"],  # Global limits
-    storage_uri=REDIS_URL if redis_client else None,
-    headers_enabled=True,  # Include rate limit headers in responses
-)
-
-# Rate limit configurations for different endpoint categories
+# Limits for the credential endpoints. These are the ones being enforced;
+# anything added here must also be applied to a route to be real.
 RATE_LIMITS = {
-    # Authentication endpoints - stricter limits
-    "auth": {"login": "5 per minute", "signup": "3 per hour", "password_reset": "3 per hour"},
-    # Public read endpoints - generous limits
-    "public": {"default": "100 per minute", "standings": "30 per minute", "games": "30 per minute"},
-    # Authenticated write endpoints - moderate limits
-    "authenticated": {
-        "default": "30 per minute",
-        "create_game": "10 per minute",
-        "update_game": "20 per minute",
-    },
-    # Admin endpoints - relaxed limits
-    "admin": {"default": "100 per minute"},
+    "login": "5 per minute",
+    "signup": "3 per hour",
+    "password_reset": "3 per hour",
 }
 
 
-def get_endpoint_limit(path: str, method: str, user_role: str | None = None) -> str:
-    """Determine rate limit based on endpoint and user role."""
+def client_key(request: Request) -> str:
+    """The bucket a request counts against: its originating client.
 
-    # Auth endpoints
-    if path.startswith("/api/auth/"):
-        if "login" in path:
-            return RATE_LIMITS["auth"]["login"]
-        elif "signup" in path:
-            return RATE_LIMITS["auth"]["signup"]
-        elif "password" in path:
-            return RATE_LIMITS["auth"]["password_reset"]
-
-    # Admin users get higher limits
-    if user_role == "admin":
-        return RATE_LIMITS["admin"]["default"]
-
-    # Write operations (POST, PUT, DELETE)
-    if method in ["POST", "PUT", "DELETE"]:
-        if "games" in path:
-            if method == "POST":
-                return RATE_LIMITS["authenticated"]["create_game"]
-            else:
-                return RATE_LIMITS["authenticated"]["update_game"]
-        return RATE_LIMITS["authenticated"]["default"]
-
-    # Public read operations
-    if "standings" in path:
-        return RATE_LIMITS["public"]["standings"]
-    elif "games" in path:
-        return RATE_LIMITS["public"]["games"]
-
-    return RATE_LIMITS["public"]["default"]
+    Mirrors `get_client_ip` in app.py rather than importing it, to keep this
+    module free of an app-level import cycle. Both must stay in step: if one
+    starts trusting a different header, a limit silently becomes global.
+    """
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
 
 
-def create_rate_limit_middleware(app):
-    """Create and configure rate limiting middleware."""
+def _storage_uri() -> str | None:
+    """Redis when it answers, None (in-memory) when it does not.
 
-    # Add error handler
+    Checked once at import: a limiter pointed at an unreachable Redis fails
+    every request it is asked to count, which would take down login rather
+    than protect it.
+    """
+    if not REDIS_URL:
+        return None
+    try:
+        redis.from_url(REDIS_URL, socket_connect_timeout=2).ping()
+    except Exception as exc:
+        logger.warning("rate_limit_redis_unavailable falling back to in-memory: %s", exc)
+        return None
+    logger.info("rate_limit_storage_redis")
+    return REDIS_URL
+
+
+# headers_enabled is off deliberately. slowapi injects X-RateLimit-* by
+# writing to a `response: Response` parameter, which every decorated
+# endpoint would then have to declare — and an endpoint that forgets raises
+# at request time, turning a missing annotation into a broken login. The
+# 429 still carries Retry-After, which is the part a client acts on.
+limiter = Limiter(key_func=client_key, storage_uri=_storage_uri(), headers_enabled=False)
+
+
+def install_rate_limiting(app) -> Limiter:
+    """Attach the limiter to the app so `@rate_limit(...)` decorators work.
+
+    slowapi reads `app.state.limiter` when a decorated endpoint runs, and
+    needs a handler for RateLimitExceeded to turn it into a 429 instead of a
+    500. No middleware is added on purpose — see the module docstring.
+    """
+    app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-    # Add middleware
-    app.add_middleware(SlowAPIMiddleware)
-
     return limiter
 
 
-# Decorator for custom rate limits on specific endpoints
 def rate_limit(limit: str):
-    """Decorator to apply custom rate limit to an endpoint."""
+    """Apply a limit to one endpoint. The endpoint must take `request: Request`."""
     return limiter.limit(limit)
