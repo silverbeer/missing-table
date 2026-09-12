@@ -1,5 +1,6 @@
 """Unit tests for the agent match-summary endpoint."""
 
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -272,3 +273,160 @@ class TestMatchSummaryEndpoint:
             assert response.status_code == 422  # Missing required query param
         finally:
             app.dependency_overrides.clear()
+
+
+@pytest.mark.unit
+class TestScoreIsDue:
+    """A missing score becomes news SCORE_GRACE after kick-off, not at midnight
+    UTC (SB-1058). The old rule made a full Saturday programme report
+    needs_score 0 for the whole of Saturday."""
+
+    TODAY = "2026-09-12"
+    NOW = datetime(2026, 9, 12, 18, 0, tzinfo=UTC)  # 14:00 ET
+
+    def _due(self, kickoff, md=None, now=None):
+        from dao.match_dao import _score_is_due
+
+        return _score_is_due(
+            {"scheduled_kickoff": kickoff},
+            now or self.NOW,
+            md or self.TODAY,
+            self.TODAY,
+        )
+
+    def test_a_match_played_this_morning_is_due(self):
+        """13:00 UTC is 09:00 ET — five hours gone, nobody should wait for
+        midnight to ask for the score."""
+        assert self._due("2026-09-12T13:00:00+00:00") is True
+
+    def test_a_match_that_just_kicked_off_is_not_due(self):
+        assert self._due("2026-09-12T17:45:00+00:00") is False
+
+    def test_the_grace_boundary_is_inclusive(self):
+        from dao.match_dao import SCORE_GRACE
+
+        assert self._due((self.NOW - SCORE_GRACE).isoformat()) is True
+        assert self._due((self.NOW - SCORE_GRACE + timedelta(seconds=1)).isoformat()) is False
+
+    def test_a_match_tonight_is_not_due(self):
+        assert self._due("2026-09-12T23:00:00+00:00") is False
+
+    def test_a_zulu_timestamp_is_understood(self):
+        assert self._due("2026-09-12T13:00:00Z") is True
+
+    def test_a_naive_timestamp_is_read_as_utc(self):
+        assert self._due("2026-09-12T13:00:00") is True
+        assert self._due("2026-09-12T17:45:00") is False
+
+    def test_no_kickoff_falls_back_to_the_date_rule(self):
+        """Without a time there is no telling a finished match from one that has
+        not started, so the calendar day is all there is to go on."""
+        assert self._due(None, md="2026-09-11") is True
+        assert self._due(None, md=self.TODAY) is False
+        assert self._due("", md="2026-09-11") is True
+
+    def test_an_unparseable_timestamp_falls_back_to_the_date_rule(self):
+        assert self._due("not a timestamp", md="2026-09-11") is True
+        assert self._due("not a timestamp", md=self.TODAY) is False
+
+
+@pytest.mark.unit
+class TestNeedsScoreUsesKickoff(TestGetMatchSummary):
+    """The summary itself, not just the predicate."""
+
+    def _summary(self, matches_data):
+        dao = self._make_dao()
+
+        def table_side_effect(name):
+            mock = MagicMock()
+            if name == "seasons":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.limit.return_value = mock
+                mock.execute.return_value = MagicMock(data=[{"id": 1}])
+            elif name == MATCHES_READ_RELATION:
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.neq.return_value = mock
+                mock.range.return_value = mock
+                mock.execute.return_value = MagicMock(data=matches_data)
+            return mock
+
+        dao.client.table = table_side_effect
+        return dao.get_match_summary("2026-2027")
+
+    @staticmethod
+    def _match(kickoff, md):
+        return {
+            "match_date": md,
+            "match_status": "scheduled",
+            "home_score": None,
+            "away_score": None,
+            "scheduled_kickoff": kickoff,
+            "age_group": {"name": "U14"},
+            "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
+        }
+
+    def test_todays_finished_matches_are_counted(self):
+        """Reproduces the reported case: matches played today, hours ago, that
+        the old rule reported as needs_score 0."""
+        today = date.today()
+        long_done = datetime.now(UTC) - timedelta(hours=6)
+        still_to_come = datetime.now(UTC) + timedelta(hours=2)
+
+        result = self._summary(
+            [
+                self._match(long_done.isoformat(), today.isoformat()),
+                self._match(long_done.isoformat(), today.isoformat()),
+                self._match(still_to_come.isoformat(), today.isoformat()),
+            ]
+        )
+
+        assert result[0]["total"] == 3
+        assert result[0]["needs_score"] == 2
+
+    def test_the_score_window_still_bounds_the_count(self):
+        """score_from/score_to narrows the set; kick-off does not widen past it."""
+        today = date.today()
+        long_done = datetime.now(UTC) - timedelta(hours=6)
+
+        result = self._summary([self._match(long_done.isoformat(), today.isoformat())])
+        assert result[0]["needs_score"] == 1
+
+        dao_result = self._summary_windowed(
+            [self._match(long_done.isoformat(), today.isoformat())],
+            score_to=(today - timedelta(days=1)).isoformat(),
+        )
+        assert dao_result[0]["needs_score"] == 0
+
+    def _summary_windowed(self, matches_data, **kwargs):
+        dao = self._make_dao()
+
+        def table_side_effect(name):
+            mock = MagicMock()
+            if name == "seasons":
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.limit.return_value = mock
+                mock.execute.return_value = MagicMock(data=[{"id": 1}])
+            elif name == MATCHES_READ_RELATION:
+                mock.select.return_value = mock
+                mock.eq.return_value = mock
+                mock.neq.return_value = mock
+                mock.range.return_value = mock
+                mock.execute.return_value = MagicMock(data=matches_data)
+            return mock
+
+        dao.client.table = table_side_effect
+        return dao.get_match_summary("2026-2027", **kwargs)
+
+    def test_a_scored_match_is_never_counted(self):
+        today = date.today()
+        long_done = (datetime.now(UTC) - timedelta(hours=6)).isoformat()
+        scored = self._match(long_done, today.isoformat())
+        scored["home_score"] = 2
+        scored["away_score"] = 1
+        scored["match_status"] = "completed"
+
+        result = self._summary([scored])
+        assert result[0]["needs_score"] == 0
