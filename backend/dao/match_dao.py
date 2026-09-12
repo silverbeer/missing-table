@@ -6,7 +6,7 @@ and related soccer/futbol data using Supabase.
 """
 
 import os
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import structlog
@@ -142,6 +142,47 @@ class SupabaseConnection:
     def get_client(self):
         """Get the Supabase client instance."""
         return self.client
+
+
+# How long after kick-off a result is expected to be published. A youth match
+# plus stoppage, admin, and someone actually entering the score: three hours is
+# late enough not to ask before anyone could have answered, early enough that a
+# midday match is chased the same afternoon (SB-1058).
+SCORE_GRACE = timedelta(hours=3)
+
+
+def _score_is_due(match: dict, now: datetime, md: str, today: str) -> bool:
+    """Has this match been over long enough that a missing score is news?
+
+    The rule used to be ``md < today``: a date compared against the server's UTC
+    date, strictly before. That made every match played today invisible until the
+    UTC date rolled over at 20:00 ET, so a match kicking off at noon went
+    unchased for eight hours and a full Saturday programme reported
+    needs_score 0 for the whole of Saturday.
+
+    Kick-off is stored as a UTC timestamp (matches.scheduled_kickoff), so the
+    honest question is whether kick-off plus SCORE_GRACE is in the past.
+
+    Falls back to the date comparison when kick-off is unknown: without a time
+    there is no telling a match that ended an hour ago from one that has not
+    kicked off, and guessing the wrong way sends the agent hunting a score that
+    cannot exist yet. Every scheduled match in the current season carries a
+    kick-off time, so that is the rare path.
+    """
+    kickoff = match.get("scheduled_kickoff")
+    if not kickoff:
+        return md < today
+
+    if isinstance(kickoff, str):
+        try:
+            kickoff = datetime.fromisoformat(kickoff.replace("Z", "+00:00"))
+        except ValueError:
+            return md < today
+
+    if kickoff.tzinfo is None:
+        kickoff = kickoff.replace(tzinfo=UTC)
+
+    return kickoff + SCORE_GRACE <= now
 
 
 class MatchDAO(BaseDAO):
@@ -570,6 +611,9 @@ class MatchDAO(BaseDAO):
         Used by the match-scraper-agent to understand what MT already has
         and make smart decisions about what to scrape.
 
+        A match counts toward needs_score once SCORE_GRACE has passed since its
+        kick-off rather than once the calendar day has ended — see _score_is_due.
+
         Args:
             season_name: Season name, e.g. '2025-2026'.
             score_from: If set, only count needs_score for matches >= this date.
@@ -579,10 +623,11 @@ class MatchDAO(BaseDAO):
                 test fixtures, which are never scraped.
         """
         from collections import defaultdict
-        from datetime import date, timedelta
+        from datetime import date
 
         today = date.today().isoformat()
         kickoff_horizon = (date.today() + timedelta(days=14)).isoformat()
+        now = datetime.now(UTC)
 
         season_id = self._season_id_by_name(season_name)
         if season_id is None:
@@ -637,9 +682,9 @@ class MatchDAO(BaseDAO):
                 md = m["match_date"]
                 dates.append(md)
 
-                if md < today and status in ("scheduled", "tbd") and m.get("home_score") is None:
+                if status in ("scheduled", "tbd") and m.get("home_score") is None:
                     in_window = (not score_from or md >= score_from) and (not score_to or md <= score_to)
-                    if in_window:
+                    if in_window and _score_is_due(m, now, md, today):
                         needs_score += 1
 
                 if status in ("scheduled", "tbd") and today <= md <= kickoff_horizon and not m.get("scheduled_kickoff"):
