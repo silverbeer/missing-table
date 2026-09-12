@@ -5,8 +5,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from dao.base_dao import MATCHES_READ_RELATION
-
 
 @pytest.mark.unit
 class TestGetMatchSummary:
@@ -36,177 +34,135 @@ class TestGetMatchSummary:
         result = dao.get_match_summary("9999-00")
         assert result == []
 
-    def test_groups_matches_correctly(self):
+    def _rpc_dao(self, rows, season_id=1):
+        """A DAO whose season lookup resolves and whose RPC returns `rows`."""
         dao = self._make_dao()
 
-        matches_data = [
-            {
-                "match_date": "2026-03-01",
-                "match_status": "completed",
-                "home_score": 2,
-                "away_score": 1,
-                "age_group": {"name": "U14"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            },
-            {
-                "match_date": "2026-03-15",
-                "match_status": "scheduled",
-                "home_score": None,
-                "away_score": None,
-                "age_group": {"name": "U14"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            },
-        ]
+        season = MagicMock()
+        season.select.return_value = season
+        season.eq.return_value = season
+        season.limit.return_value = season
+        season.execute.return_value = MagicMock(data=[{"id": season_id}])
+        dao.client.table.return_value = season
 
-        def table_side_effect(name):
-            mock = MagicMock()
-            if name == "seasons":
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.limit.return_value = mock
-                mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == MATCHES_READ_RELATION:
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.neq.return_value = mock
-                mock.range.return_value = mock
-                mock.execute.return_value = MagicMock(data=matches_data)
-            return mock
+        rpc = MagicMock()
+        rpc.execute.return_value = MagicMock(data=rows)
+        dao.client.rpc.return_value = rpc
+        return dao
 
-        dao.client.table = table_side_effect
+    @staticmethod
+    def _row(**kwargs):
+        row = {
+            "age_group": "U14",
+            "league": "Homegrown",
+            "division": "Northeast",
+            "total": 2,
+            "by_status": {"completed": 1, "scheduled": 1},
+            "needs_score": 0,
+            "needs_kickoff": 0,
+            "earliest": "2026-03-01",
+            "latest": "2026-03-15",
+            "last_played_date": "2026-03-01",
+        }
+        row.update(kwargs)
+        return row
+
+    def test_reshapes_rows_into_the_agent_contract(self):
+        """The planner in match-scraper reads these exact keys, so the shape is
+        part of the contract, not an implementation detail."""
+        dao = self._rpc_dao([self._row()])
 
         result = dao.get_match_summary("2025-26")
+
         assert len(result) == 1
         group = result[0]
         assert group["age_group"] == "U14"
         assert group["league"] == "Homegrown"
         assert group["division"] == "Northeast"
         assert group["total"] == 2
-        assert group["by_status"]["completed"] == 1
-        assert group["by_status"]["scheduled"] == 1
+        assert group["by_status"] == {"completed": 1, "scheduled": 1}
+        assert group["needs_score"] == 0
+        assert group["needs_kickoff"] == 0
+        assert group["date_range"] == {
+            "earliest": "2026-03-01",
+            "latest": "2026-03-15",
+        }
         assert group["last_played_date"] == "2026-03-01"
 
-    def test_needs_score_counts_past_unscored(self):
-        dao = self._make_dao()
-
-        matches_data = [
-            {
-                "match_date": "2026-03-01",
-                "match_status": "scheduled",
-                "home_score": None,
-                "away_score": None,
-                "age_group": {"name": "U14"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            },
-            {
-                "match_date": "2026-03-01",
-                "match_status": "tbd",
-                "home_score": None,
-                "away_score": None,
-                "age_group": {"name": "U14"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            },
-            {
-                "match_date": "2099-12-31",
-                "match_status": "scheduled",
-                "home_score": None,
-                "away_score": None,
-                "age_group": {"name": "U14"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            },
-        ]
-
-        def table_side_effect(name):
-            mock = MagicMock()
-            if name == "seasons":
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.limit.return_value = mock
-                mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == MATCHES_READ_RELATION:
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.neq.return_value = mock
-                mock.range.return_value = mock
-                mock.execute.return_value = MagicMock(data=matches_data)
-            return mock
-
-        dao.client.table = table_side_effect
+    def test_asks_the_database_once(self):
+        """Replaces test_paginates_beyond_1000_rows. That test existed because
+        the old implementation read the season in 1000-row pages and would
+        silently truncate if the loop were wrong. There is no loop now — the
+        counts come back already aggregated, so truncation is not expressible
+        (SB-1057)."""
+        dao = self._rpc_dao([self._row() for _ in range(119)])
 
         result = dao.get_match_summary("2025-26")
-        assert result[0]["needs_score"] == 2  # Only past matches count
 
-    def test_paginates_beyond_1000_rows(self):
-        """Regression test: query must paginate past Supabase's 1000-row default limit."""
-        dao = self._make_dao()
+        assert len(result) == 119
+        assert dao.client.rpc.call_count == 1
 
-        # Simulate two pages: first returns 1000 rows (all U14), second returns 2 rows (U16)
-        page1 = [
-            {
-                "match_date": "2026-03-01",
-                "match_status": "completed",
-                "home_score": 1,
-                "away_score": 0,
-                "scheduled_kickoff": None,
-                "age_group": {"name": "U14"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            }
-        ] * 1000
-        page2 = [
-            {
-                "match_date": "2026-04-11",
-                "match_status": "scheduled",
-                "home_score": None,
-                "away_score": None,
-                "scheduled_kickoff": None,
-                "age_group": {"name": "U16"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            },
-            {
-                "match_date": "2026-04-12",
-                "match_status": "scheduled",
-                "home_score": None,
-                "away_score": None,
-                "scheduled_kickoff": None,
-                "age_group": {"name": "U16"},
-                "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-            },
-        ]
+    def test_passes_the_score_window_through(self):
+        dao = self._rpc_dao([self._row(needs_score=4)])
 
-        call_count = 0
+        result = dao.get_match_summary(
+            "2025-26", score_from="2026-09-12", score_to="2026-09-13"
+        )
 
-        def table_side_effect(name):
-            nonlocal call_count
-            mock = MagicMock()
-            if name == "seasons":
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.limit.return_value = mock
-                mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == MATCHES_READ_RELATION:
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.neq.return_value = mock
-                mock.range.return_value = mock
+        assert result[0]["needs_score"] == 4
+        _, params = dao.client.rpc.call_args[0]
+        assert params["p_score_from"] == "2026-09-12"
+        assert params["p_score_to"] == "2026-09-13"
 
-                def execute_side_effect():
-                    nonlocal call_count
-                    call_count += 1
-                    return MagicMock(data=page1 if call_count == 1 else page2)
+    def test_passes_the_score_grace_from_python(self):
+        """SCORE_GRACE stays defined in this module. The SQL default is a safety
+        net, not a second source of truth (SB-1058)."""
+        from dao.match_dao import SCORE_GRACE
 
-                mock.execute.side_effect = execute_side_effect
-            return mock
+        dao = self._rpc_dao([self._row()])
+        dao.get_match_summary("2025-26")
 
-        dao.client.table = table_side_effect
+        _, params = dao.client.rpc.call_args[0]
+        assert params["p_score_grace"] == f"{SCORE_GRACE.total_seconds()} seconds"
+        assert timedelta(hours=3) == SCORE_GRACE
 
-        result = dao.get_match_summary("2025-2026")
+    def test_passes_now_and_today_rather_than_letting_sql_decide(self):
+        """The caller owns the clock, so the same call is reproducible."""
+        dao = self._rpc_dao([self._row()])
+        dao.get_match_summary("2025-26")
 
-        assert call_count == 2, "Expected exactly two paginated fetches"
-        groups = {r["age_group"]: r for r in result}
-        assert "U14" in groups
-        assert "U16" in groups, "U16 matches from page 2 must appear in the summary"
-        assert groups["U16"]["total"] == 2
-        assert groups["U16"]["needs_score"] == 2  # Both are past unscored matches
+        _, params = dao.client.rpc.call_args[0]
+        assert params["p_today"] == date.today().isoformat()
+        parsed = datetime.fromisoformat(params["p_now"])
+        assert parsed.tzinfo is not None
+        assert abs((datetime.now(UTC) - parsed).total_seconds()) < 30
+
+    def test_excludes_test_fixtures_by_default(self):
+        """SB-591: the agent's "what is missing" counts must not be skewed by
+        hand-created fixtures, which are never scraped."""
+        dao = self._rpc_dao([self._row()])
+        dao.get_match_summary("2025-26")
+
+        _, params = dao.client.rpc.call_args[0]
+        assert params["p_include_test"] is False
+
+    def test_includes_test_fixtures_when_asked(self):
+        dao = self._rpc_dao([self._row()])
+        dao.get_match_summary("2025-26", include_test=True)
+
+        _, params = dao.client.rpc.call_args[0]
+        assert params["p_include_test"] is True
+
+    def test_a_null_by_status_becomes_an_empty_dict(self):
+        """jsonb_object_agg over no rows is NULL, and the planner expects a dict."""
+        dao = self._rpc_dao([self._row(by_status=None)])
+
+        assert dao.get_match_summary("2025-26")[0]["by_status"] == {}
+
+    def test_no_rows_is_an_empty_summary(self):
+        dao = self._rpc_dao([])
+
+        assert dao.get_match_summary("2025-26") == []
 
 
 @pytest.mark.unit
@@ -275,158 +231,3 @@ class TestMatchSummaryEndpoint:
             app.dependency_overrides.clear()
 
 
-@pytest.mark.unit
-class TestScoreIsDue:
-    """A missing score becomes news SCORE_GRACE after kick-off, not at midnight
-    UTC (SB-1058). The old rule made a full Saturday programme report
-    needs_score 0 for the whole of Saturday."""
-
-    TODAY = "2026-09-12"
-    NOW = datetime(2026, 9, 12, 18, 0, tzinfo=UTC)  # 14:00 ET
-
-    def _due(self, kickoff, md=None, now=None):
-        from dao.match_dao import _score_is_due
-
-        return _score_is_due(
-            {"scheduled_kickoff": kickoff},
-            now or self.NOW,
-            md or self.TODAY,
-            self.TODAY,
-        )
-
-    def test_a_match_played_this_morning_is_due(self):
-        """13:00 UTC is 09:00 ET — five hours gone, nobody should wait for
-        midnight to ask for the score."""
-        assert self._due("2026-09-12T13:00:00+00:00") is True
-
-    def test_a_match_that_just_kicked_off_is_not_due(self):
-        assert self._due("2026-09-12T17:45:00+00:00") is False
-
-    def test_the_grace_boundary_is_inclusive(self):
-        from dao.match_dao import SCORE_GRACE
-
-        assert self._due((self.NOW - SCORE_GRACE).isoformat()) is True
-        assert self._due((self.NOW - SCORE_GRACE + timedelta(seconds=1)).isoformat()) is False
-
-    def test_a_match_tonight_is_not_due(self):
-        assert self._due("2026-09-12T23:00:00+00:00") is False
-
-    def test_a_zulu_timestamp_is_understood(self):
-        assert self._due("2026-09-12T13:00:00Z") is True
-
-    def test_a_naive_timestamp_is_read_as_utc(self):
-        assert self._due("2026-09-12T13:00:00") is True
-        assert self._due("2026-09-12T17:45:00") is False
-
-    def test_no_kickoff_falls_back_to_the_date_rule(self):
-        """Without a time there is no telling a finished match from one that has
-        not started, so the calendar day is all there is to go on."""
-        assert self._due(None, md="2026-09-11") is True
-        assert self._due(None, md=self.TODAY) is False
-        assert self._due("", md="2026-09-11") is True
-
-    def test_an_unparseable_timestamp_falls_back_to_the_date_rule(self):
-        assert self._due("not a timestamp", md="2026-09-11") is True
-        assert self._due("not a timestamp", md=self.TODAY) is False
-
-
-@pytest.mark.unit
-class TestNeedsScoreUsesKickoff(TestGetMatchSummary):
-    """The summary itself, not just the predicate."""
-
-    def _summary(self, matches_data):
-        dao = self._make_dao()
-
-        def table_side_effect(name):
-            mock = MagicMock()
-            if name == "seasons":
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.limit.return_value = mock
-                mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == MATCHES_READ_RELATION:
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.neq.return_value = mock
-                mock.range.return_value = mock
-                mock.execute.return_value = MagicMock(data=matches_data)
-            return mock
-
-        dao.client.table = table_side_effect
-        return dao.get_match_summary("2026-2027")
-
-    @staticmethod
-    def _match(kickoff, md):
-        return {
-            "match_date": md,
-            "match_status": "scheduled",
-            "home_score": None,
-            "away_score": None,
-            "scheduled_kickoff": kickoff,
-            "age_group": {"name": "U14"},
-            "division": {"name": "Northeast", "league_id": 1, "leagues": {"name": "Homegrown"}},
-        }
-
-    def test_todays_finished_matches_are_counted(self):
-        """Reproduces the reported case: matches played today, hours ago, that
-        the old rule reported as needs_score 0."""
-        today = date.today()
-        long_done = datetime.now(UTC) - timedelta(hours=6)
-        still_to_come = datetime.now(UTC) + timedelta(hours=2)
-
-        result = self._summary(
-            [
-                self._match(long_done.isoformat(), today.isoformat()),
-                self._match(long_done.isoformat(), today.isoformat()),
-                self._match(still_to_come.isoformat(), today.isoformat()),
-            ]
-        )
-
-        assert result[0]["total"] == 3
-        assert result[0]["needs_score"] == 2
-
-    def test_the_score_window_still_bounds_the_count(self):
-        """score_from/score_to narrows the set; kick-off does not widen past it."""
-        today = date.today()
-        long_done = datetime.now(UTC) - timedelta(hours=6)
-
-        result = self._summary([self._match(long_done.isoformat(), today.isoformat())])
-        assert result[0]["needs_score"] == 1
-
-        dao_result = self._summary_windowed(
-            [self._match(long_done.isoformat(), today.isoformat())],
-            score_to=(today - timedelta(days=1)).isoformat(),
-        )
-        assert dao_result[0]["needs_score"] == 0
-
-    def _summary_windowed(self, matches_data, **kwargs):
-        dao = self._make_dao()
-
-        def table_side_effect(name):
-            mock = MagicMock()
-            if name == "seasons":
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.limit.return_value = mock
-                mock.execute.return_value = MagicMock(data=[{"id": 1}])
-            elif name == MATCHES_READ_RELATION:
-                mock.select.return_value = mock
-                mock.eq.return_value = mock
-                mock.neq.return_value = mock
-                mock.range.return_value = mock
-                mock.execute.return_value = MagicMock(data=matches_data)
-            return mock
-
-        dao.client.table = table_side_effect
-        return dao.get_match_summary("2026-2027", **kwargs)
-
-    def test_a_scored_match_is_never_counted(self):
-        today = date.today()
-        long_done = (datetime.now(UTC) - timedelta(hours=6)).isoformat()
-        scored = self._match(long_done, today.isoformat())
-        scored["home_score"] = 2
-        scored["away_score"] = 1
-        scored["match_status"] = "completed"
-
-        result = self._summary([scored])
-        assert result[0]["needs_score"] == 0
