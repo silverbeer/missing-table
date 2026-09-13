@@ -6,6 +6,11 @@
         "SUPABASE_PG_URL": "${SUPABASE_PG_URL}",
         "NODE_TLS_REJECT_UNAUTHORIZED": "0"
       }
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
     }
   }
 }

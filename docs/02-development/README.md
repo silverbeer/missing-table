@@ -214,6 +214,7 @@ npm run build --report
   - Prettier
 - **Postman** or **Bruno** for API testing
 - **TablePlus** or **DBeaver** for database browsing
+- **CodeGraph** — code index for AI agents, under evaluation. See [codegraph.md](codegraph.md)
 
 ### Environment Files
 

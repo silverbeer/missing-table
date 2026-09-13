@@ -191,3 +191,10 @@ backend/tests/tsc/.entity_registry.*.json
 
 # Varlock schema is reference-only — safe to commit
 !.env.schema
+
+# CodeGraph local index + other agents' generated config (SB-1067)
+.codegraph/
+.cursor/
+.gemini/
+.kiro/
+GEMINI.md

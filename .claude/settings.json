@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__codegraph__*"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/codegraph-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
