@@ -14,6 +14,7 @@ the client replaced.
 import importlib.util
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -26,7 +27,8 @@ def restore(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "http://localhost:55321")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "test-service-key")  # pragma: allowlist secret
     spec = importlib.util.spec_from_file_location("restore_database", _SCRIPT)
-    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    module: Any = importlib.util.module_from_spec(spec)
     sys.modules["restore_database"] = module
     spec.loader.exec_module(module)
     yield module
@@ -204,3 +206,82 @@ class TestExitCode:
 
     def test_no_arguments_exits_non_zero(self, restore):
         assert restore.main([]) == 1
+
+
+@pytest.mark.unit
+class TestUserReferenceSanitization:
+    """The map had drifted from the schema (SB-1071)."""
+
+    PRESENT = "11111111-1111-1111-1111-111111111111"
+    ABSENT = "99999999-9999-9999-9999-999999999999"
+
+    def test_player_stats_are_never_dropped_for_their_integer_player_id(self, restore):
+        # player_match_stats.player_id references players(id), an integer. The
+        # old map treated it as a user uuid, so no row ever passed and a
+        # restore silently dropped every goal and assist.
+        stats = [{"id": 1, "player_id": 42, "goals": 2}, {"id": 2, "player_id": 7, "goals": 0}]
+
+        kept = restore.sanitize_user_profile_refs("player_match_stats", stats, {self.PRESENT})
+
+        assert kept == stats
+
+    def test_invitation_users_that_are_absent_are_cleared(self, restore):
+        rows = [{"id": 1, "invited_by_user_id": self.ABSENT, "used_by_user_id": self.PRESENT}]
+
+        [kept] = restore.sanitize_user_profile_refs("invitations", rows, {self.PRESENT})
+
+        assert kept["invited_by_user_id"] is None
+        assert kept["used_by_user_id"] == self.PRESENT
+
+    def test_match_authors_that_are_absent_are_cleared_not_dropped(self, restore):
+        rows = [{"id": 1, "created_by": self.ABSENT, "updated_by": self.ABSENT}]
+
+        [kept] = restore.sanitize_user_profile_refs("matches", rows, set())
+
+        assert kept["created_by"] is None and kept["updated_by"] is None
+
+    @pytest.mark.parametrize("table", ["user_team_follows", "user_bracket_follows", "user_notification_preferences"])
+    def test_a_users_own_rows_are_dropped_when_the_user_is_absent(self, restore, table):
+        rows = [{"user_id": self.PRESENT}, {"user_id": self.ABSENT}]
+
+        kept = restore.sanitize_user_profile_refs(table, rows, {self.PRESENT})
+
+        assert kept == [{"user_id": self.PRESENT}]
+
+    def test_email_sent_by_an_absent_user_is_kept_with_the_sender_cleared(self, restore):
+        rows = [{"id": "m1", "sent_by_user_id": self.ABSENT, "body_text": "hello"}]
+
+        [kept] = restore.sanitize_user_profile_refs("email_messages", rows, set())
+
+        assert kept["sent_by_user_id"] is None
+
+
+class FakeDelete:
+    def __init__(self, calls, table):
+        self.calls = calls
+        self.table = table
+
+    def delete(self):
+        return self
+
+    def filter(self, column, operator, criteria):
+        self.calls.append((self.table, f"{column}={operator}.{criteria}"))
+        return self
+
+    def select(self, *_args):
+        raise AssertionError(f"{self.table} has no id column to page through")
+
+    def execute(self):
+        return FakeResult([{"user_id": "u"}])
+
+
+@pytest.mark.unit
+class TestClearingTablesWithoutAnId:
+    @pytest.mark.parametrize("table", ["tournament_age_groups", "user_team_follows"])
+    def test_cleared_by_filtering_on_a_key_column(self, restore, table):
+        calls: list[tuple[str, str]] = []
+        restore.supabase = type("Client", (), {"table": lambda _self, name: FakeDelete(calls, name)})()
+
+        restore.clear_table(table)
+
+        assert calls == [(table, f"{restore.CLEAR_BY_COLUMN[table]}=not.is.null")]

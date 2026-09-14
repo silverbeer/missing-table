@@ -66,15 +66,10 @@ If you want to re-enable Supabase Auth integration:
 
 ### What Gets Backed Up
 
-The backup/restore scripts (`scripts/backup_database.py` and `scripts/restore_database.py`) backup only:
-- age_groups
-- divisions
-- match_types
-- seasons
-- teams
-- team_mappings
-- team_match_types
-- matches
+The backup/restore scripts (`scripts/backup_database.py` and `scripts/restore_database.py`) cover every table
+except those excluded per environment. The current lists, and why each exclusion exists, are in
+[docs/07-operations/database-backup.md](07-operations/database-backup.md#what-gets-backed-up); a CI test keeps
+them complete.
 
 **user_profiles is EXCLUDED** from backups to prevent UUID mismatches.
 

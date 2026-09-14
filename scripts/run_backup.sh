@@ -144,6 +144,14 @@ do_backup() {
 
     if [ "$code" -eq 0 ]; then
         log "Backup finished successfully"
+        # A table created outside the migrations (Studio, a hand-run script) is
+        # invisible to the CI coverage test; only this run-time check sees it.
+        if grep -q "NOT in backup list" "$output"; then
+            alert "⚠️ Missing Table backup on $HOST succeeded, but prod has tables nothing backs up:
+$(sed -n '/NOT in backup list/,/Add these/p' "$output" | grep -E '^[[:space:]]+- ')
+
+Add each to TABLES_TO_BACKUP or EXCLUDED_TABLES in scripts/backup_database.py."
+        fi
     else
         log "Backup FAILED (exit $code)"
         alert "❌ Missing Table nightly prod backup FAILED (exit $code) on $HOST
