@@ -118,6 +118,59 @@ Exit codes: **0** complete backup written, **1** failed (nothing written), **130
 `db_tools.sh` and `run_backup.sh` both act on that code. User-generated tables (players, lineups, match
 events) being empty is normal and is not a failure.
 
+## Nightly Backup (production)
+
+Production is backed up every night by two launchd jobs on the Mac mini (SB-1070):
+
+| Job | When | What it does |
+|-----|------|--------------|
+| `io.silverbeer.mt.backup` | 03:00 | `scripts/run_backup.sh` — back up prod, apply retention, alert on failure |
+| `io.silverbeer.mt.backupcheck` | 09:00 | `scripts/run_backup.sh --check` — alert if the newest **usable** backup is over 26 hours old |
+
+The 09:00 check is what catches a backup that never ran: a job that does not start cannot report its own
+failure. Until 2026-09-14 the backup ran from cron with no `uv` on its PATH and failed every night from
+2026-04-05 — 155 nights — without a single alert.
+
+Both jobs run from a dedicated checkout of `origin/main` at `~/.local/share/missing-table-backup`, refreshed
+on every run, so the branch your working copy happens to be on never changes which backup code runs. The
+checkout borrows `backend/.env.prod` from this repo through a symlink (it is gitignored).
+
+Alerts go to Telegram through the gatekeeper skill's bot (`~/.config/cycle-runner/telegram-token` and
+`telegram-chat-id`), falling back to a macOS notification.
+
+```bash
+./scripts/install_nightly_backup.sh                          # install or reinstall; retires the old crontab entry
+./scripts/install_nightly_backup.sh --uninstall              # remove both jobs (backups are kept)
+./scripts/run_backup.sh --test-alert                         # confirm alerts reach you
+launchctl kickstart gui/$(id -u)/io.silverbeer.mt.backup     # run a backup now
+tail -f ~/Library/Logs/missing-table-backup.log
+```
+
+## Retention Policy
+
+Applied after every successful backup, and by `backup_database.py --cleanup`:
+
+1. **Unusable backups are deleted, whatever their age** — corrupt, no tables, or an empty seeded reference
+   table. They can only mislead a restore.
+2. **Every usable backup from the last 30 days is kept.**
+3. **Older than that, the newest usable backup of each calendar month is kept** — a permanent monthly archive.
+4. Everything else is deleted.
+5. **The newest usable backup is never deleted**, however old, and a file that cannot be read is left alone.
+
+"Usable" never depends on today's table list: a backup taken before a table was added lacks that table and is
+still kept. At roughly 600 KB a backup, that is about 30 daily files plus 12 a year — around 25 MB a year.
+`run_backup.sh` reads `BACKUP_KEEP_DAYS` (default 30) and `BACKUP_NO_MONTHLY=1`.
+
+See what retention would do, and whether backups are current, without changing anything:
+
+```bash
+cd backend
+uv run python ../scripts/backup_database.py --cleanup --dry-run
+uv run python ../scripts/backup_database.py --check-fresh 26
+```
+
+**Every backup is a single file on the Mac mini's disk.** There is no off-machine copy yet (SB-1075).
+
 ## Backup Freshness Guard
 
 The `db_tools.sh reset` command includes a **4-hour safety guard**. Before resetting the database, it checks that a backup exists that was created less than 4 hours ago. If the latest backup is older, the reset is aborted to prevent data loss from a stale backup.
@@ -278,8 +331,8 @@ project/
 ```
 
 `app_env` and `row_counts` were added in version 1.1; older backups lack them and `--list` shows their
-environment as `unknown`. `--list` marks any backup missing a table, or with an empty seeded table, as
-`⚠ INCOMPLETE` — do not restore from one.
+environment as `unknown`. `--list` marks a backup with no tables, or an empty seeded table, as `⚠ UNUSABLE` — do not restore from
+one. A backup taken before a table was added shows `older format` instead; it is still good.
 
 ## Troubleshooting
 

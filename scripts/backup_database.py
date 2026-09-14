@@ -21,10 +21,13 @@ was written, 2 bad arguments, 130 cancelled.
 import gzip
 import json
 import os
+import re
 import sys
 import time
 import traceback
-from datetime import datetime
+import zlib
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
 from urllib.parse import urlparse
@@ -146,6 +149,8 @@ AUTH_USERS_KEY = "auth_users"
 # User-generated tables (players, match_events, ...) are legitimately empty for
 # most teams and are deliberately not on this list.
 REQUIRED_NON_EMPTY = ("age_groups", "leagues", "divisions", "match_types", "seasons")
+
+BACKUP_NAME = re.compile(r"^database_backup_(\d{8}_\d{6})\.json\.gz$")
 
 
 class BackupError(Exception):
@@ -453,6 +458,129 @@ def validate_backup(
     return problems
 
 
+def backup_timestamp(path: Path) -> datetime | None:
+    """When a backup was taken, read from its file name; None if it is not a backup file."""
+    match = BACKUP_NAME.match(path.name)
+    return datetime.strptime(match.group(1), "%Y%m%d_%H%M%S") if match else None
+
+
+def usability_problems(backup_data: dict) -> list[str]:
+    """Why a backup cannot be restored from at all; empty when it can.
+
+    Narrower than validate_backup() on purpose. That one demands every table on
+    today's list, which is right for a backup being written now. A backup taken
+    before a table was added lacks it and is still a good backup of its day —
+    judging old files by today's list would have retention delete the whole
+    history the day a table is added.
+    """
+    tables = backup_data.get("tables")
+    if not isinstance(tables, dict) or not tables:
+        return ["no tables"]
+    return [
+        f"{name}: missing or empty"
+        for name in REQUIRED_NON_EMPTY
+        if not isinstance(tables.get(name), list) or not tables[name]
+    ]
+
+
+@dataclass(frozen=True)
+class BackupFile:
+    """A backup on disk and whether it can be restored from.
+
+    `problems` is empty for a usable backup and lists what is wrong with an
+    unusable one. It is None when the file could not be read at all (permissions,
+    I/O): its state is unknown, so retention decides nothing about it.
+    """
+
+    path: Path
+    taken_at: datetime
+    problems: tuple[str, ...] | None
+
+    @property
+    def usable(self) -> bool:
+        return self.problems == ()
+
+
+def inspect_backup(path: Path) -> BackupFile | None:
+    """Read a backup file and judge it; None for files that are not backups."""
+    taken_at = backup_timestamp(path)
+    if taken_at is None:
+        return None
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            data = json.load(f)
+    except (EOFError, ValueError, gzip.BadGzipFile, zlib.error) as error:
+        # Truncated, not gzip, not JSON: definitely unusable.
+        return BackupFile(path, taken_at, (f"corrupt: {describe_error(error)}",))
+    except OSError:
+        return BackupFile(path, taken_at, None)
+    if not isinstance(data, dict):
+        return BackupFile(path, taken_at, ("not a backup object",))
+    return BackupFile(path, taken_at, tuple(usability_problems(data)))
+
+
+def plan_retention(
+    backups: list[BackupFile],
+    now: datetime,
+    keep_days: int = 30,
+    keep_monthly: bool = True,
+) -> list[BackupFile]:
+    """Which backups the retention policy deletes, oldest first.
+
+      1. Unusable backups go, whatever their age: they can only mislead a restore.
+      2. Usable backups from the last `keep_days` days stay.
+      3. Older usable backups: the newest of each calendar month stays
+         (with `keep_monthly`); the rest go.
+      4. The newest usable backup always stays, however old — if nightly backups
+         stop for months, the last good copy must not age out.
+      5. A file that could not be read is never deleted.
+
+    The old policy kept "the newest file of the month", which would have kept an
+    empty backup and deleted the good ones before it.
+    """
+    cutoff = now - timedelta(days=keep_days)
+    usable = sorted(
+        (b for b in backups if b.usable), key=lambda b: b.taken_at, reverse=True
+    )
+
+    keep = {usable[0].path} if usable else set()
+    archived_months: set[str] = set()
+    for backup in usable:
+        if backup.taken_at >= cutoff:
+            keep.add(backup.path)
+            continue
+        month = backup.taken_at.strftime("%Y-%m")
+        if keep_monthly and month not in archived_months:
+            archived_months.add(month)
+            keep.add(backup.path)
+
+    doomed = [b for b in backups if b.problems is not None and b.path not in keep]
+    return sorted(doomed, key=lambda b: b.taken_at)
+
+
+def newest_usable_backup(backup_dir: Path) -> BackupFile | None:
+    """The most recent backup that can be restored from, skipping unusable ones."""
+    if not backup_dir.exists():
+        return None
+    for path in sorted(backup_dir.glob("database_backup_[0-9]*.json.gz"), reverse=True):
+        backup = inspect_backup(path)
+        if backup is not None and backup.usable:
+            return backup
+    return None
+
+
+def freshness_problem(
+    newest: BackupFile | None, now: datetime, max_age_hours: float
+) -> str | None:
+    """Why the backups are stale, or None when the newest usable one is recent enough."""
+    if newest is None:
+        return "no usable backup found"
+    age_hours = (now - newest.taken_at).total_seconds() / 3600
+    if age_hours > max_age_hours:
+        return f"newest usable backup is {newest.path.name}, {age_hours:.0f}h old (limit {max_age_hours:g}h)"
+    return None
+
+
 def failure_report(failures: dict[str, str]) -> str:
     lines = [f"{len(failures)} table(s) could not be backed up:"]
     lines += [f"  - {name}: {reason}" for name, reason in failures.items()]
@@ -566,11 +694,22 @@ def list_backups(backup_dir: Path | None = None):
                 data = json.load(f)
                 info = data.get("backup_info", {})
                 created = info.get("created_at", "Unknown")
-                problems = validate_backup(data, TABLES_TO_BACKUP)
+                unusable = usability_problems(data)
+                missing = [
+                    p
+                    for p in validate_backup(data, TABLES_TO_BACKUP)
+                    if p.endswith(": missing")
+                ]
+                if unusable:
+                    flag = "  ⚠ UNUSABLE — do not restore"
+                elif missing:
+                    flag = (
+                        f"  (older format: lacks {len(missing)} table(s) added since)"
+                    )
+                else:
+                    flag = ""
 
-                print(
-                    f"{i+1}. {backup_file.name}{'  ⚠ INCOMPLETE' if problems else ''}"
-                )
+                print(f"{i+1}. {backup_file.name}{flag}")
                 print(f"   📅 Created: {created}")
                 print(f"   🌐 Environment: {info.get('app_env', 'unknown')}")
                 print(f"   📊 Records: {sum(row_counts(data).values())}")
@@ -587,70 +726,57 @@ def cleanup_old_backups(
     backup_dir: Path | None = None,
     keep_days: int = 30,
     keep_monthly: bool = True,
-):
+    dry_run: bool = False,
+    now: datetime | None = None,
+) -> list[Path]:
+    """Apply the retention policy (see plan_retention).
+
+    Returns the files deleted — or, with `dry_run`, the files that would be.
     """
-    Retention policy:
-      - Keep all backups from the last `keep_days` days.
-      - For older backups, keep one per calendar month (the most recent of that month).
-      - Delete everything else.
-
-    Both `keep_days` and `keep_monthly` are configurable.
-    """
-    import re
-    from datetime import timedelta
-
-    if backup_dir is None:
-        backup_dir = DEFAULT_BACKUP_DIR
-
+    backup_dir = backup_dir or DEFAULT_BACKUP_DIR
     if not backup_dir.exists():
-        return
+        return []
 
-    backup_files = sorted(
-        backup_dir.glob("database_backup_[0-9]*.json.gz"),
-        reverse=True,  # most recent first
-    )
-
-    if not backup_files:
+    backups = [
+        backup
+        for path in sorted(backup_dir.glob("database_backup_[0-9]*.json.gz"))
+        if (backup := inspect_backup(path)) is not None
+    ]
+    if not backups:
         print("No backups to clean up.")
-        return
+        return []
 
-    cutoff = datetime.now() - timedelta(days=keep_days)
-    monthly_kept: dict[str, Path] = {}  # "YYYY-MM" -> file to keep
-    to_delete: list[Path] = []
+    for backup in backups:
+        if backup.problems is None:
+            print(f"  ⚠ Could not read {backup.path.name}; leaving it alone")
 
-    for f in backup_files:
-        m = re.match(r"database_backup_(\d{4})(\d{2})(\d{2})_", f.name)
-        if not m:
+    doomed = plan_retention(backups, now or datetime.now(), keep_days, keep_monthly)
+    policy = f"{keep_days}-day daily + {'monthly archive' if keep_monthly else 'no monthly archive'}"
+    if not doomed:
+        print(f"Retention: keeping all {len(backups)} backup(s) ({policy}).")
+        return []
+
+    print(f"{'Would delete' if dry_run else 'Deleting'} {len(doomed)} backup(s):")
+    removed: list[Path] = []
+    for backup in doomed:
+        if backup.problems:
+            reason = "unusable — " + "; ".join(backup.problems)
+        else:
+            reason = "outside retention"
+        if dry_run:
+            print(f"  - {backup.path.name} ({reason})")
+            removed.append(backup.path)
             continue
-        file_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-
-        if file_date >= cutoff:
-            continue  # within daily retention window — always keep
-
-        if keep_monthly:
-            month_key = f"{m.group(1)}-{m.group(2)}"
-            if month_key not in monthly_kept:
-                monthly_kept[month_key] = f  # keep most recent of this month
-                continue
-
-        to_delete.append(f)
-
-    if not to_delete:
-        print(f"No backups to delete (keeping {len(backup_files)} files).")
-        return
-
-    print(f"Cleaning up {len(to_delete)} backup(s) outside retention policy...")
-    for f in to_delete:
         try:
-            f.unlink()
-            print(f"  ✓ Deleted {f.name}")
-        except Exception as e:
-            print(f"  ✗ Error deleting {f.name}: {e}")
+            backup.path.unlink()
+        except OSError as error:
+            print(f"  ✗ Could not delete {backup.path.name}: {describe_error(error)}")
+            continue
+        print(f"  ✓ Deleted {backup.path.name} ({reason})")
+        removed.append(backup.path)
 
-    kept = len(backup_files) - len(to_delete)
-    print(
-        f"Retention: {kept} backup(s) kept ({keep_days}-day daily + {'monthly archive' if keep_monthly else 'no monthly archive'})"
-    )
+    print(f"Retention: {len(backups) - len(removed)} backup(s) kept ({policy}).")
+    return removed
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -664,7 +790,10 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(
         description="Database backup utility",
-        epilog="Exit codes: 0 complete backup written, 1 backup failed (nothing written), 130 cancelled.",
+        epilog=(
+            "Exit codes: 0 success (backup written, or backups fresh), 1 failure (nothing "
+            "written, or backups stale), 2 bad arguments, 130 cancelled."
+        ),
     )
     parser.add_argument(
         "--env",
@@ -692,6 +821,18 @@ def main(argv: list[str] | None = None) -> int:
         help="Disable monthly archive retention",
     )
 
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="With --cleanup: show what retention would delete, and delete nothing",
+    )
+    parser.add_argument(
+        "--check-fresh",
+        type=float,
+        metavar="HOURS",
+        help="Exit 1 unless the newest usable backup is at most HOURS old (needs no credentials)",
+    )
+
     args = parser.parse_args(argv)
     backup_dir: Path = args.backup_dir
 
@@ -705,7 +846,17 @@ def main(argv: list[str] | None = None) -> int:
                 backup_dir=backup_dir,
                 keep_days=args.keep_days,
                 keep_monthly=not args.no_monthly,
+                dry_run=args.dry_run,
             )
+            return 0
+
+        if args.check_fresh is not None:
+            newest = newest_usable_backup(backup_dir)
+            problem = freshness_problem(newest, datetime.now(), args.check_fresh)
+            if problem or newest is None:
+                print(f"❌ Backups are stale: {problem} (in {backup_dir})")
+                return 1
+            print(f"✓ Backups are fresh: {newest.path.name} (in {backup_dir})")
             return 0
 
         configure(args.env)

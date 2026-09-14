@@ -16,6 +16,7 @@ import gzip
 import importlib.util
 import json
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -497,3 +498,179 @@ class TestConfigure:
 
         with pytest.raises(backup.BackupError, match=r"\.env\.prod not found"):
             backup.real_configure("prod")
+
+
+# --- Retention and freshness (SB-1070) ---------------------------------------
+
+NOW = datetime(2026, 9, 14, 12, 0, 0)
+
+
+def backup_name(taken_at):
+    return f"database_backup_{taken_at:%Y%m%d_%H%M%S}.json.gz"
+
+
+def on_disk(directory, taken_at, tables):
+    path = directory / backup_name(taken_at)
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        json.dump({"backup_info": {}, "tables": tables}, f)
+    return path
+
+
+def entry(backup, taken_at, state="usable"):
+    problems = {"usable": (), "unusable": ("no tables",), "unreadable": None}[state]
+    return backup.BackupFile(Path(backup_name(taken_at)), taken_at, problems)
+
+
+def deleted_dates(plan):
+    return sorted(b.taken_at.date().isoformat() for b in plan)
+
+
+@pytest.mark.unit
+class TestUsability:
+    def test_a_scraped_only_backup_is_usable(self, backup):
+        assert backup.usability_problems(payload(scraped_only_world(backup))) == []
+
+    def test_a_backup_with_no_tables_is_unusable(self, backup):
+        assert backup.usability_problems(payload({})) == ["no tables"]
+
+    def test_an_empty_seeded_table_makes_it_unusable(self, backup):
+        tables = scraped_only_world(backup)
+        tables["leagues"] = []
+
+        assert backup.usability_problems(payload(tables)) == ["leagues: missing or empty"]
+
+    def test_an_older_backup_without_a_newer_table_is_still_usable(self, backup):
+        # validate_backup() rightly rejects this for a backup being written now.
+        # Retention must not: every backup taken before a table was added lacks
+        # it, and deleting them would delete the history.
+        tables = scraped_only_world(backup)
+        del tables["channel_access_requests"]
+
+        assert backup.usability_problems(payload(tables)) == []
+        assert backup.validate_backup(payload(tables), backup.TABLES_TO_BACKUP) == ["channel_access_requests: missing"]
+
+    def test_a_corrupt_file_is_unusable_not_unknown(self, backup, tmp_path):
+        path = tmp_path / backup_name(NOW)
+        path.write_bytes(b"not gzip at all")
+
+        inspected = backup.inspect_backup(path)
+
+        assert inspected.problems and inspected.problems[0].startswith("corrupt")
+
+    def test_the_206_byte_backup_is_unusable(self, backup, tmp_path):
+        inspected = backup.inspect_backup(on_disk(tmp_path, NOW, {}))
+
+        assert inspected.problems == ("no tables",)
+
+    def test_files_that_are_not_backups_are_ignored(self, backup, tmp_path):
+        assert backup.inspect_backup(tmp_path / "notes.txt") is None
+
+
+@pytest.mark.unit
+class TestPlanRetention:
+    def test_everything_inside_the_window_is_kept(self, backup):
+        backups = [entry(backup, NOW - timedelta(days=d)) for d in (0, 1, 2, 29)]
+
+        assert backup.plan_retention(backups, NOW) == []
+
+    def test_older_backups_keep_the_newest_of_each_month(self, backup):
+        backups = [
+            entry(backup, datetime(2026, 7, 24, 8)),
+            entry(backup, datetime(2026, 7, 2, 8)),
+            entry(backup, datetime(2026, 6, 30, 8)),
+            entry(backup, datetime(2026, 6, 1, 8)),
+        ]
+
+        assert deleted_dates(backup.plan_retention(backups, NOW)) == ["2026-06-01", "2026-07-02"]
+
+    def test_an_unusable_backup_is_deleted_however_new(self, backup):
+        empty = entry(backup, NOW - timedelta(hours=1), "unusable")
+        good = entry(backup, NOW - timedelta(days=1))
+
+        assert backup.plan_retention([empty, good], NOW) == [empty]
+
+    def test_an_unusable_backup_is_never_a_months_archive(self, backup):
+        # The old policy kept "the newest file of the month" — an empty one, if
+        # that was newest, while deleting the good ones before it.
+        empty = entry(backup, datetime(2026, 7, 24, 8), "unusable")
+        good = entry(backup, datetime(2026, 7, 10, 8))
+
+        assert backup.plan_retention([empty, good], NOW) == [empty]
+
+    def test_a_file_that_could_not_be_read_is_never_deleted(self, backup):
+        unknown = entry(backup, datetime(2026, 1, 5, 8), "unreadable")
+        newer = entry(backup, datetime(2026, 1, 20, 8))
+
+        assert backup.plan_retention([unknown, newer], NOW) == []
+
+    def test_the_newest_usable_backup_survives_even_without_an_archive(self, backup):
+        # Nightly backups stopped for months: the last good copy must not age out.
+        backups = [entry(backup, datetime(2026, 4, day, 3)) for day in (1, 2, 4)]
+
+        plan = backup.plan_retention(backups, NOW, keep_monthly=False)
+
+        assert deleted_dates(plan) == ["2026-04-01", "2026-04-02"]
+
+    def test_without_the_monthly_archive_old_backups_go(self, backup):
+        backups = [
+            entry(backup, NOW - timedelta(days=1)),
+            entry(backup, datetime(2026, 5, 31, 14)),
+            entry(backup, datetime(2026, 4, 22, 18)),
+        ]
+
+        plan = backup.plan_retention(backups, NOW, keep_monthly=False)
+
+        assert deleted_dates(plan) == ["2026-04-22", "2026-05-31"]
+
+
+@pytest.mark.unit
+class TestCleanupOnDisk:
+    def test_deletes_the_empty_backup_and_keeps_the_good_ones(self, backup, tmp_path):
+        good_old = on_disk(tmp_path, NOW - timedelta(days=3), scraped_only_world(backup))
+        empty = on_disk(tmp_path, NOW - timedelta(hours=2), {})
+        good_new = on_disk(tmp_path, NOW - timedelta(hours=1), scraped_only_world(backup))
+
+        removed = backup.cleanup_old_backups(tmp_path, now=NOW)
+
+        assert removed == [empty]
+        assert files_in(tmp_path) == sorted([good_old.name, good_new.name])
+
+    def test_dry_run_deletes_nothing(self, backup, tmp_path):
+        empty = on_disk(tmp_path, NOW - timedelta(hours=2), {})
+        on_disk(tmp_path, NOW - timedelta(hours=1), scraped_only_world(backup))
+
+        assert backup.cleanup_old_backups(tmp_path, dry_run=True, now=NOW) == [empty]
+        assert len(files_in(tmp_path)) == 2
+
+
+@pytest.mark.unit
+class TestFreshness:
+    def test_a_recent_usable_backup_is_fresh(self, backup):
+        assert backup.freshness_problem(entry(backup, NOW - timedelta(hours=3)), NOW, 26) is None
+
+    def test_an_old_backup_is_stale_and_says_how_old(self, backup):
+        problem = backup.freshness_problem(entry(backup, NOW - timedelta(hours=30)), NOW, 26)
+
+        assert "30h old" in problem
+
+    def test_no_usable_backup_is_stale(self, backup):
+        assert backup.freshness_problem(None, NOW, 26) == "no usable backup found"
+
+    def test_an_empty_newest_backup_does_not_count_as_fresh(self, backup, tmp_path, capsys):
+        # The morning of 2026-09-14: the newest file was an empty backup.
+        now = datetime.now()
+        on_disk(tmp_path, now - timedelta(hours=40), scraped_only_world(backup))
+        on_disk(tmp_path, now - timedelta(minutes=5), {})
+        backup.supabase = None  # the check needs no credentials
+
+        assert backup.main(["--check-fresh", "26", "--backup-dir", str(tmp_path)]) == 1
+        assert "40h old" in capsys.readouterr().out
+
+    def test_check_fresh_exits_zero_when_fresh(self, backup, tmp_path):
+        on_disk(tmp_path, datetime.now() - timedelta(hours=2), scraped_only_world(backup))
+        backup.supabase = None
+
+        assert backup.main(["--check-fresh", "26", "--backup-dir", str(tmp_path)]) == 0
+
+    def test_check_fresh_with_no_backups_exits_non_zero(self, backup, tmp_path):
+        assert backup.main(["--check-fresh", "26", "--backup-dir", str(tmp_path)]) == 1
