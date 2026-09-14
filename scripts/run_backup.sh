@@ -31,13 +31,17 @@ fi
 
 cd "${REPO_DIR}/backend"
 
-APP_ENV=prod "${UV}" run python ../scripts/backup_database.py \
+# Inside `if`: under `set -e` a bare failing command exits the script on the
+# spot, so the FAILED line below was never logged (SB-1068).
+if APP_ENV=prod "${UV}" run python ../scripts/backup_database.py \
     --backup-dir "${BACKUP_DIR}" \
     --keep-days "${KEEP_DAYS}" \
     ${MONTHLY_FLAG} \
-    >> "${LOG_FILE}" 2>&1
-
-EXIT_CODE=$?
+    >> "${LOG_FILE}" 2>&1; then
+    EXIT_CODE=0
+else
+    EXIT_CODE=$?
+fi
 
 if [ "${EXIT_CODE}" -eq 0 ]; then
     echo "Backup finished successfully: $(date '+%Y-%m-%d %H:%M:%S')" >> "${LOG_FILE}"

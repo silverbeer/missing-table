@@ -7,11 +7,11 @@ This guide covers the backup and restore system for the MLS Next application dev
 Use the convenient shell script for common operations:
 
 ```bash
-# Create a backup
-./scripts/db_tools.sh backup
-
 # Create a backup from production
-APP_ENV=prod ./scripts/db_tools.sh backup
+./scripts/db_tools.sh backup prod
+
+# Create a backup of local Supabase (the default when no environment is given)
+./scripts/db_tools.sh backup local
 
 # List available backups
 ./scripts/db_tools.sh list
@@ -58,30 +58,63 @@ The backup system creates JSON exports of all important tables:
 
 ### Backup Files
 
-- Location: `backups/` directory
-- Format: `database_backup_YYYYMMDD_HHMMSS.json`
-- Contains metadata about when backup was created
+- Location: `~/backups/missing-table/` (override with `--backup-dir`)
+- Format: `database_backup_YYYYMMDD_HHMMSS.json.gz`
+- `backup_info` records when, from which environment (`app_env`, `supabase_url`), and rows per table
 - Structured JSON with tables and data
+
+### Which environment gets backed up
+
+`./scripts/db_tools.sh backup` with no argument backs up **`APP_ENV`, which defaults to `local`** — not
+production. Say which one you mean:
+
+```bash
+./scripts/db_tools.sh backup prod    # production
+./scripts/db_tools.sh backup local   # local Supabase (must be running)
+```
+
+`./scripts/db_tools.sh migrate prod` takes its own production backup; you do not need one first.
 
 ### Creating Backups
 
 **Option 1: Using the convenience script**
 ```bash
-./scripts/db_tools.sh backup
+./scripts/db_tools.sh backup prod
 ```
 
 **Option 2: Direct Python script**
 ```bash
 cd backend
-uv run python ../scripts/backup_database.py
+APP_ENV=prod uv run python ../scripts/backup_database.py
 ```
 
 **Option 3: Programmatic backup with options**
 ```bash
 cd backend
-uv run python ../scripts/backup_database.py --list        # List existing backups
-uv run python ../scripts/backup_database.py --cleanup 10  # Keep only 10 backups
+uv run python ../scripts/backup_database.py --list                 # List backups, flagging incomplete ones
+uv run python ../scripts/backup_database.py --cleanup --keep-days 30  # Apply the retention policy
 ```
+
+### A backup is complete or it is not written
+
+A failed backup used to write a file anyway and exit 0 — with the database down it wrote a zero-table
+backup that `restore --latest` would then have picked, and restore clears every table before loading
+(SB-1068). The script now:
+
+| Situation | What happens |
+|-----------|--------------|
+| Database unreachable | Fails at a connection check naming `APP_ENV` and the URL; for local, suggests `npx supabase start` |
+| Network error, timeout, 5xx (incl. Supabase's gateway 504) | Retried after 1s, 2s, 4s; then the table fails |
+| Permanent error (missing table, permission denied) | Not retried; the table fails |
+| A table fails | The run carries on so the report names every failed table — unless the database stopped responding, then it stops |
+| Fewer rows read than PostgREST counted | The table fails rather than being saved short |
+| `auth.users` cannot be read | The backup fails |
+| A seeded reference table (`age_groups`, `leagues`, `divisions`, `match_types`, `seasons`) is empty | The backup fails — that is not a real database |
+| Disk full, crash or Ctrl-C while writing | Written to a hidden `.partial` file, read back, then renamed; a failed write leaves nothing |
+
+Exit codes: **0** complete backup written, **1** failed (nothing written), **130** cancelled.
+`db_tools.sh` and `run_backup.sh` both act on that code. User-generated tables (players, lineups, match
+events) being empty is normal and is not a failure.
 
 ## Backup Freshness Guard
 
@@ -210,10 +243,12 @@ project/
 │   └── restore_database.py      # Restore script
 ├── backend/
 │   └── [DEPRECATED] populate_teams_supabase.py  # Use db_tools.sh instead
-└── backups/
-    ├── database_backup_20231220_143022.json
-    ├── database_backup_20231220_151505.json
-    └── ...
+└── backend/tests/unit/test_backup_database.py   # Failure-path tests (SB-1068)
+
+~/backups/missing-table/
+├── database_backup_20260914_073207.json.gz
+├── database_backup_20260907_135105.json.gz
+└── ...
 ```
 
 ## Backup File Format
@@ -221,10 +256,12 @@ project/
 ```json
 {
   "backup_info": {
-    "timestamp": "20231220_143022",
-    "created_at": "2023-12-20T14:30:22.123456",
-    "version": "1.0",
-    "supabase_url": "http://127.0.0.1:55321"
+    "timestamp": "20260914_073207",
+    "created_at": "2026-09-14T07:32:13.117869",
+    "version": "1.1",
+    "app_env": "prod",
+    "supabase_url": "https://<project>.supabase.co",
+    "row_counts": {"teams": 1234, "matches": 7286, "players": 0, "...": 0}
   },
   "tables": {
     "teams": [
@@ -232,14 +269,27 @@ project/
       ...
     ],
     "matches": [...],
+    "auth_users": [...],
     ...
   }
 }
 ```
 
+`app_env` and `row_counts` were added in version 1.1; older backups lack them and `--list` shows their
+environment as `unknown`. `--list` marks any backup missing a table, or with an empty seeded table, as
+`⚠ INCOMPLETE` — do not restore from one.
+
 ## Troubleshooting
 
 ### Common Issues
+
+**0. "❌ Backup failed … No backup was written"**
+- The lines under it name every table that failed and why
+- `Cannot read from Supabase … (APP_ENV=local)` — local Supabase is stopped. Run `npx supabase start`,
+  or you meant production: `./scripts/db_tools.sh backup prod`
+- `not attempted — the database stopped responding` — the connection dropped mid-backup; rerun it
+- `read N of M rows` — PostgREST returned fewer rows than it counted; rerun, and if it repeats check the
+  project's max-rows setting
 
 **1. "supabase_key is required" Error**
 - Ensure Supabase is running: `npx supabase start`
