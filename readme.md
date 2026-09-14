@@ -314,8 +314,8 @@ The project includes a comprehensive backup and restore system for development a
 # Reset database and repopulate with basic data
 ./scripts/db_tools.sh reset
 
-# Production backup (when live)
-./scripts/db_tools.sh backup-prod
+# Production backup (the default; `backup local` for local)
+./scripts/db_tools.sh backup
 
 # Keep only 5 most recent backups
 ./scripts/db_tools.sh cleanup 5

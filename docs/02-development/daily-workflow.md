@@ -57,8 +57,8 @@ cd frontend && npm run lint
 # Database backup and restore utility
 ./scripts/db_tools.sh restore        # Restore from latest backup
 ./scripts/db_tools.sh restore backup_file.json  # Restore from specific backup
-./scripts/db_tools.sh backup         # Create new backup
-APP_ENV=prod ./scripts/db_tools.sh backup  # Create backup from prod
+./scripts/db_tools.sh backup         # Create backup from production (the default)
+./scripts/db_tools.sh backup local   # Create backup of local Supabase
 ./scripts/db_tools.sh list           # List available backups
 ./scripts/db_tools.sh cleanup 5      # Keep only 5 most recent backups
 ```

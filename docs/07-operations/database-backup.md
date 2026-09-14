@@ -7,10 +7,10 @@ This guide covers the backup and restore system for the MLS Next application dev
 Use the convenient shell script for common operations:
 
 ```bash
-# Create a backup from production
-./scripts/db_tools.sh backup prod
+# Create a backup from production (the default)
+./scripts/db_tools.sh backup
 
-# Create a backup of local Supabase (the default when no environment is given)
+# Create a backup of local Supabase
 ./scripts/db_tools.sh backup local
 
 # List available backups
@@ -65,11 +65,12 @@ The backup system creates JSON exports of all important tables:
 
 ### Which environment gets backed up
 
-`./scripts/db_tools.sh backup` with no argument backs up **`APP_ENV`, which defaults to `local`** — not
-production. Say which one you mean:
+Backups default to **production** (SB-1069). `APP_ENV` is ignored on purpose: shells here export
+`APP_ENV=local`, and reading it is how a bare `backup` twice backed up a stopped local database instead
+of production. Local is backed up only when you ask for it:
 
 ```bash
-./scripts/db_tools.sh backup prod    # production
+./scripts/db_tools.sh backup         # production
 ./scripts/db_tools.sh backup local   # local Supabase (must be running)
 ```
 
@@ -79,13 +80,14 @@ production. Say which one you mean:
 
 **Option 1: Using the convenience script**
 ```bash
-./scripts/db_tools.sh backup prod
+./scripts/db_tools.sh backup
 ```
 
 **Option 2: Direct Python script**
 ```bash
 cd backend
-APP_ENV=prod uv run python ../scripts/backup_database.py
+uv run python ../scripts/backup_database.py              # production
+uv run python ../scripts/backup_database.py --env local  # local Supabase
 ```
 
 **Option 3: Programmatic backup with options**
@@ -103,7 +105,7 @@ backup that `restore --latest` would then have picked, and restore clears every 
 
 | Situation | What happens |
 |-----------|--------------|
-| Database unreachable | Fails at a connection check naming `APP_ENV` and the URL; for local, suggests `npx supabase start` |
+| Database unreachable | Fails at a connection check naming the environment and the URL; for local, suggests `npx supabase start` |
 | Network error, timeout, 5xx (incl. Supabase's gateway 504) | Retried after 1s, 2s, 4s; then the table fails |
 | Permanent error (missing table, permission denied) | Not retried; the table fails |
 | A table fails | The run carries on so the report names every failed table — unless the database stopped responding, then it stops |
@@ -285,8 +287,10 @@ environment as `unknown`. `--list` marks any backup missing a table, or with an 
 
 **0. "❌ Backup failed … No backup was written"**
 - The lines under it name every table that failed and why
-- `Cannot read from Supabase … (APP_ENV=local)` — local Supabase is stopped. Run `npx supabase start`,
-  or you meant production: `./scripts/db_tools.sh backup prod`
+- `Cannot read from Supabase … (local)` — local Supabase is stopped. Run `npx supabase start`, or you
+  meant production, which is the default: `./scripts/db_tools.sh backup`
+- `--env prod, but SUPABASE_URL is … a local address` (or the reverse) — `backend/.env.<env>` points at
+  the wrong database; fix the file rather than the flag
 - `not attempted — the database stopped responding` — the connection dropped mid-backup; rerun it
 - `read N of M rows` — PostgREST returned fewer rows than it counted; rerun, and if it repeats check the
   project's max-rows setting

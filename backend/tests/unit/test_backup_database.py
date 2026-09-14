@@ -18,6 +18,7 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import httpx
 import pytest
@@ -28,16 +29,28 @@ _SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "backup_database.py"
 
 @pytest.fixture
 def backup(monkeypatch):
-    """Load the script with a dummy client, no real waiting and no schema probe."""
-    monkeypatch.setenv("SUPABASE_URL", "http://localhost:55321")
-    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "test-service-key")  # pragma: allowlist secret
+    """Load the script with a dummy client, no real waiting and no schema probe.
+
+    configure() is stubbed to record the environment asked for; tests put a
+    FakeDatabase on `supabase` themselves.
+    """
     spec = importlib.util.spec_from_file_location("backup_database", _SCRIPT)
     assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
+    module: Any = importlib.util.module_from_spec(spec)
     sys.modules["backup_database"] = module
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "sleep", lambda _seconds: None)
     monkeypatch.setattr(module, "check_for_new_tables", lambda _tables: [])
+
+    configured: list[str] = []
+
+    def fake_configure(env):
+        configured.append(env)
+        module.app_env = env
+
+    module.configured = configured
+    module.real_configure = module.configure
+    monkeypatch.setattr(module, "configure", fake_configure)
     yield module
     sys.modules.pop("backup_database", None)
 
@@ -298,8 +311,9 @@ class TestExitCode:
 
     def _run(self, backup, tmp_path, db, app_env="prod"):
         backup.supabase = db
-        backup.app_env = app_env
-        return backup.main(["--backup-dir", str(tmp_path)])
+        # A URL that belongs to the environment, so the mismatch guard stays out of the way.
+        backup.url = "http://127.0.0.1:55321" if app_env == "local" else "https://project.supabase.co"
+        return backup.main(["--env", app_env, "--backup-dir", str(tmp_path)])
 
     def test_a_complete_backup_exits_zero_and_writes_one_file(self, backup, tmp_path):
         db = FakeDatabase(scraped_only_world(backup))
@@ -320,7 +334,7 @@ class TestExitCode:
 
         assert files_in(tmp_path) == []
         out = capsys.readouterr().out
-        assert "APP_ENV=local" in out
+        assert "Backup of local failed" in out
         assert "npx supabase start" in out
         assert "Backup completed successfully" not in out
 
@@ -390,3 +404,96 @@ class TestExitCode:
         backup.supabase = None
 
         assert backup.main(["--list", "--backup-dir", str(tmp_path)]) == 0
+
+
+@pytest.mark.unit
+class TestProductionIsTheDefault:
+    """SB-1069: a bare backup twice backed up a stopped local database, because
+    it read APP_ENV and the shell exported APP_ENV=local."""
+
+    def test_no_env_backs_up_prod(self, backup, tmp_path):
+        backup.supabase = FakeDatabase(scraped_only_world(backup))
+        backup.url = "https://project.supabase.co"
+
+        assert backup.main(["--backup-dir", str(tmp_path)]) == 0
+        assert backup.configured == ["prod"]
+
+    def test_app_env_local_is_ignored(self, backup, tmp_path, monkeypatch):
+        monkeypatch.setenv("APP_ENV", "local")
+        backup.supabase = FakeDatabase(scraped_only_world(backup))
+        backup.url = "https://project.supabase.co"
+
+        backup.main(["--backup-dir", str(tmp_path)])
+
+        assert backup.configured == ["prod"]
+
+    def test_local_only_when_asked(self, backup, tmp_path):
+        backup.supabase = FakeDatabase(scraped_only_world(backup))
+        backup.url = "http://127.0.0.1:55321"
+
+        assert backup.main(["--env", "local", "--backup-dir", str(tmp_path)]) == 0
+        assert backup.configured == ["local"]
+
+    def test_an_unknown_environment_is_refused(self, backup, tmp_path):
+        with pytest.raises(SystemExit) as exit_info:
+            backup.main(["--env", "dev", "--backup-dir", str(tmp_path)])
+
+        assert exit_info.value.code == 2
+
+
+@pytest.mark.unit
+class TestEnvironmentMismatch:
+    @pytest.mark.parametrize(
+        ("env", "url"),
+        [
+            ("prod", "https://project.supabase.co"),
+            ("local", "http://127.0.0.1:55321"),
+            ("local", "http://localhost:55321"),
+        ],
+    )
+    def test_matching(self, backup, env, url):
+        assert backup.environment_mismatch(env, url) is None
+
+    def test_prod_pointing_at_localhost(self, backup):
+        assert "local address" in backup.environment_mismatch("prod", "http://127.0.0.1:55321")
+
+    def test_local_pointing_at_the_cloud(self, backup):
+        assert "not a local address" in backup.environment_mismatch("local", "https://project.supabase.co")
+
+    def test_a_mismatch_fails_the_backup_before_reading_anything(self, backup, tmp_path, capsys):
+        db = FakeDatabase(scraped_only_world(backup))
+        backup.supabase = db
+        backup.url = "http://127.0.0.1:55321"
+
+        assert backup.main(["--env", "prod", "--backup-dir", str(tmp_path)]) == 1
+
+        assert db.calls == []
+        assert files_in(tmp_path) == []
+        assert "local address" in capsys.readouterr().out
+
+
+@pytest.mark.unit
+class TestConfigure:
+    def test_loads_the_named_environment_file(self, backup, tmp_path, monkeypatch):
+        for name in ("SUPABASE_URL", "SUPABASE_SERVICE_KEY", "DATABASE_URL"):
+            monkeypatch.setenv(name, "stale-from-the-shell")
+        (tmp_path / ".env.prod").write_text(
+            "SUPABASE_URL=https://project.supabase.co\n"
+            "SUPABASE_SERVICE_KEY=test-service-key\n"  # pragma: allowlist secret
+        )
+        monkeypatch.setattr(backup, "backend_path", tmp_path)
+
+        backup.real_configure("prod")
+
+        assert backup.app_env == "prod"
+        assert backup.url == "https://project.supabase.co"
+        assert backup.supabase is not None
+
+    def test_a_missing_environment_file_is_an_error_not_a_fallback(self, backup, tmp_path, monkeypatch):
+        # The old loader fell back to backend/.env — a backup labelled prod
+        # holding whatever that file pointed at.
+        (tmp_path / ".env").write_text("SUPABASE_URL=http://127.0.0.1:55321\n")
+        monkeypatch.setattr(backup, "backend_path", tmp_path)
+
+        with pytest.raises(backup.BackupError, match=r"\.env\.prod not found"):
+            backup.real_configure("prod")

@@ -100,17 +100,19 @@ set_database_environment() {
 
 # Create a backup
 backup_database() {
-    local target_env="$1"
-    set_database_environment "$target_env"
+    # Production unless told otherwise (SB-1069). Not APP_ENV: shells here
+    # export APP_ENV=local, which is how a bare `backup` twice backed up a
+    # stopped local database instead of production.
+    local current_env="${1:-prod}"
+    set_database_environment "$current_env"
 
-    local current_env=$(get_current_environment)
     print_header "Creating Database Backup ($current_env environment)"
 
     cd "$PROJECT_ROOT/backend" || exit 1
 
     # Create Python JSON backup (compressed, stored to ~/backups/missing-table/)
     print_warning "Creating JSON backup (Python)..."
-    uv run python ../scripts/backup_database.py --backup-dir "${HOME}/backups/missing-table"
+    uv run python ../scripts/backup_database.py --env "$current_env" --backup-dir "${HOME}/backups/missing-table"
 
     if [ $? -ne 0 ]; then
         print_error "Python backup failed"
@@ -322,7 +324,7 @@ show_help() {
     echo "Usage: $0 [COMMAND] [OPTIONS]"
     echo ""
     echo "Commands:"
-    echo "  backup [env]                    Create backup for specified environment (local|prod)"
+    echo "  backup [env]                    Create backup (default: prod; APP_ENV is ignored)"
     echo "  restore [backup_file] [env]     Restore from backup to specified environment"
     echo "  list                            List available backups"
     echo "  migrate [env]                   Deploy pending migrations (default: prod)"
@@ -331,12 +333,12 @@ show_help() {
     echo "  help                            Show this help message"
     echo ""
     echo "Environment Options:"
-    echo "  local     Local Supabase (default) - requires 'npx supabase start'"
-    echo "  prod      Cloud production environment"
+    echo "  local     Local Supabase - requires 'npx supabase start' (default for restore/reset)"
+    echo "  prod      Cloud production environment (default for backup and migrate)"
     echo ""
     echo "Examples:"
-    echo "  $0 backup                                    # Create backup for current environment"
-    echo "  $0 backup prod                               # Create backup for prod environment"
+    echo "  $0 backup                                    # Back up production (the default)"
+    echo "  $0 backup local                              # Back up local Supabase"
     echo "  $0 restore                                   # Restore latest backup to current environment"
     echo "  $0 restore backup_file.json prod             # Restore specific backup to prod environment"
     echo "  $0 list                                      # List all backups"

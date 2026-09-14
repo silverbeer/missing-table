@@ -395,7 +395,7 @@ npx supabase db reset
 npx supabase db diff -f add_new_feature
 
 # Backup/Restore
-./scripts/db_tools.sh backup
+./scripts/db_tools.sh backup          # production (the default); `backup local` for local
 ./scripts/db_tools.sh restore
 ./scripts/db_tools.sh list
 ```

@@ -33,7 +33,8 @@ cd "${REPO_DIR}/backend"
 
 # Inside `if`: under `set -e` a bare failing command exits the script on the
 # spot, so the FAILED line below was never logged (SB-1068).
-if APP_ENV=prod "${UV}" run python ../scripts/backup_database.py \
+if "${UV}" run python ../scripts/backup_database.py \
+    --env prod \
     --backup-dir "${BACKUP_DIR}" \
     --keep-days "${KEEP_DAYS}" \
     ${MONTHLY_FLAG} \
