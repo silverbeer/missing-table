@@ -98,7 +98,7 @@ echo ""
 if [ "$FROM_PROD" = true ]; then
     echo -e "${BLUE}Step 0: Creating fresh backup from prod...${NC}"
     cd "$PROJECT_ROOT"
-    APP_ENV=prod bash "$SCRIPT_DIR/db_tools.sh" backup
+    bash "$SCRIPT_DIR/db_tools.sh" backup prod
     echo -e "${GREEN}Backup from prod complete${NC}"
     echo ""
 fi

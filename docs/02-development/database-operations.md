@@ -16,8 +16,8 @@ Overview of database management for the Missing Table project.
 ./scripts/setup-local-db.sh --from-prod  # Backup from prod first, then restore locally
 
 # Backup/Restore
-./scripts/db_tools.sh backup             # Create backup from current environment
-APP_ENV=prod ./scripts/db_tools.sh backup  # Create backup from production
+./scripts/db_tools.sh backup             # Create backup from production (the default)
+./scripts/db_tools.sh backup local       # Create backup of local Supabase
 ./scripts/db_tools.sh restore            # Restore from latest backup
 ./scripts/db_tools.sh list               # List available backups
 

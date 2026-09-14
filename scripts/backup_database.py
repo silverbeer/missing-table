@@ -10,8 +10,12 @@ backup, printed "Backup completed successfully!", and that file became the
 newest one — which is what `restore --latest` picks, and restore clears every
 table before it loads.
 
+Production is backed up unless `--env local` says otherwise, and APP_ENV is
+ignored (SB-1069): shells here export APP_ENV=local, which is how a bare backup
+twice backed up a stopped local database instead of production.
+
 Exit codes: 0 a complete backup was written, 1 the backup failed and nothing
-was written, 130 cancelled.
+was written, 2 bad arguments, 130 cancelled.
 """
 
 import gzip
@@ -23,6 +27,7 @@ import traceback
 from datetime import datetime
 from functools import partial
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from dotenv import load_dotenv
@@ -38,25 +43,20 @@ except ImportError:  # older supabase releases ship the auth client as gotrue
 backend_path = Path(__file__).parent.parent / "backend"
 sys.path.append(str(backend_path))
 
-# Load environment variables based on APP_ENV
-app_env = os.getenv("APP_ENV", "local")
-env_file = f".env.{app_env}"
-env_path = backend_path / env_file
+# Production unless told otherwise (SB-1069), and never read from APP_ENV:
+# shells here export APP_ENV=local, which is how a bare
+# `./scripts/db_tools.sh backup` twice backed up a stopped local database
+# instead of production. configure() fills these in from --env.
+DEFAULT_ENV = "prod"
+ENVIRONMENTS = ("prod", "local")
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "0.0.0.0", "::1", "host.docker.internal"}
 
-if not env_path.exists():
-    # Fallback to .env if specific env file doesn't exist
-    env_path = backend_path / ".env"
-
-load_dotenv(env_path, override=True)
-
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_SERVICE_KEY")
-db_url = os.getenv("DATABASE_URL")
-
-# Built at import, like restore_database.py. None when the credentials are
-# missing, so main() can say which environment lacks them instead of the
-# import dying with a traceback.
-supabase: Client | None = create_client(url, key) if url and key else None
+app_env = DEFAULT_ENV
+env_path: Path | None = None
+url: str | None = None
+key: str | None = None
+db_url: str | None = None
+supabase: Client | None = None
 
 DEFAULT_BACKUP_DIR = Path.home() / "backups" / "missing-table"
 
@@ -150,6 +150,40 @@ REQUIRED_NON_EMPTY = ("age_groups", "leagues", "divisions", "match_types", "seas
 
 class BackupError(Exception):
     """A backup that cannot be trusted. Nothing is written when this is raised."""
+
+
+def environment_mismatch(env: str, supabase_url: str | None) -> str | None:
+    """Why this URL cannot belong to this environment, or None if it can.
+
+    A .env.prod pointing at localhost, or a .env.local pointing at the cloud,
+    would otherwise back up one database under the other's name.
+    """
+    is_local = (urlparse(supabase_url or "").hostname or "") in LOCAL_HOSTS
+    if env == "prod" and is_local:
+        return f"--env prod, but SUPABASE_URL is {supabase_url}, a local address"
+    if env == "local" and not is_local:
+        return f"--env local, but SUPABASE_URL is {supabase_url}, which is not a local address"
+    return None
+
+
+def configure(env: str) -> None:
+    """Load one environment's credentials from backend/.env.<env>.
+
+    There is no fallback to backend/.env: quietly loading some other file is
+    how a backup ends up labelled as one environment and holding another.
+    """
+    global app_env, env_path, url, key, db_url, supabase
+    app_env = env
+    env_path = backend_path / f".env.{env}"
+    if not env_path.exists():
+        raise BackupError(
+            f"{env_path} not found — it holds the credentials for backing up {env}"
+        )
+    load_dotenv(env_path, override=True)
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_KEY")
+    db_url = os.getenv("DATABASE_URL")
+    supabase = create_client(url, key) if url and key else None
 
 
 def is_transient(error: BaseException) -> bool:
@@ -267,11 +301,13 @@ def check_connection() -> None:
             partial(fetch_page, "seasons", "id", 0, size=1), "connection check"
         )
     except Exception as error:
-        message = f"Cannot read from Supabase at {url} (APP_ENV={app_env}): {describe_error(error)}"
+        message = (
+            f"Cannot read from Supabase at {url} ({app_env}): {describe_error(error)}"
+        )
         if app_env == "local" and isinstance(error, httpx.TransportError):
             message += (
                 "\n  Local Supabase is not answering. Start it with `npx supabase start`,"
-                "\n  or back up production instead: `./scripts/db_tools.sh backup prod`."
+                "\n  or back up production, the default: `./scripts/db_tools.sh backup`."
             )
         raise BackupError(message) from error
 
@@ -630,6 +666,12 @@ def main(argv: list[str] | None = None) -> int:
         description="Database backup utility",
         epilog="Exit codes: 0 complete backup written, 1 backup failed (nothing written), 130 cancelled.",
     )
+    parser.add_argument(
+        "--env",
+        choices=ENVIRONMENTS,
+        default=DEFAULT_ENV,
+        help=f"Environment to back up (default: {DEFAULT_ENV}). APP_ENV is ignored.",
+    )
     parser.add_argument("--list", action="store_true", help="List available backups")
     parser.add_argument("--cleanup", action="store_true", help="Run retention cleanup")
     parser.add_argument(
@@ -666,10 +708,19 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
 
+        configure(args.env)
+
         if supabase is None:
             print(
-                f"❌ Backup failed: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set "
-                f"(APP_ENV={app_env}, read from {env_path}). No backup was written."
+                f"❌ Backup of {app_env} failed: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set "
+                f"in {env_path}. No backup was written."
+            )
+            return 1
+
+        mismatch = environment_mismatch(app_env, url)
+        if mismatch:
+            print(
+                f"❌ Backup of {app_env} failed: {mismatch} (from {env_path}). No backup was written."
             )
             return 1
 
@@ -680,14 +731,12 @@ def main(argv: list[str] | None = None) -> int:
         print("\n❌ Backup cancelled by user. No backup was written.")
         return 130
     except BackupError as error:
-        print(
-            f"\n❌ Backup failed (APP_ENV={app_env}). No backup was written.\n{error}"
-        )
+        print(f"\n❌ Backup of {app_env} failed. No backup was written.\n{error}")
         return 1
     except Exception as error:
         traceback.print_exc()
         print(
-            f"\n❌ Backup failed unexpectedly (APP_ENV={app_env}). No backup was written: {describe_error(error)}"
+            f"\n❌ Backup of {app_env} failed unexpectedly. No backup was written: {describe_error(error)}"
         )
         return 1
 

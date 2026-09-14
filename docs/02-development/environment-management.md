@@ -121,7 +121,7 @@ All database operations support environment specification:
 ### Backup Operations
 
 ```bash
-./scripts/db_tools.sh backup         # Current environment
+./scripts/db_tools.sh backup         # Production (the default)
 ./scripts/db_tools.sh backup local   # Local environment
 ```
 
