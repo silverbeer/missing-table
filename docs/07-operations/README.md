@@ -59,15 +59,13 @@ Documentation for running, monitoring, and maintaining the Missing Table applica
 
 ### Backup Strategy
 
-**Local Development**:
-- JSON format backups
-- Before/after major changes
-- Stored in `backups/` directory
+**Production**:
+- Nightly JSON backup at 03:00 on the Mac mini (launchd), freshness alert at 09:00
+- Every usable backup from the last 30 days, then the newest of each month
+- Stored in `~/backups/missing-table/` — one copy, on one machine (SB-1075)
 
-**Cloud (GKE)**:
-- Automated daily backups
-- 30-day retention
-- Point-in-time recovery
+**Local Development**:
+- `./scripts/db_tools.sh backup local` before risky local changes
 
 See: [Database Backup Guide](database-backup.md)
 

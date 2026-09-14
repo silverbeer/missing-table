@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd job: Missing Table backup freshness check, 09:00 (SB-1070).
+
+  Alerts when the newest usable backup is more than 26 hours old. This is what
+  notices a 03:00 backup that never ran at all: a job that does not start cannot
+  report its own failure, and the old cron job failed silently for five months.
+
+  Install with scripts/install_nightly_backup.sh, which replaces /Users/USERNAME
+  with your home directory. Do not load this template directly.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.silverbeer.mt.backupcheck</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/USERNAME/.local/share/missing-table-backup/scripts/run_backup.sh</string>
+        <string>--check</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/USERNAME/Library/Logs/missing-table-backupcheck.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USERNAME/Library/Logs/missing-table-backupcheck.launchd.err</string>
+</dict>
+</plist>

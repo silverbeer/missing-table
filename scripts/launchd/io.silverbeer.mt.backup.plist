@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd job: nightly production backup of Missing Table, 03:00 (SB-1070).
+
+  Install with scripts/install_nightly_backup.sh, which replaces /Users/USERNAME
+  with your home directory. Do not load this template directly.
+
+  It runs run_backup.sh from the runner checkout of origin/main, so the branch of
+  the dev checkout does not matter. The script keeps its own log at
+  ~/Library/Logs/missing-table-backup.log; the two files below only catch what
+  the script itself could not log.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.silverbeer.mt.backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/USERNAME/.local/share/missing-table-backup/scripts/run_backup.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/USERNAME/Library/Logs/missing-table-backup.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USERNAME/Library/Logs/missing-table-backup.launchd.err</string>
+</dict>
+</plist>
