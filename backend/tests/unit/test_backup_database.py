@@ -18,6 +18,7 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import httpx
 import pytest
@@ -35,7 +36,7 @@ def backup(monkeypatch):
     """
     spec = importlib.util.spec_from_file_location("backup_database", _SCRIPT)
     assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
+    module: Any = importlib.util.module_from_spec(spec)
     sys.modules["backup_database"] = module
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "sleep", lambda _seconds: None)
