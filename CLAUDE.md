@@ -372,6 +372,11 @@ Local Supabase uses the **553xx port block** so it can run alongside myrunstreak
 
 New schema changes go in additional timestamped migration files (e.g., `20260201000000_add_foo.sql`).
 
+**A migration that creates a table must also decide its backup.** Add the table to `TABLES_TO_BACKUP` in
+`scripts/backup_database.py` and to `RESTORATION_ORDER` (after the tables it references) or `RESTORE_SKIPPED`
+in `scripts/restore_database.py` — or to `EXCLUDED_TABLES` with the reason. `test_backup_coverage.py` fails CI
+otherwise (SB-1071). A column referencing a user also needs an entry in `USER_PROFILE_FK_COLUMNS`.
+
 ### Quick Reference
 ```bash
 # Full local DB setup from scratch (schema + seed + test users)

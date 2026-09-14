@@ -14,17 +14,17 @@ from dotenv import load_dotenv
 from supabase import Client, create_client
 
 # Add backend to path for shared modules
-backend_path = Path(__file__).parent.parent / 'backend'
+backend_path = Path(__file__).parent.parent / "backend"
 sys.path.append(str(backend_path))
 
 # Load environment variables based on APP_ENV
-app_env = os.getenv('APP_ENV', 'local')
-env_file = f'.env.{app_env}'
+app_env = os.getenv("APP_ENV", "local")
+env_file = f".env.{app_env}"
 env_path = backend_path / env_file
 
 if not env_path.exists():
     # Fallback to .env if specific env file doesn't exist
-    env_path = backend_path / '.env'
+    env_path = backend_path / ".env"
 
 load_dotenv(env_path, override=True)
 print(f"✓ Loaded environment: {app_env}")
@@ -34,9 +34,12 @@ url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_SERVICE_KEY")
 
 if not url or not key:
-    raise Exception("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY")
+    raise Exception(
+        "Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY"
+    )
 
 supabase: Client = create_client(url, key)
+
 
 def get_local_user_profile_ids() -> set:
     """Fetch all user_profile IDs that exist in the local database."""
@@ -48,18 +51,122 @@ def get_local_user_profile_ids() -> set:
         return set()
 
 
-# UUID columns per table that reference user_profiles.
-# nullable=True  → safe to null out when the UUID isn't present locally
-# nullable=False → record must be dropped entirely (column is NOT NULL)
+# UUID columns per table that reference a user — user_profiles(id), or
+# auth.users(id), which is the same id.
+# True  → null it out when that user does not exist in the target database
+# False → drop the record (the column is NOT NULL, or the row means nothing
+#         without its user)
+#
+# Checked against prod's foreign keys on 2026-09-14 (SB-1071). The previous
+# map had drifted: it named invitation columns that do not exist, missed
+# matches.created_by/updated_by, and listed player_match_stats.player_id —
+# an *integer* reference to players — so every stats row failed the UUID
+# membership test and a restore silently dropped all goals and assists.
 USER_PROFILE_FK_COLUMNS: dict[str, list[tuple[str, bool]]] = {
-    'players':                  [('created_by', True), ('user_profile_id', True)],
-    'player_team_history':      [('player_id', False)],   # NOT NULL — drop record
-    'match_lineups':            [('created_by', True), ('updated_by', True)],
-    'match_events':             [('created_by', True)],
-    'player_match_stats':       [('player_id', False)],   # NOT NULL — drop record
-    'team_manager_assignments': [('user_id', False)],     # NOT NULL — drop record
-    'invitations':              [('created_by', True), ('claimed_by', True)],
-    'invite_requests':          [('user_id', False)],     # NOT NULL — drop record
+    "matches": [("created_by", True), ("updated_by", True)],  # auth.users
+    "team_manager_assignments": [
+        ("user_id", False),
+        ("assigned_by_user_id", True),
+    ],  # no user, no assignment
+    "players": [("created_by", True), ("user_profile_id", True)],
+    "player_team_history": [
+        ("player_id", False)
+    ],  # player_id is a user_profiles uuid here
+    "match_lineups": [("created_by", True), ("updated_by", True)],
+    "match_events": [("created_by", True), ("deleted_by", True)],
+    "invitations": [("invited_by_user_id", True), ("used_by_user_id", True)],
+    "invite_requests": [("reviewed_by", True)],  # auth.users
+    "channel_access_requests": [
+        ("user_id", False),
+        ("discord_reviewed_by", True),
+        ("telegram_reviewed_by", True),
+    ],
+    "email_messages": [("sent_by_user_id", True)],
+    "user_team_follows": [("user_id", False)],
+    "user_bracket_follows": [("user_id", False)],
+    "user_notification_preferences": [("user_id", False)],
+}
+
+# Restoration order respects FK dependencies for INSERT; clearing runs in
+# REVERSE order to respect them for DELETE.
+#
+# NOTE: user_profiles is not backed up or restored. Users and profiles are
+# managed per environment (different auth.users UUIDs); see
+# docs/FOREIGN_KEY_DECISION.md and backend/manage_users.py.
+#
+# backend/tests/unit/test_backup_coverage.py fails CI when a backed-up table is
+# in neither RESTORATION_ORDER nor RESTORE_SKIPPED.
+RESTORATION_ORDER = [
+    # 1. Reference data first (no dependencies)
+    "age_groups",
+    "leagues",  # leagues before divisions
+    "divisions",
+    "match_types",
+    "seasons",
+    "division_age_groups",  # divisions, age_groups, seasons
+    # 2. Clubs (before teams - teams have club_id FK)
+    "clubs",
+    "club_notification_channels",  # clubs
+    # 3. Teams (depend on clubs, divisions, age_groups)
+    "teams",
+    "team_mappings",
+    "team_match_types",
+    "team_aliases",
+    "qop_snapshots",  # divisions, age_groups
+    "qop_rankings",  # qop_snapshots, teams
+    # 4. Team management
+    "team_manager_assignments",
+    # 5. Players (may depend on teams)
+    "players",
+    "player_team_history",
+    # 6. Tournaments (matches may reference tournaments via tournament_id FK)
+    "tournaments",
+    "tournament_age_groups",
+    # 7. Matches (depend on teams, seasons, tournaments)
+    "matches",
+    # 8. Playoff brackets (depend on matches)
+    "playoff_bracket_slots",
+    # 9. Tables that depend on matches/teams/clubs/players
+    "match_of_the_week",
+    "match_events",
+    "match_lineups",
+    "player_match_stats",
+    "invitations",  # depends on clubs, teams, players
+    "invite_requests",  # depends on auth.users
+    "channel_access_requests",  # teams, user_profiles
+    # 10. Users' own data — rows for users absent here are dropped
+    "user_team_follows",  # teams
+    "user_bracket_follows",  # tournaments, age_groups
+    "user_notification_preferences",
+    # 11. Support inbox
+    "email_threads",
+    "email_messages",  # email_threads
+    # 12. Audit and activity logs (no foreign keys)
+    "audit_events",
+    "audit_teams",
+    "login_events",
+    "admin_user_audit_log",
+]
+
+# In the backup, deliberately never restored — each with its reason.
+RESTORE_SKIPPED = {
+    "push_subscriptions": (
+        "device push credentials. The prod user sync keeps user ids, so restoring "
+        "them locally would let a local server push to real phones. Backed up for "
+        "production recovery only; restore by hand."
+    ),
+    "auth_users": "identity snapshot from the Admin API; users are managed per environment",
+}
+
+# Tables without an `id` column. PostgREST refuses an unfiltered DELETE, and
+# clear_table() otherwise pages through ids — which failed for these, printed a
+# ✗ and carried on, so the restore then hit duplicate keys (SB-1071). Each is
+# cleared by filtering on a NOT NULL key column instead.
+CLEAR_BY_COLUMN = {
+    "tournament_age_groups": "tournament_id",
+    "user_team_follows": "user_id",
+    "user_bracket_follows": "user_id",
+    "user_notification_preferences": "user_id",
 }
 
 
@@ -95,15 +202,34 @@ def sanitize_user_profile_refs(table_name: str, data: list, local_ids: set) -> l
             kept.append(record)
 
     if nulled_count:
-        print(f"  ℹ️  Cleared {nulled_count} nullable user_profile reference(s) not found locally")
+        print(
+            f"  ℹ️  Cleared {nulled_count} nullable user_profile reference(s) not found locally"
+        )
     if dropped_count:
-        print(f"  ℹ️  Dropped {dropped_count} record(s) with non-nullable user_profile ref not found locally")
+        print(
+            f"  ℹ️  Dropped {dropped_count} record(s) with non-nullable user_profile ref not found locally"
+        )
 
     return kept
 
 
 def clear_table(table_name: str):
     """Clear all data from a table, paginating to handle >1000 rows."""
+    key_column = CLEAR_BY_COLUMN.get(table_name)
+    if key_column:
+        try:
+            print(f"Clearing {table_name}...")
+            result = (
+                supabase.table(table_name)
+                .delete()
+                .filter(key_column, "not.is", "null")
+                .execute()
+            )
+            print(f"  ✓ Cleared {len(result.data or [])} records from {table_name}")
+        except Exception as e:
+            print(f"  ✗ Error clearing {table_name}: {e}")
+        return
+
     try:
         print(f"Clearing {table_name}...")
         total_deleted = 0
@@ -111,16 +237,16 @@ def clear_table(table_name: str):
 
         while True:
             # Fetch up to page_size IDs at a time (Supabase caps at 1000 per request)
-            result = supabase.table(table_name).select('id').limit(page_size).execute()
+            result = supabase.table(table_name).select("id").limit(page_size).execute()
             if not result.data:
                 break
 
-            ids = [record['id'] for record in result.data]
+            ids = [record["id"] for record in result.data]
             # Delete in sub-batches to avoid URI length limits
             batch_size = 100
             for i in range(0, len(ids), batch_size):
-                chunk = ids[i:i + batch_size]
-                supabase.table(table_name).delete().in_('id', chunk).execute()
+                chunk = ids[i : i + batch_size]
+                supabase.table(table_name).delete().in_("id", chunk).execute()
                 total_deleted += len(chunk)
                 print(f"  ✓ Deleted {len(chunk)} records from {table_name}")
 
@@ -135,6 +261,7 @@ def clear_table(table_name: str):
     except Exception as e:
         print(f"  ✗ Error clearing {table_name}: {e}")
 
+
 def validate_records(table_name: str, data: list) -> list:
     """Filter out records with null values in NOT NULL columns.
 
@@ -142,15 +269,21 @@ def validate_records(table_name: str, data: list) -> list:
     """
     # NOT NULL columns per table (excluding 'id' which is auto-generated)
     required_fields = {
-        'team_match_types': ['team_id', 'match_type_id', 'age_group_id'],
-        'teams': ['name'],
+        "team_match_types": ["team_id", "match_type_id", "age_group_id"],
+        "teams": ["name"],
         # age_group_id and match_type_id are NOT NULL locally but nullable in
         # prod (SB-916), so a prod row missing one would be rejected by the
         # database rather than caught here.
-        'matches': ['home_team_id', 'away_team_id', 'season_id', 'age_group_id', 'match_type_id'],
-        'clubs': ['name'],
-        'divisions': ['name'],
-        'leagues': ['name'],
+        "matches": [
+            "home_team_id",
+            "away_team_id",
+            "season_id",
+            "age_group_id",
+            "match_type_id",
+        ],
+        "clubs": ["name"],
+        "divisions": ["name"],
+        "leagues": ["name"],
     }
 
     fields = required_fields.get(table_name)
@@ -163,8 +296,10 @@ def validate_records(table_name: str, data: list) -> list:
         missing = [f for f in fields if record.get(f) is None]
         if missing:
             skipped += 1
-            record_id = record.get('id', '?')
-            print(f"  ⚠ Skipping record id={record_id}: null value in {', '.join(missing)}")
+            record_id = record.get("id", "?")
+            print(
+                f"  ⚠ Skipping record id={record_id}: null value in {', '.join(missing)}"
+            )
         else:
             valid.append(record)
 
@@ -187,7 +322,7 @@ class TableResult:
         self.table_name = table_name
         self.attempted = attempted
         self.inserted = 0
-        self.failures: list[tuple] = []   # (record_id, error)
+        self.failures: list[tuple] = []  # (record_id, error)
         self.skipped_invalid = 0
 
     @property
@@ -210,12 +345,14 @@ def _insert_rows_individually(table_name: str, batch: list, result: TableResult)
             inserted = supabase.table(table_name).insert(record).execute()
             result.inserted += len(inserted.data or [])
         except Exception as row_error:
-            record_id = record.get('id', '?')
+            record_id = record.get("id", "?")
             result.failures.append((record_id, str(row_error)))
             print(f"  ❌ {table_name} id={record_id}: {row_error}")
 
 
-def restore_table(table_name: str, data: list, local_profile_ids: set | None = None) -> TableResult:
+def restore_table(
+    table_name: str, data: list, local_profile_ids: set | None = None
+) -> TableResult:
     """Restore data to a single table."""
     result = TableResult(table_name, len(data))
 
@@ -241,7 +378,7 @@ def restore_table(table_name: str, data: list, local_profile_ids: set | None = N
     batch_size = 100
 
     for i in range(0, len(data), batch_size):
-        batch = data[i:i + batch_size]
+        batch = data[i : i + batch_size]
         batch_number = i // batch_size + 1
 
         try:
@@ -255,17 +392,22 @@ def restore_table(table_name: str, data: list, local_profile_ids: set | None = N
         except Exception as batch_error:
             # Do NOT abandon the table. Find the row (or rows) at fault, keep
             # the rest, and carry on into the following batches.
-            print(f"  ⚠ Batch {batch_number} failed ({batch_error}); retrying row by row")
+            print(
+                f"  ⚠ Batch {batch_number} failed ({batch_error}); retrying row by row"
+            )
             _insert_rows_individually(table_name, batch, result)
 
     if result.ok:
-        print(f"  ✅ Successfully restored {result.inserted}/{result.attempted} records to {table_name}")
+        print(
+            f"  ✅ Successfully restored {result.inserted}/{result.attempted} records to {table_name}"
+        )
     else:
         print(
             f"  ❌ Restored {result.inserted}/{result.attempted} records to {table_name}"
             f" — {len(result.failures)} rejected"
         )
     return result
+
 
 def reset_sequences():
     """Reset all PostgreSQL sequences to match max IDs in tables.
@@ -277,7 +419,7 @@ def reset_sequences():
         print("🔄 Resetting PostgreSQL sequences...")
 
         # Call the reset_all_sequences() function created in migration
-        result = supabase.rpc('reset_all_sequences').execute()
+        result = supabase.rpc("reset_all_sequences").execute()
 
         if result.data is not None:
             sequences_reset = result.data
@@ -292,6 +434,7 @@ def reset_sequences():
         print("  ℹ️  You may need to manually run: SELECT reset_all_sequences();")
         return True  # Don't fail the entire restore
 
+
 def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     """Restore database from a backup file."""
 
@@ -300,8 +443,8 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         return False
 
     try:
-        if backup_file.suffix == '.gz':
-            with gzip.open(backup_file, 'rt', encoding='utf-8') as f:
+        if backup_file.suffix == ".gz":
+            with gzip.open(backup_file, "rt", encoding="utf-8") as f:
                 backup_data = json.load(f)
         else:
             with open(backup_file) as f:
@@ -311,12 +454,12 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         return False
 
     # Validate backup file
-    if 'backup_info' not in backup_data or 'tables' not in backup_data:
+    if "backup_info" not in backup_data or "tables" not in backup_data:
         print("❌ Invalid backup file format")
         return False
 
-    backup_info = backup_data['backup_info']
-    tables_data = backup_data['tables']
+    backup_info = backup_data["backup_info"]
+    tables_data = backup_data["tables"]
 
     print("Restoring database from backup:")
     print(f"📁 File: {backup_file.name}")
@@ -324,62 +467,7 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     print(f"📋 Tables: {len(tables_data)}")
     print("=" * 50)
 
-    # Define restoration order (respecting foreign key dependencies)
-    # NOTE: user_profiles is EXCLUDED from restoration
-    # Reason: Users and profiles are managed per-environment, not synced between dev/prod
-    # - Each environment has its own auth.users with different UUIDs
-    # - Restoring user_profiles from backup will cause UUID mismatches with auth.users
-    # - See docs/FOREIGN_KEY_DECISION.md for details
-    # - Use backend/manage_users.py to create users in each environment
-    # Restoration order respects FK dependencies for INSERT
-    # Clearing happens in REVERSE order to respect FK dependencies for DELETE
-    restoration_order = [
-        # 1. Reference data first (no dependencies)
-        'age_groups',
-        'leagues',  # leagues before divisions
-        'divisions',
-        'match_types',
-        'seasons',
-
-        # 2. Clubs (before teams - teams have club_id FK)
-        'clubs',
-
-        # 3. Teams (depend on clubs, divisions, age_groups)
-        'teams',
-        'team_mappings',
-        'team_match_types',
-        'team_aliases',
-
-        # 4. Team management
-        'team_manager_assignments',
-
-        # 5. Players (may depend on teams)
-        'players',
-        'player_team_history',
-
-        # 6. Tournaments (matches may reference tournaments via tournament_id FK)
-        'tournaments',
-        'tournament_age_groups',
-
-        # 7. Matches (depend on teams, seasons, tournaments)
-        'matches',
-
-        # 8. Playoff brackets (depend on matches)
-        'playoff_bracket_slots',
-
-        # 9. Tables that depend on matches/teams/clubs/players
-        # These are cleared FIRST (reverse order) before their parents
-        'match_of_the_week',
-        'match_events',
-        'match_lineups',
-        'player_match_stats',
-        'invitations',      # depends on clubs, teams, players
-        'invite_requests',  # depends on auth.users
-
-        # Excluded - manage separately per environment:
-        # - user_profiles (different auth.users UUIDs per env)
-        # - service_accounts (contains API keys)
-    ]
+    restoration_order = RESTORATION_ORDER
 
     success_count = 0
     total_tables = len([table for table in restoration_order if table in tables_data])
@@ -411,6 +499,14 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
                 success_count += 1
         else:
             print(f"Skipping {table} (not in backup)")
+
+    for table in tables_data:
+        if table in RESTORE_SKIPPED:
+            print(f"Not restoring {table}: {RESTORE_SKIPPED[table]}")
+        elif table not in restoration_order:
+            print(
+                f"⚠️  {table} is in the backup but not in RESTORATION_ORDER; not restored"
+            )
 
     print("=" * 50)
 
@@ -445,15 +541,16 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
         print(f"   … and {len(rejected) - 20} more")
     return False
 
+
 # Matches backup_database.py's default.
-DEFAULT_BACKUP_DIR = Path.home() / 'backups' / 'missing-table'
+DEFAULT_BACKUP_DIR = Path.home() / "backups" / "missing-table"
 
 
 def find_latest_backup(directory: Path) -> Path | None:
     """Find the most recent timestamped backup (.json.gz or .json)."""
     candidates = sorted(
-        list(directory.glob("database_backup_[0-9]*.json.gz")) +
-        list(directory.glob("database_backup_[0-9]*.json")),
+        list(directory.glob("database_backup_[0-9]*.json.gz"))
+        + list(directory.glob("database_backup_[0-9]*.json")),
         reverse=True,
     )
     return candidates[0] if candidates else None
@@ -468,9 +565,8 @@ def list_available_backups(backup_dir: Path | None = None):
         return []
 
     # Only match timestamp-formatted backups (YYYYMMDD_HHMMSS)
-    backup_files = (
-        list(backup_dir.glob("database_backup_[0-9]*.json.gz"))
-        + list(backup_dir.glob("database_backup_[0-9]*.json"))
+    backup_files = list(backup_dir.glob("database_backup_[0-9]*.json.gz")) + list(
+        backup_dir.glob("database_backup_[0-9]*.json")
     )
     backup_files.sort(reverse=True)  # Most recent first
 
@@ -483,11 +579,11 @@ def list_available_backups(backup_dir: Path | None = None):
 
     for i, backup_file in enumerate(backup_files):
         try:
-            opener = gzip.open if backup_file.suffix == '.gz' else open
-            with opener(backup_file, 'rt', encoding='utf-8') as f:
+            opener = gzip.open if backup_file.suffix == ".gz" else open
+            with opener(backup_file, "rt", encoding="utf-8") as f:
                 data = json.load(f)
-                info = data.get('backup_info', {})
-                created = info.get('created_at', 'Unknown')
+                info = data.get("backup_info", {})
+                created = info.get("created_at", "Unknown")
 
                 print(f"{i+1}. {backup_file.name}")
                 print(f"   📅 {created}")
@@ -497,6 +593,7 @@ def list_available_backups(backup_dir: Path | None = None):
             print(f"{i+1}. {backup_file.name} (corrupted)")
 
     return backup_files
+
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point. Returns the process exit code.
@@ -509,15 +606,23 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description="Database restore utility")
-    parser.add_argument('backup_file', nargs='?', help='Backup file to restore from')
-    parser.add_argument('--list', action='store_true', help='List available backup files')
-    parser.add_argument('--no-clear', action='store_true', help="Don't clear existing data before restore")
-    parser.add_argument('--latest', action='store_true', help='Restore from the most recent backup')
+    parser.add_argument("backup_file", nargs="?", help="Backup file to restore from")
     parser.add_argument(
-        '--backup-dir',
+        "--list", action="store_true", help="List available backup files"
+    )
+    parser.add_argument(
+        "--no-clear",
+        action="store_true",
+        help="Don't clear existing data before restore",
+    )
+    parser.add_argument(
+        "--latest", action="store_true", help="Restore from the most recent backup"
+    )
+    parser.add_argument(
+        "--backup-dir",
         type=Path,
         default=DEFAULT_BACKUP_DIR,
-        help=f'Directory containing backup files (default: {DEFAULT_BACKUP_DIR})',
+        help=f"Directory containing backup files (default: {DEFAULT_BACKUP_DIR})",
     )
 
     args = parser.parse_args(argv)
@@ -538,7 +643,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.backup_file:
             # Handle both full path and just filename
-            if '/' in args.backup_file:
+            if "/" in args.backup_file:
                 backup_file = Path(args.backup_file)
             else:
                 backup_file = backup_dir / args.backup_file
@@ -548,8 +653,12 @@ def main(argv: list[str] | None = None) -> int:
         print("Usage examples:")
         print("  python scripts/restore_database.py --list")
         print("  python scripts/restore_database.py --latest")
-        print(f"  python scripts/restore_database.py --backup-dir {DEFAULT_BACKUP_DIR} --latest")
-        print("  python scripts/restore_database.py database_backup_20231220_143022.json.gz")
+        print(
+            f"  python scripts/restore_database.py --backup-dir {DEFAULT_BACKUP_DIR} --latest"
+        )
+        print(
+            "  python scripts/restore_database.py database_backup_20231220_143022.json.gz"
+        )
         return 1
 
     except KeyboardInterrupt:

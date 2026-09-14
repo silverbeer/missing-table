@@ -102,6 +102,21 @@ git add supabase/migrations/
 git commit -m "feat: add new feature migration"
 ```
 
+### A New Table Needs a Backup Decision
+
+A migration that creates a table must, in the same PR:
+
+1. Add it to `TABLES_TO_BACKUP` in `scripts/backup_database.py` — in dependency order — or to `EXCLUDED_TABLES`
+   with the reason.
+2. If backed up, add it to `RESTORATION_ORDER` in `scripts/restore_database.py`, after every table it
+   references, or to `RESTORE_SKIPPED` with the reason.
+3. If it has no `id` column, add its NOT NULL key column to `CLEAR_BY_COLUMN`.
+4. If a column references a user (`user_profiles` or `auth.users`), add it to `USER_PROFILE_FK_COLUMNS`.
+
+`backend/tests/unit/test_backup_coverage.py` checks 1–3 against the migrations and fails CI otherwise (SB-1071).
+Tables went unbacked-up for months twice behind a run-time warning; see
+[Database Backup & Restore](../07-operations/database-backup.md#what-gets-backed-up).
+
 ## Migration SQL Best Practices
 
 ### Make Migrations Idempotent
