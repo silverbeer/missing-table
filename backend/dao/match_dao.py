@@ -668,55 +668,33 @@ class MatchDAO(BaseDAO):
         guessing would send the scraper after combinations that do not exist
         (U13 has no Flex; U15 has no Pathway). The source feed carries that
         structure, so the scraper resolves it.
+
+        Computed in the database by agent_bootstrap_divisions (SB-1080). This
+        used to fetch the division_id of every match in the season — 5,331 rows
+        in six round trips for 2026-2027, growing with every fixture — to find
+        about twenty divisions. The rules live in that function now: retired
+        leagues are never offered, test leagues only with include_test, and
+        rows come back ordered by league then division.
         """
         season_id = self._season_id_by_name(season_name)
         if season_id is None:
             return []
 
         try:
-            query = self.client.table("divisions").select(
-                "id, name, leagues!divisions_league_id_fkey(id, name, is_active, is_test)"
-            )
-            response = query.execute()
-            divisions = response.data or []
-
-            # Which divisions already have matches this season?
-            seeded: set[int] = set()
-            _page_size = 1000
-            _offset = 0
-            while True:
-                page = (
-                    self.client.table(MATCHES_READ_RELATION)
-                    .select("division_id")
-                    .eq("season_id", season_id)
-                    .neq("match_status", "cancelled")
-                    .range(_offset, _offset + _page_size - 1)
-                    .execute()
-                )
-                rows = page.data or []
-                seeded.update(r["division_id"] for r in rows if r.get("division_id") is not None)
-                if len(rows) < _page_size:
-                    break
-                _offset += _page_size
-
-            out = []
-            for d in divisions:
-                league = d.get("leagues") or {}
-                # An inactive league is retired, not unseeded — Kick Futsal
-                # should never be handed to the scraper as work to do.
-                if not league.get("is_active"):
-                    continue
-                if league.get("is_test") and not include_test:
-                    continue
-                if d["id"] in seeded:
-                    continue
-                out.append({"division_id": d["id"], "division": d["name"], "league": league.get("name")})
-
-            return sorted(out, key=lambda x: (x["league"] or "", x["division"]))
-
+            response = self.client.rpc(
+                "agent_bootstrap_divisions",
+                {"p_season_id": season_id, "p_include_test": include_test},
+            ).execute()
         except Exception:
+            # This runs inside the agent's status endpoint. Losing bootstrap
+            # hints degrades discovery; raising would take down the whole plan.
             logger.exception("Error computing bootstrap divisions", season_name=season_name)
             return []
+
+        return [
+            {"division_id": row["division_id"], "division": row["division"], "league": row["league"]}
+            for row in (response.data or [])
+        ]
 
     def get_matches_by_team(
         self,
@@ -858,7 +836,7 @@ class MatchDAO(BaseDAO):
                 "division_id": match.get("division_id"),
                 "division_name": match["division"]["name"] if match.get("division") else "Unknown",
                 "match_status": match.get("match_status"),
-                    "scoring_mode": match.get("scoring_mode", "manual"),
+                "scoring_mode": match.get("scoring_mode", "manual"),
                 "source": match.get("source", "manual"),
                 "match_id": match.get("match_id"),
                 "created_at": match.get("created_at"),
@@ -1862,7 +1840,7 @@ class MatchDAO(BaseDAO):
             return {
                 "match_id": match["id"],
                 "match_status": match.get("match_status"),
-                    "scoring_mode": match.get("scoring_mode", "manual"),
+                "scoring_mode": match.get("scoring_mode", "manual"),
                 "match_date": match["match_date"],
                 "scheduled_kickoff": match.get("scheduled_kickoff"),
                 "home_score": match["home_score"],
