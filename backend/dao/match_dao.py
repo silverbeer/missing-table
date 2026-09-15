@@ -12,7 +12,6 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
-from supabase import create_client
 
 from dao.base_dao import (
     MATCHES_READ_RELATION,
@@ -32,6 +31,7 @@ from dao.standings import (
     shootout_competitions,
     teams_in_division,
 )
+from supabase import create_client
 
 logger = structlog.get_logger()
 
@@ -150,39 +150,9 @@ class SupabaseConnection:
 # midday match is chased the same afternoon (SB-1058).
 SCORE_GRACE = timedelta(hours=3)
 
-
-def _score_is_due(match: dict, now: datetime, md: str, today: str) -> bool:
-    """Has this match been over long enough that a missing score is news?
-
-    The rule used to be ``md < today``: a date compared against the server's UTC
-    date, strictly before. That made every match played today invisible until the
-    UTC date rolled over at 20:00 ET, so a match kicking off at noon went
-    unchased for eight hours and a full Saturday programme reported
-    needs_score 0 for the whole of Saturday.
-
-    Kick-off is stored as a UTC timestamp (matches.scheduled_kickoff), so the
-    honest question is whether kick-off plus SCORE_GRACE is in the past.
-
-    Falls back to the date comparison when kick-off is unknown: without a time
-    there is no telling a match that ended an hour ago from one that has not
-    kicked off, and guessing the wrong way sends the agent hunting a score that
-    cannot exist yet. Every scheduled match in the current season carries a
-    kick-off time, so that is the rare path.
-    """
-    kickoff = match.get("scheduled_kickoff")
-    if not kickoff:
-        return md < today
-
-    if isinstance(kickoff, str):
-        try:
-            kickoff = datetime.fromisoformat(kickoff.replace("Z", "+00:00"))
-        except ValueError:
-            return md < today
-
-    if kickoff.tzinfo is None:
-        kickoff = kickoff.replace(tzinfo=UTC)
-
-    return kickoff + SCORE_GRACE <= now
+# How far ahead a missing kick-off time is worth chasing. Beyond this the
+# fixture is too far out for a missing time to mean anything is wrong.
+KICKOFF_HORIZON_DAYS = 14
 
 
 class MatchDAO(BaseDAO):
@@ -611,8 +581,18 @@ class MatchDAO(BaseDAO):
         Used by the match-scraper-agent to understand what MT already has
         and make smart decisions about what to scrape.
 
+        Aggregated in the database (SB-1057). This used to read every
+        non-cancelled match in the season — 5,272 rows for 2026-2027, in six
+        paginated round trips — and count them in Python, which put the whole
+        season on the wire to produce 119 rows of counts and tripped Supabase's
+        gateway timeout on every cold call. The agent runs hours apart, so it was
+        always the cold caller: it lost four consecutive production runs to it on
+        2026-09-11/12.
+
         A match counts toward needs_score once SCORE_GRACE has passed since its
-        kick-off rather than once the calendar day has ended — see _score_is_due.
+        kick-off rather than once the calendar day has ended (SB-1058). The grace
+        is passed to the function rather than defined there, so this module stays
+        the one place it is written down.
 
         Args:
             season_name: Season name, e.g. '2025-2026'.
@@ -622,95 +602,47 @@ class MatchDAO(BaseDAO):
                 agent's "what is missing" counts are not skewed by hand-created
                 test fixtures, which are never scraped.
         """
-        from collections import defaultdict
         from datetime import date
-
-        today = date.today().isoformat()
-        kickoff_horizon = (date.today() + timedelta(days=14)).isoformat()
-        now = datetime.now(UTC)
 
         season_id = self._season_id_by_name(season_name)
         if season_id is None:
             return []
 
-        # Fetch all non-cancelled matches for this season with joins.
-        # Supabase defaults to 1000 rows — paginate to get the full season.
-        _page_size = 1000
-        _offset = 0
-        all_matches: list[dict] = []
-        while True:
-            page_query = (
-                self.client.table(MATCHES_READ_RELATION)
-                .select("""
-                    match_date, match_status, home_score, away_score, scheduled_kickoff,
-                    age_group:age_groups(name),
-                    division:divisions(name, league_id, leagues:leagues!divisions_league_id_fkey(name))
-                """)
-                .eq("season_id", season_id)
-                .neq("match_status", "cancelled")
-            )
-            if not include_test:
-                page_query = page_query.eq("is_test", False)
-            response = page_query.range(_offset, _offset + _page_size - 1).execute()
-            all_matches.extend(response.data)
-            if len(response.data) < _page_size:
-                break
-            _offset += _page_size
+        now = datetime.now(UTC)
+        response = self.client.rpc(
+            "agent_match_summary",
+            {
+                "p_season_id": season_id,
+                "p_now": now.isoformat(),
+                "p_today": date.today().isoformat(),
+                "p_score_from": score_from,
+                "p_score_to": score_to,
+                "p_score_grace": f"{SCORE_GRACE.total_seconds()} seconds",
+                "p_kickoff_horizon_days": KICKOFF_HORIZON_DAYS,
+                "p_include_test": include_test,
+            },
+        ).execute()
 
-        # Group by (age_group, league, division)
-        groups = defaultdict(list)
-        for m in all_matches:
-            ag = m["age_group"]["name"] if m.get("age_group") else "Unknown"
-            div_name = m["division"]["name"] if m.get("division") else "Unknown"
-            league_name = (
-                m["division"]["leagues"]["name"] if m.get("division") and m["division"].get("leagues") else "Unknown"
-            )
-            groups[(ag, league_name, div_name)].append(m)
-
-        # Compute summary per group
-        summaries = []
-        for (ag, league, div), matches in sorted(groups.items()):
-            by_status = defaultdict(int)
-            needs_score = 0
-            needs_kickoff = 0
-            dates = []
-            last_played = None
-
-            for m in matches:
-                status = m.get("match_status", "scheduled")
-                by_status[status] += 1
-                md = m["match_date"]
-                dates.append(md)
-
-                if status in ("scheduled", "tbd") and m.get("home_score") is None:
-                    in_window = (not score_from or md >= score_from) and (not score_to or md <= score_to)
-                    if in_window and _score_is_due(m, now, md, today):
-                        needs_score += 1
-
-                if status in ("scheduled", "tbd") and today <= md <= kickoff_horizon and not m.get("scheduled_kickoff"):
-                    needs_kickoff += 1
-
-                if status in ("completed", "forfeit") and (last_played is None or md > last_played):
-                    last_played = md
-
-            summaries.append(
-                {
-                    "age_group": ag,
-                    "league": league,
-                    "division": div,
-                    "total": len(matches),
-                    "by_status": dict(by_status),
-                    "needs_score": needs_score,
-                    "needs_kickoff": needs_kickoff,
-                    "date_range": {
-                        "earliest": min(dates) if dates else None,
-                        "latest": max(dates) if dates else None,
-                    },
-                    "last_played_date": last_played,
-                }
-            )
-
-        return summaries
+        # Shape kept byte-identical to the Python implementation this replaced:
+        # the planner in match-scraper reads these keys, and the two ran
+        # side by side against the live season to prove they agree.
+        return [
+            {
+                "age_group": row["age_group"],
+                "league": row["league"],
+                "division": row["division"],
+                "total": row["total"],
+                "by_status": row["by_status"] or {},
+                "needs_score": row["needs_score"],
+                "needs_kickoff": row["needs_kickoff"],
+                "date_range": {
+                    "earliest": row["earliest"],
+                    "latest": row["latest"],
+                },
+                "last_played_date": row["last_played_date"],
+            }
+            for row in (response.data or [])
+        ]
 
     def get_bootstrap_divisions(self, season_name: str, include_test: bool = False) -> list[dict]:
         """Divisions that exist but hold no matches for this season (SB-839).
