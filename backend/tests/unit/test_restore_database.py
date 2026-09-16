@@ -193,6 +193,8 @@ class TestExitCode:
         monkeypatch.setattr(restore, "clear_table", lambda *_a, **_k: True)
         monkeypatch.setattr(restore, "reset_sequences", lambda *_a, **_k: None)
         monkeypatch.setattr(restore, "get_local_user_profile_ids", lambda: set())
+        monkeypatch.setattr(restore, "read_user_reference_catalog", lambda _url: PROD_USER_REFERENCE_CATALOG)
+        restore.db_url = "postgresql://test/db"  # pragma: allowlist secret
 
     def test_a_rejected_record_exits_non_zero(self, restore, tmp_path, monkeypatch):
         self._quiet(restore, monkeypatch)
@@ -218,6 +220,117 @@ class TestExitCode:
         assert restore.main([]) == 1
 
 
+# Every foreign key to user_profiles/auth.users in production, read from
+# pg_constraint on 2026-09-14: (table, column, nullable).
+PROD_USER_REFERENCE_CATALOG = [
+    ("channel_access_requests", "user_id", False),
+    ("channel_access_requests", "discord_reviewed_by", True),
+    ("channel_access_requests", "telegram_reviewed_by", True),
+    ("email_messages", "sent_by_user_id", True),
+    ("invitations", "invited_by_user_id", True),
+    ("invitations", "used_by_user_id", True),
+    ("invite_requests", "reviewed_by", True),
+    ("match_events", "created_by", True),
+    ("match_events", "deleted_by", True),
+    ("match_lineups", "created_by", True),
+    ("match_lineups", "updated_by", True),
+    ("matches", "created_by", True),
+    ("matches", "updated_by", True),
+    ("player_team_history", "player_id", False),
+    ("players", "created_by", True),
+    ("players", "user_profile_id", True),
+    ("team_manager_assignments", "user_id", True),
+    ("team_manager_assignments", "assigned_by_user_id", True),
+    ("user_bracket_follows", "user_id", False),
+    ("user_notification_preferences", "user_id", False),
+    ("user_team_follows", "user_id", False),
+]
+
+
+def _prod_user_columns(restore):
+    return restore.user_reference_columns(PROD_USER_REFERENCE_CATALOG)
+
+
+PROD_USER_COLUMNS = {
+    "channel_access_requests": [
+        ("discord_reviewed_by", True),
+        ("telegram_reviewed_by", True),
+        ("user_id", False),
+    ],
+    "email_messages": [("sent_by_user_id", True)],
+    "invitations": [("invited_by_user_id", True), ("used_by_user_id", True)],
+    "invite_requests": [("reviewed_by", True)],
+    "match_events": [("created_by", True), ("deleted_by", True)],
+    "match_lineups": [("created_by", True), ("updated_by", True)],
+    "matches": [("created_by", True), ("updated_by", True)],
+    "player_team_history": [("player_id", False)],
+    "players": [("created_by", True), ("user_profile_id", True)],
+    "team_manager_assignments": [("assigned_by_user_id", True), ("user_id", False)],
+    "user_bracket_follows": [("user_id", False)],
+    "user_notification_preferences": [("user_id", False)],
+    "user_team_follows": [("user_id", False)],
+}
+
+
+@pytest.mark.unit
+class TestDerivingUserReferences:
+    """The map is read from the database, not written down (SB-1076)."""
+
+    def test_the_catalog_reproduces_the_map_this_replaced(self, restore):
+        # Hand-maintained, it drifted: invitation columns that did not exist,
+        # matches.created_by missing, and player_match_stats.player_id — an
+        # integer reference to players — treated as a user uuid.
+        assert _prod_user_columns(restore) == PROD_USER_COLUMNS
+
+    def test_player_match_stats_is_absent_because_it_has_no_user_reference(self, restore):
+        assert "player_match_stats" not in _prod_user_columns(restore)
+
+    def test_a_nullable_column_is_cleared_and_a_not_null_one_drops_the_row(self, restore):
+        derived = restore.user_reference_columns([("things", "author_id", True), ("things", "owner_id", False)])
+
+        assert derived == {"things": [("author_id", True), ("owner_id", False)]}
+
+    def test_a_row_meaningless_without_its_user_is_dropped_though_nullable(self, restore):
+        # team_manager_assignments.user_id is nullable in prod; an assignment
+        # with no manager is not an assignment.
+        derived = restore.user_reference_columns([("team_manager_assignments", "user_id", True)])
+
+        assert derived == {"team_manager_assignments": [("user_id", False)]}
+
+    def test_a_table_with_no_user_reference_is_passed_through_untouched(self, restore):
+        data = [{"id": 1, "player_id": 42}]
+
+        assert restore.sanitize_user_profile_refs("player_match_stats", data, set(), PROD_USER_COLUMNS) == data
+
+
+@pytest.mark.unit
+class TestTheCatalogMustBeReadable:
+    def test_an_unreadable_catalog_refuses_the_restore_and_clears_nothing(self, restore, tmp_path, monkeypatch, capsys):
+        cleared = []
+        monkeypatch.setattr(restore, "clear_table", lambda name: cleared.append(name))
+        monkeypatch.setattr(restore, "reset_sequences", lambda *_a, **_k: None)
+        monkeypatch.setattr(restore, "get_local_user_profile_ids", lambda: set())
+        monkeypatch.setattr(
+            restore, "read_user_reference_catalog", lambda _url: (_ for _ in ()).throw(RuntimeError("no route to host"))
+        )
+        restore.db_url = "postgresql://nowhere/db"  # pragma: allowlist secret
+        restore.supabase = FakeClient()
+        backup = write_backup(tmp_path / "database_backup_20260916_090000.json", {"clubs": rows(1)})
+
+        assert restore.restore_from_backup(backup) is False
+        assert cleared == []
+        assert "Refusing to guess" in capsys.readouterr().out
+
+    def test_without_database_url_it_says_which_file_to_set_it_in(self, restore, tmp_path, monkeypatch, capsys):
+        monkeypatch.setattr(restore, "clear_table", lambda *_a, **_k: None)
+        restore.db_url = None
+        restore.supabase = FakeClient()
+        backup = write_backup(tmp_path / "database_backup_20260916_090001.json", {"clubs": rows(1)})
+
+        assert restore.restore_from_backup(backup) is False
+        assert "DATABASE_URL" in capsys.readouterr().out
+
+
 @pytest.mark.unit
 class TestUserReferenceSanitization:
     """The map had drifted from the schema (SB-1071)."""
@@ -231,14 +344,14 @@ class TestUserReferenceSanitization:
         # restore silently dropped every goal and assist.
         stats = [{"id": 1, "player_id": 42, "goals": 2}, {"id": 2, "player_id": 7, "goals": 0}]
 
-        kept = restore.sanitize_user_profile_refs("player_match_stats", stats, {self.PRESENT})
+        kept = restore.sanitize_user_profile_refs("player_match_stats", stats, {self.PRESENT}, PROD_USER_COLUMNS)
 
         assert kept == stats
 
     def test_invitation_users_that_are_absent_are_cleared(self, restore):
         rows = [{"id": 1, "invited_by_user_id": self.ABSENT, "used_by_user_id": self.PRESENT}]
 
-        [kept] = restore.sanitize_user_profile_refs("invitations", rows, {self.PRESENT})
+        [kept] = restore.sanitize_user_profile_refs("invitations", rows, {self.PRESENT}, PROD_USER_COLUMNS)
 
         assert kept["invited_by_user_id"] is None
         assert kept["used_by_user_id"] == self.PRESENT
@@ -246,7 +359,7 @@ class TestUserReferenceSanitization:
     def test_match_authors_that_are_absent_are_cleared_not_dropped(self, restore):
         rows = [{"id": 1, "created_by": self.ABSENT, "updated_by": self.ABSENT}]
 
-        [kept] = restore.sanitize_user_profile_refs("matches", rows, set())
+        [kept] = restore.sanitize_user_profile_refs("matches", rows, set(), PROD_USER_COLUMNS)
 
         assert kept["created_by"] is None and kept["updated_by"] is None
 
@@ -254,14 +367,14 @@ class TestUserReferenceSanitization:
     def test_a_users_own_rows_are_dropped_when_the_user_is_absent(self, restore, table):
         rows = [{"user_id": self.PRESENT}, {"user_id": self.ABSENT}]
 
-        kept = restore.sanitize_user_profile_refs(table, rows, {self.PRESENT})
+        kept = restore.sanitize_user_profile_refs(table, rows, {self.PRESENT}, PROD_USER_COLUMNS)
 
         assert kept == [{"user_id": self.PRESENT}]
 
     def test_email_sent_by_an_absent_user_is_kept_with_the_sender_cleared(self, restore):
         rows = [{"id": "m1", "sent_by_user_id": self.ABSENT, "body_text": "hello"}]
 
-        [kept] = restore.sanitize_user_profile_refs("email_messages", rows, set())
+        [kept] = restore.sanitize_user_profile_refs("email_messages", rows, set(), PROD_USER_COLUMNS)
 
         assert kept["sent_by_user_id"] is None
 
@@ -306,6 +419,8 @@ class TestUnusableBackupsAreRefused:
         monkeypatch.setattr(restore, "clear_table", lambda name: cleared.append(name))
         monkeypatch.setattr(restore, "reset_sequences", lambda *_a, **_k: None)
         monkeypatch.setattr(restore, "get_local_user_profile_ids", lambda: set())
+        monkeypatch.setattr(restore, "read_user_reference_catalog", lambda _url: PROD_USER_REFERENCE_CATALOG)
+        restore.db_url = "postgresql://test/db"  # pragma: allowlist secret
         return cleared
 
     def test_an_empty_backup_clears_nothing(self, restore, tmp_path, capsys, monkeypatch):
