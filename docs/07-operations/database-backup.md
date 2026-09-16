@@ -26,8 +26,8 @@ Use the convenient shell script for common operations:
 # NOTE: Requires a backup less than 4 hours old (safety guard)
 ./scripts/db_tools.sh reset
 
-# Clean up old backups (keep only 5 most recent)
-./scripts/db_tools.sh cleanup 5
+# Apply the retention policy (30 days + a monthly archive; --dry-run to preview)
+./scripts/db_tools.sh cleanup
 ```
 
 ### Refresh Local from Production (Recommended)
@@ -266,7 +266,7 @@ uv run python ../scripts/restore_database.py backup_file.json --no-clear
 
 4. **Weekly Cleanup**: Keep backups manageable
    ```bash
-   ./scripts/db_tools.sh cleanup 10
+   ./scripts/db_tools.sh cleanup
    ```
 
 ### Common Scenarios
@@ -383,7 +383,7 @@ one. A backup taken before a table was added shows `older format` instead; it is
 - Check environment variables are loaded correctly
 
 **3. Backup files getting too large**
-- Run cleanup to remove old backups: `./scripts/db_tools.sh cleanup 5`
+- Run cleanup to apply the retention policy: `./scripts/db_tools.sh cleanup`
 - Consider archiving important backups elsewhere
 
 **4. Restore fails with foreign key errors**
@@ -416,7 +416,7 @@ If you lose all data and backups:
 
 2. **Regular Cleanup**: Keep only recent backups to save disk space
    ```bash
-   ./scripts/db_tools.sh cleanup 10  # Keep 10 most recent
+   ./scripts/db_tools.sh cleanup  # 30 days + a monthly archive
    ```
 
 3. **Meaningful Backup Names**: The automated timestamps are good, but consider manual copies for important milestones

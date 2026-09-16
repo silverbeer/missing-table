@@ -54,7 +54,7 @@ Documentation for running, monitoring, and maintaining the Missing Table applica
 ./scripts/db_tools.sh list
 
 # Cleanup old backups (keep 10)
-./scripts/db_tools.sh cleanup 10
+./scripts/db_tools.sh cleanup
 ```
 
 ### Backup Strategy

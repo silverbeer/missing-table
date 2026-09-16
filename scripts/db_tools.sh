@@ -311,10 +311,29 @@ deploy_migrations() {
 
 # Clean up old backups
 cleanup_backups() {
-    local keep_count="${1:-10}"
-    print_header "Cleaning Up Old Backups (keeping $keep_count)"
+    # Retention is by age, not by count: every backup of the last N days, then
+    # the newest usable one per month. `cleanup 5` used to pass 5 to a flag that
+    # takes no value, so argparse rejected the call and nothing was ever cleaned
+    # up (SB-1073).
+    local keep_days=30
+    local dry_run=""
+    for arg in "$@"; do
+        case "$arg" in
+            --dry-run) dry_run="--dry-run" ;;
+            "") ;;
+            *[!0-9]*)
+                print_error "cleanup: expected a number of days, got '$arg'"
+                echo "Usage: $0 cleanup [days] [--dry-run]"
+                exit 2
+                ;;
+            *) keep_days="$arg" ;;
+        esac
+    done
+
+    print_header "Cleaning Up Old Backups (keeping $keep_days days + a monthly archive)"
     cd "$PROJECT_ROOT/backend" || exit 1
-    uv run python ../scripts/backup_database.py --cleanup "$keep_count"
+    # shellcheck disable=SC2086 # $dry_run is empty or a single known flag
+    uv run python ../scripts/backup_database.py --cleanup --keep-days "$keep_days" $dry_run
 }
 
 # Show help
@@ -329,7 +348,7 @@ show_help() {
     echo "  list                            List available backups"
     echo "  migrate [env]                   Deploy pending migrations (default: prod)"
     echo "  reset [env]                     Reset database and repopulate with basic data"
-    echo "  cleanup [keep_count]            Clean up old backups (default: keep 10)"
+    echo "  cleanup [days] [--dry-run]      Apply the retention policy (default: keep 30 days)"
     echo "  help                            Show this help message"
     echo ""
     echo "Environment Options:"
@@ -345,7 +364,7 @@ show_help() {
     echo "  $0 reset local                               # Reset local database"
     echo "  $0 migrate                                   # Deploy pending migrations to prod"
     echo "  $0 migrate local                              # Apply migrations locally"
-    echo "  $0 cleanup 5                                 # Keep only 5 most recent backups"
+    echo "  $0 cleanup 7 --dry-run                       # Show what a 7-day retention would delete"
     echo ""
 }
 
@@ -374,7 +393,7 @@ case "${1:-help}" in
         reset_and_populate "$2"
         ;;
     cleanup)
-        cleanup_backups "$2"
+        cleanup_backups "${@:2}"
         ;;
     help|--help|-h)
         show_help
