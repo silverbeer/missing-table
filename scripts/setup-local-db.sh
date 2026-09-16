@@ -148,38 +148,25 @@ elif [ "$FROM_PROD" = true ]; then
     echo -e "${GREEN}Fresh backup created from prod - skipping age check${NC}"
     echo ""
 else
-    echo -e "${YELLOW}Checking for recent backup...${NC}"
+    echo -e "${YELLOW}Checking for a recent, usable backup...${NC}"
 
-    BACKUP_DIR="$PROJECT_ROOT/backups"
-    MAX_AGE_MINUTES=240  # 4 hours
-
-    # Only match timestamp-formatted backups (database_backup_[0-9]*.json)
-    recent_backup=""
-    if [ -d "$BACKUP_DIR" ]; then
-        recent_backup=$(find "$BACKUP_DIR" -maxdepth 1 -name "database_backup_[0-9]*.json" -mmin -${MAX_AGE_MINUTES} 2>/dev/null | sort -r | head -1)
-    fi
-
-    if [ -z "$recent_backup" ]; then
-        echo -e "${RED}No backup less than 4 hours old found. Aborting reset.${NC}"
-        latest_backup=$(ls -t "$BACKUP_DIR"/database_backup_[0-9]*.json 2>/dev/null | head -1)
-        if [ -n "$latest_backup" ]; then
-            file_age_seconds=$(( $(date +%s) - $(stat -f %m "$latest_backup") ))
-            hours=$(( file_age_seconds / 3600 ))
-            minutes=$(( (file_age_seconds % 3600) / 60 ))
-            echo -e "${RED}Latest backup is ${hours}h ${minutes}m old: $(basename "$latest_backup")${NC}"
-        else
-            echo -e "${RED}No backups found at all in $BACKUP_DIR${NC}"
-        fi
+    # Backups live in ~/backups/missing-table as .json.gz. This looked in
+    # $PROJECT_ROOT/backups for .json, so it never found one and --restore
+    # always aborted (SB-1074). --check-fresh also refuses a backup that is
+    # recent but unusable — empty, corrupt, or missing seeded reference data —
+    # which is the case that would clear the database and restore nothing.
+    if ! (cd "$PROJECT_ROOT/backend" && uv run python ../scripts/backup_database.py \
+            --check-fresh 4 --backup-dir "$HOME/backups/missing-table"); then
         echo ""
-        echo "Create a backup first:"
-        echo "  ./scripts/db_tools.sh backup"
+        echo -e "${RED}Aborting reset: no usable backup from the last 4 hours.${NC}"
         echo ""
-        echo "Or use --from-prod to backup from production:"
+        echo "Create one first:"
+        echo "  ./scripts/db_tools.sh backup          # production (the default)"
+        echo ""
+        echo "Or let this script do it:"
         echo "  $0 --from-prod"
         exit 1
     fi
-
-    echo -e "${GREEN}Recent backup found: $(basename "$recent_backup")${NC}"
     echo ""
 fi
 

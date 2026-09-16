@@ -22,7 +22,7 @@ Overview of database management for the Missing Table project.
 ./scripts/db_tools.sh list               # List available backups
 
 # Reset database (applies schema + seed, then restores data)
-./scripts/db_tools.sh reset              # Requires a backup less than 4 hours old
+./scripts/db_tools.sh reset              # Requires a usable backup less than 4 hours old
 
 # Local Supabase
 npx supabase start|stop|status

@@ -31,40 +31,19 @@ print_error() {
 # Check that a recent backup exists (less than 4 hours old)
 # Returns 0 if a recent backup exists, 1 otherwise
 check_recent_backup() {
-    local backup_dir="${HOME}/backups/missing-table"
-    local max_age_minutes=240  # 4 hours
-
-    if [ ! -d "$backup_dir" ]; then
-        print_error "Backup directory not found: $backup_dir"
-        return 1
+    # A backup that is recent but unusable — empty, corrupt, or missing seeded
+    # reference data — would clear the database and restore nothing, so age
+    # alone is not enough (SB-1074). --check-fresh judges both.
+    if (cd "$PROJECT_ROOT/backend" && uv run python ../scripts/backup_database.py \
+            --check-fresh 4 --backup-dir "${HOME}/backups/missing-table"); then
+        return 0
     fi
 
-    # Find backup files modified within the last 4 hours (compressed backups)
-    local recent_backups
-    recent_backups=$(find "$backup_dir" -maxdepth 1 -name "database_backup_[0-9]*.json.gz" -mmin -${max_age_minutes} 2>/dev/null | sort -r | head -1)
-
-    if [ -z "$recent_backups" ]; then
-        # Find the most recent backup to show how old it is
-        local latest_backup
-        latest_backup=$(ls -t "$backup_dir"/database_backup_[0-9]*.json.gz 2>/dev/null | head -1)
-        if [ -n "$latest_backup" ]; then
-            local file_age_seconds
-            file_age_seconds=$(( $(date +%s) - $(stat -f %m "$latest_backup") ))
-            local hours=$(( file_age_seconds / 3600 ))
-            local minutes=$(( (file_age_seconds % 3600) / 60 ))
-            print_error "No recent backup found. Latest backup is ${hours}h ${minutes}m old:"
-            echo "  $(basename "$latest_backup")"
-        else
-            print_error "No backups found at all in $backup_dir"
-        fi
-        echo ""
-        echo "Create a backup first:"
-        echo "  ./scripts/db_tools.sh backup"
-        return 1
-    fi
-
-    print_success "Recent backup found: $(basename "$recent_backups")"
-    return 0
+    echo ""
+    echo "Create a backup first:"
+    echo "  ./scripts/db_tools.sh backup          # production (the default)"
+    echo "  ./scripts/db_tools.sh backup local    # local Supabase"
+    return 1
 }
 
 # Check if Python environment is available
