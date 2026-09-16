@@ -60,7 +60,7 @@ cd frontend && npm run lint
 ./scripts/db_tools.sh backup         # Create backup from production (the default)
 ./scripts/db_tools.sh backup local   # Create backup of local Supabase
 ./scripts/db_tools.sh list           # List available backups
-./scripts/db_tools.sh cleanup 5      # Keep only 5 most recent backups
+./scripts/db_tools.sh cleanup        # Apply retention: 30 days + a monthly archive
 ```
 
 **Recommended workflow**: Use `./scripts/setup-local-db.sh --from-prod` to get a complete refresh from production data.

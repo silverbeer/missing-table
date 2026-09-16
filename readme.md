@@ -318,7 +318,7 @@ The project includes a comprehensive backup and restore system for development a
 ./scripts/db_tools.sh backup
 
 # Keep only 5 most recent backups
-./scripts/db_tools.sh cleanup 5
+./scripts/db_tools.sh cleanup
 ```
 
 #### Backup Location
