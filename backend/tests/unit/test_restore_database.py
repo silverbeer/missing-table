@@ -12,6 +12,7 @@ the client replaced.
 """
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,21 @@ class FakeClient:
 
 def rows(count, start=1):
     return [{"id": start + i, "name": f"row-{start + i}"} for i in range(count)]
+
+
+# supabase/seed.sql populates these everywhere, so a backup without them did not
+# come from a working database. restore_from_backup refuses one (SB-1072).
+SEEDED = ("age_groups", "leagues", "divisions", "match_types", "seasons")
+
+
+def write_backup(path, tables, seeded=True):
+    """A backup file on disk; `seeded=False` makes it one restore must refuse."""
+    payload = {"backup_info": {"created_at": "2026-08-29T00:00:00Z"}, "tables": dict(tables)}
+    if seeded:
+        for name in SEEDED:
+            payload["tables"].setdefault(name, rows(1))
+    path.write_text(json.dumps(payload))
+    return path
 
 
 @pytest.mark.unit
@@ -169,14 +185,8 @@ class TestExitCode:
     """What setup-local-db.sh actually checks."""
 
     def _backup(self, tmp_path, records):
-        import json
-
-        payload = {
-            "backup_info": {"created_at": "2026-08-29T00:00:00Z"},
-            "tables": {"clubs": records},
-        }
         path = tmp_path / "database_backup_20260829_000000.json"
-        path.write_text(json.dumps(payload))
+        write_backup(path, {"clubs": records})
         return path
 
     def _quiet(self, restore, monkeypatch):
@@ -285,3 +295,77 @@ class TestClearingTablesWithoutAnId:
         restore.clear_table(table)
 
         assert calls == [(table, f"{restore.CLEAR_BY_COLUMN[table]}=not.is.null")]
+
+
+@pytest.mark.unit
+class TestUnusableBackupsAreRefused:
+    """A restore clears before it loads, so the check has to come first (SB-1072)."""
+
+    def _cleared(self, restore, monkeypatch):
+        cleared = []
+        monkeypatch.setattr(restore, "clear_table", lambda name: cleared.append(name))
+        monkeypatch.setattr(restore, "reset_sequences", lambda *_a, **_k: None)
+        monkeypatch.setattr(restore, "get_local_user_profile_ids", lambda: set())
+        return cleared
+
+    def test_an_empty_backup_clears_nothing(self, restore, tmp_path, capsys, monkeypatch):
+        # The 206-byte file of 2026-09-14: restoring it would have emptied the
+        # database and put nothing back.
+        cleared = self._cleared(restore, monkeypatch)
+        restore.supabase = FakeClient()
+        backup = write_backup(tmp_path / "database_backup_20260914_072043.json", {}, seeded=False)
+
+        assert restore.restore_from_backup(backup) is False
+        assert cleared == []
+        assert "Refusing to restore" in capsys.readouterr().out
+
+    def test_a_backup_missing_seeded_reference_data_is_refused(self, restore, tmp_path, capsys, monkeypatch):
+        cleared = self._cleared(restore, monkeypatch)
+        restore.supabase = FakeClient()
+        backup = write_backup(tmp_path / "database_backup_20260914_072044.json", {"clubs": rows(3)}, seeded=False)
+
+        assert restore.restore_from_backup(backup) is False
+        assert cleared == []
+        assert "missing or empty" in capsys.readouterr().out
+
+    def test_a_corrupt_file_is_refused(self, restore, tmp_path):
+        backup = tmp_path / "database_backup_20260914_072045.json"
+        backup.write_text("{not json")
+
+        assert restore.restore_from_backup(backup) is False
+
+    def test_a_usable_backup_still_restores(self, restore, tmp_path, monkeypatch):
+        self._cleared(restore, monkeypatch)
+        restore.supabase = FakeClient()
+        backup = write_backup(tmp_path / "database_backup_20260914_072046.json", {"clubs": rows(2)})
+
+        assert restore.restore_from_backup(backup) is True
+
+    def test_only_tables_in_the_backup_are_cleared(self, restore, tmp_path, monkeypatch):
+        # An older backup lacks tables added since; clearing them emptied data
+        # the restore could not put back.
+        cleared = self._cleared(restore, monkeypatch)
+        restore.supabase = FakeClient()
+        backup = write_backup(tmp_path / "database_backup_20260914_072047.json", {"clubs": rows(1)})
+
+        restore.restore_from_backup(backup)
+
+        assert set(cleared) == {"clubs", *SEEDED}
+        assert "matches" not in cleared
+
+
+@pytest.mark.unit
+class TestLatestSkipsUnusableBackups:
+    def test_the_newest_usable_backup_wins(self, restore, tmp_path, capsys):
+        good = write_backup(tmp_path / "database_backup_20260913_120000.json", {"clubs": rows(1)})
+        write_backup(tmp_path / "database_backup_20260914_072043.json", {}, seeded=False)
+
+        assert restore.find_latest_usable_backup(tmp_path) == good
+        assert "Skipping database_backup_20260914_072043.json" in capsys.readouterr().out
+
+    def test_nothing_usable_is_reported_as_such(self, restore, tmp_path, capsys):
+        write_backup(tmp_path / "database_backup_20260914_072043.json", {}, seeded=False)
+        restore.supabase = FakeClient()
+
+        assert restore.main(["--latest", "--backup-dir", str(tmp_path)]) == 1
+        assert "No usable backup files found" in capsys.readouterr().out
