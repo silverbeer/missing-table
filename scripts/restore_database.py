@@ -16,6 +16,12 @@ from supabase import Client, create_client
 # Add backend to path for shared modules
 backend_path = Path(__file__).parent.parent / "backend"
 sys.path.append(str(backend_path))
+sys.path.insert(0, str(Path(__file__).parent))
+
+# One definition of "can this backup be restored from", shared with the backup
+# script rather than copied (SB-1072). Importing it is safe: backup_database
+# does nothing at import but define constants.
+from backup_database import usability_problems  # noqa: E402
 
 # Load environment variables based on APP_ENV
 app_env = os.getenv("APP_ENV", "local")
@@ -435,27 +441,47 @@ def reset_sequences():
         return True  # Don't fail the entire restore
 
 
+def read_backup(backup_file: Path) -> dict | None:
+    """A backup file's contents, or None with the reason printed."""
+    if not backup_file.exists():
+        print(f"❌ Backup file not found: {backup_file}")
+        return None
+
+    try:
+        opener = gzip.open if backup_file.suffix == ".gz" else open
+        with opener(backup_file, "rt", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"❌ Error reading backup file: {e}")
+        return None
+
+    if not isinstance(data, dict) or "backup_info" not in data or "tables" not in data:
+        print("❌ Invalid backup file format")
+        return None
+    return data
+
+
 def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     """Restore database from a backup file."""
 
-    if not backup_file.exists():
-        print(f"❌ Backup file not found: {backup_file}")
+    backup_data = read_backup(backup_file)
+    if backup_data is None:
         return False
 
-    try:
-        if backup_file.suffix == ".gz":
-            with gzip.open(backup_file, "rt", encoding="utf-8") as f:
-                backup_data = json.load(f)
-        else:
-            with open(backup_file) as f:
-                backup_data = json.load(f)
-    except Exception as e:
-        print(f"❌ Error reading backup file: {e}")
-        return False
-
-    # Validate backup file
-    if "backup_info" not in backup_data or "tables" not in backup_data:
-        print("❌ Invalid backup file format")
+    # Refuse before touching anything. A restore clears tables first, so an
+    # empty or corrupt backup would empty the database and put nothing back —
+    # which is what the 206-byte backups of 2026-09-14 would have done
+    # (SB-1072). Judged on usability alone, never on today's table list: a
+    # backup taken before a table existed is still a good backup of its day.
+    problems = usability_problems(backup_data)
+    if problems:
+        print(
+            f"❌ Refusing to restore from {backup_file.name}: it cannot be restored from."
+        )
+        for problem in problems:
+            print(f"   - {problem}")
+        print("   Nothing was cleared. Pick another backup:")
+        print("     uv run python ../scripts/restore_database.py --list")
         return False
 
     backup_info = backup_data["backup_info"]
@@ -475,11 +501,16 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     # Clear existing data if requested
     if clear_existing:
         print("🧹 Clearing existing data...")
-        # Clear in reverse order to respect foreign keys
-        # Clear ALL tables in restoration_order (not just ones in backup)
-        # This ensures FK dependencies are cleared even if table isn't being restored
+        # Only what this backup can put back. Clearing every table in the order
+        # emptied tables the backup did not contain — an older backup, taken
+        # before a table existed, silently wiped it (SB-1072). Reverse order
+        # still puts children before parents.
+        untouched = [t for t in restoration_order if t not in tables_data]
         for table in reversed(restoration_order):
-            clear_table(table)
+            if table in tables_data:
+                clear_table(table)
+        if untouched:
+            print(f"  ℹ️  Left alone (not in this backup): {', '.join(untouched)}")
         print()
 
     # Fetch local user_profile IDs so we can sanitize FK references
@@ -554,6 +585,36 @@ def find_latest_backup(directory: Path) -> Path | None:
         reverse=True,
     )
     return candidates[0] if candidates else None
+
+
+def find_latest_usable_backup(directory: Path) -> Path | None:
+    """The most recent backup that can be restored from, saying what it skipped.
+
+    `--latest` used to take the newest file whatever it held, so one failed
+    backup at the top of the list stood between a restore and the last good
+    copy underneath it (SB-1072).
+    """
+    candidates = sorted(
+        list(directory.glob("database_backup_[0-9]*.json.gz"))
+        + list(directory.glob("database_backup_[0-9]*.json")),
+        reverse=True,
+    )
+    for candidate in candidates:
+        try:
+            opener = gzip.open if candidate.suffix == ".gz" else open
+            with opener(candidate, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+            problems = (
+                usability_problems(data)
+                if isinstance(data, dict)
+                else ["not a backup object"]
+            )
+        except Exception as e:
+            problems = [f"unreadable: {e}"]
+        if not problems:
+            return candidate
+        print(f"  ⏭  Skipping {candidate.name}: {'; '.join(problems)}")
+    return None
 
 
 def list_available_backups(backup_dir: Path | None = None):
@@ -634,9 +695,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.latest:
-            latest_backup = find_latest_backup(backup_dir)
+            latest_backup = find_latest_usable_backup(backup_dir)
             if not latest_backup:
-                print(f"❌ No backup files found in {backup_dir}")
+                print(f"❌ No usable backup files found in {backup_dir}")
                 return 1
             print(f"Using latest backup: {latest_backup.name}")
             return 0 if restore_from_backup(latest_backup, not args.no_clear) else 1

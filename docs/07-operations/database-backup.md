@@ -213,6 +213,11 @@ This ensures you always have a recent restore point before a destructive reset o
 
 ## Restore System
 
+**A restore refuses a backup it cannot restore from, before clearing anything** (SB-1072). Empty, corrupt, or
+missing the seeded reference tables — it stops and names the reason, leaving the database untouched. It also
+clears only the tables the backup contains, so an older backup cannot wipe a table added since. `--latest`
+skips unusable files and says which it skipped, instead of stopping at the newest file whatever it holds.
+
 ### What Gets Restored
 
 The restore system can:
