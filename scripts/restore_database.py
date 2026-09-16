@@ -45,6 +45,7 @@ if not url or not key:
     )
 
 supabase: Client = create_client(url, key)
+db_url = os.getenv("DATABASE_URL")
 
 
 def get_local_user_profile_ids() -> set:
@@ -57,41 +58,57 @@ def get_local_user_profile_ids() -> set:
         return set()
 
 
-# UUID columns per table that reference a user — user_profiles(id), or
-# auth.users(id), which is the same id.
-# True  → null it out when that user does not exist in the target database
-# False → drop the record (the column is NOT NULL, or the row means nothing
-#         without its user)
-#
-# Checked against prod's foreign keys on 2026-09-14 (SB-1071). The previous
-# map had drifted: it named invitation columns that do not exist, missed
-# matches.created_by/updated_by, and listed player_match_stats.player_id —
-# an *integer* reference to players — so every stats row failed the UUID
-# membership test and a restore silently dropped all goals and assists.
-USER_PROFILE_FK_COLUMNS: dict[str, list[tuple[str, bool]]] = {
-    "matches": [("created_by", True), ("updated_by", True)],  # auth.users
-    "team_manager_assignments": [
-        ("user_id", False),
-        ("assigned_by_user_id", True),
-    ],  # no user, no assignment
-    "players": [("created_by", True), ("user_profile_id", True)],
-    "player_team_history": [
-        ("player_id", False)
-    ],  # player_id is a user_profiles uuid here
-    "match_lineups": [("created_by", True), ("updated_by", True)],
-    "match_events": [("created_by", True), ("deleted_by", True)],
-    "invitations": [("invited_by_user_id", True), ("used_by_user_id", True)],
-    "invite_requests": [("reviewed_by", True)],  # auth.users
-    "channel_access_requests": [
-        ("user_id", False),
-        ("discord_reviewed_by", True),
-        ("telegram_reviewed_by", True),
-    ],
-    "email_messages": [("sent_by_user_id", True)],
-    "user_team_follows": [("user_id", False)],
-    "user_bracket_follows": [("user_id", False)],
-    "user_notification_preferences": [("user_id", False)],
-}
+# Rows that mean nothing without their user, whatever the column allows.
+# A manager assignment with no manager is not an assignment; everything else is
+# decided by the column's own nullability.
+DROP_EVEN_IF_NULLABLE = {("team_manager_assignments", "user_id")}
+
+
+def user_reference_columns(
+    catalog_rows, overrides: set[tuple[str, str]] = DROP_EVEN_IF_NULLABLE
+) -> dict[str, list[tuple[str, bool]]]:
+    """{table: [(column, null_it_out)]} from foreign keys to user_profiles/auth.users.
+
+    True  → null the value out when that user is absent here
+    False → drop the record (NOT NULL, or listed in `overrides`)
+
+    Derived rather than written down (SB-1076). The hand-kept map drifted from
+    the schema: it named invitation columns that did not exist, missed
+    matches.created_by/updated_by, and treated player_match_stats.player_id —
+    an integer reference to players — as a user uuid, so a restore silently
+    dropped every goal and assist (SB-1071).
+    """
+    columns: dict[str, list[tuple[str, bool]]] = {}
+    for table, column, nullable in catalog_rows:
+        null_it_out = bool(nullable) and (table, column) not in overrides
+        columns.setdefault(table, []).append((column, null_it_out))
+    return {table: sorted(cols) for table, cols in columns.items()}
+
+
+def read_user_reference_catalog(database_url: str):
+    """Foreign keys to user_profiles/auth.users, as (table, column, nullable).
+
+    Raises rather than returning a guess: restoring with the wrong idea of which
+    columns reference a user is how rows get dropped or rejected in silence.
+    """
+    import psycopg2
+
+    query = """
+        SELECT con.conrelid::regclass::text AS table_name,
+               att.attname AS column_name,
+               NOT att.attnotnull AS nullable
+          FROM pg_constraint con
+          JOIN unnest(con.conkey) AS k(attnum) ON true
+          JOIN pg_attribute att
+            ON att.attrelid = con.conrelid AND att.attnum = k.attnum
+         WHERE con.contype = 'f'
+           AND con.connamespace = 'public'::regnamespace
+           AND con.confrelid IN ('public.user_profiles'::regclass, 'auth.users'::regclass)
+    """
+    with psycopg2.connect(database_url) as conn, conn.cursor() as cur:
+        cur.execute(query)
+        return [(table, column, nullable) for table, column, nullable in cur.fetchall()]
+
 
 # Restoration order respects FK dependencies for INSERT; clearing runs in
 # REVERSE order to respect them for DELETE.
@@ -176,14 +193,20 @@ CLEAR_BY_COLUMN = {
 }
 
 
-def sanitize_user_profile_refs(table_name: str, data: list, local_ids: set) -> list:
-    """Null out or drop records with user_profile FK refs not present locally.
+def sanitize_user_profile_refs(
+    table_name: str,
+    data: list,
+    local_ids: set,
+    user_columns: dict[str, list[tuple[str, bool]]],
+) -> list:
+    """Null out or drop records with user references not present in the target.
 
-    Prod and local have different auth.users UUIDs. For nullable FK columns we
-    set the value to None. For NOT NULL FK columns the record must be dropped —
-    inserting NULL would violate the constraint.
+    Prod and local have different auth.users UUIDs. Nullable columns are set to
+    None; the record is dropped when the column is NOT NULL, or when the row
+    means nothing without its user. `user_columns` comes from the target
+    database's own catalog (SB-1076), never from a list kept by hand.
     """
-    columns = USER_PROFILE_FK_COLUMNS.get(table_name)
+    columns = user_columns.get(table_name)
     if not columns:
         return data
 
@@ -357,7 +380,10 @@ def _insert_rows_individually(table_name: str, batch: list, result: TableResult)
 
 
 def restore_table(
-    table_name: str, data: list, local_profile_ids: set | None = None
+    table_name: str,
+    data: list,
+    local_profile_ids: set | None = None,
+    user_columns: dict[str, list[tuple[str, bool]]] | None = None,
 ) -> TableResult:
     """Restore data to a single table."""
     result = TableResult(table_name, len(data))
@@ -373,9 +399,11 @@ def restore_table(
     result.skipped_invalid = len(data) - len(validated)
     data = validated
 
-    # Null out user_profile FK references that don't exist locally
-    if local_profile_ids is not None:
-        data = sanitize_user_profile_refs(table_name, data, local_profile_ids)
+    # Null out user references that don't exist in the target database
+    if local_profile_ids is not None and user_columns is not None:
+        data = sanitize_user_profile_refs(
+            table_name, data, local_profile_ids, user_columns
+        )
     if not data:
         print(f"  ⚠ No valid records to restore for {table_name}")
         return result
@@ -498,6 +526,22 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     success_count = 0
     total_tables = len([table for table in restoration_order if table in tables_data])
 
+    # Which columns reference a user, according to this database (SB-1076).
+    print("🔍 Reading user references from the database catalog...")
+    if not db_url:
+        print("❌ DATABASE_URL is not set, so which columns reference a user cannot be")
+        print(
+            f"   read from the database. Set it in backend/.env.{app_env} and try again."
+        )
+        return False
+    try:
+        user_columns = user_reference_columns(read_user_reference_catalog(db_url))
+    except Exception as e:
+        print(f"❌ Could not read the database catalog: {e}")
+        print("   Refusing to guess which columns reference a user.")
+        return False
+    print(f"  Found user references in {len(user_columns)} table(s)")
+
     # Clear existing data if requested
     if clear_existing:
         print("🧹 Clearing existing data...")
@@ -513,7 +557,7 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
             print(f"  ℹ️  Left alone (not in this backup): {', '.join(untouched)}")
         print()
 
-    # Fetch local user_profile IDs so we can sanitize FK references
+    # Fetch local user_profile IDs so we can sanitize those references
     print("🔍 Fetching local user_profile IDs for FK sanitization...")
     local_profile_ids = get_local_user_profile_ids()
     print(f"  Found {len(local_profile_ids)} local user profile(s)")
@@ -524,7 +568,9 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     results = []
     for table in restoration_order:
         if table in tables_data:
-            result = restore_table(table, tables_data[table], local_profile_ids)
+            result = restore_table(
+                table, tables_data[table], local_profile_ids, user_columns
+            )
             results.append(result)
             if result.ok:
                 success_count += 1
