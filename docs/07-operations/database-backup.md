@@ -23,7 +23,7 @@ Use the convenient shell script for common operations:
 ./scripts/db_tools.sh restore database_backup_20231220_143022.json
 
 # Reset database and restore from latest backup (PREFERRED)
-# NOTE: Requires a backup less than 4 hours old (safety guard)
+# NOTE: Requires a usable backup less than 4 hours old (safety guard)
 ./scripts/db_tools.sh reset
 
 # Apply the retention policy (30 days + a monthly archive; --dry-run to preview)
@@ -199,7 +199,9 @@ uv run python ../scripts/backup_database.py --check-fresh 26
 
 ## Backup Freshness Guard
 
-The `db_tools.sh reset` command includes a **4-hour safety guard**. Before resetting the database, it checks that a backup exists that was created less than 4 hours ago. If the latest backup is older, the reset is aborted to prevent data loss from a stale backup.
+The `db_tools.sh reset` command includes a **4-hour safety guard**. It checks with
+`backup_database.py --check-fresh 4`, so a backup that is recent but unusable (empty, corrupt, missing
+seeded reference data) does not satisfy it. Before resetting the database, it checks that a backup exists that was created less than 4 hours ago. If the latest backup is older, the reset is aborted to prevent data loss from a stale backup.
 
 ```bash
 # If reset fails due to stale backup:
