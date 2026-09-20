@@ -102,6 +102,7 @@ jobs:
           TSC_PREFIX: tsc_ci_
           TSC_EXISTING_ADMIN_USERNAME: ${{ secrets.TSC_ADMIN_USERNAME }}
           TSC_EXISTING_ADMIN_PASSWORD: ${{ secrets.TSC_ADMIN_PASSWORD }}
+          TSC_SESSION_FILE: ${{ runner.temp }}/tsc-session.json
         run: |
           cd backend
           mkdir -p allure-results
@@ -121,6 +122,7 @@ jobs:
           TSC_PREFIX: tsc_ci_
           TSC_EXISTING_ADMIN_USERNAME: ${{ secrets.TSC_ADMIN_USERNAME }}
           TSC_EXISTING_ADMIN_PASSWORD: ${{ secrets.TSC_ADMIN_PASSWORD }}
+          TSC_SESSION_FILE: ${{ runner.temp }}/tsc-session.json
         run: |
           cd backend
           uv run pytest tests/tsc/test_99_cleanup.py -v -n 0 --no-cov --alluredir=allure-results

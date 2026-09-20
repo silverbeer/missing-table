@@ -16,8 +16,14 @@ Cleanup order (FK-safe):
 6. Age Group (no dependencies after teams gone)
 7. Season (no dependencies after matches gone)
 
-Note: Users created via invites are NOT deleted automatically.
-They can be manually cleaned up by an admin.
+Invitations are cancelled before the users who created them are deleted: a fan
+or player invite belongs to the club or team manager, and once that account is
+gone nothing can list it again. They used to be left behind entirely — 16 had
+accumulated in production by 2026-09-16 (SB-1092).
+
+Authentication borrows the journey run's token (tests/fixtures/tsc/session.py).
+Logging in again is what broke this: login is 5 per minute per IP and the run
+had already spent it, so every phase here failed with 429 and deleted nothing.
 
 Run: pytest tests/tsc/test_99_cleanup.py -v
 """
@@ -26,8 +32,8 @@ import os
 
 import pytest
 
-from api_client.exceptions import NotFoundError
-from tests.fixtures.tsc import TSCClient, TSCConfig
+from api_client.exceptions import APIError, NotFoundError
+from tests.fixtures.tsc import EntityRegistry, TSCClient, TSCConfig
 
 
 class TestCleanup:
@@ -54,6 +60,12 @@ class TestCleanup:
 
         # Check if we have a valid token
         if tsc_client.client._access_token:
+            return
+
+        # Borrow the journey run's token before spending the login budget.
+        borrowed = tsc_client.adopt_saved_session()
+        if borrowed:
+            print(f"\n🎫 Using the session saved by the journey run ({borrowed})")
             return
 
         # Need to re-authenticate
@@ -84,6 +96,48 @@ class TestCleanup:
         assert "access_token" in result or "session" in result
         print(f"Logged in as admin: {username}")
 
+    def test_01b_cancel_invitations(
+        self,
+        tsc_client: TSCClient,
+        entity_registry: EntityRegistry,
+        existing_admin_credentials: tuple[str, str],
+    ):
+        """Cancel every invitation this run created, plus any the admin still holds.
+
+        First, because an invitation belongs to whoever created it: fan and
+        player invites are the club and team manager's, and those accounts are
+        deleted in phase 08b. Cancel them after that and they are unreachable —
+        which is how 16 of them accumulated in production (SB-1092).
+        """
+        self._ensure_authenticated(tsc_client, existing_admin_credentials)
+
+        invite_ids = list(entity_registry.get_pending_invite_ids())
+        # Anything the admin created in an earlier run that never got cancelled.
+        try:
+            for invite in tsc_client.client.get_my_invites(status="pending"):
+                if invite.get("id") and invite["id"] not in invite_ids:
+                    invite_ids.append(invite["id"])
+        except APIError as e:
+            print(f"  Could not list the admin's invites: {e}")
+
+        print(f"\nCancelling {len(invite_ids)} invitation(s)...")
+        cancelled = 0
+        failed = 0
+        for invite_id in invite_ids:
+            try:
+                tsc_client.cancel_invite(invite_id)
+                cancelled += 1
+            except NotFoundError:
+                cancelled += 1  # already gone
+            except Exception as e:
+                print(f"  Failed to cancel invite {invite_id}: {e}")
+                failed += 1
+
+        for invite in entity_registry.invites:
+            invite["status"] = "cancelled"
+
+        print(f"Cancelled {cancelled} invitations, {failed} failed")
+
     def test_02_find_and_delete_matches(
         self,
         tsc_client: TSCClient,
@@ -109,10 +163,7 @@ class TestCleanup:
         # Find matches involving these teams
         print("\nFinding matches involving these teams...")
         all_matches = tsc_client.get_matches()
-        tsc_matches = [
-            m for m in all_matches
-            if m.get("home_team_id") in team_ids or m.get("away_team_id") in team_ids
-        ]
+        tsc_matches = [m for m in all_matches if m.get("home_team_id") in team_ids or m.get("away_team_id") in team_ids]
 
         print(f"Found {len(tsc_matches)} matches to delete")
 
@@ -362,6 +413,7 @@ class TestCleanup:
         self,
         tsc_client: TSCClient,
         tsc_config: TSCConfig,
+        entity_registry: EntityRegistry,
         existing_admin_credentials: tuple[str, str],
     ):
         """Verify all entities with prefix were cleaned up."""
@@ -410,6 +462,33 @@ class TestCleanup:
         if users:
             issues.append(f"Users remaining: {[u.get('username') for u in users]}")
         print(f"Users with prefix: {len(users)}")
+
+        # Invitations and matches were never checked here, so verification
+        # passed while both piled up in production (SB-1092).
+        try:
+            pending = [inv for inv in tsc_client.client.get_my_invites(status="pending") if inv.get("id")]
+        except APIError as e:
+            pending = []
+            print(f"Could not list invitations: {e}")
+        if pending:
+            issues.append(f"Invitations still pending: {len(pending)}")
+        print(f"Pending invitations for this admin: {len(pending)}")
+
+        # By id, not by team name: matches carry team ids only, and the teams
+        # themselves are gone by now, so a name filter would match nothing and
+        # report success no matter what was left behind.
+        tracked_match_ids = set(entity_registry.match_ids)
+        if entity_registry.playoff_match_id:
+            tracked_match_ids.add(entity_registry.playoff_match_id)
+        try:
+            live_ids = {m.get("id") for m in tsc_client.get_matches()}
+            leftover_matches = sorted(tracked_match_ids & live_ids)
+        except APIError as e:
+            leftover_matches = []
+            print(f"Could not list matches: {e}")
+        if leftover_matches:
+            issues.append(f"Matches remaining: {leftover_matches}")
+        print(f"Matches from this run still present: {len(leftover_matches)}")
 
         if issues:
             print("\n⚠️  Some entities were not cleaned up:")
