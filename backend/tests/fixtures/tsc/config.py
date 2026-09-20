@@ -45,6 +45,16 @@ class TSCConfig:
         """Generate password for a username: {username}123!"""
         return f"{username}{self.password_suffix}"
 
+    def email_for(self, username: str) -> str:
+        """Signup address for a username.
+
+        `UserSignup.email` has been required since the forgot-password work
+        (2026-03-24); the client never sent one, so every journey signup failed
+        with a 422 (SB-1092). example.com is reserved by RFC 2606 and cannot
+        receive mail, which is what we want for accounts that only ever log in.
+        """
+        return f"{username}@example.com"
+
     # Prefixed entity names
     @property
     def full_season_name(self) -> str:

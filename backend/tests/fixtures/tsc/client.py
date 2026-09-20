@@ -6,10 +6,11 @@ Provides idempotent "get or create" operations for all entities.
 """
 
 import logging
+import time
 from typing import Any
 
 from api_client import MissingTableClient
-from api_client.exceptions import APIError
+from api_client.exceptions import APIError, AuthenticationError, NotFoundError, RateLimitError
 from api_client.models import (
     AgeGroupCreate,
     BulkRosterCreate,
@@ -25,6 +26,7 @@ from api_client.models import (
 
 from .config import TSCConfig
 from .entities import EntityRegistry
+from .session import load_session, save_session
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +72,38 @@ class TSCClient:
 
     # Authentication
 
-    def login(self, username: str, password: str) -> dict[str, Any]:
-        """Login and return session data."""
-        return self._client.login(username, password)
+    # Login is 5 per minute per client IP (SB-640) and a whole journey run comes
+    # from one GitHub runner, so a burst of role logins trips it. Waiting out the
+    # window is the honest fix; the limit exists to make a guessable password
+    # survivable, and CI should live within it like anyone else.
+    LOGIN_RETRY_WAITS = (20, 40, 60)
+
+    def login(self, username: str, password: str, sleep=time.sleep) -> dict[str, Any]:
+        """Login, waiting out the rate limit rather than failing the run."""
+        for wait in (*self.LOGIN_RETRY_WAITS, None):
+            try:
+                result = self._client.login(username, password)
+            except RateLimitError:
+                if wait is None:
+                    raise
+                logger.info(f"Login rate limited; waiting {wait}s before retrying {username}")
+                sleep(wait)
+                continue
+            save_session(self._client._access_token or "", username, self.config.base_url)
+            return result
+        raise AssertionError("unreachable")
+
+    def adopt_saved_session(self) -> str | None:
+        """Use the token an earlier process saved, if there is a fresh one.
+
+        Cleanup runs as its own pytest process. Logging in again is what put it
+        over the rate limit, so it borrows the journey's token instead.
+        """
+        saved = load_session(self.config.base_url)
+        if not saved:
+            return None
+        self._client._access_token = saved["token"]
+        return saved.get("username")
 
     def login_admin(self) -> dict[str, Any]:
         """Login as the TSC admin user."""
@@ -105,11 +136,29 @@ class TSCClient:
         invite_code: str,
         display_name: str | None = None,
     ) -> dict[str, Any]:
-        """Sign up a new user with an invite code (idempotent - handles existing users)."""
+        """Log in as this user, signing up only if the account does not exist yet.
+
+        Login first, deliberately (SB-1092). Signup is 3 per hour per client IP
+        (SB-640) and a run needs six accounts, so *attempting* a signup that was
+        always going to say "already registered" spent the budget and the fourth
+        user got a 429 instead. The accounts are persistent now: the first run
+        creates them, every run after signs in.
+        """
+        try:
+            login_result = self.login(username, password)
+            profile = self._client.get_profile()
+            logger.info(f"Signed in existing user: {username}")
+            if profile.get("id"):
+                self.registry.add_user(profile["id"])
+            return {"user": profile, "session": login_result, "already_existed": True}
+        except (AuthenticationError, NotFoundError):
+            logger.info(f"No account for {username} yet; signing up")
+
         try:
             result = self._client.signup(
                 username=username,
                 password=password,
+                email=self.config.email_for(username),
                 display_name=display_name or username,
                 invite_code=invite_code,
             )
