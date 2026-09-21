@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 from supabase import Client, create_client
 
 # Add backend to path for shared modules
@@ -21,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 # One definition of "can this backup be restored from", shared with the backup
 # script rather than copied (SB-1072). Importing it is safe: backup_database
 # does nothing at import but define constants.
-from backup_database import usability_problems  # noqa: E402
+from backup_database import usability_problems
 
 # Load environment variables based on APP_ENV
 app_env = os.getenv("APP_ENV", "local")
@@ -122,9 +123,16 @@ def read_user_reference_catalog(database_url: str):
 RESTORATION_ORDER = [
     # 1. Reference data first (no dependencies)
     "age_groups",
+    # match_types before leagues: `leagues.match_type_id` references it. The two
+    # were the other way round, which stayed invisible for as long as every
+    # league had a null match_type_id. The first league that set one (Flex)
+    # failed to insert, and because clearing runs in reverse, match_types could
+    # not be emptied either while those leagues still pointed at it — so the
+    # seeded rows survived and the backup's collided with them, taking leagues,
+    # divisions and division_age_groups down with them (SB-1104).
+    "match_types",
     "leagues",  # leagues before divisions
     "divisions",
-    "match_types",
     "seasons",
     "division_age_groups",  # divisions, age_groups, seasons
     # 2. Clubs (before teams - teams have club_id FK)
