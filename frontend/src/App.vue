@@ -210,10 +210,19 @@
           </div>
         </div>
 
-        <!-- Tabs + Content card (authenticated users) -->
+        <!--
+          Tabs + Content card (authenticated users).
+
+          `overflow-clip`, not `overflow-hidden` (SB-1101). Both clip the tab
+          strip to the card's rounded corners, but `hidden` also makes this card
+          a scroll container, and `position: sticky` inside a scroll container
+          that never scrolls never moves. The day and league headers in the
+          matches list are sticky, so this has to be `clip`, which clips without
+          creating that container.
+        -->
         <div
           v-if="authStore.state.session"
-          class="bg-card rounded-xl shadow-sm ring-1 ring-line overflow-hidden"
+          class="bg-card rounded-xl shadow-sm ring-1 ring-line overflow-clip"
         >
           <nav
             class="flex space-x-1 border-b border-line overflow-x-auto px-2"

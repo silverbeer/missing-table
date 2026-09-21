@@ -47,7 +47,12 @@
         </svg>
       </button>
 
-      <div class="min-h-full flex items-start justify-center p-3 sm:p-6">
+      <div
+        :class="[
+          'min-h-full flex justify-center p-3 sm:p-6',
+          align === 'end' ? 'items-end sm:items-center' : 'items-start',
+        ]"
+      >
         <div
           :class="['relative w-full bg-card rounded-lg shadow-2xl', maxWidth]"
           @click.stop
@@ -94,6 +99,17 @@ const props = defineProps({
   label: { type: String, default: 'Dialog' },
   closeLabel: { type: String, default: 'Close' },
   maxWidth: { type: String, default: 'max-w-4xl' },
+  /**
+   * Where the panel sits in the viewport. 'start' is the usual dialog, pinned
+   * near the top. 'end' is a phone action sheet: the panel rises from the
+   * bottom edge, within a thumb's reach of the row that opened it, and
+   * re-centres on a wide screen where a bottom sheet would look stranded.
+   */
+  align: {
+    type: String,
+    default: 'start',
+    validator: value => ['start', 'end'].includes(value),
+  },
 });
 
 const emit = defineEmits(['close']);
