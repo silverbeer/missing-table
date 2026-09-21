@@ -1412,7 +1412,7 @@
               <MatchMobileList
                 v-if="homegrownMatches.length > 0"
                 :matches="homegrownMatches"
-                section-label="HOMEGROWN LEAGUE"
+                section-label="HOMEGROWN DIVISION"
                 section-class="bg-brand-600"
                 :can-edit="canEditGame"
                 :is-admin="authStore.isAdmin.value"
@@ -1422,7 +1422,7 @@
               <MatchMobileList
                 v-if="academyMatches.length > 0"
                 :matches="academyMatches"
-                section-label="ACADEMY LEAGUE"
+                section-label="ACADEMY DIVISION"
                 section-class="bg-green-600"
                 :can-edit="canEditGame"
                 :is-admin="authStore.isAdmin.value"

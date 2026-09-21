@@ -90,6 +90,18 @@
         >{{ match.age_group_name }}</span
       >
 
+      <!-- Which competition, on every row (SB-1105). The section band above
+           says the division, and Flex is a child league of Homegrown — so the
+           band says HOMEGROWN for a Flex fixture and a League one alike. This
+           is the only thing on screen that tells them apart. -->
+      <span
+        v-if="competition"
+        class="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide shrink-0"
+        :class="competition.class"
+        data-testid="row-competition"
+        >{{ competition.label }}</span
+      >
+
       <span class="flex-1" />
 
       <!-- Long press is undiscoverable on its own, and unreachable by keyboard
@@ -118,6 +130,7 @@ import ClubLogo from '../shared/ClubLogo.vue';
 import MatchStatusLabel from '../ui/MatchStatusLabel.vue';
 import { useLongPress } from '../../composables/useLongPress';
 import { isMissingResult } from '../../utils/tournamentStatus';
+import { competitionChip } from '../../utils/competitions';
 
 /**
  * One match, compactly (SB-1101).
@@ -230,11 +243,14 @@ const showStatus = computed(() => props.match.match_status !== 'completed');
 
 const hasSheet = computed(() => props.canEdit || props.isAdmin);
 
+const competition = computed(() => competitionChip(props.match));
+
 const showMeta = computed(
   () =>
     Boolean(kickoffLabel.value) ||
     showStatus.value ||
     Boolean(props.match.age_group_name) ||
+    Boolean(competition.value) ||
     hasSheet.value
 );
 

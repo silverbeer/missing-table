@@ -66,3 +66,38 @@ export const competitionOfLeague = (leagues, matchTypes, leagueId) => {
   const type = (matchTypes || []).find(t => Number(t.id) === Number(typeId));
   return type?.name ?? null;
 };
+
+/**
+ * Tints for the per-row competition chip (SB-1105), keyed by competition name
+ * lowercased. League and Flex are the two a reader has to tell apart on a
+ * matchday, so they get the two ends of the brand palette — navy and amber —
+ * rather than two shades of the same pill. Anything unmapped still gets a
+ * chip; it just reads neutral, like the age group beside it.
+ */
+const COMPETITION_TINTS = {
+  league: 'bg-brand-100 text-brand-700 dark:bg-brand-700 dark:text-brand-100',
+  flex: 'bg-accent-100 text-accent-700 dark:bg-accent-700 dark:text-accent-100',
+  tournament:
+    'bg-purple-100 text-purple-700 dark:bg-purple-800 dark:text-purple-100',
+  friendly: 'bg-surface-alt text-fg-muted',
+};
+
+const NEUTRAL_TINT = 'bg-surface-alt text-fg-muted';
+
+/**
+ * The competition chip for a match, or null when the match does not say which
+ * competition it is.
+ *
+ * Null is the point. The desktop card renders `match_type_name || 'League'`,
+ * which turns "we don't know" into a claim that it was a league fixture — the
+ * same pun as rendering an unrecorded score as 0. A row with no competition
+ * shows no chip.
+ */
+export const competitionChip = match => {
+  const name = match?.match_type_name;
+  if (!name) return null;
+  return {
+    label: name,
+    class: COMPETITION_TINTS[String(name).toLowerCase()] ?? NEUTRAL_TINT,
+  };
+};
