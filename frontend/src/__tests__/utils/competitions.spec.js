@@ -8,6 +8,7 @@ import {
   topLevelLeague,
   topLevelLeagueName,
   competitionOfLeague,
+  competitionChip,
 } from '@/utils/competitions';
 
 const LEAGUES = [
@@ -91,5 +92,35 @@ describe('competitionOfLeague', () => {
   it('is null when the league does not say', () => {
     expect(competitionOfLeague(LEAGUES, MATCH_TYPES, 90)).toBeNull();
     expect(competitionOfLeague(LEAGUES, MATCH_TYPES, 999)).toBeNull();
+  });
+});
+
+describe('competitionChip (SB-1105)', () => {
+  it('labels the chip with the competition the match carries', () => {
+    expect(competitionChip({ match_type_name: 'Flex' }).label).toBe('Flex');
+  });
+
+  it('gives League and Flex different tints', () => {
+    const league = competitionChip({ match_type_name: 'League' }).class;
+    const flex = competitionChip({ match_type_name: 'Flex' }).class;
+    expect(league).not.toBe(flex);
+  });
+
+  it('matches the tint case-insensitively', () => {
+    expect(competitionChip({ match_type_name: 'FLEX' }).class).toBe(
+      competitionChip({ match_type_name: 'Flex' }).class
+    );
+  });
+
+  it('still chips a competition it has no tint for', () => {
+    const chip = competitionChip({ match_type_name: 'Showcase' });
+    expect(chip.label).toBe('Showcase');
+    expect(chip.class).toBeTruthy();
+  });
+
+  it('is null when the match does not say — absent is not League', () => {
+    expect(competitionChip({ match_type_name: null })).toBeNull();
+    expect(competitionChip({})).toBeNull();
+    expect(competitionChip(null)).toBeNull();
   });
 });

@@ -348,3 +348,50 @@ describe('MatchListRow — the sheet stays reachable without a gesture', () => {
     expect(wrapper.emitted('view')).toBeUndefined();
   });
 });
+
+describe('MatchListRow — which competition (SB-1105)', () => {
+  const chipOf = wrapper => wrapper.find('[data-testid="row-competition"]');
+
+  it('names the competition on a League match', () => {
+    const chip = chipOf(
+      mountRow(createCompletedMatch({ match_type_name: 'League' }))
+    );
+    expect(chip.exists()).toBe(true);
+    expect(chip.text()).toBe('League');
+  });
+
+  it('names the competition on a Flex match', () => {
+    const chip = chipOf(
+      mountRow(createCompletedMatch({ match_type_name: 'Flex' }))
+    );
+    expect(chip.exists()).toBe(true);
+    expect(chip.text()).toBe('Flex');
+  });
+
+  it('tints League and Flex differently, so the two are not read letter by letter', () => {
+    const league = chipOf(
+      mountRow(createCompletedMatch({ match_type_name: 'League' }))
+    ).attributes('class');
+    const flex = chipOf(
+      mountRow(createCompletedMatch({ match_type_name: 'Flex' }))
+    ).attributes('class');
+    expect(league).not.toBe(flex);
+  });
+
+  it('shows no chip when the match does not say, and never calls it League', () => {
+    const wrapper = mountRow(createCompletedMatch({ match_type_name: null }));
+    expect(chipOf(wrapper).exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('League');
+  });
+
+  it('shows the competition on a finished match, which has no other meta', () => {
+    // The archive is mostly completed matches, whose meta line SB-1101 removed
+    // entirely. The chip has to bring it back or the common case says nothing.
+    const wrapper = mountRow(
+      createCompletedMatch({ match_type_name: 'Flex', age_group_name: null }),
+      { isAdmin: false, canEdit: false }
+    );
+    expect(wrapper.find('[data-testid="match-row-meta"]').exists()).toBe(true);
+    expect(chipOf(wrapper).text()).toBe('Flex');
+  });
+});
