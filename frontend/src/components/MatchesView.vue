@@ -2697,9 +2697,22 @@ export default {
       }
     });
 
-    // Watch for club changes to clear team selection and refresh
-    watch(selectedClubId, () => {
-      // Clear team selection when club changes
+    // A team that does not belong to the newly selected club is stale, so it
+    // goes — but a team that does belong to it is the whole point of the
+    // selection (SB-1114).
+    //
+    // Clicking a club on the Table sets the club and its team together in one
+    // synchronous block, and a watcher flushes a microtask later. Clearing
+    // unconditionally wiped the team it had just been handed, which left My
+    // Club with a club, no team, and nothing downstream of the team: no
+    // heading, no division chip, no Season Summary, no Last 5, no Result
+    // column. A remembered My Club selection lost its team the same way.
+    watch(selectedClubId, clubId => {
+      const current = teams.value.find(
+        team => Number(team.id) === Number(selectedTeam.value)
+      );
+      if (current && Number(current.club_id) === Number(clubId)) return;
+
       selectedTeam.value = '';
       matches.value = [];
     });
