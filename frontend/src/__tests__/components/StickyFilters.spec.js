@@ -134,6 +134,10 @@ const adminStore = () => ({
   },
   isAuthenticated: { value: true },
   isAdmin: { value: true },
+  // canEditGame reads all three role flags on every row render, and a render
+  // flushed after unmount surfaces a missing one as an unhandled rejection
+  // rather than a failing assertion.
+  isClubManager: { value: false },
   isTeamManager: { value: false },
   canBrowseAll: { value: true },
   userClubId: { value: null },
