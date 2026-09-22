@@ -531,6 +531,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { combinedLabel, combinedTitle } from '@/utils/competitions';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import { useFilterMemory, knownId } from '../composables/useFilterMemory';
 import PlayoffBracket from './PlayoffBracket.vue';
 import ClubLogo from './shared/ClubLogo.vue';
 
@@ -627,6 +628,15 @@ export default {
     const selectedLeagueId = ref(null); // Default to first league
     const selectedDivisionId = ref(1); // Default to Northeast
     const selectedSeasonId = ref(2); // Default to 2024-2025
+
+    // What this viewer last had on this tab (SB-1112). Written only after the
+    // restore has run, so the defaults this component mounts with cannot
+    // overwrite the memory before anyone sees it.
+    const filterMemory = useFilterMemory(
+      'table',
+      () => authStore.state?.profile?.id ?? authStore.state?.user?.id ?? null
+    );
+    const filtersRestored = ref(false);
     const error = ref(null);
     const loading = ref(true);
 
@@ -1191,6 +1201,36 @@ export default {
       // Filter leagues to user's club before selecting defaults
       filterLeaguesByClub();
 
+      // What the viewer last had here, unless they arrived by clicking a
+      // specific team — that means *that* team, not where they were last
+      // (SB-1112). Division and competition are set raw: fetchDivisions and
+      // fetchCompetitions, which refresh() runs below, already drop a
+      // selection this division no longer offers, so a stale one falls back
+      // the same way any other does.
+      const saved = props.filterKey > 0 ? null : filterMemory.load();
+      let restoredLeague = false;
+
+      if (saved) {
+        const ageGroupId = knownId(saved.ageGroupId, ageGroups.value);
+        if (ageGroupId !== null) {
+          selectedAgeGroupId.value = ageGroupId;
+          // Otherwise SB-599's late-profile watcher yanks it back to the
+          // viewer's own age group a beat after it restores.
+          ageGroupTouched.value = true;
+        }
+
+        const seasonId = knownId(saved.seasonId, seasons.value);
+        if (seasonId !== null) selectedSeasonId.value = seasonId;
+
+        const leagueId = knownId(saved.leagueId, leagues.value);
+        if (leagueId !== null) {
+          selectLeague(leagueId);
+          restoredLeague = true;
+          if (saved.divisionId) selectedDivisionId.value = saved.divisionId;
+          if (saved.matchType) selectedMatchType.value = saved.matchType;
+        }
+      }
+
       // Apply initial filters from props if provided (e.g., from team card click)
       if (props.filterKey > 0 && props.initialLeagueId) {
         console.log('Applying initial filters from props');
@@ -1201,6 +1241,8 @@ export default {
         if (props.initialDivisionId) {
           selectedDivisionId.value = props.initialDivisionId;
         }
+      } else if (restoredLeague) {
+        // Restored. Personalizing on top would undo the viewer's own pick.
       } else if (
         !authStore.isAdmin.value &&
         authStore.userCurrentTeamId?.value
@@ -1246,7 +1288,31 @@ export default {
       // actually plays rather than defaulting to League.
       await refresh();
       checkBracketExists();
+      filtersRestored.value = true;
     });
+
+    // Remember the filters for the next visit (SB-1112). Runs after refresh()
+    // has reconciled them, so what is stored is what is actually on screen —
+    // never a division this competition does not offer.
+    watch(
+      [
+        selectedAgeGroupId,
+        selectedSeasonId,
+        selectedLeagueId,
+        selectedDivisionId,
+        selectedMatchType,
+      ],
+      () => {
+        if (!filtersRestored.value) return;
+        filterMemory.save({
+          ageGroupId: selectedAgeGroupId.value,
+          seasonId: selectedSeasonId.value,
+          leagueId: selectedLeagueId.value,
+          divisionId: selectedDivisionId.value,
+          matchType: selectedMatchType.value,
+        });
+      }
+    );
 
     return {
       tableData,

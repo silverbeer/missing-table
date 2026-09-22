@@ -1495,6 +1495,11 @@ import MotwHero from '@/components/MotwHero.vue';
 import MatchMobileList from '@/components/matches/MatchMobileList.vue';
 import { subscribeToMatch } from '@/composables/useMatchRealtime';
 import { canEditMatch } from '@/utils/matchPermissions';
+import {
+  useFilterMemory,
+  keepKnownIds,
+  knownId,
+} from '@/composables/useFilterMemory';
 
 export default {
   name: 'MatchesView',
@@ -1550,6 +1555,16 @@ export default {
     // Division filter. An empty array means every division — the "All
     // Divisions" chip is that empty state, not a value of its own (SB-1007).
     const selectedDivisionIds = ref([]);
+
+    // What this viewer last had on this tab (SB-1112). Read at mount, written
+    // on every change after that — but only once the restore has run, or the
+    // defaults this component mounts with would overwrite the memory before
+    // anyone saw it.
+    const filterMemory = useFilterMemory(
+      'matches',
+      () => authStore.state?.profile?.id ?? authStore.state?.user?.id ?? null
+    );
+    const filtersRestored = ref(false);
 
     const isDivisionSelected = id => selectedDivisionIds.value.includes(id);
 
@@ -2999,12 +3014,89 @@ export default {
         }
       }
 
+      // Restore what the viewer last had, unless they arrived here by
+      // clicking a specific team — that means *that* team, not where they
+      // were last (SB-1112). Split around fetchMatches because age group and
+      // season drive the query, while the division chips and the competition
+      // filter the rows it returns and cannot be checked until they exist.
+      const saved = props.filterKey > 0 ? null : filterMemory.load();
+
+      if (saved) {
+        const ageGroupId = knownId(saved.ageGroupId, ageGroups.value);
+        if (ageGroupId !== null) {
+          selectedAgeGroupId.value = ageGroupId;
+          // Otherwise SB-599's late-profile watcher yanks it back to the
+          // viewer's own age group a beat after it restores.
+          ageGroupTouched.value = true;
+        }
+
+        const seasonId = knownId(saved.seasonId, seasons.value);
+        if (seasonId !== null) selectedSeasonId.value = seasonId;
+
+        if (saved.viewTab === 'myclub' || saved.viewTab === 'all') {
+          selectedViewTab.value = saved.viewTab;
+        }
+
+        const clubId = knownId(saved.clubId, clubs.value);
+        if (clubId !== null) selectedClubId.value = clubId;
+
+        const teamId = knownId(saved.teamId, teams.value);
+        if (teamId !== null) selectedTeam.value = String(teamId);
+      }
+
       // Fetch matches for the default "All Matches" tab with current week
       await fetchMatches();
+
+      if (saved) {
+        // Divisions come from the matches on screen, so an id from a season
+        // the viewer no longer has simply is not there — drop it and keep the
+        // rest. All of them gone lands on [], which is every division.
+        selectedDivisionIds.value = keepKnownIds(
+          saved.divisionIds,
+          visibleDivisions.value
+        );
+
+        // A competition with no chip has no matches here, and selecting it
+        // would filter the list to nothing with no chip lit to explain why.
+        const chipValues = matchTypeChips.value.map(chip => chip.value);
+        if (chipValues.includes(saved.matchTypeId ?? null)) {
+          selectedMatchTypeId.value = saved.matchTypeId ?? null;
+        }
+      }
+
+      filtersRestored.value = true;
       // Not awaited: the hero is decoration on top of the schedule, and the
       // table should never wait on it to paint.
       fetchMotw();
     });
+
+    // Remember the filters for the next visit. Not the week: opening the app
+    // on a matchday and being shown a fortnight ago is not a memory anyone
+    // asked for, and the date is the one filter with a sane default (SB-1112).
+    watch(
+      [
+        selectedAgeGroupId,
+        selectedSeasonId,
+        selectedDivisionIds,
+        selectedMatchTypeId,
+        selectedViewTab,
+        selectedClubId,
+        selectedTeam,
+      ],
+      () => {
+        if (!filtersRestored.value) return;
+        filterMemory.save({
+          ageGroupId: selectedAgeGroupId.value,
+          seasonId: selectedSeasonId.value,
+          divisionIds: selectedDivisionIds.value,
+          matchTypeId: selectedMatchTypeId.value,
+          viewTab: selectedViewTab.value,
+          clubId: selectedClubId.value,
+          teamId: selectedTeam.value ? Number(selectedTeam.value) : null,
+        });
+      },
+      { deep: true }
+    );
 
     // ── SB-66: Realtime updates for in-progress match rows ──
     // The existing 10s polling fallback (above) is kept for safety, but

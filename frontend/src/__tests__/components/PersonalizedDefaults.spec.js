@@ -138,7 +138,13 @@ const mountMatches = () =>
   });
 
 describe('LeagueTable — personalized defaults', () => {
-  beforeEach(() => vi.clearAllMocks());
+  // Remembered filters (SB-1112) share one localStorage across a file, so a
+  // previous mount's saved selection would otherwise restore into the next
+  // test and silently mask the personalization this spec is about.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
 
   it("opens on the viewer's own age group, not the U14 fallback", async () => {
     mockAuthStore = playerStore();
@@ -191,7 +197,13 @@ describe('LeagueTable — personalized defaults', () => {
 });
 
 describe('MatchesView — personalized defaults', () => {
-  beforeEach(() => vi.clearAllMocks());
+  // Remembered filters (SB-1112) share one localStorage across a file, so a
+  // previous mount's saved selection would otherwise restore into the next
+  // test and silently mask the personalization this spec is about.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
 
   it("opens on the viewer's own age group", async () => {
     mockAuthStore = playerStore();
