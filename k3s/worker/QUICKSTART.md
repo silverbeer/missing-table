@@ -35,7 +35,7 @@ kubectl logs -n match-scraper -l app=missing-table-worker --tail=50 -f
 
 ### 2. Check RabbitMQ Queue
 ```bash
-kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues name messages consumers
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_queues name messages consumers
 ```
 
 **Expected Output:**
@@ -62,7 +62,7 @@ cd ~/gitrepos/match-scraper
 export RABBITMQ_URL="amqp://admin:admin123@localhost:5672//"
 
 # Port-forward RabbitMQ if needed
-kubectl port-forward -n match-scraper rabbitmq-0 5672:5672 &
+kubectl port-forward -n match-scraper messaging-rabbitmq-0 5672:5672 &
 
 # Run match-scraper
 python main.py scrape --league "MLS Next" --season "2024-2025"
@@ -74,31 +74,19 @@ python main.py scrape --league "MLS Next" --season "2024-2025"
 3. Workers process match data and insert into **dev Supabase**
 4. You can verify at https://ppgxasqgqbnauvxozmjw.supabase.co
 
-## Switch Between Dev and Prod
+## Which database does the worker write to?
 
-### Switch to Production (when ready)
+The cloud one, always. `switch-worker-env.sh` was removed in SB-854 along
+with the second worker it pointed at — it targeted a deployment that had not
+existed since the workers were split, so it failed rather than switched.
+
+To get production data locally, restore a backup instead:
+
 ```bash
-# 1. Set up production Supabase credentials first
-cp k3s/worker/configmap-prod.yaml.template k3s/worker/configmap-prod.yaml
-cp k3s/worker/secret-prod.yaml.template k3s/worker/secret-prod.yaml
-
-# 2. Edit files with production credentials
-vim k3s/worker/configmap-prod.yaml
-vim k3s/worker/secret-prod.yaml
-
-# 3. Switch to prod
-./k3s/worker/switch-worker-env.sh prod
+./scripts/setup-local-db.sh --from-prod
 ```
 
-### Switch Back to Dev
-```bash
-./k3s/worker/switch-worker-env.sh dev
-```
-
-### Check Current Environment
-```bash
-./k3s/worker/switch-worker-env.sh status
-```
+The queue never writes to a local database.
 
 ## Rebuild Worker Image (after code changes)
 
@@ -112,7 +100,7 @@ docker build -f backend/Dockerfile -t missing-table-worker:latest backend/
 docker save missing-table-worker:latest | nerdctl --namespace k8s.io load
 
 # 3. Restart workers
-kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
+kubectl rollout restart deployment/missing-table-celery-worker-prod -n match-scraper
 ```
 
 Or use the helper script (coming soon):
@@ -124,10 +112,10 @@ Or use the helper script (coming soon):
 
 ```bash
 # Scale up to 4 workers
-kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=4
+kubectl scale deployment/missing-table-celery-worker-prod -n match-scraper --replicas=4
 
 # Scale down to 1 worker
-kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=1
+kubectl scale deployment/missing-table-celery-worker-prod -n match-scraper --replicas=1
 ```
 
 ## Monitoring
@@ -139,14 +127,14 @@ kubectl logs -n match-scraper -l app=missing-table-worker -f
 
 ### RabbitMQ Management UI
 ```bash
-kubectl port-forward -n match-scraper rabbitmq-0 15672:15672
+kubectl port-forward -n match-scraper messaging-rabbitmq-0 15672:15672
 # Open http://localhost:15672
 # Login: admin / admin123
 ```
 
 ### Check Queue Depth
 ```bash
-watch -n 2 'kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues name messages consumers'
+watch -n 2 'kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_queues name messages consumers'
 ```
 
 ## Troubleshooting
@@ -157,10 +145,10 @@ watch -n 2 'kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues 
 kubectl logs -n match-scraper -l app=missing-table-worker --tail=100
 
 # Check RabbitMQ connections
-kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_connections
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_connections
 
 # Restart workers
-kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
+kubectl rollout restart deployment/missing-table-celery-worker-prod -n match-scraper
 ```
 
 ### Database Connection Issues
@@ -209,9 +197,8 @@ helm install redis bitnami/redis -n match-scraper
 k3s/worker/
 ├── README.md                           # Full documentation
 ├── QUICKSTART.md                       # This file
-├── switch-worker-env.sh                # Environment switcher script
-├── deployment.yaml                     # Worker deployment
-├── configmap-dev.yaml                  # Dev config (active)
+├── deployment-prod.yaml                # The worker (consumes matches.prod)
+├── configmap-dev.yaml                  # Dev config (no dev worker deployed)
 ├── secret-dev.yaml                     # Dev secrets (active)
 ├── configmap-prod.yaml.template        # Prod config template
 └── secret-prod.yaml.template           # Prod secrets template

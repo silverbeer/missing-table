@@ -84,36 +84,31 @@ restart_deployment() {
         }
     fi
 
-    # Both workers run from this one image, so a rebuild that restarts only
-    # one leaves the other running last week's code. This used to name
-    # `missing-table-celery-worker`, which has not existed since the split —
-    # the script built and imported, then failed here, and the worker kept
-    # serving whatever it was last built with.
+    # One worker, one queue (SB-854). There was a second deployment,
+    # `missing-table-celery-worker-local`, which consumed `matches` and wrote
+    # to the same CLOUD Supabase as this one. Nothing published to `matches`,
+    # so it processed zero tasks while its name implied a local-database
+    # safety net that never existed. It was retired rather than renamed.
     local deployments=()
-    for d in missing-table-celery-worker-local missing-table-celery-worker-prod; do
+    for d in missing-table-celery-worker-prod; do
         if kubectl get deployment -n "$NAMESPACE" "$d" &>/dev/null; then
             deployments+=("$d")
         fi
     done
 
     if [ ${#deployments[@]} -eq 0 ]; then
-        log_error "No worker deployments found in namespace '$NAMESPACE'"
+        log_error "No worker deployment found in namespace '$NAMESPACE'"
         echo ""
-        echo "Expected one or both of:"
-        echo "  missing-table-celery-worker-local   (kubectl apply -f deployment.yaml)"
+        echo "Expected:"
         echo "  missing-table-celery-worker-prod    (kubectl apply -f deployment-prod.yaml)"
         return 1
     fi
 
-    # -prod consumes matches.prod and writes to the CLOUD Supabase. Restarting
-    # it is a production action; say so rather than let it look like a local
-    # dev loop.
+    # This worker consumes matches.prod and writes to the CLOUD Supabase.
+    # Restarting it is a production action; say so rather than let it look
+    # like a local dev loop.
     for d in "${deployments[@]}"; do
-        if [ "$d" = "missing-table-celery-worker-prod" ]; then
-            log_warning "$d consumes matches.prod against the CLOUD Supabase — restarting PRODUCTION ingest"
-        else
-            log_info "$d (local queue)"
-        fi
+        log_warning "$d consumes matches.prod against the CLOUD Supabase — restarting PRODUCTION ingest"
     done
     echo ""
 
