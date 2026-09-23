@@ -1824,7 +1824,8 @@ export default {
     // with no visibly-selected chip to explain why.
     //
     // Only prunes once divisions are known — matches load async, and an empty
-    // visibleDivisions during that window would wipe an initialDivisionId prop.
+    // visibleDivisions during that window would wipe a restored selection
+    // before the rows that justify it have arrived.
     watch(visibleDivisions, divisions => {
       if (divisions.length === 0 || selectedDivisionIds.value.length === 0)
         return;
@@ -2989,9 +2990,22 @@ export default {
         if (props.initialLeagueId) {
           selectedLeagueId.value = props.initialLeagueId;
         }
-        if (props.initialDivisionId) {
-          selectedDivisionIds.value = [Number(props.initialDivisionId)];
-        }
+        // initialDivisionId deliberately does NOT become a filter (SB-1116).
+        //
+        // A conference scopes a *table*; this lands on My Club, which is one
+        // team's schedule, and that schedule is the same one whichever table
+        // you arrived from. Pinning it hid Metropolitan Oval's five Flex
+        // fixtures — they sit in the Empire conference, the chips are built
+        // from the rows that survive the conference filter, and a competition
+        // with no rows gets no chip. Five fixtures gone, and no Flex chip to
+        // reveal them.
+        //
+        // The same trap SB-849 fixed one filter over: handleNavigateToTeam
+        // sends matchTypeId: null because "pinning League here hid their Flex
+        // fixtures behind a filter they had not chosen".
+        //
+        // The prop still arrives, and team resolution below still reads it —
+        // a club can field more than one team at an age group.
         if (props.initialClubId) {
           selectedClubId.value = props.initialClubId;
         }

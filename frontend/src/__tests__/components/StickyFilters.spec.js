@@ -239,7 +239,10 @@ describe('Matches tab — filters survive the round trip', () => {
     await flushPromises();
 
     expect(wrapper.vm.selectedAgeGroupId).toBe(2);
-    expect(wrapper.vm.selectedDivisionIds).toEqual([1]);
+    // Not the saved [9], and not [1] either: navigation lands on My Club with
+    // every conference, so a team's Flex fixtures are not filtered out by the
+    // conference of the table it was clicked from (SB-1116).
+    expect(wrapper.vm.selectedDivisionIds).toEqual([]);
   });
 
   it('drops a division that is no longer there, and keeps the rest', async () => {
