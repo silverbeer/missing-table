@@ -70,6 +70,31 @@ the user knows what's live. (Run the grep/kubectl from the repo root on the
 latest `main` — `git fetch origin main -q` first if the working tree is on a
 branch, and read the file from `origin/main` with `git show origin/main:helm/missing-table/values-prod.yaml`.)
 
+### 4b. Ingest worker (rancher-desktop, not LKE)
+
+```bash
+command kubectl --context rancher-desktop get deployment missing-table-celery-worker-prod \
+  -n match-scraper -o jsonpath='{.spec.replicas}{"\t"}{.status.readyReplicas}{"\t"}{.spec.template.spec.containers[?(@.name=="celery-worker")].image}{"\n"}'
+./k3s/worker/rebuild-and-deploy.sh --check
+```
+
+The worker that ingests scraped matches does **not** run on LKE and ArgoCD
+does not deploy it — it runs on the local rancher-desktop cluster from a
+locally built image. A green LKE report says nothing about whether match
+ingest is working.
+
+Healthy = ready replicas match desired, and the image tag is a short commit
+SHA that equals `HEAD`. Flag:
+
+- tag `latest` — the deployment is on a mutable tag, so a restart can silently
+  change the running code (SB-860)
+- tag ending `-dirty` — built from uncommitted changes, not reproducible
+- tag behind `HEAD` — merged worker code is not deployed; `rebuild-and-deploy.sh`
+  is the only thing that deploys it, so this can sit unnoticed
+
+Only meaningful on the machine that builds the worker; skip with a note if the
+`rancher-desktop` context is absent.
+
 ### 5. TLS certificate expiry
 
 ```bash
@@ -104,6 +129,7 @@ Emit exactly this shape (keep it scannable):
 | Frontend    | 🟢/🟡/🔴 | 200 in 0.1s (www + apex)               |
 | Backend API | 🟢/🟡/🔴 | /health/full all healthy               |
 | Version     | 🟢/🟡/🔴 | v1.10.5.1176 · sha 6b4c294 · no drift  |
+| Worker      | 🟢/🟡/🔴 | 1/1 ready · sha 6b4c294 · on HEAD      |
 | TLS         | 🟢/🟡/🔴 | expires <date> (<N> days)              |
 
 **Verdict:** <one sentence — "all green" or the single most important problem

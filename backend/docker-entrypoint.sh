@@ -14,6 +14,14 @@ set -e
 
 MODE="${1:-api}"
 
+# Say which commit this is before doing anything else (SB-860). The worker has
+# no /api/version, so this line is the only way to answer "is the fix live?"
+# without grepping the container filesystem.
+echo "📌 build: ${GIT_SHA:-unknown}"
+if [ "${GIT_SHA:-unknown}" = "unknown" ]; then
+    echo "⚠️  built without --build-arg GIT_SHA; the running commit is unrecorded"
+fi
+
 if [ "$MODE" = "worker" ]; then
     echo "🔄 Starting Celery worker..."
     shift  # Remove 'worker' from arguments

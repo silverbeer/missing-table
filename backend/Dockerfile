@@ -21,30 +21,43 @@ RUN apt-get update && apt-get install -y \
 # Create application directory
 WORKDIR /app
 
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash appuser
+# Create non-root user, and give it /app up front.
+#
+# SB-860: this used to end with `RUN chown -R appuser:appuser /app` after the
+# venv existed. A recursive chown rewrites every file, so Docker stored a
+# SECOND full copy of the 970MB virtualenv in that layer — 974MB of pure
+# duplication. Owning the files as they are written costs nothing instead.
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown appuser:appuser /app
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
+# Everything below runs as appuser, so the venv and application code are
+# written with the right ownership and never need chowning afterwards.
+USER appuser
+
 # Copy project configuration and install dependencies
-COPY pyproject.toml uv.lock ./
+COPY --chown=appuser:appuser pyproject.toml uv.lock ./
 RUN uv sync --frozen && \
     uv pip install slowapi redis
 
 # Copy application code
-COPY . .
+COPY --chown=appuser:appuser . .
 
-# Set ownership and permissions
-RUN chown -R appuser:appuser /app && \
-    chmod +x /app && \
-    chmod +x /app/docker-entrypoint.sh
+# Record which commit this image was built from (SB-860).
+#
+# Declared after the dependency layers so supplying it does not invalidate
+# them. Without this, confirming a merged fix was actually running meant
+# grepping for function names inside the container filesystem — the worker
+# is built locally and has no /api/version to ask.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
 
-# Switch to non-root user
-USER appuser
-
-# Create logs directory
-RUN mkdir -p /app/logs
+# Permissions and runtime directories. Cheap layer: touches two paths, not
+# the whole tree.
+RUN chmod +x /app/docker-entrypoint.sh && \
+    mkdir -p /app/logs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

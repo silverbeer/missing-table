@@ -57,6 +57,15 @@ spec:
         # Consequence worth remembering: merging backend code does not deploy
         # it here. The image must be rebuilt or the worker keeps running
         # whatever it was last built with.
+        #
+        # This `:latest` is the bootstrap value only. rebuild-and-deploy.sh
+        # pins the live deployment to missing-table-worker:<short-sha> via
+        # `kubectl set image`, so the running commit is recorded in the spec
+        # and visible in `kubectl get deploy -o wide` (SB-860).
+        #
+        # Re-applying this file therefore RESETS the deployment to the mutable
+        # tag. Run ./k3s/worker/rebuild-and-deploy.sh afterwards to re-pin, or
+        # ./k3s/worker/rebuild-and-deploy.sh --check to see what is deployed.
         image: missing-table-worker:latest
         imagePullPolicy: Never
 
