@@ -206,25 +206,16 @@ if [ "$RESTORE_DATA" = true ]; then
         # with explicit ids but leaves the id sequences at their default, so the
         # first manual INSERT into any restored table (e.g. scheduling a match)
         # fails with a duplicate-PK error until the sequence is advanced.
+        #
+        # This calls the same reset_all_sequences() that restore_database.py uses
+        # (SB-26). It previously carried its own inline copy of the logic, which
+        # drifted: the copy set an empty table's sequence to 1 with is_called
+        # defaulting to true, so the first id it issued was 2 rather than 1.
+        # One rule, one implementation.
         echo -e "${YELLOW}Resyncing id sequences after restore...${NC}"
-        docker exec "$DB_CONTAINER" psql -U postgres -d postgres 2>/dev/null <<'SQL' \
+        docker exec "$DB_CONTAINER" psql -U postgres -d postgres 2>/dev/null \
+            -c "SELECT public.reset_all_sequences();" \
             && echo -e "${GREEN}Sequences resynced${NC}" || echo -e "${YELLOW}Could not resync sequences${NC}"
-DO $$
-DECLARE r RECORD;
-BEGIN
-  FOR r IN
-    SELECT s.relname AS seq, t.relname AS tbl, a.attname AS col
-    FROM pg_class s
-    JOIN pg_depend d ON d.objid = s.oid AND d.deptype = 'a'
-    JOIN pg_class t ON t.oid = d.refobjid
-    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
-    WHERE s.relkind = 'S' AND t.relnamespace = 'public'::regnamespace
-  LOOP
-    EXECUTE format('SELECT setval(%L, COALESCE((SELECT MAX(%I) FROM public.%I), 1))',
-                   r.seq, r.col, r.tbl);
-  END LOOP;
-END $$;
-SQL
     else
         echo -e "${YELLOW}db_tools.sh not found, skipping data restore${NC}"
     fi
