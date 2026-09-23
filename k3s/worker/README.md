@@ -1,16 +1,25 @@
 # Celery Worker Deployment for K3s
 
-> **Two workers run in this namespace.** `missing-table-celery-worker-local`
-> consumes `matches.local` against the local Supabase; `deployment-prod.yaml`
-> defines `missing-table-celery-worker-prod`, which consumes `matches.prod`
-> against the **cloud** Supabase. They are told apart by the `environment`
-> label and by their ConfigMap/Secret suffix (`-prod-config`,
-> `-prod-secrets`). Commands below name the local one — swap the suffix when
-> you mean production.
+> **One worker runs in this namespace.** `deployment-prod.yaml` defines
+> `missing-table-celery-worker-prod`, which consumes `matches.prod` and writes
+> to the **cloud** Supabase. Its config is `missing-table-worker-prod-config`
+> and `missing-table-worker-prod-secrets`.
 >
-> Neither is in LKE. No Celery worker or RabbitMQ runs there, so External
-> Secrets Operator and AWS Secrets Manager do not feed these — their config
-> is the ConfigMap and Secret in this namespace.
+> There is no local-database worker, and there is no need for one: local
+> testing is covered by backup/restore (`./scripts/setup-local-db.sh
+> --from-prod`). The cloud Supabase is the system of record; match-scraper
+> writes to it, and local is synced from a backup, never from the queue.
+>
+> A second deployment, `missing-table-celery-worker-local`, was retired in
+> SB-854. It consumed `matches` and wrote to the same cloud database, so the
+> `-local` in its name described neither its queue nor its database. Nothing
+> published to `matches`, so it had processed zero tasks while implying a
+> safety that never existed — a naming that had already put 9 fixtures into
+> production during what was believed to be a local test.
+>
+> It is not in LKE. No Celery worker or RabbitMQ runs there, so External
+> Secrets Operator and AWS Secrets Manager do not feed it — its config is the
+> ConfigMap and Secret in this namespace.
 
 
 This directory contains Kubernetes manifests for deploying Celery workers to K3s (Rancher Desktop).
@@ -25,15 +34,15 @@ This directory contains Kubernetes manifests for deploying Celery workers to K3s
 ## Files
 
 ### Active Configuration
-- `deployment.yaml` - Worker deployment (environment-agnostic)
-- `configmap-dev.yaml` - Dev environment config (active)
-- `secret-dev.yaml` - Dev Supabase credentials (active)
+- `deployment-prod.yaml` - The worker deployment (consumes `matches.prod`)
+- `configmap-dev.yaml` / `secret-dev.yaml` - Dev config, for a `matches.dev`
+  worker that is not currently deployed
 
 ### Templates
 - `configmap-prod.yaml.template` - Prod config template
 - `secret-prod.yaml.template` - Prod secrets template
 
-## Quick Start (Dev Environment)
+## Quick Start
 
 ### 1. Build Worker Image
 ```bash
@@ -46,11 +55,11 @@ docker build -f backend/Dockerfile -t missing-table-worker:latest backend/
 # Make sure you're on the right context
 kubectl config use-context rancher-desktop
 
-# Apply manifests (dev)
-kubectl apply -f k3s/worker/configmap-dev.yaml
-kubectl apply -f k3s/worker/secret-dev.yaml
-kubectl apply -f k3s/worker/deployment.yaml
+kubectl apply -f k3s/worker/deployment-prod.yaml
 ```
+
+This worker writes to the **cloud** Supabase. Applying it is a production
+action.
 
 ### 3. Verify Deployment
 ```bash
@@ -61,32 +70,24 @@ kubectl get pods -n match-scraper -l app=missing-table-worker
 kubectl logs -n match-scraper -l app=missing-table-worker --tail=50 -f
 
 # Check RabbitMQ queues
-kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_queues
 ```
 
-## Switching Environments (Local ↔ Prod)
+## Which database does the worker write to?
 
-### Using Helper Script (Recommended)
+The cloud one. There is no switch, and `switch-worker-env.sh` was removed in
+SB-854 along with the worker it pointed at — it targeted a deployment
+(`missing-table-celery-worker`) that had not existed since the workers were
+split, so it had been failing rather than switching anything.
+
+To get production data locally, restore a backup:
+
 ```bash
-# Switch to local
-./k3s/worker/switch-worker-env.sh local
-
-# Switch to prod
-./k3s/worker/switch-worker-env.sh prod
-
-# Check current environment
-./k3s/worker/switch-worker-env.sh status
+./scripts/setup-local-db.sh --from-prod   # backup prod, then restore into local
 ```
 
-### Manual Switch
-```bash
-# Switch to prod
-kubectl delete -f k3s/worker/configmap-dev.yaml
-kubectl delete -f k3s/worker/secret-dev.yaml
-kubectl apply -f k3s/worker/configmap-prod.yaml
-kubectl apply -f k3s/worker/secret-prod.yaml
-kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
-```
+That is the only supported direction. The queue never writes to a local
+database.
 
 ## Setting Up Production
 
@@ -113,17 +114,19 @@ kubectl rollout restart deployment/missing-table-celery-worker-local -n match-sc
 
 4. **Deploy Production**
    ```bash
-   ./k3s/worker/switch-worker-env.sh prod
+   kubectl apply -f k3s/worker/configmap-prod.yaml
+   kubectl apply -f k3s/worker/secret-prod.yaml
+   kubectl apply -f k3s/worker/deployment-prod.yaml
    ```
 
 ## Scaling Workers
 
 ```bash
 # Scale to 4 workers
-kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=4
+kubectl scale deployment/missing-table-celery-worker-prod -n match-scraper --replicas=4
 
 # Scale down to 1 worker
-kubectl scale deployment/missing-table-celery-worker-local -n match-scraper --replicas=1
+kubectl scale deployment/missing-table-celery-worker-prod -n match-scraper --replicas=1
 ```
 
 ## Monitoring
@@ -149,20 +152,20 @@ kubectl logs -n match-scraper <pod-name> -f
 ### RabbitMQ Monitoring
 ```bash
 # List queues with message counts
-kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues name messages consumers
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_queues name messages consumers
 
 # RabbitMQ Management UI
-kubectl port-forward -n match-scraper rabbitmq-0 15672:15672
+kubectl port-forward -n match-scraper messaging-rabbitmq-0 15672:15672
 # Open http://localhost:15672 (admin/admin123)
 ```
 
 ### Redis Monitoring
 ```bash
 # Check Redis keys
-kubectl exec -n match-scraper redis-0 -- redis-cli keys "celery-*"
+kubectl exec -n match-scraper messaging-redis-0 -- redis-cli keys "celery-*"
 
 # Monitor Redis commands
-kubectl exec -n match-scraper redis-0 -- redis-cli monitor
+kubectl exec -n match-scraper messaging-redis-0 -- redis-cli monitor
 ```
 
 ## Troubleshooting
@@ -176,8 +179,8 @@ kubectl describe pod -n match-scraper <pod-name>
 kubectl logs -n match-scraper <pod-name>
 
 # Verify ConfigMap and Secret exist
-kubectl get configmap -n match-scraper missing-table-worker-config
-kubectl get secret -n match-scraper missing-table-worker-secrets
+kubectl get configmap -n match-scraper missing-table-worker-prod-config
+kubectl get secret -n match-scraper missing-table-worker-prod-secrets
 ```
 
 ### Workers Not Processing Messages
@@ -186,16 +189,16 @@ kubectl get secret -n match-scraper missing-table-worker-secrets
 kubectl logs -n match-scraper -l app=missing-table-worker | grep "Connected to amqp"
 
 # Check RabbitMQ connections
-kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_connections
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_connections
 
 # Verify queue bindings
-kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_bindings
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_bindings
 ```
 
 ### Database Connection Issues
 ```bash
 # Check Supabase URL in ConfigMap
-kubectl get configmap -n match-scraper missing-table-worker-config -o yaml
+kubectl get configmap -n match-scraper missing-table-worker-prod-config -o yaml
 
 # Test database connection from pod
 kubectl exec -n match-scraper <pod-name> -- uv run python -c "from dao.enhanced_data_access_fixed import SupabaseConnection; print(SupabaseConnection().client.table('teams').select('count').execute())"
@@ -207,10 +210,10 @@ kubectl exec -n match-scraper <pod-name> -- uv run python -c "from dao.enhanced_
 docker build -f backend/Dockerfile -t missing-table-worker:latest backend/
 
 # Restart deployment (picks up new image)
-kubectl rollout restart deployment/missing-table-celery-worker-local -n match-scraper
+kubectl rollout restart deployment/missing-table-celery-worker-prod -n match-scraper
 
 # Watch rollout status
-kubectl rollout status deployment/missing-table-celery-worker-local -n match-scraper
+kubectl rollout status deployment/missing-table-celery-worker-prod -n match-scraper
 ```
 
 ## Configuration Details
@@ -222,7 +225,7 @@ kubectl rollout status deployment/missing-table-celery-worker-local -n match-scr
 - `CELERY_BROKER_URL` - Celery broker URL (same as RabbitMQ)
 - `REDIS_URL` - Redis connection string
 - `SUPABASE_URL` - Supabase project URL
-- `ENVIRONMENT` - local or production
+- `ENVIRONMENT` - production
 - `LOG_LEVEL` - Logging level (INFO, DEBUG, WARNING)
 
 **From Secret:**
@@ -232,10 +235,10 @@ kubectl rollout status deployment/missing-table-celery-worker-local -n match-scr
 
 ### Worker Configuration
 
-- **Queues**: `matches` (primary queue for match-scraper)
-- **Concurrency**: 4 tasks per worker
+- **Queues**: `matches.prod` — the only queue match-scraper publishes to
+- **Concurrency**: 2 tasks per worker
 - **Log Level**: INFO
-- **Replicas**: 2 workers (default)
+- **Replicas**: 1
 
 ### Resource Limits
 

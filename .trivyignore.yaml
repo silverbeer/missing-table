@@ -9,11 +9,13 @@
 #
 # Added under SB-832, after fixing everything a manifest could fix on the
 # Celery worker deployments (13 findings down to these four).
+#
+# SB-854 retired k3s/worker/deployment.yaml (the second, idle worker), so
+# these now scope to the one remaining worker manifest.
 
 misconfigurations:
   - id: KSV-0014
     paths:
-      - "k3s/worker/deployment.yaml"
       - "k3s/worker/deployment-prod.yaml"
     statement: >-
       Read-only root filesystem crash-loops these workers. The entrypoint runs
@@ -26,7 +28,6 @@ misconfigurations:
 
   - id: KSV-0013
     paths:
-      - "k3s/worker/deployment.yaml"
       - "k3s/worker/deployment-prod.yaml"
     statement: >-
       The worker image is built locally by k3s/worker/rebuild-and-deploy.sh and
@@ -37,7 +38,6 @@ misconfigurations:
 
   - id: KSV-0020
     paths:
-      - "k3s/worker/deployment.yaml"
       - "k3s/worker/deployment-prod.yaml"
     statement: >-
       The container runs as appuser, uid 1000, which the image creates and
@@ -48,7 +48,6 @@ misconfigurations:
 
   - id: KSV-0021
     paths:
-      - "k3s/worker/deployment.yaml"
       - "k3s/worker/deployment-prod.yaml"
     statement: >-
       Same as AVD-KSV-0020: gid 1000 comes from the image's appuser group.

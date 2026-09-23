@@ -82,12 +82,34 @@ python -m src.cli.main scrape -a U14 -d Northeast --sync-api
 ### Architecture
 
 ```
-Match-Scraper → POST /api/matches/submit → RabbitMQ Queue
+Match-Scraper → POST /api/matches/submit → RabbitMQ (matches.prod)
                                               ↓
-                                         Celery Workers (2+ replicas)
+                                    missing-table-celery-worker-prod
                                               ↓
                                     Entity Resolution + Database
 ```
+
+### Queue topology
+
+There is **one queue and one worker** (SB-854):
+
+| | |
+|---|---|
+| Queue | `matches.prod` |
+| Publisher | `match-scraper-agent`, via `AGENT_QUEUE_NAME` |
+| Consumer | `missing-table-celery-worker-prod` |
+| Database | **cloud** Supabase — the system of record |
+
+The cloud database is the only thing the queue writes to. To get production
+data onto a local machine, restore a backup (`./scripts/setup-local-db.sh
+--from-prod`) — never point the ingest path at a local database.
+
+A `matches.local` queue and a second `missing-table-celery-worker-local`
+deployment used to exist. The worker consumed `matches` (not `matches.local`)
+and wrote to the same cloud database, so its name described neither its queue
+nor its database; nothing published to `matches`, so it processed zero tasks.
+Both were retired, along with the `matches-fanout` exchange binding that fed
+`matches.local` without a consumer.
 
 ### API Endpoints
 

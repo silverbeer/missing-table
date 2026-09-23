@@ -30,13 +30,13 @@ kubectl get pods -n match-scraper -l app=missing-table-worker
 kubectl logs -n match-scraper -l app=missing-table-worker -f
 
 # Check queue
-kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues name messages consumers
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_queues name messages consumers
 
 # Check environment
-kubectl get configmap -n match-scraper missing-table-worker-config -o yaml
+kubectl get configmap -n match-scraper missing-table-worker-prod-config -o yaml
 
-# Switch to prod
-./k3s/worker/switch-worker-env.sh prod
+# Apply the worker (writes to the CLOUD Supabase)
+kubectl apply -f k3s/worker/deployment-prod.yaml
 
 # Rebuild after code changes
 ./k3s/worker/rebuild-and-deploy.sh
@@ -83,7 +83,7 @@ kubectl logs -n match-scraper -l app=missing-table-worker -f
 ### Test with local match-scraper
 ```bash
 # Port-forward RabbitMQ
-kubectl port-forward -n match-scraper rabbitmq-0 5672:5672 &
+kubectl port-forward -n match-scraper messaging-rabbitmq-0 5672:5672 &
 
 # In match-scraper repo
 export RABBITMQ_URL="amqp://admin:admin123@localhost:5672//"
@@ -107,17 +107,16 @@ python main.py scrape --league "MLS Next" --season "2024-2025"
 
 ### Workers not processing tasks
 1. Check logs: `kubectl logs -n match-scraper -l app=missing-table-worker --tail=100`
-2. Check queue: `kubectl exec -n match-scraper rabbitmq-0 -- rabbitmqctl list_queues`
-3. Restart: `kubectl rollout restart deployment/missing-table-celery-worker -n match-scraper`
+2. Check queue: `kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_queues`
+3. Restart: `kubectl rollout restart deployment/missing-table-celery-worker-prod -n match-scraper`
 
 ### Database connection errors
-1. Check Supabase URL: `kubectl get configmap -n match-scraper missing-table-worker-config -o yaml`
-2. Verify credentials: `kubectl get secret -n match-scraper missing-table-worker-secrets -o yaml`
-3. Switch environment: `./k3s/worker/switch-worker-env.sh local`
+1. Check Supabase URL: `kubectl get configmap -n match-scraper missing-table-worker-prod-config -o yaml`
+2. Verify credentials: `kubectl get secret -n match-scraper missing-table-worker-prod-secrets -o yaml`
+3. The worker only ever writes to the cloud Supabase; there is no environment to switch.
 
-### Need to switch to prod
+### Setting up the worker's credentials
 ```bash
-# Set up prod credentials first
 cp k3s/worker/configmap-prod.yaml.template k3s/worker/configmap-prod.yaml
 cp k3s/worker/secret-prod.yaml.template k3s/worker/secret-prod.yaml
 
@@ -125,8 +124,9 @@ cp k3s/worker/secret-prod.yaml.template k3s/worker/secret-prod.yaml
 vim k3s/worker/configmap-prod.yaml
 vim k3s/worker/secret-prod.yaml
 
-# Switch
-./k3s/worker/switch-worker-env.sh prod
+kubectl apply -f k3s/worker/configmap-prod.yaml
+kubectl apply -f k3s/worker/secret-prod.yaml
+kubectl apply -f k3s/worker/deployment-prod.yaml
 ```
 
 ## Next Steps
