@@ -531,20 +531,9 @@
                 >
                   Result
                 </th>
-                <th class="border-b text-center w-24">Match Type</th>
+                <!-- Match Type is now a chip on the row itself, and Match ID /
+                     Source moved into Edit Match (SB-1121). -->
                 <th class="border-b text-center w-24">Status</th>
-                <th
-                  v-if="authStore.isAdmin.value"
-                  class="border-b text-center w-32"
-                >
-                  Match ID
-                </th>
-                <th
-                  v-if="authStore.isAdmin.value"
-                  class="border-b text-center w-16"
-                >
-                  Source
-                </th>
                 <th
                   v-if="authStore.isAuthenticated.value"
                   class="border-b text-center w-24"
@@ -554,848 +543,89 @@
               </tr>
             </thead>
             <tbody>
-              <!-- All Matches view: Group by league with section headers -->
+              <!--
+                One row component for both sub-tabs (SB-1121). This replaced
+                four near-identical blocks of markup — three All Matches
+                sections plus My Club — which is how the two views came to
+                look like two different products.
+              -->
               <template v-if="selectedViewTab === 'all'">
-                <!-- Homegrown Section -->
-                <tr v-if="homegrownMatches.length > 0">
-                  <td
-                    :colspan="tableColumnCount"
-                    class="bg-brand-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-brand-700"
-                  >
-                    HOMEGROWN DIVISION
-                  </td>
-                </tr>
-                <tr
-                  v-for="(match, index) in homegrownMatches"
-                  :key="`homegrown-${match.id}`"
-                  :class="[
-                    { 'bg-surface-alt': index % 2 === 0 },
-                    isMotw(match) ? 'motw-row' : '',
-                  ]"
-                  class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
-                  @click="viewMatch(match)"
+                <!--
+                  Division bands stay. They scope a league-wide list, which is
+                  not the same thing as splitting one team's season by
+                  competition — the grouping My Club deliberately does not do.
+                -->
+                <template
+                  v-for="section in allMatchSections"
+                  :key="section.key"
                 >
-                  <td class="border-b text-center">{{ match.match_date }}</td>
-                  <td class="border-b text-center text-sm text-fg-muted">
-                    {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
-                  </td>
-                  <td class="border-b text-left px-2">
-                    <div
-                      v-if="getMatchTeams(match).mode === 'all'"
-                      class="flex items-center gap-1"
+                  <tr v-if="section.matches.length > 0">
+                    <td
+                      :colspan="tableColumnCount"
+                      :class="section.bandClass"
+                      data-testid="match-section-band"
                     >
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).away.logoUrl"
-                        :name="getMatchTeams(match).away.name"
-                        size="xs"
-                      />
-                      <span
-                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
-                        >{{ getMatchTeams(match).away.name }}</span
-                      >
-                      <svg
-                        v-for="n in getTeamRedCardCount(
-                          match,
-                          match.away_team_id
-                        )"
-                        :key="'away-rc-' + n"
-                        width="10"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        class="inline-block align-middle"
-                      >
-                        <title>Red card</title>
-                        <rect
-                          x="4"
-                          width="16"
-                          height="24"
-                          rx="2"
-                          fill="#EA3323"
-                        />
-                      </svg>
-                      <span
-                        v-if="getMatchTeams(match).away.icon"
-                        :class="getMatchTeams(match).away.iconClass"
-                        >{{ getMatchTeams(match).away.icon }}</span
-                      >
-                      <span class="mx-0.5">@</span>
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).home.logoUrl"
-                        :name="getMatchTeams(match).home.name"
-                        size="xs"
-                      />
-                      <span
-                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
-                        >{{ getMatchTeams(match).home.name }}</span
-                      >
-                      <svg
-                        v-for="n in getTeamRedCardCount(
-                          match,
-                          match.home_team_id
-                        )"
-                        :key="'home-rc-' + n"
-                        width="10"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        class="inline-block align-middle"
-                      >
-                        <title>Red card</title>
-                        <rect
-                          x="4"
-                          width="16"
-                          height="24"
-                          rx="2"
-                          fill="#EA3323"
-                        />
-                      </svg>
-                      <span
-                        v-if="getMatchTeams(match).home.icon"
-                        :class="getMatchTeams(match).home.iconClass"
-                        >{{ getMatchTeams(match).home.icon }}</span
-                      >
-                    </div>
-                    <div v-else class="flex items-center gap-1">
-                      <span>{{ getMatchTeams(match).prefix }}</span>
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).opponent.logoUrl"
-                        :name="getMatchTeams(match).opponent.name"
-                        size="xs"
-                      />
-                      <span>{{ getMatchTeams(match).opponent.name }}</span>
-                    </div>
-                    <!-- Teams are multi-age (one canonical "IFA" row across
-                         U13-U19), so two fixtures for the same clubs on the
-                         same day are otherwise indistinguishable (SB-911). -->
-                    <span
-                      v-if="match.age_group_name"
-                      class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
-                      data-testid="row-age-group"
-                      >{{ match.age_group_name }}</span
-                    >
-                  </td>
-                  <td class="border-b text-center">
-                    {{ getScoreDisplay(match) }}
-                  </td>
-                  <td class="border-b text-center">
-                    {{ match.match_type_name || 'League' }}
-                  </td>
-                  <td class="border-b text-center">
-                    <span
-                      :class="{
-                        'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
-                          match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
-                          match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
-                          match.match_status === 'postponed',
-                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
-                          match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
-                          match.match_status === 'forfeit',
-                        'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                          isLiveScored(match),
-                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
-                          isInProgress(match) && !isLiveScored(match),
-                        'bg-surface-alt text-fg': !match.match_status,
-                      }"
-                    >
-                      {{ getStatusLabel(match) }}
-                    </span>
-                  </td>
-                  <td
-                    v-if="authStore.isAdmin.value"
-                    class="border-b text-center"
-                  >
-                    <span
-                      v-if="match.match_id"
-                      class="text-xs font-mono text-fg"
-                      :title="`External Match ID: ${match.match_id}`"
-                    >
-                      {{ match.match_id }}
-                    </span>
-                    <span v-else class="text-fg-muted text-xs">-</span>
-                  </td>
-                  <td
-                    v-if="authStore.isAdmin.value"
-                    class="border-b text-center"
-                  >
-                    <span
-                      :title="getSourceTooltip(match)"
-                      :class="{
-                        'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
-                          match.source === 'match-scraper',
-                        'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
-                          match.source === 'import',
-                      }"
-                    >
-                      {{ getSourceDisplay(match.source) }}
-                    </span>
-                  </td>
-                  <td
-                    v-if="authStore.isAuthenticated.value"
-                    class="border-b text-center space-x-2"
-                  >
-                    <button
-                      @click="viewMatch(match)"
-                      class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                    >
-                      View
-                    </button>
-                    <!--
-                      Pick / unpick the Match of the Week (SB-1010). One
-                      toggle, because the click a person wants right after
-                      picking the wrong match is undo.
-                    -->
-                    <button
-                      v-if="authStore.isAdmin.value"
-                      @click.stop="toggleMotw(match)"
-                      :data-testid="`motw-toggle-${match.id}`"
-                      :title="
-                        isMotw(match)
-                          ? 'Remove as Match of the Week'
-                          : 'Make Match of the Week'
-                      "
-                      :aria-pressed="isMotw(match)"
-                      :class="[
-                        'text-sm font-medium',
-                        isMotw(match)
-                          ? 'text-accent-600 dark:text-accent-400'
-                          : 'text-fg-muted hover:text-accent-600 dark:hover:text-accent-400',
-                      ]"
-                    >
-                      ◆
-                    </button>
-                    <button
-                      v-if="canEditGame(match)"
-                      @click.stop="editMatch(match)"
-                      class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-
-                <!-- Academy Section -->
-                <tr v-if="academyMatches.length > 0">
-                  <td
-                    :colspan="tableColumnCount"
-                    class="bg-green-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-green-700"
-                  >
-                    ACADEMY DIVISION
-                  </td>
-                </tr>
-                <tr
-                  v-for="(match, index) in academyMatches"
-                  :key="`academy-${match.id}`"
-                  :class="[
-                    { 'bg-surface-alt': index % 2 === 0 },
-                    isMotw(match) ? 'motw-row' : '',
-                  ]"
-                  class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
-                  @click="viewMatch(match)"
-                >
-                  <td class="border-b text-center">{{ match.match_date }}</td>
-                  <td class="border-b text-center text-sm text-fg-muted">
-                    {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
-                  </td>
-                  <td class="border-b text-left px-2">
-                    <div
-                      v-if="getMatchTeams(match).mode === 'all'"
-                      class="flex items-center gap-1"
-                    >
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).away.logoUrl"
-                        :name="getMatchTeams(match).away.name"
-                        size="xs"
-                      />
-                      <span
-                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
-                        >{{ getMatchTeams(match).away.name }}</span
-                      >
-                      <svg
-                        v-for="n in getTeamRedCardCount(
-                          match,
-                          match.away_team_id
-                        )"
-                        :key="'away-rc-' + n"
-                        width="10"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        class="inline-block align-middle"
-                      >
-                        <title>Red card</title>
-                        <rect
-                          x="4"
-                          width="16"
-                          height="24"
-                          rx="2"
-                          fill="#EA3323"
-                        />
-                      </svg>
-                      <span
-                        v-if="getMatchTeams(match).away.icon"
-                        :class="getMatchTeams(match).away.iconClass"
-                        >{{ getMatchTeams(match).away.icon }}</span
-                      >
-                      <span class="mx-0.5">@</span>
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).home.logoUrl"
-                        :name="getMatchTeams(match).home.name"
-                        size="xs"
-                      />
-                      <span
-                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
-                        >{{ getMatchTeams(match).home.name }}</span
-                      >
-                      <svg
-                        v-for="n in getTeamRedCardCount(
-                          match,
-                          match.home_team_id
-                        )"
-                        :key="'home-rc-' + n"
-                        width="10"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        class="inline-block align-middle"
-                      >
-                        <title>Red card</title>
-                        <rect
-                          x="4"
-                          width="16"
-                          height="24"
-                          rx="2"
-                          fill="#EA3323"
-                        />
-                      </svg>
-                      <span
-                        v-if="getMatchTeams(match).home.icon"
-                        :class="getMatchTeams(match).home.iconClass"
-                        >{{ getMatchTeams(match).home.icon }}</span
-                      >
-                    </div>
-                    <div v-else class="flex items-center gap-1">
-                      <span>{{ getMatchTeams(match).prefix }}</span>
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).opponent.logoUrl"
-                        :name="getMatchTeams(match).opponent.name"
-                        size="xs"
-                      />
-                      <span>{{ getMatchTeams(match).opponent.name }}</span>
-                    </div>
-                    <!-- Teams are multi-age (one canonical "IFA" row across
-                         U13-U19), so two fixtures for the same clubs on the
-                         same day are otherwise indistinguishable (SB-911). -->
-                    <span
-                      v-if="match.age_group_name"
-                      class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
-                      data-testid="row-age-group"
-                      >{{ match.age_group_name }}</span
-                    >
-                  </td>
-                  <td class="border-b text-center">
-                    {{ getScoreDisplay(match) }}
-                  </td>
-                  <td class="border-b text-center">
-                    {{ match.match_type_name || 'League' }}
-                  </td>
-                  <td class="border-b text-center">
-                    <span
-                      :class="{
-                        'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
-                          match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
-                          match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
-                          match.match_status === 'postponed',
-                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
-                          match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
-                          match.match_status === 'forfeit',
-                        'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                          isLiveScored(match),
-                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
-                          isInProgress(match) && !isLiveScored(match),
-                        'bg-surface-alt text-fg': !match.match_status,
-                      }"
-                    >
-                      {{ getStatusLabel(match) }}
-                    </span>
-                  </td>
-                  <td
-                    v-if="authStore.isAdmin.value"
-                    class="border-b text-center"
-                  >
-                    <span
-                      v-if="match.match_id"
-                      class="text-xs font-mono text-fg"
-                      :title="`External Match ID: ${match.match_id}`"
-                    >
-                      {{ match.match_id }}
-                    </span>
-                    <span v-else class="text-fg-muted text-xs">-</span>
-                  </td>
-                  <td
-                    v-if="authStore.isAdmin.value"
-                    class="border-b text-center"
-                  >
-                    <span
-                      :title="getSourceTooltip(match)"
-                      :class="{
-                        'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
-                          match.source === 'match-scraper',
-                        'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
-                          match.source === 'import',
-                      }"
-                    >
-                      {{ getSourceDisplay(match.source) }}
-                    </span>
-                  </td>
-                  <td
-                    v-if="authStore.isAuthenticated.value"
-                    class="border-b text-center space-x-2"
-                  >
-                    <button
-                      @click="viewMatch(match)"
-                      class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                    >
-                      View
-                    </button>
-                    <!--
-                      Pick / unpick the Match of the Week (SB-1010). One
-                      toggle, because the click a person wants right after
-                      picking the wrong match is undo.
-                    -->
-                    <button
-                      v-if="authStore.isAdmin.value"
-                      @click.stop="toggleMotw(match)"
-                      :data-testid="`motw-toggle-${match.id}`"
-                      :title="
-                        isMotw(match)
-                          ? 'Remove as Match of the Week'
-                          : 'Make Match of the Week'
-                      "
-                      :aria-pressed="isMotw(match)"
-                      :class="[
-                        'text-sm font-medium',
-                        isMotw(match)
-                          ? 'text-accent-600 dark:text-accent-400'
-                          : 'text-fg-muted hover:text-accent-600 dark:hover:text-accent-400',
-                      ]"
-                    >
-                      ◆
-                    </button>
-                    <button
-                      v-if="canEditGame(match)"
-                      @click.stop="editMatch(match)"
-                      class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-
-                <!-- Other matches (without league info) -->
-                <tr v-if="otherMatches.length > 0">
-                  <td
-                    :colspan="tableColumnCount"
-                    class="bg-gray-600 dark:bg-slate-700 text-white font-bold text-sm py-2 px-4 border-b-2 border-gray-700 dark:border-slate-800"
-                  >
-                    OTHER MATCHES
-                  </td>
-                </tr>
-                <tr
-                  v-for="(match, index) in otherMatches"
-                  :key="`other-${match.id}`"
-                  :class="[
-                    { 'bg-surface-alt': index % 2 === 0 },
-                    isMotw(match) ? 'motw-row' : '',
-                  ]"
-                  class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
-                  @click="viewMatch(match)"
-                >
-                  <td class="border-b text-center">{{ match.match_date }}</td>
-                  <td class="border-b text-center text-sm text-fg-muted">
-                    {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
-                  </td>
-                  <td class="border-b text-left px-2">
-                    <div
-                      v-if="getMatchTeams(match).mode === 'all'"
-                      class="flex items-center gap-1"
-                    >
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).away.logoUrl"
-                        :name="getMatchTeams(match).away.name"
-                        size="xs"
-                      />
-                      <span
-                        :class="{ 'font-bold': getMatchTeams(match).away.bold }"
-                        >{{ getMatchTeams(match).away.name }}</span
-                      >
-                      <svg
-                        v-for="n in getTeamRedCardCount(
-                          match,
-                          match.away_team_id
-                        )"
-                        :key="'away-rc-' + n"
-                        width="10"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        class="inline-block align-middle"
-                      >
-                        <title>Red card</title>
-                        <rect
-                          x="4"
-                          width="16"
-                          height="24"
-                          rx="2"
-                          fill="#EA3323"
-                        />
-                      </svg>
-                      <span
-                        v-if="getMatchTeams(match).away.icon"
-                        :class="getMatchTeams(match).away.iconClass"
-                        >{{ getMatchTeams(match).away.icon }}</span
-                      >
-                      <span class="mx-0.5">@</span>
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).home.logoUrl"
-                        :name="getMatchTeams(match).home.name"
-                        size="xs"
-                      />
-                      <span
-                        :class="{ 'font-bold': getMatchTeams(match).home.bold }"
-                        >{{ getMatchTeams(match).home.name }}</span
-                      >
-                      <svg
-                        v-for="n in getTeamRedCardCount(
-                          match,
-                          match.home_team_id
-                        )"
-                        :key="'home-rc-' + n"
-                        width="10"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        class="inline-block align-middle"
-                      >
-                        <title>Red card</title>
-                        <rect
-                          x="4"
-                          width="16"
-                          height="24"
-                          rx="2"
-                          fill="#EA3323"
-                        />
-                      </svg>
-                      <span
-                        v-if="getMatchTeams(match).home.icon"
-                        :class="getMatchTeams(match).home.iconClass"
-                        >{{ getMatchTeams(match).home.icon }}</span
-                      >
-                    </div>
-                    <div v-else class="flex items-center gap-1">
-                      <span>{{ getMatchTeams(match).prefix }}</span>
-                      <ClubLogo
-                        :logo-url="getMatchTeams(match).opponent.logoUrl"
-                        :name="getMatchTeams(match).opponent.name"
-                        size="xs"
-                      />
-                      <span>{{ getMatchTeams(match).opponent.name }}</span>
-                    </div>
-                    <!-- Teams are multi-age (one canonical "IFA" row across
-                         U13-U19), so two fixtures for the same clubs on the
-                         same day are otherwise indistinguishable (SB-911). -->
-                    <span
-                      v-if="match.age_group_name"
-                      class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
-                      data-testid="row-age-group"
-                      >{{ match.age_group_name }}</span
-                    >
-                  </td>
-                  <td class="border-b text-center">
-                    {{ getScoreDisplay(match) }}
-                  </td>
-                  <td class="border-b text-center">
-                    {{ match.match_type_name || 'League' }}
-                  </td>
-                  <td class="border-b text-center">
-                    <span
-                      :class="{
-                        'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
-                          match.match_status === 'completed',
-                        'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
-                          match.match_status === 'scheduled',
-                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
-                          match.match_status === 'postponed',
-                        'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
-                          match.match_status === 'cancelled',
-                        'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
-                          match.match_status === 'forfeit',
-                        'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                          isLiveScored(match),
-                        'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
-                          isInProgress(match) && !isLiveScored(match),
-                        'bg-surface-alt text-fg': !match.match_status,
-                      }"
-                    >
-                      {{ getStatusLabel(match) }}
-                    </span>
-                  </td>
-                  <td
-                    v-if="authStore.isAdmin.value"
-                    class="border-b text-center"
-                  >
-                    <span
-                      v-if="match.match_id"
-                      class="text-xs font-mono text-fg"
-                      :title="`External Match ID: ${match.match_id}`"
-                    >
-                      {{ match.match_id }}
-                    </span>
-                    <span v-else class="text-fg-muted text-xs">-</span>
-                  </td>
-                  <td
-                    v-if="authStore.isAdmin.value"
-                    class="border-b text-center"
-                  >
-                    <span
-                      :title="getSourceTooltip(match)"
-                      :class="{
-                        'px-2 py-1 rounded text-xs font-medium': true,
-                        'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
-                          match.source === 'match-scraper',
-                        'bg-surface-alt text-fg': match.source === 'manual',
-                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
-                          match.source === 'import',
-                      }"
-                    >
-                      {{ getSourceDisplay(match.source) }}
-                    </span>
-                  </td>
-                  <td
-                    v-if="authStore.isAuthenticated.value"
-                    class="border-b text-center space-x-2"
-                  >
-                    <button
-                      @click="viewMatch(match)"
-                      class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                    >
-                      View
-                    </button>
-                    <!--
-                      Pick / unpick the Match of the Week (SB-1010). One
-                      toggle, because the click a person wants right after
-                      picking the wrong match is undo.
-                    -->
-                    <button
-                      v-if="authStore.isAdmin.value"
-                      @click.stop="toggleMotw(match)"
-                      :data-testid="`motw-toggle-${match.id}`"
-                      :title="
-                        isMotw(match)
-                          ? 'Remove as Match of the Week'
-                          : 'Make Match of the Week'
-                      "
-                      :aria-pressed="isMotw(match)"
-                      :class="[
-                        'text-sm font-medium',
-                        isMotw(match)
-                          ? 'text-accent-600 dark:text-accent-400'
-                          : 'text-fg-muted hover:text-accent-600 dark:hover:text-accent-400',
-                      ]"
-                    >
-                      ◆
-                    </button>
-                    <button
-                      v-if="canEditGame(match)"
-                      @click.stop="editMatch(match)"
-                      class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
+                      {{ section.label }}
+                    </td>
+                  </tr>
+                  <MatchTableRow
+                    v-for="(match, index) in section.matches"
+                    :key="`${section.key}-${match.id}`"
+                    :match="match"
+                    mode="all"
+                    :index="index"
+                    :striped="index % 2 === 0"
+                    :teams="getMatchTeams(match)"
+                    :status="rowStatus(match)"
+                    :kickoff="formatLocalTime(match.scheduled_kickoff)"
+                    :can-edit="canEditGame(match)"
+                    :is-admin="authStore.isAdmin.value"
+                    :is-authenticated="authStore.isAuthenticated.value"
+                    :motw="isMotw(match)"
+                    @view="viewMatch"
+                    @edit="editMatch"
+                    @toggle-motw="toggleMotw"
+                  />
+                </template>
               </template>
 
-              <!-- My Club view: Regular rendering -->
-              <tr
-                v-else
-                v-for="(match, index) in sortedGames"
-                :key="match.id"
-                :class="[
-                  { 'bg-surface-alt': index % 2 === 0 },
-                  isMotw(match) ? 'motw-row' : '',
-                ]"
-                class="cursor-pointer hover:bg-brand-50 dark:hover:bg-brand-500/10"
-                @click="viewMatch(match)"
-              >
-                <td
-                  v-if="selectedViewTab === 'myclub'"
-                  class="border-b text-right"
-                >
-                  {{ index + 1 }}
-                </td>
-                <td class="border-b text-center">{{ match.match_date }}</td>
-                <td class="border-b text-center text-sm text-fg-muted">
-                  {{ formatLocalTime(match.scheduled_kickoff) || '-' }}
-                </td>
-                <td class="border-b text-left px-2">
-                  <div
-                    v-if="getMatchTeams(match).mode === 'all'"
-                    class="flex items-center gap-1"
-                  >
-                    <ClubLogo
-                      :logo-url="getMatchTeams(match).away.logoUrl"
-                      :name="getMatchTeams(match).away.name"
-                      size="xs"
-                    />
-                    <span
-                      :class="{ 'font-bold': getMatchTeams(match).away.bold }"
-                      >{{ getMatchTeams(match).away.name }}</span
+              <!--
+                My Club: one chronological list. Nothing is grouped by
+                competition — a parent opens this to find the next match, and
+                a split makes that a search. Every row says which competition
+                it is instead, so no row leans on a heading above it.
+              -->
+              <template v-else>
+                <template v-for="row in myClubRows" :key="row.key">
+                  <tr v-if="row.type === 'month'">
+                    <td
+                      :colspan="tableColumnCount"
+                      class="bg-surface-alt text-fg-muted text-[11px] font-bold uppercase tracking-widest py-1.5 px-4 border-b"
+                      data-testid="match-month-divider"
                     >
-                    <span
-                      v-if="getMatchTeams(match).away.icon"
-                      :class="getMatchTeams(match).away.iconClass"
-                      >{{ getMatchTeams(match).away.icon }}</span
-                    >
-                    <span class="mx-0.5">@</span>
-                    <ClubLogo
-                      :logo-url="getMatchTeams(match).home.logoUrl"
-                      :name="getMatchTeams(match).home.name"
-                      size="xs"
-                    />
-                    <span
-                      :class="{ 'font-bold': getMatchTeams(match).home.bold }"
-                      >{{ getMatchTeams(match).home.name }}</span
-                    >
-                    <span
-                      v-if="getMatchTeams(match).home.icon"
-                      :class="getMatchTeams(match).home.iconClass"
-                      >{{ getMatchTeams(match).home.icon }}</span
-                    >
-                  </div>
-                  <div v-else class="flex items-center gap-1">
-                    <span>{{ getMatchTeams(match).prefix }}</span>
-                    <ClubLogo
-                      :logo-url="getMatchTeams(match).opponent.logoUrl"
-                      :name="getMatchTeams(match).opponent.name"
-                      size="xs"
-                    />
-                    <span>{{ getMatchTeams(match).opponent.name }}</span>
-                  </div>
-                  <!-- Teams are multi-age (one canonical "IFA" row across
-                       U13-U19), so two fixtures for the same clubs on the
-                       same day are otherwise indistinguishable (SB-911). -->
-                  <span
-                    v-if="match.age_group_name"
-                    class="ml-2 px-1.5 py-0.5 rounded bg-surface-alt text-[10px] font-semibold text-fg-muted align-middle"
-                    data-testid="row-age-group"
-                    >{{ match.age_group_name }}</span
-                  >
-                </td>
-                <td class="border-b text-center">
-                  {{ getScoreDisplay(match) }}
-                </td>
-                <td
-                  v-if="selectedViewTab === 'myclub'"
-                  class="border-b text-center"
-                >
-                  <span
-                    v-if="
-                      match.match_status === 'completed' &&
-                      getResult(match) !== '-'
-                    "
-                    class="px-2 py-1 rounded-full text-sm font-bold"
-                    :class="{
-                      'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
-                        getResult(match) === 'W',
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
-                        getResult(match) === 'T',
-                      'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
-                        getResult(match) === 'L',
-                    }"
-                  >
-                    {{ getResult(match) }}
-                  </span>
-                  <span v-else class="text-fg-muted">-</span>
-                </td>
-                <td class="border-b text-center">
-                  {{ match.match_type_name || 'League' }}
-                </td>
-                <td class="border-b text-center">
-                  <span
-                    :class="{
-                      'px-2 py-1 rounded text-xs font-medium': true,
-                      'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300':
-                        match.match_status === 'completed',
-                      'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-200':
-                        match.match_status === 'scheduled',
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300':
-                        match.match_status === 'postponed',
-                      'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300':
-                        match.match_status === 'cancelled',
-                      'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300':
-                        match.match_status === 'forfeit',
-                      'bg-red-600 text-white font-extrabold text-sm px-4 py-2 animate-pulse shadow-lg whitespace-nowrap':
-                        isLiveScored(match),
-                      'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200 font-semibold whitespace-nowrap':
-                        isInProgress(match) && !isLiveScored(match),
-                      'bg-surface-alt text-fg': !match.match_status,
-                    }"
-                  >
-                    {{ getStatusLabel(match) }}
-                  </span>
-                </td>
-                <td v-if="authStore.isAdmin.value" class="border-b text-center">
-                  <span
-                    v-if="match.match_id"
-                    class="text-xs font-mono text-fg"
-                    :title="`External Match ID: ${match.match_id}`"
-                  >
-                    {{ match.match_id }}
-                  </span>
-                  <span v-else class="text-fg-muted text-xs">-</span>
-                </td>
-                <td v-if="authStore.isAdmin.value" class="border-b text-center">
-                  <span
-                    :title="getSourceTooltip(match)"
-                    :class="{
-                      'px-2 py-1 rounded text-xs font-medium': true,
-                      'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300':
-                        match.source === 'match-scraper',
-                      'bg-surface-alt text-fg': match.source === 'manual',
-                      'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300':
-                        match.source === 'import',
-                    }"
-                  >
-                    {{ getSourceDisplay(match.source) }}
-                  </span>
-                </td>
-                <td
-                  v-if="authStore.isAuthenticated.value"
-                  class="border-b text-center space-x-2"
-                >
-                  <button
-                    @click="viewMatch(match)"
-                    class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                  >
-                    View
-                  </button>
-                  <button
-                    v-if="canEditGame(match)"
-                    @click.stop="editMatch(match)"
-                    class="text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 text-sm font-medium"
-                  >
-                    Edit
-                  </button>
-                </td>
-              </tr>
+                      {{ row.label }}
+                    </td>
+                  </tr>
+                  <MatchTableRow
+                    v-else
+                    :match="row.match"
+                    mode="myclub"
+                    :index="row.index"
+                    :striped="row.index % 2 === 0"
+                    :teams="getMatchTeams(row.match)"
+                    :status="rowStatus(row.match)"
+                    :result="getResult(row.match)"
+                    :kickoff="formatLocalTime(row.match.scheduled_kickoff)"
+                    :can-edit="canEditGame(row.match)"
+                    :is-admin="authStore.isAdmin.value"
+                    :is-authenticated="authStore.isAuthenticated.value"
+                    :motw="isMotw(row.match)"
+                    @view="viewMatch"
+                    @edit="editMatch"
+                    @toggle-motw="toggleMotw"
+                  />
+                </template>
+              </template>
             </tbody>
           </table>
 
@@ -1487,12 +717,12 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 import MatchDetailView from '@/components/MatchDetailView.vue';
-import ClubLogo from '@/components/shared/ClubLogo.vue';
 import ClubCombobox from '@/components/ui/ClubCombobox.vue';
 import TeamCombobox from '@/components/ui/TeamCombobox.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
 import MotwHero from '@/components/MotwHero.vue';
 import MatchMobileList from '@/components/matches/MatchMobileList.vue';
+import MatchTableRow from '@/components/matches/MatchTableRow.vue';
 import { subscribeToMatch } from '@/composables/useMatchRealtime';
 import { canEditMatch } from '@/utils/matchPermissions';
 import {
@@ -1500,18 +730,19 @@ import {
   keepKnownIds,
   knownId,
 } from '@/composables/useFilterMemory';
+import { withMonthDividers } from '@/utils/matchRow';
 
 export default {
   name: 'MatchesView',
   components: {
     MatchEditModal,
     MatchDetailView,
-    ClubLogo,
     FollowButton,
     ClubCombobox,
     TeamCombobox,
     MotwHero,
     MatchMobileList,
+    MatchTableRow,
   },
   props: {
     initialAgeGroupId: { type: Number, default: null },
@@ -2174,29 +1405,6 @@ export default {
       return `${match.home_score} - ${match.away_score}`;
     };
 
-    const getSourceDisplay = source => {
-      if (!source || source === 'manual') return '✏️';
-      if (source === 'match-scraper') return '🤖';
-      if (source === 'import') return '📥';
-      return '?';
-    };
-
-    const getSourceTooltip = match => {
-      const source = match.source || 'manual';
-      const sourceText =
-        {
-          manual: 'Manually entered',
-          'match-scraper': 'Auto-scraped from official source',
-          import: 'Imported from backup',
-        }[source] || 'Unknown source';
-
-      if (match.updated_at) {
-        const date = new Date(match.updated_at).toLocaleDateString();
-        return `${sourceText} • Last updated: ${date}`;
-      }
-      return sourceText;
-    };
-
     const getResult = match => {
       // All Matches view - no W/L/D perspective, show dash
       if (selectedViewTab.value === 'all') {
@@ -2740,13 +1948,57 @@ export default {
 
     // Calculate table column count for colspan (admin sees Match ID and Source columns)
     const tableColumnCount = computed(() => {
-      // Base columns: Date, Kick Off, Team, Score, Match Type, Status = 6
-      // Admin-only columns: Match ID, Source = 2
-      // Conditional: Actions column (authenticated users) = 1
-      const baseColumns = 6;
-      const adminColumns = authStore.isAdmin.value ? 2 : 0;
+      // Date, Kick Off, Team, Score, Status = 5. Match Type became a chip in
+      // the Team cell and Match ID / Source moved into Edit Match (SB-1121),
+      // so there are no admin-only columns left.
+      const baseColumns = 5;
+      const rowNumber = selectedViewTab.value === 'myclub' ? 1 : 0;
+      const resultColumn = selectedViewTab.value === 'myclub' ? 1 : 0;
       const actionColumn = authStore.isAuthenticated.value ? 1 : 0;
-      return baseColumns + adminColumns + actionColumn;
+      return baseColumns + rowNumber + resultColumn + actionColumn;
+    });
+
+    // The three league bands of the All Matches view, as data — the markup
+    // for them was three copies of the same block (SB-1121).
+    const allMatchSections = computed(() => [
+      {
+        key: 'homegrown',
+        label: 'HOMEGROWN DIVISION',
+        bandClass:
+          'bg-brand-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-brand-700',
+        matches: homegrownMatches.value,
+      },
+      {
+        key: 'academy',
+        label: 'ACADEMY DIVISION',
+        bandClass:
+          'bg-green-600 text-white font-bold text-sm py-2 px-4 border-b-2 border-green-700',
+        matches: academyMatches.value,
+      },
+      {
+        key: 'other',
+        label: 'OTHER MATCHES',
+        bandClass:
+          'bg-gray-600 dark:bg-slate-700 text-white font-bold text-sm py-2 px-4 border-b-2 border-gray-700 dark:border-slate-800',
+        matches: otherMatches.value,
+      },
+    ]);
+
+    // Status is three separate questions in this component; the row wants one
+    // answer.
+    const rowStatus = match => ({
+      label: getStatusLabel(match),
+      live: isLiveScored(match),
+      inProgress: isInProgress(match),
+    });
+
+    // My Club's chronological list with month dividers folded in. The row
+    // number counts matches only, so the dividers do not shift it.
+    const myClubRows = computed(() => {
+      let position = 0;
+      return withMonthDividers(sortedGames.value).map(row =>
+        row.type === 'match' ? { ...row, index: position++ } : row
+      );
     });
 
     // Rule lives in utils/matchPermissions so the tournament rows enforce the
@@ -3232,8 +2484,6 @@ export default {
       getStatusLabel,
       isInProgress,
       isLiveScored,
-      getSourceDisplay,
-      getSourceTooltip,
       getResult,
       seasonStats,
       getTeamDisplay,
@@ -3247,6 +2497,9 @@ export default {
       getSegmentGridClass,
       canEditGames,
       tableColumnCount,
+      allMatchSections,
+      rowStatus,
+      myClubRows,
       canEditGame,
       editMatch,
       viewMatch,

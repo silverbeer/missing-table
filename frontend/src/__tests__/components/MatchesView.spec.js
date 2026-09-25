@@ -1050,18 +1050,24 @@ describe('MatchesView', () => {
       expect(wrapper.text()).not.toContain('Edit Match');
     });
 
-    it('admin sees Match ID column', async () => {
+    it('shows no Match ID or Source column, not even to an admin', async () => {
+      // SB-1121: these are forensics, not match information. They answer one
+      // question — am I about to overwrite a scraped score? — and Edit Match
+      // has always carried them.
       mockAuthStore = createMockAuthStore({
         isAdmin: { value: true },
         isAuthenticated: { value: true },
       });
-      const matches = [createMockMatch({ id: 1, match_id: 'EXT123' })];
+      const matches = [
+        createMockMatch({ id: 1, match_id: 'EXT123', source: 'match-scraper' }),
+      ];
       setupMockApiResponses({ matches });
       const wrapper = mountMatchesView();
       await flushPromises();
 
-      // Admin should see external match ID
-      expect(wrapper.text()).toContain('EXT123');
+      expect(wrapper.text()).not.toContain('EXT123');
+      expect(wrapper.text()).not.toContain('Match ID');
+      expect(wrapper.text()).not.toContain('Source');
     });
   });
 
