@@ -1,6 +1,7 @@
 import { reactive, computed } from 'vue';
 import { addCSRFHeader, clearCSRFToken } from '../utils/csrf';
 import { getTraceHeaders } from '../utils/traceContext';
+import { errorMessage } from '../utils/apiError';
 import { hasAnyRole } from '../utils/roles';
 import { bustApiCache } from '../utils/swCache';
 import { getApiBaseUrl } from '../config/api';
@@ -235,7 +236,7 @@ export const useAuthStore = () => {
       if (!response.ok) {
         const errorData = await response.json();
         recordSignup(false, 'signup', { error_type: 'signup_failed' });
-        throw new Error(errorData.detail || 'Signup failed');
+        throw new Error(errorMessage(errorData, 'Signup failed'));
       }
 
       const data = await response.json();
@@ -281,7 +282,7 @@ export const useAuthStore = () => {
         recordSignup(false, 'signup_with_invite', {
           error_type: 'signup_failed',
         });
-        throw new Error(errorData.detail || 'Signup failed');
+        throw new Error(errorMessage(errorData, 'Signup failed'));
       }
 
       const data = await response.json();
@@ -317,7 +318,7 @@ export const useAuthStore = () => {
         const errorData = await response.json();
         recordLogin(false, { error_type: 'invalid_credentials' });
         recordLoginDuration(duration, false);
-        throw new Error(errorData.detail || 'Login failed');
+        throw new Error(errorMessage(errorData, 'Login failed'));
       }
 
       const data = await response.json();
@@ -488,7 +489,7 @@ export const useAuthStore = () => {
             signOutError
           );
         }
-        throw new Error(errorData.detail || 'OAuth callback failed');
+        throw new Error(errorMessage(errorData, 'OAuth callback failed'));
       }
 
       const userData = await response.json();
@@ -617,7 +618,7 @@ export const useAuthStore = () => {
         await fetchProfile();
         return { success: true, data: response.data };
       } else {
-        throw new Error(response?.detail || 'Profile update failed');
+        throw new Error(errorMessage(response, 'Profile update failed'));
       }
     } catch (error) {
       setError(error.message);
@@ -1019,7 +1020,7 @@ export const useAuthStore = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Request failed');
+        throw new Error(errorMessage(data, 'Request failed'));
       }
 
       return {
@@ -1055,7 +1056,7 @@ export const useAuthStore = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Password reset failed');
+        throw new Error(errorMessage(data, 'Password reset failed'));
       }
 
       return { success: true, message: data.message };

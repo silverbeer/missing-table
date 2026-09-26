@@ -231,7 +231,7 @@ describe('LoginForm', () => {
       await wrapper.find('[data-testid="username-input"]').setValue('testuser');
       await wrapper
         .find('[data-testid="password-input"]')
-        .setValue('password123');
+        .setValue('correct-horse-battery');
 
       // Submit the form
       await wrapper.find('form').trigger('submit');
@@ -242,7 +242,7 @@ describe('LoginForm', () => {
       // Verify login was called with correct arguments
       expect(mockAuthStore.login).toHaveBeenCalledWith(
         'testuser',
-        'password123'
+        'correct-horse-battery'
       );
     });
 
@@ -255,7 +255,7 @@ describe('LoginForm', () => {
       await wrapper.find('[data-testid="username-input"]').setValue('testuser');
       await wrapper
         .find('[data-testid="password-input"]')
-        .setValue('password123');
+        .setValue('correct-horse-battery');
       await wrapper.find('form').trigger('submit');
       await flushPromises();
 
@@ -307,6 +307,10 @@ describe('LoginForm', () => {
     /**
      * Test: Submitting signup form calls signupWithInvite
      */
+    // The fixture password is 21 characters on purpose: the policy floor is
+    // 12 (SB-640) and the form now checks it before submitting (SB-1123), so
+    // the old 'password123' never reaches the store. It would have been
+    // refused in production too — 'password' is on the server's blocklist.
     it('calls signupWithInvite with form data', async () => {
       const wrapper = mountLoginForm();
 
@@ -317,7 +321,7 @@ describe('LoginForm', () => {
       await wrapper.find('[data-testid="username-input"]').setValue('newuser');
       await wrapper
         .find('[data-testid="password-input"]')
-        .setValue('password123');
+        .setValue('correct-horse-battery');
       await wrapper.find('#inviteCode').setValue('INVITE123');
       await wrapper.find('#displayName').setValue('New User');
       await wrapper.find('#email').setValue('new@example.com');
@@ -329,7 +333,7 @@ describe('LoginForm', () => {
       // Verify signupWithInvite was called with all the data
       expect(mockAuthStore.signupWithInvite).toHaveBeenCalledWith(
         'newuser', // username
-        'password123', // password
+        'correct-horse-battery', // password
         'New User', // displayName
         'INVITE123', // inviteCode
         'new@example.com' // email
@@ -349,7 +353,7 @@ describe('LoginForm', () => {
       await wrapper.find('[data-testid="username-input"]').setValue('newuser');
       await wrapper
         .find('[data-testid="password-input"]')
-        .setValue('password123');
+        .setValue('correct-horse-battery');
       await wrapper.find('#inviteCode').setValue('INVITE123');
 
       // Submit
@@ -359,7 +363,7 @@ describe('LoginForm', () => {
       // After signup succeeds, login should be called
       expect(mockAuthStore.login).toHaveBeenCalledWith(
         'newuser',
-        'password123'
+        'correct-horse-battery'
       );
     });
   });
@@ -516,5 +520,76 @@ describe('LoginForm', () => {
       const inviteInput = wrapper.find('#inviteCode');
       expect(inviteInput.element.value).toBe('TESTCODE123');
     });
+  });
+});
+
+/**
+ * The password policy, said out loud (SB-1123).
+ *
+ * The reported failure: a valid invite, a free username, an 8-character
+ * password, and the only feedback was "[object Object]". Nothing on the form
+ * had mentioned a length requirement, and the server's explanation was lost
+ * because `detail` on a 422 is a list of objects, not a string.
+ */
+describe('LoginForm — password policy', () => {
+  beforeEach(() => {
+    mockAuthStore = createMockAuthStore();
+  });
+
+  it('states the requirement on the signup form, before anyone submits', async () => {
+    const wrapper = mountLoginForm();
+    await wrapper.find('[data-testid="signup-link"]').trigger('click');
+
+    const hint = wrapper.find('[data-testid="password-hint"]');
+    expect(hint.exists()).toBe(true);
+    expect(hint.text()).toContain('12');
+  });
+
+  it('does not nag about it on the login form', async () => {
+    const wrapper = mountLoginForm();
+    expect(wrapper.find('[data-testid="password-hint"]').exists()).toBe(false);
+  });
+
+  it('refuses a short password without asking the server', async () => {
+    const wrapper = mountLoginForm();
+    await wrapper.find('[data-testid="signup-link"]').trigger('click');
+    await wrapper.find('[data-testid="username-input"]').setValue('check');
+    await wrapper.find('[data-testid="password-input"]').setValue('short123');
+    await wrapper.find('#inviteCode').setValue('GCYUZPX78RX6');
+
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(mockAuthStore.signupWithInvite).not.toHaveBeenCalled();
+    expect(mockAuthStore.setError).toHaveBeenCalledWith(
+      expect.stringContaining('12')
+    );
+  });
+
+  it('lets a compliant password through to the server', async () => {
+    const wrapper = mountLoginForm();
+    await wrapper.find('[data-testid="signup-link"]').trigger('click');
+    await wrapper.find('[data-testid="username-input"]').setValue('check');
+    await wrapper
+      .find('[data-testid="password-input"]')
+      .setValue('correct-horse-battery');
+    await wrapper.find('#inviteCode').setValue('GCYUZPX78RX6');
+
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(mockAuthStore.signupWithInvite).toHaveBeenCalled();
+  });
+
+  it('still lets an old short password sign in — rotation has to be possible', async () => {
+    const wrapper = mountLoginForm();
+    await wrapper.find('[data-testid="username-input"]').setValue('tom_ifa');
+    await wrapper.find('[data-testid="password-input"]').setValue('short123');
+
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(mockAuthStore.login).toHaveBeenCalledWith('tom_ifa', 'short123');
+    expect(mockAuthStore.setError).not.toHaveBeenCalled();
   });
 });

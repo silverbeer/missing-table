@@ -283,6 +283,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import { errorMessage } from '../utils/apiError';
 
 export default {
   name: 'MatchForm',
@@ -577,7 +578,7 @@ export default {
           };
           formType.value = 'schedule';
         } else {
-          message.value = result.detail || 'Error submitting match';
+          message.value = errorMessage(result, 'Error submitting match');
           error.value = true;
         }
       } catch (err) {

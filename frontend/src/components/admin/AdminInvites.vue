@@ -767,6 +767,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { errorMessage } from '../../utils/apiError';
 
 const authStore = useAuthStore();
 
@@ -992,7 +993,7 @@ const createInvite = async () => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || 'Failed to create invite');
+      throw new Error(errorMessage(errorData, 'Failed to create invite'));
     }
 
     createdInvite.value = await response.json();

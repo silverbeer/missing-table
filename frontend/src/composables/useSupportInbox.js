@@ -15,6 +15,7 @@
 import { ref, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import { errorMessage } from '../utils/apiError';
 
 const UNREAD_POLL_MS = 60_000;
 
@@ -42,7 +43,7 @@ async function _apiFetch(path, { method = 'GET', body, signal } = {}) {
   const resp = await fetch(`${getApiBaseUrl()}${path}`, opts);
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
-    const detail = data.detail || `request failed (${resp.status})`;
+    const detail = errorMessage(data, `request failed (${resp.status})`);
     const err = new Error(detail);
     err.status = resp.status;
     throw err;

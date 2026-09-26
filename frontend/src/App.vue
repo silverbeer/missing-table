@@ -399,6 +399,7 @@ import { hasAnyRole, TEAM_PAGE_ROLES } from './utils/roles';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { getApiBaseUrl } from './config/api';
+import { errorMessage } from './utils/apiError';
 import { recordPageView, recordInviteRequest } from './faro';
 
 // Eagerly loaded: initial-paint view (LeagueTable is the default tab) and the
@@ -746,8 +747,10 @@ export default {
           };
         } else {
           inviteRequestSuccess.value = false;
-          inviteRequestMessage.value =
-            data.detail || 'Failed to submit request. Please try again.';
+          inviteRequestMessage.value = errorMessage(
+            data,
+            'Failed to submit request. Please try again.'
+          );
           recordInviteRequest(false);
         }
       } catch (error) {
