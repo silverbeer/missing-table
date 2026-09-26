@@ -46,43 +46,7 @@
       </template>
 
       <!-- Step 2: no email on file — collect it -->
-      <template v-else-if="step === 'provide-email'">
-        <h2>Add Your Email</h2>
-        <p class="form-hint">
-          Your account doesn't have an email address on file. Enter one below
-          and we'll send your reset link there.
-        </p>
-        <form @submit.prevent="submitEmail" class="auth-form">
-          <div class="form-group">
-            <label for="fp-email">Email Address:</label>
-            <input
-              id="fp-email"
-              v-model="email"
-              type="email"
-              required
-              :disabled="authStore.state.loading"
-              placeholder="you@example.com"
-              data-testid="fp-email-input"
-            />
-          </div>
-
-          <div v-if="authStore.state.error" class="error-message">
-            {{ authStore.state.error }}
-          </div>
-
-          <div class="form-actions">
-            <button
-              type="submit"
-              :disabled="authStore.state.loading"
-              class="submit-btn"
-            >
-              {{ authStore.state.loading ? 'Sending…' : 'Send Reset Link' }}
-            </button>
-          </div>
-        </form>
-      </template>
-
-      <!-- Step 3: check your email -->
+      <!-- Step 2: check your email -->
       <template v-else-if="step === 'check-email'">
         <h2>Check Your Email</h2>
         <p class="form-hint">
@@ -90,7 +54,9 @@
           >, a password reset link has been sent. The link expires in 1 hour.
         </p>
         <p class="form-hint">
-          Didn't receive it? Check your spam folder or try again.
+          Didn't receive it? Check your spam folder. If your account has no
+          email address on file, ask your club admin to add one — then try
+          again.
         </p>
       </template>
 
@@ -114,27 +80,12 @@ export default {
     const authStore = useAuthStore();
     const step = ref('identifier');
     const identifier = ref('');
-    const email = ref('');
 
     const submitIdentifier = async () => {
       authStore.clearError();
       const result = await authStore.requestPasswordReset(identifier.value);
       if (!result.success) return;
 
-      if (result.needsEmail) {
-        step.value = 'provide-email';
-      } else {
-        step.value = 'check-email';
-      }
-    };
-
-    const submitEmail = async () => {
-      authStore.clearError();
-      const result = await authStore.requestPasswordReset(
-        identifier.value,
-        email.value
-      );
-      if (!result.success) return;
       step.value = 'check-email';
     };
 
@@ -142,9 +93,7 @@ export default {
       authStore,
       step,
       identifier,
-      email,
       submitIdentifier,
-      submitEmail,
     };
   },
 };
