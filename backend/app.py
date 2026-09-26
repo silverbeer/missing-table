@@ -7228,6 +7228,76 @@ class AdminUserUpdate(BaseModel):
     role: str | None = None
     team_id: int | None = None
     club_id: int | None = None
+    # A contact address, which most accounts do not have: MT keys on username
+    # and synthesises one for Supabase. Sending "" clears it (SB-1128).
+    email: str | None = None
+
+
+def _validated_admin_email(value: str | None, user_id: str) -> str | None:
+    """The address to store, or None to clear it (SB-1128).
+
+    Three things have to hold before an admin-supplied address is written:
+
+    1. It is not a synthetic login identity. Every account has a
+       ``username@missingtable.local`` so Supabase Auth has a key; ``.local``
+       is reserved for mDNS and nothing can be delivered there. Storing one
+       as a contact address makes an account look reachable when it is not.
+    2. It is not already in use. ``user_profiles.email`` is UNIQUE, so a
+       duplicate would fail at the database with a message no admin can act
+       on.
+    3. It is not already in use *by an auth login either*. The unique
+       constraint cannot see that: a Google account can hold the address on
+       ``auth.users`` while its ``user_profiles.email`` is null, which is
+       exactly how the duplicate accounts in SB-1124 came about. Checking one
+       table would let an admin point two logins at one address.
+    """
+    if value is None:
+        return None
+
+    email = value.strip().lower()
+    if not email:
+        # Distinct from "not sent": an empty string is how the field is
+        # cleared, and the caller has already established it was sent.
+        return None
+
+    if "@" not in email or email.startswith("@") or email.endswith("@"):
+        raise HTTPException(status_code=400, detail="That is not a valid email address")
+
+    if email.endswith("@missingtable.local"):
+        raise HTTPException(
+            status_code=400,
+            detail="That is a sign-in identity, not a mailbox. Use a real address.",
+        )
+
+    clash = (
+        auth_service_client.table("user_profiles")
+        .select("id, username")
+        .eq("email", email)
+        .neq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if clash.data:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{email} is already on the account '{clash.data[0].get('username')}'.",
+        )
+
+    try:
+        for auth_user in auth_service_client.auth.admin.list_users():
+            if (auth_user.email or "").lower() == email and str(auth_user.id) != str(user_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{email} is already used to sign in to another account.",
+                )
+    except HTTPException:
+        raise
+    except Exception:
+        # A failure to enumerate auth users must not block a legitimate edit;
+        # the UNIQUE constraint above is still in force.
+        logger.warning("Could not check auth.users for an email clash", email_domain=email.split("@")[-1])
+
+    return email
 
 
 @app.patch("/api/admin/users/{user_id}")
@@ -7249,7 +7319,7 @@ async def update_user_profile_admin(
 
         target_resp = (
             auth_service_client.table("user_profiles")
-            .select("id, username, role, team_id, club_id")
+            .select("id, username, role, team_id, club_id, email")
             .eq("id", user_id)
             .limit(1)
             .execute()
@@ -7259,9 +7329,16 @@ async def update_user_profile_admin(
             raise HTTPException(status_code=404, detail="User not found")
 
         updates: dict[str, Any] = {}
-        for field in ("role", "team_id", "club_id"):
+        for field in ("role", "team_id", "club_id", "email"):
             if field in sent:
                 updates[field] = getattr(payload, field)
+
+        # An email an admin types is a contact address, and setting one is a
+        # sharper act than it looks: whoever controls the address can take the
+        # account through a password reset. It is allowed — an admin can
+        # already change roles — but it is audited below, deliberately.
+        if "email" in updates:
+            updates["email"] = _validated_admin_email(updates["email"], user_id)
 
         # Guardrails on the admin role. Losing every admin locks everyone out
         # of exactly the screen that could undo it, and an admin removing

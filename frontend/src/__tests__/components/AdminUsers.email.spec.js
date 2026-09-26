@@ -136,3 +136,66 @@ describe('AdminUsers — contactEmail', () => {
     expect(fn(null)).toBeNull();
   });
 });
+
+describe('AdminUsers — an admin setting an email (SB-1128)', () => {
+  const openEditor = async (wrapper, username) => {
+    await wrapper
+      .find(`[data-testid="edit-user-${username}"]`)
+      .trigger('click');
+    await flushPromises();
+  };
+
+  it('offers an Email field in the editor', async () => {
+    const wrapper = await mountUsers();
+    await openEditor(wrapper, 'check');
+    expect(wrapper.find('[data-testid="edit-email"]').exists()).toBe(true);
+  });
+
+  it('opens with the existing address', async () => {
+    const wrapper = await mountUsers();
+    await openEditor(wrapper, 'check');
+    expect(wrapper.find('[data-testid="edit-email"]').element.value).toBe(
+      'silverbeer@zohomail.com'
+    );
+  });
+
+  it('opens empty for an account with none', async () => {
+    const wrapper = await mountUsers();
+    await openEditor(wrapper, 'anngoutis');
+    expect(wrapper.find('[data-testid="edit-email"]').element.value).toBe('');
+  });
+
+  it('opens empty rather than pre-filling a synthetic sign-in identity', async () => {
+    const wrapper = await mountUsers();
+    await openEditor(wrapper, 'gabe35');
+    expect(wrapper.find('[data-testid="edit-email"]').element.value).toBe('');
+  });
+
+  it('sends the address on save', async () => {
+    const wrapper = await mountUsers();
+    await openEditor(wrapper, 'anngoutis');
+    await wrapper
+      .find('[data-testid="edit-email"]')
+      .setValue('ann@example.com');
+    await wrapper.find('[data-testid="save-user"]').trigger('click');
+    await flushPromises();
+
+    const patch = apiRequest.mock.calls.find(
+      ([, opts]) => opts?.method === 'PATCH'
+    );
+    expect(JSON.parse(patch[1].body).email).toBe('ann@example.com');
+  });
+
+  it('sends an empty string to clear one, which the API reads as "remove"', async () => {
+    const wrapper = await mountUsers();
+    await openEditor(wrapper, 'check');
+    await wrapper.find('[data-testid="edit-email"]').setValue('');
+    await wrapper.find('[data-testid="save-user"]').trigger('click');
+    await flushPromises();
+
+    const patch = apiRequest.mock.calls.find(
+      ([, opts]) => opts?.method === 'PATCH'
+    );
+    expect(JSON.parse(patch[1].body).email).toBe('');
+  });
+});

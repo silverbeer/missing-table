@@ -198,6 +198,27 @@
               </button>
             </div>
 
+            <!-- SB-1128: most accounts have no address, and until now only
+                 the user could add one (forgot-password asks for it). An
+                 admin with the right address to hand could do nothing. -->
+            <label class="flex flex-col gap-1">
+              <span
+                class="text-xs font-medium text-fg-muted uppercase tracking-wide"
+                >Email</span
+              >
+              <input
+                v-model="form.email"
+                type="email"
+                placeholder="Not set"
+                data-testid="edit-email"
+                class="px-3 py-2.5 rounded-lg border border-line bg-surface text-fg"
+              />
+              <span class="text-[11px] text-fg-muted">
+                Where password resets and invites go. Clearing it removes the
+                address.
+              </span>
+            </label>
+
             <label class="flex flex-col gap-1">
               <span
                 class="text-xs font-medium text-fg-muted uppercase tracking-wide"
@@ -448,7 +469,7 @@ export default {
     ];
 
     const editing = ref(null);
-    const form = ref({ role: null, team_id: null, club_id: null });
+    const form = ref({ role: null, team_id: null, club_id: null, email: '' });
     const saving = ref(false);
     const saveError = ref(null);
     const teams = ref([]);
@@ -470,7 +491,8 @@ export default {
       return (
         form.value.role !== editing.value.role ||
         form.value.team_id !== (editing.value.team_id ?? null) ||
-        form.value.club_id !== (editing.value.club_id ?? null)
+        form.value.club_id !== (editing.value.club_id ?? null) ||
+        form.value.email.trim() !== (editing.value.email ?? '')
       );
     });
 
@@ -534,6 +556,10 @@ export default {
         role: user.role,
         team_id: user.team_id ?? null,
         club_id: user.club_id ?? null,
+        // The synthetic @missingtable.local identity is not a contact
+        // address, so the field opens empty rather than pre-filled with
+        // something nothing can be delivered to (SB-1125).
+        email: contactEmail(user) ?? '',
       };
       await loadPickerData();
     };
@@ -553,7 +579,12 @@ export default {
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form.value),
+            // An empty string is how the address is cleared, and the API
+            // distinguishes that from "not sent".
+            body: JSON.stringify({
+              ...form.value,
+              email: form.value.email.trim(),
+            }),
           }
         );
         closeEditor();
