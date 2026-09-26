@@ -232,15 +232,25 @@ class InviteService:
                 try:
                     from services.email_service import EmailService
 
-                    EmailService().send_invitation(
+                    # send_invitation returns False rather than raising when
+                    # the provider refuses, so the result has to be checked:
+                    # ignoring it meant a refused invitation was recorded
+                    # nowhere at all (SB-1126).
+                    sent = EmailService().send_invitation(
                         to_email=email,
                         invite_code=invite_code,
                         invite_type=invite_type,
                         expires_at=expires_at.isoformat(),
                     )
+                    if not sent:
+                        logger.warning(
+                            "invitation_email_not_sent",
+                            extra={"invite_type": invite_type, "reason": "provider_rejected"},
+                        )
                 except Exception as e:
                     logger.warning(
-                        f"Failed to send invitation email to {email}: {e}"
+                        "invitation_email_not_sent",
+                        extra={"invite_type": invite_type, "reason": str(e)},
                     )
 
             return response.data[0]
