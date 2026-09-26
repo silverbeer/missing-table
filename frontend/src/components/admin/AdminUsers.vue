@@ -70,6 +70,7 @@
             <tr class="text-left text-fg-muted border-b border-line">
               <th class="pb-2 pr-4 font-medium">Username</th>
               <th class="pb-2 pr-4 font-medium">Display Name</th>
+              <th class="pb-2 pr-4 font-medium">Email</th>
               <th class="pb-2 pr-4 font-medium">Role</th>
               <th class="pb-2 pr-4 font-medium">Team</th>
               <th class="pb-2 pr-4 font-medium">Club</th>
@@ -91,6 +92,29 @@
               </td>
               <td class="py-2 pr-4 text-fg-muted">
                 {{ user.display_name || '—' }}
+              </td>
+              <!-- SB-1125: the address was in the payload all along. Most
+                   accounts have none, and a blank cell reads as "nothing to
+                   see" when it actually means a password reset cannot reach
+                   this person.
+
+                   Not amber: on this page amber already means "missing
+                   affiliation" (SB-803), and a second meaning for the same
+                   colour makes both harder to read. The words carry it. -->
+              <td class="py-2 pr-4">
+                <span
+                  v-if="contactEmail(user)"
+                  class="text-fg-muted"
+                  data-testid="user-email"
+                  >{{ contactEmail(user) }}</span
+                >
+                <span
+                  v-else
+                  class="text-fg-muted text-xs italic"
+                  title="No address on file — a password reset or invite has nowhere to go."
+                  data-testid="user-email-missing"
+                  >No email</span
+                >
               </td>
               <td class="py-2 pr-4">
                 <span :class="roleBadgeClass(user.role)">{{
@@ -452,6 +476,22 @@ export default {
 
     // Flag an affiliation the role implies but the account lacks. This is the
     // state four real accounts are in, and it was invisible before.
+    /**
+     * The address this account can actually be reached at, or null (SB-1125).
+     *
+     * MT keeps username as the primary identifier and synthesises
+     * `username@missingtable.local` so Supabase Auth has something to key on.
+     * That is a login identity, not a mailbox — nothing can be delivered to
+     * it, `.local` being reserved for mDNS. Showing it in a column headed
+     * Email would tell an admin the account is reachable when it is not,
+     * which is worse than showing nothing.
+     */
+    const contactEmail = user => {
+      const email = user?.email;
+      if (!email) return null;
+      return email.endsWith('@missingtable.local') ? null : email;
+    };
+
     const affiliationClass = (user, kind) => {
       const role = (user.role || '').replace(/_/g, '-');
       const expectsTeam = role.startsWith('team-') && role !== 'team-fan';
@@ -613,6 +653,7 @@ export default {
       filteredTeams,
       isDirty,
       affiliationClass,
+      contactEmail,
       openEditor,
       closeEditor,
       saveUser,
