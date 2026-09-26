@@ -103,10 +103,15 @@ class UserProfileUpdate(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    """Model for forgot-password requests."""
+    """Model for forgot-password requests.
+
+    Deliberately carries no email field. It used to: an account with none on
+    file would accept one here and have a reset sent to it, which meant
+    anyone who knew a username could take the account (SB-1129). The field is
+    gone rather than validated, so nothing can reach for it again.
+    """
 
     identifier: str  # Username or email address
-    email: str | None = None  # Real email, supplied when account has none on file
 
     @field_validator("identifier")
     @classmethod
@@ -114,15 +119,6 @@ class ForgotPasswordRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError("identifier must not be empty")
         return v.strip()
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: str | None) -> str | None:
-        if v == "":
-            return None
-        if v is not None and "@" not in v:
-            raise ValueError("Invalid email format")
-        return v
 
 
 class ResetPasswordRequest(BaseModel):

@@ -679,16 +679,58 @@ async def login(request: Request, user_data: UserLogin):
         raise HTTPException(status_code=401, detail="Invalid credentials") from e
 
 
+def _verified_auth_email(user_id: str) -> str | None:
+    """The address on auth.users, when it is one mail can be delivered to.
+
+    Every account has a synthetic ``username@missingtable.local`` so Supabase
+    Auth has a key. ``.local`` is reserved for mDNS, so that address is a
+    sign-in identity and never a mailbox — returning one would send a reset
+    into a black hole and report success.
+    """
+    try:
+        for auth_user in auth_service_client.auth.admin.list_users():
+            if str(auth_user.id) != str(user_id):
+                continue
+            email = (auth_user.email or "").strip().lower()
+            if email and not email.endswith("@missingtable.local"):
+                return email
+            return None
+    except Exception:
+        logger.warning("Could not read auth.users for a password reset fallback", user_id=user_id)
+    return None
+
+
+def _backfill_profile_email(user_id: str, email: str, log) -> None:
+    """Copy a verified auth address onto the profile, once.
+
+    Best effort on purpose: the reset itself must go out even if this write
+    fails. A clash is possible — user_profiles.email is UNIQUE, and another
+    profile may already hold the address — and that is not a reason to deny
+    someone their reset.
+    """
+    try:
+        auth_service_client.table("user_profiles").update({"email": email}).eq("id", user_id).execute()
+        log.info("forgot_password_profile_email_backfilled", user_id=user_id)
+    except Exception as err:
+        log.warning("forgot_password_profile_email_backfill_failed", user_id=user_id, error=str(err))
+
+
 @app.post("/api/auth/forgot-password")
 @rate_limit(RATE_LIMITS["password_reset"])
 async def forgot_password(request: Request, body: ForgotPasswordRequest):
     """
     Initiate password reset flow.
 
-    - If user has an email on file: generate token, send reset email.
-    - If user has NO email: return ``needs_email: true`` so frontend can collect it.
-    - If user supplies an email in the body alongside a no-email account: save email first, then send.
-    - User not found: return generic success to prevent username enumeration.
+    Every path returns the same generic response. That is the whole design:
+    the caller must not be able to tell an unknown username from a known one,
+    nor a reachable account from an unreachable one.
+
+    - An address on the profile: generate a token and send.
+    - None there, but a verified one on auth.users: use it, and copy it across.
+    - Neither: log it and return the generic response. Recovery goes through
+      an admin setting the address (SB-1128). Accepting one from the caller
+      here was an account takeover (SB-1129).
+    - Unknown username: the same generic response.
     """
     client_ip = get_client_ip(request)
     pw_logger = logger.bind(flow="forgot_password", client_ip=client_ip)
@@ -707,21 +749,28 @@ async def forgot_password(request: Request, body: ForgotPasswordRequest):
         username: str = user.get("username", body.identifier)
         email_on_file: str | None = user.get("email")
 
-        # Case: no email stored, and none provided in this request
-        if not email_on_file and not body.email:
-            pw_logger.info("forgot_password_needs_email", user_id=user_id)
-            return {"needs_email": True}
+        # No address on the profile: before giving up, use the verified one
+        # MT already holds. Google sign-ins in particular have a real address
+        # on auth.users that nothing ever copied across, so they looked
+        # unreachable while we knew exactly how to reach them (SB-1129).
+        if not email_on_file:
+            email_on_file = _verified_auth_email(user_id)
+            if email_on_file:
+                _backfill_profile_email(user_id, email_on_file, pw_logger)
 
-        # Case: no email stored, but user just provided one
-        if not email_on_file and body.email:
-            # Persist it so future flows work too
-            try:
-                auth_service_client.table("user_profiles").update({"email": body.email}).eq("id", user_id).execute()
-                email_on_file = body.email
-                pw_logger.info("forgot_password_email_saved", user_id=user_id)
-            except Exception as save_err:
-                pw_logger.error("forgot_password_email_save_failed", user_id=user_id, error=str(save_err))
-                raise HTTPException(status_code=500, detail="Failed to save email") from save_err
+        # Still nothing. An address supplied in this request would prove
+        # nothing — the endpoint is unauthenticated, so anyone who knows the
+        # username could supply their own and be sent the reset link. That is
+        # how this flow used to work, and it was an account takeover for every
+        # account without an address. Recovery for these goes through an admin
+        # setting the address (SB-1128), which is authenticated and audited.
+        #
+        # The response is the generic one, identical to an unknown username:
+        # answering differently here would confirm both that the account
+        # exists and that it is one of the vulnerable ones.
+        if not email_on_file:
+            pw_logger.warning("forgot_password_no_reachable_address", user_id=user_id)
+            return _GENERIC_RESPONSE
 
         # Generate reset token and send email
         reset_token = auth_manager.create_password_reset_token(user_id)

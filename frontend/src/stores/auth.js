@@ -997,13 +997,15 @@ export const useAuthStore = () => {
     return apiCall(url, { ...options, headers });
   };
 
-  const requestPasswordReset = async (identifier, email = null) => {
+  // Takes only the identifier. It used to accept an email for an account
+  // that had none, which the API would store and send the reset link to —
+  // an account takeover for anyone who knew a username (SB-1129).
+  const requestPasswordReset = async identifier => {
     try {
       setLoading(true);
       clearError();
 
       const body = { identifier };
-      if (email) body.email = email;
 
       const response = await fetch(
         `${getApiBaseUrl()}/api/auth/forgot-password`,
@@ -1025,7 +1027,6 @@ export const useAuthStore = () => {
 
       return {
         success: true,
-        needsEmail: !!data.needs_email,
         message: data.message,
       };
     } catch (error) {
