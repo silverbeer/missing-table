@@ -121,6 +121,7 @@
 import { onMounted, reactive, ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
+import { errorMessage } from '@/utils/apiError';
 
 const props = defineProps({
   clubId: {
@@ -246,7 +247,7 @@ const save = async platformId => {
     });
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
-      throw new Error(body.detail || `Save failed (HTTP ${resp.status})`);
+      throw new Error(errorMessage(body, `Save failed (HTTP ${resp.status})`));
     }
     draft[platformId] = '';
     showFlash('success', `${platform.label} channel saved.`);
@@ -339,7 +340,7 @@ const testSend = async platformId => {
     }
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
-      throw new Error(body.detail || `Test failed (HTTP ${resp.status})`);
+      throw new Error(errorMessage(body, `Test failed (HTTP ${resp.status})`));
     }
     const body = await resp.json();
     if (body.success) {

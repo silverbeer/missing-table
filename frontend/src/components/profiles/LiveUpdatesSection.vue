@@ -132,6 +132,7 @@
 import { ref, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { errorMessage } from '../../utils/apiError';
 
 export default {
   name: 'LiveUpdatesSection',
@@ -217,7 +218,7 @@ export default {
         );
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.detail || 'Failed to submit request');
+          throw new Error(errorMessage(data, 'Failed to submit request'));
         }
         await fetchChannelAccess();
       } catch (err) {

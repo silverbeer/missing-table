@@ -709,6 +709,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { errorMessage } from '../../utils/apiError';
 import { bustApiCache } from '../../utils/swCache';
 import { ROUND_LABELS_LONG as ROUND_LABELS } from '../../utils/tournamentRounds';
 import TeamCombobox from '../ui/TeamCombobox.vue';
@@ -987,7 +988,7 @@ export default {
 
         if (!fetchResponse.ok) {
           const errorData = await fetchResponse.json();
-          throw new Error(errorData.detail || 'Failed to upload logo');
+          throw new Error(errorMessage(errorData, 'Failed to upload logo'));
         }
 
         // Raw fetch, so the auth store's post-write cache bust doesn't run

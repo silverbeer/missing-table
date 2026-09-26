@@ -36,9 +36,25 @@
             required
             :disabled="authStore.state.loading"
             placeholder="Enter your password"
-            minlength="6"
+            :minlength="isSignup ? MIN_PASSWORD_LENGTH : undefined"
+            :aria-describedby="isSignup ? 'password-hint' : undefined"
             data-testid="password-input"
           />
+          <!--
+            The rule, stated before submit (SB-1123). It was only discoverable
+            by failing: the form said minlength 6, the server has required 12
+            since SB-640, and the rejection rendered as "[object Object]".
+            Login stays lenient on purpose — an account with an older, shorter
+            password still has to be able to sign in and change it.
+          -->
+          <p
+            v-if="isSignup"
+            id="password-hint"
+            class="text-xs text-fg-muted mt-1"
+            data-testid="password-hint"
+          >
+            {{ LENGTH_HINT }}
+          </p>
         </div>
 
         <div v-if="showInviteSignup" class="form-group">
@@ -276,6 +292,11 @@
 <script>
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import {
+  MIN_PASSWORD_LENGTH,
+  LENGTH_HINT,
+  passwordProblem,
+} from '@/constants/password';
 import { useTheme } from '@/composables/useTheme';
 import { getApiBaseUrl } from '../config/api';
 import SupportEmailLink from '@/components/SupportEmailLink.vue';
@@ -420,6 +441,17 @@ export default {
     const handleSubmit = async () => {
       authStore.clearError();
 
+      // Catch the commonest rejection here rather than after a round trip.
+      // The server still decides — it also blocks common words and passwords
+      // containing the username, which this cannot see.
+      if (isSignup.value) {
+        const problem = passwordProblem(form.password);
+        if (problem) {
+          authStore.setError(problem);
+          return;
+        }
+      }
+
       if (isSignup.value && showInviteSignup.value) {
         const result = await authStore.signupWithInvite(
           form.username,
@@ -506,6 +538,8 @@ export default {
     return {
       authStore,
       logoSrc,
+      MIN_PASSWORD_LENGTH,
+      LENGTH_HINT,
       isSignup,
       showInviteSignup,
       form,
