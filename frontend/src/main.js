@@ -7,6 +7,10 @@ import App from './App.vue';
 import './style.css';
 // Side-effect import: registers the PWA service worker (no-op in dev).
 import './composables/usePwaUpdate';
+// Side-effect import: captures `beforeinstallprompt` before the app mounts.
+// Chromium fires it early and offers it once, so a listener registered from a
+// component can miss it entirely (SB-813).
+import './composables/useInstallPrompt';
 import { installChunkErrorHandler } from './utils/lazyView';
 
 // SB-439: recover from chunk 404s after a deploy instead of painting a blank

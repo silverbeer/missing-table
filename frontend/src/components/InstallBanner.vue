@@ -1,6 +1,11 @@
 <template>
   <transition name="install-banner-fade">
-    <div v-if="visible" class="install-banner" data-testid="install-banner">
+    <div
+      v-if="visible"
+      class="install-banner"
+      data-testid="install-banner"
+      :data-mode="mode"
+    >
       <button
         class="install-dismiss"
         aria-label="Dismiss"
@@ -10,24 +15,34 @@
         ×
       </button>
       <div class="install-body">
-        <span class="install-icon" aria-hidden="true">🔔</span>
+        <span class="install-icon" aria-hidden="true">{{
+          mode === 'ios' ? '🔔' : '⚽'
+        }}</span>
         <div class="install-text">
-          <strong>Want live match alerts?</strong>
-          <span>
-            iPhones can only send them from a home-screen app. Takes about 15
-            seconds.
-          </span>
+          <strong>{{ headline }}</strong>
+          <span>{{ subline }}</span>
         </div>
       </div>
-      <!-- The old version of this banner was a filled blue card with no click
-           handler at all — users tapped it, nothing happened, and they gave up
-           (SB-810). Now the action is an explicit, labelled button. -->
+      <!-- iOS gets instructions because Apple ships no install API; everywhere
+           else gets the real thing. The old version of this banner was a filled
+           blue card with no click handler at all — users tapped it, nothing
+           happened, and they gave up (SB-810). -->
       <button
+        v-if="mode === 'ios'"
         class="install-action"
         data-testid="install-banner-action"
         @click="openGuide"
       >
         Show me how
+      </button>
+      <button
+        v-else
+        class="install-action"
+        :disabled="prompting"
+        data-testid="install-banner-install"
+        @click="onInstall"
+      >
+        {{ prompting ? 'Installing…' : 'Install' }}
       </button>
     </div>
   </transition>
@@ -35,22 +50,63 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { isIosNonStandalone } from '../utils/pwa';
+import { isIosNonStandalone, isTouchDevice } from '../utils/pwa';
 import {
   openSetupGuide,
   useNotificationSetup,
 } from '../composables/useNotificationSetup';
+import { useInstallPrompt } from '../composables/useInstallPrompt';
 
-const eligible = ref(false);
+const iosEligible = ref(false);
 // Same dismissal record the guide writes: the banner and the guide are two
 // faces of one nag, so "not now" in either silences both — including a
 // dismissal that happens in the guide while this banner sits behind it.
 const { dismissPrompt, promptDismissed } = useNotificationSetup();
+const { canInstall, prompting, promptInstall } = useInstallPrompt();
 
-const visible = computed(() => eligible.value && !promptDismissed.value);
+// Phones only. Chromium offers beforeinstallprompt on desktop too, but a
+// fixed bottom banner on a laptop is noise — the guide still carries the
+// optional install offer there for anyone who wants it.
+const nativeEligible = computed(() => canInstall.value && isTouchDevice());
+
+/**
+ * 'ios'    — no install API exists; the banner routes to instructions
+ * 'native' — Chromium handed us a real prompt; the banner fires it
+ */
+const mode = computed(() => {
+  if (iosEligible.value) return 'ios';
+  if (nativeEligible.value) return 'native';
+  return null;
+});
+
+const visible = computed(() => mode.value !== null && !promptDismissed.value);
+
+// The pitch differs because the platforms differ. On iPhone, installing is the
+// only way to get notifications at all. On Android notifications already work
+// in a tab, so claiming otherwise would be inventing a barrier Google doesn't
+// impose — there the honest pitch is the home-screen icon itself.
+const headline = computed(() =>
+  mode.value === 'ios'
+    ? 'Want live match alerts?'
+    : 'Add Missing Table to your phone'
+);
+
+const subline = computed(() =>
+  mode.value === 'ios'
+    ? 'iPhones can only send them from a home-screen app. Takes about 15 seconds.'
+    : 'One tap to put it on your home screen — scores and alerts without hunting for a tab.'
+);
 
 function dismiss() {
   dismissPrompt();
+}
+
+async function onInstall() {
+  const { outcome } = await promptInstall();
+  // A dismissed native dialog is not a "leave me alone" — the user may just
+  // have mis-tapped, and Chromium may offer the event again. Only record a
+  // dismissal when they dismiss OUR banner.
+  if (outcome === 'accepted') iosEligible.value = false;
 }
 
 function openGuide() {
@@ -63,8 +119,9 @@ onMounted(() => {
   // Every iOS browser, not just Safari: they all share WebKit, so they all
   // need the home-screen install before Web Push works. The Safari-only check
   // this replaced meant iPhone users on Chrome saw nothing at all (SB-810).
-  if (!isIosNonStandalone()) return;
-  eligible.value = true;
+  // iOS is decided at mount (a UA + display-mode check, stable for the
+  // session). The native path is event-driven, so it stays reactive.
+  if (isIosNonStandalone()) iosEligible.value = true;
 });
 </script>
 
@@ -137,10 +194,15 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.install-action:hover,
+.install-action:hover:not(:disabled),
 .install-action:focus-visible {
   background: #1d4ed8;
   outline: none;
+}
+
+.install-action:disabled {
+  opacity: 0.65;
+  cursor: progress;
 }
 
 .install-dismiss {

@@ -44,6 +44,16 @@ vi.mock('@/composables/useTeamFollows', () => ({
   }),
 }));
 
+const installState = { canInstall: ref(false), prompting: ref(false) };
+const promptInstallMock = vi.fn().mockResolvedValue({ outcome: 'accepted' });
+vi.mock('@/composables/useInstallPrompt', () => ({
+  useInstallPrompt: () => ({
+    canInstall: computed(() => installState.canInstall.value),
+    prompting: computed(() => installState.prompting.value),
+    promptInstall: promptInstallMock,
+  }),
+}));
+
 const pwa = { ios: false, standalone: false, browser: 'safari' };
 vi.mock('@/utils/pwa', async () => {
   const actual = await vi.importActual('@/utils/pwa');
@@ -102,6 +112,9 @@ beforeEach(() => {
   pwa.standalone = false;
   pwa.browser = 'safari';
   localStorage.clear();
+  installState.canInstall.value = false;
+  installState.prompting.value = false;
+  promptInstallMock.mockClear();
   enableMock.mockClear();
   listSubscriptionsMock.mockClear();
   _resetNotificationSetupForTest();
@@ -266,5 +279,59 @@ describe('NotificationSetupGuide — dismissal', () => {
     await nextTick();
     // Nothing to suppress — they finished, so there is no future nag to mute.
     expect(localStorage.getItem(PROMPT_KEY)).toBeNull();
+  });
+});
+
+describe('NotificationSetupGuide — native install offer (SB-813)', () => {
+  it('is absent when the browser has not offered an install', async () => {
+    const wrapper = await mountGuide();
+    expect(wrapper.find('[data-testid="setup-native-install"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('offers a one-tap Install when the browser makes it available', async () => {
+    installState.canInstall.value = true;
+    const wrapper = await mountGuide();
+    expect(wrapper.find('[data-testid="setup-native-install"]').exists()).toBe(
+      true
+    );
+  });
+
+  it('fires the native prompt on tap', async () => {
+    installState.canInstall.value = true;
+    const wrapper = await mountGuide();
+    await wrapper
+      .find('[data-testid="setup-native-install-button"]')
+      .trigger('click');
+    expect(promptInstallMock).toHaveBeenCalled();
+  });
+
+  it('says plainly that notifications work without it', async () => {
+    installState.canInstall.value = true;
+    const wrapper = await mountGuide();
+    expect(wrapper.text()).toMatch(/notifications work either way/i);
+  });
+
+  it('still offers install to a user who is otherwise all set', async () => {
+    installState.canInstall.value = true;
+    pushState.isEnabled.value = true;
+    followsState.follows.value = [{ team_id: 19 }];
+    const wrapper = await mountGuide();
+    // "You're all set" and "want the icon too?" are not in conflict.
+    expect(wrapper.find('[data-testid="setup-detail-done"]').exists()).toBe(
+      true
+    );
+    expect(wrapper.find('[data-testid="setup-native-install"]').exists()).toBe(
+      true
+    );
+  });
+
+  it('marks the optional step Optional in the checklist', async () => {
+    installState.canInstall.value = true;
+    const wrapper = await mountGuide();
+    const step = wrapper.find('[data-testid="setup-step-install"]');
+    expect(step.exists()).toBe(true);
+    expect(step.text()).toMatch(/optional/i);
   });
 });
