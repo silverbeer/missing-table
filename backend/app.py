@@ -727,10 +727,21 @@ async def forgot_password(request: Request, body: ForgotPasswordRequest):
         reset_token = auth_manager.create_password_reset_token(user_id)
         try:
             email_service = EmailService()
-            email_service.send_password_reset(email_on_file, reset_token, username)
+            # send_password_reset returns False on a refused send rather than
+            # raising, so the except below only catches a missing API key.
+            # Ignoring the result is how "email sent" came to be logged for
+            # months while Resend rejected every one of them (SB-1126).
+            sent = email_service.send_password_reset(email_on_file, reset_token, username)
         except Exception as email_err:
             pw_logger.error("forgot_password_email_send_failed", user_id=user_id, error=str(email_err))
             # Don't leak the failure to the caller — still return generic success
+            return _GENERIC_RESPONSE
+
+        if not sent:
+            pw_logger.error("forgot_password_email_send_failed", user_id=user_id, error="provider_rejected")
+            # The response stays generic either way: what the caller is told
+            # must not depend on whether the account exists, or on whether
+            # our mail provider is healthy. Only the log changes.
             return _GENERIC_RESPONSE
 
         pw_logger.info("forgot_password_email_sent", user_id=user_id)

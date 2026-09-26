@@ -31,6 +31,14 @@ def ensure_resend_api_key() -> None:
         resend.api_key = api_key
 
 
+def _mask(email: str | None) -> str:
+    """Enough of an address to correlate a report, not enough to harvest."""
+    if not email or "@" not in email:
+        return "***"
+    local, _, domain = email.partition("@")
+    return f"{local[:3]}***@{domain}"
+
+
 def _support_html_block() -> str:
     """Inline support line for invite-flow HTML emails."""
     return (
@@ -140,7 +148,10 @@ class EmailService:
             logger.info("password_reset_email_sent", extra={"recipient": to_email[:3] + "***"})
             return True
         except Exception as e:
-            logger.error(f"Failed to send password reset email: {e}")
+            logger.error(
+                "email_send_failed",
+                extra={"email_kind": "password_reset", "recipient": _mask(to_email), "error": str(e)},
+            )
             return False
 
     def send_invitation(
@@ -259,7 +270,10 @@ class EmailService:
             )
             return True
         except Exception as e:
-            logger.error(f"Failed to send invitation email: {e}")
+            logger.error(
+                "email_send_failed",
+                extra={"email_kind": "invitation", "recipient": _mask(to_email), "error": str(e)},
+            )
             return False
 
     def send_invite_request_approval(self, to_email: str, name: str) -> bool:
@@ -327,5 +341,8 @@ class EmailService:
             )
             return True
         except Exception as e:
-            logger.error(f"Failed to send invite-request approval email: {e}")
+            logger.error(
+                "email_send_failed",
+                extra={"email_kind": "invite_request_approval", "recipient": _mask(to_email), "error": str(e)},
+            )
             return False
