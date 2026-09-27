@@ -31,10 +31,17 @@ class UserSignup(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v):
-        """Validate email format."""
+        """Validate and normalise the address.
+
+        Stored lowercase so it can be found again: the reset lookup
+        normalises what it is given, and a mixed-case row would be
+        unreachable by anyone typing it in a different case — including the
+        person who chose it. Matches what the admin editor stores, so the
+        same address lands identically whichever door it came through.
+        """
         if not v or "@" not in v:
             raise ValueError("A valid email address is required")
-        return v
+        return v.strip().lower()
 
     @model_validator(mode="after")
     def enforce_password_policy(self):
