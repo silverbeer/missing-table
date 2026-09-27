@@ -181,7 +181,16 @@ class PlayerDAO(BaseDAO):
         """
         try:
             if "@" in identifier:
-                query = self.client.table("user_profiles").select("id, username, email").eq("email", identifier)
+                # Lowercased like the username branch below. Addresses are
+                # stored lowercase and mail providers treat them that way in
+                # practice, so an exact match turned "Ericgsenk@gmail.com"
+                # into "no such account" — indistinguishable, to the user and
+                # to us, from having no account at all (SB-1130).
+                query = (
+                    self.client.table("user_profiles")
+                    .select("id, username, email")
+                    .eq("email", identifier.strip().lower())
+                )
             else:
                 query = (
                     self.client.table("user_profiles")

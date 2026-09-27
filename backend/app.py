@@ -7291,9 +7291,11 @@ def _validated_admin_email(value: str | None, user_id: str) -> str | None:
        ``username@missingtable.local`` so Supabase Auth has a key; ``.local``
        is reserved for mDNS and nothing can be delivered there. Storing one
        as a contact address makes an account look reachable when it is not.
-    2. It is not already in use. ``user_profiles.email`` is UNIQUE, so a
-       duplicate would fail at the database with a message no admin can act
-       on.
+    2. It is not already in use. This check is the only thing enforcing
+       that: the baseline schema declares ``user_profiles_email_key UNIQUE
+       (email)`` but production does not have it, and two accounts already
+       share an address as a result (SB-1131). Until the constraint is
+       restored, nothing below the application layer will catch a duplicate.
     3. It is not already in use *by an auth login either*. The unique
        constraint cannot see that: a Google account can hold the address on
        ``auth.users`` while its ``user_profiles.email`` is null, which is
