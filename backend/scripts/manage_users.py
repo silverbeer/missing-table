@@ -873,7 +873,15 @@ def delete_user(supabase, user_id, skip_confirm=False):
         console.print(f"[cyan]🔍 Fetching user: {user_id}...[/cyan]\n")
 
         # Get profile first to show what we're deleting
-        profile_response = supabase.table("user_profiles").select("*, teams(name, city)").eq("id", user_id).execute()
+        # Explicit FK: user_team_follows added a second path from
+        # user_profiles to teams, so a bare teams(...) embed is ambiguous
+        # and PostgREST refuses it — which broke delete entirely.
+        profile_response = (
+            supabase.table("user_profiles")
+            .select("*, teams!user_profiles_team_id_fkey(name, city)")
+            .eq("id", user_id)
+            .execute()
+        )
 
         if not profile_response.data:
             console.print(f"[yellow]⚠️  No profile found for user: {user_id}[/yellow]")
