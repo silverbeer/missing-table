@@ -69,6 +69,15 @@ beforeEach(() => {
     if (url.includes('/api/admin/users') && (opts.method || 'GET') === 'GET') {
       return Promise.resolve({ users: USERS, total: USERS.length });
     }
+    if (url.includes('delete-preflight')) {
+      return Promise.resolve({
+        username: 'anngoutis',
+        refusal: null,
+        destroys: [{ what: 'roster history entries', count: 3 }],
+        orphans: [{ what: 'match events they recorded', count: 5 }],
+        blockers: [],
+      });
+    }
     if (url.includes('/api/teams')) return Promise.resolve([]);
     if (url.includes('/api/clubs')) return Promise.resolve([]);
     return Promise.resolve({ success: true });
@@ -197,5 +206,129 @@ describe('AdminUsers — an admin setting an email (SB-1128)', () => {
       ([, opts]) => opts?.method === 'PATCH'
     );
     expect(JSON.parse(patch[1].body).email).toBe('');
+  });
+});
+
+describe('AdminUsers — deleting an account (SB-1132)', () => {
+  const openEditor = async (wrapper, username) => {
+    await wrapper
+      .find(`[data-testid="edit-user-${username}"]`)
+      .trigger('click');
+    await flushPromises();
+  };
+
+  const openDelete = async (wrapper, username = 'anngoutis') => {
+    await openEditor(wrapper, username);
+    await wrapper.find('[data-testid="delete-user"]').trigger('click');
+    await flushPromises();
+    return wrapper;
+  };
+
+  it('offers deletion from the editor', async () => {
+    const wrapper = await mountUsers();
+    await openEditor(wrapper, 'anngoutis');
+    expect(wrapper.find('[data-testid="delete-user"]').exists()).toBe(true);
+  });
+
+  it('says what else will be destroyed, with counts', async () => {
+    const wrapper = await openDelete(await mountUsers());
+    const destroys = wrapper.find('[data-testid="delete-destroys"]');
+    expect(destroys.exists()).toBe(true);
+    // Roster history cannot be reconstructed; the number is the point.
+    expect(destroys.text()).toContain('3');
+    expect(destroys.text()).toContain('roster history entries');
+  });
+
+  it('separates what is kept but unattributed', async () => {
+    const wrapper = await openDelete(await mountUsers());
+    expect(wrapper.find('[data-testid="delete-orphans"]').text()).toContain(
+      'match events they recorded'
+    );
+  });
+
+  it('will not delete until the username is typed', async () => {
+    const wrapper = await openDelete(await mountUsers());
+    const confirm = wrapper.find('[data-testid="delete-confirm"]');
+    expect(confirm.attributes('disabled')).toBeDefined();
+
+    await wrapper
+      .find('[data-testid="delete-confirm-input"]')
+      .setValue('wrong');
+    expect(
+      wrapper.find('[data-testid="delete-confirm"]').attributes('disabled')
+    ).toBeDefined();
+
+    await wrapper
+      .find('[data-testid="delete-confirm-input"]')
+      .setValue('anngoutis');
+    expect(
+      wrapper.find('[data-testid="delete-confirm"]').attributes('disabled')
+    ).toBeUndefined();
+  });
+
+  it('sends the delete once confirmed', async () => {
+    const wrapper = await openDelete(await mountUsers());
+    await wrapper
+      .find('[data-testid="delete-confirm-input"]')
+      .setValue('anngoutis');
+    await wrapper.find('[data-testid="delete-confirm"]').trigger('click');
+    await flushPromises();
+
+    const call = apiRequest.mock.calls.find(
+      ([, opts]) => opts?.method === 'DELETE'
+    );
+    expect(call).toBeTruthy();
+    expect(call[0]).toContain('/api/auth/users/u-2');
+  });
+
+  it('refuses when the API says the account cannot be deleted', async () => {
+    apiRequest.mockImplementation((url, opts = {}) => {
+      if (url.includes('delete-preflight')) {
+        return Promise.resolve({
+          username: 'anngoutis',
+          refusal: 'Cannot delete the last admin.',
+          destroys: [],
+          orphans: [],
+          blockers: [],
+        });
+      }
+      if (url.includes('login-events')) return Promise.resolve({ events: [] });
+      if (
+        url.includes('/api/admin/users') &&
+        (opts.method || 'GET') === 'GET'
+      ) {
+        return Promise.resolve({ users: USERS, total: USERS.length });
+      }
+      return Promise.resolve([]);
+    });
+
+    const wrapper = await openDelete(await mountUsers());
+    expect(wrapper.find('[data-testid="delete-refusal"]').text()).toContain(
+      'last admin'
+    );
+    expect(
+      wrapper.find('[data-testid="delete-confirm"]').attributes('disabled')
+    ).toBeDefined();
+  });
+
+  it('does not offer deletion when the preflight cannot be read', async () => {
+    apiRequest.mockImplementation((url, opts = {}) => {
+      if (url.includes('delete-preflight'))
+        return Promise.reject(new Error('boom'));
+      if (url.includes('login-events')) return Promise.resolve({ events: [] });
+      if (
+        url.includes('/api/admin/users') &&
+        (opts.method || 'GET') === 'GET'
+      ) {
+        return Promise.resolve({ users: USERS, total: USERS.length });
+      }
+      return Promise.resolve([]);
+    });
+
+    const wrapper = await openDelete(await mountUsers());
+    // Agreeing to an unknown is worse than not offering the button.
+    expect(
+      wrapper.find('[data-testid="delete-confirm"]').attributes('disabled')
+    ).toBeDefined();
   });
 });

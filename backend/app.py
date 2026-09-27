@@ -2092,6 +2092,121 @@ async def update_user_profile(
         raise HTTPException(status_code=500, detail=f"Failed to update user profile: {e!s}") from e
 
 
+# What a user owns, and what removing them would do to it (SB-1132).
+#
+# CASCADE rows go with the user. player_team_history is the one that matters:
+# deleting a player takes their roster history — which seasons, which teams,
+# which jersey — and that is exactly the user-generated data MT exists to
+# collect. An admin should see the number before agreeing, not after.
+#
+# SET NULL rows survive with their attribution cleared. Worth showing, but
+# not worth stopping for.
+#
+# email_messages.sent_by_user_id is NO ACTION, so a user who has sent one
+# cannot be deleted at all; the database refuses. Better to say so than to
+# let it surface as a 500.
+_DELETE_CASCADES = [
+    ("player_team_history", "player_id", "roster history entries"),
+    ("user_team_follows", "user_id", "followed teams"),
+    ("user_bracket_follows", "user_id", "followed brackets"),
+    ("push_subscriptions", "user_id", "push devices"),
+    ("user_notification_preferences", "user_id", "notification preferences"),
+    ("team_manager_assignments", "user_id", "team manager assignments"),
+    ("channel_access_requests", "user_id", "channel access requests"),
+]
+
+_DELETE_ORPHANS = [
+    ("match_events", "created_by", "match events they recorded"),
+    ("match_lineups", "created_by", "lineups they set"),
+    ("players", "created_by", "players they added"),
+    ("invitations", "invited_by_user_id", "invitations they sent"),
+]
+
+_DELETE_BLOCKERS = [
+    ("email_messages", "sent_by_user_id", "support emails they sent"),
+]
+
+
+def _count_rows(table: str, column: str, user_id: str) -> int:
+    """Best effort: a table that cannot be counted must not hide the others."""
+    try:
+        resp = auth_service_client.table(table).select("*", count="exact").eq(column, user_id).limit(1).execute()
+        return resp.count or 0
+    except Exception:
+        logger.warning("Could not count rows for a delete preflight", table=table, column=column)
+        return 0
+
+
+def _delete_preflight(user_id: str) -> dict[str, Any]:
+    """What deleting this user destroys, orphans, or is blocked by."""
+    destroys = [
+        {"what": label, "count": n}
+        for table, column, label in _DELETE_CASCADES
+        if (n := _count_rows(table, column, user_id)) > 0
+    ]
+    orphans = [
+        {"what": label, "count": n}
+        for table, column, label in _DELETE_ORPHANS
+        if (n := _count_rows(table, column, user_id)) > 0
+    ]
+    blockers = [
+        {"what": label, "count": n}
+        for table, column, label in _DELETE_BLOCKERS
+        if (n := _count_rows(table, column, user_id)) > 0
+    ]
+    return {"destroys": destroys, "orphans": orphans, "blockers": blockers}
+
+
+def _guard_user_deletion(target: dict[str, Any], current_user: dict[str, Any]) -> None:
+    """Refuse the two deletions nobody recovers from.
+
+    Mirrors the guardrails on the edit endpoint, which refuses to strip the
+    last admin role. Delete had none, so it would happily remove the last
+    admin outright — locking everyone out of the screen that could undo it.
+    """
+    if str(target["id"]) == str(current_user.get("user_id")):
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot delete your own account. Ask another admin.",
+        )
+
+    if target.get("role") == "admin":
+        admins = auth_service_client.table("user_profiles").select("id").eq("role", "admin").execute()
+        if len(admins.data or []) <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last admin.")
+
+
+@app.get("/api/auth/users/{user_id}/delete-preflight")
+async def delete_user_preflight(
+    user_id: str,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """What deleting this user would do, so the admin can decide knowing it."""
+    profile = (
+        auth_service_client.table("user_profiles")
+        .select("id, username, display_name, role")
+        .eq("id", user_id)
+        .execute()
+    )
+    if not profile.data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    target = profile.data[0]
+    preflight = _delete_preflight(user_id)
+
+    # Reported rather than raised: the screen shows why the button is
+    # disabled, instead of the admin finding out by pressing it.
+    refusal = None
+    try:
+        _guard_user_deletion(target, current_user)
+    except HTTPException as guard:
+        refusal = guard.detail
+    if preflight["blockers"] and not refusal:
+        refusal = "This account has sent support email and cannot be deleted."
+
+    return {"username": target.get("username"), "refusal": refusal, **preflight}
+
+
 @app.delete("/api/auth/users/{user_id}")
 async def delete_user(
     user_id: str,
@@ -2108,6 +2223,21 @@ async def delete_user(
         if not profile.data:
             raise HTTPException(status_code=404, detail="User not found")
 
+        target = profile.data[0]
+
+        # Refuse what nobody recovers from (SB-1132).
+        _guard_user_deletion(target, current_user)
+
+        # email_messages.sent_by_user_id is NO ACTION, so the database will
+        # refuse this anyway — as an unhandled FK error and a 500. Say it in
+        # words instead.
+        preflight = _delete_preflight(user_id)
+        if preflight["blockers"]:
+            raise HTTPException(
+                status_code=400,
+                detail="This account has sent support email and cannot be deleted.",
+            )
+
         # Delete from auth.users
         try:
             auth_service_client.auth.admin.delete_user(user_id)
@@ -2123,8 +2253,43 @@ async def delete_user(
 
         clear_cache("mt:dao:players:*")
 
-        logger.info(f"User {user_id} deleted by admin {current_user.get('user_id')}")
-        return {"message": "User deleted successfully"}
+        # Durable record, same table as an edit. A log line disappears with
+        # the pod; who removed an account should outlive it — and what went
+        # with them, since the cascades are not recoverable from the row.
+        try:
+            auth_service_client.table("admin_user_audit_log").insert(
+                {
+                    "actor_id": current_user.get("user_id"),
+                    "actor_username": current_user.get("username"),
+                    "target_id": user_id,
+                    "target_username": target.get("username"),
+                    "changes": {
+                        "deleted": {
+                            "from": {
+                                "username": target.get("username"),
+                                "role": target.get("role"),
+                                "email": target.get("email"),
+                            },
+                            "to": None,
+                        },
+                        "cascaded": preflight["destroys"],
+                    },
+                }
+            ).execute()
+        except Exception:
+            logger.exception(
+                "User deleted but the audit write failed",
+                actor=current_user.get("username"),
+                target=target.get("username"),
+            )
+
+        logger.info(
+            "admin_user_deleted",
+            actor=current_user.get("username"),
+            target=target.get("username"),
+            cascaded=preflight["destroys"],
+        )
+        return {"message": "User deleted successfully", "cascaded": preflight["destroys"]}
 
     except HTTPException:
         raise
