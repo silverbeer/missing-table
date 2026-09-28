@@ -244,6 +244,83 @@ class TestUpdateMatchScores:
         assert update_payload["scheduled_kickoff"] == "2026-03-01T19:00:00+00:00"
 
 
+# ── a person's postponed/cancelled survives a re-scrape (SB-1135) ────
+
+
+class TestHeldStatus:
+    HOME_ID = 10
+    AWAY_ID = 20
+
+    def _existing(self, **kwargs):
+        base = {
+            "id": 27379,
+            "match_status": "postponed",
+            "match_date": "2026-09-26",
+            "home_score": None,
+            "away_score": None,
+            "scheduled_kickoff": None,
+            "home_team_id": self.HOME_ID,
+            "away_team_id": self.AWAY_ID,
+        }
+        base.update(kwargs)
+        return base
+
+    def _check(self, task, existing, new_data):
+        return task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID)
+
+    def _payload(self, task):
+        return task._dao.client.table("matches").update.call_args[0][0]
+
+    @pytest.mark.parametrize("held", ["postponed", "cancelled"])
+    @pytest.mark.parametrize("incoming", ["tbd", "scheduled"])
+    def test_same_date_no_score_is_not_a_change(self, task, held, incoming):
+        """The scraper's tbd for a fixture that never happened does not undo it."""
+        existing = self._existing(match_status=held)
+        new_data = {"match_status": incoming, "match_date": "2026-09-26"}
+        assert self._check(task, existing, new_data) is False
+
+    def test_a_kickoff_update_keeps_the_held_status(self, task):
+        existing = self._existing()
+        new_data = {"match_status": "tbd", "match_date": "2026-09-26", "match_time": "14:00"}
+
+        assert self._check(task, existing, new_data) is True
+        task._update_match_scores(existing, new_data)
+
+        assert self._payload(task)["match_status"] == "postponed"
+
+    def test_a_new_date_is_a_reschedule(self, task):
+        existing = self._existing()
+        new_data = {"match_status": "scheduled", "match_date": "2027-06-08"}
+
+        assert self._check(task, existing, new_data) is True
+        task._update_match_scores(existing, new_data)
+
+        payload = self._payload(task)
+        assert payload["match_date"] == "2027-06-08"
+        assert payload["match_status"] == "scheduled"
+
+    def test_a_real_score_means_it_was_played(self, task):
+        existing = self._existing()
+        new_data = {
+            "match_status": "completed",
+            "match_date": "2026-09-26",
+            "home_score": 2,
+            "away_score": 1,
+        }
+
+        assert self._check(task, existing, new_data) is True
+        task._update_match_scores(existing, new_data)
+
+        payload = self._payload(task)
+        assert payload["match_status"] == "completed"
+        assert (payload["home_score"], payload["away_score"]) == (2, 1)
+
+    def test_an_unheld_status_still_follows_the_feed(self, task):
+        existing = self._existing(match_status="scheduled")
+        new_data = {"match_status": "tbd", "match_date": "2026-09-26"}
+        assert self._check(task, existing, new_data) is True
+
+
 # ── competition and division re-filing (SB-847) ──────────────────────
 
 

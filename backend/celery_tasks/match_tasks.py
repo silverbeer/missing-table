@@ -283,6 +283,37 @@ class DatabaseTask(Task):
         """
         return (existing_match.get("source") or "match-scraper") == "match-scraper"
 
+    # Statuses the feed cannot produce. The scraper derives status from date and
+    # score alone, so it only ever says scheduled, tbd or completed.
+    HELD_STATUSES = frozenset({"postponed", "cancelled"})
+
+    @classmethod
+    def _incoming_status(cls, existing_match: dict[str, Any], new_data: dict[str, Any]) -> str | None:
+        """The status a re-scrape should leave on the row (SB-1135).
+
+        A postponed or cancelled status was set by a person, and the feed has
+        no way to say it. A postponed fixture still sitting on its old date with
+        no score reads to the scraper as "played, score pending", so it arrived
+        as tbd and silently undid the human's call.
+
+        The held status gives way only to evidence the feed can actually carry:
+        a real score (the match was played) or a new date (it was rescheduled,
+        and the feed's status for the new date is the right one).
+        """
+        new_status = new_data.get("match_status")
+        if existing_match.get("match_status") not in cls.HELD_STATUSES:
+            return new_status
+
+        if new_data.get("home_score") is not None and new_data.get("away_score") is not None:
+            return new_status
+
+        new_date = new_data.get("match_date")
+        existing_date = existing_match.get("match_date")
+        if new_date and existing_date and new_date != existing_date:
+            return new_status
+
+        return existing_match["match_status"]
+
     def _check_needs_update(
         self,
         existing_match: dict[str, Any],
@@ -332,7 +363,7 @@ class DatabaseTask(Task):
 
         # Check status change
         existing_status = existing_match.get("match_status", "scheduled")
-        new_status = new_data.get("match_status", "scheduled")
+        new_status = self._incoming_status(existing_match, new_data) or "scheduled"
         if existing_status != new_status:
             logger.debug(f"Status changed: {existing_status} → {new_status}")
             return True
@@ -445,9 +476,11 @@ class DatabaseTask(Task):
                 update_data["home_penalty_score"] = home_pens
                 update_data["away_penalty_score"] = away_pens
 
-            # Update status if provided
-            if new_data.get("match_status"):
-                update_data["match_status"] = new_data["match_status"]
+            # Update status if provided, unless a person's postponed/cancelled
+            # still stands (SB-1135)
+            new_status = self._incoming_status(existing_match, new_data)
+            if new_status:
+                update_data["match_status"] = new_status
 
             # Update match_date if changed (rescheduled match)
             new_date = new_data.get("match_date")
