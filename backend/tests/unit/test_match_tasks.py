@@ -321,6 +321,67 @@ class TestHeldStatus:
         assert self._check(task, existing, new_data) is True
 
 
+# ── the feed's placeholder date is not a reschedule (SB-1136) ────────
+
+
+class TestPostponedKeepsItsDate:
+    HOME_ID = 10
+    AWAY_ID = 20
+    PLACEHOLDER = "2027-06-08"
+
+    def _existing(self, **kwargs):
+        base = {
+            "id": 27379,
+            "match_status": "tbd",
+            "match_date": "2026-09-26",
+            "home_score": None,
+            "away_score": None,
+            "scheduled_kickoff": None,
+            "home_team_id": self.HOME_ID,
+            "away_team_id": self.AWAY_ID,
+        }
+        base.update(kwargs)
+        return base
+
+    def _postponed(self):
+        return {"match_status": "postponed", "match_date": self.PLACEHOLDER}
+
+    def _check(self, task, existing, new_data):
+        return task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID)
+
+    def _payload(self, task):
+        return task._dao.client.table("matches").update.call_args[0][0]
+
+    def test_a_postponement_marks_the_match_and_keeps_its_date(self, task):
+        existing = self._existing()
+
+        assert self._check(task, existing, self._postponed()) is True
+        task._update_match_scores(existing, self._postponed())
+
+        payload = self._payload(task)
+        assert payload["match_status"] == "postponed"
+        assert "match_date" not in payload
+
+    def test_an_already_postponed_match_is_unchanged(self, task):
+        existing = self._existing(match_status="postponed")
+        assert self._check(task, existing, self._postponed()) is False
+
+    def test_a_cancellation_is_not_downgraded_to_postponed(self, task):
+        existing = self._existing(match_status="cancelled")
+        assert self._check(task, existing, self._postponed()) is False
+
+    def test_the_real_new_date_still_reschedules(self, task):
+        existing = self._existing(match_status="postponed")
+        new_data = {"match_status": "scheduled", "match_date": "2026-10-21"}
+
+        assert self._check(task, existing, new_data) is True
+        task._update_match_scores(existing, new_data)
+
+        payload = self._payload(task)
+        assert payload["match_date"] == "2026-10-21"
+        assert payload["match_status"] == "scheduled"
+
+
 # ── competition and division re-filing (SB-847) ──────────────────────
 
 

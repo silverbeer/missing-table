@@ -283,16 +283,36 @@ class DatabaseTask(Task):
         """
         return (existing_match.get("source") or "match-scraper") == "match-scraper"
 
-    # Statuses the feed cannot produce. The scraper derives status from date and
-    # score alone, so it only ever says scheduled, tbd or completed.
+    # Statuses a person sets. The scraper derives status from date and score,
+    # and says postponed only for a fixture parked on the feed's placeholder
+    # date (SB-1136) — it can never say one was played-but-void or cancelled.
     HELD_STATUSES = frozenset({"postponed", "cancelled"})
+
+    @staticmethod
+    def _incoming_date(existing_match: dict[str, Any], new_data: dict[str, Any]) -> str | None:
+        """The new match_date to write, or None to leave the row's date alone.
+
+        A postponed fixture is parked by MLS NEXT on a placeholder date (in
+        2026-2027, Tuesday 8 June 2027: 103 fixtures and nothing else that day).
+        That date is not a reschedule, and copying it would stack every
+        postponement on one fake Tuesday and lose the date the match was due.
+        So a postponed message never moves the date; the next real date does
+        (SB-1136).
+        """
+        if new_data.get("match_status") == "postponed":
+            return None
+        new_date = new_data.get("match_date")
+        existing_date = existing_match.get("match_date")
+        if new_date and existing_date and new_date != existing_date:
+            return new_date
+        return None
 
     @classmethod
     def _incoming_status(cls, existing_match: dict[str, Any], new_data: dict[str, Any]) -> str | None:
         """The status a re-scrape should leave on the row (SB-1135).
 
-        A postponed or cancelled status was set by a person, and the feed has
-        no way to say it. A postponed fixture still sitting on its old date with
+        A postponed or cancelled status may have been set by a person, and the
+        feed cannot say cancelled at all. A postponed fixture still sitting on its old date with
         no score reads to the scraper as "played, score pending", so it arrived
         as tbd and silently undid the human's call.
 
@@ -307,9 +327,7 @@ class DatabaseTask(Task):
         if new_data.get("home_score") is not None and new_data.get("away_score") is not None:
             return new_status
 
-        new_date = new_data.get("match_date")
-        existing_date = existing_match.get("match_date")
-        if new_date and existing_date and new_date != existing_date:
+        if cls._incoming_date(existing_match, new_data):
             return new_status
 
         return existing_match["match_status"]
@@ -397,10 +415,9 @@ class DatabaseTask(Task):
                 return True
 
         # Check if match_date changed (rescheduled match)
-        existing_date = existing_match.get("match_date")
-        new_date = new_data.get("match_date")
-        if new_date and existing_date and new_date != existing_date:
-            logger.debug(f"match_date changed: {existing_date} → {new_date}")
+        new_date = self._incoming_date(existing_match, new_data)
+        if new_date:
+            logger.debug(f"match_date changed: {existing_match.get('match_date')} → {new_date}")
             return True
 
         # Check if scheduled_kickoff can be set/updated from match_time
@@ -483,11 +500,10 @@ class DatabaseTask(Task):
                 update_data["match_status"] = new_status
 
             # Update match_date if changed (rescheduled match)
-            new_date = new_data.get("match_date")
-            existing_date = existing_match.get("match_date")
-            if new_date and existing_date and new_date != existing_date:
+            new_date = self._incoming_date(existing_match, new_data)
+            if new_date:
                 update_data["match_date"] = new_date
-                logger.info(f"Match {match_id} rescheduled: {existing_date} → {new_date}")
+                logger.info(f"Match {match_id} rescheduled: {existing_match.get('match_date')} → {new_date}")
 
             # Update scheduled_kickoff if match_time provided and different
             new_kickoff = self._build_scheduled_kickoff(new_data)
