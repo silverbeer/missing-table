@@ -370,6 +370,10 @@ class TestPostponedKeepsItsDate:
         existing = self._existing(match_status="cancelled")
         assert self._check(task, existing, self._postponed()) is False
 
+    def test_a_completed_match_is_not_un_played(self, task):
+        existing = self._existing(match_status="completed", home_score=2, away_score=1)
+        assert self._check(task, existing, self._postponed()) is False
+
     def test_the_real_new_date_still_reschedules(self, task):
         existing = self._existing(match_status="postponed")
         new_data = {"match_status": "scheduled", "match_date": "2026-10-21"}

@@ -321,7 +321,14 @@ class DatabaseTask(Task):
         and the feed's status for the new date is the right one).
         """
         new_status = new_data.get("match_status")
-        if existing_match.get("match_status") not in cls.HELD_STATUSES:
+        existing_status = existing_match.get("match_status")
+
+        # A result already on the row outranks the feed calling the match off
+        # (SB-1136): a live-scored match is not un-played by a placeholder date.
+        if new_status == "postponed" and existing_status in ("completed", "forfeit"):
+            return existing_status
+
+        if existing_status not in cls.HELD_STATUSES:
             return new_status
 
         if new_data.get("home_score") is not None and new_data.get("away_score") is not None:
