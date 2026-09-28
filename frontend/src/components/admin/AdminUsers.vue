@@ -303,7 +303,118 @@
                 {{ saving ? 'Saving…' : 'Save' }}
               </button>
             </div>
+
+            <!-- Kept away from Save, behind its own confirmation: this is
+                 irreversible, and some of what it removes (roster history)
+                 cannot be reconstructed (SB-1132). -->
+            <div class="mt-5 pt-4 border-t border-line">
+              <button
+                type="button"
+                class="text-sm text-red-600 dark:text-red-400 hover:underline disabled:opacity-40"
+                data-testid="delete-user"
+                :disabled="saving"
+                @click="startDelete"
+              >
+                Delete this account
+              </button>
+            </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete confirmation -->
+    <div
+      v-if="deleting"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      data-testid="delete-dialog"
+    >
+      <div class="bg-card border border-line rounded-xl w-full max-w-md p-5">
+        <h3 class="text-lg font-semibold text-fg">
+          Delete {{ deleting.username }}?
+        </h3>
+
+        <p
+          v-if="deletePreflight?.refusal"
+          class="mt-3 text-sm text-red-600 dark:text-red-400"
+          data-testid="delete-refusal"
+        >
+          {{ deletePreflight.refusal }}
+        </p>
+
+        <template v-else>
+          <p class="mt-3 text-sm text-fg-muted">This cannot be undone.</p>
+
+          <!-- The counts are the point. Roster history is user-generated
+               data nobody can reconstruct, and it goes silently otherwise. -->
+          <div
+            v-if="deletePreflight?.destroys?.length"
+            class="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-900"
+            data-testid="delete-destroys"
+          >
+            <p
+              class="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-300"
+            >
+              Also deleted
+            </p>
+            <ul class="mt-1 text-sm text-fg">
+              <li v-for="item in deletePreflight.destroys" :key="item.what">
+                {{ item.count }} {{ item.what }}
+              </li>
+            </ul>
+          </div>
+
+          <div
+            v-if="deletePreflight?.orphans?.length"
+            class="mt-3 text-xs text-fg-muted"
+            data-testid="delete-orphans"
+          >
+            Kept, but no longer attributed to anyone:
+            <span v-for="(item, i) in deletePreflight.orphans" :key="item.what">
+              {{ i ? ', ' : '' }}{{ item.count }} {{ item.what }}
+            </span>
+          </div>
+
+          <label class="block mt-4 text-sm text-fg-muted">
+            Type
+            <strong class="text-fg font-mono">{{ deleting.username }}</strong>
+            to confirm
+            <input
+              v-model="deleteConfirmText"
+              type="text"
+              autocomplete="off"
+              data-testid="delete-confirm-input"
+              class="mt-1 w-full px-3 py-2 rounded-lg border border-line bg-surface text-fg"
+            />
+          </label>
+        </template>
+
+        <p
+          v-if="deleteError"
+          class="mt-3 text-sm text-red-600 dark:text-red-400"
+          data-testid="delete-error"
+        >
+          {{ deleteError }}
+        </p>
+
+        <div class="flex gap-3 mt-5">
+          <button
+            type="button"
+            class="flex-1 px-4 py-2.5 rounded-lg border border-line text-fg"
+            data-testid="delete-cancel"
+            @click="cancelDelete"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="flex-1 px-4 py-2.5 rounded-lg bg-red-600 text-white font-medium disabled:opacity-40"
+            data-testid="delete-confirm"
+            :disabled="!canConfirmDelete"
+            @click="confirmDelete"
+          >
+            {{ deletePending ? 'Deleting…' : 'Delete' }}
+          </button>
         </div>
       </div>
     </div>
@@ -472,6 +583,23 @@ export default {
     const form = ref({ role: null, team_id: null, club_id: null, email: '' });
     const saving = ref(false);
     const saveError = ref(null);
+
+    // Deletion state. Separate from the editor's, because the dialog has to
+    // survive the editor closing and carries its own failure mode.
+    const deleting = ref(null);
+    const deletePreflight = ref(null);
+    const deleteConfirmText = ref('');
+    const deleteError = ref(null);
+    const deletePending = ref(false);
+
+    // Typing the username, not an "are you sure": this is irreversible and
+    // some of what it removes cannot be reconstructed (SB-1132).
+    const canConfirmDelete = computed(
+      () =>
+        !deletePending.value &&
+        !deletePreflight.value?.refusal &&
+        deleteConfirmText.value.trim() === deleting.value?.username
+    );
     const teams = ref([]);
     const clubs = ref([]);
     const teamSearch = ref('');
@@ -562,6 +690,54 @@ export default {
         email: contactEmail(user) ?? '',
       };
       await loadPickerData();
+    };
+
+    const startDelete = async () => {
+      deleting.value = editing.value;
+      deletePreflight.value = null;
+      deleteConfirmText.value = '';
+      deleteError.value = null;
+      try {
+        deletePreflight.value = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/auth/users/${deleting.value.id}/delete-preflight`
+        );
+      } catch (err) {
+        // Without the preflight we cannot say what would be destroyed, and
+        // agreeing to an unknown is worse than not offering the button.
+        deleteError.value =
+          err.message || 'Could not check what this would delete.';
+        deletePreflight.value = {
+          refusal: 'Could not check what this would delete.',
+        };
+      }
+    };
+
+    const cancelDelete = () => {
+      deleting.value = null;
+      deletePreflight.value = null;
+      deleteConfirmText.value = '';
+      deleteError.value = null;
+    };
+
+    const confirmDelete = async () => {
+      if (!canConfirmDelete.value) return;
+      deletePending.value = true;
+      deleteError.value = null;
+      try {
+        await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/auth/users/${deleting.value.id}`,
+          { method: 'DELETE' }
+        );
+        cancelDelete();
+        closeEditor();
+        await fetchUsers();
+      } catch (err) {
+        // Guard rejections (own account, last admin, sent email) arrive here
+        // as the sentence the admin needs to read.
+        deleteError.value = err.message || 'Failed to delete';
+      } finally {
+        deletePending.value = false;
+      }
     };
 
     const closeEditor = () => {
@@ -685,6 +861,15 @@ export default {
       isDirty,
       affiliationClass,
       contactEmail,
+      deleting,
+      deletePreflight,
+      deleteConfirmText,
+      deleteError,
+      deletePending,
+      canConfirmDelete,
+      startDelete,
+      cancelDelete,
+      confirmDelete,
       openEditor,
       closeEditor,
       saveUser,
