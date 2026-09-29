@@ -459,6 +459,8 @@ class MatchDAO(BaseDAO):
         start_date: str | None = None,
         end_date: str | None = None,
         include_test: bool = False,
+        *,
+        raise_on_error: bool = False,
     ) -> list[dict]:
         """Get all matches with optional filters.
 
@@ -472,6 +474,9 @@ class MatchDAO(BaseDAO):
             end_date: Filter by end date (YYYY-MM-DD)
             include_test: SB-591 test partition. Real/anonymous viewers pass
                 False (test matches hidden); admins + test users pass True.
+            raise_on_error: Re-raise query failures instead of returning [].
+                The default keeps the endpoints' behaviour; MT AI tools pass True
+                so a failed read is not mistaken for "no matches" (SB-1142).
         """
         try:
             query = self.client.table(MATCHES_READ_RELATION).select("""
@@ -562,6 +567,8 @@ class MatchDAO(BaseDAO):
 
         except Exception:
             logger.exception("Error querying matches")
+            if raise_on_error:
+                raise
             return []
 
     def _season_id_by_name(self, season_name: str) -> int | None:
