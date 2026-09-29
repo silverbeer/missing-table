@@ -19,7 +19,8 @@ This section documents the system architecture, design decisions, and technical 
 | **[Clubs Architecture](../CLUBS_ARCHITECTURE.md)** | Clubs, teams, leagues separation | 🟡 Intermediate |
 | **[Standings](standings.md)** | League / qualifying / all views, and why a combined table states its coverage | 🟡 Intermediate |
 | **[Caching](caching.md)** | Redis DAO cache + service worker cache, and how writes invalidate both | 🟡 Intermediate |
-| **[AI Agents](ai-agents.md)** | Autonomous agent architecture | 🔴 Advanced |
+| **[MT 2.0](mt2/README.md)** | Current state (verified 2026-09), mobile, MT AI, AI cost/quality, A2A | 🟡 Intermediate |
+| **[AI Agents](ai-agents.md)** | 2025 scraper-agent proposal — never built; see [MT 2.0 AI](mt2/ai.md) | 🔴 Advanced |
 
 ---
 
@@ -384,7 +385,8 @@ Master Agent (Orchestrator)
 
 **Use Case**: Automated MLS Next data collection
 
-See: [AI Agents Documentation](ai-agents.md)
+See: [AI Agents Documentation](ai-agents.md) — a 2025 proposal that was never built.
+The scraper orchestrator became the deterministic `match-scraper-agent`; MT AI's design is in [MT 2.0 AI](mt2/ai.md).
 
 ---
 

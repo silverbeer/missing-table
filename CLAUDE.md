@@ -463,6 +463,14 @@ Backend-centered auth resolves k8s networking issues. All Supabase credentials s
 ### RabbitMQ/Celery Messaging
 **Status**: Phase 0 Complete | **Docs**: [docs/rabbitmq-celery/README.md](docs/rabbitmq-celery/README.md)
 
+### MT 2.0 (mobile apps + MT AI)
+**Status**: Architecture only (SB-1141) | **Docs**: [docs/03-architecture/mt2/README.md](docs/03-architecture/mt2/README.md)
+
+- Read `mt2/current-state.md` before designing; it is verified against the repos, older docs are not.
+- **The model never touches the database.** MT AI calls typed, deterministic tools over the DAO layer; tool tests need no LLM.
+- Tests that call a paid model are marked `ai_eval` and are never in the default suite.
+- Work in small vertical slices — the session template is in `mt2/README.md`.
+
 ### QE Plugin (Test Coverage & Generation)
 Testing automation is handled by the [qe plugin](https://github.com/silverbeer/qe-plugin) (`/qe`, `/generate-tests`, `@qe-engineer`), configured via `.claude/qe.yml`. It replaced the retired CrewAI experiment — see [docs/04-testing/crewai-experiment-retrospective.md](docs/04-testing/crewai-experiment-retrospective.md) for lessons learned.
 
@@ -477,4 +485,4 @@ Testing automation is handled by the [qe plugin](https://github.com/silverbeer/q
 
 ---
 
-**Last Updated**: 2026-08-16
+**Last Updated**: 2026-09-28
