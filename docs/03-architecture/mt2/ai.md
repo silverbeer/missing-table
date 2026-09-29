@@ -99,8 +99,9 @@ flowchart TB
 
 ## API boundary
 
-Follows MT's conventions: `/api` prefix, bearer auth, JSON. Designed now so clients
-can be built against it; not implemented in this session.
+Follows MT's conventions: `/api` prefix, bearer auth, JSON. This section is the
+target contract. What is built today is the smaller walking skeleton in
+[Walking skeleton (SB-1143)](#walking-skeleton-sb-1143) below.
 
 ### `POST /api/ai/chat`
 
@@ -283,6 +284,117 @@ Every tool is a plain function of (DAO, args, viewer) → Pydantic result:
   ([ai-quality.md](ai-quality.md)).
 
 ---
+
+## Walking skeleton (SB-1143)
+
+The first end-to-end path. It proves the plumbing, not the assistant.
+
+```text
+POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors to status codes
+  → ChatService.chat       mt_ai/service.py   load/create conversation, rebuild history, persist the turn
+    → run_turn             mt_ai/agent.py     the only module that imports ADK
+      → ADK Runner + LlmAgent(tools=[search_teams]), RunConfig(max_llm_calls)
+        → search_teams     mt_ai/tools/       unchanged from SB-1142; no ADK, no HTTP
+```
+
+### `/api/ai/chat` as built
+
+- Request: `{ "message": str (1–2000, not blank), "conversation_id": uuid | null }`.
+  Login required (`get_current_user_required`).
+- `200`: `{ conversation_id, turn, status: "ok" | "budget_exhausted", answer, message }`.
+  `answer` is null and `message` explains when the budget stopped the turn.
+- Errors use MT's usual `{"detail": str}`:
+
+  | Status | When |
+  |--------|------|
+  | 422 | invalid body |
+  | 404 | conversation missing **or owned by someone else** (indistinguishable on purpose) |
+  | 502 | the model or the agent run failed; no internals in the body |
+  | 503 | MT AI not enabled, or the conversation could not be loaded/saved |
+
+- The target contract's `context`, `entities`, `data_as_of` and `limitations` are
+  not built yet.
+
+### Conversation lifecycle and persistence
+
+- Migration `20260929000000_ai_conversations.sql` adds `ai_conversations` (owner,
+  agent version) and `ai_messages` (one **user** and one **assistant** row per
+  `turn`, with `status`, `model`, `agent_version`, `llm_calls`, `tool_calls`).
+  Both tables cascade from `user_profiles`. RLS lets a user read their own rows and
+  admins read everything; the backend writes with the service key.
+- A new conversation row is created **before** the model runs, so a storage failure
+  costs no model call. Both rows of a turn are written together **after** it, and
+  that includes failed turns: `budget_exhausted` and `ai_failed` are recorded with
+  no content.
+- **History is rebuilt from `ai_messages` on every request** into an in-memory ADK
+  session. Only turns with an `ok` answer are replayed. MT's tables are the record;
+  ADK's session format can change without a migration.
+- Backups: both tables are backed up and listed in `RESTORE_SKIPPED`, so users'
+  conversations never land in a local environment. The admin delete-user preflight
+  lists them.
+- `AIConversationDAO` **raises** instead of returning `[]`/`None`. A swallowed
+  error here would silently start a fresh conversation.
+- The DAO writes an explicit, identical column set for both rows. PostgREST
+  bulk-inserts the union of the rows' keys and sends NULL, not the column DEFAULT,
+  for any key a row omits.
+
+### Budget guard
+
+`mt_ai/budget.py`, deterministic, per request (defaults 4 model calls / 3 tool calls):
+
+- **Model calls**: ADK's own `RunConfig.max_llm_calls` refuses the call that would
+  exceed it (`LlmCallsLimitExceededError`).
+- **Tool calls**: `ToolCallGuard`, a `before_tool_callback`, raises before the
+  tool that would exceed it runs.
+- Either way the run stops and the turn is returned as `budget_exhausted`. Tokens,
+  cost and per-user quotas are not implemented (see [ai-cost.md](ai-cost.md)).
+- ADK logs its own ERROR-level "node failed" lines when the guard stops a run.
+  That is expected and is not an incident.
+
+### Tool boundary
+
+`make_search_teams_tool(deps, viewer)` closes over this request's DAOs and the
+caller's `Viewer`. The model supplies only `query` and `age_group`, so it cannot
+widen test-partition visibility. The typed result reaches the model as
+`model_dump(mode="json")`.
+
+### Configuration
+
+Off unless `MT_AI_ENABLED=true` **and** `MT_AI_MODEL` is set; otherwise `503`.
+No model id is hardcoded. A Gemini id also needs `GOOGLE_API_KEY` in the
+backend's environment. None of these are set in prod yet, so the route is
+deployed but inert.
+
+### Dependency
+
+`google-adk==2.10.0`, pinned exactly. Every ADK release from 2.5 on requires
+`starlette>=1.3.1`, so the lockfile moves starlette 0.51 → 1.7,
+prometheus-fastapi-instrumentator 7 → 8, OpenTelemetry 1.36 → 1.42 and
+pydantic 2.12 → 2.13. `/metrics` and router-included endpoints were re-checked
+against the `fastapi<0.137` crash that pin guards against.
+
+### Tests
+
+`backend/tests/unit/mt_ai/`. `ScriptedLlm` is a real ADK `BaseLlm` with a
+scripted reply, so the runner, tool dispatch and callbacks are the production
+path and no test calls a provider. Covered:
+
+- tool declaration and the typed result reaching the model;
+- server-bound viewer;
+- both budget limits, including that the extra tool never executes;
+- history replay;
+- the lifecycle: create, continue, not found, someone else's conversation;
+- failures: AI failure, persistence failures at load and at save;
+- the API status codes;
+- the DAO's column set.
+
+### Not implemented yet (deliberately)
+
+- **Chat features:** streaming, feedback, `GET /api/ai/conversations/{id}`,
+  `context`/`entities`/`data_as_of`, and other tools.
+- **Cost and control:** answer caching, token/cost accounting, per-user quotas,
+  model profiles/`FallbackModel`, and a `ai_tool_calls` table.
+- **Agent design:** memory beyond replaying turns, multiple agents, A2A.
 
 ## Google ADK as the primary framework
 

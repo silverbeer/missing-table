@@ -122,8 +122,10 @@ class FakeTeams:
     def __init__(self, teams: list[dict], aliases: dict[str, int], fail: bool = False) -> None:
         self.teams, self.aliases, self.fail = teams, aliases, fail
         self.resolve_calls: list[str] = []
+        self.team_reads = 0  # one per search_teams call: counts tool executions
 
     def get_all_teams(self) -> list[dict]:
+        self.team_reads += 1
         if self.fail:
             raise RuntimeError("PostgREST down")
         return copy.deepcopy(self.teams)

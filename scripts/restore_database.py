@@ -187,6 +187,11 @@ RESTORE_SKIPPED = {
         "production recovery only; restore by hand."
     ),
     "auth_users": "identity snapshot from the Admin API; users are managed per environment",
+    "ai_conversations": (
+        "what users asked MT AI, some of them parents of minors. Backed up for "
+        "production recovery only; never copied into a local environment."
+    ),
+    "ai_messages": "the turns of ai_conversations; skipped for the same reason",
 }
 
 # Tables without an `id` column. PostgREST refuses an unfiltered DELETE, and
