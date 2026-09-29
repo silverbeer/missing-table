@@ -174,12 +174,12 @@ conversations; ADK's session is rebuilt from them per request (see below).
 
 | Proposed tool | Backing today | Status |
 |---------------|---------------|--------|
-| `search_teams` | `TeamDAO.resolve_team_by_name` (name + `team_aliases`), `TeamDAO._similar_teams` (word match) — **no endpoint**, no full-text/trigram index | **Build**: wrap resolver + similarity; return candidates |
+| `search_teams` | `mt_ai/tools/teams.py`: exact name over cached `get_all_teams`, then `TeamDAO.resolve_team_by_name` (aliases), then in-memory near-matches using `TeamDAO._SIMILAR_STOPWORDS` | **Built (SB-1142)** |
 | `get_team` | No `GET /api/teams/{id}`; team rows + `team_mappings` (age groups/divisions) via `TeamDAO` | **Build** thin DAO-backed tool |
 | `search_clubs` | `/api/clubs` lists all; exact-name lookups only | **Build** (in-memory filter over the cached list is enough at MT's size) |
 | `get_club` | `GET /api/clubs/{id}`, `/api/clubs/{id}/teams` | Supported |
 | `get_match` | `GET /api/matches/{id}`, live state, events | Supported |
-| `get_upcoming_matches` | `/api/matches/team/{team_id}` and `/api/matches` with date range; **no "next match" query** | **Build** on `MatchDAO.get_all_matches(start_date=…)` |
+| `get_upcoming_matches` | `mt_ai/tools/matches.py` over `MatchDAO.get_all_matches(start_date=…, raise_on_error=True)` | **Built (SB-1142)** |
 | `get_recent_matches` | same | **Build**, same basis |
 | `get_standings` | `GET /api/table` → `MatchDAO.get_standings` (cached) → pure `dao/standings.py` | Supported; League/Flex need `division_id` |
 | `get_league` | `GET /api/leagues/{id}` | Supported |
@@ -216,6 +216,25 @@ class ResolveResult(BaseModel):
 
 The agent is instructed to ask a clarifying question on `ambiguous` rather than guess;
 `context.team_id` from the page the user is on usually removes the ambiguity.
+
+### What building the first two tools taught (SB-1142)
+
+- **Test visibility for teams is derived, not stored.** Teams have no `is_test`
+  column; a team is test content when its club or its own league is. The tools
+  build that from cached club and league reads (`mt_ai/tools/visibility.py`), and
+  a registration in a test league's division is hidden too.
+- **Two DAO reads swallow errors as `[]`.** `get_all_matches` now takes a
+  keyword-only `raise_on_error` (default unchanged for endpoints) so a failed
+  read is `unavailable`, not "no matches". `get_all_leagues` still returns `[]`
+  on failure; the tools treat an empty league list as unavailable and fail
+  closed, because without it test teams cannot be hidden.
+- **`get_team_by_name` passes its input to `ilike` unescaped**, so `%` and `_`
+  act as wildcards. Harmless for scraper names, not for user-typed text: the
+  tool never sends a name containing them to the database.
+- **Cached `divisions_by_age_group` has string keys** after a Redis round-trip
+  (JSON); the tools accept both.
+- **"Today" is the club's day** (`clubs.timezone`, default `America/New_York`),
+  computed in the tool with an injectable clock for tests.
 
 ### Tool contract
 
