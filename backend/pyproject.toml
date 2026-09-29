@@ -54,6 +54,7 @@ dependencies = [
     "discord-notify",
     "pywebpush>=2.0.1",
     "python-multipart>=0.0.32",
+    "google-adk==2.10.0",
 ]
 
 [tool.uv.sources]

@@ -88,6 +88,7 @@ from models import (
     UserProfileUpdate,
     UserSignup,
 )
+from mt_ai.api import router as mt_ai_router
 from notifications.score_change import is_new_final_score
 from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
@@ -331,6 +332,7 @@ import contextlib
 from endpoints.version import router as version_router
 
 app.include_router(version_router)
+app.include_router(mt_ai_router)  # SB-1143; answers 503 unless MT_AI_ENABLED + MT_AI_MODEL
 
 
 # Startup check: warn loudly if Web Push isn't configured.
@@ -2113,6 +2115,7 @@ _DELETE_CASCADES = [
     ("user_notification_preferences", "user_id", "notification preferences"),
     ("team_manager_assignments", "user_id", "team manager assignments"),
     ("channel_access_requests", "user_id", "channel access requests"),
+    ("ai_conversations", "user_id", "MT AI conversations"),
 ]
 
 _DELETE_ORPHANS = [

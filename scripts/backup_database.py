@@ -147,6 +147,9 @@ TABLES_TO_BACKUP = [
     "user_bracket_follows",
     "user_notification_preferences",
     "push_subscriptions",  # backed up for production recovery; never restored
+    # MT AI conversations (SB-1143) — backed up for production recovery; never restored
+    "ai_conversations",
+    "ai_messages",
     # Support inbox (SB-1071)
     "email_threads",
     "email_messages",

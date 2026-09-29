@@ -375,7 +375,8 @@ New schema changes go in additional timestamped migration files (e.g., `20260201
 **A migration that creates a table must also decide its backup.** Add the table to `TABLES_TO_BACKUP` in
 `scripts/backup_database.py` and to `RESTORATION_ORDER` (after the tables it references) or `RESTORE_SKIPPED`
 in `scripts/restore_database.py` — or to `EXCLUDED_TABLES` with the reason. `test_backup_coverage.py` fails CI
-otherwise (SB-1071). A column referencing a user also needs an entry in `USER_PROFILE_FK_COLUMNS`.
+otherwise (SB-1071). A column referencing a user needs no registry — restore finds user FKs by
+introspection — but add it to the admin delete-user lists (`_DELETE_CASCADES` etc. in `app.py`).
 
 ### Quick Reference
 ```bash
