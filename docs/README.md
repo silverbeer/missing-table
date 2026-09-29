@@ -60,6 +60,7 @@ Welcome to the Missing Table documentation! This guide will help you get started
 > System design, patterns, and technical decisions
 
 - **[System Design](03-architecture/README.md)** - High-level architecture overview
+- **[MT 2.0](03-architecture/mt2/README.md)** - Verified current state, mobile and MT AI target architecture
 - **[Backend Structure](03-architecture/backend-structure.md)** - FastAPI, DAO, database
 - **[Frontend Structure](03-architecture/frontend-structure.md)** - Vue.js, components, routing
 - **[Authentication](03-architecture/authentication.md)** - Auth flow, JWT, roles
