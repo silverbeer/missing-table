@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from mt_ai.tools.deps import ToolDeps
-from mt_ai.tools.schemas import AgeGroupRef, TeamCandidate, Viewer
+from mt_ai.tools.schemas import AgeGroupRef, Registration, TeamCandidate, Viewer
 
 DEFAULT_TIMEZONE = "America/New_York"  # matches notifications/channel_resolver.py
 
@@ -49,32 +49,57 @@ class TeamIndex:
     def candidates(self, team: dict, age_group_name: str | None = None) -> list[TeamCandidate]:
         """One candidate per age group the team plays in (optionally just one age).
 
-        A team with no visible registrations yields a single age-less candidate,
-        unless a specific age was asked for — then it yields none.
+        Built from the raw `team_mappings` rows, one per (age group, division).
+        A team in two competitions at one age — League and Flex — is one
+        candidate with two registrations. `divisions_by_age_group`, a dict keyed
+        by age group, keeps only one division per age, which made such a team
+        look like two identical teams (SB-1146).
+
+        A team with no visible registrations yields a single age-less
+        candidate, unless a specific age was asked for — then it yields none.
         """
-        divisions = team.get("divisions_by_age_group") or {}
-        out: list[TeamCandidate] = []
-        for age in team.get("age_groups") or []:
+        by_age: dict[int, tuple[AgeGroupRef, list[Registration]]] = {}
+        for mapping in team.get("team_mappings") or []:
+            age = mapping.get("age_groups")
+            if not age:
+                continue
             if age_group_name and str(age.get("name", "")).casefold() != age_group_name.casefold():
                 continue
-            # Cached reads come back through JSON, which turns int keys into strings.
-            division = divisions.get(age["id"]) or divisions.get(str(age["id"])) or {}
+            division = mapping.get("divisions") or {}
             if not self.include_test and division.get("league_id") in self.test_league_ids:
                 continue
-            out.append(self._candidate(team, AgeGroupRef(id=age["id"], name=age["name"]), division.get("name")))
-        if not out and not age_group_name and not team.get("age_groups"):
-            out.append(self._candidate(team, None, None))
+            ref, registrations = by_age.setdefault(age["id"], (AgeGroupRef(id=age["id"], name=age["name"]), []))
+            if division:
+                registration = Registration(league=_league_of(division), division=division.get("name"))
+                if registration not in registrations:
+                    registrations.append(registration)
+
+        out = [self._candidate(team, ref, regs) for ref, regs in sorted(by_age.values(), key=_age_order)]
+        if not out and not age_group_name and not team.get("team_mappings"):
+            out.append(self._candidate(team, None, []))
         return out
 
-    def _candidate(self, team: dict, age: AgeGroupRef | None, division_name: str | None) -> TeamCandidate:
+    def _candidate(self, team: dict, age: AgeGroupRef | None, registrations: list[Registration]) -> TeamCandidate:
         return TeamCandidate(
             team_id=team["id"],
             name=team["name"],
             club_name=self.club_name(team),
             league_name=self.league_name(team),
             age_group=age,
-            division_name=division_name,
+            registrations=sorted(registrations, key=lambda r: (r.league or "", r.division or "")),
         )
+
+
+def _league_of(division: dict) -> str | None:
+    leagues = division.get("leagues")
+    return (leagues or {}).get("name") or division.get("league_name")
+
+
+def _age_order(item: tuple[AgeGroupRef, list[Registration]]) -> tuple[int, str]:
+    """U9 before U13 before U19: numeric where the name has a number."""
+    name = item[0].name
+    digits = "".join(ch for ch in name if ch.isdigit())
+    return (int(digits) if digits else 999, name)
 
 
 def load_team_index(deps: ToolDeps, viewer: Viewer) -> TeamIndex:
