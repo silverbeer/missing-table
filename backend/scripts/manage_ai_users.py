@@ -8,15 +8,15 @@ accepted on /api/ai/* and rejected everywhere else.
 
     APP_ENV=local uv run python scripts/manage_ai_users.py ensure
     APP_ENV=local uv run python scripts/manage_ai_users.py list
-    APP_ENV=local uv run python scripts/manage_ai_users.py token ai-eval-real --out ~/.config/mt/ai-eval-real.local.jwt
+    APP_ENV=local uv run python scripts/manage_ai_users.py token ai_eval_real --out ~/.config/mt/ai_eval_real.local.jwt
 
 Prod: run inside the backend pod, so the token is signed with the secret prod
 actually verifies against, and redirect stdout to a file. `--out -` refuses to
 write a token to a terminal, so it never lands in a transcript:
 
     kubectl exec deploy/missing-table-backend -n missing-table -- \\
-        /app/.venv/bin/python scripts/manage_ai_users.py token ai-eval-real --out - \\
-        > ~/.config/mt/ai-eval-real.prod.jwt
+        /app/.venv/bin/python scripts/manage_ai_users.py token ai_eval_real --out - \\
+        > ~/.config/mt/ai_eval_real.prod.jwt
 """
 
 import os
@@ -47,11 +47,11 @@ class ApiAccount:
     display_name: str
 
 
-# ai-eval-real sees what a real fan sees; ai-eval-test also sees the TSC test
+# ai_eval_real sees what a real fan sees; ai_eval_test also sees the TSC test
 # world. Together they let an eval prove the partition in prod.
 AI_EVAL_ACCOUNTS = (
-    ApiAccount("ai-eval-real", is_test=False, display_name="MT AI eval (real viewer)"),
-    ApiAccount("ai-eval-test", is_test=True, display_name="MT AI eval (test viewer)"),
+    ApiAccount("ai_eval_real", is_test=False, display_name="MT AI eval (real viewer)"),
+    ApiAccount("ai_eval_test", is_test=True, display_name="MT AI eval (test viewer)"),
 )
 
 

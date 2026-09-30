@@ -6,6 +6,7 @@ not a 500; an API account can never hold a general session.
 """
 
 import os
+import re
 import stat
 from datetime import UTC, datetime, timedelta
 
@@ -25,8 +26,8 @@ pytestmark = [pytest.mark.unit, pytest.mark.backend]
 JWT_SECRET = "session-secret-for-tests-0123456789abcdef"  # pragma: allowlist secret
 SERVICE_SECRET = "service-secret-for-tests-0123456789abcdef"  # pragma: allowlist secret
 
-API_REAL = {"id": "api-real", "username": "ai-eval-real", "role": "team-fan", "is_test": False, "is_api_account": True}
-API_TEST = {"id": "api-test", "username": "ai-eval-test", "role": "team-fan", "is_test": True, "is_api_account": True}
+API_REAL = {"id": "api-real", "username": "ai_eval_real", "role": "team-fan", "is_test": False, "is_api_account": True}
+API_TEST = {"id": "api-test", "username": "ai_eval_test", "role": "team-fan", "is_test": True, "is_api_account": True}
 PERSON = {"id": "person", "username": "fan", "role": "team-fan", "is_test": False, "is_api_account": False}
 
 
@@ -166,12 +167,17 @@ class TestScript:
     def test_eval_accounts_are_one_real_and_one_test_viewer(self):
         by_name = {a.username: a for a in script.AI_EVAL_ACCOUNTS}
 
-        assert by_name["ai-eval-real"].is_test is False
-        assert by_name["ai-eval-test"].is_test is True
+        assert by_name["ai_eval_real"].is_test is False
+        assert by_name["ai_eval_test"].is_test is True
+
+    @pytest.mark.parametrize("account", script.AI_EVAL_ACCOUNTS, ids=lambda a: a.username)
+    def test_usernames_pass_the_username_rule(self, account):
+        """Prod's username_format_check enforces this; a hyphen failed `ensure` there (SB-1147)."""
+        assert re.fullmatch(r"[a-zA-Z0-9_]{3,50}", account.username)
 
     def test_ensure_creates_only_what_is_missing(self):
-        assert [a.username for a in script.missing_accounts({"ai-eval-real"})] == ["ai-eval-test"]
-        assert script.missing_accounts({"ai-eval-real", "ai-eval-test"}) == []
+        assert [a.username for a in script.missing_accounts({"ai_eval_real"})] == ["ai_eval_test"]
+        assert script.missing_accounts({"ai_eval_real", "ai_eval_test"}) == []
 
     def test_profile_row_is_a_non_admin_api_account(self):
         row = script.profile_row(script.AI_EVAL_ACCOUNTS[1])
