@@ -8,6 +8,7 @@ from mt_ai.service import (
     AIFailedError,
     ChatService,
     ConversationNotFoundError,
+    NotAllowedToChatError,
     PersistenceFailedError,
     rebuild_history,
 )
@@ -39,6 +40,27 @@ def ok(answer):
 
 def service(store, run):
     return ChatService(store, deps=None, model="gemini-test", run=run)
+
+
+# What get_current_user returns for a service-account JWT: no user_id (SB-1145).
+SERVICE_ACCOUNT = {
+    "service_id": "service-match-scraper",
+    "service_name": "match-scraper",
+    "permissions": ["manage_matches"],
+    "role": "service_account",
+    "is_service_account": True,
+}
+
+
+async def test_a_principal_without_a_profile_is_refused_before_anything_runs():
+    store, run = InMemoryStore(), StubRun()
+
+    with pytest.raises(NotAllowedToChatError) as exc:
+        await service(store, run).chat(SERVICE_ACCOUNT, "Find IFA", None)
+
+    assert exc.value.status_code == 403
+    assert run.calls == []
+    assert store.conversations == {}
 
 
 class TestLifecycle:

@@ -304,13 +304,16 @@ POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors
 ### `/api/ai/chat` as built
 
 - Request: `{ "message": str (1–2000, not blank), "conversation_id": uuid | null }`.
-  Login required (`get_current_user_required`).
+  Login required (`get_ai_user`): a person's session, or an API account's token
+  (below). A service account is refused with a 403.
 - `200`: `{ conversation_id, turn, status: "ok" | "budget_exhausted", answer, message }`.
   `answer` is null and `message` explains when the budget stopped the turn.
 - Errors use MT's usual `{"detail": str}`:
 
   | Status | When |
   |--------|------|
+  | 401 | no token, or an invalid/expired one |
+  | 403 | a service account: it has no `user_profiles` row to own a conversation (SB-1145; was a KeyError 500) |
   | 422 | invalid body |
   | 404 | conversation missing **or owned by someone else** (indistinguishable on purpose) |
   | 502 | the model or the agent run failed; no internals in the body |
@@ -318,6 +321,51 @@ POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors
 
 - The target contract's `context`, `entities`, `data_as_of` and `limitations` are
   not built yet.
+
+### API-only accounts (SB-1145)
+
+Evals and automation run as their own principals, never on a human's session:
+an admin sees the test partition, so an eval run as Tom proves nothing about what
+a fan sees.
+
+- An API account is a `user_profiles` row with `is_api_account = true`, a
+  non-admin role (`team-fan`) and **no `auth.users` row** — no password, so it
+  cannot log in to the web app. A session token that names one is refused anyway.
+- Its only credential is an HS256 token signed with `SERVICE_ACCOUNT_SECRET`,
+  audience `mt-ai-api`, 7 days by default and 30 at most. Every other endpoint
+  decodes with `authenticated` or `service-account`, so it is **rejected
+  everywhere but `/api/ai/*`**. The profile is re-read per request: clearing
+  `is_api_account` or deleting the row revokes outstanding tokens at once.
+- Two exist for the eval: `ai-eval-real` (`is_test = false`) and `ai-eval-test`
+  (`is_test = true`), so a prod run can prove the test partition is hidden.
+- **Attribution:** eval traffic is every conversation whose owner has
+  `is_api_account`. Real-usage numbers exclude it:
+
+  ```sql
+  SELECT count(*) FROM ai_conversations c
+  JOIN user_profiles u ON u.id = c.user_id
+  WHERE NOT u.is_api_account;
+  ```
+
+`backend/scripts/manage_ai_users.py` manages them. `ensure` is idempotent;
+`token` writes a 0600 file, or with `--out -` writes stdout **only when it is
+redirected** — it refuses a terminal, so a token never lands in a transcript.
+
+```bash
+APP_ENV=local uv run python scripts/manage_ai_users.py ensure
+APP_ENV=local uv run python scripts/manage_ai_users.py token ai-eval-real --out ~/.config/mt/ai-eval-real.local.jwt
+
+# Prod: mint inside the backend pod, so the token is signed with the secret prod verifies with
+kubectl exec deploy/missing-table-backend -n missing-table -- \
+  /app/.venv/bin/python scripts/manage_ai_users.py ensure
+kubectl exec deploy/missing-table-backend -n missing-table -- \
+  /app/.venv/bin/python scripts/manage_ai_users.py token ai-eval-real --out - \
+  > ~/.config/mt/ai-eval-real.prod.jwt
+```
+
+`token` refuses to run without `SERVICE_ACCOUNT_SECRET`: `AuthManager` would fall
+back to a random secret and mint a token no server accepts. `.env.local` does not
+set one, so local minting needs it exported for both the script and the backend.
 
 ### Conversation lifecycle and persistence
 

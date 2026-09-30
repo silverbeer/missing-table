@@ -55,6 +55,12 @@ def role_for_invite_type(invite_type: str | None) -> str:
 
 security = HTTPBearer()
 
+# API-only accounts (SB-1145): the token audience accepted on /api/ai/* only,
+# and how long an admin may mint one for.
+AI_API_AUDIENCE = "mt-ai-api"
+AI_API_TOKEN_DEFAULT_DAYS = 7
+AI_API_TOKEN_MAX_DAYS = 30
+
 
 # ============================================================================
 # Username Authentication Helper Functions
@@ -160,6 +166,13 @@ class AuthManager:
             if len(profile_response.data) > 1:
                 logger.warning(f"Multiple profiles found for user {user_id}, using first one")
 
+            # API accounts have no auth.users row, so no session token should ever
+            # name one. Refuse it anyway: their only credential is the /api/ai/*
+            # token (SB-1145), and it must not become a general-purpose one.
+            if profile.get("is_api_account"):
+                logger.warning(f"Session token names API account {user_id}; refused")
+                return None
+
             # Extract username from profile (primary identifier)
             username = profile.get("username")
 
@@ -243,6 +256,74 @@ class AuthManager:
         except Exception as e:
             logger.error(f"Error verifying service account token: {e}")
             return None
+
+    def create_ai_api_token(self, user_id: str, expires_days: int = AI_API_TOKEN_DEFAULT_DAYS) -> str:
+        """Create a short-lived token for an API-only account, valid on /api/ai/* only (SB-1145).
+
+        The audience is what confines it: every other endpoint decodes with
+        "authenticated" or "service-account" and so rejects this token.
+        """
+        if not 0 < expires_days <= AI_API_TOKEN_MAX_DAYS:
+            raise ValueError(f"expires_days must be between 1 and {AI_API_TOKEN_MAX_DAYS}")
+        now = datetime.now(UTC)
+        payload = {
+            "sub": user_id,
+            "iss": "missing-table",
+            "aud": AI_API_AUDIENCE,
+            "exp": int((now + timedelta(days=expires_days)).timestamp()),
+            "iat": int(now.timestamp()),
+        }
+        return jwt.encode(payload, self.service_account_secret, algorithm="HS256")
+
+    def verify_ai_api_token(self, token: str) -> dict[str, Any] | None:
+        """Verify an /api/ai/* token and return the API account's user data, or None.
+
+        The profile is re-read on every request, so clearing is_api_account (or
+        deleting the row) revokes outstanding tokens immediately.
+        """
+        try:
+            payload = jwt.decode(token, self.service_account_secret, algorithms=["HS256"], audience=AI_API_AUDIENCE)
+            user_id = payload.get("sub")
+            if not user_id:
+                return None
+            response = self.supabase.table("user_profiles").select("*").eq("id", user_id).execute()
+            profile = response.data[0] if response.data else None
+            if not profile or not profile.get("is_api_account"):
+                logger.warning(f"AI API token names {user_id}, which is not an API account")
+                return None
+            return {
+                "user_id": user_id,
+                "username": profile.get("username"),
+                "email": None,
+                "role": profile["role"],
+                "team_id": profile.get("team_id"),
+                "club_id": profile.get("club_id"),
+                "display_name": profile.get("display_name"),
+                "is_test": profile.get("is_test", False),
+                "is_api_account": True,
+            }
+        except jwt.ExpiredSignatureError:
+            logger.warning("AI API token has expired")
+            return None
+        except jwt.InvalidTokenError:
+            return None
+        except Exception as e:
+            logger.error(f"Error verifying AI API token: {e}")
+            return None
+
+    def get_ai_user(self, credentials: HTTPAuthorizationCredentials) -> dict[str, Any]:
+        """The caller of /api/ai/*: a logged-in person or an API account.
+
+        Service accounts authenticate but are not allowed to chat: MT AI needs a
+        user_profiles row to own the conversation and to decide test visibility.
+        """
+        token = credentials.credentials
+        user = self.verify_token(token) or self.verify_ai_api_token(token)
+        if user:
+            return user
+        if self.verify_service_account_token(token):
+            raise HTTPException(status_code=403, detail="Service accounts cannot use MT AI.")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     def create_password_reset_token(self, user_id: str) -> str:
         """Create a short-lived JWT for password reset (1 hour)."""
@@ -436,6 +517,15 @@ def get_current_user_required(
     from app import auth_manager
 
     return auth_manager.get_current_user(credentials)
+
+
+def get_ai_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict[str, Any]:
+    """The caller of /api/ai/*: a person or an API account; service accounts get 403."""
+    from app import auth_manager
+
+    return auth_manager.get_ai_user(credentials)
 
 
 def viewer_sees_test_content(user: dict[str, Any] | None) -> bool:

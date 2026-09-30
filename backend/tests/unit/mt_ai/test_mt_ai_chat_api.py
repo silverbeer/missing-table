@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from mt_ai_fake_llm import InMemoryStore, ModelDown, calls_tool, says, scripted
 
-from auth import get_current_user_required
+from auth import get_ai_user
 from mt_ai import api
 from mt_ai.budget import Budget
 from mt_ai.service import ChatService
@@ -32,7 +32,7 @@ def harness(make_deps):
         def __init__(self):
             app = FastAPI()
             app.include_router(api.router)
-            app.dependency_overrides[get_current_user_required] = lambda: USER
+            app.dependency_overrides[get_ai_user] = lambda: USER
             app.dependency_overrides[api.get_chat_service] = lambda: ChatService(
                 self.store, make_deps(), self.model, budget=self.budget
             )
@@ -155,7 +155,7 @@ def test_is_503_until_enabled_and_configured(monkeypatch, enabled, model):
             monkeypatch.setenv(key, value)
     app = FastAPI()
     app.include_router(api.router)
-    app.dependency_overrides[get_current_user_required] = lambda: USER
+    app.dependency_overrides[get_ai_user] = lambda: USER
 
     response = TestClient(app).post("/api/ai/chat", json={"message": "hi"})
 
