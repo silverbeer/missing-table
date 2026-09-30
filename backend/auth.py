@@ -166,9 +166,10 @@ class AuthManager:
             if len(profile_response.data) > 1:
                 logger.warning(f"Multiple profiles found for user {user_id}, using first one")
 
-            # API accounts have no auth.users row, so no session token should ever
-            # name one. Refuse it anyway: their only credential is the /api/ai/*
-            # token (SB-1145), and it must not become a general-purpose one.
+            # An API account's auth user has no password and is banned, so no
+            # session token should ever name one (SB-1150). Refuse it anyway:
+            # their only credential is the /api/ai/* token (SB-1145), and it must
+            # not become a general-purpose one.
             if profile.get("is_api_account"):
                 logger.warning(f"Session token names API account {user_id}; refused")
                 return None

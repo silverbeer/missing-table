@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """API-only AI users (SB-1145): create them and mint their /api/ai/* tokens.
 
-An API account is a user_profiles row with is_api_account=true and no
-auth.users row, so it has no password and cannot log in to the web app. Its
-only credential is a short-lived token this script mints, whose audience is
-accepted on /api/ai/* and rejected everywhere else.
+An API account is a user_profiles row with is_api_account=true. Prod requires
+an auth.users row behind every profile (SB-1150), so each account has one with
+no password, an undeliverable @missingtable.local email and a permanent ban:
+it cannot log in to the web app. Its only credential is a short-lived token
+this script mints, whose audience is accepted on /api/ai/* and rejected
+everywhere else.
 
     APP_ENV=local uv run python scripts/manage_ai_users.py ensure
     APP_ENV=local uv run python scripts/manage_ai_users.py list
@@ -21,7 +23,6 @@ write a token to a terminal, so it never lands in a transcript:
 
 import os
 import sys
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -31,13 +32,17 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from auth import AI_API_TOKEN_DEFAULT_DAYS, AI_API_TOKEN_MAX_DAYS, AuthManager
+from auth import AI_API_TOKEN_DEFAULT_DAYS, AI_API_TOKEN_MAX_DAYS, AuthManager, username_to_internal_email
 
 app = typer.Typer(help=__doc__.split("\n")[0])
 
 # Non-admin: an admin sees test data, which is exactly what the eval must not
 # assume. team-fan is the default role and the least privileged.
 API_ROLE = "team-fan"
+
+# ~100 years. Supabase refuses sign-in and token refresh for a banned user; the
+# /api/ai/* token is ours, not Supabase's, so the ban does not touch it.
+PERMANENT_BAN = "876000h"
 
 
 @dataclass(frozen=True)
@@ -59,9 +64,19 @@ def missing_accounts(existing_usernames: set[str]) -> list[ApiAccount]:
     return [a for a in AI_EVAL_ACCOUNTS if a.username not in existing_usernames]
 
 
-def profile_row(account: ApiAccount, user_id: str | None = None) -> dict:
+def auth_user_attributes(account: ApiAccount) -> dict:
+    """No password, no deliverable email, banned: nothing can sign in as this user."""
     return {
-        "id": user_id or str(uuid.uuid4()),
+        "email": username_to_internal_email(account.username),
+        "email_confirm": False,
+        "ban_duration": PERMANENT_BAN,
+        "user_metadata": {"display_name": account.display_name, "api_account": True},
+    }
+
+
+def profile_row(account: ApiAccount, user_id: str) -> dict:
+    return {
+        "id": user_id,
         "username": account.username,
         "display_name": account.display_name,
         "role": API_ROLE,
@@ -85,6 +100,21 @@ def write_token(token: str, out: str, stdout_is_tty: bool) -> str:
         f.write(token + "\n")
     path.chmod(0o600)
     return str(path)
+
+
+def create_api_account(client, account: ApiAccount) -> str:
+    """Create the auth user, then upsert its profile; undo the auth user if that fails.
+
+    Upsert, not insert: in prod the on_auth_user_created trigger has already
+    made a bare team-fan profile for the new id. Locally there is no trigger.
+    """
+    user_id = str(client.auth.admin.create_user(auth_user_attributes(account)).user.id)
+    try:
+        client.table("user_profiles").upsert(profile_row(account, user_id)).execute()
+    except Exception:
+        client.auth.admin.delete_user(user_id)
+        raise
+    return user_id
 
 
 def _client():
@@ -128,8 +158,8 @@ def ensure() -> None:
         _err(f"username taken by a non-API account: {', '.join(clash)}")
         raise typer.Exit(1)
     for account in missing_accounts({r["username"] for r in taken}):
-        client.table("user_profiles").insert(profile_row(account)).execute()
-        _err(f"created {account.username} (is_test={account.is_test})")
+        user_id = create_api_account(client, account)
+        _err(f"created {account.username} (is_test={account.is_test}) id={user_id}")
     _err(f"{os.getenv('APP_ENV', 'local')}: {len(AI_EVAL_ACCOUNTS)} AI eval accounts present")
 
 
