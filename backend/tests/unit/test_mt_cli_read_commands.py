@@ -103,6 +103,8 @@ def _stub_client():
             "match_status": "completed",
             "match_type_id": 2,
             "match_type_name": "Friendly",
+            "age_group_id": 3,
+            "age_group_name": "U15",
             "home_team_name": "IFA U15 HG",
             "away_team_name": "Boston Bolts",
             "home_score": 3,
@@ -114,6 +116,8 @@ def _stub_client():
             "match_status": "scheduled",
             "match_type_id": 1,
             "match_type_name": "League",
+            "age_group_id": 3,
+            "age_group_name": "U15",
             "home_team_name": "IFA U15 HG",
             "away_team_name": "Boston Bolts",
             "home_score": None,
@@ -126,6 +130,8 @@ def _stub_client():
             "match_date": "2026-09-20",
             "match_status": "scheduled",
             "match_type": {"id": 5, "name": "Flex"},
+            "age_group_id": 2,
+            "age_group_name": "U14",
             "home_team_name": "CF Montreal",
             "away_team_name": "IFA U15 HG",
             "home_score": None,
@@ -432,6 +438,50 @@ class TestTeamMatchesCompetitionFilter:
 
         assert result.exit_code == 1
         assert "qualification" in result.output
+
+
+@pytest.mark.unit
+class TestTeamMatchesAgeGroupColumn:
+    """SB-866: a team row spans every age group it plays — teams.name is
+    globally unique, so "IFA" is one row for U14 and U15 both. Without a
+    column saying which is which, a same-day pair across the two reads as a
+    duplicate ingest."""
+
+    def test_age_group_column_always_shown(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15"])
+
+        assert result.exit_code == 0
+        assert "Age" in result.output
+        assert "U15" in result.output
+        assert "U14" in result.output
+
+    def test_age_group_option_resolves_and_filters_server_side(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-a", "U14"])
+
+        assert result.exit_code == 0
+        client.get_games_by_team.assert_called_once_with(11, season_id=7, age_group_id=2)
+
+    def test_no_age_group_filter_sends_no_id(self, client):
+        runner.invoke(mt_cli.app, ["team", "matches", "IFA U15"])
+
+        client.get_games_by_team.assert_called_once_with(11, season_id=7, age_group_id=None)
+
+    def test_the_filter_is_named_in_the_title_and_count(self, client):
+        # id 3 (CF Montreal vs IFA U15 HG) is the one U14 + Flex match — the
+        # stub doesn't actually filter server-side (it's a MagicMock), but the
+        # CLI must still name the age group alongside the competition —
+        # SB-866's "26 of 26 U14 League match(es)".
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-a", "U14", "-c", "Flex"])
+
+        assert result.exit_code == 0
+        assert "1 of 1 U14 Flex match(es)" in result.output
+
+    def test_unknown_age_group_lists_the_known_ones(self, client):
+        result = runner.invoke(mt_cli.app, ["team", "matches", "IFA U15", "-a", "U99"])
+
+        assert result.exit_code == 1
+        assert "U14" in result.output and "U15" in result.output
+        client.get_games_by_team.assert_not_called()
 
 
 @pytest.mark.unit
