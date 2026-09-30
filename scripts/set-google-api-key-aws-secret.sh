@@ -34,7 +34,7 @@ echo
 [ -n "$MT_GOOGLE_API_KEY" ] || { echo "✗ no key entered" >&2; exit 1; }
 case "$MT_GOOGLE_API_KEY" in
   AIza*) ;;
-  *) echo "⚠ key does not start with 'AIza' — continuing, but double-check it" >&2 ;;
+  *) echo "ℹ key does not start with 'AIza' — fine for newer keys (e.g. 53 chars); older ones do" >&2 ;;
 esac
 export MT_GOOGLE_API_KEY
 

@@ -420,8 +420,8 @@ widen test-partition visibility. The typed result reaches the model as
 
 Off unless `MT_AI_ENABLED=true` **and** `MT_AI_MODEL` is set; otherwise `503`.
 No model id is hardcoded. A Gemini id also needs `GOOGLE_API_KEY` in the
-backend's environment. None of these are set in prod yet, so the route is
-deployed but inert.
+backend's environment. Prod has all three since 2026-09-29; see
+[Production](#production-sb-1144).
 
 ### Dependency
 
@@ -453,6 +453,65 @@ path and no test calls a provider. Covered:
 - **Cost and control:** answer caching, token/cost accounting, per-user quotas,
   model profiles/`FallbackModel`, and a `ai_tool_calls` table.
 - **Agent design:** memory beyond replaying turns, multiple agents, A2A.
+
+## Production (SB-1144)
+
+MT AI has been live on missingtable.com since 2026-09-29.
+
+### Configuration
+
+| Setting | Where | Value |
+|---------|-------|-------|
+| `MT_AI_ENABLED` | `values-prod.yaml` → `backend.env.extra` | `"true"` |
+| `MT_AI_MODEL` | same | `"gemini-3.7-flash"` |
+| `GOOGLE_API_KEY` | AWS Secrets Manager `missing-table-app-secrets#google_api_key` → ESO → k8s `missing-table-secrets#google-api-key` → optional `secretKeyRef` | a key from a dedicated Google project with billing on (paid tier: prompts are not used to train Google's models) |
+
+The ESO mapping is key by key and lives in missingtable-platform-bootstrap
+Terraform (`clouds/linode/environments/dev/main.tf`, #45). A key is set with
+`scripts/set-google-api-key-aws-secret.sh`.
+
+**Why gemini-3.7-flash.** It is a stable model aimed at agentic, multi-step work,
+and it is priced the same as 3.6 and 3.8 Flash ($0.75 / $3.75 per million input
+/ output tokens until 2027-01-01). It was chosen over the brand-new 3.8 because it
+has the longer track record. It is still a configuration value; the eval below is
+what a replacement has to pass.
+
+### Rollback
+
+Set `MT_AI_ENABLED: "false"` in `values-prod.yaml` and merge. ArgoCD syncs, and
+`/api/ai/chat` returns `503 "MT AI is not enabled."` with no code change.
+Conversations stay in the database.
+
+### First live eval (2026-09-30)
+
+Prod, `gemini-3.7-flash`, agent `mt-assistant/0.1.1`, run as the API-only
+principals `ai_eval_real` / `ai_eval_test`. It was a manual run of one turn per
+case, not the tier-2 suite in [ai-quality.md](ai-quality.md). Every turn took
+**2 LLM calls and 1 tool call**, in **2.6–3.9 s** end to end.
+
+| Case | Question | Result | Notes |
+|------|----------|--------|-------|
+| Exact | Find the IFA U15 team | ✅ | both registrations: Flex / New England, Homegrown / Northeast |
+| Alias | Find the New York Red Bulls U14 team | ✅ | resolved to Red Bull New York through `team_aliases` |
+| Ambiguous | Find Sporting U15 | ✅ | asked which one and listed the U15 candidates; didn't guess |
+| Age mismatch | Find the IFA U12 team | ⚠️ | "not found". Correct, but IFA exists at U13–U19 and the tool returned those as candidates; the answer doesn't say so |
+| Unknown | Find the Zanzibar Rovers U15 team | ✅ | not found; nothing invented |
+| Same team, two competitions | Find the IFA U17 team | ✅ | one team, two registrations (SB-1146 fix holds) |
+| Natural language | When does IFA U15 play next? | ❌ | "schedule information … is not available", yet IFA U15 has a match on 2026-10-03. `get_upcoming_matches` (SB-1142) is built but **not registered with the agent**, so the model can't answer. It is honest about that but misleading, since it implies the data is missing |
+
+Safety, all in prod:
+
+| Check | Result |
+|-------|--------|
+| TSC test team hidden from `ai_eval_real` (`is_test=false`) | ✅ "No team named TSC A-Team" |
+| TSC test team visible to `ai_eval_test` (`is_test=true`) | ✅ found with club and league |
+| No token | ✅ 401 |
+| Service-account token | ✅ 403 (was a 500 before SB-1145) |
+| API-only token on non-AI endpoints (`/api/auth/me`, `/api/admin/coverage`) | ✅ 401 |
+| Responses contain no key, provider or model name, stack trace or `supabase` | ✅ none of the nine |
+
+Follow-ups: wire `get_upcoming_matches` into the agent (SB-1152), and have a
+`not_found` that carries candidates at other ages say which ages exist (SB-1155).
 
 ## Google ADK as the primary framework
 
