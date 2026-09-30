@@ -336,7 +336,7 @@ a fan sees.
   decodes with `authenticated` or `service-account`, so it is **rejected
   everywhere but `/api/ai/*`**. The profile is re-read per request: clearing
   `is_api_account` or deleting the row revokes outstanding tokens at once.
-- Two exist for the eval: `ai-eval-real` (`is_test = false`) and `ai-eval-test`
+- Two exist for the eval: `ai_eval_real` (`is_test = false`) and `ai_eval_test`
   (`is_test = true`), so a prod run can prove the test partition is hidden.
 - **Attribution:** eval traffic is every conversation whose owner has
   `is_api_account`. Real-usage numbers exclude it:
@@ -353,14 +353,14 @@ redirected** — it refuses a terminal, so a token never lands in a transcript.
 
 ```bash
 APP_ENV=local uv run python scripts/manage_ai_users.py ensure
-APP_ENV=local uv run python scripts/manage_ai_users.py token ai-eval-real --out ~/.config/mt/ai-eval-real.local.jwt
+APP_ENV=local uv run python scripts/manage_ai_users.py token ai_eval_real --out ~/.config/mt/ai_eval_real.local.jwt
 
 # Prod: mint inside the backend pod, so the token is signed with the secret prod verifies with
 kubectl exec deploy/missing-table-backend -n missing-table -- \
   /app/.venv/bin/python scripts/manage_ai_users.py ensure
 kubectl exec deploy/missing-table-backend -n missing-table -- \
-  /app/.venv/bin/python scripts/manage_ai_users.py token ai-eval-real --out - \
-  > ~/.config/mt/ai-eval-real.prod.jwt
+  /app/.venv/bin/python scripts/manage_ai_users.py token ai_eval_real --out - \
+  > ~/.config/mt/ai_eval_real.prod.jwt
 ```
 
 `token` refuses to run without `SERVICE_ACCOUNT_SECRET`: `AuthManager` would fall
