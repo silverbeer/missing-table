@@ -328,9 +328,15 @@ Evals and automation run as their own principals, never on a human's session:
 an admin sees the test partition, so an eval run as Tom proves nothing about what
 a fan sees.
 
-- An API account is a `user_profiles` row with `is_api_account = true`, a
-  non-admin role (`team-fan`) and **no `auth.users` row** — no password, so it
-  cannot log in to the web app. A session token that names one is refused anyway.
+- An API account is a `user_profiles` row with `is_api_account = true` and a
+  non-admin role (`team-fan`). Prod requires an `auth.users` row behind every
+  profile (`user_profiles_id_fkey`, plus the `on_auth_user_created` trigger — both
+  prod-only drift, SB-1150), so each account has one with **no password**, an
+  undeliverable `<username>@missingtable.local` email and a **permanent ban**.
+  Supabase refuses a banned user's password, OTP and refresh sign-ins, so it cannot
+  log in to the web app; a session token that names one is refused by MT anyway.
+- Usernames follow the app rule `^[a-zA-Z0-9_]{3,50}$` (prod
+  `username_format_check`, SB-1147).
 - Its only credential is an HS256 token signed with `SERVICE_ACCOUNT_SECRET`,
   audience `mt-ai-api`, 7 days by default and 30 at most. Every other endpoint
   decodes with `authenticated` or `service-account`, so it is **rejected
@@ -347,7 +353,7 @@ a fan sees.
   WHERE NOT u.is_api_account;
   ```
 
-`backend/scripts/manage_ai_users.py` manages them. `ensure` is idempotent;
+`backend/scripts/manage_ai_users.py` manages them. `ensure` is idempotent: it creates the banned auth user, then upserts the profile (in prod the trigger has already made a bare one), and removes the auth user if that write fails.
 `token` writes a 0600 file, or with `--out -` writes stdout **only when it is
 redirected** — it refuses a terminal, so a token never lands in a transcript.
 

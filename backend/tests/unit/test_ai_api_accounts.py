@@ -52,6 +52,32 @@ class FakeProfiles:
         return type("Response", (), {"data": [row] if row else []})()
 
 
+class FakeAdminClient:
+    """The two supabase calls create_api_account makes: auth.admin and a profile upsert."""
+
+    def __init__(self, fail_upsert=False):
+        self.fail_upsert, self.upserted, self.deleted, self.created = fail_upsert, [], [], []
+        self.auth = type("Auth", (), {"admin": self})()
+
+    def create_user(self, attrs):
+        self.created.append(attrs)
+        return type("Resp", (), {"user": type("User", (), {"id": "new-auth-id"})()})()
+
+    def delete_user(self, user_id):
+        self.deleted.append(user_id)
+
+    def table(self, _name):
+        return self
+
+    def upsert(self, row):
+        self.upserted.append(row)
+        return self
+
+    def execute(self):
+        if self.fail_upsert:
+            raise RuntimeError("upsert failed")
+
+
 @pytest.fixture
 def manager(monkeypatch):
     monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
@@ -180,12 +206,38 @@ class TestScript:
         assert script.missing_accounts({"ai_eval_real", "ai_eval_test"}) == []
 
     def test_profile_row_is_a_non_admin_api_account(self):
-        row = script.profile_row(script.AI_EVAL_ACCOUNTS[1])
+        row = script.profile_row(script.AI_EVAL_ACCOUNTS[1], "uid-1")
 
+        assert row["id"] == "uid-1"
         assert row["role"] != "admin"
         assert row["is_api_account"] is True
         assert row["is_test"] is True
-        assert row["id"]
+
+    def test_auth_user_has_no_password_and_is_banned(self):
+        attrs = script.auth_user_attributes(script.AI_EVAL_ACCOUNTS[0])
+
+        assert "password" not in attrs
+        assert attrs["email"] == "ai_eval_real@missingtable.local"
+        assert attrs["email_confirm"] is False
+        assert attrs["ban_duration"] == script.PERMANENT_BAN
+
+    def test_create_upserts_the_profile_onto_the_new_auth_user(self):
+        """Upsert: in prod the on_auth_user_created trigger already made a bare profile (SB-1150)."""
+        client = FakeAdminClient()
+
+        user_id = script.create_api_account(client, script.AI_EVAL_ACCOUNTS[1])
+
+        assert user_id == "new-auth-id"
+        assert client.upserted == [script.profile_row(script.AI_EVAL_ACCOUNTS[1], "new-auth-id")]
+        assert client.deleted == []
+
+    def test_a_failed_profile_write_removes_the_auth_user(self):
+        client = FakeAdminClient(fail_upsert=True)
+
+        with pytest.raises(RuntimeError):
+            script.create_api_account(client, script.AI_EVAL_ACCOUNTS[0])
+
+        assert client.deleted == ["new-auth-id"]
 
     def test_token_file_is_private(self, tmp_path):
         where = script.write_token("tok", str(tmp_path / "nested" / "ai.jwt"), stdout_is_tty=True)
