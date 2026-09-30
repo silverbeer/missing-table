@@ -30,6 +30,12 @@ backend:
       # land in a monitored inbox instead of the noreply@ from-address.
       # Change this to whatever inbox you actually read.
       RESEND_REPLY_TO: "support@contact.missingtable.com"
+      # MT AI (SB-1144). GOOGLE_API_KEY comes from AWS Secrets Manager via ESO.
+      # Rollback: set MT_AI_ENABLED to "false" and merge — /api/ai/chat answers
+      # 503 "MT AI is not enabled." with no code change. Model is configuration,
+      # never code: mt2/ai.md records why gemini-3.7-flash.
+      MT_AI_ENABLED: "true"
+      MT_AI_MODEL: "gemini-3.7-flash"
 
 # Live-match notifications (explicit override — defaults to true in values.yaml)
 # The TELEGRAM_BOT_TOKEN key inside the ESO-managed missing-table-secrets must
