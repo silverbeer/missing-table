@@ -17,7 +17,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
-from auth import get_current_user_required
+from auth import get_ai_user
 from dao.ai_conversation_dao import AIConversationDAO
 from dao.club_dao import ClubDAO
 from dao.league_dao import LeagueDAO
@@ -75,7 +75,7 @@ def get_chat_service() -> ChatService:
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     payload: ChatRequest,
-    current_user: dict[str, Any] = Depends(get_current_user_required),
+    current_user: dict[str, Any] = Depends(get_ai_user),
     service: ChatService = Depends(get_chat_service),
 ) -> ChatResponse:
     conversation_id = str(payload.conversation_id) if payload.conversation_id else None

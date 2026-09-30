@@ -46,6 +46,11 @@ class ChatError(Exception):
             self.detail = detail
 
 
+class NotAllowedToChatError(ChatError):
+    status_code = 403
+    detail = "This account cannot use MT AI."
+
+
 class ConversationNotFoundError(ChatError):
     status_code = 404
     detail = "Conversation not found."
@@ -87,6 +92,9 @@ class ChatService:
         self.run = run
 
     async def chat(self, user: dict[str, Any], message: str, conversation_id: str | None) -> ChatResult:
+        if not user.get("user_id"):
+            # A conversation needs a user_profiles owner; a service account has none.
+            raise NotAllowedToChatError()
         user_id = str(user["user_id"])
         conversation_id, history, turn = self._open(user_id, conversation_id)
 
