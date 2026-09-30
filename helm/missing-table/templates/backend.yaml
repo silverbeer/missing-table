@@ -152,6 +152,16 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: r2-bucket
               optional: true
+        # Gemini API key for MT AI (SB-1144). Optional: without it the pod boots and
+        # /api/ai/chat answers 503 unless MT_AI_ENABLED and MT_AI_MODEL are set; with
+        # the flag on but no key, model calls fail as 502. ESO maps it from
+        # missing-table-app-secrets#google_api_key. google-genai reads GOOGLE_API_KEY.
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: google-api-key
+              optional: true
         # Global kill switch for live-match notifications. Defaults to true.
         - name: NOTIFICATIONS_ENABLED
           value: {{ .Values.notifications.enabled | default true | quote }}
