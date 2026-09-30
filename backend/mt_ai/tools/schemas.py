@@ -49,15 +49,27 @@ class AgeGroupRef(BaseModel):
     name: str
 
 
+class Registration(BaseModel):
+    """One competition a team plays in at an age group (a team_mappings row)."""
+
+    league: str | None = None
+    division: str | None = None
+
+
 class TeamCandidate(BaseModel):
-    """One team, optionally pinned to one of the age groups it plays in."""
+    """One team, optionally pinned to one of the age groups it plays in.
+
+    A team can play in several competitions at one age group — League and Flex,
+    say. Those are `registrations` of this one candidate, never separate
+    candidates: two competitions are not two teams (SB-1146).
+    """
 
     team_id: int
     name: str
     club_name: str | None = None
     league_name: str | None = None
     age_group: AgeGroupRef | None = None
-    division_name: str | None = None
+    registrations: list[Registration] = Field(default_factory=list)
 
 
 class ResolveResult(BaseModel):

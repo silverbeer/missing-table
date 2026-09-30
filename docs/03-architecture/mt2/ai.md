@@ -205,8 +205,8 @@ class TeamCandidate(BaseModel):
     team_id: int
     name: str
     club: str | None
-    age_groups: list[str]          # from team_mappings
-    divisions: list[str]
+    age_group: str | None
+    registrations: list[Registration]   # every competition at that age (SB-1146)
 
 class ResolveResult(BaseModel):
     status: Literal["resolved", "ambiguous", "not_found"]
@@ -232,8 +232,12 @@ The agent is instructed to ask a clarifying question on `ambiguous` rather than 
 - **`get_team_by_name` passes its input to `ilike` unescaped**, so `%` and `_`
   act as wildcards. Harmless for scraper names, not for user-typed text: the
   tool never sends a name containing them to the database.
-- **Cached `divisions_by_age_group` has string keys** after a Redis round-trip
-  (JSON); the tools accept both.
+- **Two competitions at one age are one team, not two** (SB-1146, found by the
+  first live prod request). IFA U15 plays Homegrown *and* Flex. The tool first
+  built candidates from `divisions_by_age_group`, a dict keyed by age group,
+  so the second competition was lost and IFA U15 came back as two identical
+  "ambiguous" candidates. Candidates now come from the raw `team_mappings`
+  rows: one per (team, age group), carrying `registrations: [{league, division}]`.
 - **"Today" is the club's day** (`clubs.timezone`, default `America/New_York`),
   computed in the tool with an injectable clock for tests.
 

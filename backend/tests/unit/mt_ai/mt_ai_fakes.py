@@ -8,17 +8,42 @@ events, and the tools must give full answers anyway.
 import copy
 from typing import Any
 
-REAL_HOMEGROWN, REAL_ACADEMY, TEST_LEAGUE = 1, 2, 9
+REAL_HOMEGROWN, REAL_ACADEMY, REAL_FLEX, TEST_LEAGUE = 1, 2, 3, 9
 U14, U15, U16 = 14, 15, 16
 
+LEAGUE_NAMES = {REAL_HOMEGROWN: "Homegrown", REAL_ACADEMY: "Academy", REAL_FLEX: "Flex", TEST_LEAGUE: "TSC Test League"}
 
-def _ages(*ids: int) -> list[dict]:
-    return [{"id": i, "name": f"U{i}"} for i in ids]
+
+def reg(age: int, division: str | None, league_id: int) -> dict:
+    """One team_mappings row, in the shape TeamDAO.get_all_teams returns it."""
+    divisions = None
+    if division:
+        name = LEAGUE_NAMES[league_id]
+        divisions = {
+            "name": division,
+            "league_id": league_id,
+            "league_name": name,
+            "leagues": {"id": league_id, "name": name, "sport_type": "soccer"},
+        }
+    return {"age_groups": {"id": age, "name": f"U{age}"}, "divisions": divisions}
+
+
+def team(team_id: int, name: str, club_id: int | None, league_id: int, *mappings: dict) -> dict:
+    return {
+        "id": team_id,
+        "name": name,
+        "club_id": club_id,
+        "league_id": league_id,
+        "team_mappings": list(mappings),
+        # get_all_teams also derives these; the tools must not rely on them (SB-1146).
+        "age_groups": [m["age_groups"] for m in mappings],
+    }
 
 
 LEAGUES = [
     {"id": REAL_HOMEGROWN, "name": "Homegrown", "is_test": False},
     {"id": REAL_ACADEMY, "name": "Academy", "is_test": False},
+    {"id": REAL_FLEX, "name": "Flex", "is_test": False},
     {"id": TEST_LEAGUE, "name": "TSC Test League", "is_test": True},
 ]
 
@@ -32,87 +57,37 @@ CLUBS = [
 
 TEAMS = [
     # Same name in two leagues — a real, legitimate ambiguity.
-    {
-        "id": 100,
-        "name": "Boston United",
-        "club_id": 10,
-        "league_id": REAL_HOMEGROWN,
-        "age_groups": _ages(U15),
-        "divisions_by_age_group": {U15: {"name": "Northeast", "league_id": REAL_HOMEGROWN}},
-    },
-    {
-        "id": 101,
-        "name": "Boston United",
-        "club_id": 10,
-        "league_id": REAL_ACADEMY,
-        "age_groups": _ages(U15),
-        "divisions_by_age_group": {U15: {"name": "New England", "league_id": REAL_ACADEMY}},
-    },
-    {
-        "id": 102,
-        "name": "IFA",
-        "club_id": 11,
-        "league_id": REAL_HOMEGROWN,
-        "age_groups": _ages(U15),
-        "divisions_by_age_group": {U15: {"name": "Northeast", "league_id": REAL_HOMEGROWN}},
-    },
-    {
-        "id": 103,
-        "name": "LA Surf",
-        "club_id": 12,
-        "league_id": REAL_HOMEGROWN,
-        "age_groups": _ages(U14),
-        "divisions_by_age_group": {U14: {"name": "Southwest", "league_id": REAL_HOMEGROWN}},
-    },
-    {
-        "id": 104,
-        "name": "TSC Test Team",
-        "club_id": 13,
-        "league_id": REAL_HOMEGROWN,
-        "age_groups": _ages(U15),
-        "divisions_by_age_group": {},
-    },
-    {
-        "id": 105,
-        "name": "Test League Team",
-        "club_id": 11,
-        "league_id": TEST_LEAGUE,
-        "age_groups": _ages(U15),
-        "divisions_by_age_group": {},
-    },
-    {"id": 106, "name": "No Ages FC", "club_id": 11, "league_id": REAL_HOMEGROWN},
-    # Multi-age team. Keys are strings: this is what a Redis cache hit returns.
-    {
-        "id": 108,
-        "name": "NEFC",
-        "club_id": None,
-        "league_id": REAL_HOMEGROWN,
-        "age_groups": _ages(U15, U16),
-        "divisions_by_age_group": {
-            str(U15): {"name": "Northeast", "league_id": REAL_HOMEGROWN},
-            str(U16): {"name": "Northeast", "league_id": REAL_HOMEGROWN},
-        },
-    },
+    team(100, "Boston United", 10, REAL_HOMEGROWN, reg(U15, "Northeast", REAL_HOMEGROWN)),
+    team(101, "Boston United", 10, REAL_ACADEMY, reg(U15, "New England", REAL_ACADEMY)),
+    # One team, two competitions at U15 — as IFA is in prod. Not ambiguous (SB-1146).
+    team(102, "IFA", 11, REAL_HOMEGROWN, reg(U15, "Northeast", REAL_HOMEGROWN), reg(U15, "New England", REAL_FLEX)),
+    team(103, "LA Surf", 12, REAL_HOMEGROWN, reg(U14, "Southwest", REAL_HOMEGROWN)),
+    team(104, "TSC Test Team", 13, REAL_HOMEGROWN, reg(U15, None, REAL_HOMEGROWN)),
+    team(105, "Test League Team", 11, TEST_LEAGUE, reg(U15, None, TEST_LEAGUE)),
+    team(106, "No Ages FC", 11, REAL_HOMEGROWN),
+    # Multi-age team.
+    team(
+        108, "NEFC", None, REAL_HOMEGROWN, reg(U16, "Northeast", REAL_HOMEGROWN), reg(U15, "Northeast", REAL_HOMEGROWN)
+    ),
     # Real team with one registration in a test league's division.
-    {
-        "id": 109,
-        "name": "Mixed Registrations",
-        "club_id": 11,
-        "league_id": REAL_HOMEGROWN,
-        "age_groups": _ages(U15, U16),
-        "divisions_by_age_group": {
-            U15: {"name": "Northeast", "league_id": REAL_HOMEGROWN},
-            U16: {"name": "TSC Division", "league_id": TEST_LEAGUE},
-        },
-    },
-    {
-        "id": 110,
-        "name": "Nowhere FC",
-        "club_id": 14,
-        "league_id": REAL_HOMEGROWN,
-        "age_groups": _ages(U15),
-        "divisions_by_age_group": {},
-    },
+    team(
+        109,
+        "Mixed Registrations",
+        11,
+        REAL_HOMEGROWN,
+        reg(U15, "Northeast", REAL_HOMEGROWN),
+        reg(U16, "TSC Division", TEST_LEAGUE),
+    ),
+    # Same age in a real and a test competition: only the real one is visible to real viewers.
+    team(
+        111,
+        "Split Comp FC",
+        11,
+        REAL_HOMEGROWN,
+        reg(U15, "Northeast", REAL_HOMEGROWN),
+        reg(U15, "TSC Division", TEST_LEAGUE),
+    ),
+    team(110, "Nowhere FC", 14, REAL_HOMEGROWN, reg(U15, None, REAL_HOMEGROWN)),
 ]
 
 ALIASES = {"intercontinental football academy": 102, "tsc alias": 104}

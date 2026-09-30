@@ -18,7 +18,10 @@ class TestResolved:
         team = result.team
         assert (team.team_id, team.name, team.club_name, team.league_name) == (102, "IFA", "IFA", "Homegrown")
         assert team.age_group.name == "U15"
-        assert team.division_name == "Northeast"
+        assert [(r.league, r.division) for r in team.registrations] == [
+            ("Flex", "New England"),
+            ("Homegrown", "Northeast"),
+        ]
 
     @pytest.mark.parametrize("query", ["IFA U15", "ifa u15", "IFA u-15", "  IFA   U15 "])
     def test_age_in_the_question_is_understood(self, make_deps, real_viewer, query):
@@ -32,8 +35,26 @@ class TestResolved:
 
         assert result.status == "resolved"
         assert result.team.age_group.id == U16
-        # divisions_by_age_group keys were strings (a cache hit) — still found.
-        assert result.team.division_name == "Northeast"
+        assert [(r.league, r.division) for r in result.team.registrations] == [("Homegrown", "Northeast")]
+
+    def test_two_competitions_at_one_age_are_one_team_not_two(self, make_deps, real_viewer):
+        """SB-1146, found live in prod: IFA U15 plays Homegrown and Flex. That is not ambiguity."""
+        result = search_teams(make_deps(), "IFA U15", real_viewer)
+
+        assert result.status == "resolved"
+        assert result.candidates == []
+        assert {r.league for r in result.team.registrations} == {"Homegrown", "Flex"}
+
+    def test_a_cache_round_trip_changes_nothing(self, make_deps, teams, real_viewer):
+        """get_all_teams is served from Redis as JSON; the result must not depend on that."""
+        import json
+
+        teams.teams = json.loads(json.dumps(teams.teams))
+
+        result = search_teams(make_deps(), "IFA U15", real_viewer)
+
+        assert result.status == "resolved"
+        assert len(result.team.registrations) == 2
 
     def test_alias_resolves_to_the_canonical_team(self, make_deps, real_viewer):
         result = search_teams(make_deps(), "Intercontinental Football Academy", real_viewer)
@@ -113,6 +134,14 @@ class TestTestPartition:
 
         assert result.status == "not_found"
         assert result.candidates == []
+
+    def test_a_test_competition_is_hidden_but_the_real_one_stays(self, make_deps, real_viewer, test_viewer):
+        real = search_teams(make_deps(), "Split Comp FC", real_viewer)
+        test = search_teams(make_deps(), "Split Comp FC", test_viewer)
+
+        assert real.status == test.status == "resolved"
+        assert [r.league for r in real.team.registrations] == ["Homegrown"]
+        assert [r.league for r in test.team.registrations] == ["Homegrown", "TSC Test League"]
 
     def test_registration_in_a_test_division_is_hidden(self, make_deps, real_viewer, test_viewer):
         real = search_teams(make_deps(), "Mixed Registrations", real_viewer)
