@@ -355,6 +355,48 @@ class TestExitCode:
         out = capsys.readouterr().out
         assert "players: PostgREST 42501: permission denied" in out
 
+    @pytest.mark.parametrize("code", ["42P01", "PGRST205"])
+    def test_a_table_not_created_yet_is_skipped_not_fatal(self, backup, tmp_path, capsys, code):
+        """Code merges before its migration: the new table is absent in prod for a while (SB-1144)."""
+        new_table = backup.TABLES_TO_BACKUP[-1]
+        db = FakeDatabase(
+            scraped_only_world(backup),
+            failures={new_table: api_error(code, f'relation "public.{new_table}" does not exist')},
+        )
+
+        assert self._run(backup, tmp_path, db) == 0
+
+        [written] = list(tmp_path.iterdir())
+        with gzip.open(written, "rt", encoding="utf-8") as f:
+            data = json.load(f)
+        assert data["backup_info"]["absent_tables"] == [new_table]
+        assert new_table not in data["tables"]
+        assert data["backup_info"]["row_counts"]["matches"] == 3
+        out = capsys.readouterr().out
+        assert f"{new_table}: not in this database yet" in out
+        assert "Backup completed successfully" in out
+
+    def test_an_absent_table_does_not_excuse_a_real_failure(self, backup, tmp_path, capsys):
+        new_table = backup.TABLES_TO_BACKUP[-1]
+        db = FakeDatabase(
+            scraped_only_world(backup),
+            failures={new_table: api_error("42P01"), "players": api_error("42501", "permission denied")},
+        )
+
+        assert self._run(backup, tmp_path, db) == 1
+
+        assert files_in(tmp_path) == []
+        out = capsys.readouterr().out
+        assert "1 table(s) could not be backed up" in out
+        assert "players: PostgREST 42501: permission denied" in out
+
+    def test_a_complete_backup_records_no_absent_tables(self, backup, tmp_path):
+        assert self._run(backup, tmp_path, FakeDatabase(scraped_only_world(backup))) == 0
+
+        [written] = list(tmp_path.iterdir())
+        with gzip.open(written, "rt", encoding="utf-8") as f:
+            assert json.load(f)["backup_info"]["absent_tables"] == []
+
     def test_every_failed_table_is_reported_not_just_the_first(self, backup, tmp_path, capsys):
         db = FakeDatabase(
             scraped_only_world(backup),

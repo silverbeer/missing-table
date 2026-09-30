@@ -377,6 +377,8 @@ New schema changes go in additional timestamped migration files (e.g., `20260201
 in `scripts/restore_database.py` — or to `EXCLUDED_TABLES` with the reason. `test_backup_coverage.py` fails CI
 otherwise (SB-1071). A column referencing a user needs no registry — restore finds user FKs by
 introspection — but add it to the admin delete-user lists (`_DELETE_CASCADES` etc. in `app.py`).
+Until the migration reaches prod, a listed table is *absent* there: the backup skips it with a warning
+(`backup_info.absent_tables`) instead of failing, and backs it up from the first run after `migrate prod`.
 
 ### Quick Reference
 ```bash

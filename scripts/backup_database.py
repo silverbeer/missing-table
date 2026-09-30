@@ -216,6 +216,24 @@ def configure(env: str) -> None:
     supabase = create_client(url, key) if url and key else None
 
 
+# PostgREST's answers for a table that does not exist: Postgres's own 42P01, or
+# PGRST205 ("not in the schema cache") from newer PostgREST.
+ABSENT_TABLE_CODES = {"42P01", "PGRST205"}
+
+
+def is_absent_table(error: BaseException) -> bool:
+    """The table does not exist in this database yet — not the same as a failed read.
+
+    Code merges before its migration reaches prod, so for a while every new
+    table on TABLES_TO_BACKUP is absent there. Failing the whole backup for
+    that stopped prod backups — and `db_tools.sh migrate prod`, which backs up
+    first, could then never apply the migration that creates the table
+    (SB-1144). An absent table has no rows to lose. A table that exists but
+    cannot be read is still a failure.
+    """
+    return isinstance(error, APIError) and str(error.code) in ABSENT_TABLE_CODES
+
+
 def is_transient(error: BaseException) -> bool:
     """Worth retrying: the network, a timeout or a server error — not a bad request."""
     if isinstance(error, (httpx.TransportError, AuthRetryableError)):
@@ -421,20 +439,26 @@ def backup_auth_users() -> list:
     return all_users
 
 
-def collect_tables(tables: list[str]) -> tuple[dict, dict[str, str]]:
+def collect_tables(tables: list[str]) -> tuple[dict, dict[str, str], list[str]]:
     """Back up each table, carrying on past a failure so the report names every one.
 
-    Returns the rows collected and, for each table that failed, why.
+    Returns the rows collected, for each table that failed, why, and the tables
+    that do not exist in this database yet (see is_absent_table).
     """
     steps = [(table, partial(backup_table, table)) for table in tables]
     steps.append((AUTH_USERS_KEY, backup_auth_users))
 
     collected: dict = {}
     failures: dict[str, str] = {}
+    absent: list[str] = []
     for index, (name, step) in enumerate(steps):
         try:
             collected[name] = step()
         except Exception as error:
+            if name != AUTH_USERS_KEY and is_absent_table(error):
+                absent.append(name)
+                print(f"  ⚠ {name}: not in this database yet (migration not applied) — skipped")
+                continue
             failures[name] = describe_error(error)
             print(f"  ✗ {name}: {failures[name]}")
             if is_transient(error):
@@ -446,7 +470,7 @@ def collect_tables(tables: list[str]) -> tuple[dict, dict[str, str]]:
                         "not attempted — the database stopped responding"
                     )
                 break
-    return collected, failures
+    return collected, failures, absent
 
 
 def row_counts(backup_data: dict) -> dict[str, int]:
@@ -658,7 +682,7 @@ def create_backup(backup_dir: Path | None = None) -> Path:
     # Safety check: warn if database has tables not in backup list
     check_for_new_tables(TABLES_TO_BACKUP)
 
-    tables, failures = collect_tables(TABLES_TO_BACKUP)
+    tables, failures, absent = collect_tables(TABLES_TO_BACKUP)
     if failures:
         raise BackupError(failure_report(failures))
 
@@ -669,12 +693,13 @@ def create_backup(backup_dir: Path | None = None) -> Path:
             "version": "1.1",
             "app_env": app_env,
             "supabase_url": url,
+            "absent_tables": absent,
         },
         "tables": tables,
     }
     backup_data["backup_info"]["row_counts"] = row_counts(backup_data)
 
-    problems = validate_backup(backup_data, TABLES_TO_BACKUP)
+    problems = validate_backup(backup_data, [t for t in TABLES_TO_BACKUP if t not in absent])
     if problems:
         raise BackupError(
             "Backup is incomplete:\n" + "\n".join(f"  - {p}" for p in problems)
@@ -690,6 +715,11 @@ def create_backup(backup_dir: Path | None = None) -> Path:
     print(f"📊 Size: {backup_file.stat().st_size / 1024:.1f} KB")
     print(f"📈 Total records: {sum(counts.values())}")
     print(f"📋 Tables backed up: {len(counts)}")
+    if absent:
+        print(
+            f"⚠️  Not in this database yet, so not in this backup: {', '.join(absent)}. "
+            "Apply the pending migration (db_tools.sh migrate) and they will be backed up from then on."
+        )
 
     return backup_file
 
