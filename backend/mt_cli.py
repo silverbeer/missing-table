@@ -61,13 +61,6 @@ team_app.add_typer(alias_app, name="alias")
 team_app.add_typer(mapping_app, name="mapping")
 app.add_typer(ingest_app, name="ingest")
 console = Console()
-if not console.is_terminal:
-    # A real terminal sizes itself; anything else (piped, redirected, or run
-    # under test) falls back to a hardcoded 80 columns, which is exactly wide
-    # enough for `mt team matches`' widest row to wrap silently once the
-    # Age Group column is added (SB-866) — wrapping that would drop the one
-    # thing the column exists to show.
-    console.width = 120
 
 
 @app.callback()
@@ -1425,12 +1418,12 @@ def team_matches(
     # as a 6-match season.
     table = Table(title=f"Matches — {team_row.get('name', team)} · {scope}")
     table.add_column("ID", style="cyan", no_wrap=True)
-    table.add_column("Date", style="magenta")
+    table.add_column("Date", style="magenta", no_wrap=True, min_width=10)
     table.add_column("Status", style="yellow")
     # Always shown, even unfiltered: a team row covers every age group it
     # plays, so a same-day pair across two of them looks like a duplicate
     # without this column (SB-866).
-    table.add_column("Age", style="dim")
+    table.add_column("Age", style="dim", no_wrap=True)
     table.add_column("Competition", style="dim")
     table.add_column("Home", style="white")
     table.add_column("Away", style="white")

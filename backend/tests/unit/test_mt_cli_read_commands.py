@@ -28,7 +28,10 @@ from mt_cli import (
     took_part,
 )
 
-runner = CliRunner()
+# Off a terminal Rich renders 80 columns, where the matches table wraps cell
+# text across lines and splits the names asserted on below. Tests render as
+# a wide terminal would; mt_cli itself never fixes the width (SB-866).
+runner = CliRunner(env={"COLUMNS": "120"})
 
 SEASONS = [
     {"id": 6, "name": "2025", "is_current": False},
