@@ -7,9 +7,9 @@ back — is the production code path.
 
 import pytest
 from mt_ai_fake_llm import ModelDown, calls_tool, says, scripted
-from mt_ai_fakes import FakeLeagues
+from mt_ai_fakes import FakeLeagues, FakeMatches, match_row
 
-from mt_ai.agent import AIRunError, HistoryTurn, run_turn
+from mt_ai.agent import AGENT_VERSION, INSTRUCTION, AIRunError, HistoryTurn, run_turn
 from mt_ai.budget import Budget
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
@@ -20,14 +20,64 @@ async def run(model, deps, viewer, message="Find IFA", history=(), budget=None):
 
 
 class TestToolWiring:
-    async def test_search_teams_is_declared_to_the_model(self, make_deps, real_viewer):
+    async def test_both_tools_are_declared_to_the_model(self, make_deps, real_viewer):
         model = scripted(says("Hello"))
         await run(model, make_deps(), real_viewer, message="hi")
 
         tools = model.declared_tools()
-        assert list(tools) == ["search_teams"]
+        assert list(tools) == ["search_teams", "get_upcoming_matches"]
         assert tools["search_teams"]["required"] == ["query"]
         assert set(tools["search_teams"]["properties"]) == {"query", "age_group"}
+        # The viewer and the clock are the server's, never the model's.
+        assert tools["get_upcoming_matches"]["required"] == ["team_id"]
+        assert set(tools["get_upcoming_matches"]["properties"]) == {"team_id", "age_group_id", "limit"}
+
+    async def test_search_then_upcoming_matches(self, make_deps, real_viewer):
+        """SB-1152: "When does IFA U15 play next?" resolves the team, then fetches its fixtures."""
+        model = scripted(
+            calls_tool("search_teams", query="IFA", age_group="U15"),
+            calls_tool("get_upcoming_matches", team_id=102, age_group_id=15),
+            says("IFA U15 plays on 1 Jan 2099."),
+        )
+        # Far in the future, so the real clock always sees it as upcoming.
+        deps = make_deps(matches=FakeMatches([match_row(9, "2099-01-01")]))
+
+        outcome = await run(model, deps, real_viewer, message="When does IFA U15 play next?")
+
+        # Each request repeats the earlier results; the last request shows both.
+        search, upcoming = model.tool_results()[-2:]
+        assert search["team"]["team_id"] == 102
+        assert upcoming["team_id"] == 102
+        assert upcoming["error"] is None
+        assert [m["match_date"] for m in upcoming["matches"]] == ["2099-01-01"]
+        assert upcoming["today"] and upcoming["timezone"]
+        assert outcome.answer == "IFA U15 plays on 1 Jan 2099."
+        assert (outcome.llm_calls, outcome.tool_calls) == (3, 2)
+
+    async def test_nothing_scheduled_reaches_the_model_as_an_empty_list(self, make_deps, real_viewer):
+        """[] (checked, none) must not look like null (couldn't check)."""
+        model = scripted(calls_tool("get_upcoming_matches", team_id=102), says("Nothing scheduled yet."))
+
+        await run(model, make_deps(matches=FakeMatches([])), real_viewer)
+
+        result = model.tool_results()[0]
+        assert result["matches"] == []
+        assert result["error"] is None
+
+    async def test_upcoming_matches_cannot_reach_hidden_test_teams(self, make_deps, real_viewer):
+        """The viewer is bound by the server for this tool too."""
+        model = scripted(calls_tool("get_upcoming_matches", team_id=104), says("Not found."))
+
+        await run(model, make_deps(), real_viewer)
+
+        result = model.tool_results()[0]
+        assert result["matches"] is None
+        assert result["error"]["kind"] == "not_found"
+
+    def test_the_instruction_says_how_to_use_both_tools(self):
+        assert "get_upcoming_matches" in INSTRUCTION
+        assert "search_teams" in INSTRUCTION
+        assert AGENT_VERSION == "mt-assistant/0.2.0"
 
     async def test_model_calls_tool_and_typed_result_reaches_it(self, make_deps, real_viewer):
         model = scripted(calls_tool("search_teams", query="IFA"), says("IFA plays U15 in the Northeast."))

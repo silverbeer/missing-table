@@ -180,7 +180,7 @@ conversations; ADK's session is rebuilt from them per request (see below).
 | `search_clubs` | `/api/clubs` lists all; exact-name lookups only | **Build** (in-memory filter over the cached list is enough at MT's size) |
 | `get_club` | `GET /api/clubs/{id}`, `/api/clubs/{id}/teams` | Supported |
 | `get_match` | `GET /api/matches/{id}`, live state, events | Supported |
-| `get_upcoming_matches` | `mt_ai/tools/matches.py` over `MatchDAO.get_all_matches(start_date=…, raise_on_error=True)` | **Built (SB-1142)** |
+| `get_upcoming_matches` | `mt_ai/tools/matches.py` over `MatchDAO.get_all_matches(start_date=…, raise_on_error=True)` | **Built (SB-1142)**, registered with the agent (SB-1152) |
 | `get_recent_matches` | same | **Build**, same basis |
 | `get_standings` | `GET /api/table` → `MatchDAO.get_standings` (cached) → pure `dao/standings.py` | Supported; League/Flex need `division_id` |
 | `get_league` | `GET /api/leagues/{id}` | Supported |
@@ -297,8 +297,8 @@ The first end-to-end path. It proves the plumbing, not the assistant.
 POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors to status codes
   → ChatService.chat       mt_ai/service.py   load/create conversation, rebuild history, persist the turn
     → run_turn             mt_ai/agent.py     the only module that imports ADK
-      → ADK Runner + LlmAgent(tools=[search_teams]), RunConfig(max_llm_calls)
-        → search_teams     mt_ai/tools/       unchanged from SB-1142; no ADK, no HTTP
+      → ADK Runner + LlmAgent(tools=[search_teams, get_upcoming_matches]), RunConfig(max_llm_calls)
+        → the tools        mt_ai/tools/       unchanged from SB-1142; no ADK, no HTTP
 ```
 
 ### `/api/ai/chat` as built
@@ -510,8 +510,9 @@ Safety, all in prod:
 | API-only token on non-AI endpoints (`/api/auth/me`, `/api/admin/coverage`) | ✅ 401 |
 | Responses contain no key, provider or model name, stack trace or `supabase` | ✅ none of the nine |
 
-Follow-ups: wire `get_upcoming_matches` into the agent (SB-1152), and have a
-`not_found` that carries candidates at other ages say which ages exist (SB-1155).
+Follow-ups: wire `get_upcoming_matches` into the agent (SB-1152, done in
+`mt-assistant/0.2.0`), and have a `not_found` that carries candidates at other
+ages say which ages exist (SB-1155).
 
 ## Google ADK as the primary framework
 

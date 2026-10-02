@@ -1,4 +1,4 @@
-"""The MT assistant: one ADK agent with one tool (SB-1143).
+"""The MT assistant: one ADK agent with two tools (SB-1143, SB-1152).
 
 This module is the only place that knows about ADK. It takes plain inputs
 (history as text, a message, a viewer, a budget) and returns a plain
@@ -25,17 +25,27 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from mt_ai.budget import Budget, BudgetExhaustedError, BudgetLimit, ToolCallGuard
-from mt_ai.tools import ToolDeps, Viewer, search_teams
+from mt_ai.tools import ToolDeps, Viewer, get_upcoming_matches, search_teams
 
 logger = structlog.get_logger()
 
 APP_NAME = "mt_ai"
 AGENT_NAME = "mt_assistant"
-AGENT_VERSION = "mt-assistant/0.1.1"
+AGENT_VERSION = "mt-assistant/0.2.0"
 
 INSTRUCTION = """\
 You are MT, the assistant for MissingTable, a youth soccer site for players,
-parents and fans. Answer questions about MT teams using the search_teams tool.
+parents and fans. Answer questions about MT teams and their upcoming matches
+using your tools.
+
+- To find a team, use search_teams.
+- To say when a team plays next, first resolve the team with search_teams, then
+  call get_upcoming_matches with that team's team_id and its age_group id.
+  Kickoff times are in the club's local time; dates are on or after "today" in
+  the result.
+- If get_upcoming_matches returns "matches": [], say nothing is scheduled yet
+  as of that "today". Only say match data is unavailable when the result has
+  an "error". A postponed match is still listed: say it was postponed.
 
 - Never guess a team. If search_teams says "ambiguous", ask which one the user
   means and list the candidates (name, age group, league). If it says
@@ -70,6 +80,23 @@ class AIRunError(Exception):
 
 def model_name(model: BaseLlm | str) -> str:
     return model if isinstance(model, str) else model.model
+
+
+def make_upcoming_matches_tool(deps: ToolDeps, viewer: Viewer) -> Callable[..., dict[str, Any]]:
+    """Bind get_upcoming_matches like search_teams: the viewer (and so test
+    visibility) and the clock are the server's; the model picks only the team."""
+
+    def get_upcoming_matches_tool(team_id: int, age_group_id: int | None = None, limit: int = 5) -> dict[str, Any]:
+        """A team's next matches, today or later in the club's time zone: scheduled,
+        tbd, live or postponed. Use team_id and age_group.id from search_teams.
+        "matches" is [] when nothing is scheduled and null when it could not be
+        checked (see "error")."""
+        return get_upcoming_matches(deps, team_id, viewer, age_group_id=age_group_id, limit=limit).model_dump(
+            mode="json"
+        )
+
+    get_upcoming_matches_tool.__name__ = "get_upcoming_matches"
+    return get_upcoming_matches_tool
 
 
 def make_search_teams_tool(deps: ToolDeps, viewer: Viewer) -> Callable[..., dict[str, Any]]:
@@ -108,7 +135,7 @@ async def run_turn(
         name=AGENT_NAME,
         model=model,
         instruction=INSTRUCTION,
-        tools=[make_search_teams_tool(deps, viewer)],
+        tools=[make_search_teams_tool(deps, viewer), make_upcoming_matches_tool(deps, viewer)],
         before_model_callback=count_llm_call,
         before_tool_callback=guard.before_tool,
     )
