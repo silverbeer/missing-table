@@ -74,10 +74,23 @@ class TestToolWiring:
         assert result["matches"] is None
         assert result["error"]["kind"] == "not_found"
 
+    async def test_a_team_at_another_age_reaches_the_model_with_its_ages(self, make_deps, real_viewer):
+        """SB-1155: "Find the IFA U19 team" → not found at U19, but IFA plays U15."""
+        model = scripted(
+            calls_tool("search_teams", query="IFA", age_group="U19"), says("IFA has no U19; it plays U15.")
+        )
+
+        await run(model, make_deps(), real_viewer, message="Find the IFA U19 team")
+
+        result = model.tool_results()[0]
+        assert result["status"] == "not_found"
+        assert result["other_ages"] == ["U15"]
+
     def test_the_instruction_says_how_to_use_both_tools(self):
         assert "get_upcoming_matches" in INSTRUCTION
         assert "search_teams" in INSTRUCTION
-        assert AGENT_VERSION == "mt-assistant/0.2.0"
+        assert "other_ages" in INSTRUCTION
+        assert AGENT_VERSION == "mt-assistant/0.2.1"
 
     async def test_model_calls_tool_and_typed_result_reaches_it(self, make_deps, real_viewer):
         model = scripted(calls_tool("search_teams", query="IFA"), says("IFA plays U15 in the Northeast."))

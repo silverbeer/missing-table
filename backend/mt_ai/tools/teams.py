@@ -89,7 +89,12 @@ def _from_teams(index: TeamIndex, teams: list[dict], age: str | None, limit: int
     if not candidates:
         # The team exists, just not at that age: say which ages it has.
         every_age = [c for team in teams for c in index.candidates(team)]
-        return ResolveResult(status="not_found", candidates=every_age[:limit], meta=_meta(every_age, limit))
+        return ResolveResult(
+            status="not_found",
+            candidates=every_age[:limit],
+            other_ages=_age_names(every_age),
+            meta=_meta(every_age, limit),
+        )
     if len(candidates) == 1:
         return ResolveResult(status="resolved", team=candidates[0])
     return ResolveResult(status="ambiguous", candidates=candidates[:limit], meta=_meta(candidates, limit))
@@ -110,6 +115,15 @@ def _near_matches(index: TeamIndex, name: str, age: str | None, limit: int) -> R
         return ResolveResult(status="not_found")
     # Near-matches are never resolved, even when there is only one.
     return ResolveResult(status="ambiguous", candidates=candidates[:limit], meta=_meta(candidates, limit))
+
+
+def _age_names(candidates: list[TeamCandidate]) -> list[str]:
+    """Distinct age-group names, in candidate order; age-less candidates add none."""
+    names: list[str] = []
+    for c in candidates:
+        if c.age_group and c.age_group.name not in names:
+            names.append(c.age_group.name)
+    return names
 
 
 def _meta(candidates: list[TeamCandidate], limit: int) -> ToolMeta:

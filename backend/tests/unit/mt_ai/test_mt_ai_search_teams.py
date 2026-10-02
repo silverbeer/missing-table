@@ -103,6 +103,15 @@ class TestNotFound:
         assert result.status == "not_found"
         assert result.error is None
         assert [c.age_group.name for c in result.candidates] == ["U15"]
+        assert result.other_ages == ["U15"]
+
+    def test_other_ages_are_only_for_a_team_that_exists(self, make_deps, real_viewer):
+        """SB-1155: no team, no ages; a team with no age groups has none to list."""
+        assert search_teams(make_deps(), "Zanzibar Rovers U15", real_viewer).other_ages == []
+        assert search_teams(make_deps(), "No Ages FC U15", real_viewer).other_ages == []
+
+    def test_a_found_team_has_no_other_ages(self, make_deps, real_viewer):
+        assert search_teams(make_deps(), "IFA U15", real_viewer).other_ages == []
 
     def test_generic_words_alone_match_nothing(self, make_deps, real_viewer):
         result = search_teams(make_deps(), "United Soccer Club", real_viewer)

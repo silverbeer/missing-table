@@ -512,7 +512,8 @@ Safety, all in prod:
 
 Follow-ups: wire `get_upcoming_matches` into the agent (SB-1152, done in
 `mt-assistant/0.2.0`), and have a `not_found` that carries candidates at other
-ages say which ages exist (SB-1155).
+ages say which ages exist (SB-1155, done in `mt-assistant/0.2.1`: `search_teams`
+returns `other_ages` and the instruction says to list them).
 
 ## Google ADK as the primary framework
 
