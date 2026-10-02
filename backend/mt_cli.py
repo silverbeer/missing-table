@@ -839,20 +839,25 @@ def end():
 # --- Tournament helpers ---
 
 
-def _resolve_age_group_id(client: MissingTableClient, name: str) -> int:
-    """Resolve an age-group name (e.g. 'U14') to its id. Exits on no match."""
+def _resolve_age_group(client: MissingTableClient, name: str) -> dict:
+    """Resolve an age-group name (e.g. 'U14') to its row ({id, name}). Exits on no match."""
     groups = client.get_age_groups()
     lower = name.lower()
     # Exact (case-insensitive) first, then substring.
     for g in groups:
         if g.get("name", "").lower() == lower:
-            return g["id"]
+            return g
     for g in groups:
         if lower in g.get("name", "").lower():
-            return g["id"]
+            return g
     available = ", ".join(sorted(g.get("name", "?") for g in groups))
     console.print(f"[red]Age group '{name}' not found[/red]\n[yellow]Available:[/yellow] {available}")
     raise typer.Exit(1)
+
+
+def _resolve_age_group_id(client: MissingTableClient, name: str) -> int:
+    """Resolve an age-group name (e.g. 'U14') to its id. Exits on no match."""
+    return _resolve_age_group(client, name)["id"]
 
 
 def _resolve_season_id(client: MissingTableClient, season: str | None) -> int:
@@ -1362,6 +1367,12 @@ def team_matches(
         "-c",
         help="Competition name, 'qualifying', or 'all' (default). See: mt competitions",
     ),
+    age_group: str = typer.Option(
+        None,
+        "--age-group",
+        "-a",
+        help="Age group, e.g. U14 — a team name is not unique to one (e.g. IFA plays U14 and U15)",
+    ),
     limit: int = typer.Option(20, "--limit", "-l", help="How many to show"),
 ):
     """Matches for a team, with the status that decides whether they count."""
@@ -1370,8 +1381,17 @@ def team_matches(
     team_row = _api(resolve_team, client, team)
     season_row = _api(resolve_season, client, season)
     wanted = _api(resolve_match_types, client, competition)
+    age_group_row = _api(_resolve_age_group, client, age_group) if age_group else None
 
-    matches = _api(client.get_games_by_team, team_row["id"], season_id=(season_row or {}).get("id")) or []
+    matches = (
+        _api(
+            client.get_games_by_team,
+            team_row["id"],
+            season_id=(season_row or {}).get("id"),
+            age_group_id=(age_group_row or {}).get("id"),
+        )
+        or []
+    )
     if not matches:
         console.print(f"[yellow]No matches for {team_row.get('name', team)}.[/yellow]")
         return
@@ -1383,6 +1403,12 @@ def team_matches(
         keep = {t.get("id") for t in wanted}
         matches = [m for m in matches if match_type_id_of(m) in keep]
 
+    # Named ahead of the competition so a same-day pair across two age groups
+    # (a team row spans every age group it plays) reads as what it is, not as
+    # a double-ingest — e.g. "26 of 26 U14 League match(es)".
+    if age_group_row:
+        scope = f"{age_group_row.get('name', age_group)} {scope}"
+
     if not matches:
         console.print(f"[yellow]No {scope} matches for {team_row.get('name', team)}.[/yellow]")
         console.print("[dim]Other competitions may have matches — drop -c to see the whole schedule.[/dim]")
@@ -1392,8 +1418,12 @@ def team_matches(
     # as a 6-match season.
     table = Table(title=f"Matches — {team_row.get('name', team)} · {scope}")
     table.add_column("ID", style="cyan", no_wrap=True)
-    table.add_column("Date", style="magenta")
+    table.add_column("Date", style="magenta", no_wrap=True, min_width=10)
     table.add_column("Status", style="yellow")
+    # Always shown, even unfiltered: a team row covers every age group it
+    # plays, so a same-day pair across two of them looks like a duplicate
+    # without this column (SB-866).
+    table.add_column("Age", style="dim", no_wrap=True)
     table.add_column("Competition", style="dim")
     table.add_column("Home", style="white")
     table.add_column("Away", style="white")
@@ -1406,6 +1436,7 @@ def team_matches(
             str(m.get("id", "?")),
             str(m.get("match_date", "?")),
             str(m.get("match_status", "?")),
+            str(m.get("age_group_name") or (m.get("age_group") or {}).get("name") or "?"),
             str(m.get("match_type_name") or (m.get("match_type") or {}).get("name") or "?"),
             str(m.get("home_team_name", "?")),
             str(m.get("away_team_name", "?")),
