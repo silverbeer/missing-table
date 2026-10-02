@@ -1,0 +1,13 @@
+# Ambiguous questions: ask, with the real candidates, never guess.
+# Seed from the first live eval, SB-1144. Live prod data: see README.md.
+
+- id: ambiguous-sporting-u15
+  question: "Find Sporting U15"
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    # A clarifying question listing the U15 candidates.
+    answer_contains: ["Sporting", "which"]
+  tags: [ambiguous, teams]
+  origin: seed SB-1144
