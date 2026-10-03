@@ -76,6 +76,9 @@ class ResolveResult(BaseModel):
     status: Literal["resolved", "ambiguous", "not_found"]
     team: TeamCandidate | None = None
     candidates: list[TeamCandidate] = Field(default_factory=list)
+    # not_found only: the team exists, just not at the age asked for. Every age
+    # group it does play in, even past the candidate limit (SB-1155).
+    other_ages: list[str] = Field(default_factory=list)
     error: ToolError | None = None
     meta: ToolMeta = Field(default_factory=ToolMeta)
 
