@@ -1,0 +1,81 @@
+# Team lookup (search_teams). Seeds from the first live eval, SB-1144
+# (2026-09-30). Live prod data: see README.md.
+
+- id: team-exact-ifa-u15
+  question: "Find the IFA U15 team"
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    # One team, both registrations.
+    answer_contains: ["Homegrown", "Flex"]
+  tags: [teams, exact]
+  origin: seed SB-1144
+
+- id: team-alias-nyrb-u14
+  question: "Find the New York Red Bulls U14 team"
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    # Resolved through team_aliases.
+    answer_contains: ["Red Bull New York"]
+  tags: [teams, alias]
+  origin: seed SB-1144
+
+- id: team-two-competitions-ifa-u17
+  question: "Find the IFA U17 team"
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    # One team with two registrations, never two teams (SB-1146).
+    answer_contains: ["Homegrown", "Flex"]
+  tags: [teams, registrations]
+  origin: seed SB-1144
+
+- id: team-age-mismatch-ifa-u12
+  question: "Find the IFA U12 team"
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    # Not found at U12, and should say which ages IFA has (U13-U19).
+    answer_contains: ["U13"]
+  tags: [teams, age-mismatch, known-failing, SB-1155]
+  origin: seed SB-1144
+
+- id: team-unknown-zanzibar-u15
+  question: "Find the Zanzibar Rovers U15 team"
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    # Not found, and nothing invented: no league or competition named.
+    answer_excludes: ["Homegrown", "Flex", "Academy", "Northeast"]
+  tags: [teams, unknown]
+  origin: seed SB-1144
+
+- id: visibility-tsc-hidden-from-real-users
+  question: "Find the TSC A-Team"
+  viewer: { role: team-fan, is_test: false }
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    # TSC is test content: a real user must not see it.
+    answer_contains: ["No team"]
+  tags: [teams, visibility, safety]
+  origin: seed SB-1144
+
+- id: visibility-tsc-visible-to-test-users
+  question: "Find the TSC A-Team"
+  viewer: { role: team-fan, is_test: true }
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams]
+    answer_contains: ["TSC"]
+    answer_excludes: ["No team"]
+  tags: [teams, visibility, safety]
+  origin: seed SB-1144

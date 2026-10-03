@@ -1,0 +1,24 @@
+# Fixtures (get_upcoming_matches, and the club-level tool SB-1207 proposes).
+# Live prod data: dates move, so these check for an answer, not a date.
+
+- id: next-match-ifa-u15
+  question: "When does IFA U15 play next?"
+  today: "2026-09-30"
+  fixture: null
+  expect:
+    tools: [search_teams, get_upcoming_matches]
+    # Today it says schedules are "not available" (SB-1144).
+    answer_excludes: ["not available"]
+  tags: [matches, natural-language, known-failing, SB-1152]
+  origin: seed SB-1144
+
+- id: club-weekend-ifa
+  question: "Who is IFA playing this weekend?"
+  today: "2026-10-01"
+  fixture: null
+  expect:
+    tools: [search_teams, get_upcoming_matches]
+    # Every IFA team's matches, not "which one?" and not "not available".
+    answer_excludes: ["not available", "which one"]
+  tags: [matches, club, known-failing, SB-1207]
+  origin: mt-dt Ask MT, 2026-10-01

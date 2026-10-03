@@ -2,7 +2,10 @@
 
 > **Audience**: Anyone changing MT AI's prompts, tools, models or agent
 > **Prerequisites**: [MT AI architecture](ai.md), [testing strategy](../../04-testing/testing-strategy.md)
-> **Status**: Target design (2026-09-28, SB-1141). Nothing here is built yet.
+> **Status**: Target design (2026-09-28, SB-1141). Built so far: seed cases in
+> `backend/tests/ai/datasets/` (SB-1191), run live against `/api/ai/chat` by the mt-dt
+> desktop app's **MT AI evals** screen. No pytest runner yet; see that directory's
+> README for what a live run can't check.
 
 How MT AI's answers are judged, how user feedback turns into regression tests, and how
 the test suite is split so ordinary CI never waits on — or pays for — a model call.
