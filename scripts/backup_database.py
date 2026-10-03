@@ -150,6 +150,7 @@ TABLES_TO_BACKUP = [
     # MT AI conversations (SB-1143) — backed up for production recovery; never restored
     "ai_conversations",
     "ai_messages",
+    "ai_tool_calls",  # SB-1197
     # Support inbox (SB-1071)
     "email_threads",
     "email_messages",

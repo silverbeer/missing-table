@@ -81,7 +81,10 @@ class InMemoryStore:
     def __init__(self) -> None:
         self.conversations: dict[str, dict] = {}
         self.messages: list[dict] = []
+        self.tool_calls: list[dict] = []
         self.fail_create = self.fail_get = self.fail_save = False
+        # SB-1197: the trace write, the timing columns, the trace table, and lists.
+        self.fail_trace = self.fail_detail = self.fail_tool_calls = self.fail_list = False
 
     def create_conversation(self, user_id: str, agent_version: str) -> dict:
         if self.fail_create:
@@ -90,11 +93,42 @@ class InMemoryStore:
         self.conversations[conv["id"]] = conv
         return conv
 
-    def get_conversation(self, conversation_id: str, user_id: str) -> dict | None:
+    def get_conversation(self, conversation_id: str, user_id: str | None) -> dict | None:
         if self.fail_get:
             raise RuntimeError("select failed")
         conv = self.conversations.get(conversation_id)
-        return conv if conv and conv["user_id"] == user_id else None
+        return conv if conv and (user_id is None or conv["user_id"] == user_id) else None
+
+    def list_conversations(self, user_id: str | None, limit: int, offset: int) -> list[dict]:
+        if self.fail_list:
+            raise RuntimeError("select failed")
+        convs = [c for c in self.conversations.values() if user_id is None or c["user_id"] == user_id]
+        out = []
+        for conv in list(reversed(convs))[offset : offset + limit]:  # newest first
+            first = next(
+                (m["content"] for m in self.list_messages(conv["id"]) if m["turn"] == 1 and m["role"] == "user"),
+                None,
+            )
+            out.append({**conv, "first_question": first})
+        return out
+
+    def list_messages_detail(self, conversation_id: str) -> list[dict]:
+        if self.fail_detail:
+            raise RuntimeError('column "duration_ms" does not exist')
+        return self.list_messages(conversation_id)
+
+    def list_tool_calls(self, conversation_id: str) -> list[dict]:
+        if self.fail_tool_calls:
+            raise RuntimeError('relation "ai_tool_calls" does not exist')
+        return [c for c in self.tool_calls if c["conversation_id"] == conversation_id]
+
+    def record_trace(self, conversation_id: str, turn: int, timings: dict, calls: list[dict]) -> None:
+        if self.fail_trace:
+            raise RuntimeError('relation "ai_tool_calls" does not exist')
+        for m in self.messages:
+            if m["conversation_id"] == conversation_id and m["turn"] == turn and m["role"] == "assistant":
+                m.update(timings)
+        self.tool_calls.extend({**c, "conversation_id": conversation_id, "turn": turn} for c in calls)
 
     def list_messages(self, conversation_id: str) -> list[dict]:
         return sorted(

@@ -1,4 +1,5 @@
-"""POST /api/ai/chat — the walking skeleton's HTTP boundary (SB-1143).
+"""MT AI's HTTP boundary: POST /api/ai/chat (SB-1143) and the conversation
+reads GET /api/ai/conversations[/{id}] (SB-1197).
 
 The route validates, authenticates and translates `ChatError`s into status
 codes. Everything else is in `mt_ai.service` (conversations) and
@@ -14,7 +15,7 @@ import os
 import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 
 from auth import get_ai_user
@@ -23,7 +24,7 @@ from dao.club_dao import ClubDAO
 from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.team_dao import TeamDAO
-from mt_ai.service import ChatError, ChatService
+from mt_ai.service import MAX_PAGE, ChatError, ChatService, ConversationReader
 from mt_ai.tools import ToolDeps
 
 router = APIRouter(prefix="/api/ai", tags=["mt-ai"])
@@ -90,3 +91,38 @@ async def chat(
         answer=result.answer,
         message=result.message,
     )
+
+
+def get_conversation_reader() -> ConversationReader:
+    """Reading works whether or not MT AI is enabled: past conversations stay readable."""
+    return ConversationReader(AIConversationDAO(SupabaseConnection()))
+
+
+@router.get("/conversations")
+def list_conversations(
+    scope: Literal["mine", "all"] = "mine",
+    limit: int = Query(20, ge=1, le=MAX_PAGE),
+    offset: int = Query(0, ge=0),
+    current_user: dict[str, Any] = Depends(get_ai_user),
+    reader: ConversationReader = Depends(get_conversation_reader),
+) -> dict[str, Any]:
+    """Your conversations, newest activity first, each with its first question.
+    `scope=all` (admins only) lists everyone's, with the owner's user_id."""
+    try:
+        return reader.list_for(current_user, scope, limit, offset)
+    except ChatError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
+
+
+@router.get("/conversations/{conversation_id}")
+def get_conversation(
+    conversation_id: uuid.UUID,
+    current_user: dict[str, Any] = Depends(get_ai_user),
+    reader: ConversationReader = Depends(get_conversation_reader),
+) -> dict[str, Any]:
+    """One conversation's turns. Someone else's is a 404. Admins may read any, and
+    also get each turn's model, call counts, timings and tool-call trace."""
+    try:
+        return reader.get_for(current_user, str(conversation_id))
+    except ChatError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None

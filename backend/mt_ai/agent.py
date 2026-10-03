@@ -26,6 +26,7 @@ from google.genai import types
 
 from mt_ai.budget import Budget, BudgetExhaustedError, BudgetLimit, ToolCallGuard
 from mt_ai.tools import ToolDeps, Viewer, get_upcoming_matches, search_teams
+from mt_ai.trace import ToolCallRecord, TurnRecorder
 
 logger = structlog.get_logger()
 
@@ -73,10 +74,21 @@ class TurnOutcome:
     llm_calls: int
     tool_calls: int
     exhausted: BudgetLimit | None = None
+    # What the turn did (SB-1197): every completed tool call, and model time.
+    trace: tuple[ToolCallRecord, ...] = ()
+    llm_ms: int | None = None
 
 
 class AIRunError(Exception):
-    """The model or the agent run failed. The message is for logs, not clients."""
+    """The model or the agent run failed. The message is for logs, not clients.
+
+    Carries the trace up to the failure, so a failed turn can be inspected too.
+    """
+
+    def __init__(self, message: str, trace: tuple[ToolCallRecord, ...] = (), llm_ms: int | None = None) -> None:
+        super().__init__(message)
+        self.trace = trace
+        self.llm_ms = llm_ms
 
 
 def model_name(model: BaseLlm | str) -> str:
@@ -126,6 +138,7 @@ async def run_turn(
     session_id: str,
 ) -> TurnOutcome:
     guard = ToolCallGuard(budget.max_tool_calls)
+    recorder = TurnRecorder()
     llm_calls = 0
 
     def count_llm_call(callback_context: Any, llm_request: Any) -> None:
@@ -137,8 +150,11 @@ async def run_turn(
         model=model,
         instruction=INSTRUCTION,
         tools=[make_search_teams_tool(deps, viewer), make_upcoming_matches_tool(deps, viewer)],
-        before_model_callback=count_llm_call,
-        before_tool_callback=guard.before_tool,
+        # The guard runs first: a call over budget is stopped, never timed.
+        before_model_callback=[count_llm_call, recorder.before_model],
+        after_model_callback=recorder.after_model,
+        before_tool_callback=[guard.before_tool, recorder.before_tool],
+        after_tool_callback=recorder.after_tool,
     )
     sessions = InMemorySessionService()
     session = await sessions.create_session(app_name=APP_NAME, user_id="viewer", session_id=session_id)
@@ -158,17 +174,21 @@ async def run_turn(
             if event.is_final_response() and event.content:
                 answer_parts.extend(p.text for p in event.content.parts or [] if p.text)
     except LlmCallsLimitExceededError:
-        return TurnOutcome("budget_exhausted", None, llm_calls, guard.calls, exhausted="llm_calls")
+        return TurnOutcome(
+            "budget_exhausted", None, llm_calls, guard.calls, "llm_calls", tuple(recorder.calls), recorder.llm_ms
+        )
     except BudgetExhaustedError as exc:
-        return TurnOutcome("budget_exhausted", None, llm_calls, guard.calls, exhausted=exc.limit)
+        return TurnOutcome(
+            "budget_exhausted", None, llm_calls, guard.calls, exc.limit, tuple(recorder.calls), recorder.llm_ms
+        )
     except Exception as exc:
         logger.exception("mt_ai run failed", session_id=session_id, llm_calls=llm_calls)
-        raise AIRunError(type(exc).__name__) from exc
+        raise AIRunError(type(exc).__name__, tuple(recorder.calls), recorder.llm_ms) from exc
 
     answer = "".join(answer_parts).strip()
     if not answer:
-        raise AIRunError("model returned no text")
-    return TurnOutcome("ok", answer, llm_calls, guard.calls)
+        raise AIRunError("model returned no text", tuple(recorder.calls), recorder.llm_ms)
+    return TurnOutcome("ok", answer, llm_calls, guard.calls, trace=tuple(recorder.calls), llm_ms=recorder.llm_ms)
 
 
 def _text_event(author: str, role: str, text: str) -> Event:

@@ -139,6 +139,58 @@ class TestToolWiring:
         assert outcome.status == "ok"
 
 
+class TestTrace:
+    """SB-1197: ADK's callbacks feed the recorder on the real code path."""
+
+    async def test_the_outcome_carries_each_tool_call_and_model_time(self, make_deps, real_viewer):
+        model = scripted(
+            calls_tool("search_teams", query="IFA", age_group="U15"),
+            calls_tool("get_upcoming_matches", team_id=102, age_group_id=15),
+            says("IFA U15 plays on 1 Jan 2099."),
+        )
+        deps = make_deps(matches=FakeMatches([match_row(9, "2099-01-01")]))
+
+        outcome = await run(model, deps, real_viewer, message="When does IFA U15 play next?")
+
+        assert [(c.seq, c.tool_name, c.args) for c in outcome.trace] == [
+            (1, "search_teams", {"query": "IFA", "age_group": "U15"}),
+            (2, "get_upcoming_matches", {"team_id": 102, "age_group_id": 15}),
+        ]
+        assert outcome.trace[0].result["status"] == "resolved"
+        assert outcome.trace[1].result["matches"][0]["match_date"] == "2099-01-01"
+        assert all(c.duration_ms is not None and c.duration_ms >= 0 for c in outcome.trace)
+        assert all(c.error_kind is None for c in outcome.trace)
+        assert outcome.llm_ms is not None and outcome.llm_ms >= 0
+
+    async def test_a_tool_error_is_recorded_with_its_kind(self, make_deps, real_viewer):
+        model = scripted(calls_tool("search_teams", query="IFA"), says("Unavailable."))
+
+        outcome = await run(model, make_deps(leagues=FakeLeagues([], fail=True)), real_viewer)
+
+        assert outcome.trace[0].error_kind == "unavailable"
+
+    async def test_budget_exhaustion_keeps_the_calls_that_ran(self, make_deps, real_viewer):
+        model = scripted(
+            calls_tool("search_teams", query="IFA"),
+            calls_tool("search_teams", query="NEFC"),
+            says("never reached"),
+        )
+
+        outcome = await run(model, make_deps(), real_viewer, budget=Budget(max_llm_calls=5, max_tool_calls=1))
+
+        assert outcome.status == "budget_exhausted"
+        # The second call was stopped by the guard before it ran: not traced.
+        assert [c.args for c in outcome.trace] == [{"query": "IFA"}]
+
+    async def test_a_failed_run_carries_its_trace(self, make_deps, real_viewer):
+        model = scripted(calls_tool("search_teams", query="IFA"), says("   "))
+
+        with pytest.raises(AIRunError) as failure:
+            await run(model, make_deps(), real_viewer)
+
+        assert [c.tool_name for c in failure.value.trace] == ["search_teams"]
+
+
 class TestBudget:
     async def test_model_call_limit_stops_the_run(self, make_deps, teams, real_viewer):
         model = scripted(calls_tool("search_teams", query="IFA"), says("never reached"))
