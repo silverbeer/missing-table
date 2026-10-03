@@ -192,6 +192,7 @@ RESTORE_SKIPPED = {
         "production recovery only; never copied into a local environment."
     ),
     "ai_messages": "the turns of ai_conversations; skipped for the same reason",
+    "ai_tool_calls": "tool calls of ai_conversations' turns (SB-1197); skipped for the same reason",
 }
 
 # Tables without an `id` column. PostgREST refuses an unfiltered DELETE, and

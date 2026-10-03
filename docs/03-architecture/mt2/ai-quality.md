@@ -38,8 +38,8 @@ Everything needed to reproduce a turn without asking the user:
 |----------|-------|
 | user question, answer, entities, limitations | `ai_messages` |
 | `agent_version`, `prompt_version`, model profile, provider, model | `ai_messages` |
-| tool name, args, result (full, or digest + blob for large results), duration, error kind | `ai_tool_calls` |
-| tokens, latency, cache flags, estimated cost | `ai_messages` ([ai-cost.md](ai-cost.md#metrics)) |
+| tool name, args, result (full, or digest + blob for large results), duration, error kind | `ai_tool_calls` (**built, SB-1197**: digest only for results over 32 KB, no blob yet) |
+| tokens, latency, cache flags, estimated cost | `ai_messages` ([ai-cost.md](ai-cost.md#metrics)). **Built (SB-1197):** turn latency (`duration_ms`) and model time (`llm_ms`) |
 | rating, reason, comment | `ai_feedback` |
 | eval result when a turn is promoted to a case | the dataset file (in git) |
 

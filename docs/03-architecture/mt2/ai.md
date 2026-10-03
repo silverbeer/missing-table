@@ -322,6 +322,46 @@ POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors
 - The target contract's `context`, `entities`, `data_as_of` and `limitations` are
   not built yet.
 
+### Traces and conversation reads (SB-1197)
+
+**What each turn records.** After the turn is saved, `ChatService` writes its
+trace, **best-effort**: a failure is logged and the turn still succeeds. So an
+environment without the migration still chats.
+
+| Where | What |
+|---|---|
+| `ai_messages` (assistant row) | `duration_ms`: the whole turn's wall time. `llm_ms`: time waiting on the model, summed over the turn's LLM calls. Tool time is roughly the difference. |
+| `ai_tool_calls` | One row per tool call, by `(conversation_id, turn, seq)`: `tool_name`, the `args` the model sent, the `result` it was shown (a sha256 digest if over 32 KB), `error_kind` if the tool reported one, `duration_ms` |
+
+`mt_ai/trace.py`'s `TurnRecorder` collects this from ADK callbacks
+(`before/after_model`, `before/after_tool`). It imports nothing from ADK, and
+it runs after the budget guard, so a call the guard stops is never traced.
+Failed turns (`ai_failed`, `budget_exhausted`) keep the trace up to the point
+they stopped.
+
+**Retention** (decided 2026-10-02): until the user is deleted. Traces cascade
+with their conversation, which cascades from `user_profiles`. There's no purge
+job, and no self-delete endpoint yet. Traces are backed up, and never restored
+locally, like `ai_messages`.
+
+**Reads**, both via `get_ai_user` (service accounts get 403):
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/ai/conversations?scope=mine\|all&limit=1–100&offset` | Newest activity first: `id`, timestamps, `agent_version`, `first_question`. `scope=all` is admins only (else 403) and adds `user_id`. |
+| `GET /api/ai/conversations/{id}` | The turns: `question`, `answer` (null if none), `status`. Someone else's conversation is a 404, like a missing one. **Admins** may read any, and also get per turn `model`, `agent_version`, `llm_calls`, `tool_calls`, `duration_ms`, `llm_ms` and `trace` (the tool calls), plus `user_id` and `timings_recorded`. |
+
+The model, timings and traces go to admins only: client responses otherwise
+never name the model. Admin reads never present unknown as zero or empty:
+
+- If the timing columns can't be read (no migration yet), `timings_recorded`
+  is `false` and the turns still come back.
+- If the trace table can't be read, `trace` is `null`.
+- `trace: []` means the turn called no tool, or predates SB-1197.
+
+Reading works even with MT AI disabled. This is what lets mt-dt's eval runner
+check tool trajectories, and lets clients list and reopen conversations.
+
 ### API-only accounts (SB-1145)
 
 Evals and automation run as their own principals, never on a human's session:
@@ -448,10 +488,11 @@ path and no test calls a provider. Covered:
 
 ### Not implemented yet (deliberately)
 
-- **Chat features:** streaming, feedback, `GET /api/ai/conversations/{id}`,
-  `context`/`entities`/`data_as_of`, and other tools.
+- **Chat features:** streaming, feedback, deleting a conversation,
+  `context`/`entities`/`data_as_of`, and other tools. (Conversation reads and
+  `ai_tool_calls` landed in SB-1197.)
 - **Cost and control:** answer caching, token/cost accounting, per-user quotas,
-  model profiles/`FallbackModel`, and a `ai_tool_calls` table.
+  model profiles/`FallbackModel`.
 - **Agent design:** memory beyond replaying turns, multiple agents, A2A.
 
 ## Production (SB-1144)
