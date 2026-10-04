@@ -2113,6 +2113,7 @@ _DELETE_CASCADES = [
     ("user_team_follows", "user_id", "followed teams"),
     ("user_bracket_follows", "user_id", "followed brackets"),
     ("push_subscriptions", "user_id", "push devices"),
+    ("apns_devices", "user_id", "iOS push devices"),
     ("user_notification_preferences", "user_id", "notification preferences"),
     ("team_manager_assignments", "user_id", "team manager assignments"),
     ("channel_access_requests", "user_id", "channel access requests"),

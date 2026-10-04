@@ -15,12 +15,15 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
+from dao.apns_device_dao import ApnsDeviceDAO
 from dao.bracket_follow_dao import BracketFollowDAO
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.push_send_log_dao import PushSendLogDAO
 from dao.push_subscription_dao import PushSubscriptionDAO
 from dao.team_follow_dao import TeamFollowDAO
+from notifications.apns_sender import is_configured as apns_is_configured
+from notifications.apns_sender import send_apns
 from notifications.channel_resolver import (
     fetch_club_timezone,
     resolve_destinations,
@@ -86,6 +89,7 @@ class Notifier:
         connection: SupabaseConnection | None = None,
         send_fn=None,
         push_send_fn=None,
+        apns_send_fn=None,
     ):
         self._connection = connection
         self._match_dao: MatchDAO | None = None
@@ -94,12 +98,15 @@ class Notifier:
         self._bracket_follow_dao: BracketFollowDAO | None = None
         self._push_sub_dao: PushSubscriptionDAO | None = None
         self._push_log_dao: PushSendLogDAO | None = None
+        self._apns_device_dao: ApnsDeviceDAO | None = None
         # NotificationPreferencesDAO; typed via local import to avoid the cycle.
         self._prefs_dao = None
         # Lazy-imported default sender so tests can swap without importing httpx.
         self._send_fn = send_fn
         # Push sender override for tests.
         self._push_send_fn = push_send_fn or send_push
+        # APNs sender override for tests (SB-1236).
+        self._apns_send_fn = apns_send_fn or send_apns
 
     @property
     def connection(self) -> SupabaseConnection:
@@ -142,6 +149,12 @@ class Notifier:
         if self._push_log_dao is None:
             self._push_log_dao = PushSendLogDAO(self.connection)
         return self._push_log_dao
+
+    @property
+    def apns_device_dao(self) -> ApnsDeviceDAO:
+        if self._apns_device_dao is None:
+            self._apns_device_dao = ApnsDeviceDAO(self.connection)
+        return self._apns_device_dao
 
     @property
     def prefs_dao(self):
@@ -258,6 +271,21 @@ class Notifier:
         # before the platform-bootstrap secrets land — see SB-50).
         self._send_push_fanout(event_type, match, content)
 
+        # --- APNs fan-out (native iOS, SB-1236) -------------------------------
+        # Same followers, same preference gate, same bracket rule as Web Push
+        # above, but its own device table and sender. Runs after — and
+        # independently of — the web path; skipped if APNs isn't configured.
+        try:
+            self._send_apns_fanout(event_type, match, content)
+        except Exception as exc:
+            logger.warning(
+                "notifications.apns_fanout_failed",
+                match_id=match_id,
+                event_type=event_type,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+
     def _send_push_fanout(
         self, event_type: str, match: dict, content: str
     ) -> None:
@@ -350,6 +378,92 @@ class Notifier:
             failed=push_failed,
             expired=push_expired,
             skipped_pref=push_skipped_pref,
+        )
+
+    def _send_apns_fanout(
+        self, event_type: str, match: dict, content: str
+    ) -> None:
+        """Push to the iOS devices of every user following either team.
+
+        Follower resolution mirrors _send_push_fanout: team followers, plus
+        bracket followers at fulltime, deduped by user; then per-user
+        preferences decide each send.
+        """
+        if not apns_is_configured():
+            return  # APNS_* env unset — dormant
+
+        home_team_id = match.get("home_team_id")
+        away_team_id = match.get("away_team_id")
+        match_id = match.get("id")
+
+        team_ids = [t for t in (home_team_id, away_team_id) if t is not None]
+        user_ids: set[str] = set(
+            self.team_follow_dao.list_user_ids_for_team_ids(team_ids)
+        )
+
+        # Bracket followers get the final score only, as on the web path.
+        if event_type == "fulltime":
+            tournament_id = match.get("tournament_id")
+            tournament_group = match.get("tournament_group")
+            age_group_id = match.get("age_group_id")
+            if tournament_id and tournament_group and age_group_id:
+                user_ids.update(
+                    self.bracket_follow_dao.list_user_ids_for_bracket(
+                        tournament_id, tournament_group, age_group_id
+                    )
+                )
+
+        if not user_ids:
+            return
+
+        devices = self.apns_device_dao.list_for_user_ids(sorted(user_ids))
+        if not devices:
+            return
+
+        device_user_ids = sorted({d["user_id"] for d in devices if d.get("user_id")})
+        prefs_by_user = self.prefs_dao.get_preferences_batch(device_user_ids)
+
+        payload = _build_push_payload(event_type, match, content)
+
+        sent = 0
+        failed = 0
+        expired = 0
+        skipped_pref = 0
+        for device in devices:
+            user_id = device.get("user_id")
+            user_prefs = prefs_by_user.get(user_id, DEFAULT_PREFERENCES)
+            if not user_prefs.get(event_type, True):
+                skipped_pref += 1
+                continue
+            result = self._apns_send_fn(device, payload)
+            self.push_log_dao.log(
+                subscription_id=None,
+                user_id=user_id,
+                match_id=match_id,
+                event_type=event_type,
+                status=result.status,
+                http_status=result.http_status,
+                error=result.error,
+                apns_device_id=device.get("id"),
+                platform="apns",
+            )
+            if result.ok:
+                sent += 1
+            elif result.expired:
+                expired += 1
+                # APNs says the token is gone — drop it so we stop sending.
+                self.apns_device_dao.delete_by_token(device["device_token"])
+            else:
+                failed += 1
+
+        logger.info(
+            "notifications.apns_dispatched",
+            match_id=match_id,
+            event_type=event_type,
+            sent=sent,
+            failed=failed,
+            expired=expired,
+            skipped_pref=skipped_pref,
         )
 
 

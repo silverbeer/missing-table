@@ -94,6 +94,40 @@ class TeamFollowDAO(BaseDAO):
             logger.exception("team_follow_list_failed", user_id=user_id)
             return []
 
+    def _follower_user_ids(self, team_ids: list[int]) -> list[str]:
+        """Distinct users following any of these teams. Raises on DB error.
+
+        Shared by the Web Push and APNs fan-outs (SB-1236) so both resolve
+        followers the same way.
+        """
+        follow_resp = (
+            self.client.table(TABLE)
+            .select("user_id")
+            .in_("team_id", team_ids)
+            .execute()
+        )
+        return list(
+            {
+                row["user_id"]
+                for row in (follow_resp.data or [])
+                if row.get("user_id")
+            }
+        )
+
+    def list_user_ids_for_team_ids(self, team_ids: list[int]) -> list[str]:
+        """Distinct users following any of these teams (APNs fan-out, SB-1236).
+
+        Returns [] on error — same swallow-and-log contract as the
+        subscriptions fan-out below.
+        """
+        if not team_ids:
+            return []
+        try:
+            return self._follower_user_ids(team_ids)
+        except Exception:
+            logger.exception("team_follow_list_user_ids_failed", team_ids=team_ids)
+            return []
+
     def list_subscriptions_for_team_ids(
         self, team_ids: list[int]
     ) -> list[dict]:
@@ -117,19 +151,7 @@ class TeamFollowDAO(BaseDAO):
             return []
         try:
             # Step 1: distinct users following any of these teams.
-            follow_resp = (
-                self.client.table(TABLE)
-                .select("user_id")
-                .in_("team_id", team_ids)
-                .execute()
-            )
-            user_ids = list(
-                {
-                    row["user_id"]
-                    for row in (follow_resp.data or [])
-                    if row.get("user_id")
-                }
-            )
+            user_ids = self._follower_user_ids(team_ids)
             if not user_ids:
                 return []
 

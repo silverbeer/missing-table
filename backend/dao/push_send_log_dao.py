@@ -31,24 +31,32 @@ class PushSendLogDAO(BaseDAO):
         status: str,
         http_status: int | None = None,
         error: str | None = None,
+        apns_device_id: str | None = None,
+        platform: str | None = None,
     ) -> None:
         """Record a single send attempt. Never raises.
 
         status ∈ {'sent', 'failed', 'expired'}. 'expired' means the push
         service returned 404/410 and the subscription has been cleaned up.
+
+        APNs sends (SB-1236) pass platform='apns' and apns_device_id with
+        subscription_id=None. Web sends omit both; the column defaults to 'web'.
         """
+        row = {
+            "subscription_id": subscription_id,
+            "user_id": user_id,
+            "match_id": match_id,
+            "event_type": event_type,
+            "status": status,
+            "http_status": http_status,
+            "error": (error[:500] if error else None),
+        }
+        if platform:
+            row["platform"] = platform
+        if apns_device_id:
+            row["apns_device_id"] = apns_device_id
         try:
-            self.client.table(TABLE).insert(
-                {
-                    "subscription_id": subscription_id,
-                    "user_id": user_id,
-                    "match_id": match_id,
-                    "event_type": event_type,
-                    "status": status,
-                    "http_status": http_status,
-                    "error": (error[:500] if error else None),
-                }
-            ).execute()
+            self.client.table(TABLE).insert(row).execute()
         except Exception as exc:
             # Don't bubble — logging is best-effort.
             logger.warning(
