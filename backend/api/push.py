@@ -9,29 +9,35 @@ Endpoints:
 - POST   /api/users/me/push-subscriptions                — register a device
 - GET    /api/users/me/push-subscriptions                — list user's devices
 - DELETE /api/users/me/push-subscriptions/{id}           — revoke
+- POST   /api/users/me/apns-devices                      — register an iOS device (SB-1236)
+- GET    /api/users/me/apns-devices                      — list user's iOS devices
+- DELETE /api/users/me/apns-devices/{id}                 — revoke an iOS device
 - POST   /api/users/me/team-follows                      — follow {team_id}
 - GET    /api/users/me/team-follows                      — list follows + team/club
 - DELETE /api/users/me/team-follows/{team_id}            — unfollow
 - GET    /api/users/me/notification-preferences          — per-event opt-in flags (SB-57)
 - PUT    /api/users/me/notification-preferences          — update per-event opt-in flags (SB-57)
-- POST   /api/users/me/notifications/test                — send a test push
+- POST   /api/users/me/notifications/test                — send a test push (web + iOS)
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from auth import get_current_user_required
+from dao.apns_device_dao import ApnsDeviceDAO
 from dao.bracket_follow_dao import BracketFollowDAO
 from dao.match_dao import SupabaseConnection
 from dao.notification_preferences_dao import NotificationPreferencesDAO
 from dao.push_send_log_dao import PushSendLogDAO
 from dao.push_subscription_dao import PushSubscriptionDAO
 from dao.team_follow_dao import TeamFollowDAO
+from notifications.apns_sender import is_configured as apns_is_configured
+from notifications.apns_sender import send_apns
 from notifications.preferences import EVENT_TYPES
 from notifications.web_push_sender import (
     get_public_key as get_vapid_public_key,
@@ -64,6 +70,10 @@ def _conn() -> SupabaseConnection:
 
 def _sub_dao() -> PushSubscriptionDAO:
     return PushSubscriptionDAO(_conn())
+
+
+def _apns_dao() -> ApnsDeviceDAO:
+    return ApnsDeviceDAO(_conn())
 
 
 def _follow_dao() -> TeamFollowDAO:
@@ -127,6 +137,20 @@ class PushSubscriptionIn(BaseModel):
     keys: PushSubscriptionKeys
     device_label: str | None = Field(None, max_length=100)
     user_agent: str | None = Field(None, max_length=500)
+
+
+class ApnsDeviceIn(BaseModel):
+    """Body of POST /api/users/me/apns-devices (SB-1236).
+
+    device_token is the hex string of the token from
+    registerForRemoteNotifications() — 64 chars today; Apple says not to
+    assume a fixed length, hence the range.
+    """
+
+    device_token: str = Field(..., pattern=r"^[0-9a-fA-F]{64,200}$")
+    environment: Literal["sandbox", "production"]
+    device_label: str | None = Field(None, max_length=100)
+    app_version: str | None = Field(None, max_length=50)
 
 
 class TeamFollowIn(BaseModel):
@@ -233,6 +257,72 @@ def delete_subscription(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Subscription not found.",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# APNs devices (native iOS, SB-1236)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/users/me/apns-devices",
+    status_code=status.HTTP_201_CREATED,
+)
+def register_apns_device(
+    payload: ApnsDeviceIn,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, Any]:
+    """Register (or update) an iOS device for the current user."""
+    user_id = _user_id(current_user)
+    row = _apns_dao().upsert(
+        user_id=user_id,
+        # Hex is case-insensitive; one spelling per token keeps UNIQUE honest.
+        device_token=payload.device_token.lower(),
+        environment=payload.environment,
+        device_label=payload.device_label,
+        app_version=payload.app_version,
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to register device.",
+        )
+    # Never echo the token back — write-only from the API's view.
+    return {
+        "id": row.get("id"),
+        "environment": row.get("environment"),
+        "bundle_id": row.get("bundle_id"),
+        "device_label": row.get("device_label"),
+        "app_version": row.get("app_version"),
+        "created_at": row.get("created_at"),
+        "last_seen_at": row.get("last_seen_at"),
+    }
+
+
+@router.get("/users/me/apns-devices")
+def list_apns_devices(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, list[dict]]:
+    user_id = _user_id(current_user)
+    return {"devices": _apns_dao().list_by_user(user_id)}
+
+
+@router.delete(
+    "/users/me/apns-devices/{device_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_apns_device(
+    device_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> Response:
+    user_id = _user_id(current_user)
+    deleted = _apns_dao().delete_for_user(user_id, device_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found.",
         )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -395,42 +485,52 @@ def update_notification_preferences(
 def send_test_notification(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ) -> dict[str, Any]:
-    """Fire a test push to all of the current user's subscriptions.
+    """Fire a test push to all of the current user's subscriptions and
+    iOS devices.
 
     Useful for verifying setup end-to-end after enabling notifications.
-    Rate limited 10/min per user.
+    Rate limited 10/min per user. Each platform is used only if configured;
+    503 only when neither is.
     """
     user_id = _user_id(current_user)
     _check_test_rate_limit(user_id)
 
-    if not push_is_configured():
+    web_configured = push_is_configured()
+    apns_configured = apns_is_configured()
+    if not web_configured and not apns_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Push notifications are not configured on this server.",
         )
 
-    subs = _sub_dao().list_by_user(user_id)
-    # list_by_user doesn't return keys; we need the full row for sending.
-    # Fetch fresh from the table including keys.
-    try:
-        full_rows = (
-            _conn()
-            .get_client()
-            .table("push_subscriptions")
-            .select("id, endpoint, p256dh_key, auth_key")
-            .eq("user_id", user_id)
-            .execute()
-        )
-        full_subs = full_rows.data or []
-    except Exception:
-        logger.exception("test_push_fetch_subs_failed", user_id=user_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to load subscriptions.",
-        ) from None
+    subs: list[dict] = []
+    full_subs: list[dict] = []
+    if web_configured:
+        subs = _sub_dao().list_by_user(user_id)
+        # list_by_user doesn't return keys; we need the full row for sending.
+        # Fetch fresh from the table including keys.
+        try:
+            full_rows = (
+                _conn()
+                .get_client()
+                .table("push_subscriptions")
+                .select("id, endpoint, p256dh_key, auth_key")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            full_subs = full_rows.data or []
+        except Exception:
+            logger.exception("test_push_fetch_subs_failed", user_id=user_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to load subscriptions.",
+            ) from None
 
-    if not full_subs:
-        return {"sent": 0, "failed": 0, "subscriptions": 0}
+    apns_dao = _apns_dao()
+    devices = apns_dao.list_for_user_ids([user_id]) if apns_configured else []
+
+    if not full_subs and not devices:
+        return {"sent": 0, "failed": 0, "subscriptions": 0, "apns_devices": 0}
 
     payload = {
         "title": "✅ Missing Table — test notification",
@@ -465,10 +565,32 @@ def send_test_notification(
         else:
             failed += 1
 
-    # subscription count BEFORE we removed expired ones (for the UI summary)
+    for device in devices:
+        result = send_apns(device, payload)
+        log_dao.log(
+            subscription_id=None,
+            user_id=user_id,
+            match_id=None,
+            event_type="test",
+            status=result.status,
+            http_status=result.http_status,
+            error=result.error,
+            apns_device_id=device.get("id"),
+            platform="apns",
+        )
+        if result.ok:
+            sent += 1
+        elif result.expired:
+            expired += 1
+            apns_dao.delete_by_token(device["device_token"])
+        else:
+            failed += 1
+
+    # subscription/device counts BEFORE we removed expired ones (for the UI summary)
     return {
         "sent": sent,
         "failed": failed,
         "expired": expired,
         "subscriptions": len(subs),
+        "apns_devices": len(devices),
     }

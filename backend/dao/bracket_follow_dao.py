@@ -113,6 +113,55 @@ class BracketFollowDAO(BaseDAO):
             logger.exception("bracket_follow_list_failed", user_id=user_id)
             return []
 
+    def _follower_user_ids(
+        self,
+        tournament_id: int,
+        tournament_group: str,
+        age_group_id: int,
+    ) -> list[str]:
+        """Distinct users following this exact bracket. Raises on DB error.
+
+        Shared by the Web Push and APNs fan-outs (SB-1236).
+        """
+        follow_resp = (
+            self.client.table(TABLE)
+            .select("user_id")
+            .eq("tournament_id", tournament_id)
+            .eq("tournament_group", tournament_group)
+            .eq("age_group_id", age_group_id)
+            .execute()
+        )
+        return list(
+            {
+                row["user_id"]
+                for row in (follow_resp.data or [])
+                if row.get("user_id")
+            }
+        )
+
+    def list_user_ids_for_bracket(
+        self,
+        tournament_id: int,
+        tournament_group: str,
+        age_group_id: int,
+    ) -> list[str]:
+        """Distinct users following this bracket (APNs fan-out, SB-1236).
+
+        Returns [] on error, like list_subscriptions_for_bracket.
+        """
+        try:
+            return self._follower_user_ids(
+                tournament_id, tournament_group, age_group_id
+            )
+        except Exception:
+            logger.exception(
+                "bracket_follow_list_user_ids_failed",
+                tournament_id=tournament_id,
+                tournament_group=tournament_group,
+                age_group_id=age_group_id,
+            )
+            return []
+
     def list_subscriptions_for_bracket(
         self,
         tournament_id: int,
@@ -133,20 +182,8 @@ class BracketFollowDAO(BaseDAO):
         """
         try:
             # Step 1: distinct users following this exact bracket.
-            follow_resp = (
-                self.client.table(TABLE)
-                .select("user_id")
-                .eq("tournament_id", tournament_id)
-                .eq("tournament_group", tournament_group)
-                .eq("age_group_id", age_group_id)
-                .execute()
-            )
-            user_ids = list(
-                {
-                    row["user_id"]
-                    for row in (follow_resp.data or [])
-                    if row.get("user_id")
-                }
+            user_ids = self._follower_user_ids(
+                tournament_id, tournament_group, age_group_id
             )
             if not user_ids:
                 return []

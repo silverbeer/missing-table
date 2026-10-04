@@ -123,6 +123,29 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: vapid-subject
               optional: true
+        # APNs token-auth key for native iOS push (SB-1236).
+        # Optional: pod boots even if absent; apns_sender.is_configured()
+        # returns False and the APNs fan-out is skipped. ESO populates these
+        # in prod. APNS_BUNDLE_ID is not set here — it defaults to
+        # io.silverbeer.mt.
+        - name: APNS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: apns-key-id
+              optional: true
+        - name: APNS_TEAM_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: apns-team-id
+              optional: true
+        - name: APNS_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: apns-private-key
+              optional: true
         # Cloudflare R2 — match-photo storage (SB-31) + Android APK distribution
         # (SB-313). Optional: the pod boots without them; r2_client.is_configured()
         # returns False and both photo upload AND the APK download endpoint return
