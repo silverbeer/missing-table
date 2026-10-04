@@ -593,7 +593,9 @@ export default {
       { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
       { id: 'match-center', name: 'Tournaments', requiresAuth: true },
-      { id: 'qop', name: 'QoP', requiresAuth: true },
+      // Hidden pending a rethink (SB-1226). May return as an opt-in profile
+      // switch for users following U13/U15 MLS Next Homegrown teams.
+      { id: 'qop', name: 'QoP', requiresAuth: true, hidden: true },
       {
         id: 'add-match',
         name: 'Add Match',
@@ -623,6 +625,8 @@ export default {
 
       let tabs = allTabs
         .filter(tab => {
+          if (tab.hidden) return false;
+
           // Always show public tabs
           if (!tab.requiresAuth) return true;
 
