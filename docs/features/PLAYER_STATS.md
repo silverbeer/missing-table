@@ -118,6 +118,30 @@ and age group: that returns `409`.
 
 ---
 
+## Appearances and Minutes from Live Scoring (SB-1227, October 2026) — beta
+
+Live scoring (web or MT Android) records appearances as the match happens:
+
+| Moment | What is written to `player_match_stats` |
+|--------|------------------------------------------|
+| Kickoff (`start_first_half`) | every lineup player: `started = played = true` (SB-671) |
+| Live substitution | player coming on: `played = true` |
+| Goal / assist / card | that player: `played = true` |
+| Full time (`end_match`) | every player who appeared: derived `minutes_played` |
+
+Minutes come from `compute_minutes_played` in `backend/match_minutes.py` — a pure
+function over the kickoff starters, substitution events (`player_id` on,
+`player_out_id` off) and red cards, on the nominal clock of `2 × half_duration`.
+Stoppage time is ignored (a sub at 45+3 came on at 45). A player brought on at
+the final whistle appeared for 0 minutes; a team with no lineup gets no rows,
+not zero-minute rows.
+
+Full time is idempotent, so an offline replay of `end_match` never overwrites
+minutes edited afterwards in the post-match editor. Subs recorded or removed in
+the post-match editor do not recompute minutes — edit minutes there directly.
+
+---
+
 ## Lineup Position Filtering (SB-288, July 2026)
 
 Clicking a formation slot in the lineup editor partitions the player picker:

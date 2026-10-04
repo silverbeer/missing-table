@@ -141,6 +141,7 @@ load_environment()
 
 # Configure structured logging with JSON output for Loki
 from logging_config import get_logger, setup_logging
+from match_minutes import compute_minutes_played
 
 setup_logging(service_name="backend")
 logger = get_logger(__name__)
@@ -3619,6 +3620,20 @@ async def update_match_clock(
                 # scorer is pitch-side and cannot debug this.
                 logger.exception("Failed to record kickoff appearances", match_id=match_id)
 
+        # Full time is when minutes become knowable (SB-1227): derive them from
+        # the kickoff starters and the substitution/red-card timeline. Same
+        # idempotency guarantee as kickoff — a replayed end_match returns early.
+        if clock.action == "end_match":
+            try:
+                minutes = compute_minutes_played(
+                    player_stats_dao.get_starter_ids(match_id),
+                    match_event_dao.get_events(match_id, limit=1000),
+                    current_match.get("half_duration") or 45,
+                )
+                player_stats_dao.record_minutes(match_id, minutes)
+            except Exception:
+                logger.exception("Failed to record minutes played", match_id=match_id)
+
         # When a match ends, invalidate stats cache so leaderboard picks up new goals
         if clock.action == "end_match":
             from dao.base_dao import clear_cache
@@ -4088,6 +4103,13 @@ async def post_live_substitution(
                 if existing:
                     return existing
             raise HTTPException(status_code=500, detail="Failed to create substitution event")
+
+        # The player coming on has appeared, whether or not they go on to
+        # score — without this a sub had no stats row at all (SB-1227).
+        try:
+            player_stats_dao.mark_played(sub.player_in_id, match_id)
+        except Exception:
+            logger.exception("Failed to mark substitute as played", match_id=match_id)
 
         logger.info(
             "live_substitution_recorded",
