@@ -258,7 +258,9 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_team_error", team_id=team_id, season_id=season_id, error=str(e))
             return []
 
-    @dao_cache("stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:mt{match_type_id}:t{tournament_id}:lim{limit}:test{include_test}")
+    @dao_cache(
+        "stats:leaderboard:goals:s{season_id}:l{league_id}:d{division_id}:a{age_group_id}:mt{match_type_id}:t{tournament_id}:lim{limit}:test{include_test}"
+    )
     def get_goals_leaderboard(
         self,
         season_id: int,
@@ -338,34 +340,24 @@ class PlayerStatsDAO(BaseDAO):
 
             # Filter in Python since PostgREST nested filters on !inner joins are unreliable
             # Include completed and forfeit matches (forfeit matches can have real goals)
-            stats = [
-                s for s in stats
-                if s.get("match", {}).get("match_status") in ("completed", "forfeit")
-            ]
+            stats = [s for s in stats if s.get("match", {}).get("match_status") in ("completed", "forfeit")]
             # SB-591 test partition: a goal scored in a test match must never
             # reach a real viewer's leaderboard. Filtered here rather than in the
             # query for the same reason as the status filter above.
             if not include_test:
                 stats = [s for s in stats if not s.get("match", {}).get("is_test")]
             if match_type_id is not None:
-                stats = [
-                    s for s in stats
-                    if s.get("match", {}).get("match_type_id") == match_type_id
-                ]
+                stats = [s for s in stats if s.get("match", {}).get("match_type_id") == match_type_id]
             if tournament_id is not None:
-                stats = [
-                    s for s in stats
-                    if s.get("match", {}).get("tournament_id") == tournament_id
-                ]
+                stats = [s for s in stats if s.get("match", {}).get("tournament_id") == tournament_id]
             if league_id is not None:
                 # For matches with a division, check division.league_id directly.
                 # For playoff matches (division_id is null), check if the player's
                 # team plays in this league by looking at their divisional matches.
-                league_team_ids = self._get_league_team_ids(
-                    league_id, season_id, include_test=include_test
-                )
+                league_team_ids = self._get_league_team_ids(league_id, season_id, include_test=include_test)
                 stats = [
-                    s for s in stats
+                    s
+                    for s in stats
                     if (s.get("match", {}).get("division") or {}).get("league_id") == league_id
                     or (
                         s.get("match", {}).get("division") is None
@@ -424,9 +416,7 @@ class PlayerStatsDAO(BaseDAO):
             )
             raise
 
-    def _get_league_team_ids(
-        self, league_id: int, season_id: int, include_test: bool = False
-    ) -> set[int]:
+    def _get_league_team_ids(self, league_id: int, season_id: int, include_test: bool = False) -> set[int]:
         """Get team IDs that participate in a league via their divisional matches.
 
         Used to attribute playoff goals (which have no division) to the correct league.
@@ -437,12 +427,7 @@ class PlayerStatsDAO(BaseDAO):
         """
         try:
             # Get divisions belonging to this league
-            div_response = (
-                self.client.table("divisions")
-                .select("id")
-                .eq("league_id", league_id)
-                .execute()
-            )
+            div_response = self.client.table("divisions").select("id").eq("league_id", league_id).execute()
             division_ids = [d["id"] for d in (div_response.data or [])]
             if not division_ids:
                 return set()
@@ -481,13 +466,7 @@ class PlayerStatsDAO(BaseDAO):
         try:
             # Get all players on this team for the match's season
             # First get the match to find the season
-            match_response = (
-                self.client.table("matches")
-                .select("season_id")
-                .eq("id", match_id)
-                .single()
-                .execute()
-            )
+            match_response = self.client.table("matches").select("season_id").eq("id", match_id).single().execute()
             if not match_response.data:
                 return []
 
@@ -525,18 +504,20 @@ class PlayerStatsDAO(BaseDAO):
             result = []
             for player in players:
                 stats = stats_by_player.get(player["id"], {})
-                result.append({
-                    "player_id": player["id"],
-                    "jersey_number": player["jersey_number"],
-                    "first_name": player.get("first_name"),
-                    "last_name": player.get("last_name"),
-                    "started": stats.get("started", False),
-                    "played": stats.get("played", False),
-                    "minutes_played": stats.get("minutes_played", 0),
-                    "goals": stats.get("goals", 0),
-                    "yellow_cards": stats.get("yellow_cards", 0),
-                    "red_cards": stats.get("red_cards", 0),
-                })
+                result.append(
+                    {
+                        "player_id": player["id"],
+                        "jersey_number": player["jersey_number"],
+                        "first_name": player.get("first_name"),
+                        "last_name": player.get("last_name"),
+                        "started": stats.get("started", False),
+                        "played": stats.get("played", False),
+                        "minutes_played": stats.get("minutes_played", 0),
+                        "goals": stats.get("goals", 0),
+                        "yellow_cards": stats.get("yellow_cards", 0),
+                        "red_cards": stats.get("red_cards", 0),
+                    }
+                )
 
             return result
 
@@ -569,13 +550,15 @@ class PlayerStatsDAO(BaseDAO):
 
                 # Update started, played, minutes, and cards
                 played = entry.get("played", False) or entry["started"]
-                self.client.table("player_match_stats").update({
-                    "started": entry["started"],
-                    "played": played,
-                    "minutes_played": entry["minutes_played"],
-                    "yellow_cards": entry.get("yellow_cards", 0),
-                    "red_cards": entry.get("red_cards", 0),
-                }).eq("player_id", player_id).eq("match_id", match_id).execute()
+                self.client.table("player_match_stats").update(
+                    {
+                        "started": entry["started"],
+                        "played": played,
+                        "minutes_played": entry["minutes_played"],
+                        "yellow_cards": entry.get("yellow_cards", 0),
+                        "red_cards": entry.get("red_cards", 0),
+                    }
+                ).eq("player_id", player_id).eq("match_id", match_id).execute()
 
             logger.info(
                 "stats_batch_updated",
@@ -808,6 +791,35 @@ class PlayerStatsDAO(BaseDAO):
             return None
 
     @invalidates_cache(STATS_CACHE_PATTERN)
+    def get_starter_ids(self, match_id: int) -> list[int]:
+        """Players recorded as starters for a match (set at kickoff, SB-671)."""
+        response = (
+            self.client.table("player_match_stats")
+            .select("player_id")
+            .eq("match_id", match_id)
+            .eq("started", True)
+            .execute()
+        )
+        return [row["player_id"] for row in (response.data or [])]
+
+    @invalidates_cache(STATS_CACHE_PATTERN)
+    def mark_played(self, player_id: int, match_id: int) -> None:
+        """Record that a player appeared — e.g. came on as a substitute (SB-1227)."""
+        self.get_or_create_match_stats(player_id, match_id)
+        self.client.table("player_match_stats").update({"played": True}).eq("player_id", player_id).eq(
+            "match_id", match_id
+        ).execute()
+
+    @invalidates_cache(STATS_CACHE_PATTERN)
+    def record_minutes(self, match_id: int, minutes_by_player: dict[int, int]) -> None:
+        """Write derived minutes for each player who appeared (SB-1227)."""
+        for player_id, minutes in minutes_by_player.items():
+            self.get_or_create_match_stats(player_id, match_id)
+            self.client.table("player_match_stats").update({"minutes_played": minutes, "played": True}).eq(
+                "player_id", player_id
+            ).eq("match_id", match_id).execute()
+        logger.info("stats_minutes_recorded", match_id=match_id, players=len(minutes_by_player))
+
     def update_minutes(self, player_id: int, match_id: int, minutes: int) -> dict | None:
         """
         Update minutes played for a player in a match.
