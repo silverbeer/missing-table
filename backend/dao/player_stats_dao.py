@@ -191,13 +191,14 @@ class PlayerStatsDAO(BaseDAO):
             logger.error("stats_season_error", player_id=player_id, season_id=season_id, error=str(e))
             return None
 
-    @dao_cache("stats:team:{team_id}:season:{season_id}:test{include_test}:mt{match_type_id}")
+    @dao_cache("stats:team:{team_id}:season:{season_id}:test{include_test}:mt{match_type_id}:age{age_group_id}")
     def get_team_stats(
         self,
         team_id: int,
         season_id: int,
         include_test: bool = False,
         match_type_id: int | None = None,
+        age_group_id: int | None = None,
     ) -> list[dict]:
         """
         Get aggregated stats for all players on a team for a season.
@@ -210,22 +211,27 @@ class PlayerStatsDAO(BaseDAO):
             match_type_id: Restrict to one competition; None means all. Part of
                 the cache key, or a league-only request gets served an
                 all-competitions total (SB-433).
+            age_group_id: Restrict the squad to players whose
+                `players.age_group_id` matches — the same rule as the roster
+                (SB-68), so a multi-age team's board lists the same players as
+                its Roster tab. None means every age group (SB-1258).
 
         Returns:
             List of player stats dicts sorted by goals (descending)
         """
         try:
             # First get all players on this team/season
-            players_response = (
+            query = (
                 self.client.table("players")
                 .select("id, jersey_number, first_name, last_name")
                 .eq("team_id", team_id)
                 .eq("season_id", season_id)
                 .eq("is_active", True)
-                .execute()
             )
+            if age_group_id is not None:
+                query = query.eq("age_group_id", age_group_id)
 
-            players = players_response.data or []
+            players = query.execute().data or []
 
             result = []
             for player in players:

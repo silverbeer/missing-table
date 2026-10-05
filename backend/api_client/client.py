@@ -1075,16 +1075,20 @@ class MissingTableClient:
         team_id: int,
         season_id: int | None = None,
         match_type_id: int | None = None,
+        age_group_id: int | None = None,
     ) -> dict[str, Any]:
         """Get team stats.
 
-        match_type_id narrows to one competition (SB-433); omit it for all.
+        match_type_id narrows to one competition (SB-433); age_group_id to one
+        age group's players (SB-1258). Omit either for all.
         """
         params = {}
         if season_id is not None:
             params["season_id"] = season_id
         if match_type_id is not None:
             params["match_type_id"] = match_type_id
+        if age_group_id is not None:
+            params["age_group_id"] = age_group_id
         response = self._request("GET", f"/api/teams/{team_id}/stats", params=params or None)
         return response.json()
 
