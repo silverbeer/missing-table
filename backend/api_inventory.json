@@ -16865,6 +16865,31 @@
           "file": "tests/contract/test_teams_contract.py",
           "test_name": "test_get_team_stats",
           "type": "contract"
+        },
+        {
+          "file": "tests/unit/test_team_stats_age_group.py",
+          "test_name": "test_no_age_group_does_not_filter_the_squad",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_age_group.py",
+          "test_name": "test_age_group_filters_on_the_player_row",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_age_group.py",
+          "test_name": "test_an_age_group_with_no_roster_is_an_empty_board_not_an_error",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_age_group.py",
+          "test_name": "test_composes_with_match_type",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_team_stats_age_group.py",
+          "test_name": "test_cache_key_is_keyed_on_age_group",
+          "type": "unit"
         }
       ],
       "coverage_status": "fully_covered"

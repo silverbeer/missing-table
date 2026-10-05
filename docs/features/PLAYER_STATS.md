@@ -231,7 +231,7 @@ groups, coverage pinned by both the backend parity test and
   - [x] Update player_match_stats
 - [x] Add stats API endpoints
   - [x] `GET /api/roster/{player_id}/stats`
-  - [x] `GET /api/teams/{team_id}/stats`
+  - [x] `GET /api/teams/{team_id}/stats` — optional `match_type_id` (SB-433) and `age_group_id` (SB-1258; filters on `players.age_group_id`, same rule as the roster)
 - [ ] Write backend tests for stats
 
 ### Phase 5: Frontend - Roster Manager

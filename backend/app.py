@@ -6483,6 +6483,7 @@ async def get_team_stats(
     team_id: int,
     season_id: int = Query(..., description="Season ID for stats"),
     match_type_id: int | None = Query(None, description="Restrict to one competition; omit for all"),
+    age_group_id: int | None = Query(None, description="Restrict to players in one age group; omit for all"),
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
     """
@@ -6497,6 +6498,9 @@ async def get_team_stats(
     match_type_id narrows to a single competition (SB-433) — a squad leaderboard
     that silently mixes friendlies into league totals is not comparable with the
     league table beside it.
+
+    age_group_id narrows a multi-age team (e.g. a Homegrown squad mapped to
+    U13-U15) to one age group's players, matching the roster filter (SB-1258).
     """
     try:
         # Verify team exists
@@ -6510,6 +6514,7 @@ async def get_team_stats(
             season_id,
             include_test=viewer_sees_test_content(current_user),
             match_type_id=match_type_id,
+            age_group_id=age_group_id,
         )
 
         return {
@@ -6517,6 +6522,7 @@ async def get_team_stats(
             "team_name": team.get("name"),
             "season_id": season_id,
             "match_type_id": match_type_id,
+            "age_group_id": age_group_id,
             "players": stats,
         }
 
