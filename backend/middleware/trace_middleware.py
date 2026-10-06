@@ -10,18 +10,27 @@ Headers:
 
 If headers are not provided, generates new identifiers.
 
-Note: This middleware only handles context binding, not request logging.
-Request lifecycle logging should be done at the application level where
-the actual business logic resides, so log callsites show meaningful filenames.
+It also writes the access log: one JSON line per request, levelled by
+status (5xx ERROR, 4xx WARNING), with an unhandled exception folded into
+that same line. It is pure ASGI rather than BaseHTTPMiddleware so the trace
+IDs stay bound while the response is sent and while the exception
+propagates - BaseHTTPMiddleware unbinds them before either (SB-1283).
 """
 
+import logging
+import time
 import uuid
 from contextvars import ContextVar
 
 import structlog
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+access_logger = structlog.get_logger("access")
+
+# Probe and scrape traffic: logged at DEBUG when it succeeds, so the
+# kubelet's every-5s health checks do not bury real requests.
+QUIET_PATHS = frozenset({"/health", "/metrics"})
 
 # Context variables for trace IDs - accessible throughout the request lifecycle
 _session_id: ContextVar[str | None] = ContextVar("session_id", default=None)
@@ -58,43 +67,76 @@ def get_request_id() -> str | None:
     return _request_id.get()
 
 
-class TraceMiddleware(BaseHTTPMiddleware):
+def access_log_level(status: int, path: str = "") -> int:
+    """Log level for a finished request: 5xx ERROR, 4xx WARNING, else INFO.
+
+    Successful probe/scrape requests (QUIET_PATHS) drop to DEBUG.
     """
-    Middleware that extracts trace IDs from request headers and binds
-    them to structlog context for distributed tracing.
+    if status >= 500:
+        return logging.ERROR
+    if status >= 400:
+        return logging.WARNING
+    if path in QUIET_PATHS:
+        return logging.DEBUG
+    return logging.INFO
 
-    This middleware only handles context binding - no logging is done here
-    so that log callsites show the actual business logic location.
+
+class TraceMiddleware:
+    """
+    Binds session_id/request_id to the structlog context for the whole
+    request - including response send and exception propagation - and
+    writes the access log line.
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        """Process request with trace context."""
-        # Extract or generate trace IDs
-        session_id = request.headers.get("X-Session-ID") or generate_session_id()
-        request_id = request.headers.get("X-Request-ID") or generate_request_id()
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        # Store in context variables
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        session_id = headers.get("x-session-id") or generate_session_id()
+        request_id = headers.get("x-request-id") or generate_request_id()
+
         session_token = _session_id.set(session_id)
         request_token = _request_id.set(request_id)
+        structlog.contextvars.bind_contextvars(session_id=session_id, request_id=request_id)
 
-        # Bind to structlog context for all logging in this request
-        structlog.contextvars.bind_contextvars(
-            session_id=session_id,
-            request_id=request_id,
-        )
+        status: int | None = None
+        started = time.perf_counter()
 
+        async def send_with_trace(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                MutableHeaders(scope=message)["X-Request-ID"] = request_id
+            await send(message)
+
+        exc: BaseException | None = None
         try:
-            response = await call_next(request)
-
-            # Add trace IDs to response headers for debugging
-            response.headers["X-Request-ID"] = request_id
-
-            return response
-
+            await self.app(scope, receive, send_with_trace)
+        except Exception as e:
+            exc = e
+            # ServerErrorMiddleware (outside us) turns this into the 500.
+            # Mark it so uvicorn's own "Exception in ASGI application"
+            # record is dropped instead of repeating the traceback.
+            e._mt_logged = True  # type: ignore[attr-defined]
+            raise
         finally:
-            # Reset context variables
+            final_status = 500 if exc is not None and status is None else status or 0
+            client = scope.get("client")
+            access_logger.log(
+                access_log_level(final_status, scope["path"]),
+                "http_request",
+                method=scope["method"],
+                path=scope["path"],
+                status=final_status,
+                duration_ms=round((time.perf_counter() - started) * 1000, 1),
+                client_ip=client[0] if client else None,
+                exc_info=exc,
+            )
             _session_id.reset(session_token)
             _request_id.reset(request_token)
-
-            # Clear structlog context
             structlog.contextvars.unbind_contextvars("session_id", "request_id")

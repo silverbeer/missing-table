@@ -93,7 +93,32 @@ Frontend sends these headers with every API request:
 
 ### Tools
 - **structlog**: Structured JSON logging
-- **Trace middleware**: Extracts and binds trace IDs from headers
+- **Trace middleware**: Extracts and binds trace IDs from headers, and writes the access log
+
+### One JSON line per event
+
+Every backend log line is a single JSON object — including third-party stdlib
+loggers (uvicorn, supabase) and tracebacks. `logging_config.py` routes the
+stdlib root logger through structlog's `ProcessorFormatter`, so a traceback
+lands in the `exception` field of the line that raised it rather than as raw
+multi-line text (SB-1283).
+
+### Access log
+
+uvicorn's own access log is disabled. `TraceMiddleware` writes one
+`http_request` event per request instead, with `method`, `path`, `status`,
+`duration_ms`, `client_ip` and the trace IDs. Its level follows the status:
+
+| Status | Level |
+|--------|-------|
+| 5xx, or an unhandled exception | `ERROR` (with `exception`) |
+| 4xx | `WARNING` |
+| other | `INFO` (`DEBUG` for `/health` and `/metrics`) |
+
+An unhandled exception is logged once, on its `http_request` line; uvicorn's
+duplicate "Exception in ASGI application" record is filtered out.
+`TraceMiddleware` is pure ASGI, not `BaseHTTPMiddleware`, so the trace IDs stay
+bound while the response is sent and while an exception propagates.
 
 ### Log Levels
 | Level | When to Use | Example |
@@ -188,7 +213,12 @@ except Exception as e:
 
 ### Find slow requests
 ```logql
-{app="missing-table"} | json | duration_ms > 1000
+{app="missing-table"} | json | event="http_request" | duration_ms > 1000
+```
+
+### Find failed requests
+```logql
+{app="missing-table"} | json | event="http_request" | status >= 500
 ```
 
 ## File Locations
@@ -198,7 +228,7 @@ except Exception as e:
 | Frontend trace context | `frontend/src/utils/traceContext.js` | Generate session/request IDs |
 | Frontend Faro | `frontend/src/faro.js` | Observability SDK |
 | Backend logging config | `backend/logging_config.py` | structlog setup |
-| Backend trace middleware | `backend/middleware/trace_middleware.py` | Extract trace headers |
+| Backend trace middleware | `backend/middleware/trace_middleware.py` | Extract trace headers, access log |
 
 ## Checklist for New Code
 
