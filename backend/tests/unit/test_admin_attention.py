@@ -92,6 +92,7 @@ class TestAdminAttentionDAO:
 
     def _make_dao(self):
         from unittest.mock import MagicMock
+
         from dao.admin_attention_dao import AdminAttentionDAO
 
         # AdminAttentionDAO inherits BaseDAO and uses a SupabaseConnection.
@@ -138,3 +139,13 @@ class TestAdminAttentionDAO:
             "support_inbox": 0,
             "total": 0,
         }
+
+    def test_channel_count_queries_channel_access_requests(self):
+        # SB-1282: the table is channel_access_requests; querying
+        # "channel_requests" raised 42P01 on every badge poll in prod.
+        dao = self._make_dao()
+        query = dao.client.table.return_value.select.return_value.or_.return_value
+        query.execute.return_value.count = 4
+
+        assert dao._count_pending_channel_requests() == 4
+        dao.client.table.assert_called_once_with("channel_access_requests")

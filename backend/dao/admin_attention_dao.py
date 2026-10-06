@@ -80,7 +80,7 @@ class AdminAttentionDAO(BaseDAO):
         """
         # PostgREST `or` filter: telegram_status.eq.pending,discord_status.eq.pending
         response = (
-            self.client.table("channel_requests")
+            self.client.table("channel_access_requests")
             .select("id", count="exact")
             .or_("telegram_status.eq.pending,discord_status.eq.pending")
             .execute()
