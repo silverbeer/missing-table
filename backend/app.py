@@ -7371,21 +7371,25 @@ async def clear_cache_by_type(
 ):
     """Clear cache entries for a specific type (admin only).
 
-    Valid types: playoffs, matches, players, clubs, teams, standings, etc.
+    Valid types are dao.base_dao.CACHE_TYPES — every namespace the DAOs write —
+    plus the legacy aliases in CACHE_TYPE_ALIASES (SB-1278).
     """
-    from dao.base_dao import clear_cache
+    from dao.base_dao import CACHE_TYPE_ALIASES, CACHE_TYPES, clear_cache
 
     # Validate cache type to prevent arbitrary pattern injection
-    valid_types = ["playoffs", "matches", "players", "clubs", "teams", "standings", "rosters", "qop"]
-    if cache_type not in valid_types:
+    if cache_type in CACHE_TYPE_ALIASES:
+        prefix = CACHE_TYPE_ALIASES[cache_type]
+    elif cache_type in CACHE_TYPES:
+        prefix = cache_type
+    else:
+        valid_types = sorted(CACHE_TYPES | CACHE_TYPE_ALIASES.keys())
         raise HTTPException(
             status_code=400,
             detail=f"Invalid cache type. Valid types: {', '.join(valid_types)}",
         )
 
     try:
-        pattern = f"mt:dao:{cache_type}:*"
-        deleted = clear_cache(pattern)
+        deleted = clear_cache(f"mt:dao:{prefix}:*")
         logger.info(f"Admin {current_user.get('username')} cleared {cache_type} cache: {deleted} keys")
         return {"message": f"{cache_type} cache cleared", "deleted": deleted}
     except Exception as e:
