@@ -145,7 +145,7 @@ export default {
         clubs: '🏢',
         teams: '👥',
         standings: '📊',
-        rosters: '📋',
+        roster: '📋',
       };
       return icons[type] || '📦';
     };

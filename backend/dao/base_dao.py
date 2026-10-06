@@ -53,6 +53,43 @@ logger = structlog.get_logger()
 # than in match_dao so every DAO can share it without importing match_dao.
 MATCHES_READ_RELATION = "matches_with_test"
 
+# Every first segment of an `mt:dao:<type>:...` key. GET /api/admin/cache groups
+# keys by this segment and DELETE /api/admin/cache/{type} only clears names on
+# this list, so a namespace missing here shows up in the admin view with no way
+# to clear it on its own (SB-1278). test_cache_types.py fails when a DAO starts
+# writing a namespace that is not listed.
+CACHE_TYPES = frozenset(
+    {
+        "admin_attention",
+        "age_groups",
+        "clubs",
+        "divisions",
+        "email_messages",
+        "email_threads",
+        "leagues",
+        "lineup",
+        "match_types",
+        "matches",
+        "players",
+        "playoffs",
+        "qop",
+        "roster",
+        "seasons",
+        "stats",
+        "teams",
+        "tournaments",
+    }
+)
+
+# Names the admin endpoint accepted before CACHE_TYPES existed, mapped to the key
+# prefix they actually mean. "rosters" never matched the DAO's "roster" keys, and
+# standings are cached under matches; both are kept so existing clients
+# (AdminCache.vue, mt-dt) keep working, now deleting what they name.
+CACHE_TYPE_ALIASES = {
+    "rosters": "roster",
+    "standings": "matches:standings",
+}
+
 # Shared Redis client for all DAOs
 _redis_client = None
 

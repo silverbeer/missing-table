@@ -194,6 +194,26 @@
           "file": "tests/contract/test_cache_contract.py",
           "test_name": "test_clear_cache_by_type_invalid",
           "type": "contract"
+        },
+        {
+          "file": "tests/unit/test_cache_types.py",
+          "test_name": "test_each_type_clears_its_own_namespace",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cache_types.py",
+          "test_name": "test_rosters_clears_the_roster_keys",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cache_types.py",
+          "test_name": "test_standings_clears_the_standings_keys_under_matches",
+          "type": "unit"
+        },
+        {
+          "file": "tests/unit/test_cache_types.py",
+          "test_name": "test_unknown_type_is_rejected_before_touching_redis",
+          "type": "unit"
         }
       ],
       "coverage_status": "fully_covered"

@@ -24,6 +24,13 @@ Rules:
   `matches:*`.
 - **Direct SQL through Supabase Studio bypasses this entirely** — no decorator
   runs. Pair a Studio fix with an API write or `redis-cli DEL`.
+- **A new namespace goes in `CACHE_TYPES`** (`dao/base_dao.py`). The admin
+  cache view groups keys by the segment after `mt:dao:`, and
+  `DELETE /api/admin/cache/{type}` clears only names on that list.
+  `tests/unit/test_cache_types.py` scans the source and fails on a namespace
+  that is written but not listed, or listed but never written (SB-1278).
+  `rosters` and `standings` are legacy aliases for `roster:*` and
+  `matches:standings:*`.
 
 ## Service worker cache (browser)
 
