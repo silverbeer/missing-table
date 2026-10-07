@@ -81,8 +81,14 @@
     "match_time": {
       "type": ["string", "null"],
       "pattern": "^\\d{2}:\\d{2}$",
-      "description": "Match kick-off time in HH:MM format (24-hour, null if TBD)",
+      "description": "Match kick-off time in HH:MM format (24-hour, null if TBD), as the venue's local wall-clock time. Read in the home club's timezone (clubs.timezone, else US Eastern) when scheduled_kickoff is absent.",
       "example": "14:00"
+    },
+    "scheduled_kickoff": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "The feed's exact kick-off instant, ISO 8601 with a UTC offset. Preferred over match_time when present; a value without an offset is ignored.",
+      "example": "2026-10-03T16:00:00Z"
     },
     "location": {
       "type": ["string", "null"],

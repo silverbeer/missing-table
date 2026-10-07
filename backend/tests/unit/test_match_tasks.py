@@ -38,6 +38,9 @@ def task():
     # Stubbed rather than left to the lazy property: _match_type_label reads it
     # to log a correction by name, and a unit test must not open a connection.
     t._match_type_dao = _match_type_dao_stub()
+    # Every home club is Eastern unless a test says otherwise (SB-1202).
+    t._club_dao = MagicMock()
+    t._club_dao.get_club_for_team.return_value = {"id": 1, "timezone": "America/New_York"}
     return t
 
 
@@ -68,6 +71,90 @@ class TestBuildScheduledKickoff:
 
     def test_returns_none_when_empty(self, task):
         assert task._build_scheduled_kickoff({}) is None
+
+    # SB-1202: match_time is the venue's local time. San Diego FC home,
+    # Sat Oct 3 2026 (PDT, UTC-7), from the assist feed.
+    @pytest.mark.parametrize(
+        ("match_time", "expected"),
+        [("09:00", "2026-10-03T16:00:00+00:00"), ("11:00", "2026-10-03T18:00:00+00:00")],
+    )
+    def test_reads_match_time_in_pacific(self, task, match_time, expected):
+        data = {"match_date": "2026-10-03", "match_time": match_time}
+        assert task._build_scheduled_kickoff(data, "America/Los_Angeles") == expected
+
+    @pytest.mark.parametrize(
+        ("venue_tz", "expected"),
+        [
+            ("America/Denver", "2026-10-03T15:00:00+00:00"),  # MDT, UTC-6
+            ("America/Phoenix", "2026-10-03T16:00:00+00:00"),  # MST all year, UTC-7
+            ("America/Chicago", "2026-10-03T14:00:00+00:00"),  # CDT, UTC-5
+            ("America/New_York", "2026-10-03T13:00:00+00:00"),  # EDT, UTC-4
+        ],
+    )
+    def test_reads_match_time_in_other_zones(self, task, venue_tz, expected):
+        data = {"match_date": "2026-10-03", "match_time": "09:00"}
+        assert task._build_scheduled_kickoff(data, venue_tz) == expected
+
+    def test_pacific_after_dst_ends(self, task):
+        """Nov 7 2026 is PST (UTC-8): 09:00 PST → 17:00 UTC."""
+        data = {"match_date": "2026-11-07", "match_time": "09:00"}
+        assert task._build_scheduled_kickoff(data, "America/Los_Angeles") == "2026-11-07T17:00:00+00:00"
+
+    def test_unknown_zone_reads_as_eastern(self, task):
+        data = {"match_date": "2026-03-01", "match_time": "14:00"}
+        assert task._build_scheduled_kickoff(data, "Mars/Olympus_Mons") == "2026-03-01T19:00:00+00:00"
+
+
+# ── _feed_kickoff (SB-1203 payload) ───────────────────────────────────
+
+
+class TestFeedKickoff:
+    @pytest.mark.parametrize(
+        "raw",
+        ["2026-10-03T16:00:00Z", "2026-10-03T16:00:00+00:00", "2026-10-03T09:00:00-07:00"],
+    )
+    def test_normalises_to_utc(self, task, raw):
+        assert task._feed_kickoff({"scheduled_kickoff": raw}) == "2026-10-03T16:00:00+00:00"
+
+    @pytest.mark.parametrize("raw", [None, "", "2026-10-03T16:00:00", "not a time"])
+    def test_ignores_missing_naive_or_garbage(self, task, raw):
+        assert task._feed_kickoff({"scheduled_kickoff": raw}) is None
+
+
+# ── _resolve_kickoff ──────────────────────────────────────────────────
+
+
+class TestResolveKickoff:
+    def test_feed_kickoff_wins_without_a_club_lookup(self, task):
+        data = {"match_date": "2026-10-03", "match_time": "09:00", "scheduled_kickoff": "2026-10-03T16:00:00Z"}
+        assert task._resolve_kickoff(data, 10) == "2026-10-03T16:00:00+00:00"
+        task._club_dao.get_club_for_team.assert_not_called()
+
+    def test_falls_back_to_home_club_timezone(self, task):
+        task._club_dao.get_club_for_team.return_value = {"id": 7, "timezone": "America/Los_Angeles"}
+        data = {"match_date": "2026-10-03", "match_time": "09:00"}
+        assert task._resolve_kickoff(data, 10) == "2026-10-03T16:00:00+00:00"
+        task._club_dao.get_club_for_team.assert_called_once_with(10)
+
+    @pytest.mark.parametrize("club", [None, {"id": 7}, {"id": 7, "timezone": None}])
+    def test_no_club_timezone_reads_as_eastern(self, task, club):
+        task._club_dao.get_club_for_team.return_value = club
+        data = {"match_date": "2026-10-03", "match_time": "09:00"}
+        assert task._resolve_kickoff(data, 10) == "2026-10-03T13:00:00+00:00"
+
+    def test_club_lookup_failure_reads_as_eastern(self, task):
+        task._club_dao.get_club_for_team.side_effect = RuntimeError("db down")
+        data = {"match_date": "2026-10-03", "match_time": "09:00"}
+        assert task._resolve_kickoff(data, 10) == "2026-10-03T13:00:00+00:00"
+
+    def test_no_home_team_reads_as_eastern(self, task):
+        data = {"match_date": "2026-10-03", "match_time": "09:00"}
+        assert task._resolve_kickoff(data, None) == "2026-10-03T13:00:00+00:00"
+        task._club_dao.get_club_for_team.assert_not_called()
+
+    def test_no_time_means_no_kickoff_and_no_lookup(self, task):
+        assert task._resolve_kickoff({"match_date": "2026-10-03"}, 10) is None
+        task._club_dao.get_club_for_team.assert_not_called()
 
 
 # ── _check_needs_update ──────────────────────────────────────────────
@@ -138,6 +225,24 @@ class TestCheckNeedsUpdate:
         # 14:00 EST = 19:00 UTC == 19:00 UTC → False
         assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is False
 
+    def test_feed_kickoff_corrects_an_early_pacific_kickoff(self, task):
+        """SB-1202: a row stored 3 h early is corrected by the feed's UTC kickoff."""
+        existing = self._existing(scheduled_kickoff="2026-10-03T13:00:00+00:00")
+        new_data = {
+            "match_status": "scheduled",
+            "match_date": "2026-10-03",
+            "match_time": "09:00",
+            "scheduled_kickoff": "2026-10-03T16:00:00Z",
+        }
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is True
+
+    def test_home_club_timezone_corrects_an_early_pacific_kickoff(self, task):
+        task._club_dao.get_club_for_team.return_value = {"id": 7, "timezone": "America/Los_Angeles"}
+        existing = self._existing(scheduled_kickoff="2026-10-03T13:00:00+00:00")
+        new_data = {"match_status": "scheduled", "match_date": "2026-10-03", "match_time": "09:00"}
+        assert task._check_needs_update(existing, new_data, self.HOME_ID, self.AWAY_ID) is True
+        task._club_dao.get_club_for_team.assert_called_once_with(self.HOME_ID)
+
     def test_no_match_time_in_new_data_returns_false(self, task):
         """New data has no match_time → don't clear existing kickoff."""
         existing = self._existing(scheduled_kickoff="2026-03-01T19:00:00+00:00")
@@ -182,6 +287,19 @@ class TestUpdateMatchScores:
         update_payload = task._dao.client.table("matches").update.call_args[0][0]
         assert "home_team_id" not in update_payload
         assert "away_team_id" not in update_payload
+
+    def test_updates_kickoff_from_feed_using_existing_home_team(self, task):
+        """Without a home_team_id argument the existing row's home team picks the club."""
+        task._club_dao.get_club_for_team.return_value = {"id": 7, "timezone": "America/Los_Angeles"}
+        existing = {"id": 42, "home_team_id": 10, "scheduled_kickoff": "2026-10-03T13:00:00+00:00"}
+        new_data = {"match_date": "2026-10-03", "match_time": "09:00"}
+        task._dao.client.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"id": 42}]
+        )
+        task._update_match_scores(existing, new_data)
+        update_payload = task._dao.client.table.return_value.update.call_args[0][0]
+        assert update_payload["scheduled_kickoff"] == "2026-10-03T16:00:00+00:00"
+        task._club_dao.get_club_for_team.assert_called_once_with(10)
 
     def test_updates_scheduled_kickoff(self, task):
         """scheduled_kickoff should be in the update payload when match_time provided."""
@@ -651,9 +769,7 @@ class TestIngestDivisionScoping:
         _run(ingest)
         assert ingest._league_dao.get_division_by_name.call_args.kwargs["league_id"] == 1
 
-    def test_an_ambiguous_division_fails_rather_than_landing_in_the_wrong_table(
-        self, ingest
-    ):
+    def test_an_ambiguous_division_fails_rather_than_landing_in_the_wrong_table(self, ingest):
         # get_division_by_name returns None when it cannot tell two leagues'
         # divisions apart. A Flex fixture filed into a Homegrown table would
         # be invisible as a defect; an ingest failure is not.
@@ -671,7 +787,6 @@ class TestIngestDivisionScoping:
             _run(ingest, division="Southeast")
         assert ingest._ingest_failures_dao.record.call_args.args[0] == "division"
         assert ingest._ingest_failures_dao.record.call_args.args[1] == "Southeast"
-
 
 
 class TestIngestCorrectsAnExistingMatch:
@@ -979,9 +1094,7 @@ class TestPenaltyShootout:
         assert task._check_needs_update(existing, self._drawn(), self.HOME_ID, self.AWAY_ID) is False
 
     def test_the_update_writes_both_columns(self, task):
-        task._update_match_scores(
-            self._existing(), self._drawn(), home_team_id=self.HOME_ID, away_team_id=self.AWAY_ID
-        )
+        task._update_match_scores(self._existing(), self._drawn(), home_team_id=self.HOME_ID, away_team_id=self.AWAY_ID)
 
         payload = task._dao.client.table("matches").update.call_args[0][0]
         assert payload["home_penalty_score"] == 4
