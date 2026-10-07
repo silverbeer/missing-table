@@ -8,6 +8,7 @@ from pydantic import BaseModel, field_validator, model_validator
 
 from constants.passwords import validate_password
 from constants.positions import Positions
+from user_preferences import UserPreferences
 
 
 class UserSignup(BaseModel):
@@ -90,6 +91,8 @@ class UserProfile(BaseModel):
     # Telegram/Discord handles for channel access
     telegram_handle: str | None = None
     discord_handle: str | None = None
+    # Partial update: only keys sent are applied, null clears (SB-1286)
+    preferences: UserPreferences | None = None
 
 
 class RoleUpdate(BaseModel):

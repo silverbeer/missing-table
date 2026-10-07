@@ -101,6 +101,11 @@ export const useAuthStore = () => {
   const userAgeGroupId = computed(
     () => currentTeam.value?.age_group?.id ?? null
   );
+  // The age group this account chose to open Table/Matches on (SB-1286).
+  // null = no preference: views fall back to the team's, then U14.
+  const preferredAgeGroupId = computed(
+    () => state.profile?.preferences?.default_age_group_id ?? null
+  );
   const userLeagueId = computed(() => currentTeam.value?.league?.id ?? null);
   const userDivisionId = computed(
     () => currentTeam.value?.division?.id ?? null
@@ -597,6 +602,30 @@ export const useAuthStore = () => {
     } catch (error) {
       console.error('Error fetching profile:', error);
       setError(error.message);
+    }
+  };
+
+  // Save a partial preferences update (null clears a key). Deliberately does
+  // not toggle state.loading: ProfileRouter swaps the whole page for a spinner
+  // on that flag, which a single dropdown change should not do (SB-1286).
+  const updatePreferences = async changes => {
+    try {
+      const response = await apiCall(`${getApiBaseUrl()}/api/auth/profile`, {
+        method: 'PUT',
+        body: JSON.stringify({ preferences: changes }),
+      });
+      if (!response?.success) {
+        throw new Error(errorMessage(response, 'Could not save preferences'));
+      }
+      const merged = { ...(state.profile?.preferences || {}) };
+      for (const [key, value] of Object.entries(changes)) {
+        if (value === null || value === undefined) delete merged[key];
+        else merged[key] = value;
+      }
+      if (state.profile) state.profile.preferences = merged;
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   };
 
@@ -1115,6 +1144,7 @@ export const useAuthStore = () => {
     currentTeam,
     userCurrentTeamId,
     userAgeGroupId,
+    preferredAgeGroupId,
     userLeagueId,
     userDivisionId,
 
@@ -1127,6 +1157,7 @@ export const useAuthStore = () => {
     logout,
     forceLogout,
     fetchProfile,
+    updatePreferences,
     updateProfile,
     initialize,
     setError,

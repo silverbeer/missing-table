@@ -186,6 +186,39 @@ Two rules the views must preserve:
 Anonymous visitors, admins, and users with no current roster row keep the U14
 fallback.
 
+##### Account preferences and the age-group precedence (SB-1286)
+
+`user_profiles.preferences` is a jsonb object whose shape is owned by
+`backend/user_preferences.py` (`UserPreferences`, `extra="forbid"`). A new
+preference is a field there plus a UI control — no migration. Absent key means
+"no preference"; it is never read as a zero value.
+
+- `GET /api/auth/profile` and `/api/auth/me` return `preferences` (`{}` when unset).
+- `PUT /api/auth/profile` with `{"preferences": {...}}` **merges**: keys not sent
+  are kept, `null` removes a key. `default_age_group_id` must name an existing
+  age group (400 otherwise). Customisation fields (`overlay_style`, colours) are
+  only written when the client sends them, so a preferences-only save does not
+  reset them.
+- The store exposes `preferredAgeGroupId` and `updatePreferences()`. The latter
+  does not toggle `state.loading` — ProfileRouter swaps the page for a spinner on
+  that flag.
+- The UI is `PreferencesCard.vue`, rendered by ProfileRouter for every role.
+
+Table and Matches choose their opening age group in this order
+(`utils/defaultAgeGroup.js`):
+
+1. the pick remembered in this browser (`useFilterMemory`, SB-1112) — **last pick wins**
+2. `preferences.default_age_group_id`
+3. the roster row's age group (above)
+4. U14
+
+Saving the preference clears both views' remembered filters in that browser, so
+the change shows on the next visit. jsonb carries no foreign key, so a
+preference naming a deleted age group falls through to the next rung. The roster
+row's `league`/`division` are applied only when the chosen age group *is* the
+roster row's; otherwise the division comes from the team's
+`divisions_by_age_group` for the chosen age group.
+
 ##### Backend auth clients must be stateless (SB-115)
 
 The backend's shared Supabase clients (`auth_ops_client`, `auth_service_client`
