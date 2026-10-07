@@ -142,6 +142,7 @@ load_environment()
 # Configure structured logging with JSON output for Loki
 from logging_config import get_logger, setup_logging
 from match_minutes import compute_minutes_played
+from user_preferences import UnknownAgeGroupError, merge_preferences, read_preferences
 
 setup_logging(service_name="backend")
 logger = get_logger(__name__)
@@ -1157,6 +1158,7 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             # Telegram/Discord handles
             "telegram_handle": profile.get("telegram_handle"),
             "discord_handle": profile.get("discord_handle"),
+            "preferences": read_preferences(profile.get("preferences")),
             # Personal info
             "first_name": profile.get("first_name"),
             "last_name": profile.get("last_name"),
@@ -1206,23 +1208,34 @@ async def update_profile(profile_data: UserProfile, current_user: dict[str, Any]
         if profile_data.positions is not None:
             update_data["positions"] = profile_data.positions
 
-        # Customization fields (overlay style and colors)
-        if profile_data.overlay_style is not None:
+        # Customization fields (overlay style and colors). The model gives
+        # these non-null defaults, so test what the client actually sent -
+        # otherwise any partial update resets them (SB-1286).
+        sent = profile_data.model_fields_set
+        if "overlay_style" in sent and profile_data.overlay_style is not None:
             if profile_data.overlay_style not in ("badge", "jersey", "caption", "none"):
                 raise HTTPException(status_code=400, detail="Invalid overlay_style")
             update_data["overlay_style"] = profile_data.overlay_style
-        if profile_data.primary_color is not None:
-            update_data["primary_color"] = profile_data.primary_color
-        if profile_data.text_color is not None:
-            update_data["text_color"] = profile_data.text_color
-        if profile_data.accent_color is not None:
-            update_data["accent_color"] = profile_data.accent_color
+        for color_field in ("primary_color", "text_color", "accent_color"):
+            if color_field in sent and getattr(profile_data, color_field) is not None:
+                update_data[color_field] = getattr(profile_data, color_field)
 
         # Telegram/Discord handles
         if profile_data.telegram_handle is not None:
             update_data["telegram_handle"] = profile_data.telegram_handle or None
         if profile_data.discord_handle is not None:
             update_data["discord_handle"] = profile_data.discord_handle or None
+
+        # Preferences merge into the stored object (SB-1286)
+        if profile_data.preferences is not None:
+            stored = player_dao.get_user_profile_with_relationships(current_user["user_id"]) or {}
+            known_age_groups = (ag["id"] for ag in season_dao.get_all_age_groups())
+            try:
+                update_data["preferences"] = merge_preferences(
+                    stored.get("preferences"), profile_data.preferences, known_age_groups
+                )
+            except UnknownAgeGroupError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
 
         # Only allow role updates by admins
         if profile_data.role is not None:
@@ -1236,7 +1249,8 @@ async def update_profile(profile_data: UserProfile, current_user: dict[str, Any]
             update_data["updated_at"] = datetime.now(UTC).isoformat()
             player_dao.update_user_profile(current_user["user_id"], update_data)
 
-        return {"message": "Profile updated successfully"}
+        # The frontend store gates on `success` (SB-1286).
+        return {"success": True, "message": "Profile updated successfully"}
 
     except HTTPException:
         raise
@@ -1981,6 +1995,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     # Telegram/Discord handles
                     "telegram_handle": profile.get("telegram_handle"),
                     "discord_handle": profile.get("discord_handle"),
+                    "preferences": read_preferences(profile.get("preferences")),
                     # Personal info
                     "first_name": profile.get("first_name"),
                     "last_name": profile.get("last_name"),

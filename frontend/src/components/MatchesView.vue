@@ -715,6 +715,7 @@ import {
 } from '@/utils/competitions';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
+import { pickDefaultAgeGroupId } from '../utils/defaultAgeGroup';
 import MatchEditModal from '@/components/MatchEditModal.vue';
 import MatchDetailView from '@/components/MatchDetailView.vue';
 import ClubCombobox from '@/components/ui/ClubCombobox.vue';
@@ -1152,8 +1153,13 @@ export default {
 
             // Auto-select the league for their team. The league on their current
             // roster row is age-specific, so prefer it over the team-level lookup.
+            // Only when the selected age group is that roster row's own; a
+            // different preferred age group takes the per-age lookup.
             const personalLeagueId = authStore.userLeagueId?.value;
-            if (personalLeagueId) {
+            if (
+              personalLeagueId &&
+              selectedAgeGroupId.value === authStore.userAgeGroupId?.value
+            ) {
               selectedLeagueId.value = personalLeagueId;
             } else {
               const teamAgeGroup = playerTeam.age_groups.find(
@@ -2190,20 +2196,31 @@ export default {
     // Cold loads can resolve the profile after this component mounts, so re-apply
     // the personalized age group when it lands — never over the viewer's own pick.
     watch(
-      () => authStore.userAgeGroupId?.value,
-      personal => {
-        if (!personal || ageGroupTouched.value) return;
+      () => [
+        authStore.preferredAgeGroupId?.value,
+        authStore.userAgeGroupId?.value,
+      ],
+      ([preferred, team]) => {
+        if ((!preferred && !team) || ageGroupTouched.value) return;
         if (props.filterKey > 0 && props.initialAgeGroupId) return;
-        if (!ageGroups.value.some(ag => ag.id === personal)) return;
-        selectedAgeGroupId.value = personal;
+        if (!ageGroups.value.length) return;
+        selectedAgeGroupId.value = pickDefaultAgeGroupId({
+          preferred,
+          team,
+          ageGroups: ageGroups.value,
+        });
       }
     );
 
     onMounted(async () => {
       // Personalize before the fetches so team/league auto-selection resolves
-      // against the viewer's own age group rather than the U14 fallback (SB-599).
-      if (authStore.userAgeGroupId?.value && !props.initialAgeGroupId) {
-        selectedAgeGroupId.value = authStore.userAgeGroupId?.value;
+      // against the viewer's own age group rather than the U14 fallback
+      // (SB-599): their preference first, then their team's (SB-1286).
+      // Checked against the real list once it has loaded, below.
+      const early =
+        authStore.preferredAgeGroupId?.value ?? authStore.userAgeGroupId?.value;
+      if (early && !props.initialAgeGroupId) {
+        selectedAgeGroupId.value = early;
       }
 
       // Pre-select user's club if they have one (club fans, club managers).
@@ -2223,6 +2240,21 @@ export default {
         fetchTeams(),
       ]);
       await fetchLeagues();
+
+      // A preference is stored without a foreign key, so it can name an age
+      // group that is gone. Fall through to the next rung rather than leave
+      // the dropdown on something it cannot show (SB-1286).
+      if (
+        !props.initialAgeGroupId &&
+        !ageGroups.value.some(ag => ag.id === selectedAgeGroupId.value)
+      ) {
+        const pick = pickDefaultAgeGroupId({
+          preferred: authStore.preferredAgeGroupId?.value,
+          team: authStore.userAgeGroupId?.value,
+          ageGroups: ageGroups.value,
+        });
+        if (pick !== null) selectedAgeGroupId.value = pick;
+      }
 
       // Apply initial filters from props if provided (navigation from FanProfile
       // or from clicking a team on the League Table)
