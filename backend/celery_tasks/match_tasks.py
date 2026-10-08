@@ -10,13 +10,14 @@ These tasks run asynchronously in Celery workers, allowing for:
 
 from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from celery import Task
 
 from celery_app import app
 from celery_tasks.exceptions import UnresolvedNameError
 from celery_tasks.validation_tasks import validate_match_data
+from dao.club_dao import ClubDAO
 from dao.ingest_failures_dao import IngestFailuresDAO
 from dao.league_dao import LeagueDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
@@ -27,6 +28,9 @@ from logging_config import get_logger
 from notifications.ingest_alerts import alert_unresolved_name
 
 logger = get_logger(__name__)
+
+# The zone a zone-less match_time is read in when nothing better is known.
+DEFAULT_KICKOFF_TZ = "America/New_York"
 
 
 class DatabaseTask(Task):
@@ -44,6 +48,7 @@ class DatabaseTask(Task):
     _league_dao = None
     _match_type_dao = None
     _ingest_failures_dao = None
+    _club_dao = None
 
     # Names this worker has already confirmed good, so the "did this name used
     # to fail?" check costs one round trip per distinct name per worker rather
@@ -110,6 +115,15 @@ class DatabaseTask(Task):
                 self._connection = SupabaseConnection()
             self._ingest_failures_dao = IngestFailuresDAO(self._connection)
         return self._ingest_failures_dao
+
+    @property
+    def club_dao(self):
+        """Lazy initialization of ClubDAO for the home club's timezone."""
+        if self._club_dao is None:
+            if self._connection is None:
+                self._connection = SupabaseConnection()
+            self._club_dao = ClubDAO(self._connection)
+        return self._club_dao
 
     def _note_name_resolved(self, kind: str, raw_name: str, source: str) -> None:
         """Close any open ingest_failures row for a name that now resolves.
@@ -212,8 +226,7 @@ class DatabaseTask(Task):
             return None, None
 
         label = (
-            f"{match_data.get('home_team')} vs {match_data.get('away_team')} "
-            f"({match_data.get('external_match_id')})"
+            f"{match_data.get('home_team')} vs {match_data.get('away_team')} ({match_data.get('external_match_id')})"
         )
         if home_pens is None or away_pens is None:
             logger.warning(
@@ -238,24 +251,75 @@ class DatabaseTask(Task):
         return home_pens, away_pens
 
     @staticmethod
-    def _build_scheduled_kickoff(match_data: dict[str, Any]) -> str | None:
+    def _feed_kickoff(match_data: dict[str, Any]) -> str | None:
+        """The feed's own kickoff instant, as a UTC ISO 8601 string (SB-1203).
+
+        match-scraper sends ``scheduled_kickoff`` straight from the feed's UTC
+        ``start_time``. It is exact, so it beats any reading of match_time.
+        A value without an offset, or one that doesn't parse, is ignored with a
+        warning: guessing its zone is the bug this replaces (SB-1202).
+        """
+        raw = match_data.get("scheduled_kickoff")
+        if not raw:
+            return None
+        try:
+            parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError:
+            logger.warning("Ignoring an unparseable scheduled_kickoff", scheduled_kickoff=raw)
+            return None
+        if parsed.tzinfo is None:
+            logger.warning("Ignoring a scheduled_kickoff with no UTC offset", scheduled_kickoff=raw)
+            return None
+        return parsed.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+    @staticmethod
+    def _build_scheduled_kickoff(match_data: dict[str, Any], venue_tz: str = DEFAULT_KICKOFF_TZ) -> str | None:
         """Combine match_date + match_time into a UTC ISO 8601 timestamp for scheduled_kickoff.
 
-        MLS Next displays all times in US Eastern.  We interpret match_time as
-        Eastern, convert to UTC, and return an ISO string suitable for a
-        Supabase ``timestamptz`` column.
+        match_time is the venue's local wall-clock time, not US Eastern: the
+        feed converts its UTC start to the event's own timezone (SB-1202).
+        ``venue_tz`` is the IANA zone to read it in; an unknown name falls back
+        to Eastern with a warning.
 
         Returns None if match_time is absent or null.
         """
         match_time = match_data.get("match_time")
         match_date = match_data.get("match_date")
         if match_time and match_date:
-            eastern = ZoneInfo("America/New_York")
+            try:
+                zone = ZoneInfo(venue_tz)
+            except (ZoneInfoNotFoundError, ValueError):
+                logger.warning("Unknown kickoff timezone, reading match_time as Eastern", timezone=venue_tz)
+                zone = ZoneInfo(DEFAULT_KICKOFF_TZ)
             naive = datetime.strptime(f"{match_date} {match_time}", "%Y-%m-%d %H:%M")
-            eastern_dt = naive.replace(tzinfo=eastern)
-            utc_dt = eastern_dt.astimezone(ZoneInfo("UTC"))
+            local_dt = naive.replace(tzinfo=zone)
+            utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
             return utc_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         return None
+
+    def _home_timezone(self, home_team_id: int | None) -> str:
+        """The home club's IANA timezone, or Eastern when it can't be found."""
+        if home_team_id is None:
+            return DEFAULT_KICKOFF_TZ
+        try:
+            club = self.club_dao.get_club_for_team(home_team_id)
+        except Exception as exc:
+            logger.warning("Home club timezone lookup failed", home_team_id=home_team_id, error=str(exc))
+            return DEFAULT_KICKOFF_TZ
+        return (club or {}).get("timezone") or DEFAULT_KICKOFF_TZ
+
+    def _resolve_kickoff(self, match_data: dict[str, Any], home_team_id: int | None) -> str | None:
+        """The UTC kickoff to store: the feed's instant, else match_time read in the home club's zone.
+
+        The club lookup only happens on the fallback path, so a payload that
+        carries scheduled_kickoff costs no extra query.
+        """
+        feed_kickoff = self._feed_kickoff(match_data)
+        if feed_kickoff:
+            return feed_kickoff
+        if not (match_data.get("match_time") and match_data.get("match_date")):
+            return None
+        return self._build_scheduled_kickoff(match_data, self._home_timezone(home_team_id))
 
     def _match_type_label(self, match_type_id: int | None) -> str:
         """A competition's name for a log line, falling back to its id."""
@@ -427,8 +491,8 @@ class DatabaseTask(Task):
             logger.debug(f"match_date changed: {existing_match.get('match_date')} → {new_date}")
             return True
 
-        # Check if scheduled_kickoff can be set/updated from match_time
-        new_kickoff = self._build_scheduled_kickoff(new_data)
+        # Check if scheduled_kickoff can be set/updated from the feed
+        new_kickoff = self._resolve_kickoff(new_data, home_team_id)
         existing_kickoff = existing_match.get("scheduled_kickoff")
         if new_kickoff and new_kickoff != existing_kickoff:
             logger.debug(f"scheduled_kickoff changed: {existing_kickoff} → {new_kickoff}")
@@ -512,8 +576,10 @@ class DatabaseTask(Task):
                 update_data["match_date"] = new_date
                 logger.info(f"Match {match_id} rescheduled: {existing_match.get('match_date')} → {new_date}")
 
-            # Update scheduled_kickoff if match_time provided and different
-            new_kickoff = self._build_scheduled_kickoff(new_data)
+            # Update scheduled_kickoff if the feed gives one and it differs
+            new_kickoff = self._resolve_kickoff(
+                new_data, home_team_id if home_team_id is not None else existing_match.get("home_team_id")
+            )
             if new_kickoff and new_kickoff != existing_match.get("scheduled_kickoff"):
                 update_data["scheduled_kickoff"] = new_kickoff
 
@@ -580,6 +646,9 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             - match_status: str
             - match_type: str
             - location: str
+            - match_time: str ("HH:MM", the venue's local time)
+            - scheduled_kickoff: str (ISO 8601 with offset, the feed's UTC
+              kickoff; preferred over match_time when present)
 
     Returns:
         Dict containing:
@@ -802,7 +871,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             # for a feed that names an age group we do not have.
             age_group_id_for_create = age_group_id or 1
 
-            scheduled_kickoff = self._build_scheduled_kickoff(match_data)
+            scheduled_kickoff = self._resolve_kickoff(match_data, home_team["id"])
             home_pens, away_pens = self._read_shootout(match_data)
 
             match_id = self.dao.create_match(
