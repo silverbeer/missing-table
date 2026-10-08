@@ -38,7 +38,7 @@ def _dev(dev_id, user_id, token=None):
         "user_id": user_id,
         "device_token": token or (dev_id * 32)[:64],
         "environment": "production",
-        "bundle_id": "io.silverbeer.mt",
+        "bundle_id": "com.missingtable",
     }
 
 

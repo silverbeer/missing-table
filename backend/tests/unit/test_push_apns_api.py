@@ -46,7 +46,7 @@ class TestRegister:
             "user_id": "u-1",
             "device_token": TOKEN.lower(),
             "environment": "production",
-            "bundle_id": "io.silverbeer.mt",
+            "bundle_id": "com.missingtable",
             "device_label": "Tom's iPhone",
             "app_version": "1.0 (3)",
             "created_at": "2026-10-04T00:00:00Z",

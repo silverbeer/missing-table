@@ -121,7 +121,7 @@ The banner's native path is gated to touch devices. Chromium offers the event on
 
 ## Native iOS app (APNs, SB-1236)
 
-The native iOS app (`io.silverbeer.mt`) does not use Web Push. It registers its APNs device token with
+The native iOS app (`com.missingtable`) does not use Web Push. It registers its APNs device token with
 `POST /api/users/me/apns-devices` (`device_token` hex, `environment` `sandbox` for Xcode builds or
 `production` for TestFlight/App Store); `GET` lists and `DELETE /{id}` revokes. Tokens live in
 `apns_devices`, unique per token — re-registering moves a token to the signed-in user.
@@ -133,4 +133,4 @@ fulltime), same per-event preferences, same payload, sent by `backend/notificati
 `POST /api/users/me/notifications/test` sends to both web subscriptions and iOS devices.
 
 Dormant until `APNS_KEY_ID`, `APNS_TEAM_ID` and `APNS_PRIVATE_KEY` (PEM of the `.p8`; or
-`APNS_PRIVATE_KEY_PATH`) are set; `APNS_BUNDLE_ID` defaults to `io.silverbeer.mt`.
+`APNS_PRIVATE_KEY_PATH`) are set; `APNS_BUNDLE_ID` defaults to `com.missingtable`.

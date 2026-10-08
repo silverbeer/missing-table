@@ -61,8 +61,8 @@ class TestUpsert:
     def test_explicit_bundle_id_is_written(self):
         dao, client = _make(ApnsDeviceDAO)
         client.table.return_value.upsert.return_value.execute.return_value = _result([{"id": "d"}])
-        dao.upsert("u-1", TOKEN, "sandbox", bundle_id="io.silverbeer.mt.dev")
-        assert client.table.return_value.upsert.call_args.args[0]["bundle_id"] == "io.silverbeer.mt.dev"
+        dao.upsert("u-1", TOKEN, "sandbox", bundle_id="com.missingtable.dev")
+        assert client.table.return_value.upsert.call_args.args[0]["bundle_id"] == "com.missingtable.dev"
 
     def test_db_error_returns_none(self):
         dao, client = _make(ApnsDeviceDAO)
