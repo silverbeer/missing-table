@@ -10,7 +10,7 @@ Env:
   APNS_TEAM_ID          — 10-char team id (JWT `iss`)
   APNS_PRIVATE_KEY      — PEM contents of the .p8, or
   APNS_PRIVATE_KEY_PATH — path to the .p8
-  APNS_BUNDLE_ID        — apns-topic; defaults to io.silverbeer.mt
+  APNS_BUNDLE_ID        — apns-topic; defaults to com.missingtable
 
 Mirrors web_push_sender: never raises, returns the same SendResult, and
 reports tokens APNs says are gone as STATUS_EXPIRED so the caller deletes them.
@@ -36,7 +36,7 @@ from notifications.web_push_sender import (
 
 logger = structlog.get_logger(__name__)
 
-DEFAULT_BUNDLE_ID = "io.silverbeer.mt"
+DEFAULT_BUNDLE_ID = "com.missingtable"
 
 HOST_SANDBOX = "api.sandbox.push.apple.com"
 HOST_PRODUCTION = "api.push.apple.com"

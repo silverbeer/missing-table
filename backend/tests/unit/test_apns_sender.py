@@ -137,16 +137,16 @@ class TestRequest:
     def test_headers(self):
         _, req = self._send()
         assert req.method == "POST"
-        assert req.headers["apns-topic"] == "io.silverbeer.mt"
+        assert req.headers["apns-topic"] == "com.missingtable"
         assert req.headers["apns-push-type"] == "alert"
         assert req.headers["apns-priority"] == "10"
         assert req.headers["apns-collapse-id"] == "match-555-goal"
         assert req.headers["authorization"].startswith("bearer ")
 
     def test_topic_from_env_and_device_override(self, monkeypatch):
-        monkeypatch.setenv("APNS_BUNDLE_ID", "io.silverbeer.mt.dev")
+        monkeypatch.setenv("APNS_BUNDLE_ID", "com.missingtable.dev")
         _, req = self._send()
-        assert req.headers["apns-topic"] == "io.silverbeer.mt.dev"
+        assert req.headers["apns-topic"] == "com.missingtable.dev"
         _, req = self._send(_device(bundle_id="com.example.other"))
         assert req.headers["apns-topic"] == "com.example.other"
 
