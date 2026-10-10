@@ -17,7 +17,17 @@
         >
           {{ sendingTestEmail ? 'Sending…' : 'Send test approval email' }}
         </button>
-        <!-- Filter -->
+        <!-- Filters -->
+        <label class="flex items-center gap-2 text-sm text-fg">
+          <input
+            v-model="iosBetaOnly"
+            type="checkbox"
+            data-testid="ios-beta-filter"
+            class="h-4 w-4 rounded border-line"
+            @change="fetchRequests"
+          />
+          iPhone beta only
+        </label>
         <select
           v-model="statusFilter"
           @change="fetchRequests"
@@ -59,8 +69,8 @@
       <h3 class="text-lg font-medium text-fg mb-2">No invite requests</h3>
       <p class="text-fg-muted">
         {{
-          statusFilter
-            ? `No ${statusFilter} requests found.`
+          statusFilter || iosBetaOnly
+            ? `No ${[statusFilter, iosBetaOnly && 'iPhone beta'].filter(Boolean).join(' ')} requests found.`
             : 'No one has requested an invite yet.'
         }}
       </p>
@@ -114,6 +124,13 @@
                 {{ request.name }}
               </div>
               <div class="text-sm text-fg-muted">{{ request.email }}</div>
+              <span
+                v-if="request.wants_ios_beta"
+                data-testid="ios-beta-badge"
+                class="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800"
+              >
+                iPhone beta
+              </span>
             </td>
             <td class="px-4 py-4 text-sm text-fg-muted">
               {{ request.team || '-' }}
@@ -206,6 +223,7 @@ const stats = ref(null);
 const loading = ref(false);
 const error = ref(null);
 const statusFilter = ref('');
+const iosBetaOnly = ref(false);
 const sendingTestEmail = ref(false);
 // Track per-row "resend in flight" so we can disable the button while the
 // POST is pending. Set works fine without a deep reactive wrapper.
@@ -321,10 +339,11 @@ const fetchRequests = async () => {
 
   try {
     const headers = authStore.getAuthHeaders();
-    let url = `${getApiBaseUrl()}/api/invite-requests`;
-    if (statusFilter.value) {
-      url += `?status=${statusFilter.value}`;
-    }
+    const params = new URLSearchParams();
+    if (statusFilter.value) params.set('status', statusFilter.value);
+    if (iosBetaOnly.value) params.set('ios_beta', 'true');
+    const query = params.toString();
+    const url = `${getApiBaseUrl()}/api/invite-requests${query ? `?${query}` : ''}`;
 
     const response = await fetch(url, { headers });
 

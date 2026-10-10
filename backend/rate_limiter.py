@@ -43,12 +43,16 @@ logger = logging.getLogger(__name__)
 # limit, just a looser one. Prod sets REDIS_URL; local usually does not.
 REDIS_URL = os.getenv("REDIS_URL", "")
 
-# Limits for the credential endpoints. These are the ones being enforced;
-# anything added here must also be applied to a route to be real.
+# Limits for the credential endpoints and the public invite form. These are
+# the ones being enforced; anything added here must also be applied to a
+# route to be real.
 RATE_LIMITS = {
     "login": "5 per minute",
     "signup": "3 per hour",
     "password_reset": "3 per hour",
+    # Public, unauthenticated, and writes a row per call (SB-1311). The
+    # honeypot only stops bots that fill every field; this caps the rest.
+    "invite_request": "5 per hour",
 }
 
 

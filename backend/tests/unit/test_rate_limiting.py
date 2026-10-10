@@ -119,7 +119,7 @@ class TestTheConfigIsHonest:
     def test_every_configured_limit_is_one_that_is_applied(self):
         # The failure this module exists to prevent: config that describes
         # limits nothing enforces.
-        assert set(RATE_LIMITS) == {"login", "signup", "password_reset"}
+        assert set(RATE_LIMITS) == {"login", "signup", "password_reset", "invite_request"}
 
     def test_the_auth_routes_carry_a_limit(self):
         import app as app_module
@@ -129,5 +129,11 @@ class TestTheConfigIsHonest:
             for route in app_module.app.routes
             if getattr(route, "endpoint", None) and hasattr(route.endpoint, "__wrapped__")
         }
-        for path in ("/api/auth/login", "/api/auth/signup", "/api/auth/forgot-password", "/api/auth/reset-password"):
+        for path in (
+            "/api/auth/login",
+            "/api/auth/signup",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
+            "/api/invite-requests",
+        ):
             assert path in limited, f"{path} is not rate limited"
