@@ -38,6 +38,9 @@ else:
 
 router = APIRouter(prefix="/api/invite-requests", tags=["invite-requests"])
 
+# Embedded through invite_requests.invitation_id (SB-1312)
+LINKED_INVITATION_COLUMNS = "id, invite_code, invite_type, status, testflight_status, testflight_error"
+
 
 # Pydantic models
 class InviteRequestCreate(BaseModel):
@@ -49,6 +52,17 @@ class InviteRequestCreate(BaseModel):
     reason: str | None = Field(None, description="Reason for wanting to join")
     wants_ios_beta: bool = Field(False, description="Requester wants the iPhone beta")
     website: str | None = Field(None, description="Honeypot field - should be empty")
+
+
+class LinkedInvitation(BaseModel):
+    """The invitation an admin created from a request (SB-1312)"""
+
+    id: str
+    invite_code: str
+    invite_type: str
+    status: str
+    testflight_status: str | None = None
+    testflight_error: str | None = None
 
 
 class InviteRequestResponse(BaseModel):
@@ -66,6 +80,8 @@ class InviteRequestResponse(BaseModel):
     reviewed_by: str | None
     reviewed_at: datetime | None
     admin_notes: str | None
+    invitation_id: str | None = None
+    invitation: LinkedInvitation | None = None
 
 
 class InviteRequestStatusUpdate(BaseModel):
@@ -186,7 +202,7 @@ async def list_invite_requests(
     try:
         query = (
             service_client.table("invite_requests")
-            .select("*")
+            .select(f"*, invitation:invitations({LINKED_INVITATION_COLUMNS})")
             .order("created_at", desc=True)
             .range(offset, offset + limit - 1)
         )
