@@ -5,6 +5,7 @@ Invite API endpoints for Missing Table
 import os
 import sys
 from datetime import datetime
+from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -61,6 +62,59 @@ def _refuse_ios_beta(request: BaseModel) -> None:
         raise HTTPException(status_code=403, detail="Only admins can create iPhone beta invites")
 
 
+def _refuse_invite_request_link(request: BaseModel) -> None:
+    """Creating an invite from an invite request is admin-only (SB-1312)."""
+    if getattr(request, "invite_request_id", None):
+        raise HTTPException(status_code=403, detail="Only admins can create invites from invite requests")
+
+
+def _require_linkable_invite_request(request_id: UUID | None) -> None:
+    """The invite request an admin invite answers must exist, be pending and
+    not already linked (SB-1312). Checked before the invite is created."""
+    if request_id is None:
+        return
+    result = (
+        service_client.table("invite_requests").select("id, status, invitation_id").eq("id", str(request_id)).execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Invite request not found")
+    row = result.data[0]
+    if row.get("invitation_id"):
+        raise HTTPException(status_code=409, detail="Invite request is already linked to an invitation")
+    if row.get("status") != "pending":
+        raise HTTPException(status_code=409, detail=f"Invite request is already {row.get('status')}")
+
+
+def _link_invite_request(request_id: UUID | None, invitation: dict, user_id: str) -> None:
+    """Mark the invite request approved and point it at the new invitation.
+
+    The invitation email replaces the old "you're approved" email, so none is
+    sent here. The invite already exists, so a failure is logged, not raised.
+    """
+    if request_id is None:
+        return
+    try:
+        result = (
+            service_client.table("invite_requests")
+            .update(
+                {
+                    "invitation_id": invitation["id"],
+                    "status": "approved",
+                    "reviewed_by": user_id,
+                    "reviewed_at": datetime.utcnow().isoformat(),
+                }
+            )
+            .eq("id", str(request_id))
+            .eq("status", "pending")
+            .is_("invitation_id", "null")
+            .execute()
+        )
+        if not result.data:
+            logger.warning("Invite request was not linked", invite_request_id=str(request_id))
+    except Exception:
+        logger.exception("Failed to link invite request", invite_request_id=str(request_id))
+
+
 # Pydantic models
 class CreateInviteRequest(BaseModel):
     invite_type: str = Field(..., pattern="^(team_manager|team_player|team_fan)$")
@@ -74,6 +128,8 @@ class CreateInviteRequest(BaseModel):
     # iPhone beta (SB-1314) - admin endpoints only; manager endpoints refuse it.
     ios_beta: bool = False
     testflight_email: str | None = Field(None, max_length=255)  # Defaults to email
+    # Invite request this invite answers (SB-1312) - admin endpoints only.
+    invite_request_id: UUID | None = None
 
 
 class CreateClubManagerInviteRequest(BaseModel):
@@ -83,6 +139,8 @@ class CreateClubManagerInviteRequest(BaseModel):
     # iPhone beta (SB-1314) - admin endpoints only; manager endpoints refuse it.
     ios_beta: bool = False
     testflight_email: str | None = Field(None, max_length=255)  # Defaults to email
+    # Invite request this invite answers (SB-1312) - admin endpoints only.
+    invite_request_id: UUID | None = None
 
 
 class ClubManagerInviteResponse(BaseModel):
@@ -139,6 +197,8 @@ async def create_club_manager_invite(
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create club manager invites")
 
+    _require_linkable_invite_request(request.invite_request_id)
+
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
 
@@ -157,6 +217,7 @@ async def create_club_manager_invite(
             ios_beta=request.ios_beta,
             testflight_email=request.testflight_email,
         )
+        _link_invite_request(request.invite_request_id, invitation, user_id)
 
         return invitation
 
@@ -170,6 +231,8 @@ async def create_team_manager_invite(request: CreateInviteRequest, current_user=
     """Create a team manager invitation (admin only)"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create team manager invites")
+
+    _require_linkable_invite_request(request.invite_request_id)
 
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
@@ -198,6 +261,7 @@ async def create_team_manager_invite(request: CreateInviteRequest, current_user=
             ios_beta=request.ios_beta,
             testflight_email=request.testflight_email,
         )
+        _link_invite_request(request.invite_request_id, invitation, user_id)
 
         return invitation
 
@@ -213,6 +277,8 @@ async def create_club_fan_invite_admin(
     """Create a club fan invitation (admin only)"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create club fan invites")
+
+    _require_linkable_invite_request(request.invite_request_id)
 
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
@@ -232,6 +298,7 @@ async def create_club_fan_invite_admin(
             ios_beta=request.ios_beta,
             testflight_email=request.testflight_email,
         )
+        _link_invite_request(request.invite_request_id, invitation, user_id)
 
         return invitation
 
@@ -245,6 +312,8 @@ async def create_team_fan_invite_admin(request: CreateInviteRequest, current_use
     """Create a team fan invitation (admin) - DEPRECATED: Use club-fan instead"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Unauthorized")
+
+    _require_linkable_invite_request(request.invite_request_id)
 
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
@@ -265,6 +334,7 @@ async def create_team_fan_invite_admin(request: CreateInviteRequest, current_use
             ios_beta=request.ios_beta,
             testflight_email=request.testflight_email,
         )
+        _link_invite_request(request.invite_request_id, invitation, user_id)
 
         return invitation
 
@@ -286,6 +356,8 @@ async def create_team_player_invite_admin(
     """
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Unauthorized")
+
+    _require_linkable_invite_request(request.invite_request_id)
 
     # Use service role client for admin operations to bypass RLS
     invite_service = InviteService(service_client)
@@ -309,6 +381,7 @@ async def create_team_player_invite_admin(
             ios_beta=request.ios_beta,
             testflight_email=request.testflight_email,
         )
+        _link_invite_request(request.invite_request_id, invitation, user_id)
 
         return invitation
 
@@ -327,6 +400,7 @@ async def create_club_fan_invite_club_manager(
     if current_user["role"] not in ["admin", "club_manager"]:
         raise HTTPException(status_code=403, detail="Only club managers or admins can create club fan invites")
     _refuse_ios_beta(request)
+    _refuse_invite_request_link(request)
 
     # Use service role client for operations to bypass RLS
     invite_service = InviteService(service_client)
@@ -365,6 +439,7 @@ async def create_team_fan_invite(request: CreateInviteRequest, current_user=Depe
     if current_user["role"] not in ["admin", "team-manager", "team_manager"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
     _refuse_ios_beta(request)
+    _refuse_invite_request_link(request)
 
     supabase = service_client
     team_manager_service = TeamManagerService(supabase)
@@ -412,6 +487,7 @@ async def create_team_player_invite(request: CreateInviteRequest, current_user=D
     if current_user["role"] not in ["admin", "team-manager", "team_manager"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
     _refuse_ios_beta(request)
+    _refuse_invite_request_link(request)
 
     supabase = service_client
     team_manager_service = TeamManagerService(supabase)

@@ -13,6 +13,26 @@
         Create New Invite
       </h3>
 
+      <!-- Answering an invite request (SB-1312) -->
+      <div
+        v-if="linkedRequest"
+        data-testid="invite-from-request-banner"
+        class="mb-4 p-3 rounded-md border border-blue-200 bg-blue-50 text-sm text-blue-900 dark:bg-blue-500/10 dark:border-blue-900 dark:text-blue-200"
+      >
+        Creating an invite for {{ linkedRequest.name }} ({{
+          linkedRequest.email
+        }}) from their request. Creating it approves the request — the invite
+        email replaces the approval email.
+        <button
+          type="button"
+          data-testid="invite-from-request-unlink"
+          class="ml-2 underline font-medium"
+          @click="unlinkRequest"
+        >
+          Don't link
+        </button>
+      </div>
+
       <form
         @submit.prevent="createInvite"
         class="space-y-4"
@@ -883,10 +903,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import { errorMessage } from '../../utils/apiError';
+
+const props = defineProps({
+  // From an invite request (SB-1312): { request: {id, name, email}, form }
+  prefill: { type: Object, default: null },
+});
+const emit = defineEmits(['prefill-done']);
 
 const authStore = useAuthStore();
 
@@ -1000,6 +1026,22 @@ const newInvite = ref({
   testflightEmail: '',
 });
 
+// Invite request this invite answers (SB-1312). `null` = not linked.
+const linkedRequest = ref(null);
+
+const applyPrefill = prefill => {
+  if (!prefill) return;
+  newInvite.value = { ...newInvite.value, ...prefill.form };
+  linkedRequest.value = prefill.request;
+};
+
+const unlinkRequest = () => {
+  linkedRequest.value = null;
+  emit('prefill-done');
+};
+
+watch(() => props.prefill, applyPrefill, { immediate: true });
+
 // Fetch teams, age groups, and clubs
 const fetchReferenceData = async () => {
   try {
@@ -1073,6 +1115,11 @@ const createInvite = async () => {
               newInvite.value.testflightEmail || newInvite.value.email || null,
           }
         : {};
+    // Link to the invite request it answers (SB-1312) - admin endpoints only.
+    const link =
+      isAdmin.value && linkedRequest.value
+        ? { invite_request_id: linkedRequest.value.id }
+        : {};
 
     if (newInvite.value.inviteType === 'club_manager') {
       endpoint = '/api/invites/admin/club-manager';
@@ -1081,6 +1128,7 @@ const createInvite = async () => {
         email: newInvite.value.email || null,
         note: newInvite.value.note || null,
         ...iosBeta,
+        ...link,
       });
     } else if (newInvite.value.inviteType === 'club_fan') {
       // Club managers use their own endpoint, admins use admin endpoint
@@ -1093,6 +1141,7 @@ const createInvite = async () => {
         email: newInvite.value.email || null,
         note: newInvite.value.note || null,
         ...iosBeta,
+        ...link,
       });
     } else {
       endpoint = '/api/invites/admin/';
@@ -1108,6 +1157,7 @@ const createInvite = async () => {
         email: newInvite.value.email || null,
         note: newInvite.value.note || null,
         ...iosBeta,
+        ...link,
       };
       // Add jersey_number + season for team_player invites
       if (newInvite.value.inviteType === 'team_player') {
@@ -1133,6 +1183,7 @@ const createInvite = async () => {
     }
 
     createdInvite.value = await response.json();
+    if (linkedRequest.value) unlinkRequest();
 
     // Reset form
     newInvite.value = {

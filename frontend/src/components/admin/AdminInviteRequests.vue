@@ -152,12 +152,42 @@
               >
                 {{ request.status }}
               </span>
+              <div
+                v-if="request.invitation"
+                data-testid="linked-invite"
+                class="mt-1 text-xs text-fg-muted"
+              >
+                <div class="font-mono">
+                  {{ linkedInviteSummary(request.invitation) }}
+                </div>
+                <div v-if="request.invitation.testflight_status">
+                  TestFlight:
+                  <span
+                    :class="{
+                      'text-green-700':
+                        request.invitation.testflight_status === 'added',
+                      'text-red-700':
+                        request.invitation.testflight_status === 'failed',
+                    }"
+                    :title="request.invitation.testflight_error || ''"
+                    >{{ request.invitation.testflight_status }}</span
+                  >
+                </div>
+              </div>
             </td>
             <td class="px-4 py-4 text-sm text-fg-muted">
               {{ formatDate(request.created_at) }}
             </td>
             <td class="px-4 py-4 text-sm">
               <div v-if="request.status === 'pending'" class="flex gap-2">
+                <button
+                  v-if="!request.invitation_id"
+                  data-testid="create-invite-from-request"
+                  class="text-blue-600 hover:text-blue-800 font-medium"
+                  @click="emit('create-invite', request)"
+                >
+                  Create invite
+                </button>
                 <button
                   @click="updateStatus(request.id, 'approved')"
                   class="text-green-600 hover:text-green-800 font-medium"
@@ -214,6 +244,11 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { linkedInviteSummary } from '../../utils/inviteRequests';
+
+// "Create invite" hands the request to AdminPanel, which opens the invite
+// form pre-filled from it (SB-1312).
+const emit = defineEmits(['create-invite']);
 
 const authStore = useAuthStore();
 
