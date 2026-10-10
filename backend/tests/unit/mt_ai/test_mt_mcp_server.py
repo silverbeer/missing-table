@@ -15,6 +15,7 @@ from mt_mcp.server import TOOL_TIERS, UNAVAILABLE
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
 READ_TOOLS = {"search_teams", "get_upcoming_matches"}
+ADMIN_TOOLS = {"list_ingest_failures", "resolve_ingest_failure"}
 
 
 class TestAuthentication:
@@ -52,16 +53,20 @@ class TestTierGate:
         "token", ["admin", "club-mgr", "team-mgr", "player", "fan", "club-fan", "legacy", "test-fan"]
     )
     @pytest.mark.parametrize("client", [None, MT_AI_CLIENT])
-    async def test_every_role_sees_the_read_tier(self, make_deps, token, client):
+    async def test_every_role_sees_the_read_tier_and_only_admins_see_admin_tools(self, make_deps, token, client):
         async with served(make_deps()) as s, s.session(token, client) as session:
             tools = await session.list_tools()
 
-        assert {t.name for t in tools.tools} == READ_TOOLS
+        # MT AI's client cap removes admin tools even for an admin.
+        expected = READ_TOOLS | ADMIN_TOOLS if token == "admin" and client is None else READ_TOOLS
+        assert {t.name for t in tools.tools} == expected
 
     async def test_a_tool_outside_the_callers_tiers_is_neither_listed_nor_callable(self, make_deps, monkeypatch):
         """Gate check with a tool from a tier a fan does not have; reads as an unknown tool."""
         monkeypatch.setitem(TOOL_TIERS, "search_teams", "admin")
         monkeypatch.setitem(TOOL_TIERS, "get_upcoming_matches", "admin")
+        for name in ADMIN_TOOLS:
+            monkeypatch.delitem(TOOL_TIERS, name)
 
         async with served(make_deps()) as s:
             async with s.session("fan") as session:

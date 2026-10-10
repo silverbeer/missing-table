@@ -365,6 +365,7 @@ def _mount_mt_mcp() -> None:
         MTTokenVerifier(auth_manager.verify_token, auth_manager.verify_ai_api_token),
         lambda: deps,
         issuer_url=mcp_config.issuer_url(),
+        ingest=lambda: ingest_failures_dao,
     )
     app.mount(mcp_config.MOUNT_PATH, build_http_app(server, mcp_config.allowed_hosts()))
     _lifespan_contexts.append(server.session_manager.run)
@@ -7279,33 +7280,13 @@ async def reconcile_team_names(
         raise HTTPException(status_code=500, detail="Could not reconcile team names") from e
 
 
-# How long an open ingest failure has to go unseen before the API flags it.
-#
-# A hint, never a decision: "absent" and "fixed" are not the same thing, and a
-# genuine problem that simply was not scraped this week must not auto-close. It
-# exists so the run report can de-emphasise a row rather than keep crying wolf
-# about it (SB-845).
-DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS = 7
-
-
-def ingest_failure_stale_after_days() -> int:
-    try:
-        return int(os.getenv("MT_INGEST_STALE_AFTER_DAYS", DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS))
-    except ValueError:
-        return DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS
-
-
-def _last_seen_before(last_seen: str | None, cutoff: datetime) -> bool:
-    """Whether a row's last_seen predates the cutoff. Unparseable reads as fresh."""
-    if not last_seen:
-        return False
-    try:
-        seen = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    if seen.tzinfo is None:
-        seen = seen.replace(tzinfo=UTC)
-    return seen < cutoff
+# The stale hint for open ingest failures lives with the ingest tool logic, which
+# mt-mcp's admin tools share (SB-1304).
+from mt_tools.ingest import (
+    DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS,  # noqa: F401  (re-exported for callers and tests)
+    ingest_failure_stale_after_days,
+)
+from mt_tools.ingest import last_seen_before as _last_seen_before
 
 
 @app.get("/api/admin/ingest-failures")

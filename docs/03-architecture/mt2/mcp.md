@@ -3,7 +3,8 @@
 > **Audience**: Anyone building MT AI, an mt-admin Claude skill, or an MT tool
 > **Prerequisites**: [ai.md](ai.md), [current-state.md](current-state.md)
 > **Status**: Decided 2026-10-10 (SB-1301). Built: `/mcp`, auth, tier gate, observability
-> (SB-1302); both MT AI tools served over MCP (SB-1303). Prod flag: off until enabled in `values-prod.yaml`. Epic: *MT — MCP Server (mt-mcp)*.
+> (SB-1302); both MT AI tools served over MCP (SB-1303); admin ingest tools, Claude Code connection and the
+> `mt-admin` skill (SB-1304). Prod flag: off until enabled in `values-prod.yaml`. Epic: *MT — MCP Server (mt-mcp)*.
 
 mt-mcp is the one typed tool layer for MT, served over the
 [Model Context Protocol](https://modelcontextprotocol.io). Every agent that reads or
@@ -42,8 +43,8 @@ backend/
     scopes.py       # role and client → visible tool tiers (pure)
     observe.py      # ToolCallObserver: per-call metrics + log line
     config.py       # MT_MCP_* settings
-  mt_ai/tools/      # tool logic (today's home); mt_mcp imports it. Moves to a
-                    # neutral package when the first non-AI tool (admin) lands
+  mt_ai/tools/      # MT AI's read tools (logic + Pydantic models)
+  mt_tools/         # every other tool's logic: ingest.py (admin, SB-1304); team writes next
 ```
 
 ```mermaid
@@ -82,6 +83,30 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/mcp/ \
 
 Any MCP client works with a bearer token from `/api/auth/login`; the tests in
 `backend/tests/unit/mt_ai/test_mt_mcp_*.py` show the Python client.
+
+### Claude Code (mt-admin skills, SB-1304)
+
+The project `.mcp.json` declares the server; auth comes from the `mt` CLI:
+
+```json
+"mt-mcp": {
+  "type": "http",
+  "url": "${MT_MCP_URL:-http://127.0.0.1:8000/mcp/}",
+  "headersHelper": "mt mcp headers"
+}
+```
+
+`mt mcp headers` prints `{"Authorization": "Bearer …", "X-MT-Client": "claude-code"}`
+from the `mt login` session of the targeted environment, refreshing the token when it
+is within five minutes of expiry; messages go to stderr, so stdout is only the JSON.
+Claude Code runs the helper on each connection and again after a 401/403, then retries
+the call once ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp.md)) — so an
+expired session heals itself without a restart. The helper only runs after the project's
+trust dialog is accepted. Prod: start Claude Code with
+`APP_ENV=prod MT_MCP_URL=https://api.missingtable.com/mcp/` after `mt --env prod login`.
+
+The `mt-admin` skill (`.claude/skills/mt-admin/`) drives the admin tools: ingest failure
+triage, and closing rows dry-run first, one confirmation each.
 
 ### MT AI + mt-mcp with a local Ollama model (SB-1315)
 
@@ -124,7 +149,7 @@ off-topic questions — a model-profile finding for evals, not an MCP one.
 | **my** | fans, players, managers | `get_my_team` — "when do we play" without naming the team |
 | **self** | `team-player` | `get_my_stats`, `get_my_profile` — own records only |
 | **team-write** | `team-manager` (own team), `club_manager` (club's teams) | roster add/edit, live scoring |
-| **admin** | `admin` | ingest failures, team mappings, users, audit |
+| **admin** | `admin` | `list_ingest_failures`, `resolve_ingest_failure` (built, SB-1304); team mappings, users, audit next |
 
 ---
 
@@ -257,6 +282,11 @@ Read from installed code, not from memory. Re-check when either version moves.
   is a contextvar, and anyio copies context into `to_thread`.
 - **ADK's MCP tool retries a failed call once** (`retry_on_errors`). Harmless for reads;
   write tools (SB-1305) must be idempotent or carry an idempotency key.
+- **Admin writes are dry-run by default and idempotent** (SB-1304): `resolve_ingest_failure`
+  returns `would_resolve` until called with `dry_run=false`, and closing a closed row is
+  `already_resolved`, never a re-stamp — so ADK's one automatic retry is harmless. The
+  closer is the token's user, never an argument. The client (`claude-code`, `mt-ai`) is in
+  the `mt_mcp.tool_call` log line next to the user id; the row itself records the user.
 - **MT AI's toolset is built per turn** with static headers (the caller's token and
   `X-MT-Client: mt-ai`) and closed after it — simpler than `header_provider`, and one
   local `tools/list` per turn is cheap.

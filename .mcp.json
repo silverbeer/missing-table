@@ -11,6 +11,11 @@
       "type": "stdio",
       "command": "codegraph",
       "args": ["serve", "--mcp"]
+    },
+    "mt-mcp": {
+      "type": "http",
+      "url": "${MT_MCP_URL:-http://127.0.0.1:8000/mcp/}",
+      "headersHelper": "mt mcp headers"
     }
   }
 }

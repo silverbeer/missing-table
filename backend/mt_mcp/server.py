@@ -16,7 +16,7 @@ an unknown tool, so a hidden tool's existence is not disclosed.
 """
 
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Annotated, Any
 
 import anyio.to_thread
 import structlog
@@ -26,6 +26,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, ListToolsResult, TextContent
+from pydantic import Field
 from starlette.applications import Starlette
 
 from mt_ai.tools import ToolDeps, Viewer, get_upcoming_matches, search_teams
@@ -33,6 +34,13 @@ from mt_ai.tools.schemas import ResolveResult, UpcomingMatchesResult
 from mt_mcp.auth import MTTokenVerifier, Principal, current_principal
 from mt_mcp.observe import ToolCallObserver
 from mt_mcp.scopes import CLIENT_HEADER, Tier, allowed_tiers
+from mt_tools.ingest import (
+    IngestFailuresResult,
+    IngestSource,
+    ResolveIngestFailureResult,
+    list_ingest_failures,
+    resolve_ingest_failure,
+)
 
 logger = structlog.get_logger()
 
@@ -53,9 +61,12 @@ UNAVAILABLE = "MT could not answer that right now."
 TOOL_TIERS: dict[str, Tier] = {
     "search_teams": "read",
     "get_upcoming_matches": "read",
+    "list_ingest_failures": "admin",
+    "resolve_ingest_failure": "admin",
 }
 
 DepsProvider = Callable[[], ToolDeps]
+IngestProvider = Callable[[], IngestSource]
 
 
 def _caller() -> Principal:
@@ -75,7 +86,7 @@ async def _run(fn: Callable[[], Any], tool: str) -> Any:
         raise ToolError(UNAVAILABLE) from None
 
 
-def register_tools(server: MCPServer, deps: DepsProvider) -> None:
+def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider) -> None:
     @server.tool(name="search_teams")
     async def search_teams_tool(query: str, age_group: str | None = None) -> ResolveResult:
         """Find an MT team by name. Returns resolved, ambiguous (with candidates)
@@ -95,6 +106,31 @@ def register_tools(server: MCPServer, deps: DepsProvider) -> None:
         return await _run(
             lambda: get_upcoming_matches(deps(), team_id, viewer, age_group_id=age_group_id, limit=limit),
             "get_upcoming_matches",
+        )
+
+    # --- admin tier -----------------------------------------------------------
+
+    @server.tool(name="list_ingest_failures")
+    async def list_ingest_failures_tool(since: str | None = None, limit: int = 50) -> IngestFailuresResult:
+        """Admin. Names the match ingest could not resolve (team, division, league),
+        open ones only, newest first; one row per name with the matches it cost.
+        `since` (ISO 8601) limits to names seen since then. `stale` means unseen for
+        a while: a hint to de-emphasise, never proof it is fixed."""
+        _caller()
+        return await _run(lambda: list_ingest_failures(ingest(), since=since, limit=limit), "list_ingest_failures")
+
+    @server.tool(name="resolve_ingest_failure")
+    async def resolve_ingest_failure_tool(
+        failure_id: int, note: Annotated[str | None, Field(max_length=500)] = None, dry_run: bool = True
+    ) -> ResolveIngestFailureResult:
+        """Admin. Close one ingest failure by hand, recording who and why — for a
+        name fixed at the sender, which never resolves on its own. Defaults to a dry
+        run that changes nothing: call again with dry_run=false to close it. The
+        note should say which: "fixed at the sender" and "not a real team" differ."""
+        caller = _caller()
+        return await _run(
+            lambda: resolve_ingest_failure(ingest(), failure_id, caller.user_id, note=note, dry_run=dry_run),
+            "resolve_ingest_failure",
         )
 
 
@@ -137,7 +173,9 @@ class TierGate:
         return await call_next(ctx)
 
 
-def build_server(verifier: MTTokenVerifier, deps: DepsProvider, *, issuer_url: str) -> MCPServer:
+def build_server(
+    verifier: MTTokenVerifier, deps: DepsProvider, *, issuer_url: str, ingest: IngestProvider
+) -> MCPServer:
     server = MCPServer(
         name=SERVER_NAME,
         version=SERVER_VERSION,
@@ -149,7 +187,7 @@ def build_server(verifier: MTTokenVerifier, deps: DepsProvider, *, issuer_url: s
         # Outermost first: the observer also sees calls the gate refuses.
         middleware=[ToolCallObserver(TOOL_TIERS), TierGate(TOOL_TIERS)],
     )
-    register_tools(server, deps)
+    register_tools(server, deps, ingest)
     return server
 
 

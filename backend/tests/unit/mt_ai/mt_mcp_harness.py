@@ -61,9 +61,58 @@ class FakeAuth:
         return API_ACCOUNTS.get(token)
 
 
+class FakeIngest:
+    """Stands in for IngestFailuresDAO: an in-memory ingest_failures table."""
+
+    def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
+        self.rows = {r["id"]: dict(r) for r in rows or []}
+        self.fail = False
+        self.resolve_calls: list[tuple[int, str | None, str | None]] = []
+
+    def open_failures(self, since: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+        if self.fail:
+            raise RuntimeError("PostgREST down")
+        rows = [r for r in self.rows.values() if not r.get("resolved_at")]
+        if since:
+            rows = [r for r in rows if r["last_seen"] >= since]
+        return sorted(rows, key=lambda r: r["last_seen"], reverse=True)[:limit]
+
+    def get(self, failure_id: int) -> dict[str, Any] | None:
+        if self.fail:
+            raise RuntimeError("PostgREST down")
+        row = self.rows.get(failure_id)
+        return dict(row) if row else None
+
+    def resolve_by_id(self, failure_id: int, *, resolved_by=None, note=None) -> dict[str, Any] | None:
+        self.resolve_calls.append((failure_id, resolved_by, note))
+        row = self.rows.get(failure_id)
+        if row is None:
+            return None
+        if not row.get("resolved_at"):
+            row.update(resolved_at="2026-10-10T12:00:00+00:00", resolved_by=resolved_by, resolution_note=note)
+        return dict(row)
+
+
+def failure_row(failure_id: int, raw_name: str, last_seen: str, **extra: Any) -> dict[str, Any]:
+    return {
+        "id": failure_id,
+        "kind": "team",
+        "raw_name": raw_name,
+        "league": "Homegrown",
+        "source": "match-scraper",
+        "match_count": 3,
+        "sample": f"{raw_name} vs IFA",
+        "first_seen": "2026-09-01T00:00:00+00:00",
+        "last_seen": last_seen,
+        "resolved_at": None,
+        **extra,
+    }
+
+
 class Served:
-    def __init__(self, deps: ToolDeps) -> None:
+    def __init__(self, deps: ToolDeps, ingest: FakeIngest | None = None) -> None:
         self.auth = FakeAuth()
+        self.ingest = ingest or FakeIngest()
         self.deps = deps
         # What the tools call for their data; a test may swap it to simulate a crash.
         self.provide: Callable[[], ToolDeps] = lambda: self.deps
@@ -71,6 +120,7 @@ class Served:
             MTTokenVerifier(self.auth.verify_session, self.auth.verify_api_account),
             lambda: self.provide(),
             issuer_url="http://127.0.0.1:55321/auth/v1",
+            ingest=lambda: self.ingest,
         )
         self.app: Starlette = build_http_app(self.server, ALLOWED_HOSTS)
 
@@ -106,8 +156,8 @@ class Served:
 
 
 @asynccontextmanager
-async def served(deps: ToolDeps) -> AsyncIterator[Served]:
-    s = Served(deps)
+async def served(deps: ToolDeps, ingest: FakeIngest | None = None) -> AsyncIterator[Served]:
+    s = Served(deps, ingest)
     async with s.server.session_manager.run():
         yield s
 

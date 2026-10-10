@@ -60,6 +60,8 @@ app.add_typer(club_app, name="club")
 team_app.add_typer(alias_app, name="alias")
 team_app.add_typer(mapping_app, name="mapping")
 app.add_typer(ingest_app, name="ingest")
+mcp_app = typer.Typer(help="mt-mcp: credentials for MCP clients such as Claude Code (SB-1304)")
+app.add_typer(mcp_app, name="mcp")
 console = Console()
 
 
@@ -535,6 +537,64 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
     role = user.get("role", "unknown")
     console.print(f"[green]Logged in as {username} ({role})[/green]")
     console.print(f"[dim]Environment: {get_current_env()}[/dim]")
+
+
+# --- mt-mcp (SB-1304) ---
+
+# Refresh a session token this close to expiry, so a long Claude Code session
+# never hands mt-mcp a token that dies mid-call.
+MCP_REFRESH_MARGIN_S = 300
+MCP_CLIENT = "claude-code"
+
+
+def token_expires_at(token: str) -> int | None:
+    """The `exp` claim of a JWT, read without verifying it — the server verifies."""
+    import jwt
+
+    try:
+        exp = jwt.decode(token, options={"verify_signature": False}).get("exp")
+    except jwt.PyJWTError:
+        return None
+    return int(exp) if exp is not None else None
+
+
+def fresh_access_token(state: CLIState, base_url: str, now: float | None = None) -> str:
+    """The stored session token, refreshed first if it is near expiry or unreadable."""
+    import time
+
+    if not state.access_token:
+        raise AuthenticationError(f"Not logged in to {get_current_env()}")
+    expires = token_expires_at(state.access_token)
+    if expires is not None and expires - (now or time.time()) > MCP_REFRESH_MARGIN_S:
+        return state.access_token
+
+    client = MissingTableClient(base_url=base_url, access_token=state.access_token)
+    client._refresh_token = state.refresh_token
+    try:
+        refreshed = client.refresh_access_token()
+    finally:
+        client.close()
+    state.access_token = refreshed["access_token"]
+    state.refresh_token = refreshed.get("refresh_token") or state.refresh_token
+    save_state(state)
+    return state.access_token
+
+
+@mcp_app.command("headers")
+def mcp_headers():
+    """Print mt-mcp auth headers as JSON, for Claude Code's headersHelper.
+
+    Stdout is the JSON object and nothing else; every message goes to stderr.
+    Uses the `mt login` session for the targeted environment, refreshing it when
+    it is within five minutes of expiry.
+    """
+    err = Console(stderr=True)
+    try:
+        token = fresh_access_token(load_state(), get_base_url())
+    except (AuthenticationError, APIError) as e:
+        err.print(f"[red]mt-mcp: {e}[/red] — run [cyan]mt login[/cyan] for {get_current_env()}")
+        raise typer.Exit(1) from None
+    sys.stdout.write(json.dumps({"Authorization": f"Bearer {token}", "X-MT-Client": MCP_CLIENT}))
 
 
 @app.command()

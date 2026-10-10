@@ -35,6 +35,10 @@ CLIENT_CAPS: dict[str, frozenset[Tier]] = {
 
 CLIENT_HEADER = "x-mt-client"
 
+# Clients named in metrics and logs. Naming one grants nothing; only CLIENT_CAPS
+# changes what a client may use.
+KNOWN_CLIENTS = frozenset({MT_AI_CLIENT, "claude-code"})
+
 
 def allowed_tiers(role: str | None, client: str | None) -> frozenset[Tier]:
     """The tiers a caller with this role, using this client, may use.

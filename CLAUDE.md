@@ -267,6 +267,7 @@ mt team mapping list "NEFC"            # which age groups a team is registered i
 mt team mapping add "NEFC" -a U16 -d Northeast
 mt ingest failures                     # what the scraper could not resolve
 mt ingest resolve 1 --note "fixed at the sender"
+mt mcp headers                         # auth headers for Claude Code's mt-mcp connection (never run visibly)
 ```
 
 ### Login
