@@ -9,7 +9,8 @@ existing /metrics, scraped by Grafana Alloy):
 
 HTTP metrics see only "POST /mcp"; these say which tool. `outcome` is the
 tool's own verdict where it has one — `resolved` / `ambiguous` / `not_found`
-for search_teams, an error kind (`unavailable`, ...) — so "what do people ask
+for search_teams, `empty` for a list tool that checked and found nothing (no
+upcoming matches), an error kind (`unavailable`, ...) — so "what do people ask
 for that MT cannot find" is a query, not a log trawl. Calls refused by the tier
 gate are `refused`; protocol-level failures are `failed`.
 
@@ -45,7 +46,7 @@ TOOL_SECONDS = Histogram(
 
 # The tool's own verdicts and MT's error kinds; anything else is "other".
 KNOWN_OUTCOMES = frozenset(
-    {"ok", "resolved", "ambiguous", "not_found", "unavailable", "invalid", "refused", "failed", "error"}
+    {"ok", "empty", "resolved", "ambiguous", "not_found", "unavailable", "invalid", "refused", "failed", "error"}
 )
 
 
@@ -74,6 +75,9 @@ def outcome_of(result: Any) -> str:
         status = structured.get("status")
         if isinstance(status, str):
             return bounded(status, KNOWN_OUTCOMES)
+        # [] is "checked, none" — worth telling apart from a full answer.
+        if structured.get("matches") == []:
+            return "empty"
     return "ok"
 
 

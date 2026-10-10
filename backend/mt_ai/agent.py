@@ -1,8 +1,9 @@
 """The MT assistant: one ADK agent with two tools (SB-1143, SB-1152).
 
-With `mcp` given (SB-1302), search_teams comes from mt-mcp over MCP, called
-with the end user's own token, so the server — not this module — decides what
-the caller may see. get_upcoming_matches stays in-process until SB-1303.
+With `mcp` given (SB-1302, SB-1303), every tool comes from mt-mcp over MCP,
+called with the end user's own token, so the server — not this module —
+decides what the caller may see. Without it (MT_MCP_ENABLED off, the rollback
+path) the same tool functions are registered in-process.
 
 This module is the only place that knows about ADK. It takes plain inputs
 (history as text, a message, a viewer, a budget) and returns a plain
@@ -115,7 +116,7 @@ class McpAccess:
 
     url: str
     bearer: str
-    tools: tuple[str, ...] = ("search_teams",)
+    tools: tuple[str, ...] = ("search_teams", "get_upcoming_matches")
     timeout_s: float = 10.0
     httpx_client_factory: Any = None  # tests inject an in-process transport
 
@@ -212,7 +213,9 @@ async def run_turn(
         return None if result is tool_response else result
 
     toolset = mcp.toolset() if mcp else None
-    search: Any = toolset if toolset else make_search_teams_tool(deps, viewer)
+    tools: list[Any] = (
+        [toolset] if toolset else [make_search_teams_tool(deps, viewer), make_upcoming_matches_tool(deps, viewer)]
+    )
 
     def count_llm_call(callback_context: Any, llm_request: Any) -> None:
         nonlocal llm_calls
@@ -222,7 +225,7 @@ async def run_turn(
         name=AGENT_NAME,
         model=model,
         instruction=INSTRUCTION,
-        tools=[search, make_upcoming_matches_tool(deps, viewer)],
+        tools=tools,
         # The guard runs first: a call over budget is stopped, never timed.
         before_model_callback=[count_llm_call, recorder.before_model],
         after_model_callback=recorder.after_model,
