@@ -136,7 +136,7 @@ off-topic questions — a model-profile finding for evals, not an MCP one.
 | `admin` | everything, incl. `is_test` content | |
 | `club_manager` | every team in `club_id` | `can_manage_team`, `can_edit_match` |
 | `team-manager` | one team, `team_id` | same checks |
-| `team-player` | themselves; teams via `player_team_history` | **minors** |
+| `team-player` | the linked player; teams via `player_team_history` | held by a guardian; the player is a **minor** (SB-1307) |
 | `team-fan`, `club-fan` | a home team / club | read only |
 | API account (`is_api_account`) | as its role | the `/api/ai/*` token (SB-1145) |
 | `service_account` | — | **refused**: no profile to own provenance or decide visibility |
@@ -293,12 +293,39 @@ Read from installed code, not from memory. Re-check when either version moves.
 
 ---
 
+## Decisions
+
+### Team membership and `team-player` accounts (SB-1307, 2026-10-10)
+
+**Prod, measured 2026-10-10.** 33 profiles. Fans: 20, of which 2 set a `team_id` and 9 set
+a `club_id`. `team-manager`: 3, **none** with a `team_id`. `team_manager_assignments` is
+empty. `team-player`: 2. `player_team_history` holds 1 player, and that player is on more
+than one team.
+
+**1. Single-team for v1, behind one resolver.** No one in prod is constrained by one
+`team_id`/`club_id` per profile yet. Most profiles set neither. So no membership table
+yet. Every `my`-tier and team-write tool resolves the caller's team through one function
+(SB-1317). A later membership table then changes that function and nothing else. A caller
+with no team is a normal state: `200` with an explicit "no team set", never `404`.
+
+**2. Don't add a third membership mechanism.** Two already exist: `user_profiles.team_id`,
+which `auth.py` reads, and `team_manager_assignments`, which is multi-team,
+written by `TeamManagerService` and the invite flow, and empty in prod. When the first real
+user needs two teams, generalize `team_manager_assignments` into the membership table
+(SB-1319).
+
+**3. A `team-player` account is a guardian acting for a minor**, never the child. `self`
+tools return the *linked player's* records. The account holder is never treated as the
+player for age or consent. Edits record the guardian as their provenance (SB-1320,
+prerequisite for SB-1306).
+
+**Found on the way:** the 3 prod `team-manager` accounts have no team at all, so
+`can_manage_team` grants them nothing (SB-1318).
+
 ## Open questions
 
 | Question | Ticket |
 |----------|--------|
-| One `team_id`/`club_id` per profile: a parent with kids on two teams, or a fan following several, cannot be represented. Single-team for v1, or a follows/membership table first? | SB-1307 |
-| Is a `team-player` account the child, or a parent acting for them? Decides what "self" returns. | SB-1307 |
 | Do MT AI users ever get team-write tools? Not before tier-2 evals cover write trajectories ([ai-quality.md](ai-quality.md)). | — |
 | Does the `mt` CLI become an MCP client, or keep calling the HTTP API over the same service functions? Either way, one owner per operation. | — |
 
@@ -313,7 +340,7 @@ Read from installed code, not from memory. Re-check when either version moves.
 | 2 | SB-1303 | All MT AI tools served over MCP; in-process registration removed |
 | 3 | SB-1304 | Admin tier (ingest failures) + Claude Code connection + first mt-admin skill |
 | 4 | SB-1305 | Team-write tier for team/club managers |
-| 5 | SB-1306 | My/self tiers for fans and players (after SB-1307) |
+| 5 | SB-1306 | My/self tiers for fans and players (needs SB-1317, SB-1320) |
 | — | SB-1308 | Observability: dashboard, alerts, "what MT couldn't answer" learning loop |
 
 Each slice updates this document with what it taught, in the same PR.
