@@ -809,11 +809,15 @@ class MissingTableClient:
         response = self._request("POST", "/api/invites/admin/team-fan", json_data=payload)
         return response.json()
 
-    def create_club_fan_invite_admin(self, club_id: int, email: str | None = None) -> dict[str, Any]:
-        """Create a club fan invite (admin only)."""
+    def create_club_fan_invite_admin(
+        self, club_id: int, email: str | None = None, invite_request_id: str | None = None
+    ) -> dict[str, Any]:
+        """Create a club fan invite (admin only), optionally answering an invite request."""
         payload = {"club_id": club_id}
         if email:
             payload["email"] = email
+        if invite_request_id:
+            payload["invite_request_id"] = invite_request_id
         response = self._request("POST", "/api/invites/admin/club-fan", json_data=payload)
         return response.json()
 

@@ -102,7 +102,7 @@
           class="p-3 sm:p-6"
           data-testid="admin-section-invite-requests"
         >
-          <AdminInviteRequests />
+          <AdminInviteRequests @create-invite="openInviteFromRequest" />
         </div>
 
         <!-- Channel Access Requests -->
@@ -219,7 +219,10 @@
           class="p-3 sm:p-6"
           data-testid="admin-section-invites"
         >
-          <AdminInvites />
+          <AdminInvites
+            :prefill="invitePrefill"
+            @prefill-done="invitePrefill = null"
+          />
         </div>
 
         <!-- Support Inbox -->
@@ -263,8 +266,9 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { invitePrefillFromRequest } from '@/utils/inviteRequests';
 import AdminAgeGroups from './admin/AdminAgeGroups.vue';
 import AdminSeasons from './admin/AdminSeasons.vue';
 import AdminLeagues from './admin/AdminLeagues.vue';
@@ -450,8 +454,23 @@ export default {
       }
     };
 
+    // "Create invite" on an invite request opens the Invites section with
+    // the form pre-filled from it (SB-1312). Leaving Invites drops it.
+    const invitePrefill = ref(null);
+
+    const openInviteFromRequest = request => {
+      invitePrefill.value = invitePrefillFromRequest(request);
+      currentSection.value = 'invites';
+    };
+
+    watch(currentSection, section => {
+      if (section !== 'invites') invitePrefill.value = null;
+    });
+
     return {
       authStore,
+      invitePrefill,
+      openInviteFromRequest,
       currentSection,
       currentCategory,
       adminSections,
