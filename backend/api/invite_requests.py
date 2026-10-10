@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field
 
 from supabase import create_client
@@ -20,6 +20,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth import get_current_user_required
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
+from notifications.invite_request_alerts import notify_new_invite_request
 from services.email_service import EmailService
 
 # Initialize database connection with service role for admin operations
@@ -89,7 +90,7 @@ class TestApprovalEmail(BaseModel):
 
 # Public endpoint - no auth required
 @router.post("", status_code=201)
-async def create_invite_request(request: InviteRequestCreate):
+async def create_invite_request(request: InviteRequestCreate, background_tasks: BackgroundTasks):
     """
     Submit a new invite request (public endpoint).
 
@@ -137,6 +138,14 @@ async def create_invite_request(request: InviteRequestCreate):
         )
 
         if result.data:
+            # Ping admins after the response is sent; never fails the request.
+            # wants_ios_beta is read defensively — the field lands in SB-1311.
+            background_tasks.add_task(
+                notify_new_invite_request,
+                request.name,
+                request.team,
+                bool(getattr(request, "wants_ios_beta", False)),
+            )
             return {
                 "success": True,
                 "message": "Thank you for your interest! We'll review your request and reach out soon.",

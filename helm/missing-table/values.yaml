@@ -141,6 +141,10 @@ backend:
 # sends until the key is populated.
 notifications:
   enabled: true
+  # Telegram chat for the admin ping on new invite requests (SB-1313).
+  # Empty = no Telegram ping. MT_ADMIN_DISCORD_WEBHOOK_URL comes from
+  # values.secrets.adminDiscordWebhookUrl / ESO instead.
+  adminTelegramChatId: ""
 
 # Frontend configuration
 frontend:
