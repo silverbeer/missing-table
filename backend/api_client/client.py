@@ -1490,6 +1490,16 @@ class MissingTableClient:
         )
         return response.json()
 
+    # MT AI gaps
+
+    def get_ai_gaps(self, days: int = 30, tool: str | None = None) -> dict[str, Any]:
+        """What MT AI could not answer: not_found and ambiguous tool calls, grouped (admin only)."""
+        params: dict[str, Any] = {"days": days}
+        if tool:
+            params["tool"] = tool
+        response = self._request("GET", "/api/admin/ai/gaps", params=params)
+        return response.json()
+
     # Competition coverage
 
     def get_competition_coverage(self, season_id: int | None = None) -> dict[str, Any]:

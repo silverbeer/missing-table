@@ -60,6 +60,8 @@ app.add_typer(club_app, name="club")
 team_app.add_typer(alias_app, name="alias")
 team_app.add_typer(mapping_app, name="mapping")
 app.add_typer(ingest_app, name="ingest")
+ai_app = typer.Typer(help="MT AI: what it could not answer (admin)")
+app.add_typer(ai_app, name="ai")
 mcp_app = typer.Typer(help="mt-mcp: credentials for MCP clients such as Claude Code (SB-1304)")
 app.add_typer(mcp_app, name="mcp")
 console = Console()
@@ -1649,6 +1651,60 @@ def ingest_resolve(
     if row.get("resolution_note"):
         console.print(f"[dim]{row['resolution_note']}[/dim]")
     console.print("[dim]The row is kept — it is the record of which names were wrong and when.[/dim]")
+
+
+@ai_app.command("gaps")
+def ai_gaps(
+    days: int = typer.Option(30, "--days", "-d", help="How far back to look"),
+    tool: str = typer.Option(None, "--tool", "-t", help="One tool only, e.g. search_teams"),
+    limit: int = typer.Option(50, "--limit", "-l", help="How many to show"),
+):
+    """What MT AI could not answer: not_found and ambiguous tool calls, most asked first.
+
+    A not_found name that is a real team wants an alias; a recurring one is an
+    eval case; a recurring question no tool answers is the next tool (SB-1308).
+    """
+    client, _ = get_client()
+    payload = _api(client.get_ai_gaps, days=days, tool=tool)
+    rows = payload.get("gaps") or []
+    total = payload.get("total_calls")
+
+    if not rows:
+        console.print(f"[green]Nothing unanswered in the last {payload.get('days', days)} days.[/green]")
+        if total is not None:
+            console.print(f"[dim]{total} tool call(s) in that window.[/dim]")
+        return
+
+    table = Table(title=f"MT AI gaps — last {payload.get('days', days)} days")
+    table.add_column("Tool", style="dim")
+    table.add_column("Query", style="white")
+    table.add_column("Age", style="dim")
+    table.add_column("Asked", justify="right", style="yellow")
+    table.add_column("Not found", justify="right")
+    table.add_column("Ambiguous", justify="right")
+    table.add_column("Last seen", style="magenta")
+
+    for row in rows[:limit]:
+        table.add_row(
+            str(row.get("tool", "?")),
+            str(row.get("query") or "—"),
+            ", ".join(row.get("age_groups") or []) or "—",
+            str(row.get("count", 0)),
+            str(row.get("not_found", 0)),
+            str(row.get("ambiguous", 0)),
+            str(row.get("last_seen") or "?")[:10],
+        )
+
+    console.print(table)
+    # The denominator ships with the figure (CLAUDE.md rule 3).
+    of_total = f" of {total} tool calls" if total is not None else ""
+    console.print(
+        f"[dim]{payload.get('gap_calls', 0)} unanswered{of_total} · {payload.get('count', len(rows))} distinct"
+        + (f" · showing {limit}" if len(rows) > limit else "")
+        + "[/dim]"
+    )
+    if payload.get("truncated"):
+        console.print("[yellow]Hit the row cap — narrow with --days or --tool.[/yellow]")
 
 
 @app.command("competitions")

@@ -34,6 +34,9 @@ MESSAGE_DETAIL = (
     "turn, role, content, status, model, agent_version, llm_calls, tool_calls, duration_ms, llm_ms, created_at"
 )
 TOOL_CALL_COLUMNS = ("turn", "seq", "tool_name", "args", "result", "error_kind", "duration_ms")
+# The "what MT couldn't answer" report (SB-1308) needs the result's verdict only.
+GAP_CALL_COLUMNS = "tool_name, args, error_kind, status:result->>status, created_at"
+GAP_PAGE = 1000
 
 
 class AIConversationDAO(BaseDAO):
@@ -105,6 +108,38 @@ class AIConversationDAO(BaseDAO):
             .execute()
         )
         return response.data or []
+
+    def gap_tool_calls(
+        self, since: str, outcomes: tuple[str, ...], tool: str | None = None, max_rows: int = 5000
+    ) -> list[dict]:
+        """Every owner's tool calls since `since` whose error kind or status is one of
+        `outcomes`, newest first (SB-1308). Admin only: arguments can name minors.
+
+        Only the result's `status` is read, not the result itself.
+        """
+        wanted = ",".join(outcomes)
+        rows: list[dict] = []
+        while len(rows) < max_rows:
+            query = (
+                self.client.table(TOOL_CALLS)
+                .select(GAP_CALL_COLUMNS)
+                .gte("created_at", since)
+                .or_(f"error_kind.in.({wanted}),result->>status.in.({wanted})")
+            )
+            if tool:
+                query = query.eq("tool_name", tool)
+            page = query.order("created_at", desc=True).range(len(rows), len(rows) + GAP_PAGE - 1).execute().data or []
+            rows.extend(page)
+            if len(page) < GAP_PAGE:
+                break
+        return rows[:max_rows]
+
+    def count_tool_calls(self, since: str, tool: str | None = None) -> int:
+        """Every owner's tool calls since `since`, any outcome: the gap report's denominator."""
+        query = self.client.table(TOOL_CALLS).select("id", count="exact").gte("created_at", since)
+        if tool:
+            query = query.eq("tool_name", tool)
+        return query.limit(1).execute().count or 0
 
     def record_trace(
         self, conversation_id: str, turn: int, timings: dict[str, int | None], calls: list[dict[str, Any]]

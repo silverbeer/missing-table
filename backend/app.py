@@ -100,6 +100,7 @@ from services.content_filter import contains_objectionable_language
 # Legacy flag kept for backwards compatibility so existing envs keep working.
 DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
 
+from dao.ai_conversation_dao import AIConversationDAO
 from dao.audit_dao import AuditDAO
 from dao.club_dao import ClubDAO
 from dao.coverage_dao import CoverageDAO
@@ -269,6 +270,7 @@ tournament_dao = TournamentDAO(db_conn_holder_obj)
 ingest_failures_dao = IngestFailuresDAO(db_conn_holder_obj)
 motw_dao = MotwDAO(db_conn_holder_obj)
 coverage_dao = CoverageDAO(db_conn_holder_obj)
+ai_conversation_dao = AIConversationDAO(db_conn_holder_obj)
 
 # Competitions whose standings are grouped by division (SB-833).
 #
@@ -7435,6 +7437,31 @@ async def resolve_ingest_failure(
     except Exception as e:
         logger.error(f"Error resolving ingest failure: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not resolve ingest failure") from e
+
+
+# "What MT couldn't answer" (SB-1308) lives with the admin tool logic in mt_tools.
+from mt_tools.ai_gaps import DEFAULT_DAYS as DEFAULT_AI_GAP_DAYS
+from mt_tools.ai_gaps import MAX_DAYS as MAX_AI_GAP_DAYS
+from mt_tools.ai_gaps import list_ai_gaps
+
+
+@app.get("/api/admin/ai/gaps")
+async def get_ai_gaps(
+    days: int = Query(DEFAULT_AI_GAP_DAYS, ge=1, le=MAX_AI_GAP_DAYS),
+    tool: str | None = Query(None, max_length=100),
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """What MT AI could not answer (SB-1308): not_found and ambiguous tool calls
+    over the last `days`, one row per tool and query, most asked first.
+
+    Admin only, not service accounts: the queries are what people typed, and
+    they can name minors. `gaps` is [] when nothing went unanswered;
+    `total_calls` is every tool call in the window, the denominator.
+    """
+    result = list_ai_gaps(ai_conversation_dao, days=days, tool=tool)
+    if result.error is not None:
+        raise HTTPException(status_code=500, detail="Could not read the AI gap report")
+    return result.model_dump(exclude={"error"})
 
 
 @app.delete("/api/admin/cache")

@@ -300,6 +300,30 @@
     },
     {
       "method": "GET",
+      "path": "/api/admin/ai/gaps",
+      "client_method": "get_ai_gaps",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/integration/api/test_ai_gaps_api.py",
+          "test_name": "test_nothing_unanswered_is_200_with_an_empty_list",
+          "type": "integration"
+        },
+        {
+          "file": "tests/integration/api/test_ai_gaps_api.py",
+          "test_name": "test_groups_not_found_and_ambiguous_by_query",
+          "type": "integration"
+        },
+        {
+          "file": "tests/integration/api/test_ai_gaps_api.py",
+          "test_name": "test_non_admins_are_refused",
+          "type": "integration"
+        }
+      ],
+      "coverage_status": "client_only"
+    },
+    {
+      "method": "GET",
       "path": "/api/admin/players",
       "client_method": "get_admin_players",
       "client_file": "api_client/client.py",

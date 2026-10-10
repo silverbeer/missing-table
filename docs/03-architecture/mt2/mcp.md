@@ -222,7 +222,7 @@ HTTP metrics see every call as `POST /mcp/`; mt-mcp adds per-tool signals in
 | `mt_mcp_tool_calls_total{tool, client, role, outcome}` | `/metrics` → Grafana | Popular tools, who uses them, outcome mix |
 | `mt_mcp_tool_call_seconds{tool, outcome}` | `/metrics` | Latency per tool |
 | `mt_mcp.tool_call` event (tool, client, role, outcome, duration, user, arg names, request id) | structlog → Loki | Drill-down |
-| `ai_tool_calls` rows, **with arguments** | Supabase (SB-1197) | Replay and evals for MT AI turns |
+| `ai_tool_calls` rows, **with arguments** | Supabase (SB-1197) | Replay and evals for MT AI turns; the gap report below |
 
 `outcome` is the tool's own verdict: `resolved` / `ambiguous` / `not_found` for
 `search_teams`, `empty` when `get_upcoming_matches` checked and found nothing, an error kind such as `unavailable`, `refused` for a call the tier gate
@@ -237,6 +237,54 @@ existing HTTP metrics, so dashboards sum across scrapes (`sum by (...)`, `rate`)
 Every label is bounded — unknown tool, client or role names collapse to `other` — and
 argument **values** stay out of metrics and logs: tool arguments can name minors. The
 dashboard, alerts and the "what MT couldn't answer" report are **SB-1308**.
+
+### What MT couldn't answer (SB-1308)
+
+The metrics say *how many* calls were `not_found` or `ambiguous`; only `ai_tool_calls`
+says *what was asked*. The gap report reads it:
+
+```bash
+mt ai gaps --days 30                      # CLI
+mt ai gaps --tool search_teams -d 7
+GET /api/admin/ai/gaps?days=30&tool=...   # API, admin only
+```
+
+- **What counts.** A call's outcome is read the way `ToolCallObserver` labels it: the
+  tool's `error_kind` if it reported one, else its result `status`. Only `not_found`
+  and `ambiguous` are gaps — a `search_teams` `not_found` that carried
+  `error.kind = unavailable` was an outage, not a gap.
+- **Grouping.** One row per tool and query: `query` for tools that take one (case and
+  spacing folded, latest spelling shown), otherwise the arguments minus `age_group`
+  (`team_id=9999`). Each row has its count split into not_found/ambiguous, the age
+  groups asked with it, and first/last seen. Most asked first.
+- **Denominator.** `total_calls` — every tool call in the window, any outcome — ships
+  with the list, so "12 gaps" always reads as "12 of N".
+- **Absent is empty.** No gaps is `200` with `gaps: []`; a failed read is a `500`, never
+  an empty list.
+- **Admin only, everywhere.** The queries are what people typed and can name minors:
+  the endpoint is `require_admin` (not service accounts), and the report logs no
+  argument values. Pure logic: `backend/mt_tools/ai_gaps.py`; query:
+  `AIConversationDAO.gap_tool_calls` (reads the result's `status` only, not the result).
+
+What the output feeds:
+
+| Gap | Feeds |
+|-----|-------|
+| `not_found` name that is a real MT team | a team alias (`mt team alias`), then the name resolves |
+| `not_found` age group a team does not play in | nothing to fix — check `other_ages` was offered |
+| recurring `ambiguous` query | better disambiguation in `search_teams`, or an alias |
+| any recurring gap | an eval case in [ai-quality.md](ai-quality.md), so the fix stays fixed |
+| a question no tool can answer | the next tool to build (with `tools/call` popularity from the metrics) |
+
+**Non-AI clients have no persisted call log (decided 2026-10-10).** Only MT AI turns
+write `ai_tool_calls`. The other mt-mcp clients today are admin skills (Claude Code):
+low volume, and covered by the `mt_mcp.tool_call` Loki event, which carries outcome
+but not argument values. Revisit if a non-admin MCP client ships — its gaps would
+otherwise be counted in the metrics and invisible here.
+
+The report is not (yet) an mt-mcp tool: the CLI and API cover the admin need, and an
+admin-tier `list_ai_gaps` tool can wrap `list_ai_gaps()` unchanged if an mt-admin skill
+wants it.
 
 ---
 
