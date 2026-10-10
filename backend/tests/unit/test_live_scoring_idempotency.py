@@ -513,8 +513,12 @@ class TestAssistStatsOnDelete:
         from fastapi.testclient import TestClient
 
         from app import app
+        from auth import get_current_user_required
 
-        _override_auth(app)
+        user = _override_auth(app)
+        # DELETE authenticates with get_current_user_required since SB-1309
+        # (authors may delete their own chat), checking manager rights inside.
+        app.dependency_overrides[get_current_user_required] = lambda: user
 
         with (
             patch("app.match_dao") as mock_match_dao,

@@ -113,6 +113,7 @@ class MatchEventDAO(BaseDAO):
         match_id: int,
         limit: int = 50,
         before_id: int | None = None,
+        exclude_messages_by: list[str] | None = None,
     ) -> list[dict]:
         """Get paginated events for a match.
 
@@ -120,6 +121,9 @@ class MatchEventDAO(BaseDAO):
             match_id: Match to get events for
             limit: Maximum number of events to return
             before_id: Return events with ID less than this (for pagination)
+            exclude_messages_by: Drop chat messages by these users — the
+                viewer's blocked users (SB-1309). Only event_type 'message':
+                blocking a manager must not hide the goals they record.
 
         Returns:
             List of event records, newest first
@@ -136,6 +140,13 @@ class MatchEventDAO(BaseDAO):
 
             if before_id is not None:
                 query = query.lt("id", before_id)
+
+            if exclude_messages_by:
+                # Keep anything that is not a chat message, and anything with
+                # no author: NOT (NULL IN (...)) is NULL, so a bare not.in
+                # would also drop every event nobody authored.
+                ids = ",".join(exclude_messages_by)
+                query = query.or_(f"event_type.neq.message,created_by.is.null,created_by.not.in.({ids})")
 
             response = query.execute()
             return response.data or []

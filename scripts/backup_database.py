@@ -157,6 +157,10 @@ TABLES_TO_BACKUP = [
     "email_messages",
     # Admin edits to user accounts (SB-1071)
     "admin_user_audit_log",
+    # Chat moderation (SB-1309): reports are the record of what was acted on;
+    # blocks are users' own choices. Both backed up for production recovery
+    "content_reports",  # match_events, user_profiles; never restored
+    "user_blocks",
     # Intentionally excluded (see EXCLUDED_TABLES):
     # - user_profiles: managed per-environment (different auth.users UUIDs)
     # - service_accounts: contains API keys, managed per-environment

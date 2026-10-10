@@ -119,7 +119,13 @@ class TestTheConfigIsHonest:
     def test_every_configured_limit_is_one_that_is_applied(self):
         # The failure this module exists to prevent: config that describes
         # limits nothing enforces.
-        assert set(RATE_LIMITS) == {"login", "signup", "password_reset", "invite_request"}
+        assert set(RATE_LIMITS) == {
+            "login",
+            "signup",
+            "password_reset",
+            "invite_request",
+            "chat_message",
+        }
 
     def test_the_auth_routes_carry_a_limit(self):
         import app as app_module

@@ -169,6 +169,7 @@ RESTORATION_ORDER = [
     "user_team_follows",  # teams
     "user_bracket_follows",  # tournaments, age_groups
     "user_notification_preferences",
+    "user_blocks",  # user_profiles only (SB-1309)
     # 11. Support inbox
     "email_threads",
     "email_messages",  # email_threads
@@ -194,6 +195,10 @@ RESTORE_SKIPPED = {
     ),
     "ai_messages": "the turns of ai_conversations; skipped for the same reason",
     "ai_tool_calls": "tool calls of ai_conversations' turns (SB-1197); skipped for the same reason",
+    "content_reports": (
+        "chat moderation reports (SB-1309): other users' reported messages and who "
+        "reported them. Backed up for production recovery only; restore by hand."
+    ),
 }
 
 # Tables without an `id` column. PostgREST refuses an unfiltered DELETE, and
@@ -205,6 +210,7 @@ CLEAR_BY_COLUMN = {
     "user_team_follows": "user_id",
     "user_bracket_follows": "user_id",
     "user_notification_preferences": "user_id",
+    "user_blocks": "blocker_id",
 }
 
 
