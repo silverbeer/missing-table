@@ -84,6 +84,16 @@ class IngestFailuresDAO(BaseDAO):
             logger.exception("Could not resolve ingest failures", kind=kind, raw_name=raw_name)
             return 0
 
+    def get(self, failure_id: int) -> dict[str, Any] | None:
+        """One row by id, open or resolved; None if there is no such id.
+
+        Raises on a database error: the caller (an admin preview, SB-1304) must be
+        able to tell "no such row" from "could not look".
+        """
+        response = self.client.table("ingest_failures").select("*").eq("id", failure_id).execute()
+        rows = response.data or []
+        return rows[0] if rows else None
+
     def resolve_by_id(
         self,
         failure_id: int,

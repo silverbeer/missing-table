@@ -111,3 +111,26 @@ class TestReadsAndMarks:
     def test_read_and_write_errors_are_swallowed(self, call):
         dao = _dao(table_error=RuntimeError("db down"))
         call(dao)  # must not raise
+
+
+@pytest.mark.unit
+class TestGet:
+    """SB-1304: the admin preview reads one row. Unlike the diagnostic writes, it
+    raises on a database error — "no such row" and "could not look" must differ."""
+
+    def _dao(self, **kwargs):
+        dao = _dao(**kwargs)
+        dao._table.eq.return_value = dao._table
+        return dao
+
+    def test_returns_the_row(self):
+        dao = self._dao(table_data=[{"id": 4, "raw_name": "Boston Utd"}])
+        assert dao.get(4) == {"id": 4, "raw_name": "Boston Utd"}
+        dao._table.eq.assert_called_with("id", 4)
+
+    def test_no_such_id_is_none(self):
+        assert self._dao(table_data=[]).get(4) is None
+
+    def test_a_database_error_raises(self):
+        with pytest.raises(RuntimeError):
+            self._dao(table_error=RuntimeError("down")).get(4)

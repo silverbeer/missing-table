@@ -28,7 +28,7 @@ from mcp.server.context import CallNext, HandlerResult, ServerRequestContext
 from prometheus_client import Counter, Histogram
 
 from mt_mcp.auth import current_principal
-from mt_mcp.scopes import CLIENT_CAPS, CLIENT_HEADER, ROLE_TIERS
+from mt_mcp.scopes import CLIENT_HEADER, KNOWN_CLIENTS, ROLE_TIERS
 
 logger = structlog.get_logger()
 
@@ -46,8 +46,25 @@ TOOL_SECONDS = Histogram(
 
 # The tool's own verdicts and MT's error kinds; anything else is "other".
 KNOWN_OUTCOMES = frozenset(
-    {"ok", "empty", "resolved", "ambiguous", "not_found", "unavailable", "invalid", "refused", "failed", "error"}
+    {
+        "ok",
+        "empty",
+        "resolved",
+        "ambiguous",
+        "not_found",
+        "would_resolve",
+        "already_resolved",
+        "unavailable",
+        "invalid",
+        "refused",
+        "failed",
+        "error",
+    }
 )
+
+
+# A list tool's result list: [] means it checked and found nothing.
+LIST_KEYS = ("matches", "failures")
 
 
 def bounded(value: str | None, known: Iterable[str], *, missing: str = "none") -> str:
@@ -76,7 +93,7 @@ def outcome_of(result: Any) -> str:
         if isinstance(status, str):
             return bounded(status, KNOWN_OUTCOMES)
         # [] is "checked, none" — worth telling apart from a full answer.
-        if structured.get("matches") == []:
+        if any(structured.get(key) == [] for key in LIST_KEYS):
             return "empty"
     return "ok"
 
@@ -95,7 +112,7 @@ class ToolCallObserver:
         params = ctx.params or {}
         tool = bounded(str(params.get("name", "")), self.tool_names, missing="other")
         headers = getattr(ctx.request, "headers", None)
-        client = bounded(headers.get(CLIENT_HEADER) if headers is not None else None, CLIENT_CAPS)
+        client = bounded(headers.get(CLIENT_HEADER) if headers is not None else None, KNOWN_CLIENTS)
         principal = current_principal()
         role = bounded(principal.role if principal else None, ROLE_TIERS)
 
