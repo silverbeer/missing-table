@@ -159,6 +159,35 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: apns-private-key
               optional: true
+        # App Store Connect API key - TestFlight beta invites (SB-1314).
+        # Optional: pod boots even if absent; testflight_client.is_configured()
+        # returns False and an iPhone beta invite records a TestFlight failure
+        # (the invite itself still succeeds). ESO populates these in prod.
+        # ASC_APP_ID is not set here - it defaults to 6820504545.
+        - name: ASC_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: asc-key-id
+              optional: true
+        - name: ASC_ISSUER_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: asc-issuer-id
+              optional: true
+        - name: ASC_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: asc-private-key
+              optional: true
+        - name: ASC_EXTERNAL_GROUP_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: asc-external-group-id
+              optional: true
         # Cloudflare R2 — match-photo storage (SB-31) + Android APK distribution
         # (SB-313). Optional: the pod boots without them; r2_client.is_configured()
         # returns False and both photo upload AND the APK download endpoint return

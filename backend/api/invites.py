@@ -54,6 +54,13 @@ service_client = _ServiceClientProxy()
 router = APIRouter(prefix="/api/invites", tags=["invites"])
 
 
+def _refuse_ios_beta(request: BaseModel) -> None:
+    """iPhone beta invites are admin-only (SB-1314): the club/team manager
+    endpoints refuse the option rather than silently dropping it."""
+    if getattr(request, "ios_beta", False):
+        raise HTTPException(status_code=403, detail="Only admins can create iPhone beta invites")
+
+
 # Pydantic models
 class CreateInviteRequest(BaseModel):
     invite_type: str = Field(..., pattern="^(team_manager|team_player|team_fan)$")
@@ -64,12 +71,18 @@ class CreateInviteRequest(BaseModel):
     jersey_number: int | None = Field(None, ge=1, le=99)  # Claims that roster spot on redemption
     season_id: int | None = None  # Season scope for roster claims; default = current season
     note: str | None = Field(None, max_length=500)  # Personal note about who the invite was sent to
+    # iPhone beta (SB-1314) - admin endpoints only; manager endpoints refuse it.
+    ios_beta: bool = False
+    testflight_email: str | None = Field(None, max_length=255)  # Defaults to email
 
 
 class CreateClubManagerInviteRequest(BaseModel):
     club_id: int
     email: str | None = None
     note: str | None = Field(None, max_length=500)  # Personal note about who the invite was sent to
+    # iPhone beta (SB-1314) - admin endpoints only; manager endpoints refuse it.
+    ios_beta: bool = False
+    testflight_email: str | None = Field(None, max_length=255)  # Defaults to email
 
 
 class ClubManagerInviteResponse(BaseModel):
@@ -141,6 +154,8 @@ async def create_club_manager_invite(
             club_id=request.club_id,
             email=request.email,
             note=request.note,
+            ios_beta=request.ios_beta,
+            testflight_email=request.testflight_email,
         )
 
         return invitation
@@ -180,6 +195,8 @@ async def create_team_manager_invite(request: CreateInviteRequest, current_user=
             age_group_id=request.age_group_id,
             email=request.email,
             note=request.note,
+            ios_beta=request.ios_beta,
+            testflight_email=request.testflight_email,
         )
 
         return invitation
@@ -212,6 +229,8 @@ async def create_club_fan_invite_admin(
             club_id=request.club_id,
             email=request.email,
             note=request.note,
+            ios_beta=request.ios_beta,
+            testflight_email=request.testflight_email,
         )
 
         return invitation
@@ -243,6 +262,8 @@ async def create_team_fan_invite_admin(request: CreateInviteRequest, current_use
             age_group_id=request.age_group_id,
             email=request.email,
             note=request.note,
+            ios_beta=request.ios_beta,
+            testflight_email=request.testflight_email,
         )
 
         return invitation
@@ -285,6 +306,8 @@ async def create_team_player_invite_admin(
             jersey_number=request.jersey_number,
             season_id=request.season_id,
             note=request.note,
+            ios_beta=request.ios_beta,
+            testflight_email=request.testflight_email,
         )
 
         return invitation
@@ -303,6 +326,7 @@ async def create_club_fan_invite_club_manager(
     """Create a club fan invitation (club manager or admin)"""
     if current_user["role"] not in ["admin", "club_manager"]:
         raise HTTPException(status_code=403, detail="Only club managers or admins can create club fan invites")
+    _refuse_ios_beta(request)
 
     # Use service role client for operations to bypass RLS
     invite_service = InviteService(service_client)
@@ -340,6 +364,7 @@ async def create_team_fan_invite(request: CreateInviteRequest, current_user=Depe
     """Create a team fan invitation (team manager) - DEPRECATED: Use club-fan instead"""
     if current_user["role"] not in ["admin", "team-manager", "team_manager"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
+    _refuse_ios_beta(request)
 
     supabase = service_client
     team_manager_service = TeamManagerService(supabase)
@@ -386,6 +411,7 @@ async def create_team_player_invite(request: CreateInviteRequest, current_user=D
     """
     if current_user["role"] not in ["admin", "team-manager", "team_manager"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
+    _refuse_ios_beta(request)
 
     supabase = service_client
     team_manager_service = TeamManagerService(supabase)
@@ -422,6 +448,25 @@ async def create_team_player_invite(request: CreateInviteRequest, current_user=D
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/admin/{invite_id}/testflight/retry")
+async def retry_invite_testflight(invite_id: str, current_user=Depends(get_current_user_required)):
+    """Retry adding an iPhone beta invite's tester to TestFlight (admin only, SB-1314).
+
+    Returns the invitation with its new testflight_* fields. A TestFlight
+    failure is reported in testflight_status/testflight_error, not as an error.
+    """
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can retry TestFlight")
+
+    invite_service = InviteService(service_client)
+    try:
+        return invite_service.retry_testflight(invite_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 

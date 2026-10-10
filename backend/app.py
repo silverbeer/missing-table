@@ -2306,6 +2306,10 @@ async def delete_user(
         # Explicitly delete from user_profiles (no FK cascade exists)
         auth_service_client.table("user_profiles").delete().eq("id", user_id).execute()
 
+        # An iPhone beta tester leaves the TestFlight group with the account
+        # (SB-1314). Best effort: logs, never raises.
+        InviteService(auth_service_client).remove_testflight_for_user(user_id)
+
         # Invalidate cached user list so subsequent queries reflect the deletion
         from dao.base_dao import clear_cache
 

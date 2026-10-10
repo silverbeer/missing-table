@@ -8772,6 +8772,30 @@
       "coverage_status": "fully_covered"
     },
     {
+      "method": "POST",
+      "path": "/api/invites/admin/{invite_id}/testflight/retry",
+      "client_method": "retry_invite_testflight",
+      "client_file": "api_client/client.py",
+      "tests": [
+        {
+          "file": "tests/contract/test_invites_contract.py",
+          "test_name": "test_retry_invite_testflight_requires_auth",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_invites_contract.py",
+          "test_name": "test_retry_invite_testflight_is_admin_only",
+          "type": "contract"
+        },
+        {
+          "file": "tests/contract/test_invites_contract.py",
+          "test_name": "test_retry_invite_testflight_unknown_invite",
+          "type": "contract"
+        }
+      ],
+      "coverage_status": "fully_covered"
+    },
+    {
       "method": "GET",
       "path": "/api/leaderboards/goals",
       "client_method": "get_goals_leaderboard",

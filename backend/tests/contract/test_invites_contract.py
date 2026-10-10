@@ -107,3 +107,29 @@ class TestManagerInviteContract:
 
         with pytest.raises((AuthenticationError, AuthorizationError)):
             api_client.get_team_manager_assignments()
+
+
+@pytest.mark.contract
+class TestInviteTestflightContract:
+    """iPhone beta / TestFlight retry endpoint contracts (SB-1314)."""
+
+    def test_retry_invite_testflight_requires_auth(self, api_client: MissingTableClient):
+        """Retrying TestFlight requires authentication."""
+        from api_client import AuthenticationError
+
+        with pytest.raises((AuthenticationError, AuthorizationError)):
+            api_client.retry_invite_testflight("00000000-0000-0000-0000-000000000000")
+
+    def test_retry_invite_testflight_is_admin_only(self, authenticated_api_client: MissingTableClient):
+        """A non-admin is refused before any invite is looked up."""
+        with pytest.raises(AuthorizationError):
+            authenticated_api_client.retry_invite_testflight("00000000-0000-0000-0000-000000000000")
+
+    def test_retry_invite_testflight_unknown_invite(self, admin_client: MissingTableClient):
+        """An unknown invite is a 404, not a TestFlight call."""
+        import uuid
+
+        from api_client import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            admin_client.retry_invite_testflight(str(uuid.uuid4()))

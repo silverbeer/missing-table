@@ -105,6 +105,8 @@ class InviteService:
         expires_in_days: int = 7,
         note: str | None = None,
         season_id: int | None = None,
+        ios_beta: bool = False,
+        testflight_email: str | None = None,
     ) -> dict:
         """
         Create a new invitation
@@ -122,6 +124,10 @@ class InviteService:
             season_id: Season the invite applies to (team_player roster claims).
                 Defaults to the current season by date, stored on the invite so
                 redemption doesn't guess.
+            ios_beta: Also add the invitee to the external TestFlight group
+                (SB-1314). Admin-only; the API layer enforces that.
+            testflight_email: Apple Account email for TestFlight. Defaults to
+                ``email`` - the two often differ.
 
         Returns:
             Created invitation record
@@ -132,6 +138,15 @@ class InviteService:
                 caught at creation so the admin fixes it, not the registrant.
         """
         try:
+            if ios_beta:
+                testflight_email = (testflight_email or email or "").strip() or None
+                if not testflight_email:
+                    raise ValueError("A TestFlight email is required for an iPhone beta invite")
+            else:
+                testflight_email = None
+            # Name for the TestFlight tester, when the invite is for a known roster spot.
+            tester_name: tuple[str | None, str | None] = (None, None)
+
             # Validate parameters based on invite type
             if invite_type in ("club_manager", "club_fan"):
                 if not club_id:
@@ -171,11 +186,12 @@ class InviteService:
                             f"Jersey #{jersey_number} is already claimed by another account."
                         )
                     player_id = spot["id"]
+                    tester_name = (spot.get("first_name"), spot.get("last_name"))
                 elif player_id:
                     # Direct roster-entry invite: verify it exists and is unclaimed.
                     check = (
                         self.supabase.table("players")
-                        .select("id, user_profile_id, jersey_number")
+                        .select("id, user_profile_id, jersey_number, first_name, last_name")
                         .eq("id", player_id)
                         .limit(1)
                         .execute()
@@ -187,6 +203,7 @@ class InviteService:
                             "That roster spot is already claimed by another account."
                         )
                     jersey_number = jersey_number or check.data[0].get("jersey_number")
+                    tester_name = (check.data[0].get("first_name"), check.data[0].get("last_name"))
             else:
                 season_id = None
 
@@ -212,11 +229,18 @@ class InviteService:
                 "expires_at": expires_at.isoformat(),
                 "note": note,
             }
+            # Only written when requested, so a plain invite never depends on
+            # the SB-1314 columns.
+            if ios_beta:
+                invitation_data["testflight_email"] = testflight_email
+                invitation_data["testflight_status"] = "pending"
 
             response = self.supabase.table("invitations").insert(invitation_data).execute()
 
             if not response.data:
                 raise Exception("Failed to create invitation")
+
+            invitation = response.data[0]
 
             log_msg = f"Created {invite_type} invitation: {invite_code}"
             if player_id:
@@ -224,6 +248,11 @@ class InviteService:
             elif jersey_number:
                 log_msg += f" with jersey #{jersey_number}"
             logger.info(log_msg)
+
+            # iPhone beta (SB-1314): add to the TestFlight group. Records its
+            # own outcome on the row and never fails the invite.
+            if ios_beta:
+                self._add_to_testflight(invitation, testflight_email, *tester_name)
 
             # Fire the invitation email if an address was provided. Email
             # failures are logged but never fail the invitation create —
@@ -241,6 +270,8 @@ class InviteService:
                         invite_code=invite_code,
                         invite_type=invite_type,
                         expires_at=expires_at.isoformat(),
+                        ios_beta=ios_beta,
+                        testflight_email=testflight_email,
                     )
                     if not sent:
                         logger.warning(
@@ -253,11 +284,105 @@ class InviteService:
                         extra={"invite_type": invite_type, "reason": str(e)},
                     )
 
-            return response.data[0]
+            return invitation
 
         except Exception as e:
             logger.error(f"Error creating invitation: {e}")
             raise
+
+    def _add_to_testflight(
+        self,
+        invitation: dict,
+        testflight_email: str | None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+    ) -> dict:
+        """Add the invite's TestFlight email to the external beta group and
+        record the outcome on the row (SB-1314).
+
+        Never raises: a TestFlight failure must not fail the invite. The
+        outcome is merged into ``invitation`` (and returned) so the caller's
+        response shows it.
+        """
+        from services import testflight_client
+
+        try:
+            result = testflight_client.add_tester(testflight_email, first_name, last_name)
+        except Exception as e:  # add_tester never raises; belt and braces
+            result = testflight_client.TesterResult(status=testflight_client.STATUS_FAILED, error=str(e))
+
+        update = {"testflight_status": result.status, "testflight_error": result.error}
+        if result.tester_id:
+            update["testflight_tester_id"] = result.tester_id
+        if result.status == testflight_client.STATUS_ADDED:
+            logger.info(f"Invitation {invitation.get('id')}: added to TestFlight")
+        else:
+            logger.warning(f"Invitation {invitation.get('id')}: TestFlight add failed: {result.error}")
+
+        try:
+            self.supabase.table("invitations").update(update).eq("id", invitation["id"]).execute()
+        except Exception as e:
+            logger.error(f"Invitation {invitation.get('id')}: could not record TestFlight result: {e}")
+
+        invitation.update(update)
+        return invitation
+
+    def retry_testflight(self, invite_id: str) -> dict:
+        """Re-run the TestFlight add for an iPhone beta invite (admin retry).
+
+        Raises:
+            LookupError: invitation missing.
+            ValueError: TestFlight was never requested, or the tester was removed.
+        """
+        response = self.supabase.table("invitations").select("*").eq("id", invite_id).execute()
+        if not response.data:
+            raise LookupError("Invitation not found")
+        invitation = response.data[0]
+        if not invitation.get("testflight_status"):
+            raise ValueError("TestFlight was not requested for this invitation")
+        if invitation.get("testflight_status") == "removed":
+            raise ValueError("This tester was removed when their account was deleted")
+        return self._add_to_testflight(invitation, invitation.get("testflight_email"))
+
+    def remove_testflight_for_user(self, user_id: str) -> int:
+        """Remove a deleted user's TestFlight tester(s) from the beta group.
+
+        Best effort and never raises: called after the user is already gone.
+        Returns how many were removed.
+        """
+        from services import testflight_client
+
+        try:
+            response = (
+                self.supabase.table("invitations")
+                .select("id, testflight_tester_id")
+                .eq("used_by_user_id", user_id)
+                .eq("testflight_status", "added")
+                .execute()
+            )
+        except Exception as e:
+            logger.error(f"Could not look up TestFlight testers for user {user_id}: {e}")
+            return 0
+
+        removed = 0
+        for inv in response.data or []:
+            tester_id = inv.get("testflight_tester_id")
+            if not tester_id:
+                continue
+            result = testflight_client.remove_tester(tester_id)
+            if result.status == testflight_client.STATUS_REMOVED:
+                update = {"testflight_status": "removed", "testflight_error": None}
+                removed += 1
+                logger.info(f"Invitation {inv['id']}: TestFlight tester removed")
+            else:
+                # Left as 'added' so the row still says Apple has them.
+                update = {"testflight_error": f"remove failed: {result.error}"}
+                logger.warning(f"Invitation {inv['id']}: TestFlight remove failed: {result.error}")
+            try:
+                self.supabase.table("invitations").update(update).eq("id", inv["id"]).execute()
+            except Exception as e:
+                logger.error(f"Invitation {inv['id']}: could not record TestFlight removal: {e}")
+        return removed
 
     def validate_invite_code(self, code: str) -> dict | None:
         """

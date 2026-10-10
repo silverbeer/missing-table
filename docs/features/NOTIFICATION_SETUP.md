@@ -134,3 +134,23 @@ fulltime), same per-event preferences, same payload, sent by `backend/notificati
 
 Dormant until `APNS_KEY_ID`, `APNS_TEAM_ID` and `APNS_PRIVATE_KEY` (PEM of the `.p8`; or
 `APNS_PRIVATE_KEY_PATH`) are set; `APNS_BUNDLE_ID` defaults to `com.missingtable`.
+
+## iPhone beta invites (TestFlight, SB-1314)
+
+Admins can tick **iPhone beta** when creating an invite (Admin → Invites). The backend then adds the
+invitee's **TestFlight email** — their Apple Account address, which defaults to the invite email but
+often differs — to the external TestFlight group via the App Store Connect API
+(`backend/services/testflight_client.py`), and the invitation email gains an iPhone section: watch for
+Apple's TestFlight email, install TestFlight, then sign up with the invite code.
+
+Admin-only: the club-manager and team-manager invite endpoints refuse `ios_beta` with a 403.
+
+The outcome is stored on the invitation (`testflight_email`, `testflight_status`
+`pending|added|failed|removed`, `testflight_error`, `testflight_tester_id`; `NULL` status = not requested)
+and shown in the admin invite list. A TestFlight failure never fails the invite; **Retry** calls
+`POST /api/invites/admin/{invite_id}/testflight/retry`. A tester Apple already knows (409) is looked up
+by email and added to the group. Deleting the user removes their tester from the group (best effort).
+
+Dormant until `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY` (PEM of the App Store Connect API `.p8`)
+and `ASC_EXTERNAL_GROUP_ID` are set — until then an iPhone beta invite records `failed` /
+"App Store Connect not configured". `ASC_APP_ID` defaults to `6820504545`.
