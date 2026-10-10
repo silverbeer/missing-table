@@ -63,6 +63,13 @@
             class="support-footer-link"
             data-testid="footer-support-link"
           />
+          ·
+          <a
+            href="/privacy"
+            class="privacy-footer-link"
+            data-testid="footer-privacy-link"
+            >Privacy</a
+          >
         </div>
         <!-- Invite-only: the APK is private; only authenticated users can get a
              short-lived download URL from the backend. Android-only UI: the
@@ -339,6 +346,16 @@ export default {
 
 .support-footer-link {
   font-weight: 500;
+}
+
+.privacy-footer-link {
+  color: #2563eb;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.privacy-footer-link:hover {
+  color: #1d4ed8;
 }
 
 .android-line {
