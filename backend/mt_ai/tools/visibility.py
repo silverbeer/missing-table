@@ -28,7 +28,14 @@ class TeamIndex:
     clubs: dict[int, dict] = field(default_factory=dict)
     leagues: dict[int, dict] = field(default_factory=dict)
     test_league_ids: frozenset[int] = frozenset()
+    test_club_ids: frozenset[int] = frozenset()
     include_test: bool = False
+
+    def visible_club(self, club_id: int | None) -> dict | None:
+        """The club, unless it is unknown or test content this viewer may not see."""
+        if club_id is None or (club_id in self.test_club_ids and not self.include_test):
+            return None
+        return self.clubs.get(club_id)
 
     def club_name(self, team: dict) -> str | None:
         club = self.clubs.get(team.get("club_id") or 0)
@@ -126,5 +133,6 @@ def load_team_index(deps: ToolDeps, viewer: Viewer) -> TeamIndex:
         clubs={c["id"]: c for c in clubs},
         leagues={lg["id"]: lg for lg in leagues},
         test_league_ids=test_league_ids,
+        test_club_ids=test_club_ids,
         include_test=viewer.include_test,
     )

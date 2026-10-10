@@ -40,6 +40,11 @@ SESSIONS = {
     "club-fan": profile("u-cfan", "club-fan", club_id=11),
     "test-fan": profile("u-tfan", "team-fan", is_test=True),
     "legacy": profile("u-legacy", "user"),
+    # get_my_team (SB-1317). The usual caller: a fan who never set a team.
+    "no-team": profile("u-noteam", "team-fan"),
+    # A real fan whose profile points at a test team, and one at a deleted team.
+    "fan-of-test-team": profile("u-tteam", "team-fan", team_id=104),
+    "fan-of-gone-team": profile("u-gone", "team-fan", team_id=9999),
 }
 API_ACCOUNTS = {"api": profile("u-api", "team-fan", is_api_account=True)}
 
