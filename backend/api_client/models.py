@@ -254,6 +254,8 @@ class InviteRequestCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Name of the requester")
     team: str | None = Field(None, max_length=255, description="Team or club affiliation")
     reason: str | None = Field(None, description="Reason for wanting to join")
+    wants_ios_beta: bool = Field(False, description="Requester wants the iPhone beta")
+    website: str | None = Field(None, description="Honeypot field - should be empty")
 
 
 class InviteRequestStatusUpdate(BaseModel):

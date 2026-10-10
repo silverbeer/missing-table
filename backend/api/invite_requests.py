@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from supabase import create_client
@@ -21,6 +21,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import get_current_user_required
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from notifications.invite_request_alerts import notify_new_invite_request
+from rate_limiter import RATE_LIMITS, rate_limit
 from services.email_service import EmailService
 
 # Initialize database connection with service role for admin operations
@@ -46,6 +47,7 @@ class InviteRequestCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Name of the requester")
     team: str | None = Field(None, max_length=255, description="Team or club affiliation")
     reason: str | None = Field(None, description="Reason for wanting to join")
+    wants_ios_beta: bool = Field(False, description="Requester wants the iPhone beta")
     website: str | None = Field(None, description="Honeypot field - should be empty")
 
 
@@ -57,6 +59,7 @@ class InviteRequestResponse(BaseModel):
     name: str
     team: str | None
     reason: str | None
+    wants_ios_beta: bool = False
     status: str
     created_at: datetime
     updated_at: datetime
@@ -90,7 +93,10 @@ class TestApprovalEmail(BaseModel):
 
 # Public endpoint - no auth required
 @router.post("", status_code=201)
-async def create_invite_request(request: InviteRequestCreate, background_tasks: BackgroundTasks):
+@rate_limit(RATE_LIMITS["invite_request"])
+async def create_invite_request(
+    request: Request, payload: InviteRequestCreate, background_tasks: BackgroundTasks
+):
     """
     Submit a new invite request (public endpoint).
 
@@ -99,7 +105,7 @@ async def create_invite_request(request: InviteRequestCreate, background_tasks: 
     """
     try:
         # Honeypot check - if filled, it's a bot
-        if request.website:
+        if payload.website:
             # Return fake success to not alert the bot
             return {
                 "success": True,
@@ -110,7 +116,7 @@ async def create_invite_request(request: InviteRequestCreate, background_tasks: 
         existing = (
             service_client.table("invite_requests")
             .select("id, status")
-            .eq("email", request.email)
+            .eq("email", payload.email)
             .eq("status", "pending")
             .execute()
         )
@@ -127,10 +133,11 @@ async def create_invite_request(request: InviteRequestCreate, background_tasks: 
             service_client.table("invite_requests")
             .insert(
                 {
-                    "email": request.email,
-                    "name": request.name,
-                    "team": request.team,
-                    "reason": request.reason,
+                    "email": payload.email,
+                    "name": payload.name,
+                    "team": payload.team,
+                    "reason": payload.reason,
+                    "wants_ios_beta": payload.wants_ios_beta,
                     "status": "pending",
                 }
             )
@@ -139,12 +146,11 @@ async def create_invite_request(request: InviteRequestCreate, background_tasks: 
 
         if result.data:
             # Ping admins after the response is sent; never fails the request.
-            # wants_ios_beta is read defensively — the field lands in SB-1311.
             background_tasks.add_task(
                 notify_new_invite_request,
-                request.name,
-                request.team,
-                bool(getattr(request, "wants_ios_beta", False)),
+                payload.name,
+                payload.team,
+                payload.wants_ios_beta,
             )
             return {
                 "success": True,
@@ -165,13 +171,14 @@ async def create_invite_request(request: InviteRequestCreate, background_tasks: 
 async def list_invite_requests(
     current_user=Depends(get_current_user_required),
     status: str | None = Query(None, pattern="^(pending|approved|rejected)$"),
+    ios_beta: bool | None = Query(None, description="Filter by the iPhone-beta opt-in"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
     """
     List all invite requests (admin only).
 
-    Supports filtering by status and pagination.
+    Supports filtering by status, iPhone-beta opt-in, and pagination.
     """
     if current_user.get("role") not in ["admin", "club_manager"]:
         raise HTTPException(status_code=403, detail="Only admins can view invite requests")
@@ -186,6 +193,9 @@ async def list_invite_requests(
 
         if status:
             query = query.eq("status", status)
+
+        if ios_beta is not None:
+            query = query.eq("wants_ios_beta", ios_beta)
 
         result = query.execute()
 

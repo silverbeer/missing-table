@@ -1263,12 +1263,18 @@ class MissingTableClient:
         return response.json()
 
     def list_invite_requests(
-        self, status: str | None = None, limit: int | None = None, offset: int | None = None
+        self,
+        status: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        ios_beta: bool | None = None,
     ) -> list[dict[str, Any]]:
         """List invite requests (admin only)."""
         params: dict[str, Any] = {}
         if status is not None:
             params["status"] = status
+        if ios_beta is not None:
+            params["ios_beta"] = str(ios_beta).lower()
         if limit is not None:
             params["limit"] = limit
         if offset is not None:

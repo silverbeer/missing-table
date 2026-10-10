@@ -167,6 +167,15 @@
                   placeholder="Tell us about your interest in Missing Table"
                 ></textarea>
               </div>
+              <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  v-model="inviteRequest.wants_ios_beta"
+                  type="checkbox"
+                  data-testid="invite-ios-beta"
+                  class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                Get the iPhone beta
+              </label>
               <!-- Honeypot field - hidden from humans, bots will fill it -->
               <div style="position: absolute; left: -9999px" aria-hidden="true">
                 <input
@@ -541,6 +550,7 @@ export default {
       name: '',
       team: '',
       reason: '',
+      wants_ios_beta: false,
       website: '', // Honeypot field - bots will fill this
     });
     const inviteRequestSubmitting = ref(false);
@@ -747,6 +757,7 @@ export default {
             name: '',
             team: '',
             reason: '',
+            wants_ios_beta: false,
             website: '',
           };
         } else {
