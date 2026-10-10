@@ -136,7 +136,7 @@ off-topic questions — a model-profile finding for evals, not an MCP one.
 | `admin` | everything, incl. `is_test` content | |
 | `club_manager` | every team in `club_id` | `can_manage_team`, `can_edit_match` |
 | `team-manager` | one team, `team_id` | same checks |
-| `team-player` | the linked player; teams via `player_team_history` | held by a guardian; the player is a **minor** (SB-1307) |
+| `team-player` | the player linked by `players.user_profile_id`; teams via `player_team_history` | players are **minors**: own records only (SB-1307) |
 | `team-fan`, `club-fan` | a home team / club | read only |
 | API account (`is_api_account`) | as its role | the `/api/ai/*` token (SB-1145) |
 | `service_account` | — | **refused**: no profile to own provenance or decide visibility |
@@ -314,10 +314,11 @@ written by `TeamManagerService` and the invite flow, and empty in prod. When the
 user needs two teams, generalize `team_manager_assignments` into the membership table
 (SB-1319).
 
-**3. A `team-player` account is a guardian acting for a minor**, never the child. `self`
-tools return the *linked player's* records. The account holder is never treated as the
-player for age or consent. Edits record the guardian as their provenance (SB-1320,
-prerequisite for SB-1306).
+**3. A `team-player` account is the player's account.** There is no guardian or consent
+layer: MT shows sports results, not a social feed. `self` tools resolve the player through
+`players.user_profile_id`, which is already in the schema, and return that player's records
+only. Who holds the login, the player or a parent, is not MT's concern (SB-1320 closed as
+won't-do).
 
 **Found on the way:** the 3 prod `team-manager` accounts have no team at all, so
 `can_manage_team` grants them nothing (SB-1318).
@@ -340,7 +341,7 @@ prerequisite for SB-1306).
 | 2 | SB-1303 | All MT AI tools served over MCP; in-process registration removed |
 | 3 | SB-1304 | Admin tier (ingest failures) + Claude Code connection + first mt-admin skill |
 | 4 | SB-1305 | Team-write tier for team/club managers |
-| 5 | SB-1306 | My/self tiers for fans and players (needs SB-1317, SB-1320) |
+| 5 | SB-1306 | My/self tiers for fans and players (needs SB-1317) |
 | — | SB-1308 | Observability: dashboard, alerts, "what MT couldn't answer" learning loop |
 
 Each slice updates this document with what it taught, in the same PR.
