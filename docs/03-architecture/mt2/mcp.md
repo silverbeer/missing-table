@@ -83,6 +83,25 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/mcp/ \
 Any MCP client works with a bearer token from `/api/auth/login`; the tests in
 `backend/tests/unit/mt_ai/test_mt_mcp_*.py` show the Python client.
 
+### MT AI + mt-mcp with a local Ollama model (SB-1315)
+
+No Gemini key needed: MT AI runs a local model and calls its tools through `/mcp/`.
+
+```bash
+cd backend
+uv sync --extra local-ai                       # litellm, pinned; never in the prod image
+APP_ENV=local ../scripts/db_tools.sh migrate local    # ai_conversations etc., if missing
+MT_AI_ENABLED=true MT_AI_MODEL=ollama_chat/gemma4:12b MT_MCP_ENABLED=true \
+  uv run python app.py
+# Ollama elsewhere (e.g. the mac mini): OLLAMA_API_BASE=http://<host>:11434
+```
+
+Then log in and `POST /api/ai/chat` (or use the web app's chat). Each tool call shows up as
+an `mt_mcp.tool_call` log line with `client=mt-ai`. Verified 2026-10-10 with `gemma4:12b`:
+schedule and team questions answered correctly through both MCP tools; a turn takes tens
+of seconds on local hardware, and Gemma's reasoning text can leak into answers to
+off-topic questions — a model-profile finding for evals, not an MCP one.
+
 ---
 
 ## Who it serves

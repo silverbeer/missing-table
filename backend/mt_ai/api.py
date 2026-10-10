@@ -7,7 +7,8 @@ codes. Everything else is in `mt_ai.service` (conversations) and
 
 MT AI is off unless both are set:
     MT_AI_ENABLED=true
-    MT_AI_MODEL=<model id>   (Gemini ids need GOOGLE_API_KEY in the environment)
+    MT_AI_MODEL=<model id>   (Gemini ids need GOOGLE_API_KEY in the environment;
+                              ollama_chat/<model> runs a local Ollama model — mt_ai/models.py)
 No model id is hardcoded: which model runs is configuration (mt2/ai.md).
 """
 
@@ -15,6 +16,7 @@ import os
 import uuid
 from typing import Any, Literal
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
@@ -22,9 +24,12 @@ from pydantic import BaseModel, Field, field_validator
 from auth import get_ai_user
 from dao.ai_conversation_dao import AIConversationDAO
 from dao.match_dao import SupabaseConnection
+from mt_ai.models import ModelUnavailableError, resolve_model
 from mt_ai.service import MAX_PAGE, ChatError, ChatService, ConversationReader
 from mt_ai.tools.deps import dao_tool_deps
 from mt_mcp import config as mcp_config
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/ai", tags=["mt-ai"])
 
@@ -62,16 +67,25 @@ def configured_model() -> str | None:
 
 
 _service: ChatService | None = None
+_service_key: tuple[str, str | None] | None = None
 
 
 def get_chat_service() -> ChatService:
-    global _service
-    model = configured_model()
-    if model is None:
+    global _service, _service_key
+    model_id = configured_model()
+    if model_id is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="MT AI is not enabled.")
     mcp_url = mcp_config.internal_url() if mcp_config.mcp_enabled() else None
-    if _service is None or _service.model != model or _service.mcp_url != mcp_url:
+    if _service is None or _service_key != (model_id, mcp_url):
+        try:
+            model = resolve_model(model_id)
+        except ModelUnavailableError:
+            logger.exception("mt_ai model unavailable", model=model_id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="MT AI is not enabled."
+            ) from None
         _service = ChatService(AIConversationDAO(SupabaseConnection()), dao_tool_deps(), model, mcp_url=mcp_url)
+        _service_key = (model_id, mcp_url)
     return _service
 
 
