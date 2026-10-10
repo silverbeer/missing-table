@@ -48,7 +48,8 @@ npx supabase status
 
 ## 2. Rate Limiting
 
-**Credential endpoints only.** Everything else is unlimited, on purpose.
+**Credential endpoints and posting to live chat.** Everything else is
+unlimited, on purpose.
 
 | Endpoint | Limit |
 |---|---|
@@ -56,6 +57,7 @@ npx supabase status
 | `POST /api/auth/signup` | 3 per hour |
 | `POST /api/auth/forgot-password` | 3 per hour |
 | `POST /api/auth/reset-password` | 3 per hour |
+| `POST /api/matches/{id}/live/message` | 10 per minute **per user** (SB-1309) |
 
 This section used to describe public (100/min), authenticated (30/min) and
 admin (100/min) tiers as well. None of them were ever in effect — the
@@ -80,6 +82,11 @@ socket peer (slowapi's default `get_remote_address`) would put every user
 into a single bucket, so five failed logins anywhere would lock out
 everyone. `rate_limiter.client_key` reads `X-Forwarded-For` first, matching
 `get_client_ip` in `app.py`. Both must stay in step.
+
+Live chat is the exception: a crowd of parents on one stadium Wi-Fi shares an
+address, so `rate_limiter.user_key` buckets by the token's `sub` instead. It
+does not verify the signature itself — the endpoint's auth dependency has
+already refused a bad token before slowapi counts the request.
 
 ### Redis
 
@@ -121,6 +128,25 @@ in `backend/constants/passwords.py`.
 
 Reset previously accepted six characters, which made it the way around
 whatever signup asked for.
+
+## 2b. Live Chat Moderation (SB-1309)
+
+App Store guideline 1.2 asks apps with user-generated content to filter it,
+let users report and block, eject abusers and respond promptly. Live match
+chat (`match_events` rows with `event_type='message'`) is that content.
+
+| Need | Where |
+|---|---|
+| Filter | `services/content_filter.py` — word list, per word (never substring, so Scunthorpe/Dickson/Cockburn pass); `POST /live/message` answers 422. Rejections are logged with a hash prefix and length, never the text. |
+| Report | `POST /api/matches/{id}/live/events/{event_id}/report` → `content_reports` (text snapshotted: chat expires after 10 days); also blocks the author for the reporter. |
+| Block | `POST/DELETE /api/users/{id}/block`, `GET /api/users/me/blocks` → `user_blocks`. `/live` and `/live/events` drop blocked users' chat messages — only messages, never goals or cards. |
+| Eject | Admin `PATCH /api/admin/content-reports/{id}` with `ban_user` sets `user_profiles.chat_banned_at`; posting then answers 403. |
+| Respond | Each report sends a Telegram alert to `MT_ADMIN_TELEGRAM_CHAT_ID` (capped by `MT_REPORT_ALERT_MAX_PER_HOUR`, default 10) and counts in the admin attention badge. Review queue: `GET /api/admin/content-reports?status=pending`. |
+
+Both tables are service-key only (RLS on, no client grants), like
+`match_events` since SB-1247. Web Realtime still delivers new chat rows
+directly from `match_events`, so blocked users' *new* messages are not yet
+filtered on web until the next fetch.
 
 ## 3. CSRF Protection
 

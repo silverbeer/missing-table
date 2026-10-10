@@ -1,11 +1,12 @@
 """
 AdminAttentionDAO — single-shot aggregator for the admin nav badge.
 
-Counts items across three "needs admin attention" queues:
+Counts items across four "needs admin attention" queues:
 - Invite Requests in 'pending' status
 - Channel Requests with any platform in 'pending' (telegram or discord)
 - Support Inbox threads with unread messages where status is 'new' or 'awaiting_admin'
   (delegates to EmailThreadsDAO.unread_count_for_attention)
+- Chat content reports in 'pending' status (SB-1309)
 
 Result is cached for 30s via @dao_cache when Redis is enabled; otherwise the
 decorator no-ops and every call hits the DB (still fine — these are tiny
@@ -40,6 +41,7 @@ class AdminAttentionDAO(BaseDAO):
               "invite_requests": int,
               "channel_requests": int,
               "support_inbox": int,
+              "content_reports": int,
               "total": int,
             }
 
@@ -52,18 +54,30 @@ class AdminAttentionDAO(BaseDAO):
         invite_requests = self._count_pending_invite_requests()
         channel_requests = self._count_pending_channel_requests()
         support_inbox = EmailThreadsDAO(self.connection_holder).unread_count_for_attention()
+        content_reports = self._count_pending_content_reports()
 
-        total = invite_requests + channel_requests + support_inbox
+        total = invite_requests + channel_requests + support_inbox + content_reports
         return {
             "invite_requests": invite_requests,
             "channel_requests": channel_requests,
             "support_inbox": support_inbox,
+            "content_reports": content_reports,
             "total": total,
         }
 
     def _count_pending_invite_requests(self) -> int:
         response = (
             self.client.table("invite_requests")
+            .select("id", count="exact")
+            .eq("status", "pending")
+            .execute()
+        )
+        return response.count or 0
+
+    def _count_pending_content_reports(self) -> int:
+        """Chat reports nobody has acted on yet (SB-1309)."""
+        response = (
+            self.client.table("content_reports")
             .select("id", count="exact")
             .eq("status", "pending")
             .execute()
