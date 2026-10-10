@@ -2,8 +2,8 @@
 
 > **Audience**: Anyone building MT AI, an mt-admin Claude skill, or an MT tool
 > **Prerequisites**: [ai.md](ai.md), [current-state.md](current-state.md)
-> **Status**: Decided 2026-10-10 (SB-1301). Slice 1 built (SB-1302): `/mcp`, auth, tier gate,
-> `search_teams`, observability; MT AI calls it when `MT_MCP_ENABLED`. Epic: *MT — MCP Server (mt-mcp)*.
+> **Status**: Decided 2026-10-10 (SB-1301). Built: `/mcp`, auth, tier gate, observability
+> (SB-1302); both MT AI tools served over MCP (SB-1303). Prod flag: off until enabled in `values-prod.yaml`. Epic: *MT — MCP Server (mt-mcp)*.
 
 mt-mcp is the one typed tool layer for MT, served over the
 [Model Context Protocol](https://modelcontextprotocol.io). Every agent that reads or
@@ -66,7 +66,7 @@ upcoming matches) against the real database took 0.37 s, model excluded.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `MT_MCP_ENABLED` | `false` | Mount `/mcp`, and route MT AI's `search_teams` through it |
+| `MT_MCP_ENABLED` | `false` | Mount `/mcp`, and serve every MT AI tool through it. Off = rollback: MT AI registers the same functions in-process |
 | `MT_MCP_INTERNAL_URL` | `http://127.0.0.1:8000/mcp/` | How MT AI reaches it (loopback) |
 | `MT_MCP_ALLOWED_HOSTS` | `api.missingtable.com` | Host headers accepted besides loopback (DNS-rebinding guard) |
 
@@ -181,11 +181,14 @@ HTTP metrics see every call as `POST /mcp/`; mt-mcp adds per-tool signals in
 | `ai_tool_calls` rows, **with arguments** | Supabase (SB-1197) | Replay and evals for MT AI turns |
 
 `outcome` is the tool's own verdict: `resolved` / `ambiguous` / `not_found` for
-`search_teams`, an error kind such as `unavailable`, `refused` for a call the tier gate
+`search_teams`, `empty` when `get_upcoming_matches` checked and found nothing, an error kind such as `unavailable`, `refused` for a call the tier gate
 turned away, `failed` for a protocol error. That makes the learning questions queries:
 *which teams do people look for that MT cannot find* (not_found → aliases), *which
 searches are ambiguous* (→ better disambiguation), *which tools are popular* (→ what
 to build next), *who asks for tools they cannot have* (refused).
+
+In prod the backend runs two uvicorn workers; each keeps its own counters, like the
+existing HTTP metrics, so dashboards sum across scrapes (`sum by (...)`, `rate`).
 
 Every label is bounded — unknown tool, client or role names collapse to `other` — and
 argument **values** stay out of metrics and logs: tool arguments can name minors. The

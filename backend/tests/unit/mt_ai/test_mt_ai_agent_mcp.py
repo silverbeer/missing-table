@@ -1,4 +1,4 @@
-"""MT AI's search_teams over mt-mcp (SB-1302).
+"""MT AI's tools over mt-mcp (SB-1302, SB-1303).
 
 The real ADK runner calls the real mt-mcp app in-process (ASGI transport): only
 the model is scripted and the token check is a fake. This is the path a
@@ -33,7 +33,7 @@ class TestOverMcp:
         assert tools["search_teams"]["required"] == ["query"]
         assert set(tools["search_teams"]["properties"]) == {"query", "age_group"}
 
-    async def test_search_over_mcp_then_upcoming_in_process(self, make_deps, real_viewer):
+    async def test_search_then_upcoming_both_over_mcp(self, make_deps, real_viewer):
         model = scripted(
             calls_tool("search_teams", query="IFA", age_group="U15"),
             calls_tool("get_upcoming_matches", team_id=102, age_group_id=15),
@@ -44,10 +44,12 @@ class TestOverMcp:
 
         search, upcoming = model.tool_results()[-2:]
         # Unwrapped: the model sees the tool's own result, not an MCP envelope.
-        assert "structuredContent" not in search and "content" not in search
+        for result in (search, upcoming):
+            assert "structuredContent" not in result and "content" not in result
         assert search["status"] == "resolved"
         assert search["team"]["team_id"] == 102
         assert upcoming["matches"][0]["match_date"] == "2099-01-01"
+        assert upcoming["today"] and upcoming["timezone"]
         assert outcome.answer == "IFA U15 plays on 1 Jan 2099."
         assert (outcome.llm_calls, outcome.tool_calls) == (3, 2)
 
@@ -101,6 +103,29 @@ class TestOverMcp:
             await run_over_mcp(s, scripted(calls_tool("search_teams", query="IFA"), says(".")), real_viewer)
 
         assert seen and set(seen) == {"mt-ai"}
+
+    async def test_upcoming_over_mcp_keeps_empty_apart_from_unavailable(self, make_deps, real_viewer):
+        """[] (checked, none) must still not look like null (couldn't check) after the MCP hop."""
+        async with served(make_deps(matches=FakeMatches([]))) as s:
+            empty = scripted(calls_tool("get_upcoming_matches", team_id=102), says("."))
+            await run_over_mcp(s, empty, real_viewer)
+        async with served(make_deps(matches=FakeMatches(fail=True))) as s:
+            down = scripted(calls_tool("get_upcoming_matches", team_id=102), says("."))
+            await run_over_mcp(s, down, real_viewer)
+
+        assert empty.tool_results()[0]["matches"] == []
+        assert empty.tool_results()[0]["error"] is None
+        assert down.tool_results()[0]["matches"] is None
+        assert down.tool_results()[0]["error"]["kind"] == "unavailable"
+
+    async def test_upcoming_over_mcp_cannot_reach_hidden_test_teams(self, make_deps, real_viewer):
+        async with served(make_deps()) as s:
+            model = scripted(calls_tool("get_upcoming_matches", team_id=104), says("Not found."))
+            await run_over_mcp(s, model, real_viewer, token="fan")
+
+        result = model.tool_results()[0]
+        assert result["matches"] is None
+        assert result["error"]["kind"] == "not_found"
 
 
 class TestUnwrap:

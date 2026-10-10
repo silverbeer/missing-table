@@ -28,8 +28,8 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, ListToolsResult, TextContent
 from starlette.applications import Starlette
 
-from mt_ai.tools import ToolDeps, Viewer, search_teams
-from mt_ai.tools.schemas import ResolveResult
+from mt_ai.tools import ToolDeps, Viewer, get_upcoming_matches, search_teams
+from mt_ai.tools.schemas import ResolveResult, UpcomingMatchesResult
 from mt_mcp.auth import MTTokenVerifier, Principal, current_principal
 from mt_mcp.observe import ToolCallObserver
 from mt_mcp.scopes import CLIENT_HEADER, Tier, allowed_tiers
@@ -52,6 +52,7 @@ UNAVAILABLE = "MT could not answer that right now."
 # and never callable.
 TOOL_TIERS: dict[str, Tier] = {
     "search_teams": "read",
+    "get_upcoming_matches": "read",
 }
 
 DepsProvider = Callable[[], ToolDeps]
@@ -81,6 +82,20 @@ def register_tools(server: MCPServer, deps: DepsProvider) -> None:
         or not_found. `age_group` is like "U15" when the user gave one."""
         viewer = Viewer.from_user(_caller().as_user())
         return await _run(lambda: search_teams(deps(), query, viewer, age_group=age_group), "search_teams")
+
+    @server.tool(name="get_upcoming_matches")
+    async def get_upcoming_matches_tool(
+        team_id: int, age_group_id: int | None = None, limit: int = 5
+    ) -> UpcomingMatchesResult:
+        """A team's next matches, today or later in the club's time zone: scheduled,
+        tbd, live or postponed. Use team_id and age_group.id from search_teams.
+        "matches" is [] when nothing is scheduled and null when it could not be
+        checked (see "error")."""
+        viewer = Viewer.from_user(_caller().as_user())
+        return await _run(
+            lambda: get_upcoming_matches(deps(), team_id, viewer, age_group_id=age_group_id, limit=limit),
+            "get_upcoming_matches",
+        )
 
 
 def _client_of(ctx: ServerRequestContext[Any, Any]) -> str | None:

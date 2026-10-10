@@ -5,7 +5,7 @@ scraper's: teams with no manager, no roster and no logged events.
 """
 
 import pytest
-from mt_ai_fakes import FakeTeams
+from mt_ai_fakes import FakeMatches, FakeTeams, match_row
 from mt_mcp_harness import MCP_HEADERS, initialize_body, served
 
 from mt_mcp.observe import TOOL_CALLS
@@ -13,6 +13,8 @@ from mt_mcp.scopes import MT_AI_CLIENT
 from mt_mcp.server import TOOL_TIERS, UNAVAILABLE
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
+
+READ_TOOLS = {"search_teams", "get_upcoming_matches"}
 
 
 class TestAuthentication:
@@ -42,7 +44,7 @@ class TestAuthentication:
         async with served(make_deps()) as s, s.session(token) as session:
             tools = await session.list_tools()
 
-        assert [t.name for t in tools.tools] == ["search_teams"]
+        assert {t.name for t in tools.tools} == READ_TOOLS
 
 
 class TestTierGate:
@@ -54,11 +56,12 @@ class TestTierGate:
         async with served(make_deps()) as s, s.session(token, client) as session:
             tools = await session.list_tools()
 
-        assert {t.name for t in tools.tools} == {"search_teams"}
+        assert {t.name for t in tools.tools} == READ_TOOLS
 
     async def test_a_tool_outside_the_callers_tiers_is_neither_listed_nor_callable(self, make_deps, monkeypatch):
         """Gate check with a tool from a tier a fan does not have; reads as an unknown tool."""
         monkeypatch.setitem(TOOL_TIERS, "search_teams", "admin")
+        monkeypatch.setitem(TOOL_TIERS, "get_upcoming_matches", "admin")
 
         async with served(make_deps()) as s:
             async with s.session("fan") as session:
@@ -73,7 +76,7 @@ class TestTierGate:
         assert listed.tools == []
         assert refused.is_error and refused.content[0].text == "Unknown tool: search_teams"
         assert unknown.is_error and unknown.content[0].text == "Unknown tool: no_such_tool"
-        assert [t.name for t in admin_listed.tools] == ["search_teams"]
+        assert {t.name for t in admin_listed.tools} == READ_TOOLS
         # An admin chatting through MT AI still does not get admin tools.
         assert via_ai.tools == []
 
@@ -81,7 +84,7 @@ class TestTierGate:
 class TestSearchTeams:
     async def test_the_schemas_come_from_the_pydantic_models(self, make_deps):
         async with served(make_deps()) as s, s.session("fan") as session:
-            (tool,) = (await session.list_tools()).tools
+            tool = next(t for t in (await session.list_tools()).tools if t.name == "search_teams")
 
         assert tool.input_schema["required"] == ["query"]
         assert set(tool.input_schema["properties"]) == {"query", "age_group"}
@@ -140,6 +143,35 @@ class TestSearchTeams:
         assert "SUPABASE" not in result.content[0].text
 
 
+class TestUpcomingMatches:
+    async def test_schemas(self, make_deps):
+        async with served(make_deps()) as s, s.session("fan") as session:
+            tool = next(t for t in (await session.list_tools()).tools if t.name == "get_upcoming_matches")
+
+        assert tool.input_schema["required"] == ["team_id"]
+        assert set(tool.input_schema["properties"]) == {"team_id", "age_group_id", "limit"}
+        assert {"matches", "error", "today", "timezone"} <= set(tool.output_schema["properties"])
+
+    async def test_an_unclaimed_teams_fixtures_come_back(self, make_deps):
+        async with served(make_deps(matches=FakeMatches([match_row(9, "2099-01-01")]))) as s:
+            async with s.session("fan") as session:
+                result = await session.call_tool("get_upcoming_matches", {"team_id": 102, "age_group_id": 15})
+
+        data = result.structured_content
+        assert data["error"] is None
+        assert [m["match_date"] for m in data["matches"]] == ["2099-01-01"]
+
+    async def test_a_test_teams_fixtures_are_visible_only_to_test_viewers(self, make_deps):
+        async with served(make_deps()) as s:
+            async with s.session("fan") as session:
+                fan = await session.call_tool("get_upcoming_matches", {"team_id": 104})
+            async with s.session("admin") as session:
+                admin = await session.call_tool("get_upcoming_matches", {"team_id": 104})
+
+        assert fan.structured_content["error"]["kind"] == "not_found"
+        assert admin.structured_content["error"] is None
+
+
 def _count(tool: str, client: str, role: str, outcome: str) -> float:
     return TOOL_CALLS.labels(tool=tool, client=client, role=role, outcome=outcome)._value.get()
 
@@ -156,6 +188,14 @@ class TestObservability:
         assert _count("search_teams", "mt-ai", "team-fan", "resolved") == before["resolved"] + 1
         assert _count("search_teams", "mt-ai", "team-fan", "ambiguous") == before["ambiguous"] + 1
         assert _count("search_teams", "mt-ai", "team-fan", "not_found") == before["not_found"] + 1
+
+    async def test_nothing_scheduled_is_counted_as_empty(self, make_deps):
+        before = _count("get_upcoming_matches", "none", "team-fan", "empty")
+
+        async with served(make_deps(matches=FakeMatches([]))) as s, s.session("fan") as session:
+            await session.call_tool("get_upcoming_matches", {"team_id": 102})
+
+        assert _count("get_upcoming_matches", "none", "team-fan", "empty") == before + 1
 
     async def test_refused_and_unknown_calls_are_counted_without_new_label_values(self, make_deps):
         before = _count("other", "none", "admin", "refused")
