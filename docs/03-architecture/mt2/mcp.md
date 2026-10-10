@@ -146,7 +146,7 @@ off-topic questions — a model-profile finding for evals, not an MCP one.
 | Tier | Who | Examples |
 |------|-----|----------|
 | **read** | every role | `search_teams`, `get_upcoming_matches`, `get_standings`, `get_match`, `get_team_stats` (with coverage) |
-| **my** | fans, players, managers | `get_my_team` — "when do we play" without naming the team |
+| **my** | fans, players, managers | `get_my_team` (built, SB-1317) — "when do we play" without naming the team; `no_team` when none is set |
 | **self** | `team-player` | `get_my_stats`, `get_my_profile` — own records only |
 | **team-write** | `team-manager` (own team), `club_manager` (club's teams) | roster add/edit, live scoring |
 | **admin** | `admin` | `list_ingest_failures`, `resolve_ingest_failure` (built, SB-1304); team mappings, users, audit next |
@@ -225,7 +225,7 @@ HTTP metrics see every call as `POST /mcp/`; mt-mcp adds per-tool signals in
 | `ai_tool_calls` rows, **with arguments** | Supabase (SB-1197) | Replay and evals for MT AI turns; the gap report below |
 
 `outcome` is the tool's own verdict: `resolved` / `ambiguous` / `not_found` for
-`search_teams`, `empty` when `get_upcoming_matches` checked and found nothing, an error kind such as `unavailable`, `refused` for a call the tier gate
+`search_teams`, `team` / `club` / `no_team` for `get_my_team`, `empty` when `get_upcoming_matches` checked and found nothing, an error kind such as `unavailable`, `refused` for a call the tier gate
 turned away, `failed` for a protocol error. That makes the learning questions queries:
 *which teams do people look for that MT cannot find* (not_found → aliases), *which
 searches are ambiguous* (→ better disambiguation), *which tools are popular* (→ what
@@ -356,6 +356,18 @@ yet. Every `my`-tier and team-write tool resolves the caller's team through one 
 (SB-1317). A later membership table then changes that function and nothing else. A caller
 with no team is a normal state: `200` with an explicit "no team set", never `404`.
 
+*Built (SB-1317):* `resolve_my_team` in `backend/mt_tools/my_team.py` is the one place
+my-tier and team-write tools read membership — `team_id`, else `club_id`, from the caller's
+token. `auth.can_manage_team` reads the profile itself, and must change together with this
+module when membership moves (SB-1319). The resolver returns `team`, `club` (with the club's
+teams) or `no_team`. A `team_id` pointing at a deleted team, or at test content the caller
+may not see, is logged and falls back to `club_id`; with nothing left the answer is
+`no_team`. `teams: []` means none the caller can see: a club with no teams, or a team that
+plays in no visible competition. Visibility is `search_teams`' team index. A failed read is
+`unavailable`, never `no_team`. `get_my_team` is its first consumer. **SB-1305 team-write
+tools must resolve the team through it, then re-check that team with `auth.py`
+(`can_manage_team`) before writing.**
+
 **2. Don't add a third membership mechanism.** Two already exist: `user_profiles.team_id`,
 which `auth.py` reads, and `team_manager_assignments`, which is multi-team,
 written by `TeamManagerService` and the invite flow, and empty in prod. When the first real
@@ -389,6 +401,7 @@ won't-do).
 | 2 | SB-1303 | All MT AI tools served over MCP; in-process registration removed |
 | 3 | SB-1304 | Admin tier (ingest failures) + Claude Code connection + first mt-admin skill |
 | 4 | SB-1305 | Team-write tier for team/club managers |
+| — | SB-1317 | The my-team resolver + `get_my_team` (the first `my`-tier tool) |
 | 5 | SB-1306 | My/self tiers for fans and players (needs SB-1317) |
 | — | SB-1308 | Observability: dashboard, alerts, "what MT couldn't answer" learning loop |
 

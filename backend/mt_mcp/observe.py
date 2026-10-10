@@ -9,10 +9,11 @@ existing /metrics, scraped by Grafana Alloy):
 
 HTTP metrics see only "POST /mcp"; these say which tool. `outcome` is the
 tool's own verdict where it has one — `resolved` / `ambiguous` / `not_found`
-for search_teams, `empty` for a list tool that checked and found nothing (no
-upcoming matches), an error kind (`unavailable`, ...) — so "what do people ask
-for that MT cannot find" is a query, not a log trawl. Calls refused by the tier
-gate are `refused`; protocol-level failures are `failed`.
+for search_teams, `team` / `club` / `no_team` for get_my_team, `empty` for a
+list tool that checked and found nothing (no upcoming matches), an error kind
+(`unavailable`, ...) — so "what do people ask for that MT cannot find" is a
+query, not a log trawl. Calls refused by the tier gate are `refused`;
+protocol-level failures are `failed`.
 
 Every label is bounded: names outside the known sets collapse to "other".
 Arguments are not labels; the log carries their names only. Recording argument
@@ -54,6 +55,9 @@ KNOWN_OUTCOMES = frozenset(
         "not_found",
         "would_resolve",
         "already_resolved",
+        "team",
+        "club",
+        "no_team",
         "unavailable",
         "invalid",
         "refused",

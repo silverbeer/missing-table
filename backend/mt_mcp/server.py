@@ -41,6 +41,7 @@ from mt_tools.ingest import (
     list_ingest_failures,
     resolve_ingest_failure,
 )
+from mt_tools.my_team import MyTeamResult, resolve_my_team
 
 logger = structlog.get_logger()
 
@@ -61,6 +62,7 @@ UNAVAILABLE = "MT could not answer that right now."
 TOOL_TIERS: dict[str, Tier] = {
     "search_teams": "read",
     "get_upcoming_matches": "read",
+    "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
 }
@@ -107,6 +109,18 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
             lambda: get_upcoming_matches(deps(), team_id, viewer, age_group_id=age_group_id, limit=limit),
             "get_upcoming_matches",
         )
+
+    # --- my tier --------------------------------------------------------------
+
+    @server.tool(name="get_my_team")
+    async def get_my_team_tool() -> MyTeamResult:
+        """The caller's own team: status "team" (their team, one entry per age
+        group), "club" (their club and its teams) or "no_team" when none is set —
+        a normal answer, not an error. "teams" [] means none you can see: a club
+        with no teams, or a team that plays in no competition you can see. Use
+        team_id and age_group.id from "teams" with the other tools."""
+        user = _caller().as_user()
+        return await _run(lambda: resolve_my_team(deps(), user, Viewer.from_user(user)), "get_my_team")
 
     # --- admin tier -----------------------------------------------------------
 
