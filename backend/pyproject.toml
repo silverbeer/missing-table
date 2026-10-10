@@ -64,6 +64,11 @@ telegram-notify = { git = "https://github.com/silverbeer/telegram-notify", rev =
 discord-notify = { git = "https://github.com/silverbeer/discord-notify", rev = "main" }
 
 [project.optional-dependencies]
+# MT AI against a local Ollama model (mt_ai/models.py). Never in the prod image.
+# Pinned exactly: litellm 1.82.7/1.82.8 were malicious PyPI releases (March 2026).
+local-ai = [
+    "litellm==1.95.0",  # newest that keeps prod's aiohttp pin; see SB-1315
+]
 dev = [
     "pytest>=8.3.3",
     "pytest-cov>=6.0.0",

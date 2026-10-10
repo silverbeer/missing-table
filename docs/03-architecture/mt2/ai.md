@@ -647,6 +647,10 @@ PROFILES = {
 def build_model(profile: str) -> BaseLlm: ...   # FallbackModel over the list
 ```
 
+> **Built (SB-1315):** `MT_AI_MODEL=ollama_chat/<model>` resolves to `LiteLlm` at
+> `OLLAMA_API_BASE` (`mt_ai/models.py`). `litellm` is the optional `local-ai` extra, pinned
+> exactly and kept out of the prod image. Running it: [mcp.md](mcp.md#mt-ai--mt-mcp-with-a-local-ollama-model-sb-1315).
+
 - Profiles are configuration (`MT_AI_PROFILE_CHAT=…`), not code. Agent code names a
   profile, never a provider.
 - Model identifiers and prices are deliberately left out of this document: they change
