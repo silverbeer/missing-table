@@ -99,6 +99,19 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: telegram-bot-token
               optional: true
+        # Admin ping on new invite requests (SB-1313). Optional: without
+        # either destination the ping is skipped with an info log. Telegram
+        # reuses TELEGRAM_BOT_TOKEN above; the chat id is not a secret.
+        - name: MT_ADMIN_DISCORD_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: admin-discord-webhook-url
+              optional: true
+        {{- if .Values.notifications.adminTelegramChatId }}
+        - name: MT_ADMIN_TELEGRAM_CHAT_ID
+          value: {{ .Values.notifications.adminTelegramChatId | quote }}
+        {{- end }}
         # VAPID keypair + subject for Web Push notifications (SB-51).
         # Optional: pod boots even if absent; web_push_sender.is_configured()
         # returns False and push fan-out is silently skipped. ESO populates
