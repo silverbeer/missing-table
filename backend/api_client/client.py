@@ -817,6 +817,11 @@ class MissingTableClient:
         response = self._request("POST", "/api/invites/admin/club-fan", json_data=payload)
         return response.json()
 
+    def retry_invite_testflight(self, invite_id: str) -> dict[str, Any]:
+        """Retry adding an iPhone beta invite's tester to TestFlight (admin only)."""
+        response = self._request("POST", f"/api/invites/admin/{invite_id}/testflight/retry")
+        return response.json()
+
     # Club manager invite creation endpoints
 
     def create_club_fan_invite(self, club_id: int, email: str | None = None) -> dict[str, Any]:

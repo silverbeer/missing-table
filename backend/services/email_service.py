@@ -160,6 +160,8 @@ class EmailService:
         invite_code: str,
         invite_type: str | None = None,
         expires_at: str | None = None,
+        ios_beta: bool = False,
+        testflight_email: str | None = None,
     ) -> bool:
         """
         Send an invitation email with a redemption link.
@@ -170,6 +172,9 @@ class EmailService:
             invite_type: e.g. "club_fan", "team_manager" (used for subject framing)
             expires_at: ISO datetime string for when the code expires
                 (rendered as a friendly date in the body if provided)
+            ios_beta: Add the iPhone beta (TestFlight) steps (SB-1314)
+            testflight_email: Apple Account address TestFlight will write to;
+                defaults to to_email
 
         Returns:
             True on success, False on failure
@@ -210,6 +215,33 @@ class EmailService:
                 # Bad input format — skip the line rather than fail the send.
                 pass
 
+        # iPhone beta steps (SB-1314). Apple sends its own TestFlight email,
+        # often to a different address than this one, so name it.
+        ios_html = ""
+        ios_text = ""
+        if ios_beta:
+            from html import escape as _escape
+
+            tf_email = testflight_email or to_email
+            ios_html = f"""
+    <h3 style="color: #111827; margin-top: 24px;">Get the iPhone app (beta)</h3>
+    <ol style="padding-left: 20px; color: #374151;">
+      <li>Watch for an email from Apple TestFlight sent to
+          <strong>{_escape(tf_email)}</strong>.</li>
+      <li>Install TestFlight from the App Store, then accept the invitation
+          in that email to install Missing Table.</li>
+      <li>Open Missing Table and sign up with this code:
+          <strong>{invite_code}</strong></li>
+    </ol>
+"""
+            ios_text = (
+                "Get the iPhone app (beta):\n"
+                f"1. Watch for an email from Apple TestFlight sent to {tf_email}.\n"
+                "2. Install TestFlight from the App Store, then accept the "
+                "invitation in that email to install Missing Table.\n"
+                f"3. Open Missing Table and sign up with this code: {invite_code}\n\n"
+            )
+
         html_body = f"""
 <!DOCTYPE html>
 <html>
@@ -233,6 +265,7 @@ class EmailService:
       Or paste this code on the signup page: <strong>{invite_code}</strong>
     </p>
     {expiry_html}
+    {ios_html}
     {_support_html_block()}
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
     <p style="color: #9ca3af; font-size: 12px;">Missing Table · missingtable.com</p>
@@ -248,6 +281,7 @@ class EmailService:
             f"{redemption_url}\n\n"
             f"Or paste this code on the signup page: {invite_code}\n\n"
             f"{expiry_text}"
+            f"{ios_text}"
             f"{_support_text_block()}"
             "— Missing Table"
         )

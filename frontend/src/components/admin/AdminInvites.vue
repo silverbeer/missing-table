@@ -166,6 +166,40 @@
           </p>
         </div>
 
+        <!-- iPhone beta (admin only, SB-1314) -->
+        <div v-if="isAdmin" data-testid="invite-ios-beta-section">
+          <label class="inline-flex items-center gap-2 text-sm text-fg">
+            <input
+              v-model="newInvite.iosBeta"
+              type="checkbox"
+              data-testid="invite-ios-beta-checkbox"
+              class="rounded border-line"
+            />
+            iPhone beta
+          </label>
+          <p class="mt-1 text-xs text-fg-muted">
+            Adds them to the TestFlight beta — Apple emails them an invitation
+            to install the iPhone app.
+          </p>
+          <div v-if="newInvite.iosBeta" class="mt-2">
+            <label class="block text-sm font-medium text-fg mb-2"
+              >TestFlight email</label
+            >
+            <input
+              v-model="newInvite.testflightEmail"
+              type="email"
+              :required="!newInvite.email"
+              :placeholder="newInvite.email || 'Their Apple Account email'"
+              data-testid="invite-testflight-email-input"
+              class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p class="mt-1 text-xs text-fg-muted">
+              The Apple Account email on their iPhone — often not the same as
+              the invite email. Leave blank to use the invite email.
+            </p>
+          </div>
+        </div>
+
         <!-- Note (Optional) -->
         <div>
           <label class="block text-sm font-medium text-fg mb-2"
@@ -348,6 +382,24 @@
                 invite.used_by_user.display_name || invite.used_by_user.username
               }}
             </p>
+            <p v-if="invite.testflight_status">
+              <span class="text-fg-muted">TestFlight:</span>
+              <span
+                :class="testflightBadgeClass(invite.testflight_status)"
+                :title="invite.testflight_error || ''"
+                class="ml-1 px-2 py-0.5 text-xs rounded-full"
+                >{{ invite.testflight_status }}</span
+              >
+              <button
+                v-if="canRetryTestflight(invite)"
+                type="button"
+                class="ml-2 text-blue-600 hover:text-blue-900 text-xs font-medium"
+                :disabled="retryingTestflightId === invite.id"
+                @click="retryTestflight(invite)"
+              >
+                {{ retryingTestflightId === invite.id ? 'Retrying…' : 'Retry' }}
+              </button>
+            </p>
             <p v-if="invite.note" class="text-fg text-xs italic">
               {{ invite.note }}
             </p>
@@ -483,6 +535,30 @@
                   {{ invite.email }}
                 </span>
                 <span v-else class="text-fg-muted">—</span>
+                <div
+                  v-if="invite.testflight_status"
+                  class="mt-1 flex items-center gap-2"
+                  data-testid="invite-testflight-cell"
+                >
+                  <span
+                    :class="testflightBadgeClass(invite.testflight_status)"
+                    :title="invite.testflight_error || ''"
+                    class="px-2 py-0.5 text-xs rounded-full"
+                    >TestFlight: {{ invite.testflight_status }}</span
+                  >
+                  <button
+                    v-if="canRetryTestflight(invite)"
+                    type="button"
+                    data-testid="retry-testflight-button"
+                    class="text-blue-600 hover:text-blue-900 text-xs font-medium"
+                    :disabled="retryingTestflightId === invite.id"
+                    @click="retryTestflight(invite)"
+                  >
+                    {{
+                      retryingTestflightId === invite.id ? 'Retrying…' : 'Retry'
+                    }}
+                  </button>
+                </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span
@@ -678,6 +754,49 @@
               </dd>
             </div>
 
+            <div
+              v-if="selectedInvite.testflight_status"
+              class="sm:col-span-2"
+              data-testid="invite-detail-testflight"
+            >
+              <dt
+                class="text-xs font-medium text-fg-muted uppercase tracking-wider"
+              >
+                iPhone beta (TestFlight)
+              </dt>
+              <dd class="mt-1 text-fg space-y-1">
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="
+                      testflightBadgeClass(selectedInvite.testflight_status)
+                    "
+                    class="px-2 py-1 text-xs rounded-full"
+                    >{{ selectedInvite.testflight_status }}</span
+                  >
+                  <span>{{ selectedInvite.testflight_email }}</span>
+                  <button
+                    v-if="canRetryTestflight(selectedInvite)"
+                    type="button"
+                    class="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                    :disabled="retryingTestflightId === selectedInvite.id"
+                    @click="retryTestflight(selectedInvite)"
+                  >
+                    {{
+                      retryingTestflightId === selectedInvite.id
+                        ? 'Retrying…'
+                        : 'Retry'
+                    }}
+                  </button>
+                </div>
+                <p
+                  v-if="selectedInvite.testflight_error"
+                  class="text-xs text-red-700 break-words"
+                >
+                  {{ selectedInvite.testflight_error }}
+                </p>
+              </dd>
+            </div>
+
             <div>
               <dt
                 class="text-xs font-medium text-fg-muted uppercase tracking-wider"
@@ -786,6 +905,8 @@ const statusFilter = ref('');
 const copyButtonText = ref('Copy Message');
 // Selected invite for the detail modal. `null` = modal closed.
 const selectedInvite = ref(null);
+// Invite whose TestFlight add is being retried (SB-1314).
+const retryingTestflightId = ref(null);
 
 const openInviteDetail = invite => {
   selectedInvite.value = invite;
@@ -875,6 +996,8 @@ const newInvite = ref({
   jerseyNumber: null,
   seasonId: null,
   note: '',
+  iosBeta: false,
+  testflightEmail: '',
 });
 
 // Fetch teams, age groups, and clubs
@@ -941,12 +1064,23 @@ const createInvite = async () => {
     let endpoint;
     let body;
 
+    // iPhone beta (SB-1314) is admin-only; manager endpoints refuse it.
+    const iosBeta =
+      isAdmin.value && newInvite.value.iosBeta
+        ? {
+            ios_beta: true,
+            testflight_email:
+              newInvite.value.testflightEmail || newInvite.value.email || null,
+          }
+        : {};
+
     if (newInvite.value.inviteType === 'club_manager') {
       endpoint = '/api/invites/admin/club-manager';
       body = JSON.stringify({
         club_id: parseInt(newInvite.value.clubId),
         email: newInvite.value.email || null,
         note: newInvite.value.note || null,
+        ...iosBeta,
       });
     } else if (newInvite.value.inviteType === 'club_fan') {
       // Club managers use their own endpoint, admins use admin endpoint
@@ -958,6 +1092,7 @@ const createInvite = async () => {
         club_id: parseInt(newInvite.value.clubId),
         email: newInvite.value.email || null,
         note: newInvite.value.note || null,
+        ...iosBeta,
       });
     } else {
       endpoint = '/api/invites/admin/';
@@ -972,6 +1107,7 @@ const createInvite = async () => {
         age_group_id: parseInt(newInvite.value.ageGroupId),
         email: newInvite.value.email || null,
         note: newInvite.value.note || null,
+        ...iosBeta,
       };
       // Add jersey_number + season for team_player invites
       if (newInvite.value.inviteType === 'team_player') {
@@ -1008,6 +1144,8 @@ const createInvite = async () => {
       jerseyNumber: null,
       seasonId: null,
       note: '',
+      iosBeta: false,
+      testflightEmail: '',
     };
 
     // Refresh invites list
@@ -1041,6 +1179,46 @@ const cancelInvite = async inviteId => {
     alert('Failed to cancel invite. Please try again.');
   }
 };
+
+// Retry the TestFlight add for an iPhone beta invite (SB-1314)
+const retryTestflight = async invite => {
+  retryingTestflightId.value = invite.id;
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/api/invites/admin/${invite.id}/testflight/retry`,
+      { method: 'POST', headers: authStore.getAuthHeaders() }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(errorMessage(data, 'Failed to retry TestFlight'));
+    }
+    if (selectedInvite.value?.id === invite.id) {
+      selectedInvite.value = { ...selectedInvite.value, ...data };
+    }
+    if (data.testflight_status === 'failed') {
+      alert(`TestFlight still failing: ${data.testflight_error || 'unknown'}`);
+    }
+    await fetchInvites();
+  } catch (error) {
+    console.error('Error retrying TestFlight:', error);
+    alert(`Failed to retry TestFlight: ${error.message}`);
+  } finally {
+    retryingTestflightId.value = null;
+  }
+};
+
+const canRetryTestflight = invite =>
+  isAdmin.value &&
+  (invite.testflight_status === 'failed' ||
+    invite.testflight_status === 'pending');
+
+const testflightBadgeClass = status =>
+  ({
+    pending: 'bg-yellow-100 text-yellow-800',
+    added: 'bg-green-100 text-green-800',
+    failed: 'bg-red-100 text-red-800',
+    removed: 'bg-gray-100 text-gray-800',
+  })[status] || 'bg-gray-100 text-gray-800';
 
 // Utility functions
 const formatInviteType = type => {
