@@ -1,5 +1,9 @@
 """The MT assistant: one ADK agent with two tools (SB-1143, SB-1152).
 
+With `mcp` given (SB-1302), search_teams comes from mt-mcp over MCP, called
+with the end user's own token, so the server — not this module — decides what
+the caller may see. get_upcoming_matches stays in-process until SB-1303.
+
 This module is the only place that knows about ADK. It takes plain inputs
 (history as text, a message, a viewer, a budget) and returns a plain
 `TurnOutcome`; the conversation service and the API never see ADK objects,
@@ -10,6 +14,8 @@ MT's own `ai_messages` rows each time, so MT owns the conversation record and
 ADK's session format can change without a migration.
 """
 
+import json
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -22,6 +28,7 @@ from google.adk.events import Event
 from google.adk.models.base_llm import BaseLlm
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.tools.mcp_tool import McpToolset, StreamableHTTPConnectionParams
 from google.genai import types
 
 from mt_ai.budget import Budget, BudgetExhaustedError, BudgetLimit, ToolCallGuard
@@ -29,6 +36,12 @@ from mt_ai.tools import ToolDeps, Viewer, get_upcoming_matches, search_teams
 from mt_ai.trace import ToolCallRecord, TurnRecorder
 
 logger = structlog.get_logger()
+
+# ADK's MCP client tries Google mTLS before every new MCP session by probing for
+# Google credentials — off-GCP, a 3-10 s wait on the metadata server — and caches
+# a failure only per toolset, which here is per turn. mt-mcp is not a Google API.
+# An explicit setting still wins (SB-1302).
+os.environ.setdefault("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
 
 APP_NAME = "mt_ai"
 AGENT_NAME = "mt_assistant"
@@ -91,6 +104,56 @@ class AIRunError(Exception):
         self.llm_ms = llm_ms
 
 
+@dataclass(frozen=True)
+class McpAccess:
+    """How this turn reaches mt-mcp: where, and as whom.
+
+    `bearer` is the end user's own token, forwarded unchanged; the client
+    header caps the tool tiers at what MT AI may use (scopes.py), and
+    `tool_filter` repeats that cap on this side.
+    """
+
+    url: str
+    bearer: str
+    tools: tuple[str, ...] = ("search_teams",)
+    timeout_s: float = 10.0
+    httpx_client_factory: Any = None  # tests inject an in-process transport
+
+    def toolset(self) -> McpToolset:
+        params: dict[str, Any] = {
+            "url": self.url,
+            "headers": {"Authorization": f"Bearer {self.bearer}", "X-MT-Client": "mt-ai"},
+            "timeout": self.timeout_s,
+            "sse_read_timeout": self.timeout_s,
+        }
+        if self.httpx_client_factory is not None:
+            params["httpx_client_factory"] = self.httpx_client_factory
+        return McpToolset(connection_params=StreamableHTTPConnectionParams(**params), tool_filter=list(self.tools))
+
+
+def unwrap_mcp_result(tool_response: Any) -> Any:
+    """An MCP tool's CallToolResult → the tool's own dict, as an in-process tool returns it.
+
+    The model then sees one copy of the result (not a text copy plus
+    structuredContent), and the trace records the same shape for both kinds of
+    tool. A protocol-level error (unknown tool, refused call) becomes a tool
+    error the agent's instruction already handles.
+    """
+    if not isinstance(tool_response, dict) or "content" not in tool_response:
+        return tool_response
+    structured = tool_response.get("structuredContent")
+    if isinstance(structured, dict) and not tool_response.get("isError"):
+        return structured
+    text = "".join(c.get("text", "") for c in tool_response.get("content") or [] if isinstance(c, dict))
+    if tool_response.get("isError"):
+        return {"error": {"kind": "unavailable", "message": text or "Tool failed."}}
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return {"value": text}
+    return parsed if isinstance(parsed, dict) else {"value": parsed}
+
+
 def model_name(model: BaseLlm | str) -> str:
     return model if isinstance(model, str) else model.model
 
@@ -136,10 +199,20 @@ async def run_turn(
     message: str,
     budget: Budget,
     session_id: str,
+    mcp: McpAccess | None = None,
 ) -> TurnOutcome:
     guard = ToolCallGuard(budget.max_tool_calls)
     recorder = TurnRecorder()
     llm_calls = 0
+
+    def after_tool(tool: Any, args: dict[str, Any], tool_context: Any, tool_response: Any) -> Any:
+        result = unwrap_mcp_result(tool_response)
+        recorder.after_tool(tool, args, tool_context, result)
+        # None keeps ADK's own response; a value replaces it.
+        return None if result is tool_response else result
+
+    toolset = mcp.toolset() if mcp else None
+    search: Any = toolset if toolset else make_search_teams_tool(deps, viewer)
 
     def count_llm_call(callback_context: Any, llm_request: Any) -> None:
         nonlocal llm_calls
@@ -149,12 +222,12 @@ async def run_turn(
         name=AGENT_NAME,
         model=model,
         instruction=INSTRUCTION,
-        tools=[make_search_teams_tool(deps, viewer), make_upcoming_matches_tool(deps, viewer)],
+        tools=[search, make_upcoming_matches_tool(deps, viewer)],
         # The guard runs first: a call over budget is stopped, never timed.
         before_model_callback=[count_llm_call, recorder.before_model],
         after_model_callback=recorder.after_model,
         before_tool_callback=[guard.before_tool, recorder.before_tool],
-        after_tool_callback=recorder.after_tool,
+        after_tool_callback=after_tool,
     )
     sessions = InMemorySessionService()
     session = await sessions.create_session(app_name=APP_NAME, user_id="viewer", session_id=session_id)
@@ -184,6 +257,9 @@ async def run_turn(
     except Exception as exc:
         logger.exception("mt_ai run failed", session_id=session_id, llm_calls=llm_calls)
         raise AIRunError(type(exc).__name__, tuple(recorder.calls), recorder.llm_ms) from exc
+    finally:
+        if toolset is not None:
+            await toolset.close()
 
     answer = "".join(answer_parts).strip()
     if not answer:

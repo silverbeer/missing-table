@@ -1,6 +1,7 @@
 import asyncio
 import os
 from collections import Counter
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -147,7 +148,20 @@ from user_preferences import UnknownAgeGroupError, merge_preferences, read_prefe
 setup_logging(service_name="backend")
 logger = get_logger(__name__)
 
-app = FastAPI(title="Enhanced Sports League API", version="2.0.0")
+# Long-lived async services started with the app; mt-mcp's session manager
+# registers here when it is mounted (SB-1302).
+_lifespan_contexts: list = []
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    async with AsyncExitStack() as stack:
+        for make_context in _lifespan_contexts:
+            await stack.enter_async_context(make_context())
+        yield
+
+
+app = FastAPI(title="Enhanced Sports League API", version="2.0.0", lifespan=_lifespan)
 
 # Setup Prometheus metrics - exposes /metrics endpoint for Grafana
 from metrics_config import setup_metrics
@@ -335,6 +349,29 @@ from endpoints.version import router as version_router
 
 app.include_router(version_router)
 app.include_router(mt_ai_router)  # SB-1143; answers 503 unless MT_AI_ENABLED + MT_AI_MODEL
+
+
+def _mount_mt_mcp() -> None:
+    """mt-mcp at /mcp (SB-1302): MT's tools over MCP, as the caller. Off by default."""
+    from mt_ai.tools.deps import dao_tool_deps
+    from mt_mcp import config as mcp_config
+    from mt_mcp.auth import MTTokenVerifier
+    from mt_mcp.server import build_http_app, build_server
+
+    if not mcp_config.mcp_enabled():
+        return
+    deps = dao_tool_deps()
+    server = build_server(
+        MTTokenVerifier(auth_manager.verify_token, auth_manager.verify_ai_api_token),
+        lambda: deps,
+        issuer_url=mcp_config.issuer_url(),
+    )
+    app.mount(mcp_config.MOUNT_PATH, build_http_app(server, mcp_config.allowed_hosts()))
+    _lifespan_contexts.append(server.session_manager.run)
+    logger.info("mt_mcp_enabled", path=mcp_config.MOUNT_PATH)
+
+
+_mount_mt_mcp()
 
 
 # Startup check: warn loudly if Web Push isn't configured.

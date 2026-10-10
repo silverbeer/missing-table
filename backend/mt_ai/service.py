@@ -19,7 +19,7 @@ from typing import Any, Literal, Protocol
 
 import structlog
 
-from mt_ai.agent import AGENT_VERSION, AIRunError, HistoryTurn, TurnOutcome, model_name, run_turn
+from mt_ai.agent import AGENT_VERSION, AIRunError, HistoryTurn, McpAccess, TurnOutcome, model_name, run_turn
 from mt_ai.budget import Budget
 from mt_ai.tools import ToolDeps, Viewer
 from mt_ai.trace import ToolCallRecord
@@ -107,22 +107,39 @@ class ChatService:
         model: Any,
         budget: Budget | None = None,
         run: RunTurn = run_turn,
+        mcp_url: str | None = None,
     ) -> None:
         self.store, self.deps, self.model = store, deps, model
         self.budget = budget or Budget()
         self.run = run
+        # Where mt-mcp is (SB-1302); None keeps every tool in-process.
+        self.mcp_url = mcp_url
 
-    async def chat(self, user: dict[str, Any], message: str, conversation_id: str | None) -> ChatResult:
+    async def chat(
+        self, user: dict[str, Any], message: str, conversation_id: str | None, bearer: str | None = None
+    ) -> ChatResult:
         if not user.get("user_id"):
             # A conversation needs a user_profiles owner; a service account has none.
             raise NotAllowedToChatError()
         user_id = str(user["user_id"])
         conversation_id, history, turn = self._open(user_id, conversation_id)
 
+        # Tools reached over MCP run as the caller, with the caller's own token.
+        extra: dict[str, Any] = {}
+        if self.mcp_url and bearer:
+            extra["mcp"] = McpAccess(url=self.mcp_url, bearer=bearer)
+
         started = time.monotonic()
         try:
             outcome = await self.run(
-                self.model, self.deps, Viewer.from_user(user), history, message, self.budget, session_id=conversation_id
+                self.model,
+                self.deps,
+                Viewer.from_user(user),
+                history,
+                message,
+                self.budget,
+                session_id=conversation_id,
+                **extra,
             )
         except AIRunError as exc:
             try:

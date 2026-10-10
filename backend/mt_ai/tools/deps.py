@@ -44,3 +44,15 @@ class ToolDeps:
     clubs: ClubSource
     leagues: LeagueSource
     matches: MatchSource
+
+
+def dao_tool_deps() -> ToolDeps:
+    """The production data sources: one shared Supabase connection, real DAOs."""
+    # Imported here: the DAOs pull in Supabase and Redis, which the tool tests never need.
+    from dao.club_dao import ClubDAO
+    from dao.league_dao import LeagueDAO
+    from dao.match_dao import MatchDAO, SupabaseConnection
+    from dao.team_dao import TeamDAO
+
+    conn = SupabaseConnection()
+    return ToolDeps(teams=TeamDAO(conn), clubs=ClubDAO(conn), leagues=LeagueDAO(conn), matches=MatchDAO(conn))
