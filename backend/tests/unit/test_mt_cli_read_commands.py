@@ -852,3 +852,52 @@ class TestClubProAcademy:
         assert result.exit_code == 0
         assert "#F4911E" in result.output
         assert "MLS Pro Academy" in result.output
+
+
+@pytest.mark.unit
+class TestAIGaps:
+    """SB-1308: mt ai gaps — what MT AI could not answer."""
+
+    def test_nothing_unanswered_says_so_with_the_denominator(self, client):
+        client.get_ai_gaps.return_value = {"gaps": [], "count": 0, "gap_calls": 0, "total_calls": 12, "days": 30}
+        result = runner.invoke(mt_cli.app, ["ai", "gaps"])
+
+        assert result.exit_code == 0
+        assert "Nothing unanswered in the last 30 days" in result.output
+        assert "12 tool call(s)" in result.output
+        client.get_ai_gaps.assert_called_once_with(days=30, tool=None)
+
+    def test_lists_each_gap_and_states_the_denominator(self, client):
+        client.get_ai_gaps.return_value = {
+            "gaps": [
+                {
+                    "tool": "search_teams",
+                    "query": "Bayside FC",
+                    "age_groups": ["U14"],
+                    "count": 3,
+                    "not_found": 3,
+                    "ambiguous": 0,
+                    "last_seen": "2026-10-08T09:00:00+00:00",
+                },
+                {
+                    "tool": "search_teams",
+                    "query": "IFA",
+                    "age_groups": [],
+                    "count": 1,
+                    "not_found": 0,
+                    "ambiguous": 1,
+                    "last_seen": "2026-10-07T09:00:00+00:00",
+                },
+            ],
+            "count": 2,
+            "gap_calls": 4,
+            "total_calls": 40,
+            "days": 7,
+        }
+        result = runner.invoke(mt_cli.app, ["ai", "gaps", "--days", "7", "--tool", "search_teams"])
+
+        assert result.exit_code == 0
+        assert "Bayside FC" in result.output and "U14" in result.output
+        assert "2026-10-08" in result.output
+        assert "4 unanswered of 40 tool calls" in result.output
+        client.get_ai_gaps.assert_called_once_with(days=7, tool="search_teams")
