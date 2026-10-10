@@ -19,7 +19,7 @@ This section documents the system architecture, design decisions, and technical 
 | **[Clubs Architecture](../CLUBS_ARCHITECTURE.md)** | Clubs, teams, leagues separation | 🟡 Intermediate |
 | **[Standings](standings.md)** | League / qualifying / all views, and why a combined table states its coverage | 🟡 Intermediate |
 | **[Caching](caching.md)** | Redis DAO cache + service worker cache, and how writes invalidate both | 🟡 Intermediate |
-| **[MT 2.0](mt2/README.md)** | Current state (verified 2026-09), mobile, MT AI, AI cost/quality, A2A | 🟡 Intermediate |
+| **[MT 2.0](mt2/README.md)** | Current state (verified 2026-09), mobile, MT AI, mt-mcp, AI cost/quality, A2A | 🟡 Intermediate |
 | **[AI Agents](ai-agents.md)** | 2025 scraper-agent proposal — never built; see [MT 2.0 AI](mt2/ai.md) | 🔴 Advanced |
 
 ---

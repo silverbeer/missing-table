@@ -473,6 +473,7 @@ Backend-centered auth resolves k8s networking issues. All Supabase credentials s
 - **The model never touches the database.** MT AI calls typed, deterministic tools over the DAO layer; tool tests need no LLM.
 - Tests that call a paid model are marked `ai_eval` and are never in the default suite.
 - Work in small vertical slices — the session template is in `mt2/README.md`.
+- **mt-mcp** (`/mcp` in the backend pod) is the one tool layer for MT AI and mt-admin Claude skills. Listing is filtered by role; every call re-checks with `auth.py`; MT AI never gets write/admin tools. Design: `mt2/mcp.md`, epic *MT — MCP Server (mt-mcp)*.
 
 ### QE Plugin (Test Coverage & Generation)
 Testing automation is handled by the [qe plugin](https://github.com/silverbeer/qe-plugin) (`/qe`, `/generate-tests`, `@qe-engineer`), configured via `.claude/qe.yml`. It replaced the retired CrewAI experiment — see [docs/04-testing/crewai-experiment-retrospective.md](docs/04-testing/crewai-experiment-retrospective.md) for lessons learned.
@@ -488,4 +489,4 @@ Testing automation is handled by the [qe plugin](https://github.com/silverbeer/q
 
 ---
 
-**Last Updated**: 2026-09-28
+**Last Updated**: 2026-10-10

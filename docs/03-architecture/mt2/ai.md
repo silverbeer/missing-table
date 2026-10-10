@@ -2,7 +2,7 @@
 
 > **Audience**: Anyone building MT AI (the chat assistant) or its tools
 > **Prerequisites**: [Current state](current-state.md), [caching.md](../caching.md)
-> **Status**: Target design (2026-09-28, SB-1141). Nothing here is built yet.
+> **Status**: Target design (2026-09-28, SB-1141). Tool access is now via **mt-mcp** ([mcp.md](mcp.md), 2026-10-10).
 
 MT AI answers questions about teams, matches and standings in plain language. This
 document fixes where it runs, the API clients see, how it reaches MT data, how Google
@@ -157,7 +157,8 @@ user's conversation is a `404`.
   (`viewer_sees_test_content`) is passed to every tool, so the prod test partition never
   leaks into an answer.
 - Admin-only data (ingest failures, audit, user lists) is **not** reachable from any
-  MT AI tool in v1, whatever the caller's role.
+  MT AI tool in v1, whatever the caller's role. mt-mcp enforces this with a client
+  scope on top of the role ([mcp.md](mcp.md#authorization)).
 
 ### Storage
 
@@ -170,6 +171,11 @@ conversations; ADK's session is rebuilt from them per request (see below).
 ---
 
 ## Tools
+
+> **2026-10-10:** tools are served to the agent over MCP by **mt-mcp** ([mcp.md](mcp.md)),
+> reached through ADK's `McpToolset` with the caller's token. The tool logic below is
+> unchanged — plain Python over DAOs — and mt-mcp is a thin adapter over it, shared
+> with the mt-admin Claude skills.
 
 ### What the existing system actually supports
 

@@ -26,7 +26,7 @@ mode for no gain.
 | MT assistant → **Match intelligence** (form, trends) | **No — in-process** | A typed specialist (`analyze_team_form` → `MatchAnalysis`) called as a tool, or an ADK sub-agent/`AgentTool` if it grows. Same process, same deploy |
 | MT assistant → **Content agent** (IG captions, recaps) | **Maybe, later** | Different cadence (batch, not chat), different reviewers (human approval before posting), could run as its own service. Even then, an ADK agent behind a job queue is simpler until a second consumer exists |
 | MT → **match-scraper-agent** | **No — API/queue** | It is a deterministic rules engine now; it talks to MT over RabbitMQ and `/api/agent/*`. Nothing to negotiate |
-| **External agents → MT** (a parent's personal assistant, a club's agent, the "Claw" chat agent that already drives the `mt` CLI) | **Most plausible** | MT as an A2A *server*: a published agent card exposing "ask about a team's schedule/results". Genuinely independent parties is exactly A2A's case. Needs auth for third-party agents and fits only once MT AI is stable and MT's invite-only posture allows outside callers |
+| **External agents → MT** (a parent's personal assistant, a club's agent, the "Claw" chat agent that already drives the `mt` CLI) | **Most plausible** | MT as an A2A *server*: a published agent card exposing "ask about a team's schedule/results". Genuinely independent parties is exactly A2A's case. Needs auth for third-party agents and fits only once MT AI is stable and MT's invite-only posture allows outside callers. **mt-mcp ([mcp.md](mcp.md)) now covers most of this need first**: a typed tool surface, per-user auth, no agent card to negotiate |
 
 ## What would have to be true first
 

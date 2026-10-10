@@ -19,6 +19,7 @@ architecture those efforts build on, and the working rules for building them.
 | **[ai.md](ai.md)** | MT AI placement (in the backend process, separable), `/api/ai/*`, tools, ADK + PydanticAI roles, model profiles |
 | **[ai-cost.md](ai-cost.md)** | Budget guards, exact and canonical-intent caching with write-driven invalidation, metrics |
 | **[ai-quality.md](ai-quality.md)** | Feedback → eval → regression loop; test tiers that keep LLM calls out of normal CI |
+| **[mcp.md](mcp.md)** | mt-mcp: one MCP tool server in the backend pod for MT AI and mt-admin Claude skills; roles, tiers, authorization |
 | **[a2a.md](a2a.md)** | Why not yet, and the one boundary where A2A could make sense |
 | **[content-roadmap.md](content-roadmap.md)** | Blog/social milestones tied to engineering milestones |
 
@@ -54,6 +55,9 @@ when the work that needs it lands.
 7. **Quality**: every 👎 becomes an eval case; tiers 0–1 run on every PR without a
    model; live evals are separate and budget-capped.
 8. **Absent is not zero** — MT's user-data rules apply to AI answers and are tested.
+9. **One tool layer, served over MCP** (mt-mcp, `/mcp` in the backend pod): MT AI and
+   mt-admin Claude skills call the same tools; listing filtered by role, every call
+   re-checked with `auth.py`; MT AI capped at read tiers ([mcp.md](mcp.md)).
 
 ---
 
