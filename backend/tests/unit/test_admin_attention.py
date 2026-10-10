@@ -37,7 +37,8 @@ class TestAttentionCountsEndpoint:
                 "invite_requests": 3,
                 "channel_requests": 1,
                 "support_inbox": 2,
-                "total": 6,
+                "content_reports": 4,
+                "total": 10,
             },
         ):
             resp = client.get("/api/admin/attention/counts")
@@ -47,7 +48,8 @@ class TestAttentionCountsEndpoint:
             "invite_requests": 3,
             "channel_requests": 1,
             "support_inbox": 2,
-            "total": 6,
+            "content_reports": 4,
+            "total": 10,
         }
 
     def test_zero_when_no_pending_work(self, admin_client):
@@ -58,6 +60,7 @@ class TestAttentionCountsEndpoint:
                 "invite_requests": 0,
                 "channel_requests": 0,
                 "support_inbox": 0,
+                "content_reports": 0,
                 "total": 0,
             },
         ):
@@ -108,6 +111,7 @@ class TestAdminAttentionDAO:
         with (
             patch.object(dao, "_count_pending_invite_requests", return_value=3),
             patch.object(dao, "_count_pending_channel_requests", return_value=1),
+            patch.object(dao, "_count_pending_content_reports", return_value=4),
             patch(
                 "dao.admin_attention_dao.EmailThreadsDAO"
             ) as mock_email_threads_cls,
@@ -119,7 +123,8 @@ class TestAdminAttentionDAO:
             "invite_requests": 3,
             "channel_requests": 1,
             "support_inbox": 2,
-            "total": 6,
+            "content_reports": 4,
+            "total": 10,
         }
 
     def test_all_zero_yields_zero_total(self):
@@ -127,6 +132,7 @@ class TestAdminAttentionDAO:
         with (
             patch.object(dao, "_count_pending_invite_requests", return_value=0),
             patch.object(dao, "_count_pending_channel_requests", return_value=0),
+            patch.object(dao, "_count_pending_content_reports", return_value=0),
             patch(
                 "dao.admin_attention_dao.EmailThreadsDAO"
             ) as mock_email_threads_cls,
@@ -137,6 +143,7 @@ class TestAdminAttentionDAO:
             "invite_requests": 0,
             "channel_requests": 0,
             "support_inbox": 0,
+            "content_reports": 0,
             "total": 0,
         }
 

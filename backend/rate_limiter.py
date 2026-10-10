@@ -1,5 +1,5 @@
 """
-Rate limiting for the authentication endpoints (SB-640).
+Rate limiting for the authentication endpoints (SB-640) and live chat (SB-1309).
 
 This module holds **only limits that are actually enforced**. It used to
 carry a four-category policy — public, authenticated, admin, auth — none of
@@ -31,6 +31,7 @@ exhausted by accident.
 import logging
 import os
 
+import jwt
 import redis
 from fastapi import Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -43,9 +44,9 @@ logger = logging.getLogger(__name__)
 # limit, just a looser one. Prod sets REDIS_URL; local usually does not.
 REDIS_URL = os.getenv("REDIS_URL", "")
 
-# Limits for the credential endpoints and the public invite form. These are
-# the ones being enforced; anything added here must also be applied to a
-# route to be real.
+# Limits for the credential endpoints, the public invite form, and posting
+# to live chat. These are the ones being enforced; anything added here must
+# also be applied to a route to be real.
 RATE_LIMITS = {
     "login": "5 per minute",
     "signup": "3 per hour",
@@ -53,6 +54,7 @@ RATE_LIMITS = {
     # Public, unauthenticated, and writes a row per call (SB-1311). The
     # honeypot only stops bots that fill every field; this caps the rest.
     "invite_request": "5 per hour",
+    "chat_message": "10 per minute",  # per user, see user_key
 }
 
 
@@ -69,6 +71,27 @@ def client_key(request: Request) -> str:
     if request.client and request.client.host:
         return request.client.host
     return "unknown"
+
+
+def user_key(request: Request) -> str:
+    """The bucket for a signed-in endpoint: the user, not the address.
+
+    A stadium of parents on one guest Wi-Fi shares an IP; chat must not
+    throttle all of them as one. The token's signature is not checked here
+    because it already has been: FastAPI resolves the endpoint's auth
+    dependency before slowapi's wrapper counts the request, so an invalid
+    token is refused with a 401 before it reaches this function. Falls back
+    to the client address when there is no readable token.
+    """
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        try:
+            sub = jwt.decode(auth[7:].strip(), options={"verify_signature": False}).get("sub")
+        except jwt.PyJWTError:
+            sub = None
+        if sub:
+            return f"user:{sub}"
+    return client_key(request)
 
 
 def _storage_uri() -> str | None:
@@ -109,6 +132,9 @@ def install_rate_limiting(app) -> Limiter:
     return limiter
 
 
-def rate_limit(limit: str):
-    """Apply a limit to one endpoint. The endpoint must take `request: Request`."""
-    return limiter.limit(limit)
+def rate_limit(limit: str, key_func=None):
+    """Apply a limit to one endpoint. The endpoint must take `request: Request`.
+
+    `key_func` overrides the default per-client-IP bucket (e.g. `user_key`).
+    """
+    return limiter.limit(limit, key_func=key_func)

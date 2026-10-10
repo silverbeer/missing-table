@@ -49,6 +49,7 @@ class AttentionCounts(BaseModel):
     invite_requests: int
     channel_requests: int
     support_inbox: int
+    content_reports: int
     total: int
 
 

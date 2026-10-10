@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 from collections import Counter
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -20,6 +21,7 @@ from api.channel_requests import router as channel_requests_router
 from api.club_notifications import router as club_notifications_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
+from api.moderation import router as moderation_router
 from api.push import router as push_router
 from api.webhooks_email import router as webhooks_email_router
 from auth import (
@@ -93,6 +95,7 @@ from mt_ai.api import router as mt_ai_router
 from notifications.score_change import is_new_final_score
 from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
+from services.content_filter import contains_objectionable_language
 
 # Legacy flag kept for backwards compatibility so existing envs keep working.
 DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
@@ -108,6 +111,7 @@ from dao.match_dao import UNSET, MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
+from dao.moderation_dao import ModerationDAO
 from dao.motw_dao import MotwDAO, week_start_for
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
@@ -175,7 +179,7 @@ logger.info("prometheus_metrics_enabled", endpoint="/metrics")
 # default limits and no SlowAPIMiddleware: the product polls (the LIVE tab)
 # and posts in bulk (ingest), so a blanket 50/minute would read as an
 # outage. See rate_limiter.py for why the key is the forwarded client IP.
-from rate_limiter import RATE_LIMITS, install_rate_limiting, rate_limit
+from rate_limiter import RATE_LIMITS, install_rate_limiting, rate_limit, user_key
 
 install_rate_limiting(app)
 
@@ -249,6 +253,7 @@ else:
 db_conn_holder_obj = DbConnectionHolder()
 match_dao = MatchDAO(db_conn_holder_obj)
 match_event_dao = MatchEventDAO(db_conn_holder_obj)
+moderation_dao = ModerationDAO(db_conn_holder_obj)
 team_dao = TeamDAO(db_conn_holder_obj)
 club_dao = ClubDAO(db_conn_holder_obj)
 player_dao = PlayerDAO(db_conn_holder_obj)
@@ -341,6 +346,7 @@ app.include_router(push_router)
 app.include_router(webhooks_email_router)
 app.include_router(admin_emails_router)
 app.include_router(admin_attention_router)
+app.include_router(moderation_router)  # SB-1309 chat reports, blocks, review
 
 # Version endpoint
 import contextlib
@@ -2171,6 +2177,9 @@ _DELETE_CASCADES = [
     ("team_manager_assignments", "user_id", "team manager assignments"),
     ("channel_access_requests", "user_id", "channel access requests"),
     ("ai_conversations", "user_id", "MT AI conversations"),
+    ("user_blocks", "blocker_id", "users they blocked"),
+    ("user_blocks", "blocked_id", "blocks against them"),
+    ("content_reports", "reporter_id", "chat reports they filed"),
 ]
 
 _DELETE_ORPHANS = [
@@ -2178,6 +2187,8 @@ _DELETE_ORPHANS = [
     ("match_lineups", "created_by", "lineups they set"),
     ("players", "created_by", "players they added"),
     ("invitations", "invited_by_user_id", "invitations they sent"),
+    ("content_reports", "reported_user_id", "chat reports against them"),
+    ("content_reports", "resolved_by", "chat reports they resolved"),
 ]
 
 _DELETE_BLOCKERS = [
@@ -3523,6 +3534,12 @@ def calculate_match_minute(match: dict) -> tuple[int | None, int | None]:
     return elapsed_minutes, None
 
 
+def _blocked_by(current_user: dict[str, Any]) -> list[str]:
+    """Users whose chat the viewer has blocked (SB-1309)."""
+    user_id = current_user.get("user_id") or current_user.get("id")
+    return moderation_dao.blocked_user_ids(str(user_id)) if user_id else []
+
+
 @app.get("/api/matches/{match_id}/live")
 async def get_live_match_state(
     match_id: int,
@@ -3537,8 +3554,8 @@ async def get_live_match_state(
         if not match_state:
             raise HTTPException(status_code=404, detail="Match not found")
 
-        # Get recent events
-        events = match_event_dao.get_events(match_id, limit=50)
+        # Get recent events, without chat from users the viewer blocked (SB-1309)
+        events = match_event_dao.get_events(match_id, limit=50, exclude_messages_by=_blocked_by(current_user))
         match_state["recent_events"] = events
 
         return match_state
@@ -4035,16 +4052,36 @@ async def post_live_card(
 
 
 @app.post("/api/matches/{match_id}/live/message")
+@rate_limit(RATE_LIMITS["chat_message"], key_func=user_key)
 async def post_message(
+    request: Request,
     match_id: int,
     message: MessageEvent,
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Post a chat message to the live match stream.
 
-    Any authenticated user can post messages.
+    Any authenticated user can post messages, unless an admin has banned them
+    from chat. Messages with objectionable language are refused (SB-1309).
     """
     try:
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        if contains_objectionable_language(message.message):
+            # Never the text itself: the hash says whether one message is
+            # being retried, the length is enough to spot spam.
+            logger.info(
+                "chat_message_rejected_by_filter",
+                match_id=match_id,
+                user_id=user_id,
+                message_sha256=hashlib.sha256(message.message.encode()).hexdigest()[:12],
+                message_length=len(message.message),
+            )
+            raise HTTPException(status_code=422, detail="Message contains language that isn't allowed")
+
+        if user_id and moderation_dao.is_chat_banned(str(user_id)):
+            raise HTTPException(status_code=403, detail="You can no longer post in chat")
+
         # Verify match exists
         current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
@@ -4057,7 +4094,6 @@ async def post_message(
                 return existing
 
         # Create message event
-        user_id = current_user.get("user_id") or current_user.get("id")
         event = match_event_dao.create_event(
             match_id=match_id,
             event_type="message",
@@ -4190,21 +4226,21 @@ async def post_live_substitution(
 async def delete_event(
     match_id: int,
     event_id: int,
-    current_user: dict[str, Any] = Depends(require_match_management_permission),
+    current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Soft delete a match event (for moderation).
 
-    Only accessible by admins, club managers, and team managers who can edit this match.
+    Accessible by admins, club managers, and team managers who can edit this
+    match — and by the author of a chat message, for that message only
+    (SB-1309).
     """
     try:
+        user_id = current_user.get("user_id") or current_user.get("id")
+
         # Get current match to check permissions
         current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
-
-        # Check if user can edit this match
-        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
-            raise HTTPException(status_code=403, detail="You don't have permission to moderate this match")
 
         # Verify the event belongs to this match
         event = match_event_dao.get_event_by_id(event_id)
@@ -4213,8 +4249,20 @@ async def delete_event(
         if event.get("match_id") != match_id:
             raise HTTPException(status_code=400, detail="Event does not belong to this match")
 
+        own_message = (
+            event.get("event_type") == "message"
+            and event.get("created_by") is not None
+            and str(event.get("created_by")) == str(user_id)
+        )
+        if not own_message:
+            # Everyone else needs match management permission, as before.
+            require_match_management_permission(current_user)
+            if not auth_manager.can_edit_match(
+                current_user, current_match["home_team_id"], current_match["away_team_id"]
+            ):
+                raise HTTPException(status_code=403, detail="You don't have permission to moderate this match")
+
         # Soft delete the event
-        user_id = current_user.get("user_id") or current_user.get("id")
         success = match_event_dao.soft_delete_event(event_id, deleted_by=user_id)
 
         if not success:
@@ -4261,7 +4309,9 @@ async def get_match_events(
     Used for loading more events in the activity stream.
     """
     try:
-        events = match_event_dao.get_events(match_id, limit=limit, before_id=before_id)
+        events = match_event_dao.get_events(
+            match_id, limit=limit, before_id=before_id, exclude_messages_by=_blocked_by(current_user)
+        )
         return events
     except Exception as e:
         logger.error(f"Error getting match events: {e!s}", exc_info=True)
