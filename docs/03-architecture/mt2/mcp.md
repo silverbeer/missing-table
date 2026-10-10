@@ -2,7 +2,8 @@
 
 > **Audience**: Anyone building MT AI, an mt-admin Claude skill, or an MT tool
 > **Prerequisites**: [ai.md](ai.md), [current-state.md](current-state.md)
-> **Status**: Decided 2026-10-10 (SB-1301). Epic: *MT — MCP Server (mt-mcp)*. Nothing built yet.
+> **Status**: Decided 2026-10-10 (SB-1301). Slice 1 built (SB-1302): `/mcp`, auth, tier gate,
+> `search_teams`, observability; MT AI calls it when `MT_MCP_ENABLED`. Epic: *MT — MCP Server (mt-mcp)*.
 
 mt-mcp is the one typed tool layer for MT, served over the
 [Model Context Protocol](https://modelcontextprotocol.io). Every agent that reads or
@@ -36,9 +37,11 @@ Deployment of the same image stays a configuration change.
 ```text
 backend/
   mt_mcp/
-    server.py       # MCPServer, tool registration, role-filtered listing
-    auth.py         # TokenVerifier over auth_manager; caller → principal
-    scopes.py       # role × client scope → visible tool tiers
+    server.py       # MCPServer, tools, TierGate middleware, HTTP app
+    auth.py         # TokenVerifier over auth_manager; caller → Principal
+    scopes.py       # role and client → visible tool tiers (pure)
+    observe.py      # ToolCallObserver: per-call metrics + log line
+    config.py       # MT_MCP_* settings
   mt_ai/tools/      # tool logic (today's home); mt_mcp imports it. Moves to a
                     # neutral package when the first non-AI tool (admin) lands
 ```
@@ -56,7 +59,29 @@ flowchart LR
 
 MT AI reaches mt-mcp over loopback HTTP from the same process. That is one extra local
 hop per tool call, accepted in exchange for MT AI and every other client being
-authorized by the same code path.
+authorized by the same code path. Measured locally: a full turn (search over MCP, then
+upcoming matches) against the real database took 0.37 s, model excluded.
+
+### Configuration
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `MT_MCP_ENABLED` | `false` | Mount `/mcp`, and route MT AI's `search_teams` through it |
+| `MT_MCP_INTERNAL_URL` | `http://127.0.0.1:8000/mcp/` | How MT AI reaches it (loopback) |
+| `MT_MCP_ALLOWED_HOSTS` | `api.missingtable.com` | Host headers accepted besides loopback (DNS-rebinding guard) |
+
+The endpoint is **`/mcp/`** (trailing slash). `/mcp` answers `307` to it.
+
+### Running it locally
+
+```bash
+MT_MCP_ENABLED=true ./missing-table.sh dev     # or: MT_MCP_ENABLED=true uv run python app.py
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/mcp/ \
+  -H 'content-type: application/json' -d '{}'  # 401: a token is required
+```
+
+Any MCP client works with a bearer token from `/api/auth/login`; the tests in
+`backend/tests/unit/mt_ai/test_mt_mcp_*.py` show the Python client.
 
 ---
 
@@ -93,7 +118,8 @@ Three layers, each with one job:
    tokens, garbage, expired — is a 401. The caller's profile becomes the request
    principal; tools read the viewer from it, **never from arguments**.
 2. **Listing (convenience).** `tools/list` returns only the tiers the caller's role and
-   client scope allow. This keeps tool schemas — and so prompts — small. It is **not**
+   client scope allow (`TierGate`, a server middleware; the client is the
+   `X-MT-Client` header, which can only narrow). This keeps tool schemas — and so prompts — small. It is **not**
    a security boundary.
 3. **Per-call scope check (the boundary).** Every tool re-checks on call. Team-scoped
    tools call `can_manage_team` / `can_edit_match` from `auth.py`; they never
@@ -123,6 +149,50 @@ MT AI additionally passes a client-side `tool_filter`, so a server bug cannot wi
 
 ---
 
+## Typed tools: Pydantic in and out
+
+MCP itself has no models — it is a protocol, and mt-mcp never calls an LLM. What
+matters is that every tool is typed, and the SDK builds both schemas from Pydantic:
+
+- **Input**: the tool function's type hints become the published `inputSchema`, and
+  arguments are validated before the tool runs.
+- **Output**: a tool that returns a Pydantic model (`search_teams` → `ResolveResult`)
+  gets a published `outputSchema`, and its result travels as `structuredContent`.
+  Tools return the model, never a hand-built dict.
+- The models live with the tool logic (`mt_ai/tools/schemas.py`), so the in-process
+  tests and the MCP surface share one definition.
+
+MT AI unwraps `structuredContent` back to the plain result before the model sees it
+(`unwrap_mcp_result`), so an MCP tool and an in-process tool look identical to the
+model and to the `ai_tool_calls` trace — and the model is not shown each result twice.
+
+---
+
+## Observability
+
+HTTP metrics see every call as `POST /mcp/`; mt-mcp adds per-tool signals in
+`ToolCallObserver`, the outermost server middleware (so it also sees refused calls):
+
+| Signal | Where | Use |
+|--------|-------|-----|
+| `mt_mcp_tool_calls_total{tool, client, role, outcome}` | `/metrics` → Grafana | Popular tools, who uses them, outcome mix |
+| `mt_mcp_tool_call_seconds{tool, outcome}` | `/metrics` | Latency per tool |
+| `mt_mcp.tool_call` event (tool, client, role, outcome, duration, user, arg names, request id) | structlog → Loki | Drill-down |
+| `ai_tool_calls` rows, **with arguments** | Supabase (SB-1197) | Replay and evals for MT AI turns |
+
+`outcome` is the tool's own verdict: `resolved` / `ambiguous` / `not_found` for
+`search_teams`, an error kind such as `unavailable`, `refused` for a call the tier gate
+turned away, `failed` for a protocol error. That makes the learning questions queries:
+*which teams do people look for that MT cannot find* (not_found → aliases), *which
+searches are ambiguous* (→ better disambiguation), *which tools are popular* (→ what
+to build next), *who asks for tools they cannot have* (refused).
+
+Every label is bounded — unknown tool, client or role names collapse to `other` — and
+argument **values** stay out of metrics and logs: tool arguments can name minors. The
+dashboard, alerts and the "what MT couldn't answer" report are **SB-1308**.
+
+---
+
 ## Verified library facts (2026-10-10)
 
 Read from installed code, not from memory. Re-check when either version moves.
@@ -145,10 +215,29 @@ Read from installed code, not from memory. Re-check when either version moves.
 - `streamable_http_app(streamable_http_path="/mcp", stateless_http=..., host=...,
   transport_security=...)` returns a Starlette app to mount; its session manager must
   run inside the FastAPI lifespan (the backend has none yet).
-- `MCPServer.list_tools()` takes no request context, so role-filtered listing
-  overrides `_handle_list_tools` (private → pin the `mcp` version).
+- Role-filtered listing uses the public `middleware=[...]` hook (`ServerMiddleware`:
+  `(ctx, call_next)`), not an override of the private `_handle_list_tools`. `mcp` is
+  still pinned exactly.
 - `host` defaults to `127.0.0.1` with DNS-rebinding protection: allowed hosts must
-  include `api.missingtable.com` or ingress traffic is rejected.
+  include `api.missingtable.com` or ingress traffic is rejected (`421`).
+
+### What slice 1 taught (SB-1302)
+
+- **ADK probes for Google mTLS before every MCP session** — `google.auth.default()`,
+  which off-GCP waits on the metadata server: 3–10 s per turn, and the failure is cached
+  only per toolset (per turn here). `mt_ai/agent.py` defaults
+  `GOOGLE_API_USE_CLIENT_CERTIFICATE=false`; a regression test guards it.
+- **mcp 2.x uses `httpx2`**, a separate package from `httpx`. A test client or an
+  injected `httpx_client_factory` must build `httpx2.AsyncClient`.
+- **The SDK sends `str(exc)` to the client** for an unexpected tool exception
+  (prefixed "Error executing tool …"). Tools catch and raise a generic `ToolError`.
+- **The caller's identity reaches tools run on worker threads**: `get_access_token()`
+  is a contextvar, and anyio copies context into `to_thread`.
+- **ADK's MCP tool retries a failed call once** (`retry_on_errors`). Harmless for reads;
+  write tools (SB-1305) must be idempotent or carry an idempotency key.
+- **MT AI's toolset is built per turn** with static headers (the caller's token and
+  `X-MT-Client: mt-ai`) and closed after it — simpler than `header_provider`, and one
+  local `tools/list` per turn is cheap.
 
 ---
 
@@ -173,6 +262,7 @@ Read from installed code, not from memory. Re-check when either version moves.
 | 3 | SB-1304 | Admin tier (ingest failures) + Claude Code connection + first mt-admin skill |
 | 4 | SB-1305 | Team-write tier for team/club managers |
 | 5 | SB-1306 | My/self tiers for fans and players (after SB-1307) |
+| — | SB-1308 | Observability: dashboard, alerts, "what MT couldn't answer" learning loop |
 
 Each slice updates this document with what it taught, in the same PR.
 

@@ -16,18 +16,21 @@ import uuid
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 
 from auth import get_ai_user
 from dao.ai_conversation_dao import AIConversationDAO
-from dao.club_dao import ClubDAO
-from dao.league_dao import LeagueDAO
-from dao.match_dao import MatchDAO, SupabaseConnection
-from dao.team_dao import TeamDAO
+from dao.match_dao import SupabaseConnection
 from mt_ai.service import MAX_PAGE, ChatError, ChatService, ConversationReader
-from mt_ai.tools import ToolDeps
+from mt_ai.tools.deps import dao_tool_deps
+from mt_mcp import config as mcp_config
 
 router = APIRouter(prefix="/api/ai", tags=["mt-ai"])
+
+# The raw token, to forward to mt-mcp. get_ai_user has already authenticated it;
+# this only reads it, so it never answers 401/403 itself.
+_bearer = HTTPBearer(auto_error=False)
 
 MAX_MESSAGE_LENGTH = 2000
 
@@ -66,10 +69,9 @@ def get_chat_service() -> ChatService:
     model = configured_model()
     if model is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="MT AI is not enabled.")
-    if _service is None or _service.model != model:
-        conn = SupabaseConnection()
-        deps = ToolDeps(teams=TeamDAO(conn), clubs=ClubDAO(conn), leagues=LeagueDAO(conn), matches=MatchDAO(conn))
-        _service = ChatService(AIConversationDAO(conn), deps, model)
+    mcp_url = mcp_config.internal_url() if mcp_config.mcp_enabled() else None
+    if _service is None or _service.model != model or _service.mcp_url != mcp_url:
+        _service = ChatService(AIConversationDAO(SupabaseConnection()), dao_tool_deps(), model, mcp_url=mcp_url)
     return _service
 
 
@@ -77,11 +79,15 @@ def get_chat_service() -> ChatService:
 async def chat(
     payload: ChatRequest,
     current_user: dict[str, Any] = Depends(get_ai_user),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     service: ChatService = Depends(get_chat_service),
 ) -> ChatResponse:
     conversation_id = str(payload.conversation_id) if payload.conversation_id else None
     try:
-        result = await service.chat(current_user, payload.message, conversation_id)
+        # The caller's own token goes to mt-mcp, so its tools run as the caller.
+        result = await service.chat(
+            current_user, payload.message, conversation_id, bearer=credentials.credentials if credentials else None
+        )
     except ChatError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
     return ChatResponse(
