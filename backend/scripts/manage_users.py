@@ -5,6 +5,7 @@ Supports password changes, user creation, role management, and user info.
 """
 
 import os
+import re
 import secrets
 import string
 
@@ -14,7 +15,6 @@ from rich import box
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
-
 from supabase import create_client
 
 app = typer.Typer()
@@ -24,7 +24,6 @@ console = Console()
 VALID_ROLES = {
     "admin",
     "club_manager",
-    "club-manager",
     "club_fan",
     "club-fan",
     "team_manager",
@@ -315,50 +314,60 @@ def create_user(supabase, email, password=None, role="user", display_name=None, 
             display_name = email.split("@")[0]
 
         # Create user using admin API
-        create_response = supabase.auth.admin.create_user(
-            {
-                "email": email,
-                "password": password,
-                "email_confirm": True,  # Auto-confirm email
-            }
-        )
-
-        if create_response.user:
-            user_id = create_response.user.id
-
-            # Extract username from email (e.g., "e2e_admin" from "e2e_admin@missingtable.local")
-            username = email.split("@")[0]
-
-            # Create user profile
-            profile_data = {
-                "id": user_id,
-                "username": username,
-                "role": role,
-                "display_name": display_name,
-            }
-
-            # Add club_id if provided (for club_manager role)
-            if club_id:
-                profile_data["club_id"] = club_id
-
-            profile_response = supabase.table("user_profiles").insert(profile_data).execute()
-
-            if profile_response.data:
-                pass
-            else:
-                pass
-
-            if generate:
-                pass
-
-            if club_id:
-                pass
-
-            return True
-        else:
+        try:
+            create_response = supabase.auth.admin.create_user(
+                {
+                    "email": email,
+                    "password": password,
+                    "email_confirm": True,  # Auto-confirm email
+                }
+            )
+        except Exception as e:
+            console.print(f"[red]❌ Auth user not created: {e}[/red]")
             return False
 
-    except Exception:
+        if not create_response.user:
+            console.print("[red]❌ Auth user not created: no user in the response[/red]")
+            return False
+
+        user_id = create_response.user.id
+
+        # Extract username from email (e.g., "e2e_admin" from "e2e_admin@missingtable.local")
+        username = email.split("@")[0]
+
+        # Create user profile
+        profile_data = {
+            "id": user_id,
+            "username": username,
+            "role": role,
+            "display_name": display_name,
+        }
+
+        # Add club_id if provided (club_manager and club-fan are scoped to a club)
+        if club_id:
+            profile_data["club_id"] = club_id
+
+        # Upsert, not insert: prod has a trigger on auth.users that creates the
+        # profile row as soon as the auth user exists, so an insert collides on id.
+        try:
+            supabase.table("user_profiles").upsert(profile_data, on_conflict="id").execute()
+        except Exception as e:
+            # A login with no profile can sign in to nothing; don't leave one behind.
+            console.print(f"[red]❌ Profile not saved: {e}[/red]")
+            try:
+                supabase.auth.admin.delete_user(user_id)
+                console.print(f"[yellow]↩️  Removed auth user {email} so it can be retried[/yellow]")
+            except Exception as cleanup_error:
+                console.print(f"[red]❌ Auth user {user_id} left without a profile: {cleanup_error}[/red]")
+            return False
+
+        console.print(f"[green]✅ Created {username} ({role}) — {user_id}[/green]")
+        if generate:
+            console.print(f"🔑 Generated password: [bold]{password}[/bold]")
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ {e}[/red]")
         return False
 
 
@@ -783,6 +792,16 @@ def create_command(
     """Create a new user."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
     console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
+
+    # Login signs in as <username>@missingtable.local (auth.username_to_internal_email),
+    # so any other address makes an account nobody can sign in to.
+    username, _, domain = email.partition("@")
+    if domain != "missingtable.local":
+        console.print(f"[red]❌ Use {username}@missingtable.local — login only finds that address[/red]")
+        raise typer.Exit(1)
+    if not re.fullmatch(r"[a-zA-Z0-9_]{3,50}", username):
+        console.print("[red]❌ Username must be 3-50 letters, numbers or underscores[/red]")
+        raise typer.Exit(1)
 
     # Validate role before proceeding
     is_valid, error_msg = validate_role(role)
