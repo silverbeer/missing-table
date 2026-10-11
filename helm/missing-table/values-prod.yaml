@@ -36,6 +36,10 @@ backend:
       # never code: mt2/ai.md records why gemini-3.7-flash.
       MT_AI_ENABLED: "true"
       MT_AI_MODEL: "gemini-3.7-flash"
+      # mt-mcp (SB-1316): mounts /mcp on api.missingtable.com and serves every
+      # MT AI tool through it. Rollback: set "false" and merge — /mcp unmounts
+      # and MT AI registers the same tools in-process. Design: mt2/mcp.md.
+      MT_MCP_ENABLED: "true"
 
 # Live-match notifications (explicit override — defaults to true in values.yaml)
 # The TELEGRAM_BOT_TOKEN key inside the ESO-managed missing-table-secrets must

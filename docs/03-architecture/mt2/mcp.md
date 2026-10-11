@@ -73,6 +73,10 @@ upcoming matches) against the real database took 0.37 s, model excluded.
 
 The endpoint is **`/mcp/`** (trailing slash). `/mcp` answers `307` to it.
 
+In prod the ingress routes `/mcp` to the backend (SB-1316); without that rule it falls
+through to the frontend catch-all and nginx answers `405`. The flag alone is not enough:
+MT AI reaches mt-mcp over loopback, but Claude Code reaches it through the ingress.
+
 ### Running it locally
 
 ```bash

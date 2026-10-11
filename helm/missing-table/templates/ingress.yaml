@@ -46,6 +46,15 @@ spec:
             name: {{ include "missing-table.fullname" $ }}-backend
             port:
               number: 8000
+      # mt-mcp (SB-1316). 404 from the backend while MT_MCP_ENABLED is off; only
+      # MT_MCP_ALLOWED_HOSTS (api.missingtable.com) passes its Host check.
+      - path: /mcp
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "missing-table.fullname" $ }}-backend
+            port:
+              number: 8000
       # Frontend (catch-all)
       - path: /
         pathType: Prefix
