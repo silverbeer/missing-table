@@ -5,6 +5,7 @@ Supports password changes, user creation, role management, and user info.
 """
 
 import os
+import re
 import secrets
 import string
 
@@ -14,7 +15,6 @@ from rich import box
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
-
 from supabase import create_client
 
 app = typer.Typer()
@@ -790,6 +790,16 @@ def create_command(
     """Create a new user."""
     console.print("[bold cyan]🔐 User Management Tool[/bold cyan]")
     console.print(f"🌍 Environment: [yellow]{os.getenv('APP_ENV', 'local')}[/yellow]\n")
+
+    # Login signs in as <username>@missingtable.local (auth.username_to_internal_email),
+    # so any other address makes an account nobody can sign in to.
+    username, _, domain = email.partition("@")
+    if domain != "missingtable.local":
+        console.print(f"[red]❌ Use {username}@missingtable.local — login only finds that address[/red]")
+        raise typer.Exit(1)
+    if not re.fullmatch(r"[a-zA-Z0-9_]{3,50}", username):
+        console.print("[red]❌ Username must be 3-50 letters, numbers or underscores[/red]")
+        raise typer.Exit(1)
 
     # Validate role before proceeding
     is_valid, error_msg = validate_role(role)
