@@ -138,12 +138,39 @@ class FakeLeagues:
         return [lg for lg in copy.deepcopy(self.leagues) if include_test or not lg["is_test"]]
 
 
-class FakeMatches:
-    """Like MatchDAO.get_all_matches, including its swallow-errors default."""
+CURRENT_SEASON = {"id": 7, "name": "2026-2027", "is_current": True}
 
-    def __init__(self, rows: list[dict] | None = None, fail: bool = False) -> None:
-        self.rows, self.fail = rows or [], fail
+
+class FakeSeasons:
+    """Like SeasonDAO.get_current_season: None when no season is current."""
+
+    def __init__(self, current: dict | None = CURRENT_SEASON) -> None:
+        self.current = current
+        self.reads = 0
+
+    def get_current_season(self) -> dict | None:
+        self.reads += 1
+        return copy.deepcopy(self.current)
+
+
+class FakeMatches:
+    """Like MatchDAO.get_all_matches, including its swallow-errors default.
+
+    `active` is the teams with a match in the current season (SB-1322). None
+    means every team: the scraped world, where a team exists because it plays.
+    """
+
+    def __init__(self, rows: list[dict] | None = None, fail: bool = False, active: set[int] | None = None) -> None:
+        self.rows, self.fail, self.active = rows or [], fail, active
         self.calls: list[dict[str, Any]] = []
+        self.activity_calls: list[tuple[int, int, bool]] = []
+
+    def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool:
+        """Like the DAO, raises on a failed read rather than answering False."""
+        self.activity_calls.append((team_id, season_id, include_test))
+        if self.fail:
+            raise RuntimeError("PostgREST down")
+        return self.active is None or team_id in self.active
 
     def get_all_matches(
         self,

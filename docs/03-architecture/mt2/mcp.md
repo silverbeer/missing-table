@@ -372,6 +372,19 @@ plays in no visible competition. Visibility is `search_teams`' team index. A fai
 tools must resolve the team through it, then re-check that team with `auth.py`
 (`can_manage_team`) before writing.**
 
+*Active teams only (SB-1322):* a club accumulates every team it has ever had — IFA has 7,
+4 of them dead — so `get_my_team` lists only **active** teams by default. Active means the
+team has at least one match in the current season (`MatchDAO.team_has_matches_in_season`, a
+cached `limit 1` existence check). It is derived from scraped fixtures, not an archive flag:
+nobody has to maintain it, and a team that plays again next season reactivates on its own.
+`include_inactive=true` returns every team. Each entry carries `active`, and the result
+carries `season` (the season it was judged on) and `inactive_hidden` (teams left out —
+hidden is never silent). So `teams: []` with `inactive_hidden: 7` is a club with nothing
+playing yet (August, before schedules load), while `teams: []` with `inactive_hidden: 0` is
+a club with nothing to show. A `team` caller's own team is always returned, marked
+`active: false` if it is — never `no_team`. No current season, or a failed activity read,
+is `unavailable`: "could not check" must not read as "everything inactive".
+
 **2. Don't add a third membership mechanism.** Two already exist: `user_profiles.team_id`,
 which `auth.py` reads, and `team_manager_assignments`, which is multi-team,
 written by `TeamManagerService` and the invite flow, and empty in prod. When the first real

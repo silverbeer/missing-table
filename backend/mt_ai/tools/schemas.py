@@ -70,6 +70,9 @@ class TeamCandidate(BaseModel):
     league_name: str | None = None
     age_group: AgeGroupRef | None = None
     registrations: list[Registration] = Field(default_factory=list)
+    # Has a match in the current season (SB-1322). None = not checked: only
+    # get_my_team checks it.
+    active: bool | None = None
 
 
 class ResolveResult(BaseModel):

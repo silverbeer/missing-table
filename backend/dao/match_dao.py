@@ -1452,6 +1452,28 @@ class MatchDAO(BaseDAO):
             "shootout_points": shootout_competitions(matches),
         }
 
+    @dao_cache("matches:team_active:{season_id}:{team_id}:{include_test}")
+    def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool:
+        """Whether a team has at least one match, home or away, in a season.
+
+        What "active" means for get_my_team (SB-1322): derived from scraped
+        fixtures, so a team that stops playing drops out and one that returns
+        comes back with no flag to maintain. An existence check (`limit 1`), not a
+        season's match list — PostgREST caps a response at 1000 rows, and a
+        truncated list would read as "no matches".
+
+        Raises on a failed query: returning False there would read as "inactive".
+        """
+        query = (
+            self.client.table(MATCHES_READ_RELATION)
+            .select("id")
+            .eq("season_id", season_id)
+            .or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
+        )
+        if not include_test:
+            query = query.eq("is_test", False)
+        return bool(query.limit(1).execute().data)
+
     @dao_cache("matches:leagues_present:{season_id}:{include_test}")
     def get_leagues_present(self, season_id: int | None = None, include_test: bool = False) -> list[dict]:
         """How many matches each league has in a season.

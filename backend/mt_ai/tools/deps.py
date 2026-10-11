@@ -37,6 +37,12 @@ class MatchSource(Protocol):
         raise_on_error: bool = False,
     ) -> list[dict]: ...
 
+    def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool: ...
+
+
+class SeasonSource(Protocol):
+    def get_current_season(self) -> dict | None: ...
+
 
 @dataclass(frozen=True)
 class ToolDeps:
@@ -44,6 +50,7 @@ class ToolDeps:
     clubs: ClubSource
     leagues: LeagueSource
     matches: MatchSource
+    seasons: SeasonSource
 
 
 def dao_tool_deps() -> ToolDeps:
@@ -52,7 +59,14 @@ def dao_tool_deps() -> ToolDeps:
     from dao.club_dao import ClubDAO
     from dao.league_dao import LeagueDAO
     from dao.match_dao import MatchDAO, SupabaseConnection
+    from dao.season_dao import SeasonDAO
     from dao.team_dao import TeamDAO
 
     conn = SupabaseConnection()
-    return ToolDeps(teams=TeamDAO(conn), clubs=ClubDAO(conn), leagues=LeagueDAO(conn), matches=MatchDAO(conn))
+    return ToolDeps(
+        teams=TeamDAO(conn),
+        clubs=ClubDAO(conn),
+        leagues=LeagueDAO(conn),
+        matches=MatchDAO(conn),
+        seasons=SeasonDAO(conn),
+    )
