@@ -347,11 +347,13 @@ def create_user(supabase, email, password=None, role="user", display_name=None, 
         if club_id:
             profile_data["club_id"] = club_id
 
+        # Upsert, not insert: prod has a trigger on auth.users that creates the
+        # profile row as soon as the auth user exists, so an insert collides on id.
         try:
-            supabase.table("user_profiles").insert(profile_data).execute()
+            supabase.table("user_profiles").upsert(profile_data, on_conflict="id").execute()
         except Exception as e:
             # A login with no profile can sign in to nothing; don't leave one behind.
-            console.print(f"[red]❌ Profile not created: {e}[/red]")
+            console.print(f"[red]❌ Profile not saved: {e}[/red]")
             try:
                 supabase.auth.admin.delete_user(user_id)
                 console.print(f"[yellow]↩️  Removed auth user {email} so it can be retried[/yellow]")
