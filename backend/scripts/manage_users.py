@@ -24,7 +24,6 @@ console = Console()
 VALID_ROLES = {
     "admin",
     "club_manager",
-    "club-manager",
     "club_fan",
     "club-fan",
     "team_manager",
@@ -315,50 +314,58 @@ def create_user(supabase, email, password=None, role="user", display_name=None, 
             display_name = email.split("@")[0]
 
         # Create user using admin API
-        create_response = supabase.auth.admin.create_user(
-            {
-                "email": email,
-                "password": password,
-                "email_confirm": True,  # Auto-confirm email
-            }
-        )
-
-        if create_response.user:
-            user_id = create_response.user.id
-
-            # Extract username from email (e.g., "e2e_admin" from "e2e_admin@missingtable.local")
-            username = email.split("@")[0]
-
-            # Create user profile
-            profile_data = {
-                "id": user_id,
-                "username": username,
-                "role": role,
-                "display_name": display_name,
-            }
-
-            # Add club_id if provided (for club_manager role)
-            if club_id:
-                profile_data["club_id"] = club_id
-
-            profile_response = supabase.table("user_profiles").insert(profile_data).execute()
-
-            if profile_response.data:
-                pass
-            else:
-                pass
-
-            if generate:
-                pass
-
-            if club_id:
-                pass
-
-            return True
-        else:
+        try:
+            create_response = supabase.auth.admin.create_user(
+                {
+                    "email": email,
+                    "password": password,
+                    "email_confirm": True,  # Auto-confirm email
+                }
+            )
+        except Exception as e:
+            console.print(f"[red]❌ Auth user not created: {e}[/red]")
             return False
 
-    except Exception:
+        if not create_response.user:
+            console.print("[red]❌ Auth user not created: no user in the response[/red]")
+            return False
+
+        user_id = create_response.user.id
+
+        # Extract username from email (e.g., "e2e_admin" from "e2e_admin@missingtable.local")
+        username = email.split("@")[0]
+
+        # Create user profile
+        profile_data = {
+            "id": user_id,
+            "username": username,
+            "role": role,
+            "display_name": display_name,
+        }
+
+        # Add club_id if provided (club_manager and club-fan are scoped to a club)
+        if club_id:
+            profile_data["club_id"] = club_id
+
+        try:
+            supabase.table("user_profiles").insert(profile_data).execute()
+        except Exception as e:
+            # A login with no profile can sign in to nothing; don't leave one behind.
+            console.print(f"[red]❌ Profile not created: {e}[/red]")
+            try:
+                supabase.auth.admin.delete_user(user_id)
+                console.print(f"[yellow]↩️  Removed auth user {email} so it can be retried[/yellow]")
+            except Exception as cleanup_error:
+                console.print(f"[red]❌ Auth user {user_id} left without a profile: {cleanup_error}[/red]")
+            return False
+
+        console.print(f"[green]✅ Created {username} ({role}) — {user_id}[/green]")
+        if generate:
+            console.print(f"🔑 Generated password: [bold]{password}[/bold]")
+        return True
+
+    except Exception as e:
+        console.print(f"[red]❌ {e}[/red]")
         return False
 
 
