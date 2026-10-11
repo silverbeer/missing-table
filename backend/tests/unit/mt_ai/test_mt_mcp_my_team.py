@@ -16,6 +16,7 @@ from mt_ai_fakes import (
     FakeClubs,
     FakeLeagues,
     FakeMatches,
+    FakeSeasons,
     FakeTeams,
     reg,
     team,
@@ -32,12 +33,18 @@ pytestmark = [pytest.mark.unit, pytest.mark.backend]
 EMPTY_CLUB = {"id": 15, "name": "Empty FC", "timezone": None, "is_test": False}
 
 
-def deps(teams: FakeTeams | None = None, leagues: FakeLeagues | None = None) -> ToolDeps:
+def deps(
+    teams: FakeTeams | None = None,
+    leagues: FakeLeagues | None = None,
+    matches: FakeMatches | None = None,
+    seasons: FakeSeasons | None = None,
+) -> ToolDeps:
     return ToolDeps(
         teams=teams or FakeTeams(TEAMS, ALIASES),
         clubs=FakeClubs([*CLUBS, EMPTY_CLUB]),
         leagues=leagues or FakeLeagues(LEAGUES),
-        matches=FakeMatches(),
+        matches=matches or FakeMatches(),
+        seasons=seasons or FakeSeasons(),
     )
 
 
@@ -162,13 +169,94 @@ class TestResolver:
         assert result.error.kind == "unavailable"
 
 
+# IFA (club 11) has four teams a real viewer sees: 102, 106, 109, 111. Only 102
+# plays this season — the prod shape the ticket came from, at fixture scale.
+ONLY_IFA_PLAYS = {102}
+
+
+class TestActive:
+    """Active = at least one match in the current season (SB-1322)."""
+
+    def test_a_club_lists_only_its_active_teams_and_counts_the_rest(self):
+        result = resolve_my_team(deps(matches=FakeMatches(active=ONLY_IFA_PLAYS)), user(club_id=11), REAL)
+
+        assert result.status == "club"
+        assert [t.team_id for t in result.teams] == [102]
+        assert all(t.active is True for t in result.teams)
+        assert result.inactive_hidden == 3
+        assert result.season == "2026-2027"
+
+    def test_include_inactive_returns_every_team_marked(self):
+        result = resolve_my_team(
+            deps(matches=FakeMatches(active=ONLY_IFA_PLAYS)), user(club_id=11), REAL, include_inactive=True
+        )
+
+        assert {t.team_id: t.active for t in result.teams} == {102: True, 106: False, 109: False, 111: False}
+        assert result.inactive_hidden == 0
+
+    def test_nothing_playing_yet_reads_differently_from_an_empty_club(self):
+        """August, before schedules load: [] with a hidden count, not a club with no teams."""
+        before_schedules = resolve_my_team(deps(matches=FakeMatches(active=set())), user(club_id=11), REAL)
+        empty_club = resolve_my_team(deps(matches=FakeMatches(active=set())), user(club_id=15), REAL)
+
+        assert before_schedules.teams == []
+        assert before_schedules.inactive_hidden == 4
+        assert empty_club.teams == []
+        assert empty_club.inactive_hidden == 0
+
+    def test_a_team_callers_own_inactive_team_is_still_theirs(self):
+        result = resolve_my_team(deps(matches=FakeMatches(active=set())), user(team_id=102, club_id=11), REAL)
+
+        assert result.status == "team"
+        assert result.team_id == 102
+        assert [t.active for t in result.teams] == [False]
+        assert result.inactive_hidden == 0
+
+    def test_activity_is_judged_on_the_current_season_and_the_viewers_partition(self):
+        matches = FakeMatches()
+
+        resolve_my_team(deps(matches=matches), user(team_id=102), REAL)
+        resolve_my_team(deps(matches=matches), user(team_id=102), TEST)
+
+        assert matches.activity_calls == [(102, 7, False), (102, 7, True)]
+
+    @pytest.mark.parametrize("membership", [{"team_id": 102}, {"club_id": 11}])
+    def test_no_current_season_is_unavailable_not_everything_inactive(self, membership):
+        result = resolve_my_team(deps(seasons=FakeSeasons(None)), user(**membership), REAL)
+
+        assert result.status is None
+        assert result.teams is None
+        assert result.inactive_hidden is None
+        assert result.error.kind == "unavailable"
+
+    @pytest.mark.parametrize("membership", [{"team_id": 102}, {"club_id": 11}])
+    def test_a_failed_activity_read_is_unavailable_not_inactive(self, membership):
+        result = resolve_my_team(deps(matches=FakeMatches(fail=True)), user(**membership), REAL)
+
+        assert result.status is None
+        assert result.teams is None
+        assert result.error.kind == "unavailable"
+
+    def test_no_team_reads_no_season_and_no_activity(self):
+        matches, seasons = FakeMatches(), FakeSeasons()
+
+        result = resolve_my_team(deps(matches=matches, seasons=seasons), user(), REAL)
+
+        assert result.status == "no_team"
+        assert result.inactive_hidden is None
+        assert seasons.reads == 0
+        assert matches.activity_calls == []
+
+
 class TestOverMcp:
     async def test_the_caller_comes_from_the_token_not_arguments(self, make_deps):
         async with served(make_deps()) as s, s.session("fan") as session:
             tool = next(t for t in (await session.list_tools()).tools if t.name == "get_my_team")
 
-        assert tool.input_schema.get("properties", {}) == {}
-        assert {"status", "team_id", "club", "teams", "error"} <= set(tool.output_schema["properties"])
+        assert set(tool.input_schema.get("properties", {})) == {"include_inactive"}
+        assert {"status", "team_id", "club", "teams", "season", "inactive_hidden", "error"} <= set(
+            tool.output_schema["properties"]
+        )
 
     async def test_no_team_is_a_result_not_an_error(self, make_deps):
         async with served(make_deps()) as s, s.session("no-team") as session:
@@ -230,3 +318,14 @@ class TestOverMcp:
 
         assert count("no_team") == before["no_team"] + 1
         assert count("team") == before["team"] + 1
+
+    @pytest.mark.parametrize(
+        ("args", "team_ids", "hidden"), [({}, [102], 3), ({"include_inactive": True}, [102, 106, 109, 111], 0)]
+    )
+    async def test_include_inactive_is_passed_through(self, make_deps, args, team_ids, hidden):
+        async with served(make_deps(matches=FakeMatches(active=ONLY_IFA_PLAYS))) as s, s.session("club-mgr") as session:
+            result = await session.call_tool("get_my_team", args)
+
+        data = result.structured_content
+        assert sorted(t["team_id"] for t in data["teams"]) == team_ids
+        assert data["inactive_hidden"] == hidden

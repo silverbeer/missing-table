@@ -113,14 +113,22 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
     # --- my tier --------------------------------------------------------------
 
     @server.tool(name="get_my_team")
-    async def get_my_team_tool() -> MyTeamResult:
+    async def get_my_team_tool(include_inactive: bool = False) -> MyTeamResult:
         """The caller's own team: status "team" (their team, one entry per age
         group), "club" (their club and its teams) or "no_team" when none is set —
-        a normal answer, not an error. "teams" [] means none you can see: a club
-        with no teams, or a team that plays in no competition you can see. Use
+        a normal answer, not an error. Each team carries "active": it has a match
+        in the current "season". A club lists only its active teams; pass
+        include_inactive=true when the user asks for all of them, including
+        past ones. "inactive_hidden" is how many teams were left out — say so
+        when it is not 0: "teams" [] with inactive_hidden 7 means the club has
+        teams but none playing this season, while [] with 0 means none you can
+        see. The caller's own team is always returned, even if inactive. Use
         team_id and age_group.id from "teams" with the other tools."""
         user = _caller().as_user()
-        return await _run(lambda: resolve_my_team(deps(), user, Viewer.from_user(user)), "get_my_team")
+        return await _run(
+            lambda: resolve_my_team(deps(), user, Viewer.from_user(user), include_inactive=include_inactive),
+            "get_my_team",
+        )
 
     # --- admin tier -----------------------------------------------------------
 
