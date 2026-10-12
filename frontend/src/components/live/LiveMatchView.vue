@@ -56,15 +56,33 @@
 
       <!-- Activity Stream -->
       <ActivityStream
-        :events="events"
+        :events="shownEvents"
         :can-delete="canManage"
         :home-team-id="matchState.home_team_id"
+        :current-user-id="currentUserId"
         @delete-event="handleDeleteEvent"
         @load-more="handleLoadMore"
+        @report-event="openReport"
+        @block-user="openBlock"
       />
 
       <!-- Message Input -->
-      <MessageInput @send="handleSendMessage" :disabled="isSending" />
+      <MessageInput
+        ref="messageInput"
+        @send="handleSendMessage"
+        :disabled="isSending"
+        :error="sendError"
+      />
+
+      <ChatSafetyDialog
+        :mode="dialogMode"
+        :username="dialogEvent?.created_by_username || ''"
+        :busy="dialogBusy"
+        @close="closeDialog"
+        @report="handleReport"
+        @block="handleBlock"
+        @agree="handleAgreeRules"
+      />
     </div>
   </div>
 </template>
@@ -76,6 +94,14 @@ import LiveScoreboard from './LiveScoreboard.vue';
 import LiveAdminControls from './LiveAdminControls.vue';
 import ActivityStream from './ActivityStream.vue';
 import MessageInput from './MessageInput.vue';
+import ChatSafetyDialog from './ChatSafetyDialog.vue';
+import { useAuthStore } from '../../stores/auth';
+import { useBlockedUsers } from '../../composables/useBlockedUsers';
+import {
+  chatPostErrorMessage,
+  chatRulesKey,
+  visibleEvents,
+} from '../../utils/chatSafety';
 
 const props = defineProps({
   matchId: {
@@ -115,6 +141,99 @@ const {
 const sportType = computed(() => matchState.value?.sport_type || 'soccer');
 
 const isSending = ref(false);
+
+// ── Chat safety (SB-1324) ──
+const authStore = useAuthStore();
+const blockedUsers = useBlockedUsers();
+
+const currentUserId = computed(() =>
+  authStore.state.user?.id ? String(authStore.state.user.id) : null
+);
+
+// Reads already leave blocked authors' chat out; this hides what arrives
+// over realtime and what was on screen when someone was blocked. Chat only:
+// goals and cards a blocked user recorded stay.
+const shownEvents = computed(() =>
+  visibleEvents(events.value, blockedUsers.blockedIds.value)
+);
+
+const messageInput = ref(null);
+const sendError = ref('');
+const dialogMode = ref(null);
+const dialogEvent = ref(null);
+const dialogBusy = ref(false);
+// A message held back while the chat rules prompt is open.
+let pendingMessage = null;
+
+function closeDialog() {
+  dialogMode.value = null;
+  dialogEvent.value = null;
+  pendingMessage = null;
+}
+
+function openReport(event) {
+  sendError.value = '';
+  dialogEvent.value = event;
+  dialogMode.value = 'report';
+}
+
+function openBlock(event) {
+  sendError.value = '';
+  dialogEvent.value = event;
+  dialogMode.value = 'block';
+}
+
+async function handleReport(reason) {
+  const event = dialogEvent.value;
+  if (!event) return;
+  dialogBusy.value = true;
+  try {
+    // The server blocks the author too; report() hides their chat at once.
+    await blockedUsers.report(props.matchId, event.id, reason);
+    dialogEvent.value = null;
+    dialogMode.value = 'reported';
+  } catch (err) {
+    closeDialog();
+    sendError.value = err.message || 'Failed to report message';
+  } finally {
+    dialogBusy.value = false;
+  }
+}
+
+async function handleBlock() {
+  const authorId = dialogEvent.value?.created_by;
+  if (!authorId) return;
+  dialogBusy.value = true;
+  try {
+    await blockedUsers.block(authorId);
+    closeDialog();
+  } catch (err) {
+    closeDialog();
+    sendError.value = err.message || 'Failed to block user';
+  } finally {
+    dialogBusy.value = false;
+  }
+}
+
+function rulesAccepted() {
+  if (!currentUserId.value) return true;
+  try {
+    return localStorage.getItem(chatRulesKey(currentUserId.value)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function handleAgreeRules() {
+  try {
+    localStorage.setItem(chatRulesKey(currentUserId.value), '1');
+  } catch {
+    // Storage unavailable: they will be asked again next time.
+  }
+  const message = pendingMessage;
+  closeDialog();
+  if (message) handleSendMessage(message);
+}
 
 async function handleUpdateClock(action) {
   const result = await updateClock(action);
@@ -171,11 +290,20 @@ async function handlePostCard({
 async function handleSendMessage(message) {
   if (!message.trim()) return;
 
+  if (!rulesAccepted()) {
+    pendingMessage = message;
+    dialogMode.value = 'rules';
+    return;
+  }
+
   isSending.value = true;
+  sendError.value = '';
   try {
     const result = await postMessage(message);
-    if (!result.success) {
-      alert(result.error || 'Failed to send message');
+    if (result.success) {
+      messageInput.value?.clear();
+    } else {
+      sendError.value = chatPostErrorMessage(result.status, result.error);
     }
   } finally {
     isSending.value = false;

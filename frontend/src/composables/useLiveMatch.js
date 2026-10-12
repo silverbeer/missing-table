@@ -461,7 +461,7 @@ export function useLiveMatch(matchId) {
       return { success: true, event: response };
     } catch (err) {
       console.error('Error posting message:', err);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message, status: err.status };
     }
   }
 

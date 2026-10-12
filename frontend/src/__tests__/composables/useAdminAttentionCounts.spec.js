@@ -41,7 +41,8 @@ describe('useAdminAttentionCounts.fetchCounts', () => {
           invite_requests: 3,
           channel_requests: 1,
           support_inbox: 2,
-          total: 6,
+          content_reports: 4,
+          total: 10,
         }),
     });
 
@@ -54,11 +55,12 @@ describe('useAdminAttentionCounts.fetchCounts', () => {
         headers: expect.objectContaining({ Authorization: 'Bearer test' }),
       })
     );
-    expect(inbox.total.value).toBe(6);
+    expect(inbox.total.value).toBe(10);
     expect(inbox.breakdown.value).toEqual({
       invite_requests: 3,
       channel_requests: 1,
       support_inbox: 2,
+      content_reports: 4,
     });
   });
 
@@ -113,6 +115,23 @@ describe('useAdminAttentionCounts.tooltip', () => {
     expect(inbox.tooltip.value).toBe(
       '1 invite request · 4 unread support messages'
     );
+  });
+
+  it('includes pending content reports (SB-1324)', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          invite_requests: 0,
+          channel_requests: 0,
+          support_inbox: 0,
+          content_reports: 1,
+          total: 1,
+        }),
+    });
+    const inbox = useAdminAttentionCounts();
+    await inbox.fetchCounts();
+    expect(inbox.tooltip.value).toBe('1 content report');
   });
 
   it('falls back to a friendly empty message when nothing is pending', async () => {

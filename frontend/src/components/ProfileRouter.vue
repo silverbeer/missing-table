@@ -47,6 +47,9 @@
       <!-- Account preferences (universal, SB-1286) -->
       <PreferencesCard />
 
+      <!-- Support, privacy and blocked chat users (universal, SB-1324) -->
+      <SupportSafetyCard />
+
       <!-- Notifications card (universal — every role gets the same surface) -->
       <NotificationsCard />
     </div>
@@ -89,6 +92,7 @@ import PlayerProfile from './profiles/PlayerProfile.vue';
 import FanProfile from './profiles/FanProfile.vue';
 import NotificationsCard from './notifications/NotificationsCard.vue';
 import PreferencesCard from './profiles/PreferencesCard.vue';
+import SupportSafetyCard from './profiles/SupportSafetyCard.vue';
 
 export default {
   name: 'ProfileRouter',
@@ -100,6 +104,7 @@ export default {
     FanProfile,
     NotificationsCard,
     PreferencesCard,
+    SupportSafetyCard,
   },
   emits: ['logout', 'switch-tab'],
   setup(props, { emit }) {

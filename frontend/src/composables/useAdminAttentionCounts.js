@@ -20,6 +20,7 @@ const breakdown = ref({
   invite_requests: 0,
   channel_requests: 0,
   support_inbox: 0,
+  content_reports: 0,
 });
 const lastError = ref(null);
 
@@ -51,6 +52,7 @@ export function useAdminAttentionCounts() {
         invite_requests: data.invite_requests || 0,
         channel_requests: data.channel_requests || 0,
         support_inbox: data.support_inbox || 0,
+        content_reports: data.content_reports || 0,
       };
       total.value = data.total || 0;
       lastError.value = null;
@@ -91,6 +93,11 @@ export function useAdminAttentionCounts() {
     if (b.support_inbox > 0) {
       parts.push(
         `${b.support_inbox} unread support message${b.support_inbox === 1 ? '' : 's'}`
+      );
+    }
+    if (b.content_reports > 0) {
+      parts.push(
+        `${b.content_reports} content report${b.content_reports === 1 ? '' : 's'}`
       );
     }
     return parts.length ? parts.join(' · ') : 'No items need attention';
