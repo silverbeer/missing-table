@@ -145,8 +145,23 @@ chat (`match_events` rows with `event_type='message'`) is that content.
 
 Both tables are service-key only (RLS on, no client grants), like
 `match_events` since SB-1247. Web Realtime still delivers new chat rows
-directly from `match_events`, so blocked users' *new* messages are not yet
-filtered on web until the next fetch.
+directly from `match_events`, unfiltered, so the web client hides them itself
+(SB-1324): `useBlockedUsers` loads `GET /api/users/me/blocks` at sign-in,
+clears it at sign-out, and adds an author the moment a report or block
+succeeds; `LiveMatchView` renders `visibleEvents()` from `utils/chatSafety.js`,
+which drops chat (only chat) from anyone on that list.
+
+### Clients
+
+| Surface | Web (SB-1324) | iOS (mt-ios #36) |
+|---|---|---|
+| Report / Block | on other people's messages in `ActivityStream`; Delete on your own | long-press menu |
+| Chat rules | one-time prompt before the first post, remembered per user in `localStorage` | `@AppStorage("chatRulesAccepted")` |
+| Refused post | 422 / 403 / 429 worded by `chatPostErrorMessage()`, draft kept | `ChatPostError` |
+| Blocked users | Profile → Support & Safety (`SupportSafetyCard`), with support and privacy links | Profile → Support & Safety |
+| Review queue | Admin → Access → Content Reports (`AdminContentReports`): pending first; dismiss, delete message, delete & ban | — |
+
+There is no unban endpoint yet.
 
 ## 3. CSRF Protection
 

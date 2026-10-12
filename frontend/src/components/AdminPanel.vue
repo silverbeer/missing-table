@@ -234,6 +234,15 @@
           <AdminSupportInbox />
         </div>
 
+        <!-- Content Reports (live chat moderation, SB-1324) -->
+        <div
+          v-if="currentSection === 'content-reports'"
+          class="p-3 sm:p-6"
+          data-testid="admin-section-content-reports"
+        >
+          <AdminContentReports />
+        </div>
+
         <!-- Tournaments Management -->
         <div
           v-if="currentSection === 'tournaments'"
@@ -287,6 +296,7 @@ import AdminPlayoffs from './admin/AdminPlayoffs.vue';
 import AdminCache from './admin/AdminCache.vue';
 import AdminUsers from './admin/AdminUsers.vue';
 import AdminTournaments from './admin/AdminTournaments.vue';
+import AdminContentReports from './admin/AdminContentReports.vue';
 
 export default {
   name: 'AdminPanel',
@@ -309,6 +319,7 @@ export default {
     AdminCache,
     AdminUsers,
     AdminTournaments,
+    AdminContentReports,
   },
   setup() {
     const authStore = useAuthStore();
@@ -339,6 +350,12 @@ export default {
       {
         id: 'support-inbox',
         name: 'Support Inbox',
+        adminOnly: true,
+        category: 'access',
+      },
+      {
+        id: 'content-reports',
+        name: 'Content Reports',
         adminOnly: true,
         category: 'access',
       },

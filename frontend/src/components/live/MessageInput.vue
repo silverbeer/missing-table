@@ -1,5 +1,13 @@
 <template>
   <div class="message-input-container">
+    <p
+      v-if="error"
+      class="send-error"
+      role="alert"
+      data-testid="chat-send-error"
+    >
+      {{ error }}
+    </p>
     <div class="input-wrapper">
       <input
         v-model="message"
@@ -29,18 +37,30 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Why the last post failed, in words for the composer (SB-1324).
+  error: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['send']);
 
 const message = ref('');
 
+// The draft stays until the parent confirms the post, so a refused message
+// (or one held for the chat rules prompt) is not lost.
 function sendMessage() {
   if (!message.value.trim() || props.disabled) return;
 
   emit('send', message.value.trim());
+}
+
+function clear() {
   message.value = '';
 }
+
+defineExpose({ clear });
 </script>
 
 <style scoped>
@@ -53,6 +73,13 @@ function sendMessage() {
   padding: 12px 16px;
   border-top: 1px solid #333;
   z-index: 100;
+}
+
+.send-error {
+  max-width: 640px;
+  margin: 0 auto 8px;
+  font-size: 13px;
+  color: #ff6b6b;
 }
 
 .input-wrapper {

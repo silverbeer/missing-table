@@ -116,11 +116,38 @@
               <span class="event-time">{{ formatTime(event.created_at) }}</span>
             </div>
             <div class="event-message">{{ event.message }}</div>
+            <!-- Report and Block on other people's chat; Delete on your own
+                 (managers can still delete anyone's) — SB-1324. -->
+            <div
+              v-if="isOthers(event)"
+              class="chat-actions"
+              data-testid="chat-actions"
+            >
+              <button
+                type="button"
+                class="chat-action"
+                data-testid="report-message"
+                @click="$emit('report-event', event)"
+              >
+                Report
+              </button>
+              <button
+                v-if="event.created_by"
+                type="button"
+                class="chat-action"
+                data-testid="block-user"
+                @click="$emit('block-user', event)"
+              >
+                Block
+              </button>
+            </div>
           </div>
           <button
-            v-if="canDelete"
+            v-if="canDelete || isMine(event)"
             @click="$emit('delete-event', event.id)"
             class="delete-button"
+            data-testid="delete-message"
+            title="Delete message"
           >
             &#10005;
           </button>
@@ -140,7 +167,7 @@
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   events: {
     type: Array,
     default: () => [],
@@ -153,9 +180,26 @@ defineProps({
     type: Number,
     required: true,
   },
+  // The signed-in user's id; null when signed out (no chat actions then).
+  currentUserId: {
+    type: String,
+    default: null,
+  },
 });
 
-defineEmits(['delete-event', 'load-more']);
+defineEmits(['delete-event', 'load-more', 'report-event', 'block-user']);
+
+function isMine(event) {
+  return (
+    !!props.currentUserId &&
+    !!event.created_by &&
+    String(event.created_by) === props.currentUserId
+  );
+}
+
+function isOthers(event) {
+  return !!props.currentUserId && !isMine(event);
+}
 
 function formatTime(timestamp) {
   if (!timestamp) return '';
@@ -368,6 +412,27 @@ function formatMatchMinute(event) {
 .delete-button:hover {
   opacity: 1;
   color: #f44336;
+}
+
+/* Chat safety actions */
+.chat-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.chat-action {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+}
+
+.chat-action:hover {
+  color: #f44336;
+  text-decoration: underline;
 }
 
 /* Load more */

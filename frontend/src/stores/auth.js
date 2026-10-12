@@ -881,7 +881,10 @@ export const useAuthStore = () => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      throw new Error(errorMessage);
+      // Callers that word errors by status (chat posting, SB-1324) read it here.
+      const err = new Error(errorMessage);
+      err.status = response.status;
+      throw err;
     }
 
     // The service worker serves the read APIs with StaleWhileRevalidate, so a

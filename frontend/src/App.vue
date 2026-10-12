@@ -414,6 +414,7 @@ import { lazyView } from './utils/lazyView';
 import { hasAnyRole, TEAM_PAGE_ROLES } from './utils/roles';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
+import { useBlockedUsers } from './composables/useBlockedUsers';
 import { getApiBaseUrl } from './config/api';
 import { errorMessage } from './utils/apiError';
 import { recordPageView, recordInviteRequest } from './faro';
@@ -527,6 +528,7 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const adminAttention = useAdminAttentionCounts();
+    const blockedUsers = useBlockedUsers();
     const notificationSetup = useNotificationSetup();
     const currentTab = ref('table');
     // /privacy is the one public page (SB-1310). Read once: the footer link is
@@ -918,6 +920,20 @@ export default {
           adminAttention.startPolling();
         } else {
           adminAttention.stopPolling();
+        }
+      },
+      { immediate: true }
+    );
+
+    // Live chat blocks (SB-1324): load them for whoever signs in, drop them on
+    // sign-out, so realtime chat from a blocked user is hidden from the start.
+    watch(
+      () => authStore.state.user?.id,
+      userId => {
+        if (userId) {
+          blockedUsers.load();
+        } else {
+          blockedUsers.clear();
         }
       },
       { immediate: true }
