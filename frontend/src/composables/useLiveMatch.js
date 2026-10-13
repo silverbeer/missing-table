@@ -10,6 +10,10 @@ import { supabase } from '../config/supabase';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import { useMatchLineup } from './useMatchLineup';
+import { mergeEventWindow } from '../utils/liveEvents';
+
+// How many of the newest events a chat re-read fetches (SB-1329).
+const CHAT_REFRESH_LIMIT = 50;
 
 export function useLiveMatch(matchId) {
   const authStore = useAuthStore();
@@ -24,6 +28,11 @@ export function useLiveMatch(matchId) {
   // Supabase channels
   let matchChannel = null;
   let eventsChannel = null;
+  let chatChannel = null;
+
+  // Chat re-reads are coalesced: rings during a fetch trigger one more.
+  let chatRefreshing = false;
+  let chatRefreshPending = false;
 
   // Clock update interval
   let clockInterval = null;
@@ -280,6 +289,57 @@ export function useLiveMatch(matchId) {
       .subscribe(status => {
         console.log('Events channel status:', status);
       });
+
+    // Chat (SB-1329): clients cannot read chat rows, so the events channel
+    // above only carries goals, cards and status changes. The backend touches
+    // live_chat_signals whenever this match's chat changes; re-read it then.
+    // A separate channel, so a problem here never stops the score streaming.
+    chatChannel = supabase
+      .channel(`live_chat_signals:${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'live_chat_signals',
+          filter: `match_id=eq.${matchId}`,
+        },
+        () => {
+          refreshChat();
+        }
+      )
+      .subscribe(status => {
+        console.log('Chat signal channel status:', status);
+      });
+  }
+
+  // Re-read the newest events through the API, which applies blocks, and
+  // merge them in (SB-1329).
+  async function refreshChat() {
+    if (chatRefreshing) {
+      chatRefreshPending = true;
+      return;
+    }
+    chatRefreshing = true;
+    try {
+      do {
+        chatRefreshPending = false;
+        const response = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/matches/${matchId}/live/events?limit=${CHAT_REFRESH_LIMIT}`
+        );
+        if (Array.isArray(response)) {
+          events.value = mergeEventWindow(
+            events.value,
+            response,
+            CHAT_REFRESH_LIMIT
+          );
+        }
+      } while (chatRefreshPending);
+    } catch (err) {
+      console.error('Error refreshing chat:', err);
+    } finally {
+      chatRefreshing = false;
+    }
   }
 
   // Unsubscribe from Realtime
@@ -291,6 +351,10 @@ export function useLiveMatch(matchId) {
     if (eventsChannel) {
       supabase.removeChannel(eventsChannel);
       eventsChannel = null;
+    }
+    if (chatChannel) {
+      supabase.removeChannel(chatChannel);
+      chatChannel = null;
     }
     isConnected.value = false;
   }
@@ -567,6 +631,7 @@ export function useLiveMatch(matchId) {
     loadMoreEvents,
     fetchMatchState,
     fetchTeamRosters,
+    refreshChat,
 
     // Lineup methods
     fetchLineup,

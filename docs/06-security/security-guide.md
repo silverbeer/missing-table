@@ -144,12 +144,27 @@ chat (`match_events` rows with `event_type='message'`) is that content.
 | Respond | Each report sends a Telegram alert to `MT_ADMIN_TELEGRAM_CHAT_ID` (capped by `MT_REPORT_ALERT_MAX_PER_HOUR`, default 10) and counts in the admin attention badge. Review queue: `GET /api/admin/content-reports?status=pending`. |
 
 Both tables are service-key only (RLS on, no client grants), like
-`match_events` since SB-1247. Web Realtime still delivers new chat rows
-directly from `match_events`, unfiltered, so the web client hides them itself
-(SB-1324): `useBlockedUsers` loads `GET /api/users/me/blocks` at sign-in,
-clears it at sign-out, and adds an author the moment a report or block
-succeeds; `LiveMatchView` renders `visibleEvents()` from `utils/chatSafety.js`,
-which drops chat (only chat) from anyone on that list.
+`match_events` since SB-1247.
+
+**Clients cannot read chat at all (SB-1329).** `match_events_select_policy`
+hides `event_type = 'message'` rows from every client role, so neither
+PostgREST nor Realtime hands chat to anyone holding the public anon key. The
+API (service key) is the only reader, and it applies blocks. Goals, cards,
+subs and status changes stay readable and keep streaming over Realtime.
+
+Chat reaches clients through a doorbell instead: `live_chat_signals` holds one
+content-free row per match (`match_id`, `changed_at`). `MatchEventDAO` touches
+it whenever a message is posted or deleted (`ring_chat`), clients subscribe to
+it over Realtime, and on each ring re-read `GET /api/matches/{id}/live/events`
+(web: `useLiveMatch.refreshChat` + `mergeEventWindow`; iOS: `MatchRealtime`
+refreshes on any change). Ringing is best-effort: a failure is logged, never
+fails the post.
+
+The web client still filters blocked authors itself as a backstop (SB-1324):
+`useBlockedUsers` loads `GET /api/users/me/blocks` at sign-in, clears it at
+sign-out, and adds an author the moment a report or block succeeds;
+`LiveMatchView` renders `visibleEvents()` from `utils/chatSafety.js`, which
+drops chat (only chat) from anyone on that list.
 
 ### Clients
 
