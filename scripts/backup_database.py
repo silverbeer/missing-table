@@ -83,6 +83,8 @@ EXCLUDED_TABLES = {
     # nothing about local's data
     "push_send_log",  # Push delivery diagnostics (SB-1071): a record of attempts,
     # not state — losing it loses nothing a user or the app needs
+    "live_chat_signals",  # Realtime doorbell (SB-1329): one timestamp per match,
+    # no content — rewritten by the next chat message
     # FreeRADIUS tables were dropped in migration 20260404201640_drop_radius_tables.sql
 }
 
@@ -166,6 +168,7 @@ TABLES_TO_BACKUP = [
     # - service_accounts: contains API keys, managed per-environment
     # - schema_version: internal tracking, recreated by migrations
     # - ingest_failures, push_send_log: diagnostics, regenerated or disposable
+    # - live_chat_signals: Realtime doorbell, no content
     # - rad* tables: FreeRADIUS protocol tables, not application data
     #
     # backend/tests/unit/test_backup_coverage.py fails CI when a migration

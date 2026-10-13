@@ -97,6 +97,8 @@ class MatchEventDAO(BaseDAO):
                     event_type=event_type,
                     event_id=response.data[0].get("id"),
                 )
+                if event_type == "message":
+                    self.ring_chat(match_id)
                 return response.data[0]
             return None
 
@@ -227,12 +229,31 @@ class MatchEventDAO(BaseDAO):
                     event_id=event_id,
                     deleted_by=deleted_by,
                 )
+                row = response.data[0]
+                if row.get("event_type") == "message" and row.get("match_id") is not None:
+                    self.ring_chat(row["match_id"])
                 return True
             return False
 
         except Exception:
             logger.exception("Error deleting match event", event_id=event_id)
             return False
+
+    def ring_chat(self, match_id: int) -> None:
+        """Tell clients this match's chat changed (SB-1329).
+
+        Clients cannot read chat rows, so Realtime no longer carries them. Instead
+        it carries this content-free row, and clients re-read chat through the
+        API. Best-effort: a missed ring delays chat until the next one or the
+        client's fallback refresh, which is no reason to fail the post.
+        """
+        try:
+            self.client.table("live_chat_signals").upsert(
+                {"match_id": match_id, "changed_at": datetime.now(UTC).isoformat()},
+                on_conflict="match_id",
+            ).execute()
+        except Exception:
+            logger.warning("live_chat_signal_failed", match_id=match_id, exc_info=True)
 
     def cleanup_expired_messages(self) -> int:
         """Delete message events that have expired (older than 10 days).
