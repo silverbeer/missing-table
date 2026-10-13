@@ -64,8 +64,7 @@ import SupportEmailLink from '@/components/SupportEmailLink.vue';
 import { useBlockedUsers } from '@/composables/useBlockedUsers';
 
 // Profile → Support & Safety (SB-1324): the web counterpart of the iOS
-// Profile section — support, and the people you've blocked in chat. The
-// privacy policy is linked from the site footer (SB-1326).
+// Profile section — support, and the people you've blocked in chat.
 const {
   blocks,
   loaded,
