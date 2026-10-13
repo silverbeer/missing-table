@@ -47,7 +47,7 @@
       <!-- Account preferences (universal, SB-1286) -->
       <PreferencesCard />
 
-      <!-- Support, privacy and blocked chat users (universal, SB-1324) -->
+      <!-- Support and blocked chat users (universal, SB-1324) -->
       <SupportSafetyCard />
 
       <!-- Notifications card (universal — every role gets the same surface) -->
