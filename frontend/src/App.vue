@@ -51,8 +51,15 @@
 
     <!-- Main Content -->
     <div class="container mx-auto px-4 pt-2 pb-8">
+      <!-- Public privacy policy (SB-1310): /privacy renders for everyone,
+           signed in or not, without waiting on auth. -->
+      <PrivacyPolicy v-if="isPrivacyPage" />
+
       <!-- Loading indicator -->
-      <div v-if="authStore.state.loading" class="loading-container">
+      <div
+        v-if="authStore.state.loading && !isPrivacyPage"
+        class="loading-container"
+      >
         <div class="loading-spinner"></div>
         <p>Loading...</p>
       </div>
@@ -64,7 +71,7 @@
       </div>
 
       <!-- Content based on auth status -->
-      <div v-if="!authStore.state.loading">
+      <div v-if="!authStore.state.loading && !isPrivacyPage">
         <!-- Unauthenticated view -->
         <div v-if="!authStore.state.session" class="max-w-4xl mx-auto">
           <!-- Hero (inside loading guard — renders exactly once) -->
@@ -482,6 +489,10 @@ const WhatsNewView = lazyView(
   () => import('./components/WhatsNewView.vue'),
   'WhatsNewView'
 );
+const PrivacyPolicy = lazyView(
+  () => import('./components/PrivacyPolicy.vue'),
+  'PrivacyPolicy'
+);
 const LiveMatchView = lazyView(
   () => import('./components/live').then(m => m.LiveMatchView),
   'LiveMatchView'
@@ -508,6 +519,7 @@ export default {
     VersionFooter,
     WhatsNewView,
     LiveMatchView,
+    PrivacyPolicy,
     InstallBanner,
     NotificationSetupGuide,
     OfflineIndicator,
@@ -519,6 +531,10 @@ export default {
     const blockedUsers = useBlockedUsers();
     const notificationSetup = useNotificationSetup();
     const currentTab = ref('table');
+    // /privacy is the one public page (SB-1310). Nothing on the web links to
+    // it (SB-1328); the iOS app and App Store listing open it directly, so
+    // reaching it is always a full page load.
+    const isPrivacyPage = /^\/privacy\/?$/.test(window.location.pathname);
     // Deep link from a push notification: ?matchId=<id> opens MatchDetailView
     // as an overlay (SB-86). Works for any match status, incl. completed.
     const deepLinkMatchId = ref(null);
@@ -817,7 +833,7 @@ export default {
       }
 
       // Record initial page view after auth initialization
-      recordPageView(currentTab.value, {
+      recordPageView(isPrivacyPage ? 'privacy' : currentTab.value, {
         authenticated: authStore.isAuthenticated.value ? 'true' : 'false',
         user_role: authStore.userRole.value || 'anonymous',
       });
@@ -962,6 +978,7 @@ export default {
       authStore,
       adminAttention,
       currentTab,
+      isPrivacyPage,
       deepLinkMatchId,
       closeDeepLinkMatch,
       showWhatsNew,
