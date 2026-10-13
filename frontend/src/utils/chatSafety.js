@@ -31,8 +31,16 @@ const CHAT_POST_ERRORS = {
  * meaning fall back to whatever the request reported.
  */
 export function chatPostErrorMessage(status, fallback) {
+  // A 403 is a chat ban unless the API said it was the club room or full
+  // time (SB-1330); those come with their own words.
+  if (status === 403 && ROOM_REFUSALS.includes(fallback)) return fallback;
   return CHAT_POST_ERRORS[status] || fallback || 'Failed to send message';
 }
+
+// Club chat rooms (SB-1330), worded by the API: services/chat_rooms.py.
+export const NOT_A_MEMBER = 'Live chat is open to members of the clubs playing';
+export const CHAT_CLOSED = 'Chat has closed for this match';
+const ROOM_REFUSALS = [NOT_A_MEMBER, CHAT_CLOSED];
 
 /**
  * Whether `event` is a chat message written by someone in `blocked`. Only

@@ -54,6 +54,27 @@
         @reopen-match="handleReopenMatch"
       />
 
+      <!-- Club chat rooms (SB-1330): an admin can read either club's room. -->
+      <div
+        v-if="chat.rooms.length > 1"
+        class="room-switcher"
+        role="tablist"
+        data-testid="chat-room-switcher"
+      >
+        <button
+          v-for="room in chat.rooms"
+          :key="room.club_id"
+          type="button"
+          role="tab"
+          :aria-selected="room.club_id === chat.club_id"
+          :class="['room-tab', { active: room.club_id === chat.club_id }]"
+          :data-testid="`chat-room-${room.club_id}`"
+          @click="handleSwitchRoom(room.club_id)"
+        >
+          {{ room.name || 'Club' }} chat
+        </button>
+      </div>
+
       <!-- Activity Stream -->
       <ActivityStream
         :events="shownEvents"
@@ -66,13 +87,22 @@
         @block-user="openBlock"
       />
 
-      <!-- Message Input -->
+      <!-- Message Input: only for a club playing, until full time (SB-1330) -->
       <MessageInput
+        v-if="canChat"
         ref="messageInput"
         @send="handleSendMessage"
         :disabled="isSending"
         :error="sendError"
       />
+      <p
+        v-else-if="chatNote"
+        class="chat-note"
+        role="status"
+        data-testid="chat-note"
+      >
+        {{ chatNote }}
+      </p>
 
       <ChatSafetyDialog
         :mode="dialogMode"
@@ -98,6 +128,8 @@ import ChatSafetyDialog from './ChatSafetyDialog.vue';
 import { useAuthStore } from '../../stores/auth';
 import { useBlockedUsers } from '../../composables/useBlockedUsers';
 import {
+  CHAT_CLOSED,
+  NOT_A_MEMBER,
   chatPostErrorMessage,
   chatRulesKey,
   visibleEvents,
@@ -136,6 +168,8 @@ const {
   awayLineup,
   fetchLineups,
   saveLineup,
+  chat,
+  setChatRoom,
 } = useLiveMatch(props.matchId);
 
 const sportType = computed(() => matchState.value?.sport_type || 'soccer');
@@ -156,6 +190,27 @@ const currentUserId = computed(() =>
 const shownEvents = computed(() =>
   visibleEvents(events.value, blockedUsers.blockedIds.value)
 );
+
+// Club chat rooms (SB-1330). Closed once the match is over: messages stay
+// readable, nobody posts.
+const chatClosed = computed(
+  () => chat.value.closed || matchPeriod.value === 'Full Time'
+);
+const canChat = computed(() => chat.value.available && !chatClosed.value);
+const chatNote = computed(() => {
+  if (!currentUserId.value) return '';
+  if (!chat.value.available) return NOT_A_MEMBER + '.';
+  if (chatClosed.value) return CHAT_CLOSED + '.';
+  return '';
+});
+
+async function handleSwitchRoom(clubId) {
+  sendError.value = '';
+  const result = await setChatRoom(clubId);
+  if (!result.success) {
+    sendError.value = result.error || 'Failed to switch chat room';
+  }
+}
 
 const messageInput = ref(null);
 const sendError = ref('');
@@ -330,6 +385,39 @@ async function handleLoadMore() {
 </script>
 
 <style scoped>
+/* Club chat rooms (SB-1330) */
+.room-switcher {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 0;
+}
+
+.room-tab {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #16213e;
+  color: #aaa;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.room-tab.active {
+  border-color: #2196f3;
+  color: white;
+}
+
+.chat-note {
+  margin: 0;
+  padding: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+}
+
 .live-match-view {
   display: flex;
   flex-direction: column;

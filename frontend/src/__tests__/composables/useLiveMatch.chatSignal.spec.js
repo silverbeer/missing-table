@@ -118,3 +118,48 @@ describe('useLiveMatch chat doorbell', () => {
     expect(live.events.value).toEqual([goal]);
   });
 });
+
+describe('useLiveMatch club rooms (SB-1330)', () => {
+  it('reads and posts without a room for a member', async () => {
+    const live = await startLive();
+    apiRequest.mockResolvedValueOnce({ id: 5 });
+    await live.postMessage('hi');
+    const [url, opts] = apiRequest.mock.calls.at(-1);
+    expect(url).toBe('http://api/api/matches/9/live/message');
+    expect(JSON.parse(opts.body)).toEqual({ message: 'hi' });
+  });
+
+  it('an admin’s chosen room is read, re-read and posted to', async () => {
+    const live = await startLive();
+    apiRequest.mockResolvedValueOnce({
+      id: 9,
+      chat: { available: true, club_id: 20, rooms: [], closed: false },
+      recent_events: [chat],
+    });
+    await live.setChatRoom(20);
+    expect(apiRequest.mock.calls.at(-1)[0]).toBe(
+      'http://api/api/matches/9/live?chat_club_id=20'
+    );
+    expect(live.events.value).toEqual([chat]);
+    expect(live.chat.value.club_id).toBe(20);
+
+    apiRequest.mockResolvedValueOnce([chat]);
+    ring();
+    await flushPromises();
+    expect(eventsCalls().at(-1)[0]).toBe(
+      'http://api/api/matches/9/live/events?limit=50&chat_club_id=20'
+    );
+
+    apiRequest.mockResolvedValueOnce({ id: 6 });
+    await live.postMessage('be nice');
+    expect(JSON.parse(apiRequest.mock.calls.at(-1)[1].body)).toEqual({
+      message: 'be nice',
+      club_id: 20,
+    });
+  });
+
+  it('chat defaults to unavailable until the API says otherwise', async () => {
+    const live = await startLive();
+    expect(live.chat.value.available).toBe(false);
+  });
+});

@@ -25,6 +25,26 @@ export function useLiveMatch(matchId) {
   const error = ref(null);
   const isConnected = ref(false);
 
+  // Club chat rooms (SB-1330). The API decides the viewer's room and reports
+  // it as matchState.chat; only an admin picks one, with chatRoomId.
+  const chatRoomId = ref(null);
+  const chat = computed(
+    () =>
+      matchState.value?.chat || {
+        available: false,
+        club_id: null,
+        rooms: [],
+        closed: false,
+      }
+  );
+
+  // Query string selecting the admin's chosen room; empty for everyone else.
+  function roomQuery(prefix) {
+    return chatRoomId.value == null
+      ? ''
+      : `${prefix}chat_club_id=${chatRoomId.value}`;
+  }
+
   // Supabase channels
   let matchChannel = null;
   let eventsChannel = null;
@@ -203,7 +223,7 @@ export function useLiveMatch(matchId) {
       error.value = null;
 
       const response = await authStore.apiRequest(
-        `${getApiBaseUrl()}/api/matches/${matchId}/live`
+        `${getApiBaseUrl()}/api/matches/${matchId}/live${roomQuery('?')}`
       );
 
       if (response) {
@@ -325,7 +345,7 @@ export function useLiveMatch(matchId) {
       do {
         chatRefreshPending = false;
         const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/matches/${matchId}/live/events?limit=${CHAT_REFRESH_LIMIT}`
+          `${getApiBaseUrl()}/api/matches/${matchId}/live/events?limit=${CHAT_REFRESH_LIMIT}${roomQuery('&')}`
         );
         if (Array.isArray(response)) {
           events.value = mergeEventWindow(
@@ -515,7 +535,13 @@ export function useLiveMatch(matchId) {
         `${getApiBaseUrl()}/api/matches/${matchId}/live/message`,
         {
           method: 'POST',
-          body: JSON.stringify({ message }),
+          // club_id only matters for an admin, who posts into the room they
+          // are viewing; everyone else posts into their club's room.
+          body: JSON.stringify(
+            chatRoomId.value == null
+              ? { message }
+              : { message, club_id: chatRoomId.value }
+          ),
         }
       );
       // Add event to local state immediately (don't wait for Realtime)
@@ -547,7 +573,7 @@ export function useLiveMatch(matchId) {
   async function loadMoreEvents(beforeId) {
     try {
       const response = await authStore.apiRequest(
-        `${getApiBaseUrl()}/api/matches/${matchId}/live/events?before_id=${beforeId}&limit=50`
+        `${getApiBaseUrl()}/api/matches/${matchId}/live/events?before_id=${beforeId}&limit=50${roomQuery('&')}`
       );
       if (response && Array.isArray(response)) {
         events.value = [...events.value, ...response];
@@ -555,6 +581,25 @@ export function useLiveMatch(matchId) {
       return { success: true };
     } catch (err) {
       console.error('Error loading more events:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Admin room switch (SB-1330): replace the chat with the chosen room's.
+  async function setChatRoom(clubId) {
+    if (clubId === chatRoomId.value) return { success: true };
+    chatRoomId.value = clubId;
+    try {
+      const response = await authStore.apiRequest(
+        `${getApiBaseUrl()}/api/matches/${matchId}/live${roomQuery('?')}`
+      );
+      if (response) {
+        matchState.value = response;
+        events.value = response.recent_events || [];
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('Error switching chat room:', err);
       return { success: false, error: err.message };
     }
   }
@@ -605,6 +650,8 @@ export function useLiveMatch(matchId) {
     isLoading,
     error,
     isConnected,
+    chat,
+    chatRoomId,
 
     // Lineup state
     homeLineup,
@@ -632,6 +679,7 @@ export function useLiveMatch(matchId) {
     fetchMatchState,
     fetchTeamRosters,
     refreshChat,
+    setChatRoom,
 
     // Lineup methods
     fetchLineup,

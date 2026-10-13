@@ -96,6 +96,9 @@ class MessageEvent(BaseModel):
     client_event_id: str | None = Field(
         None, max_length=36, description="Client-generated UUID for idempotent retries"
     )
+    club_id: int | None = Field(
+        None, description="Chat room to post in; honoured for admins only, others post in their club's room (SB-1330)"
+    )
 
 
 class GoalEventUpdate(BaseModel):

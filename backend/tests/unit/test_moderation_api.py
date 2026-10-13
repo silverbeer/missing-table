@@ -101,6 +101,29 @@ class TestReport:
         assert client.post(self.URL, json={"reason": "spam"}).status_code == 400
         mod_dao.create_report.assert_not_called()
 
+    def test_reporting_a_message_in_your_own_room_works(self, harness):
+        client, mod_dao, event_dao, _, _ = harness
+        event_dao.get_event_by_id.return_value = _chat_event(chat_club_id=10)
+        mod_dao.user_club_ids.return_value = [10]
+        mod_dao.create_report.return_value = {"id": 1}
+        assert client.post(self.URL, json={"reason": "spam"}).status_code == 201
+
+    def test_a_message_in_another_clubs_room_is_404(self, harness):
+        # SB-1330: the reporter cannot see that room, so the message does not exist for them.
+        client, mod_dao, event_dao, _, _ = harness
+        event_dao.get_event_by_id.return_value = _chat_event(chat_club_id=20)
+        mod_dao.user_club_ids.return_value = [10]
+        assert client.post(self.URL, json={"reason": "spam"}).status_code == 404
+        mod_dao.create_report.assert_not_called()
+
+    def test_an_admin_can_report_in_any_room(self, harness):
+        client, mod_dao, event_dao, _, as_user = harness
+        as_user(ADMIN)
+        event_dao.get_event_by_id.return_value = _chat_event(chat_club_id=20)
+        mod_dao.create_report.return_value = {"id": 1}
+        assert client.post(self.URL, json={"reason": "spam"}).status_code == 201
+        mod_dao.user_club_ids.assert_not_called()
+
     def test_unknown_event_is_404(self, harness):
         client, _, event_dao, _, _ = harness
         event_dao.get_event_by_id.return_value = None
