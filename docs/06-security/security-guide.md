@@ -158,7 +158,7 @@ which drops chat (only chat) from anyone on that list.
 | Report / Block | on other people's messages in `ActivityStream`; Delete on your own | long-press menu |
 | Chat rules | one-time prompt before the first post, remembered per user in `localStorage` | `@AppStorage("chatRulesAccepted")` |
 | Refused post | 422 / 403 / 429 worded by `chatPostErrorMessage()`, draft kept | `ChatPostError` |
-| Blocked users | Profile → Support & Safety (`SupportSafetyCard`), with support and privacy links | Profile → Support & Safety |
+| Blocked users | Profile → Support & Safety (`SupportSafetyCard`), with a support link (privacy is in the footer) | Profile → Support & Safety |
 | Review queue | Admin → Access → Content Reports (`AdminContentReports`): pending first; dismiss, delete message, delete & ban | — |
 
 There is no unban endpoint yet.

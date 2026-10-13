@@ -8,11 +8,6 @@
       <li>
         <SupportEmailLink display-text="Contact Support" />
       </li>
-      <li>
-        <a href="/privacy" class="safety-link" data-testid="privacy-link">
-          Privacy Policy
-        </a>
-      </li>
     </ul>
 
     <div class="blocked-section">
@@ -69,7 +64,8 @@ import SupportEmailLink from '@/components/SupportEmailLink.vue';
 import { useBlockedUsers } from '@/composables/useBlockedUsers';
 
 // Profile → Support & Safety (SB-1324): the web counterpart of the iOS
-// Profile section — support, privacy, and the people you've blocked in chat.
+// Profile section — support, and the people you've blocked in chat. The
+// privacy policy is linked from the site footer (SB-1326).
 const {
   blocks,
   loaded,
@@ -121,12 +117,6 @@ onMounted(load);
   display: flex;
   flex-wrap: wrap;
   gap: 8px 24px;
-}
-
-.safety-link {
-  color: #2563eb;
-  text-decoration: underline;
-  font-weight: 500;
 }
 
 .blocked-title {
