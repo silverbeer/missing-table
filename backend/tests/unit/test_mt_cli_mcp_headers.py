@@ -119,3 +119,73 @@ def test_a_failed_refresh_fails_with_nothing_on_stdout(client):
 
     assert result.exit_code == 1
     assert result.stdout == ""
+
+
+# --- --user: one Claude Code server per role (SB-1331) ---
+
+
+def login_as(username: str, access: str, refresh: str) -> None:
+    """What `mt login <username>` stores: the environment's session and the user's."""
+    state = mt_cli.CLIState(access_token=access, refresh_token=refresh, username=username)
+    mt_cli.save_state(state)
+    mt_cli.save_user_state(state)
+
+
+def bearer(result) -> str:
+    assert result.exit_code == 0, result.stderr
+    return json.loads(result.stdout)["Authorization"]
+
+
+def test_each_user_keeps_their_own_session_after_another_logs_in(client):
+    tom, club, player = token(3600), token(3601), token(3602)
+    login_as("tom", tom, "r-tom")
+    login_as("tom_club", club, "r-club")
+    login_as("gabe35", player, "r-gabe")
+
+    assert bearer(runner.invoke(mt_cli.app, ["mcp", "headers", "--user", "tom"])) == f"Bearer {tom}"
+    assert bearer(runner.invoke(mt_cli.app, ["mcp", "headers", "--user", "tom_club"])) == f"Bearer {club}"
+    assert bearer(runner.invoke(mt_cli.app, ["mcp", "headers", "-u", "gabe35"])) == f"Bearer {player}"
+    # Without --user: whoever logged in last, as before.
+    assert bearer(runner.invoke(mt_cli.app, ["mcp", "headers"])) == f"Bearer {player}"
+    assert client.refreshed_with == []
+
+
+def test_a_refreshed_user_token_is_saved_for_that_user_only(client):
+    login_as("tom", token(3600), "r-tom")
+    login_as("tom_club", token(10), "r-club")
+
+    result = runner.invoke(mt_cli.app, ["mcp", "headers", "--user", "tom_club"])
+
+    assert bearer(result) == f"Bearer {NEW_TOKEN}"
+    assert client.refreshed_with == ["r-club"]
+    assert mt_cli.load_user_state("tom_club").refresh_token == "r2"
+    assert mt_cli.load_user_state("tom").refresh_token == "r-tom"
+    # The environment's session (tom_club, logged in last) is not rewritten by --user.
+    assert mt_cli.load_state().refresh_token == "r-club"
+
+
+def test_a_login_from_before_per_user_storage_still_serves_its_user(client):
+    fresh = token(3600)
+    save(fresh)  # environment session only, username "tom"
+
+    assert bearer(runner.invoke(mt_cli.app, ["mcp", "headers", "--user", "tom"])) == f"Bearer {fresh}"
+
+
+def test_a_user_who_never_logged_in_fails_naming_them(client):
+    save(token(3600))
+
+    result = runner.invoke(mt_cli.app, ["mcp", "headers", "--user", "gabe35"])
+
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "mt login gabe35" in result.stderr
+
+
+def test_user_sessions_are_per_environment(client, tmp_path):
+    (tmp_path / ".env.prod").write_text("BACKEND_URL=https://api.example.test\n")
+    login_as("tom_club", token(3600), "r-local")
+
+    result = runner.invoke(mt_cli.app, ["--env", "prod", "mcp", "headers", "--user", "tom_club"])
+
+    assert result.exit_code == 1
+    assert result.stdout == ""
