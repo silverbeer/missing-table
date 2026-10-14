@@ -109,6 +109,19 @@ expired session heals itself without a restart. The helper only runs after the p
 trust dialog is accepted. Prod: start Claude Code with
 `APP_ENV=prod MT_MCP_URL=https://api.missingtable.com/mcp/` after `mt --env prod login`.
 
+**Several roles at once (SB-1331).** `mt login <user>` also keeps each user's session
+per environment, and `mt mcp headers --user <user>` speaks as that user — so one Claude
+Code session can hold a server per role and see each role's tool tiers side by side.
+Register them in local scope (private, not in `.mcp.json`):
+
+```bash
+claude mcp add-json --scope local mt-prod-club \
+  '{"type":"http","url":"https://api.missingtable.com/mcp/","headersHelper":"mt --env prod mcp headers --user tom_club"}'
+mt --env prod login tom_club     # in a real terminal; each user once
+```
+
+Without `--user` the helper uses whoever logged in last, as before.
+
 The `mt-admin` skill (`.claude/skills/mt-admin/`) drives the admin tools: ingest failure
 triage, and closing rows dry-run first, one confirmation each.
 

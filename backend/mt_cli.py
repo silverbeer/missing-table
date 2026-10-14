@@ -25,6 +25,7 @@ import sys
 from datetime import UTC, datetime
 from getpass import getpass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 from pydantic import BaseModel
@@ -42,6 +43,9 @@ from api_client.models import (
     TournamentMatchCreate,
     TournamentMatchUpdate,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 app = typer.Typer(help="MT Match Tracking CLI")
 match_app = typer.Typer(help="Live match tracking commands")
@@ -208,6 +212,19 @@ def get_base_url() -> str:
 # --- State Management ---
 
 
+def _read_raw_state() -> dict:
+    """The state file as stored, or {} when there is none."""
+    if not STATE_FILE.exists():
+        return {}
+    with open(STATE_FILE) as f:
+        return json.load(f) or {}
+
+
+def _write_raw_state(environments: dict, users: dict) -> None:
+    with open(STATE_FILE, "w") as f:
+        json.dump({"environments": environments, "users": users}, f, indent=2)
+
+
 def _read_state_file() -> dict:
     """The whole state file, as {env: session}.
 
@@ -220,11 +237,7 @@ def _read_state_file() -> dict:
     whichever environment is current when it is first read — the only
     information available about where that token came from.
     """
-    if not STATE_FILE.exists():
-        return {}
-    with open(STATE_FILE) as f:
-        data = json.load(f)
-
+    data = _read_raw_state()
     if isinstance(data, dict) and "environments" in data:
         return data["environments"] or {}
     if data:
@@ -241,8 +254,47 @@ def save_state(state: CLIState) -> None:
     """Write the session back, leaving other environments' sessions alone."""
     environments = _read_state_file()
     environments[get_current_env()] = state.model_dump()
-    with open(STATE_FILE, "w") as f:
-        json.dump({"environments": environments}, f, indent=2)
+    _write_raw_state(environments, _read_users())
+
+
+def _read_users() -> dict:
+    """Every stored login, as {env: {username: session}} (SB-1331)."""
+    data = _read_raw_state()
+    users = data.get("users") if isinstance(data, dict) else None
+    return users or {}
+
+
+def load_user_state(username: str) -> CLIState:
+    """The session `mt login <username>` left for the targeted environment.
+
+    The environment's current session, rather than per-user storage, is what
+    every other command uses. A login made before per-user storage existed is
+    only there, so it still counts when it belongs to this user.
+    """
+    env = get_current_env()
+    stored = _read_users().get(env, {}).get(username)
+    if stored:
+        return CLIState(**stored)
+    current = load_state()
+    if current.username == username and current.access_token:
+        return CLIState(access_token=current.access_token, refresh_token=current.refresh_token, username=username)
+    return CLIState(username=username)
+
+
+def save_user_state(state: CLIState) -> None:
+    """Keep this user's tokens for the targeted environment, beside everyone else's.
+
+    Only the tokens: an active match belongs to the environment's session.
+    """
+    if not state.username:
+        return
+    users = _read_users()
+    users.setdefault(get_current_env(), {})[state.username] = {
+        "access_token": state.access_token,
+        "refresh_token": state.refresh_token,
+        "username": state.username,
+    }
+    _write_raw_state(_read_state_file(), users)
 
 
 def announce_target() -> None:
@@ -534,6 +586,7 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
     state.refresh_token = result.get("refresh_token")
     state.username = username
     save_state(state)
+    save_user_state(state)
 
     user = result.get("user", {})
     role = user.get("role", "unknown")
@@ -560,8 +613,16 @@ def token_expires_at(token: str) -> int | None:
     return int(exp) if exp is not None else None
 
 
-def fresh_access_token(state: CLIState, base_url: str, now: float | None = None) -> str:
-    """The stored session token, refreshed first if it is near expiry or unreadable."""
+def fresh_access_token(
+    state: CLIState,
+    base_url: str,
+    now: float | None = None,
+    persist: Callable[[CLIState], None] | None = None,
+) -> str:
+    """The stored session token, refreshed first if it is near expiry or unreadable.
+
+    A refreshed token is written back with `persist` (default: the environment's session).
+    """
     import time
 
     if not state.access_token:
@@ -578,23 +639,35 @@ def fresh_access_token(state: CLIState, base_url: str, now: float | None = None)
         client.close()
     state.access_token = refreshed["access_token"]
     state.refresh_token = refreshed.get("refresh_token") or state.refresh_token
-    save_state(state)
+    (persist or save_state)(state)
     return state.access_token
 
 
 @mcp_app.command("headers")
-def mcp_headers():
+def mcp_headers(
+    user: str | None = typer.Option(
+        None,
+        "--user",
+        "-u",
+        help="Speak as this user's `mt login` session instead of the environment's current one (SB-1331).",
+    ),
+):
     """Print mt-mcp auth headers as JSON, for Claude Code's headersHelper.
 
     Stdout is the JSON object and nothing else; every message goes to stderr.
-    Uses the `mt login` session for the targeted environment, refreshing it when
-    it is within five minutes of expiry.
+    Uses the `mt login` session for the targeted environment — or, with --user,
+    that user's — refreshing it when it is within five minutes of expiry.
     """
     err = Console(stderr=True)
+    if user:
+        state, persist = load_user_state(user), save_user_state
+    else:
+        state, persist = load_state(), save_state
     try:
-        token = fresh_access_token(load_state(), get_base_url())
+        token = fresh_access_token(state, get_base_url(), persist=persist)
     except (AuthenticationError, APIError) as e:
-        err.print(f"[red]mt-mcp: {e}[/red] — run [cyan]mt login[/cyan] for {get_current_env()}")
+        who = f"mt login {user}" if user else "mt login"
+        err.print(f"[red]mt-mcp: {e}[/red] — run [cyan]{who}[/cyan] for {get_current_env()}")
         raise typer.Exit(1) from None
     sys.stdout.write(json.dumps({"Authorization": f"Bearer {token}", "X-MT-Client": MCP_CLIENT}))
 
