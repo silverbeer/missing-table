@@ -166,6 +166,33 @@ sign-out, and adds an author the moment a report or block succeeds;
 `LiveMatchView` renders `visibleEvents()` from `utils/chatSafety.js`, which
 drops chat (only chat) from anyone on that list.
 
+### Club rooms (SB-1330)
+
+Each club playing in a match has its own chat room (`match_events.chat_club_id`).
+For IFA vs NEFC, IFA members chat with IFA members and NEFC members with NEFC
+members; everyone sees the same score, goals and cards. The rules live in
+`services/chat_rooms.py` (pure, unit-tested):
+
+| Viewer | Room |
+|---|---|
+| Member of a club playing | that club's room; posts land there whatever room they ask for |
+| Club not playing, or no club | no chat: the API leaves chat out and refuses posts (403 "Live chat is open to members of the clubs playing") |
+| Admin | either room (`chat_club_id` on reads, `club_id` on posts); home by default |
+| Both teams the same club | one shared room |
+| After full time | readable, not postable (403 "Chat has closed for this match") |
+
+A user's club is the profile's `club_id`, else their team's club, else their
+current roster teams' clubs (`ModerationDAO.user_club_ids`). `GET /live`
+returns the viewer's `chat` (`available`, `club_id`, `rooms`, `closed`);
+clients show the chat box only when it is available and open. Managers
+delete messages in their own club's room only, and a message in another
+club's room is 404 to report. Messages from before rooms (`chat_club_id`
+NULL) show in every room until the 10-day cleanup.
+
+Because clients cannot read chat rows at all (SB-1329), the API is the whole
+of the enforcement: a client cannot read another club's room by asking
+PostgREST or Realtime directly.
+
 ### Clients
 
 | Surface | Web (SB-1324) | iOS (mt-ios #36) |
@@ -174,6 +201,7 @@ drops chat (only chat) from anyone on that list.
 | Chat rules | one-time prompt before the first post, remembered per user in `localStorage` | `@AppStorage("chatRulesAccepted")` |
 | Refused post | 422 / 403 / 429 worded by `chatPostErrorMessage()`, draft kept | `ChatPostError` |
 | Blocked users | Profile → Support & Safety (`SupportSafetyCard`), with a support link | Profile → Support & Safety |
+| Club rooms (SB-1330) | composer only for a club playing, until full time; admin room switcher | same; admin segmented picker (mt-ios #38) |
 | Review queue | Admin → Access → Content Reports (`AdminContentReports`): pending first; dismiss, delete message, delete & ban | — |
 
 There is no unban endpoint yet.

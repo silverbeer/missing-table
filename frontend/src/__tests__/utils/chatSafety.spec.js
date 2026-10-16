@@ -79,6 +79,18 @@ describe('chatPostErrorMessage', () => {
     );
   });
 
+  it('a 403 for the club room or full time keeps the API wording (SB-1330)', () => {
+    expect(
+      chatPostErrorMessage(
+        403,
+        'Live chat is open to members of the clubs playing'
+      )
+    ).toBe('Live chat is open to members of the clubs playing');
+    expect(chatPostErrorMessage(403, 'Chat has closed for this match')).toBe(
+      'Chat has closed for this match'
+    );
+  });
+
   it('falls back to the request error for any other status', () => {
     expect(chatPostErrorMessage(500, 'Server exploded')).toBe(
       'Server exploded'

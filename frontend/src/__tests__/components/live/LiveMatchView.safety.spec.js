@@ -13,6 +13,14 @@ const AUTHOR = 'author-id';
 
 const events = ref([]);
 const postMessage = vi.fn();
+const setChatRoom = vi.fn(() => Promise.resolve({ success: true }));
+const chat = ref({
+  available: true,
+  club_id: 10,
+  rooms: [{ club_id: 10, name: 'IFA' }],
+  closed: false,
+});
+const matchPeriod = ref('1st Half');
 const apiRequest = vi.fn();
 
 vi.mock('@/composables/useLiveMatch', () => ({
@@ -24,7 +32,9 @@ vi.mock('@/composables/useLiveMatch', () => ({
     isConnected: ref(true),
     clockDisplayFormatted: computed(() => '10:00'),
     isInStoppage: computed(() => false),
-    matchPeriod: computed(() => '1st Half'),
+    matchPeriod,
+    chat,
+    setChatRoom,
     canManage: computed(() => false),
     postMessage,
     deleteEvent: vi.fn(),
@@ -56,6 +66,14 @@ const mountView = () =>
   });
 
 beforeEach(() => {
+  chat.value = {
+    available: true,
+    club_id: 10,
+    rooms: [{ club_id: 10, name: 'IFA' }],
+    closed: false,
+  };
+  matchPeriod.value = '1st Half';
+  setChatRoom.mockClear();
   useBlockedUsers().clear();
   localStorage.clear();
   apiRequest.mockReset();
@@ -151,5 +169,63 @@ describe('posting', () => {
     await send(wrapper);
     expect(wrapper.find('[data-testid="chat-send-error"]').text()).toBe(copy);
     expect(wrapper.find('.message-input').element.value).toBe('hello');
+  });
+});
+
+describe('club chat rooms (SB-1330)', () => {
+  it('a member of a club playing gets the composer', () => {
+    const wrapper = mountView();
+    expect(wrapper.find('.message-input').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="chat-note"]').exists()).toBe(false);
+  });
+
+  it('a user whose club is not playing gets no composer, and says why', () => {
+    chat.value = { available: false, club_id: null, rooms: [], closed: false };
+    const wrapper = mountView();
+    expect(wrapper.find('.message-input').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="chat-note"]').text()).toBe(
+      'Live chat is open to members of the clubs playing.'
+    );
+  });
+
+  it('the score and goals still show without a room', () => {
+    chat.value = { available: false, club_id: null, rooms: [], closed: false };
+    const wrapper = mountView();
+    expect(wrapper.text()).toContain('Scorer Sam');
+  });
+
+  it('posting closes at full time', () => {
+    matchPeriod.value = 'Full Time';
+    const wrapper = mountView();
+    expect(wrapper.find('.message-input').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="chat-note"]').text()).toBe(
+      'Chat has closed for this match.'
+    );
+  });
+
+  it('a member sees no room switcher', () => {
+    const wrapper = mountView();
+    expect(wrapper.find('[data-testid="chat-room-switcher"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('an admin switches between the two clubs’ rooms', async () => {
+    chat.value = {
+      available: true,
+      club_id: 10,
+      rooms: [
+        { club_id: 10, name: 'IFA' },
+        { club_id: 20, name: 'NEFC' },
+      ],
+      closed: false,
+    };
+    const wrapper = mountView();
+    const tabs = wrapper.findAll('.room-tab');
+    expect(tabs.map(t => t.text())).toEqual(['IFA chat', 'NEFC chat']);
+    expect(tabs[0].attributes('aria-selected')).toBe('true');
+
+    await wrapper.find('[data-testid="chat-room-20"]').trigger('click');
+    expect(setChatRoom).toHaveBeenCalledWith(20);
   });
 });

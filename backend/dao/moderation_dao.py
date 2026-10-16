@@ -103,6 +103,43 @@ class ModerationDAO(BaseDAO):
             return []
 
     # ------------------------------------------------------------------
+    # Club rooms (SB-1330)
+    # ------------------------------------------------------------------
+
+    def user_club_ids(self, user_id: str | None, profile_club_id: int | None, profile_team_id: int | None) -> list[int]:
+        """The clubs a user belongs to, in preference order, for chat rooms.
+
+        The profile's club first, then the club of the profile's team, then
+        the clubs of the user's current roster teams. Lookups that fail leave
+        the user with fewer clubs (less chat), never an error.
+        """
+        clubs: list[int] = []
+
+        def add(club_id: object) -> None:
+            if isinstance(club_id, int) and club_id not in clubs:
+                clubs.append(club_id)
+
+        add(profile_club_id)
+        try:
+            if profile_team_id is not None:
+                rows = self.client.table("teams").select("club_id").eq("id", profile_team_id).limit(1).execute().data
+                if rows:
+                    add(rows[0].get("club_id"))
+            if user_id:
+                rows = (
+                    self.client.table("player_team_history")
+                    .select("team:teams(club_id)")
+                    .eq("player_id", user_id)
+                    .eq("is_current", True)
+                    .execute()
+                ).data or []
+                for row in rows:
+                    add((row.get("team") or {}).get("club_id"))
+        except Exception:
+            logger.warning("chat_user_clubs_lookup_failed", user_id=user_id, exc_info=True)
+        return clubs
+
+    # ------------------------------------------------------------------
     # Bans
     # ------------------------------------------------------------------
 

@@ -95,6 +95,7 @@ from mt_ai.api import router as mt_ai_router
 from notifications.score_change import is_new_final_score
 from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
+from services.chat_rooms import CHAT_CLOSED, NOT_A_MEMBER, ChatAccess, ChatRoom, chat_access, is_closed, match_rooms
 from services.content_filter import contains_objectionable_language
 
 # Legacy flag kept for backwards compatibility so existing envs keep working.
@@ -3546,23 +3547,73 @@ def _blocked_by(current_user: dict[str, Any]) -> list[str]:
     return moderation_dao.blocked_user_ids(str(user_id)) if user_id else []
 
 
+def _match_chat_rooms(match: dict[str, Any]) -> list[ChatRoom]:
+    """The chat rooms of a match: one per club playing (SB-1330).
+
+    Reads either shape: the live state's flat club fields, or the nested
+    home_team_club / away_team_club of get_match_by_id.
+    """
+    home = match.get("home_team_club") or {}
+    away = match.get("away_team_club") or {}
+    return match_rooms(
+        match.get("home_club_id", home.get("id")),
+        match.get("home_club_name", home.get("name")),
+        match.get("away_club_id", away.get("id")),
+        match.get("away_club_name", away.get("name")),
+    )
+
+
+def _chat_access_for(
+    current_user: dict[str, Any], match: dict[str, Any], requested_club_id: int | None = None
+) -> ChatAccess:
+    """Which club room, if any, the viewer reads and posts in (SB-1330)."""
+    is_admin = current_user.get("role") == "admin"
+    user_id = current_user.get("user_id") or current_user.get("id")
+    clubs = (
+        []
+        if is_admin
+        else moderation_dao.user_club_ids(
+            str(user_id) if user_id else None, current_user.get("club_id"), current_user.get("team_id")
+        )
+    )
+    return chat_access(
+        is_admin=is_admin,
+        user_club_ids=clubs,
+        rooms=_match_chat_rooms(match),
+        closed=is_closed(match.get("match_status"), match.get("match_end_time")),
+        requested_club_id=requested_club_id,
+    )
+
+
 @app.get("/api/matches/{match_id}/live")
 async def get_live_match_state(
     match_id: int,
     current_user: dict[str, Any] = Depends(get_current_user_required),
+    chat_club_id: int | None = Query(None, description="Chat room to read (admins only; SB-1330)"),
 ):
     """Get full live match state including clock timestamps and recent events.
 
-    Returns match data with clock fields for the live match view.
+    Returns match data with clock fields for the live match view, and `chat`:
+    the viewer's club room, if any (SB-1330).
     """
     try:
         match_state = match_dao.get_live_match_state(match_id, include_test=viewer_sees_test_content(current_user))
         if not match_state:
             raise HTTPException(status_code=404, detail="Match not found")
 
-        # Get recent events, without chat from users the viewer blocked (SB-1309)
-        events = match_event_dao.get_events(match_id, limit=50, exclude_messages_by=_blocked_by(current_user))
+        access = _chat_access_for(current_user, match_state, chat_club_id)
+
+        # Recent events: only the viewer's chat room, and no chat from users
+        # they blocked (SB-1309). No room, no chat — the score still shows.
+        events = match_event_dao.get_events(
+            match_id,
+            limit=50,
+            exclude_messages_by=_blocked_by(current_user),
+            chat_room_id=access.club_id,
+            hide_chat=not access.available,
+        )
         match_state["recent_events"] = events
+        match_state["chat"] = access.to_dict()
 
         return match_state
     except HTTPException:
@@ -4093,6 +4144,14 @@ async def post_message(
         if not current_match:
             raise HTTPException(status_code=404, detail="Match not found")
 
+        # Club rooms (SB-1330): post into the poster's club room, if their club
+        # is playing; admins choose a room with club_id.
+        access = _chat_access_for(current_user, current_match, message.club_id)
+        if not access.available:
+            raise HTTPException(status_code=403, detail=NOT_A_MEMBER)
+        if access.closed:
+            raise HTTPException(status_code=403, detail=CHAT_CLOSED)
+
         # Idempotency: replayed sync request returns the stored event
         if message.client_event_id:
             existing = match_event_dao.get_event_by_client_id(message.client_event_id)
@@ -4107,6 +4166,7 @@ async def post_message(
             created_by=user_id,
             created_by_username=current_user.get("username"),
             client_event_id=message.client_event_id,
+            chat_club_id=access.club_id,
         )
 
         if not event:
@@ -4267,6 +4327,14 @@ async def delete_event(
                 current_user, current_match["home_team_id"], current_match["away_team_id"]
             ):
                 raise HTTPException(status_code=403, detail="You don't have permission to moderate this match")
+            # A manager moderates their own club's chat room only (SB-1330).
+            if (
+                event.get("event_type") == "message"
+                and event.get("chat_club_id") is not None
+                and current_user.get("role") != "admin"
+                and _chat_access_for(current_user, current_match).club_id != event["chat_club_id"]
+            ):
+                raise HTTPException(status_code=403, detail="You don't have permission to moderate this chat room")
 
         # Soft delete the event
         success = match_event_dao.soft_delete_event(event_id, deleted_by=user_id)
@@ -4309,16 +4377,30 @@ async def get_match_events(
     current_user: dict[str, Any] = Depends(get_current_user_required),
     limit: int = Query(50, le=100, description="Maximum events to return"),
     before_id: int | None = Query(None, description="Return events before this ID"),
+    chat_club_id: int | None = Query(None, description="Chat room to read (admins only; SB-1330)"),
 ):
     """Get paginated events for a match.
 
-    Used for loading more events in the activity stream.
+    Used for loading more events in the activity stream, and to re-read chat
+    when the live_chat_signals doorbell rings (SB-1329). Chat is the viewer's
+    club room only (SB-1330).
     """
     try:
+        match_state = match_dao.get_live_match_state(match_id, include_test=viewer_sees_test_content(current_user))
+        if not match_state:
+            raise HTTPException(status_code=404, detail="Match not found")
+        access = _chat_access_for(current_user, match_state, chat_club_id)
         events = match_event_dao.get_events(
-            match_id, limit=limit, before_id=before_id, exclude_messages_by=_blocked_by(current_user)
+            match_id,
+            limit=limit,
+            before_id=before_id,
+            exclude_messages_by=_blocked_by(current_user),
+            chat_room_id=access.club_id,
+            hide_chat=not access.available,
         )
         return events
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting match events: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e

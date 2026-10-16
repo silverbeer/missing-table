@@ -1885,10 +1885,10 @@ class MatchDAO(BaseDAO):
                     *,
                     home_team:teams!matches_home_team_id_fkey(
                         id, name,
-                        club:clubs(id, logo_url),
+                        club:clubs(id, name, logo_url),
                         division:divisions(id, leagues(sport_type))
                     ),
-                    away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, logo_url)),
+                    away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
                     age_group:age_groups(id, name),
                     match_type:match_types(id, name),
                     division:divisions(id, name, leagues(id, name, sport_type))
@@ -1945,6 +1945,11 @@ class MatchDAO(BaseDAO):
                 "away_team_id": match["away_team_id"],
                 "away_team_name": away_team.get("name", "Unknown"),
                 "away_team_logo": away_club.get("logo_url"),
+                # Live chat has one room per club playing (SB-1330).
+                "home_club_id": home_club.get("id"),
+                "home_club_name": home_club.get("name"),
+                "away_club_id": away_club.get("id"),
+                "away_club_name": away_club.get("name"),
                 "age_group_name": match["age_group"]["name"] if match.get("age_group") else None,
                 "match_type_name": match["match_type"]["name"] if match.get("match_type") else None,
                 "division_name": match["division"]["name"] if match.get("division") else None,

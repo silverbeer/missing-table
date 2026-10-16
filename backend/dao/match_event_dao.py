@@ -17,6 +17,26 @@ from dao.base_dao import BaseDAO
 logger = structlog.get_logger()
 
 
+def _chat_filter(blocked: list[str] | None, chat_room_id: int | None) -> str | None:
+    """PostgREST `or` filter that keeps every non-chat event and only the chat
+    the viewer may see. One `or` param, with the conditions nested inside it.
+
+    Blocked authors (SB-1309): keep chat with no author too — NOT (NULL IN
+    (...)) is NULL, so a bare not.in would drop every event nobody authored.
+    Room (SB-1330): keep this club's room and pre-rooms messages (NULL).
+    """
+    conditions = []
+    if blocked:
+        conditions.append(f"or(created_by.is.null,created_by.not.in.({','.join(blocked)}))")
+    if chat_room_id is not None:
+        conditions.append(f"or(chat_club_id.eq.{int(chat_room_id)},chat_club_id.is.null)")
+    if not conditions:
+        return None
+    if len(conditions) == 1:
+        return f"event_type.neq.message,{conditions[0][3:-1]}"
+    return f"event_type.neq.message,and({','.join(conditions)})"
+
+
 class MatchEventDAO(BaseDAO):
     """Data access object for match event operations (live match activity stream)."""
 
@@ -36,6 +56,7 @@ class MatchEventDAO(BaseDAO):
         assist_player_id: int | None = None,
         assist_player_name: str | None = None,
         client_event_id: str | None = None,
+        chat_club_id: int | None = None,
     ) -> dict | None:
         """Create a new match event.
 
@@ -55,6 +76,7 @@ class MatchEventDAO(BaseDAO):
             assist_player_name: Denormalized assister display name
             client_event_id: Client-generated UUID; the unique index on this column
                 makes replayed inserts fail so offline sync is exactly-once
+            chat_club_id: Club room a chat message belongs to (SB-1330)
 
         Returns:
             Created event record or None on error
@@ -87,6 +109,8 @@ class MatchEventDAO(BaseDAO):
                 data["assist_player_name"] = assist_player_name
             if client_event_id is not None:
                 data["client_event_id"] = client_event_id
+            if chat_club_id is not None:
+                data["chat_club_id"] = chat_club_id
 
             response = self.client.table("match_events").insert(data).execute()
 
@@ -116,6 +140,8 @@ class MatchEventDAO(BaseDAO):
         limit: int = 50,
         before_id: int | None = None,
         exclude_messages_by: list[str] | None = None,
+        chat_room_id: int | None = None,
+        hide_chat: bool = False,
     ) -> list[dict]:
         """Get paginated events for a match.
 
@@ -126,6 +152,9 @@ class MatchEventDAO(BaseDAO):
             exclude_messages_by: Drop chat messages by these users — the
                 viewer's blocked users (SB-1309). Only event_type 'message':
                 blocking a manager must not hide the goals they record.
+            chat_room_id: Show only this club's chat room (SB-1330), plus
+                messages from before rooms existed (chat_club_id NULL).
+            hide_chat: Leave chat out entirely — the viewer has no room.
 
         Returns:
             List of event records, newest first
@@ -143,12 +172,12 @@ class MatchEventDAO(BaseDAO):
             if before_id is not None:
                 query = query.lt("id", before_id)
 
-            if exclude_messages_by:
-                # Keep anything that is not a chat message, and anything with
-                # no author: NOT (NULL IN (...)) is NULL, so a bare not.in
-                # would also drop every event nobody authored.
-                ids = ",".join(exclude_messages_by)
-                query = query.or_(f"event_type.neq.message,created_by.is.null,created_by.not.in.({ids})")
+            if hide_chat:
+                query = query.neq("event_type", "message")
+            else:
+                chat_filter = _chat_filter(exclude_messages_by, chat_room_id)
+                if chat_filter:
+                    query = query.or_(chat_filter)
 
             response = query.execute()
             return response.data or []

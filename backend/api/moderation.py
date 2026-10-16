@@ -113,6 +113,13 @@ def report_event(
     if event.get("event_type") != "message":
         raise HTTPException(status_code=400, detail="Only chat messages can be reported")
 
+    # A message in another club's room is not one the reporter can see (SB-1330).
+    room = event.get("chat_club_id")
+    if room is not None and current_user.get("role") != "admin":
+        clubs = _moderation_dao().user_club_ids(reporter_id, current_user.get("club_id"), current_user.get("team_id"))
+        if room not in clubs:
+            raise HTTPException(status_code=404, detail="Event not found")
+
     author_id = event.get("created_by")
     if author_id and str(author_id) == reporter_id:
         raise HTTPException(status_code=400, detail="You cannot report your own message")
