@@ -214,8 +214,14 @@ so a `Not reported` match renders an em dash rather than a bare separator.
 `MatchDetailView` passes the match's `match_type_id`; when that type is flagged
 `counts_for_qualification`, `get_match_preview` narrows recent form to the
 flagged types (`form_match_type_ids`). A tournament or friendly preview keeps
-every competition, and common opponents and head-to-head are unchanged. Each
-form row names its competition — League neutral, anything else amber.
+every competition. Each form row names its competition — League neutral,
+anything else amber.
+
+**Common opponents are League and Flex only, for every preview** (SB-1347,
+`qualifying_match_type_ids`). A tournament or friendly result is not like-for-like
+evidence, and a tournament draw must not surface as a "shared" opponent.
+Head-to-head still spans every competition. If no type is flagged (failed
+lookup), both fall back to every competition rather than blanking the panel.
 
 **A tab with no rows does not render.** `Common Opponents` and `Head-to-Head`
 used to show a literal `0` badge, so two of three tabs advertised their

@@ -68,17 +68,27 @@ STANDINGS_QUALIFYING = "qualifying"
 STANDINGS_ALL = "all"
 
 
+def qualifying_match_type_ids(match_types: list[dict]) -> list[int] | None:
+    """The competitions flagged counts_for_qualification (League, Flex). None = all.
+
+    Read from the flag rather than named here, so every surface agrees on what
+    qualifies (SB-849). No flagged type at all means the lookup failed or the
+    data is unset; filtering on an empty list would blank the preview, so that
+    falls back to every competition instead.
+    """
+    return [t["id"] for t in match_types if t.get("counts_for_qualification")] or None
+
+
 def form_match_type_ids(match_types: list[dict], match_type_id: int | None) -> list[int] | None:
     """Which competitions a match preview's recent form draws from. None = all.
 
     A League or Flex match is previewed against League and Flex form only:
     a tournament result says little about the competition at stake (SB-1346).
-    "League and Flex" is whatever is flagged counts_for_qualification, the
-    same set the standings and the Matches chips use (SB-849). Any other
-    match — a tournament, a friendly, or no type at all — keeps every result.
+    Any other match — a tournament, a friendly, or no type at all — keeps
+    every result.
     """
-    qualifying = [t["id"] for t in match_types if t.get("counts_for_qualification")]
-    if match_type_id is None or match_type_id not in qualifying:
+    qualifying = qualifying_match_type_ids(match_types)
+    if qualifying is None or match_type_id not in qualifying:
         return None
     return qualifying
 
@@ -901,28 +911,42 @@ class MatchDAO(BaseDAO):
             return end_year - age_num
 
         try:
+            types_resp = self.client.table("match_types").select("id, counts_for_qualification").execute()
+            match_types = types_resp.data or []
+
+            def scoped(q, type_ids: list[int] | None):
+                return q if type_ids is None else q.in_("match_type_id", type_ids)
+
             # --- Recent form for each team ---
             # Every competition, unless the previewed match is a qualifying one.
-            form_type_ids = None
-            if match_type_id is not None:
-                types_resp = self.client.table("match_types").select("id, counts_for_qualification").execute()
-                form_type_ids = form_match_type_ids(types_resp.data or [], match_type_id)
-
-            def form_query(team_id: int):
-                q = build_base_query(team_id)
-                if form_type_ids is not None:
-                    q = q.in_("match_type_id", form_type_ids)
-                return q.order("match_date", desc=True).limit(recent_count)
-
-            home_resp = form_query(home_team_id).execute()
-            away_resp = form_query(away_team_id).execute()
+            form_type_ids = form_match_type_ids(match_types, match_type_id)
+            home_resp = (
+                scoped(build_base_query(home_team_id), form_type_ids)
+                .order("match_date", desc=True)
+                .limit(recent_count)
+                .execute()
+            )
+            away_resp = (
+                scoped(build_base_query(away_team_id), form_type_ids)
+                .order("match_date", desc=True)
+                .limit(recent_count)
+                .execute()
+            )
             home_recent = [flatten(m) for m in (home_resp.data or [])]
             away_recent = [flatten(m) for m in (away_resp.data or [])]
 
-            # --- Common opponents (season-scoped) ---
-            # Fetch all season matches for both teams to find shared opponents
-            home_all_resp = build_base_query(home_team_id).order("match_date", desc=True).execute()
-            away_all_resp = build_base_query(away_team_id).order("match_date", desc=True).execute()
+            # --- Common opponents (season-scoped, League/Flex only) ---
+            # Fetch all season matches for both teams to find shared opponents.
+            # Only qualifying competitions compare like with like: a tournament
+            # or friendly result is not evidence about a league match, and a
+            # tournament draw must not turn up as a "shared" opponent (SB-1347).
+            common_type_ids = qualifying_match_type_ids(match_types)
+            home_all_resp = (
+                scoped(build_base_query(home_team_id), common_type_ids).order("match_date", desc=True).execute()
+            )
+            away_all_resp = (
+                scoped(build_base_query(away_team_id), common_type_ids).order("match_date", desc=True).execute()
+            )
             home_all = [flatten(m) for m in (home_all_resp.data or [])]
             away_all = [flatten(m) for m in (away_all_resp.data or [])]
 
