@@ -194,3 +194,41 @@ describe('MatchPreview — a club with no tracked results', () => {
     expect(empty.text()).toContain('No matches on record');
   });
 });
+
+describe('MatchPreview — form rows name their competition (SB-1346)', () => {
+  it('labels each form row with its match type', async () => {
+    const wrapper = await mountPreview(
+      preview({
+        home_team_recent: [
+          { ...homeLoss, match_type_name: 'League' },
+          { ...awayWin, id: 3, match_type_name: 'Flex' },
+        ],
+      })
+    );
+    const chips = wrapper.findAll('[data-testid="form-competition"]');
+    expect(chips.map(c => c.text())).toEqual(['League', 'Flex']);
+  });
+
+  it('omits the label when the match type is unknown', async () => {
+    const wrapper = await mountPreview(
+      preview({ home_team_recent: [homeLoss] })
+    );
+    expect(wrapper.find('[data-testid="form-competition"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('sends the previewed match type so the server can scope form', async () => {
+    apiRequest.mockResolvedValue(preview());
+    mount(MatchPreview, {
+      props: { homeTeamId: IFA, awayTeamId: NVA, matchTypeId: 1 },
+    });
+    await flushPromises();
+    expect(apiRequest.mock.calls[0][0]).toContain('match_type_id=1');
+  });
+
+  it('sends no match type when none is given', async () => {
+    await mountPreview(preview());
+    expect(apiRequest.mock.calls[0][0]).not.toContain('match_type_id');
+  });
+});
