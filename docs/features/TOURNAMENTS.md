@@ -210,6 +210,13 @@ deliberately hides who was home, so there was no way to read it correctly.
 Four call sites, all fixed; `teamScoreline` returns `null` for a missing score
 so a `Not reported` match renders an em dash rather than a bare separator.
 
+**A League or Flex match shows League and Flex form only** (SB-1346).
+`MatchDetailView` passes the match's `match_type_id`; when that type is flagged
+`counts_for_qualification`, `get_match_preview` narrows recent form to the
+flagged types (`form_match_type_ids`). A tournament or friendly preview keeps
+every competition, and common opponents and head-to-head are unchanged. Each
+form row names its competition — League neutral, anything else amber.
+
 **A tab with no rows does not render.** `Common Opponents` and `Head-to-Head`
 used to show a literal `0` badge, so two of three tabs advertised their
 emptiness and invited a click that led nowhere. If the active tab disappears on

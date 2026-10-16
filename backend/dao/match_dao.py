@@ -68,6 +68,21 @@ STANDINGS_QUALIFYING = "qualifying"
 STANDINGS_ALL = "all"
 
 
+def form_match_type_ids(match_types: list[dict], match_type_id: int | None) -> list[int] | None:
+    """Which competitions a match preview's recent form draws from. None = all.
+
+    A League or Flex match is previewed against League and Flex form only:
+    a tournament result says little about the competition at stake (SB-1346).
+    "League and Flex" is whatever is flagged counts_for_qualification, the
+    same set the standings and the Matches chips use (SB-849). Any other
+    match — a tournament, a friendly, or no type at all — keeps every result.
+    """
+    qualifying = [t["id"] for t in match_types if t.get("counts_for_qualification")]
+    if match_type_id is None or match_type_id not in qualifying:
+        return None
+    return qualifying
+
+
 def _birth_year_from_labels(age_group_name: str | None, season_name: str | None) -> int | None:
     """Derive a squad's birth year from its age group + season.
 
@@ -793,6 +808,7 @@ class MatchDAO(BaseDAO):
         age_group_id: int | None = None,
         recent_count: int = 5,
         include_test: bool = False,
+        match_type_id: int | None = None,
     ) -> dict:
         """Get match preview data: recent form, common opponents, and head-to-head history.
 
@@ -803,6 +819,8 @@ class MatchDAO(BaseDAO):
             age_group_id: Optional filter to restrict to a specific age group
             recent_count: How many recent matches to return per team
             include_test: SB-591 test partition gate
+            match_type_id: The previewed match's competition; a qualifying one
+                narrows recent form to qualifying competitions (SB-1346)
 
         Returns:
             Dict with home_team_recent, away_team_recent, common_opponents, head_to_head
@@ -883,9 +901,21 @@ class MatchDAO(BaseDAO):
             return end_year - age_num
 
         try:
-            # --- Recent form for each team (all match types) ---
-            home_resp = build_base_query(home_team_id).order("match_date", desc=True).limit(recent_count).execute()
-            away_resp = build_base_query(away_team_id).order("match_date", desc=True).limit(recent_count).execute()
+            # --- Recent form for each team ---
+            # Every competition, unless the previewed match is a qualifying one.
+            form_type_ids = None
+            if match_type_id is not None:
+                types_resp = self.client.table("match_types").select("id, counts_for_qualification").execute()
+                form_type_ids = form_match_type_ids(types_resp.data or [], match_type_id)
+
+            def form_query(team_id: int):
+                q = build_base_query(team_id)
+                if form_type_ids is not None:
+                    q = q.in_("match_type_id", form_type_ids)
+                return q.order("match_date", desc=True).limit(recent_count)
+
+            home_resp = form_query(home_team_id).execute()
+            away_resp = form_query(away_team_id).execute()
             home_recent = [flatten(m) for m in (home_resp.data or [])]
             away_recent = [flatten(m) for m in (away_resp.data or [])]
 

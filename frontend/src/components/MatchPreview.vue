@@ -163,6 +163,15 @@
                   ? m.away_team_name
                   : m.home_team_name
               }}</span>
+              <span
+                v-if="m.match_type_name"
+                :class="[
+                  'text-[10px] shrink-0 rounded px-1',
+                  competitionClass(m.match_type_name),
+                ]"
+                data-testid="form-competition"
+                >{{ m.match_type_name }}</span
+              >
               <span class="text-slate-500 shrink-0">{{
                 shortDate(m.match_date)
               }}</span>
@@ -239,6 +248,15 @@
                   ? m.away_team_name
                   : m.home_team_name
               }}</span>
+              <span
+                v-if="m.match_type_name"
+                :class="[
+                  'text-[10px] shrink-0 rounded px-1',
+                  competitionClass(m.match_type_name),
+                ]"
+                data-testid="form-competition"
+                >{{ m.match_type_name }}</span
+              >
               <span class="text-slate-500 shrink-0">{{
                 shortDate(m.match_date)
               }}</span>
@@ -514,6 +532,12 @@ function matchOutcomeClass(m, teamId) {
   return 'bg-slate-600 text-slate-400';
 }
 
+/** League reads neutral; anything else (Flex, a tournament) stands out. */
+function competitionClass(name) {
+  if (name === 'League') return 'bg-slate-600 text-slate-300';
+  return 'bg-amber-900/50 text-amber-400';
+}
+
 function shortDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
@@ -553,7 +577,11 @@ const props = defineProps({
   ageGroupId: { type: Number, default: null },
   /** How many recent matches to fetch per team */
   recentCount: { type: Number, default: 5 },
-  /** If set, restricts recent form to matches of this type (e.g. League only) */
+  /**
+   * The previewed match's competition. A League or Flex match shows League
+   * and Flex form only; the server decides which types qualify (SB-1346).
+   */
+  matchTypeId: { type: Number, default: null },
 });
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -624,6 +652,7 @@ async function fetchPreview() {
     if (props.seasonId) params.set('season_id', props.seasonId);
     if (props.ageGroupId) params.set('age_group_id', props.ageGroupId);
     params.set('recent_count', props.recentCount);
+    if (props.matchTypeId) params.set('match_type_id', props.matchTypeId);
 
     const url = `${getApiBaseUrl()}/api/matches/preview/${props.homeTeamId}/${props.awayTeamId}?${params}`;
     const data = await authStore.apiRequest(url);
@@ -668,7 +697,13 @@ async function fetchPreview() {
 
 // Refetch when key props change
 watch(
-  () => [props.homeTeamId, props.awayTeamId, props.seasonId, props.ageGroupId],
+  () => [
+    props.homeTeamId,
+    props.awayTeamId,
+    props.seasonId,
+    props.ageGroupId,
+    props.matchTypeId,
+  ],
   () => fetchPreview(),
   { immediate: false }
 );

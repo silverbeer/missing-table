@@ -2881,6 +2881,9 @@ async def get_match_preview(
     season_id: int | None = Query(None, description="Season ID for recent form and common opponents"),
     age_group_id: int | None = Query(None, description="Filter by age group"),
     recent_count: int = Query(5, ge=1, le=20, description="Number of recent matches per team"),
+    match_type_id: int | None = Query(
+        None, description="Previewed match's competition; League/Flex narrows recent form to League/Flex"
+    ),
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ):
     """Get match preview data for two teams.
@@ -2896,6 +2899,7 @@ async def get_match_preview(
             age_group_id=age_group_id,
             recent_count=recent_count,
             include_test=viewer_sees_test_content(current_user),
+            match_type_id=match_type_id,
         )
 
         # Augment preview with QoP ranking data
