@@ -36,12 +36,14 @@ class MatchEventDAO(BaseDAO):
         assist_player_id: int | None = None,
         assist_player_name: str | None = None,
         client_event_id: str | None = None,
+        position: str | None = None,
     ) -> dict | None:
         """Create a new match event.
 
         Args:
             match_id: The match this event belongs to
-            event_type: Type of event ('goal', 'message', 'status_change', 'substitution')
+            event_type: Type of event ('goal', 'message', 'status_change', 'substitution',
+                'red_card', 'yellow_card', 'position_change')
             message: Event message/description
             created_by: UUID of user who created the event
             created_by_username: Username of creator (denormalized for display)
@@ -55,6 +57,8 @@ class MatchEventDAO(BaseDAO):
             assist_player_name: Denormalized assister display name
             client_event_id: Client-generated UUID; the unique index on this column
                 makes replayed inserts fail so offline sync is exactly-once
+            position: Formation position code the player moved to
+                (position_change events)
 
         Returns:
             Created event record or None on error
@@ -87,6 +91,8 @@ class MatchEventDAO(BaseDAO):
                 data["assist_player_name"] = assist_player_name
             if client_event_id is not None:
                 data["client_event_id"] = client_event_id
+            if position is not None:
+                data["position"] = position
 
             response = self.client.table("match_events").insert(data).execute()
 

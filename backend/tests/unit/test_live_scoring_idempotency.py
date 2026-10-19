@@ -549,3 +549,180 @@ class TestAssistStatsOnDelete:
                 mock_stats_dao.decrement_assists.assert_called_once_with(11, 123)
             finally:
                 app.dependency_overrides.clear()
+
+
+@pytest.mark.unit
+class TestLivePositionChange:
+    """POST /api/matches/{id}/live/position (SB-1351)."""
+
+    def _post(self, client, json_body):
+        return client.post("/api/matches/123/live/position", json=json_body)
+
+    def _patches(self):
+        return (
+            patch("app.match_dao"),
+            patch("app.match_event_dao"),
+            patch("app.roster_dao"),
+            patch("app.auth_manager"),
+            patch("app.player_stats_dao"),
+        )
+
+    def _run(self, json_body, *, can_edit=True, existing=None, created=None):
+        """Post with mocked DAOs; returns (response, mock_event_dao, mock_stats_dao)."""
+        from fastapi.testclient import TestClient
+
+        from app import app
+
+        _override_auth(app)
+        p_match, p_event, p_roster, p_auth, p_stats = self._patches()
+        with p_match as mock_match_dao, p_event as mock_event_dao, p_roster as mock_roster_dao, p_auth as mock_auth, p_stats as mock_stats_dao:
+            mock_match_dao.get_match_by_id.return_value = _live_match()
+            mock_auth.can_edit_match.return_value = can_edit
+            mock_roster_dao.get_player_by_id.side_effect = lambda pid: ROSTER.get(pid)
+            if isinstance(existing, list):
+                mock_event_dao.get_event_by_client_id.side_effect = existing
+            else:
+                mock_event_dao.get_event_by_client_id.return_value = existing
+            mock_event_dao.create_event.return_value = created
+            try:
+                response = self._post(TestClient(app), json_body)
+            finally:
+                app.dependency_overrides.clear()
+            return response, mock_event_dao, mock_stats_dao
+
+    def test_happy_path_creates_position_change_event(self):
+        created = {"id": 700, "event_type": "position_change", "position": "RW"}
+        response, mock_event_dao, mock_stats_dao = self._run(
+            {"team_id": 1, "player_id": 12, "position": "RW", "client_event_id": CLIENT_EVENT_ID},
+            created=created,
+        )
+        assert response.status_code == 200
+        assert response.json()["id"] == 700
+        assert response.json()["position"] == "RW"
+
+        create_kwargs = mock_event_dao.create_event.call_args.kwargs
+        assert create_kwargs["event_type"] == "position_change"
+        assert create_kwargs["team_id"] == 1
+        assert create_kwargs["player_id"] == 12
+        assert create_kwargs["position"] == "RW"
+        assert create_kwargs["client_event_id"] == CLIENT_EVENT_ID
+        assert create_kwargs["message"] == "POS: Sub In Fourteen → RW"
+        # Position changes never touch player stats
+        assert mock_stats_dao.method_calls == []
+
+    def test_client_minute_override_is_stored(self):
+        _, mock_event_dao, _ = self._run(
+            {"team_id": 1, "player_id": 10, "position": "ST", "match_minute": 61, "extra_time": 0},
+            created={"id": 701},
+        )
+        create_kwargs = mock_event_dao.create_event.call_args.kwargs
+        assert create_kwargs["match_minute"] == 61
+        assert create_kwargs["extra_time"] == 0
+
+    def test_replay_returns_stored_event_without_insert(self):
+        stored = {"id": 700, "event_type": "position_change", "position": "RW"}
+        response, mock_event_dao, _ = self._run(
+            {"team_id": 1, "player_id": 12, "position": "RW", "client_event_id": CLIENT_EVENT_ID},
+            existing=stored,
+        )
+        assert response.status_code == 200
+        assert response.json()["id"] == 700
+        mock_event_dao.create_event.assert_not_called()
+
+    def test_insert_race_falls_back_to_replay(self):
+        # Pre-check misses, insert fails (unique violation), re-check hits
+        response, mock_event_dao, _ = self._run(
+            {"team_id": 1, "player_id": 12, "position": "RW", "client_event_id": CLIENT_EVENT_ID},
+            existing=[None, {"id": 700, "event_type": "position_change"}],
+            created=None,
+        )
+        assert response.status_code == 200
+        assert response.json()["id"] == 700
+        mock_event_dao.create_event.assert_called_once()
+
+    def test_rejects_team_not_in_match(self):
+        response, mock_event_dao, _ = self._run({"team_id": 99, "player_id": 12, "position": "RW"})
+        assert response.status_code == 400
+        assert "participants" in response.json()["detail"].lower()
+        mock_event_dao.create_event.assert_not_called()
+
+    def test_rejects_player_on_other_team(self):
+        response, mock_event_dao, _ = self._run({"team_id": 1, "player_id": 20, "position": "RW"})
+        assert response.status_code == 400
+        assert "team" in response.json()["detail"].lower()
+        mock_event_dao.create_event.assert_not_called()
+
+    def test_rejects_unknown_player(self):
+        response, mock_event_dao, _ = self._run({"team_id": 1, "player_id": 999, "position": "RW"})
+        assert response.status_code == 400
+        assert "not found" in response.json()["detail"].lower()
+        mock_event_dao.create_event.assert_not_called()
+
+    def test_permission_denied_when_cannot_edit_match(self):
+        response, mock_event_dao, _ = self._run(
+            {"team_id": 1, "player_id": 12, "position": "RW"}, can_edit=False
+        )
+        assert response.status_code == 403
+        mock_event_dao.create_event.assert_not_called()
+
+    @pytest.mark.parametrize("position", ["", "TOOLONGPOSX"])
+    def test_rejects_invalid_position_length(self, position):
+        response, mock_event_dao, _ = self._run({"team_id": 1, "player_id": 12, "position": position})
+        assert response.status_code == 422
+        mock_event_dao.create_event.assert_not_called()
+
+    def test_position_change_event_is_deletable(self):
+        from fastapi.testclient import TestClient
+
+        from app import app
+        from auth import get_current_user_required
+
+        user = _override_auth(app)
+        app.dependency_overrides[get_current_user_required] = lambda: user
+
+        with (
+            patch("app.match_dao") as mock_match_dao,
+            patch("app.match_event_dao") as mock_event_dao,
+            patch("app.player_stats_dao") as mock_stats_dao,
+            patch("app.auth_manager") as mock_auth,
+        ):
+            mock_match_dao.get_match_by_id.return_value = _live_match()
+            mock_auth.can_edit_match.return_value = True
+            mock_event_dao.get_event_by_id.return_value = {
+                "id": 700,
+                "match_id": 123,
+                "event_type": "position_change",
+                "team_id": 1,
+                "player_id": 12,
+                "position": "RW",
+            }
+            mock_event_dao.soft_delete_event.return_value = True
+
+            try:
+                response = TestClient(app).delete("/api/matches/123/live/events/700")
+                assert response.status_code == 200
+                mock_event_dao.soft_delete_event.assert_called_once_with(700, deleted_by="test-user-id")
+                mock_match_dao.update_match_score.assert_not_called()
+                assert mock_stats_dao.method_calls == []
+            finally:
+                app.dependency_overrides.clear()
+
+    def test_event_response_model_exposes_position(self):
+        from datetime import UTC, datetime
+
+        from models import MatchEventResponse
+
+        event = MatchEventResponse(
+            id=700,
+            match_id=123,
+            event_type="position_change",
+            team_id=1,
+            player_id=12,
+            position="RW",
+            message="POS: Sub In Fourteen → RW",
+            created_at=datetime.now(UTC),
+        )
+        assert event.position == "RW"
+        assert MatchEventResponse(
+            id=1, match_id=123, event_type="goal", message="GOAL", created_at=datetime.now(UTC)
+        ).position is None

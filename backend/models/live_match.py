@@ -89,6 +89,23 @@ class LiveSubstitutionEvent(BaseModel):
     )
 
 
+class LivePositionChangeEvent(BaseModel):
+    """Model for recording a player changing position during a live match (SB-1351)."""
+
+    team_id: int = Field(..., description="ID of the team the player belongs to")
+    player_id: int = Field(..., description="ID of the player changing position")
+    position: str = Field(
+        ..., min_length=1, max_length=10, description="Formation position code the player moves to (e.g. ST, RW, LCB)"
+    )
+    match_minute: int | None = Field(
+        None, ge=0, le=130, description="Minute of the change (offline clients); defaults to clock-derived"
+    )
+    extra_time: int | None = Field(None, ge=0, le=30, description="Stoppage time minutes (with match_minute)")
+    client_event_id: str | None = Field(
+        None, max_length=36, description="Client-generated UUID for idempotent retries"
+    )
+
+
 class MessageEvent(BaseModel):
     """Model for posting a chat message."""
 
@@ -118,6 +135,7 @@ class MatchEventResponse(BaseModel):
     player_name: str | None = None
     player_id: int | None = None
     player_out_id: int | None = None
+    position: str | None = None
     assist_player_id: int | None = None
     assist_player_name: str | None = None
     match_minute: int | None = None
