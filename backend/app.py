@@ -64,6 +64,7 @@ from models import (
     LineupSave,
     LiveCardEvent,
     LiveMatchClock,
+    LivePositionChangeEvent,
     LiveSubstitutionEvent,
     MatchPatch,
     MatchSubmissionData,
@@ -4225,6 +4226,94 @@ async def post_live_substitution(
         raise
     except Exception as e:
         logger.error(f"Error recording live substitution: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/matches/{match_id}/live/position")
+async def post_live_position_change(
+    match_id: int,
+    change: LivePositionChangeEvent,
+    current_user: dict[str, Any] = Depends(require_match_management_permission),
+):
+    """Record a player changing position during a live match (SB-1351).
+
+    Creates a position_change event in the match timeline: ``player_id`` now
+    plays ``position``. Clients rebuild the current XI from the starting
+    lineup plus substitution and position_change events replayed oldest-first.
+    The match minute is auto-calculated from the match clock unless the client
+    provides one (offline sync). Player stats are not touched.
+
+    Only accessible by admins, club managers, and team managers who can edit this match.
+    """
+    try:
+        current_match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
+        if not current_match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        if not auth_manager.can_edit_match(current_user, current_match["home_team_id"], current_match["away_team_id"]):
+            raise HTTPException(status_code=403, detail="You don't have permission to manage this match")
+
+        if change.team_id not in [current_match["home_team_id"], current_match["away_team_id"]]:
+            raise HTTPException(status_code=400, detail="Team must be one of the match participants")
+
+        player = roster_dao.get_player_by_id(change.player_id)
+        if not player:
+            raise HTTPException(status_code=400, detail="Player not found")
+        if player["team_id"] != change.team_id:
+            raise HTTPException(status_code=400, detail="Player must be on the specified team")
+
+        # Idempotency: replayed sync request returns the stored event
+        if change.client_event_id:
+            existing = match_event_dao.get_event_by_client_id(change.client_event_id)
+            if existing:
+                return existing
+
+        # Match minute: client override (offline sync) or clock-derived
+        if change.match_minute is not None:
+            match_minute, extra_time = change.match_minute, change.extra_time
+        else:
+            match_minute, extra_time = calculate_match_minute(current_match)
+
+        display_name = player.get("display_name", f"#{player['jersey_number']}")
+        position_message = f"POS: {display_name} → {change.position}"
+
+        user_id = current_user.get("user_id") or current_user.get("id")
+
+        event = match_event_dao.create_event(
+            match_id=match_id,
+            event_type="position_change",
+            message=position_message,
+            created_by=user_id,
+            created_by_username=current_user.get("username"),
+            team_id=change.team_id,
+            player_id=change.player_id,
+            position=change.position,
+            match_minute=match_minute,
+            extra_time=extra_time,
+            client_event_id=change.client_event_id,
+        )
+
+        if not event:
+            if change.client_event_id:
+                existing = match_event_dao.get_event_by_client_id(change.client_event_id)
+                if existing:
+                    return existing
+            raise HTTPException(status_code=500, detail="Failed to create position change event")
+
+        logger.info(
+            "live_position_change_recorded",
+            match_id=match_id,
+            player_id=change.player_id,
+            position=change.position,
+            minute=match_minute,
+        )
+
+        return event
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording live position change: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

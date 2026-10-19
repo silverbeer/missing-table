@@ -90,6 +90,36 @@ whose timestamp column is already set (e.g. `start_first_half` when
 Creates a `substitution` match event (`player_id` = on, `player_out_id` = off).
 Auth: `require_match_management_permission` + `can_edit_match`, same as goals.
 
+## Live position changes (SB-1351)
+
+`POST /api/matches/{match_id}/live/position`
+
+```json
+{
+  "team_id": 1,
+  "player_id": 12,
+  "position": "RW",          // formation position code, 1-10 chars (ST, RW, LCB…)
+  "match_minute": 60,        // optional
+  "extra_time": 0,           // optional
+  "client_event_id": "uuid"  // optional
+}
+```
+
+Creates a `position_change` match event: `player_id` now plays `position`
+(stored in the `match_events.position` column, exposed as `position` on every
+event — `null` for other types). Message is `POS: {display_name} → {position}`.
+Same auth, team/player validation, idempotency and minute override as
+substitutions; player stats are untouched. Deletable through
+`DELETE /api/matches/{match_id}/live/events/{event_id}`.
+
+Clients rebuild the current XI from the saved starting lineup plus
+`substitution` and `position_change` events replayed oldest-first. A swap
+(Josh RW → ST, Sebby ST → RW) is two `position_change` events.
+
+Migration: `supabase/migrations/20261018120000_match_events_position_change.sql`
+adds `position_change` to `match_events_event_type_check` and the nullable
+`position text` column.
+
 ## Migration
 
 `supabase/migrations/20260719000000_android_live_scoring.sql` — adds
