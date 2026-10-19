@@ -63,6 +63,18 @@
       </div>
     </div>
 
+    <!-- Half-time break countdown (SB-1353) -->
+    <div
+      v-if="matchPeriod === 'Halftime' && breakRemaining !== null"
+      :class="['halftime-countdown', { overdue: breakOverdue }]"
+      data-testid="halftime-countdown"
+    >
+      <template v-if="breakOverdue">
+        2nd half overdue &middot; {{ breakCountdown }}
+      </template>
+      <template v-else>Half time &middot; {{ breakCountdown }} left</template>
+    </div>
+
     <!-- Clock Controls -->
     <div class="clock-controls">
       <button
@@ -83,8 +95,9 @@
 
       <button
         v-if="matchPeriod === 'Halftime'"
-        @click="$emit('update-clock', 'start_second_half')"
-        class="control-button start"
+        @click="clickStartSecondHalf"
+        :class="['control-button', breakOverdue ? 'overdue' : 'start']"
+        data-testid="start-second-half"
       >
         Start 2nd Half
       </button>
@@ -504,6 +517,42 @@
       </div>
     </div>
 
+    <!-- Backdated 2nd-half start (SB-1353) -->
+    <div
+      v-if="showSecondHalfModal"
+      class="modal-overlay"
+      @click.self="showSecondHalfModal = false"
+      data-testid="second-half-modal"
+    >
+      <div class="modal-content">
+        <h3 class="modal-title">Start the 2nd half</h3>
+        <p class="confirm-text">
+          The {{ BREAK_MINUTES }}-minute break ended at
+          <strong>{{ breakEndLabel }}</strong> &mdash; when did the 2nd half
+          kick off?
+        </p>
+        <div class="modal-actions stacked">
+          <button
+            @click="startSecondHalfAtBreakEnd"
+            class="submit-button"
+            data-testid="second-half-at-break-end"
+          >
+            At {{ breakEndLabel }} (end of break)
+          </button>
+          <button
+            @click="startSecondHalfNow"
+            class="submit-button submit-secondary"
+            data-testid="second-half-now"
+          >
+            Just now
+          </button>
+          <button @click="showSecondHalfModal = false" class="cancel-button">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Reopen Match Confirmation Modal -->
     <div
       v-if="showReopenModal"
@@ -530,8 +579,16 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import LineupManager from './LineupManager.vue';
+import {
+  BREAK_MINUTES,
+  remainingSeconds,
+  countdownText,
+  isOverdue,
+  expectedSecondHalfStart,
+  shouldOfferBackdate,
+} from '@/utils/halftimeBreak';
 
 const props = defineProps({
   matchState: {
@@ -651,6 +708,74 @@ watch(showCancelHalftimeModal, newVal => {
     projectedResumeSeconds.value = computeFirstHalfElapsed();
   }
 });
+
+// Half-time break countdown + backdated 2nd-half start (SB-1353)
+const now = ref(Date.now());
+let breakTimer = null;
+
+function stopBreakTimer() {
+  if (breakTimer) {
+    clearInterval(breakTimer);
+    breakTimer = null;
+  }
+}
+
+watch(
+  () => props.matchPeriod,
+  period => {
+    stopBreakTimer();
+    if (period === 'Halftime') {
+      now.value = Date.now();
+      breakTimer = setInterval(() => {
+        now.value = Date.now();
+      }, 1000);
+    }
+  },
+  { immediate: true }
+);
+
+onUnmounted(stopBreakTimer);
+
+const breakRemaining = computed(() =>
+  remainingSeconds(props.matchState?.halftime_start, now.value)
+);
+const breakOverdue = computed(() => isOverdue(breakRemaining.value));
+const breakCountdown = computed(() => countdownText(breakRemaining.value));
+
+const showSecondHalfModal = ref(false);
+const secondHalfBackdate = ref(null);
+const breakEndLabel = computed(() =>
+  secondHalfBackdate.value
+    ? secondHalfBackdate.value.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : ''
+);
+
+function clickStartSecondHalf() {
+  const halftimeStart = props.matchState?.halftime_start;
+  const nowMs = Date.now();
+  if (shouldOfferBackdate(halftimeStart, nowMs)) {
+    secondHalfBackdate.value = expectedSecondHalfStart(halftimeStart, nowMs);
+    showSecondHalfModal.value = true;
+    return;
+  }
+  emit('update-clock', 'start_second_half');
+}
+
+function startSecondHalfAtBreakEnd() {
+  showSecondHalfModal.value = false;
+  emit('update-clock', {
+    action: 'start_second_half',
+    occurred_at: secondHalfBackdate.value.toISOString(),
+  });
+}
+
+function startSecondHalfNow() {
+  showSecondHalfModal.value = false;
+  emit('update-clock', 'start_second_half');
+}
 
 function confirmEndMatch() {
   showEndMatchModal.value = false;
@@ -1015,6 +1140,28 @@ function submitGoal() {
   background: #43a047;
 }
 
+.control-button.overdue {
+  background: #d32f2f;
+  color: white;
+}
+
+.control-button.overdue:hover {
+  background: #c62828;
+}
+
+.halftime-countdown {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffc107;
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.halftime-countdown.overdue {
+  color: #f44336;
+}
+
 .control-button.halftime {
   background: #ffc107;
   color: black;
@@ -1233,6 +1380,14 @@ function submitGoal() {
   display: flex;
   gap: 12px;
   margin-top: 24px;
+}
+
+.modal-actions.stacked {
+  flex-direction: column;
+}
+
+.submit-button.submit-secondary {
+  background: #2196f3;
 }
 
 .cancel-button,
