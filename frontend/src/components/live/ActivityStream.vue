@@ -103,8 +103,65 @@
           </div>
         </template>
 
+        <!-- Substitution / Position Change Event (SB-1354) -->
+        <template
+          v-else-if="
+            event.event_type === 'substitution' ||
+            event.event_type === 'position_change'
+          "
+        >
+          <div
+            :class="[
+              'event-icon',
+              event.event_type === 'substitution'
+                ? 'sub-icon'
+                : 'position-icon',
+            ]"
+            data-testid="lineup-event-icon"
+          >
+            <span v-if="event.event_type === 'substitution'">&#8644;</span>
+            <span v-else>&#8596;</span>
+          </div>
+          <div class="event-content">
+            <div class="event-header">
+              <span
+                v-if="event.match_minute"
+                class="match-minute lineup-minute"
+              >
+                {{ formatMatchMinute(event) }}
+              </span>
+              <span class="event-time">{{ formatTime(event.created_at) }}</span>
+              <span
+                v-if="event.team_id"
+                :class="[
+                  'team-badge',
+                  event.team_id === homeTeamId ? 'home' : 'away',
+                ]"
+              >
+                {{ event.team_id === homeTeamId ? 'HOME' : 'AWAY' }}
+              </span>
+            </div>
+            <div v-if="event.message" class="lineup-message">
+              {{ event.message }}
+            </div>
+          </div>
+          <button
+            v-if="canDelete"
+            @click="$emit('delete-event', event.id)"
+            class="delete-button"
+            data-testid="delete-event"
+            :title="
+              event.event_type === 'substitution'
+                ? 'Delete substitution'
+                : 'Delete position change'
+            "
+          >
+            &#10005;
+          </button>
+        </template>
+
         <!-- Message Event -->
-        <template v-else>
+        <template v-else-if="event.event_type === 'message'">
           <div class="event-icon message-icon">
             <span>&#128172;</span>
           </div>
@@ -148,6 +205,33 @@
             class="delete-button"
             data-testid="delete-message"
             title="Delete message"
+          >
+            &#10005;
+          </button>
+        </template>
+
+        <!-- Any other event type: neutral row, never chat actions -->
+        <template v-else>
+          <div class="event-icon other-icon">
+            <span>&#8226;</span>
+          </div>
+          <div class="event-content">
+            <div class="event-header">
+              <span v-if="event.match_minute" class="match-minute">
+                {{ formatMatchMinute(event) }}
+              </span>
+              <span class="event-time">{{ formatTime(event.created_at) }}</span>
+            </div>
+            <div v-if="event.message" class="other-message">
+              {{ event.message }}
+            </div>
+          </div>
+          <button
+            v-if="canDelete"
+            @click="$emit('delete-event', event.id)"
+            class="delete-button"
+            data-testid="delete-event"
+            title="Delete event"
           >
             &#10005;
           </button>
@@ -267,6 +351,17 @@ function formatMatchMinute(event) {
   border-left: 3px solid #f9a825;
 }
 
+/* Substitution / position change events (SB-1354) */
+.event-substitution {
+  background: linear-gradient(135deg, #0d3b4a 0%, #16213e 100%);
+  border-left: 3px solid #26c6da;
+}
+
+.event-position_change {
+  background: linear-gradient(135deg, #2e1f4a 0%, #16213e 100%);
+  border-left: 3px solid #9575cd;
+}
+
 /* Message events */
 .event-message {
   background: #1a1a2e;
@@ -295,6 +390,44 @@ function formatMatchMinute(event) {
 
 .message-icon {
   background: #444;
+}
+
+.sub-icon {
+  background: #26c6da;
+  color: #0d1b2a;
+  font-weight: bold;
+}
+
+.position-icon {
+  background: #9575cd;
+  color: white;
+  font-weight: bold;
+}
+
+.other-icon {
+  background: #333;
+  color: #aaa;
+}
+
+.lineup-minute {
+  color: #26c6da;
+}
+
+.event-position_change .lineup-minute {
+  color: #b39ddb;
+}
+
+.lineup-message {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+  word-break: break-word;
+}
+
+.other-message {
+  font-size: 14px;
+  color: #bbb;
+  word-break: break-word;
 }
 
 .card-icon {
