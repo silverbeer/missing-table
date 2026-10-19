@@ -224,6 +224,28 @@ This ensures:
 
 If secrets are exposed (e.g., committed to git), rotate immediately:
 
+### `SERVICE_ACCOUNT_SECRET` — one command
+
+This secret signs the scraper's service-account token, SB-1145 API-account tokens
+(MT AI eval, mt-mcp machine clients) and password-reset links. It lives in AWS,
+the home k3s worker secret, the scraper's token, `~/.config/mt` and the local
+`.env` files, so rotating by hand is a dozen steps. The script does all of them,
+checks each by fingerprint, and never prints or passes a secret on a command line:
+
+```bash
+./scripts/rotate-service-account-secret.sh check    # does backend/.env.prod hold prod's value?
+./scripts/rotate-service-account-secret.sh verify   # do AWS, k8s, the pod and the worker agree?
+./scripts/rotate-service-account-secret.sh rotate   # rotate; asks once (type ROTATE)
+```
+
+Run it in a terminal with `aws` authenticated and both kube contexts
+(`lke560651-ctx`, `rancher-desktop`) reachable. The scraper sees 401s for about
+a minute between the backend restart and its token patch; schedule outside a
+scrape window. Afterwards, confirm the next scraper run ingests cleanly
+(`mt --env prod ingest failures`) and a password reset completes. Every
+outstanding password-reset link and AI eval token is invalidated; eval tokens
+are re-minted into `~/.config/mt`. SB-1356.
+
 ### 1. Rotate Supabase Secrets
 
 ```bash
