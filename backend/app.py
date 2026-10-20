@@ -3565,6 +3565,14 @@ async def get_live_match_state(
         events = match_event_dao.get_events(match_id, limit=50, exclude_messages_by=_blocked_by(current_user))
         match_state["recent_events"] = events
 
+        # Every sub/position change, oldest first and chat-free (SB-1369), so
+        # clients can rebuild the on-pitch XI however chatty the match gets.
+        # Omitted if the read failed: clients treat the field as authoritative
+        # when present and fall back to recent_events when it is absent.
+        pitch_events = match_event_dao.get_pitch_events(match_id)
+        if pitch_events is not None:
+            match_state["pitch_events"] = pitch_events
+
         return match_state
     except HTTPException:
         raise

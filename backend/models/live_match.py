@@ -178,6 +178,12 @@ class LiveMatchState(BaseModel):
     # Recent events (last N)
     recent_events: list[MatchEventResponse] = []
 
+    # All substitution + position_change events, oldest first, unpaginated
+    # and chat-free (SB-1369). Populated only by GET /api/matches/{id}/live;
+    # the write endpoints that echo state back (clock, goal) carry neither
+    # this nor recent_events.
+    pitch_events: list[MatchEventResponse] = []
+
 
 class LiveMatchSummary(BaseModel):
     """Summary info for the live matches list (for tab polling)."""

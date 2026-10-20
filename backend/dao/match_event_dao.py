@@ -163,6 +163,43 @@ class MatchEventDAO(BaseDAO):
             logger.exception("Error getting match events", match_id=match_id)
             return []
 
+    # Events that move players on or around the pitch. Clients replay these
+    # over the starting XI to derive who is on the field right now.
+    PITCH_EVENT_TYPES = ("substitution", "position_change")
+
+    def get_pitch_events(self, match_id: int) -> list[dict] | None:
+        """Get every substitution and position change for a match (SB-1369).
+
+        Unlike get_events this is unpaginated and excludes chat, so a chatty
+        match cannot push early substitutions out of the window clients use
+        to rebuild the current XI.
+
+        Args:
+            match_id: Match to get events for
+
+        Returns:
+            Non-deleted substitution/position_change events, oldest first
+            (created_at, then id as tie-breaker). None if the read failed —
+            unlike get_events, an empty list here is authoritative ("no
+            changes since kickoff"), so a failure must not masquerade as one.
+        """
+        try:
+            response = (
+                self.client.table("match_events")
+                .select("*")
+                .eq("match_id", match_id)
+                .eq("is_deleted", False)
+                .in_("event_type", list(self.PITCH_EVENT_TYPES))
+                .order("created_at")
+                .order("id")
+                .execute()
+            )
+            return response.data or []
+
+        except Exception:
+            logger.exception("Error getting match pitch events", match_id=match_id)
+            return None
+
     def get_event_by_id(self, event_id: int) -> dict | None:
         """Get a single event by ID.
 
