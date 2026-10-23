@@ -116,6 +116,28 @@ class TestStatusEndpoint:
         assert resp.json()["request"]["status"] == "pending"
         email.assert_not_called()
 
+    def test_existing_user_closes_the_request_without_an_email(self, review):
+        """SB-1408: a requester who already has an account is neither
+        rejected (that emails them) nor invited again."""
+        with patch("api.invite_requests.EmailService") as email:
+            resp = _put(review, "existing_user")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["request"]["status"] == "existing_user"
+        assert body["request"]["reviewed_by"] == "admin-1"
+        assert body["email_sent"] is False
+        email.assert_not_called()
+
+    def test_existing_user_can_be_reset(self, review):
+        review.with_row({**PENDING, "status": "existing_user"})
+        with patch("api.invite_requests.EmailService") as email:
+            resp = _put(review, "pending")
+
+        assert resp.status_code == 200
+        assert resp.json()["request"]["status"] == "pending"
+        email.assert_not_called()
+
     def test_legacy_approval_without_an_invitation_can_be_reset(self, review):
         review.with_row({**PENDING, "status": "approved"})
         with patch("api.invite_requests.EmailService"):
@@ -123,7 +145,7 @@ class TestStatusEndpoint:
 
         assert resp.status_code == 200
 
-    @pytest.mark.parametrize("status", ["pending", "rejected"])
+    @pytest.mark.parametrize("status", ["pending", "rejected", "existing_user"])
     def test_a_linked_request_cannot_change(self, review, status):
         db = review.with_row({**PENDING, "status": "approved", "invitation_id": "inv-1"})
         with patch("api.invite_requests.EmailService") as email:

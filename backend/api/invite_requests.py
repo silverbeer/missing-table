@@ -91,7 +91,7 @@ class InviteRequestStatusUpdate(BaseModel):
     (SB-1392), so an approved request always has one.
     """
 
-    status: str = Field(..., pattern="^(pending|rejected)$")
+    status: str = Field(..., pattern="^(pending|rejected|existing_user)$")
     admin_notes: str | None = Field(None, description="Admin notes about the decision")
 
 
@@ -109,6 +109,7 @@ class InviteRequestStats(BaseModel):
     pending: int
     approved: int
     rejected: int
+    existing_user: int = 0
 
 
 # Public endpoint - no auth required
@@ -188,7 +189,7 @@ async def create_invite_request(request: Request, payload: InviteRequestCreate, 
 @router.get("", response_model=list[InviteRequestResponse])
 async def list_invite_requests(
     current_user=Depends(get_current_user_required),
-    status: str | None = Query(None, pattern="^(pending|approved|rejected)$"),
+    status: str | None = Query(None, pattern="^(pending|approved|rejected|existing_user)$"),
     ios_beta: bool | None = Query(None, description="Filter by the iPhone-beta opt-in"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -236,7 +237,7 @@ async def get_invite_request_stats(current_user=Depends(get_current_user_require
         # Get counts by status
         all_requests = service_client.table("invite_requests").select("status").execute()
 
-        stats = {"total": 0, "pending": 0, "approved": 0, "rejected": 0}
+        stats = {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "existing_user": 0}
 
         if all_requests.data:
             stats["total"] = len(all_requests.data)
@@ -310,7 +311,9 @@ async def update_invite_request_status(
     current_user=Depends(get_current_user_required),
 ):
     """
-    Reject an invite request, or reset one to pending (admin only).
+    Reject an invite request, close it as from an existing user, or reset
+    one to pending (admin only). Only a rejection emails the requester;
+    existing_user closes it silently (SB-1408).
 
     Approving is done by creating the invitation from the request
     (POST /api/invites/admin/... with invite_request_id), never here.
