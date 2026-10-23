@@ -4,6 +4,7 @@ Email service using Resend for transactional emails.
 
 from __future__ import annotations
 
+import html
 import logging
 import os
 
@@ -69,9 +70,7 @@ class EmailService:
         # inbox instead of the noreply@ from-address.
         self.reply_to = os.getenv("RESEND_REPLY_TO") or None
 
-    def _build_send_payload(
-        self, to_email: str, subject: str, html: str, text: str
-    ) -> dict:
+    def _build_send_payload(self, to_email: str, subject: str, html: str, text: str) -> dict:
         """Common Resend payload with optional Reply-To."""
         payload = {
             "from": self.from_address,
@@ -190,9 +189,7 @@ class EmailService:
             "team_fan": "team follower",
         }.get(invite_type or "", "")
         subject = (
-            f"You're invited to Missing Table as a {role_label}"
-            if role_label
-            else "You're invited to Missing Table"
+            f"You're invited to Missing Table as a {role_label}" if role_label else "You're invited to Missing Table"
         )
 
         # Optional expiry line.
@@ -310,14 +307,12 @@ class EmailService:
             )
             return False
 
-    def send_invite_request_approval(self, to_email: str, name: str) -> bool:
+    def send_invite_request_rejection(self, to_email: str, name: str) -> bool:
         """
-        Notify a requester that their join request was approved.
+        Tell a requester their join request was not approved (SB-1392).
 
-        The actual invitation (with a redemption code) is still created
-        manually by an admin via the existing Create Invite UI; this
-        email is a heads-up so the requester knows their request was
-        seen and accepted.
+        Approval needs no email of its own: approving a request creates its
+        invitation, and the invitation email is the answer.
 
         Args:
             to_email: Recipient email address
@@ -326,21 +321,23 @@ class EmailService:
         Returns:
             True on success, False on failure
         """
+        # The name is whatever the requester typed into a public form.
+        safe_name = html.escape(name)
         html_body = f"""
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Your Missing Table request was approved</title>
+  <title>Your Missing Table request</title>
 </head>
 <body style="font-family: Arial, sans-serif; background: #f3f4f6; padding: 32px;">
   <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 32px;">
-    <h2 style="color: #16a34a;">You're approved! 🎉</h2>
-    <p>Hi <strong>{name}</strong>,</p>
-    <p>Good news — your request to join Missing Table has been approved.</p>
+    <h2 style="color: #111827;">About your request</h2>
+    <p>Hi <strong>{safe_name}</strong>,</p>
+    <p>Thanks for your interest in Missing Table. We're not able to approve your request to join right now.</p>
     <p>
-      We'll send you a separate invite link shortly so you can finish
-      setting up your account. Keep an eye on this inbox.
+      Standings, schedules and results are open to everyone at
+      <a href="{self.app_base_url}" style="color: #2563eb;">missingtable.com</a> - no account needed.
     </p>
     {_support_html_block()}
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
@@ -352,10 +349,10 @@ class EmailService:
 
         text_body = (
             f"Hi {name},\n\n"
-            "Good news — your request to join Missing Table has been "
-            "approved.\n\n"
-            "We'll send you a separate invite link shortly so you can "
-            "finish setting up your account. Keep an eye on this inbox.\n\n"
+            "Thanks for your interest in Missing Table. We're not able to "
+            "approve your request to join right now.\n\n"
+            "Standings, schedules and results are open to everyone at "
+            f"{self.app_base_url} - no account needed.\n\n"
             f"{_support_text_block()}"
             "— Missing Table"
         )
@@ -364,19 +361,19 @@ class EmailService:
             resend.Emails.send(
                 self._build_send_payload(
                     to_email=to_email,
-                    subject="Your Missing Table request was approved",
+                    subject="Your Missing Table request",
                     html=html_body,
                     text=text_body,
                 )
             )
             logger.info(
-                "invite_request_approval_email_sent",
-                extra={"recipient": to_email[:3] + "***"},
+                "invite_request_rejection_email_sent",
+                extra={"recipient": _mask(to_email)},
             )
             return True
         except Exception as e:
             logger.error(
                 "email_send_failed",
-                extra={"email_kind": "invite_request_approval", "recipient": _mask(to_email), "error": str(e)},
+                extra={"email_kind": "invite_request_rejection", "recipient": _mask(to_email), "error": str(e)},
             )
             return False

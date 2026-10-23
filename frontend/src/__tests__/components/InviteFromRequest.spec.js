@@ -1,9 +1,10 @@
 /**
  * Create an invite from an invite request (SB-1312).
  *
- * "Create invite" on a pending request opens the Invites section with the
- * form pre-filled (email, name in the note, iPhone beta); the created invite
+ * "Approve" on a pending request opens the Invites section with the form
+ * pre-filled (email, name in the note, iPhone beta); the created invite
  * carries invite_request_id so the backend links and approves the request.
+ * Approving has no other path (SB-1392); Reject emails the requester.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -40,9 +41,19 @@ const jsonResponse = (body, ok = true) =>
   Promise.resolve({ ok, json: () => Promise.resolve(body) });
 
 let posted;
+let put;
 const installFetch = (requests = [REQUEST]) => {
   posted = [];
+  put = [];
   global.fetch = vi.fn((url, opts = {}) => {
+    if (opts.method === 'PUT') {
+      put.push({ url, body: JSON.parse(opts.body) });
+      return jsonResponse({ success: true });
+    }
+    if (opts.method === 'POST' && url.includes('/resend-email')) {
+      posted.push({ url });
+      return jsonResponse({ success: true });
+    }
     if (opts.method === 'POST') {
       posted.push({ url, body: JSON.parse(opts.body) });
       return jsonResponse({
@@ -190,51 +201,109 @@ describe('AdminInvites with a request prefill', () => {
   });
 });
 
-describe('AdminInviteRequests', () => {
-  it('offers Create invite on a pending request and emits it', async () => {
-    const wrapper = mount(AdminInviteRequests);
-    await flushPromises();
+const LINKED = {
+  ...REQUEST,
+  status: 'approved',
+  invitation_id: 'inv-1',
+  invitation: {
+    id: 'inv-1',
+    invite_code: 'ABCDEFGHJKLM',
+    invite_type: 'club_fan',
+    status: 'pending',
+    testflight_status: 'failed',
+    testflight_error: 'HTTP 403',
+  },
+};
 
-    await wrapper
-      .find('[data-testid="create-invite-from-request"]')
-      .trigger('click');
-    expect(wrapper.emitted('create-invite')[0][0].id).toBe('req-1');
+const mountRequests = async requests => {
+  installFetch(requests);
+  const wrapper = mount(AdminInviteRequests);
+  await flushPromises();
+  return wrapper;
+};
+
+const has = (wrapper, testid) =>
+  wrapper.find(`[data-testid="${testid}"]`).exists();
+
+describe('AdminInviteRequests', () => {
+  beforeEach(() => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  it('offers only Approve and Reject on a pending request', async () => {
+    const wrapper = await mountRequests([REQUEST]);
+
+    const actions = wrapper.findAll('tbody button').map(b => b.text());
+    expect(actions).toEqual(['Approve', 'Reject']);
+    expect(wrapper.text()).not.toContain('test approval email');
+  });
+
+  it('Approve emits the request without changing its status', async () => {
+    const wrapper = await mountRequests([REQUEST]);
+
+    await wrapper.find('[data-testid="approve-request"]').trigger('click');
+    expect(wrapper.emitted('approve')[0][0].id).toBe('req-1');
+    expect(put).toHaveLength(0);
+  });
+
+  it('Reject sets the request rejected', async () => {
+    const wrapper = await mountRequests([REQUEST]);
+
+    await wrapper.find('[data-testid="reject-request"]').trigger('click');
+    await flushPromises();
+    expect(window.confirm.mock.calls[0][0]).toContain('pat@example.com');
+    expect(put).toEqual([
+      {
+        url: 'http://localhost:8000/api/invite-requests/req-1/status',
+        body: { status: 'rejected' },
+      },
+    ]);
+  });
+
+  it('an approved request resends its invite, and cannot be reset', async () => {
+    const wrapper = await mountRequests([LINKED]);
+
+    expect(has(wrapper, 'reset-request')).toBe(false);
+    await wrapper.find('[data-testid="resend-invite"]').trigger('click');
+    await flushPromises();
+    expect(posted).toEqual([
+      { url: 'http://localhost:8000/api/invites/admin/inv-1/resend-email' },
+    ]);
+  });
+
+  it('no resend once the invite is used', async () => {
+    const wrapper = await mountRequests([
+      { ...LINKED, invitation: { ...LINKED.invitation, status: 'used' } },
+    ]);
+
+    expect(has(wrapper, 'resend-invite')).toBe(false);
+  });
+
+  it('a rejected request, or one approved before invites were required, can be reset', async () => {
+    for (const status of ['rejected', 'approved']) {
+      const wrapper = await mountRequests([{ ...REQUEST, status }]);
+
+      expect(has(wrapper, 'reset-request')).toBe(true);
+      expect(has(wrapper, 'resend-invite')).toBe(false);
+      expect(has(wrapper, 'approve-request')).toBe(false);
+    }
   });
 
   it('shows the linked invite and its TestFlight status', async () => {
-    installFetch([
-      {
-        ...REQUEST,
-        status: 'approved',
-        invitation_id: 'inv-1',
-        invitation: {
-          id: 'inv-1',
-          invite_code: 'ABCDEFGHJKLM',
-          invite_type: 'club_fan',
-          status: 'pending',
-          testflight_status: 'failed',
-          testflight_error: 'HTTP 403',
-        },
-      },
-    ]);
-    const wrapper = mount(AdminInviteRequests);
-    await flushPromises();
+    const wrapper = await mountRequests([LINKED]);
 
     const linked = wrapper.find('[data-testid="linked-invite"]');
     expect(linked.text()).toContain('ABCDEFGHJKLM · Club Fan · pending');
     expect(linked.text()).toContain('TestFlight: failed');
-    expect(
-      wrapper.find('[data-testid="create-invite-from-request"]').exists()
-    ).toBe(false);
+    expect(has(wrapper, 'approve-request')).toBe(false);
   });
 });
 
 describe('AdminPanel', () => {
   it('switches to Invites with the prefill, and drops it on leaving', async () => {
     const wrapper = shallowMount(AdminPanel);
-    wrapper
-      .findComponent(AdminInviteRequests)
-      .vm.$emit('create-invite', REQUEST);
+    wrapper.findComponent(AdminInviteRequests).vm.$emit('approve', REQUEST);
     await flushPromises();
 
     const invites = wrapper.findComponent(AdminInvites);

@@ -546,6 +546,24 @@ async def retry_invite_testflight(invite_id: str, current_user=Depends(get_curre
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+@router.post("/admin/{invite_id}/resend-email")
+async def resend_invite_email(invite_id: str, current_user=Depends(get_current_user_required)):
+    """Send a pending invitation's email again (admin only, SB-1392)."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can resend invitation emails")
+
+    invite_service = InviteService(service_client)
+    try:
+        sent = invite_service.resend_email(invite_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not sent:
+        raise HTTPException(status_code=502, detail="The invitation email could not be sent")
+    return {"success": True}
+
+
 # List user's invitations
 @router.get(
     "/my-invites",

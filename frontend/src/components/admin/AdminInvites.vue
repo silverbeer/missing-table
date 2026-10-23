@@ -19,10 +19,9 @@
         data-testid="invite-from-request-banner"
         class="mb-4 p-3 rounded-md border border-blue-200 bg-blue-50 text-sm text-blue-900 dark:bg-blue-500/10 dark:border-blue-900 dark:text-blue-200"
       >
-        Creating an invite for {{ linkedRequest.name }} ({{
-          linkedRequest.email
-        }}) from their request. Creating it approves the request — the invite
-        email replaces the approval email.
+        Approving {{ linkedRequest.name }} ({{ linkedRequest.email }}): pick the
+        invite type and club/team, then create the invite. Creating it approves
+        the request and emails them the invite.
         <button
           type="button"
           data-testid="invite-from-request-unlink"

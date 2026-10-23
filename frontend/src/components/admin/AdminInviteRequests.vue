@@ -8,15 +8,6 @@
           <span class="font-medium">{{ stats.pending }}</span> pending /
           <span class="font-medium">{{ stats.total }}</span> total
         </div>
-        <!-- Test email -->
-        <button
-          type="button"
-          class="px-3 py-2 text-sm rounded-md border border-line text-fg hover:bg-surface-alt"
-          :disabled="sendingTestEmail"
-          @click="sendTestApprovalEmail"
-        >
-          {{ sendingTestEmail ? 'Sending…' : 'Send test approval email' }}
-        </button>
         <!-- Filters -->
         <label class="flex items-center gap-2 text-sm text-fg">
           <input
@@ -182,21 +173,16 @@
               <div v-if="request.status === 'pending'" class="flex gap-2">
                 <button
                   v-if="!request.invitation_id"
-                  data-testid="create-invite-from-request"
-                  class="text-blue-600 hover:text-blue-800 font-medium"
-                  @click="emit('create-invite', request)"
-                >
-                  Create invite
-                </button>
-                <button
-                  @click="updateStatus(request.id, 'approved')"
+                  data-testid="approve-request"
                   class="text-green-600 hover:text-green-800 font-medium"
+                  @click="emit('approve', request)"
                 >
                   Approve
                 </button>
                 <button
-                  @click="updateStatus(request.id, 'rejected')"
+                  data-testid="reject-request"
                   class="text-red-600 hover:text-red-800 font-medium"
+                  @click="rejectRequest(request)"
                 >
                   Reject
                 </button>
@@ -207,16 +193,22 @@
                 </span>
                 <div class="flex gap-3">
                   <button
-                    v-if="request.status === 'approved'"
+                    v-if="request.invitation?.status === 'pending'"
+                    data-testid="resend-invite"
                     :disabled="resendingIds.has(request.id)"
                     class="text-blue-600 hover:text-blue-800 font-medium disabled:text-fg-muted"
-                    @click="resendApprovalEmail(request)"
+                    @click="resendInviteEmail(request)"
                   >
                     {{
-                      resendingIds.has(request.id) ? 'Sending…' : 'Resend email'
+                      resendingIds.has(request.id)
+                        ? 'Sending…'
+                        : 'Resend invite'
                     }}
                   </button>
+                  <!-- A linked request's invitation exists; it can't be undone here. -->
                   <button
+                    v-if="!request.invitation_id"
+                    data-testid="reset-request"
                     class="text-fg-muted hover:text-fg font-medium"
                     @click="resetToPending(request.id)"
                   >
@@ -246,9 +238,10 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import { linkedInviteSummary } from '../../utils/inviteRequests';
 
-// "Create invite" hands the request to AdminPanel, which opens the invite
-// form pre-filled from it (SB-1312).
-const emit = defineEmits(['create-invite']);
+// "Approve" hands the request to AdminPanel, which opens the invite form
+// pre-filled from it (SB-1312). Sending that invite is what approves the
+// request (SB-1392) - there is no approval without an invitation.
+const emit = defineEmits(['approve']);
 
 const authStore = useAuthStore();
 
@@ -259,42 +252,28 @@ const loading = ref(false);
 const error = ref(null);
 const statusFilter = ref('');
 const iosBetaOnly = ref(false);
-const sendingTestEmail = ref(false);
 // Track per-row "resend in flight" so we can disable the button while the
 // POST is pending. Set works fine without a deep reactive wrapper.
 const resendingIds = ref(new Set());
 
-// Re-fire the approval email for an already-approved request (e.g. user
-// missed the original, or admin wants to redo the test). Reuses the
-// admin test-email endpoint so we don't duplicate sending logic.
-const resendApprovalEmail = async request => {
-  if (!confirm(`Resend approval email to ${request.email}?`)) return;
+// Re-send the linked invitation's email (e.g. the requester missed it).
+const resendInviteEmail = async request => {
+  if (!confirm(`Resend the invite email to ${request.email}?`)) return;
   resendingIds.value.add(request.id);
   // Trigger reactivity by reassigning the Set.
   resendingIds.value = new Set(resendingIds.value);
   try {
-    const headers = {
-      ...authStore.getAuthHeaders(),
-      'Content-Type': 'application/json',
-    };
     const response = await fetch(
-      `${getApiBaseUrl()}/api/invite-requests/test-approval-email`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          to_email: request.email,
-          name: request.name,
-        }),
-      }
+      `${getApiBaseUrl()}/api/invites/admin/${request.invitation.id}/resend-email`,
+      { method: 'POST', headers: authStore.getAuthHeaders() }
     );
     if (!response.ok) {
       const detail = await response.text();
       throw new Error(detail || response.statusText);
     }
-    alert(`Resent approval email to ${request.email}.`);
+    alert(`Resent the invite email to ${request.email}.`);
   } catch (err) {
-    console.error('Resend approval email failed:', err);
+    console.error('Resend invite email failed:', err);
     alert(`Failed to resend: ${err.message}`);
   } finally {
     resendingIds.value.delete(request.id);
@@ -303,9 +282,7 @@ const resendApprovalEmail = async request => {
 };
 
 // Set an already-decided request back to pending so the admin can
-// re-approve / re-reject. We hit the status endpoint directly (rather
-// than going through updateStatus) so the "Are you sure you want to
-// approve/reject?" confirm copy in updateStatus doesn't fire.
+// approve or reject it again.
 const resetToPending = async requestId => {
   if (!confirm('Reset this request to pending? Clears the review.')) return;
   try {
@@ -326,44 +303,6 @@ const resetToPending = async requestId => {
   } catch (err) {
     console.error('Reset to pending failed:', err);
     alert('Failed to reset request. Please try again.');
-  }
-};
-
-// Send a test "your request was approved" email so admins can verify
-// the Resend wiring without creating a throwaway invite_request row.
-const sendTestApprovalEmail = async () => {
-  const toEmail = window.prompt(
-    'Send the approval email to which address?',
-    ''
-  );
-  if (!toEmail) return;
-  const name =
-    window.prompt('Name to greet in the email:', 'Test User') || 'Test User';
-
-  sendingTestEmail.value = true;
-  try {
-    const headers = {
-      ...authStore.getAuthHeaders(),
-      'Content-Type': 'application/json',
-    };
-    const response = await fetch(
-      `${getApiBaseUrl()}/api/invite-requests/test-approval-email`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ to_email: toEmail, name }),
-      }
-    );
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(detail || response.statusText);
-    }
-    alert(`Sent — check ${toEmail}.`);
-  } catch (err) {
-    console.error('Test approval email failed:', err);
-    alert(`Failed to send: ${err.message}`);
-  } finally {
-    sendingTestEmail.value = false;
   }
 };
 
@@ -412,10 +351,10 @@ const fetchStats = async () => {
   }
 };
 
-// Update request status
-const updateStatus = async (requestId, newStatus) => {
-  const action = newStatus === 'approved' ? 'approve' : 'reject';
-  if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+// Reject a request; the backend emails the requester (SB-1392).
+const rejectRequest = async request => {
+  if (!confirm(`Reject this request? ${request.email} will be emailed.`))
+    return;
 
   try {
     const headers = {
@@ -424,23 +363,23 @@ const updateStatus = async (requestId, newStatus) => {
     };
 
     const response = await fetch(
-      `${getApiBaseUrl()}/api/invite-requests/${requestId}/status`,
+      `${getApiBaseUrl()}/api/invite-requests/${request.id}/status`,
       {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: 'rejected' }),
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to ${action} request`);
+      throw new Error('Failed to reject request');
     }
 
     // Refresh data
     await Promise.all([fetchRequests(), fetchStats()]);
   } catch (err) {
-    console.error(`Error updating request status:`, err);
-    alert(`Failed to ${action} request. Please try again.`);
+    console.error(`Error rejecting request:`, err);
+    alert('Failed to reject request. Please try again.');
   }
 };
 
